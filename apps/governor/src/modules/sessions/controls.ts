@@ -1,13 +1,19 @@
 import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
+import { pauseCommandFor } from "./pause";
 
 /**
  * The session control queue. Controls are keyed by session id; a runner
- * receives them for the attempt the session is bound to. Delivery is
- * at-most-once: a row is deleted when it is handed out, so a lost heartbeat
- * response loses the control. That is acceptable because stop remains
- * reachable through lease expiry and steer is advisory.
+ * receives them for the attempt the session is bound to. Steer is advisory
+ * and delivered at most once: its row is deleted when it is handed out.
+ * Stop is delivered until it has taken effect: its row stays and rides every
+ * heartbeat until the session ends (endAttemptSession deletes it), and the
+ * runner applies a stop once however often it repeats. A held (paused)
+ * session keeps renewing its lease, so lease expiry no longer reaches it and
+ * a lost stop would otherwise leave it holding its slot. Pause and continue
+ * are not queued here: they are the level-triggered state of attempt_pauses
+ * (pause.ts), repeated by the same heartbeat until the runner reports them.
  */
 
 export type SessionControlKind = "session.steer" | "session.stop";
@@ -15,7 +21,7 @@ export type SessionControlKind = "session.steer" | "session.stop";
 /** A control handed to the runner that holds the session's attempt. */
 export interface SessionControlDelivery {
   commandId: string;
-  type: "stop-attempt" | "steer";
+  type: "stop-attempt" | "steer" | "pause-attempt" | "continue-attempt";
   attemptId?: string;
   text?: string;
 }
@@ -44,9 +50,8 @@ export function enqueueSessionControl(store: Store, input: { organizationId: str
 }
 
 /**
- * Hands out and deletes the queued controls of the sessions bound to the
- * given attempts, at most `limit` in total, one short transaction per
- * workspace database.
+ * Hands out the queued controls and the pause step of the sessions bound to the given attempts, at most `limit` in total, one short
+ * transaction per workspace database: a steer is deleted as it is handed out, a stop stays until the session ends.
  */
 export function drainSessionControls(store: Store, attempts: readonly LiveAttempt[], limit: number): SessionControlDelivery[] {
   const commands: SessionControlDelivery[] = [];
@@ -55,18 +60,21 @@ export function drainSessionControls(store: Store, attempts: readonly LiveAttemp
     const db = store.workspaceDb(attempt.workspaceId, attempt.organizationId);
     const session = db.prepare("SELECT id FROM sessions WHERE attempt_id=? LIMIT 1").get(attempt.attemptId) as { id: string } | undefined;
     if (!session) continue;
+    const pause = pauseCommandFor(store, attempt.attemptId);
+    if (pause && commands.length < limit) commands.push({ commandId: pause.commandId, type: pause.type, attemptId: attempt.attemptId });
     store.inTx(db, () => {
       const rows = db.prepare("SELECT id, kind, payload FROM session_controls WHERE session_id=? ORDER BY created_at_ms LIMIT ?")
         .all(session.id, limit - commands.length) as Array<{ id: string; kind: string; payload: string }>;
       for (const row of rows) {
         if (row.kind === "session.stop") {
+          // Kept, not deleted: stop is delivered again until the session has ended.
           commands.push({ commandId: row.id, type: "stop-attempt", attemptId: attempt.attemptId });
         } else if (row.kind === "session.steer") {
           let payload: Record<string, unknown> = {};
           try { payload = JSON.parse(row.payload) as Record<string, unknown>; } catch { payload = {}; }
           commands.push({ commandId: row.id, type: "steer", attemptId: attempt.attemptId, text: String(payload["message"] ?? "") });
+          db.prepare("DELETE FROM session_controls WHERE id=?").run(row.id);
         }
-        db.prepare("DELETE FROM session_controls WHERE id=?").run(row.id);
       }
     });
   }

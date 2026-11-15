@@ -7,6 +7,7 @@ import type { SessionDetail } from "../../data/exec-console";
 import { elapsedText, etaBand, nowSentence, type EtaBand, type FeedActivity, type TaskState } from "./doing-now";
 import { Button } from "@talelk/newui-atoms";
 import { formatTokens } from "../format";
+import { sessionPhase } from "./session-phase";
 
 /** The shared one-second clock (owned by the live bus) while the component lives. */
 export function createNow(): () => number {
@@ -17,6 +18,7 @@ export function createNow(): () => number {
 const ORB: Record<string, string> = {
   running: "bg-surface-green-7 brain-live-dot", starting: "bg-surface-blue-7 brain-live-dot", waiting: "bg-surface-amber-6 brain-live-dot",
   stopping: "bg-surface-amber-6", stopped: "bg-surface-gray-5", failed: "bg-surface-red-7",
+  paused: "bg-surface-amber-6", pausing: "bg-surface-amber-6 brain-live-dot",
 };
 
 /**
@@ -43,7 +45,7 @@ export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedA
   };
   return <section class={`flex flex-col gap-2 border-b px-3 py-2.5 ${waiting() ? "border-outline-amber-2 bg-surface-amber-1" : "border-outline-gray-1 bg-surface-gray-1"}`} data-testid="console-now" aria-label="What this session is doing now">
     <div class="flex items-start gap-2.5">
-      <span class={`mt-1.5 size-2.5 shrink-0 rounded-full ${ORB[props.session?.state ?? ""] ?? "bg-surface-gray-5"}`} aria-hidden="true" />
+      <span class={`mt-1.5 size-2.5 shrink-0 rounded-full ${ORB[sessionPhase(props.session)] ?? "bg-surface-gray-5"}`} aria-hidden="true" />
       <p class="min-w-0 flex-1 text-base text-ink-gray-9" role="status">{nowSentence(props.session, props.activity, props.taskState)}</p>
       <Show when={waiting() && pendingApprovals() > 0}>
         <A class="inline-flex shrink-0 items-center gap-1 rounded-sm px-2 py-1 text-interface font-medium text-ink-amber-8 hover:bg-surface-amber-2" href="/approvals"><span class="lucide-shield-check size-3.5" aria-hidden="true" />Review {pendingApprovals()} pending {pendingApprovals() === 1 ? "approval" : "approvals"}</A>

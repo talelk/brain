@@ -61,17 +61,21 @@ export function parseToolDataMounts(raw: string): ReadonlyMap<string, readonly s
 /**
  * Live controls delivered through heartbeat acks. Stop aborts the current
  * attempt through the existing watchdog path; steer is queued and handed to
- * the engine adapter at the next turn boundary (feature-gated).
+ * the engine adapter at the next turn boundary (feature-gated). Pause and
+ * continue are repeated by every heartbeat until the Governor has seen the
+ * runner's report, so each is applied once per command id and the report is
+ * a progress event the durable spool replays (ADR 0058).
  */
 export interface RunnerControls {
   stopRequests: Set<string>;
   steerQueue: Array<{ attemptId: string; messageId: string; message: string }>;
+  pauseQueue: Array<{ attemptId: string; commandId: string; type: "pause-attempt" | "continue-attempt" }>;
   /** Attempts executing right now (one per busy slot). */
   activeAttemptIds: Set<string>;
 }
 
 export function newRunnerControls(): RunnerControls {
-  return { stopRequests: new Set(), steerQueue: [], activeAttemptIds: new Set() };
+  return { stopRequests: new Set(), steerQueue: [], pauseQueue: [], activeAttemptIds: new Set() };
 }
 
 /**
@@ -352,7 +356,25 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       // them to the adapter at the next turn boundary, gated on the engine's
       // advertised features.
       let steer: ((messageId: string, message: string) => Promise<void>) | undefined;
+      let pauseControl: { pause: () => Promise<void>; continue: () => Promise<void> } | undefined;
+      const appliedPauseCommands = new Set<string>();
       const steerDrain = setInterval(() => {
+        // Pause and continue: applied once per command id, never blocking one another (a continue must be able to cancel a pause still waiting for its boundary).
+        for (let index = controls.pauseQueue.length - 1; index >= 0 && pauseControl; index--) {
+          const request = controls.pauseQueue[index]!;
+          if (request.attemptId !== offer.attemptId) continue;
+          controls.pauseQueue.splice(index, 1);
+          if (appliedPauseCommands.has(request.commandId)) continue;
+          appliedPauseCommands.add(request.commandId);
+          if (request.type === "pause-attempt") {
+            void pauseControl.pause().then(
+              () => emit("progress", { phase: "session-paused" }),
+              (error: unknown) => emit("progress", { phase: "pause-not-taken", detail: error instanceof Error ? error.message : String(error) }),
+            ).catch(() => undefined);
+          } else {
+            void pauseControl.continue().then(() => emit("progress", { phase: "session-continued" }), () => undefined).catch(() => undefined);
+          }
+        }
         if (!steer) return;
         for (let index = controls.steerQueue.length - 1; index >= 0; index--) {
           const request = controls.steerQueue[index]!;
@@ -375,6 +397,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           steer = handle.features.includes("steer")
             ? (messageId, message) => handle.steer(messageId, message)
             : undefined;
+          pauseControl = handle.features.includes("pause") ? { pause: () => handle.pause(), continue: () => handle.continue() } : undefined;
         },
         executeTool: async (proposal) => {
           if (++invocationCount > asset.agent.spec.maxTurns) throw new Error("Agent tool-call budget exhausted");
@@ -529,6 +552,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     clearInterval(renew);
     clearInterval(watchdog);
     controls.activeAttemptIds.delete(offer.attemptId);
+    controls.stopRequests.delete(offer.attemptId);
+    for (let index = controls.pauseQueue.length - 1; index >= 0; index--) if (controls.pauseQueue[index]!.attemptId === offer.attemptId) controls.pauseQueue.splice(index, 1);
     try { new RunOutputDir(cfg.stateDir, offer.attemptId).dispose(); } catch { /* an unusable attempt id never created a folder */ }
   }
 }
@@ -600,13 +625,15 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
       capabilities: observedCapabilities(cfg, probed),
       engines: probed.engines,
     })).then((ack) => {
-      // At-most-once delivery: the Governor deleted the control rows when it
-      // built this ack. Stop joins the watchdog path; steer waits in the
-      // queue for the attempt's turn boundary.
+      // Stop is delivered until the session has ended and applied once however often it repeats; steer is delivered once and waits in
+      // the queue for the attempt's turn boundary.
       for (const command of ack.commands ?? []) {
-        if (command.type === "stop-attempt" && command.attemptId) {
+        if (command.type === "stop-attempt" && command.attemptId && controls.activeAttemptIds.has(command.attemptId)) {
           controls.stopRequests.add(command.attemptId);
           console.log(`Brain runner ${cfg.runnerId} stop requested for attempt ${command.attemptId}`);
+        } else if ((command.type === "pause-attempt" || command.type === "continue-attempt") && command.attemptId && command.commandId) {
+          // Repeated every heartbeat until the Governor has the runner's report: queued once.
+          if (!controls.pauseQueue.some((queued) => queued.commandId === command.commandId)) controls.pauseQueue.push({ attemptId: command.attemptId, commandId: command.commandId, type: command.type });
         } else if (command.type === "steer" && command.attemptId) {
           controls.steerQueue.push({ attemptId: command.attemptId, messageId: command.commandId ?? `steer-${seq}`, message: command.text ?? "" });
         }

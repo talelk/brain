@@ -6,6 +6,7 @@ import { createNow } from "./NowLine";
 import { activityLine, elapsedText } from "./doing-now";
 import { formatRelative, runTitle } from "../format";
 import { isCheckSession } from "./session-kind";
+import { phaseKind, sessionPhase } from "./session-phase";
 import { t } from "../../i18n";
 
 /**
@@ -19,10 +20,10 @@ const LIVE_STATES = ["starting", "running", "waiting"];
 
 const DOT: Record<string, string> = {
   running: "bg-surface-green-7 brain-live-dot", starting: "bg-surface-blue-7 brain-live-dot", waiting: "bg-surface-amber-6 brain-live-dot",
-  stopping: "bg-surface-amber-6", failed: "bg-surface-red-7", stopped: "bg-surface-gray-5",
+  stopping: "bg-surface-amber-6", failed: "bg-surface-red-7", stopped: "bg-surface-gray-5", paused: "bg-surface-amber-6", pausing: "bg-surface-amber-6 brain-live-dot",
 };
 const STATE_INK: Record<string, string> = {
-  running: "text-ink-green-8", starting: "text-ink-blue-8", waiting: "text-ink-amber-8", stopping: "text-ink-amber-8", failed: "text-ink-red-8", stopped: "text-ink-gray-6",
+  running: "text-ink-green-8", starting: "text-ink-blue-8", waiting: "text-ink-amber-8", stopping: "text-ink-amber-8", failed: "text-ink-red-8", stopped: "text-ink-gray-6", paused: "text-ink-amber-8", pausing: "text-ink-amber-8",
 };
 
 export function SessionRail(props: {
@@ -83,13 +84,13 @@ export function SessionRail(props: {
       onClick={() => props.onSelect(session.sessionId)}>
       <span class="relative mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-surface-gray-2 text-ink-gray-7" aria-hidden="true">
         <span class="lucide-bot size-4" />
-        <span class={`absolute -end-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-surface-elevation-1 ${DOT[session.state] ?? DOT.stopped}`} />
+        <span class={`absolute -end-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-surface-elevation-1 ${DOT[sessionPhase(session)] ?? DOT.stopped}`} />
       </span>
       <span class="min-w-0 flex-1">
         <span class="block truncate text-caption font-medium text-ink-gray-9" title={session.task}>{session.task || `${session.agentId ?? "Agent"} session`}<Show when={isCheckSession(session, props.jobs)}><span class="font-normal text-ink-gray-6"> · {t("console.check")}</span></Show><Show when={(attemptOf().get(session.sessionId)?.of ?? 1) > 1}><span class="font-normal text-ink-gray-6"> · attempt {attemptOf().get(session.sessionId)?.n} of {attemptOf().get(session.sessionId)?.of}</span></Show></span>
         <span class="block truncate text-caption text-ink-gray-6">{isCheckSession(session, props.jobs) ? t("console.check.note") : [session.agentId, session.engine.id].filter((part) => part && part !== "unknown").join(" · ")}</span>
         <span class="mt-0.5 flex items-center gap-1.5 text-caption">
-          <span class={`font-medium ${STATE_INK[session.state] ?? "text-ink-gray-6"}`}>{session.state === "stopped" ? "Ended" : statusLabel(undefined, session.state)}</span>
+          <span class={`font-medium ${STATE_INK[sessionPhase(session)] ?? "text-ink-gray-6"}`}>{session.state === "stopped" ? "Ended" : statusLabel(phaseKind(sessionPhase(session)), sessionPhase(session))}</span>
           <Show when={elapsed()}><span class="tabular-nums text-ink-gray-6">· {live() ? "" : "ran "}{elapsed()}</span></Show>
           <Show when={!live() && session.updatedAt}><span class="text-ink-gray-6">· {formatRelative(session.updatedAt)}</span></Show>
         </span>
