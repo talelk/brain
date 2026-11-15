@@ -10,6 +10,8 @@ export interface WorkflowCommandPorts {
   /** Resolves the work item a managed session dispatches for. */
   sessionWorkItem(actor: ActorContext, workspaceId: string, sessionId: string): string;
   linkExecution(actor: ActorContext, workspaceId: string, workItemId: string, runId: string): void;
+  /** The job priority a run for this work item starts with (missions module): the first job exists before the run is linked. */
+  workItemJobPriority(actor: ActorContext, workspaceId: string, workItemId: string): number;
   attachSessionRun(actor: ActorContext, workspaceId: string, sessionId: string, runId: string): void;
   /** Cancels the run's jobs that no runner holds yet (jobs module). */
   cancelJobs(runId: string): void;
@@ -42,11 +44,12 @@ export function workflowCommands(store: Store, ports: WorkflowCommandPorts): Com
         if (sessionWorkItemId && p["workItemId"] && sessionWorkItemId !== String(p["workItemId"])) throw new BrainDomainError("FORBIDDEN", "session and dispatch work item differ");
         const workItemId = sessionWorkItemId ?? (p["workItemId"] ? String(p["workItemId"]) : "");
         const { workflow, configDigest } = ports.loadWorkflow(actor.organizationId, workflowId);
+        const priority = workItemId ? ports.workItemJobPriority(actor, workspaceId, workItemId) : undefined;
         // startRun validates the input against the workflow's declared schema.
         const { runId } = ports.engine.startRun({
           organizationId: actor.organizationId, workspaceId, actorId: actor.actorId,
           workflowId, workflow, configDigest,
-          runInput: (p["input"] ?? null) as JsonValue, executionKey: cmd.commandId,
+          runInput: (p["input"] ?? null) as JsonValue, executionKey: cmd.commandId, ...(priority !== undefined ? { priority } : {}),
         });
         if (workItemId) ports.linkExecution(actor, workspaceId, workItemId, runId);
         if (sessionId) ports.attachSessionRun(actor, workspaceId, sessionId, runId);

@@ -10,6 +10,8 @@ export interface WorkflowEnginePort {
   startRun(input: {
     organizationId: string; workspaceId: string; actorId: string;
     workflowId: string; workflow: Workflow; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string;
+    /** The job priority of the work the run serves (0 low .. 3 urgent); a run for no work item is normal. */
+    priority?: number;
   }): { runId: string };
   completeStep(organizationId: string, workspaceId: string, runId: string, stepId: string, output: JsonValue, ok: boolean): void;
   wakeGate(organizationId: string, workspaceId: string, approvalId: string, approved: boolean): void;
@@ -25,6 +27,8 @@ export interface WorkflowHost {
     payload: JsonValue;
     /** The runner the run was pinned to at dispatch, if any. */
     runnerId?: string | undefined;
+    /** The priority of the work the run serves: written into the job so the claim can order by it. */
+    priority: number;
   }): string;
   createApprovalForGate(input: {
     organizationId: string; workspaceId: string; runId: string; stepId: string;

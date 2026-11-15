@@ -147,9 +147,10 @@ export function settleEffects(s: Store, deps: { completeStep: (organizationId: s
  * stays in the host group) and the call itself as its payload. Runs inside the caller's transaction.
  */
 export function createActJob(s: Store, input: { id: string; organizationId: string; workspaceId: string; approvalId: string; parentJobId: string; configDigest: string; effectClass: string; approvalExpiresAtMs: number; payload: { [key: string]: JsonValue } }): void {
-  const parent = s.control.prepare("SELECT placement_json FROM jobs WHERE id=?").get(input.parentJobId) as { placement_json: string };
-  s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, created_at_ms, ready_at_ms, deadline_ms)
-    VALUES (?,?,?,?,?,?,'blocked',?,?,?,?,?,?,?,?)`)
-    .run(input.id, input.organizationId, input.workspaceId, `act:${input.approvalId}`, `act-${input.approvalId}`, "act", input.configDigest, parent.placement_json, domainDigest("brain:act-job:v1", input.payload), input.effectClass, HOLD_REASON, s.now(), s.now(), input.approvalExpiresAtMs + 24 * 3600_000);
+  // The held call runs at the priority of the work that proposed it: a person's urgent task is not held up behind normal work once approved.
+  const parent = s.control.prepare("SELECT placement_json, priority FROM jobs WHERE id=?").get(input.parentJobId) as { placement_json: string; priority: number };
+  s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, priority, created_at_ms, ready_at_ms, deadline_ms)
+    VALUES (?,?,?,?,?,?,'blocked',?,?,?,?,?,?,?,?,?)`)
+    .run(input.id, input.organizationId, input.workspaceId, `act:${input.approvalId}`, `act-${input.approvalId}`, "act", input.configDigest, parent.placement_json, domainDigest("brain:act-job:v1", input.payload), input.effectClass, HOLD_REASON, parent.priority, s.now(), s.now(), input.approvalExpiresAtMs + 24 * 3600_000);
   s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(input.id, "act", JSON.stringify(input.payload));
 }

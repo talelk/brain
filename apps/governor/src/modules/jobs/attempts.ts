@@ -99,45 +99,46 @@ export function claim(s: Store, deps: {
     if (isDraining(s)) return;
     const view = runnerView(s, runner.runnerId);
     if (!view) throw new BrainDomainError("UNAUTHENTICATED", "runner missing");
-    // Fair paging (E047/E048/E049): scan beyond the first 100-row page with a
-    // keyset cursor so an eligible job is eventually found, cap effective
-    // priority, and prefer the workspace with the fewest in-flight attempts
-    // so one workspace cannot starve the others by inflating priority.
+    // Fair paging (E047/E048/E049): scan each workspace beyond its first 100 rows with a keyset cursor so an eligible job is eventually
+    // found. Each workspace is scanned on its own, best priority first, so a workspace with hundreds of urgent jobs queued cannot push
+    // another workspace's jobs out of the candidate set (ADR 0041); the order between workspaces is decided below, by fairness.
     const eligible: Array<Record<string, unknown>> = [];
     const groups = new Map((s.control.prepare("SELECT group_id, workspaces_json FROM runner_groups WHERE organization_id=?").all(runner.organizationId) as Array<{ group_id: string; workspaces_json: string }>).map((row) => [row.group_id, JSON.parse(row.workspaces_json) as string[]] as const));
     const hostJobs = new Map<string, boolean>();
-    let afterPriority: number | null = null;
-    let afterCreated: number | null = null;
-    let afterId: string | null = null;
-    for (let page = 0; page < 10; page++) {
-      const rows = (afterPriority === null
-        ? s.control.prepare(`SELECT id, workspace_id, placement_json, version, workflow_run_id, step_id, config_digest, effect_class, priority, created_at_ms
-            FROM jobs WHERE organization_id=? AND state='queued' AND deadline_ms>? AND EXISTS (SELECT 1 FROM workspaces w WHERE w.id=jobs.workspace_id AND w.organization_id=jobs.organization_id AND w.status='active') ORDER BY priority DESC, created_at_ms ASC, id ASC LIMIT 100`)
-            .all(runner.organizationId, s.now())
-        : s.control.prepare(`SELECT id, workspace_id, placement_json, version, workflow_run_id, step_id, config_digest, effect_class, priority, created_at_ms
-            FROM jobs WHERE organization_id=? AND state='queued' AND deadline_ms>? AND EXISTS (SELECT 1 FROM workspaces w WHERE w.id=jobs.workspace_id AND w.organization_id=jobs.organization_id AND w.status='active')
-            AND (priority < ? OR (priority = ? AND created_at_ms > ?) OR (priority = ? AND created_at_ms = ? AND id > ?))
-            ORDER BY priority DESC, created_at_ms ASC, id ASC LIMIT 100`)
-            .all(runner.organizationId, s.now(), afterPriority, afterPriority, afterCreated, afterPriority, afterCreated, afterId)) as Array<Record<string, unknown>>;
-      if (rows.length === 0) break;
-      for (const job of rows) {
-        const placement = JSON.parse(String(job["placement_json"])) as import("@brain/contracts").Placement;
-        const demand = placement.resources ?? { cpuMillicores: 500, memoryMb: 512, diskMb: 512, slots: 1 };
-        // A runner group the owner set aside (ADR 0024) takes jobs of its own workspaces only; every other workspace never sees it.
-        if (!groupAdmits(groups, view.groupId, String(job["workspace_id"]))) continue;
-        // Host tools (host.*) run only on a runner group the owner marked for them and bound to this workspace (ADR 0024).
-        if (jobUsesHostTools(s, runner.organizationId, job, hostJobs) && !hostGroupFor(s, runner.organizationId, view.groupId, String(job["workspace_id"]))) continue;
-        if (!evaluateRunner(placement, demand, view, s.now()).eligible || !deps.isEvaluatorEligible(runner.runnerId, String(job["id"]))) continue;
-        // A check or second attempt that would run on a hosted model that is down waits for it (ADR 0023); nothing else is held.
-        if (heldForHostedModel(s, runner.organizationId, String(job["workspace_id"]), String(job["workflow_run_id"]), () => (s.control.prepare("SELECT kind FROM job_payloads WHERE job_id=?").get(String(job["id"])) as { kind: string } | undefined)?.kind ?? "")) continue;
-        eligible.push(job);
+    const queuedWorkspaces = (s.control.prepare(`SELECT DISTINCT workspace_id FROM jobs WHERE organization_id=? AND state='queued' AND deadline_ms>? AND EXISTS (SELECT 1 FROM workspaces w WHERE w.id=jobs.workspace_id AND w.organization_id=jobs.organization_id AND w.status='active')`)
+      .all(runner.organizationId, s.now()) as Array<{ workspace_id: string }>).map((row) => row.workspace_id);
+    for (const workspaceId of queuedWorkspaces) {
+      let after: { priority: number; created: number; id: string } | null = null;
+      let found = 0;
+      for (let page = 0; page < 10; page++) {
+        const rows = (after === null
+          ? s.control.prepare(`SELECT id, workspace_id, placement_json, version, workflow_run_id, step_id, config_digest, effect_class, priority, created_at_ms
+              FROM jobs WHERE organization_id=? AND workspace_id=? AND state='queued' AND deadline_ms>? ORDER BY priority DESC, created_at_ms ASC, id ASC LIMIT 100`)
+              .all(runner.organizationId, workspaceId, s.now())
+          : s.control.prepare(`SELECT id, workspace_id, placement_json, version, workflow_run_id, step_id, config_digest, effect_class, priority, created_at_ms
+              FROM jobs WHERE organization_id=? AND workspace_id=? AND state='queued' AND deadline_ms>?
+              AND (priority < ? OR (priority = ? AND created_at_ms > ?) OR (priority = ? AND created_at_ms = ? AND id > ?))
+              ORDER BY priority DESC, created_at_ms ASC, id ASC LIMIT 100`)
+              .all(runner.organizationId, workspaceId, s.now(), after.priority, after.priority, after.created, after.priority, after.created, after.id)) as Array<Record<string, unknown>>;
+        if (rows.length === 0) break;
+        for (const job of rows) {
+          const placement = JSON.parse(String(job["placement_json"])) as import("@brain/contracts").Placement;
+          const demand = placement.resources ?? { cpuMillicores: 500, memoryMb: 512, diskMb: 512, slots: 1 };
+          // A runner group the owner set aside (ADR 0024) takes jobs of its own workspaces only; every other workspace never sees it.
+          if (!groupAdmits(groups, view.groupId, String(job["workspace_id"]))) continue;
+          // Host tools (host.*) run only on a runner group the owner marked for them and bound to this workspace (ADR 0024).
+          if (jobUsesHostTools(s, runner.organizationId, job, hostJobs) && !hostGroupFor(s, runner.organizationId, view.groupId, String(job["workspace_id"]))) continue;
+          if (!evaluateRunner(placement, demand, view, s.now()).eligible || !deps.isEvaluatorEligible(runner.runnerId, String(job["id"]))) continue;
+          // A check or second attempt that would run on a hosted model that is down waits for it (ADR 0023); nothing else is held.
+          if (heldForHostedModel(s, runner.organizationId, String(job["workspace_id"]), String(job["workflow_run_id"]), () => (s.control.prepare("SELECT kind FROM job_payloads WHERE job_id=?").get(String(job["id"])) as { kind: string } | undefined)?.kind ?? "")) continue;
+          eligible.push(job);
+          found++;
+        }
+        const last = rows[rows.length - 1]!;
+        after = { priority: Number(last["priority"] ?? 0), created: Number(last["created_at_ms"] ?? 0), id: String(last["id"]) };
+        if (found > 0 && page > 0) break;
+        if (rows.length < 100) break;
       }
-      const last = rows[rows.length - 1]!;
-      afterPriority = Number(last["priority"] ?? 0);
-      afterCreated = Number(last["created_at_ms"] ?? 0);
-      afterId = String(last["id"]);
-      if (eligible.length > 0 && page > 0) break;
-      if (rows.length < 100) break;
     }
     const inFlight = new Map<string, number>();
     for (const row of s.control.prepare(`SELECT j.workspace_id AS ws, COUNT(*) AS n FROM job_attempts a JOIN jobs j ON j.id=a.job_id
@@ -158,17 +159,19 @@ export function claim(s: Store, deps: {
       for (const decision of admission.values()) if (decision.missionId) missionLoad.set(decision.missionId, decision.running);
     }
     const missionOf = (job: Record<string, unknown>) => admission.get(String(job["id"]))?.missionId;
+    // Claim order (ADR 0041): the workspace with the fewest attempts in flight first, so none is starved; inside it the higher priority
+    // first; then interactive work before missions, missions in turn by fewest running, and the oldest job.
     eligible.sort((a, b) => {
-      const ia = missionOf(a) ? 1 : 0, ib = missionOf(b) ? 1 : 0;
-      if (ia !== ib) return ia - ib;
-      const ma = missionLoad.get(missionOf(a) ?? "") ?? 0, mb = missionLoad.get(missionOf(b) ?? "") ?? 0;
-      if (ma !== mb) return ma - mb;
       const fa = inFlight.get(String(a["workspace_id"])) ?? 0;
       const fb = inFlight.get(String(b["workspace_id"])) ?? 0;
       if (fa !== fb) return fa - fb;
       const pa = Math.min(Number(a["priority"] ?? 0), 100);
       const pb = Math.min(Number(b["priority"] ?? 0), 100);
       if (pb !== pa) return pb - pa;
+      const ia = missionOf(a) ? 1 : 0, ib = missionOf(b) ? 1 : 0;
+      if (ia !== ib) return ia - ib;
+      const ma = missionLoad.get(missionOf(a) ?? "") ?? 0, mb = missionLoad.get(missionOf(b) ?? "") ?? 0;
+      if (ma !== mb) return ma - mb;
       const ca = Number(a["created_at_ms"] ?? 0) - Number(b["created_at_ms"] ?? 0);
       return ca !== 0 ? ca : String(a["id"]).localeCompare(String(b["id"]));
     });

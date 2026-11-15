@@ -117,6 +117,23 @@ export function assertTeamEligible(team: readonly TeamMember[], tasks: readonly 
   }
 }
 
+/**
+ * A team member is bound to one agent definition and engine for the whole mission: sessions, started work and the member's machine
+ * principal all follow that binding. A new plan version may add or drop members, never rebind one (add a new member instead).
+ */
+export function assertMembersBound(confirmed: readonly TeamMember[], proposed: readonly TeamMember[], tasks: readonly PlanTask[]): void {
+  // Dropping the whole team would leave the eligibility check nothing to look at while tasks still name a member.
+  const orphan = proposed.length === 0 && confirmed.length > 0 ? tasks.find((task) => task.assignment?.kind === "agent") : undefined;
+  if (orphan?.assignment) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${orphan.id} is assigned to ${orphan.assignment.id}, who is not on the mission team`);
+  const bound = new Map(confirmed.map((member) => [member.memberId, member]));
+  for (const member of proposed) {
+    const prior = bound.get(member.memberId);
+    if (prior && (prior.agentId !== member.agentId || prior.engine !== member.engine)) {
+      throw new BrainDomainError("INVALID_ARGUMENT", `${member.memberId} is bound to ${prior.agentId} on ${prior.engine}; add a new team member instead of changing it`);
+    }
+  }
+}
+
 /** Team growth a coordinator needs the policy to permit: more of a known role, or a new role. */
 export function teamOperations(confirmed: readonly TeamMember[], proposed: readonly TeamMember[]): readonly PlanOperation[] {
   const known = new Set(confirmed.map((member) => member.memberId));

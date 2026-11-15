@@ -2,7 +2,7 @@ import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
-import type { Mission, MissionPlanView, PlanTask, PlanVersion, ReuseItem } from "@brain/contracts";
+import type { Mission, MissionPlanView, PlanTask, PlanVersion, ReuseItem, TeamMember } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { governor, query } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
@@ -19,6 +19,8 @@ import { ReasonDialog } from "./ReasonDialog";
 import { DisclosureCard } from "./primitives";
 import { WorkRoadmap, type RoadmapNode } from "../work/WorkRoadmap";
 import { minutesText } from "../work/work-model";
+import { assignmentChanges, assignTo, ineligibleSteps, memberLabel } from "../work/plan-team";
+import { createPlanTeamData, StepAssignment, TeamSection } from "./PlanTeamEditor";
 import { InlineMarkdown } from "../outputs/Markdown";
 import { t } from "../../i18n";
 
@@ -35,6 +37,8 @@ const stageLine = (stage: "reading" | "drafting" | "checking"): string => t(stag
 export function PlanCanvas(props: { mission: Mission; proposalId?: string; onChanged: () => Promise<void> | void }): JSX.Element {
   const app = useApp();
   const [editedTasks, setEditedTasks] = createSignal<PlanTask[]>([]);
+  const [editedTeam, setEditedTeam] = createSignal<TeamMember[]>([]);
+  const teamData = createPlanTeamData(() => props.mission);
   const [dirty, setDirty] = createSignal(false);
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
@@ -90,7 +94,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
   const shownPlan = (): PlanVersion | undefined => linked.state().data?.proposal ?? draftedProposal() ?? active.state().data ?? proposal.state().data?.plan ?? undefined;
   createEffect(() => {
     const plan = shownPlan();
-    if (plan && !dirty()) setEditedTasks(plan.tasks.map((task) => ({ ...task, criteria: [...task.criteria], dependsOn: [...task.dependsOn] })));
+    if (plan && !dirty()) { setEditedTasks(plan.tasks.map((task) => ({ ...task, criteria: [...task.criteria], dependsOn: [...task.dependsOn] }))); setEditedTeam([...(plan.team ?? [])]); }
   });
   async function generate(kept: readonly string[] = [], dropped: readonly string[] = []) {
     if (busy()) return;
@@ -138,6 +142,13 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
       return next.length ? { ...rest, criterionIds: next } : rest;
     }));
   }
+  /** Who a step is given to, and who is on the mission team, are plan edits like any other: they make a new plan version, applied with the plan on confirm. */
+  function assign(index: number, memberId: string) {
+    setDirty(true);
+    setEditedTasks((tasks) => tasks.map((task, position) => position === index ? assignTo(task, memberId) : task));
+  }
+  function changeTeam(team: TeamMember[]) { setDirty(true); setEditedTeam(team); }
+  const unfit = () => ineligibleSteps(editedTasks(), editedTeam(), teamData.agents());
   const serves = (task: PlanTask) => props.mission.successCriteria.filter((criterion) => task.criterionIds?.includes(criterion.criterionId));
   async function confirm() {
     const current = shownPlan();
@@ -146,7 +157,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     try {
       let planVersionId = current.planVersionId;
       if (dirty()) {
-        const proposed = await app.run("plan.propose", { missionId: props.mission.missionId, origin: "manual", summary: current.summary, tasks: editedTasks() });
+        const proposed = await app.run("plan.propose", { missionId: props.mission.missionId, origin: "manual", summary: current.summary, tasks: editedTasks(), ...(editedTeam().length ? { team: editedTeam() } : {}) });
         if (!proposed.accepted || !proposed.resourceId) throw new Error(proposed.detail);
         planVersionId = proposed.resourceId;
       }
@@ -177,8 +188,13 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
   };
   const member = (task: PlanTask) => {
     if (!task.assignment) return undefined;
-    const known = shownPlan()?.team?.find((entry) => entry.memberId === task.assignment?.id);
-    return known ? `${known.role} (${known.memberId})` : task.assignment.id;
+    const known = editedTeam().find((entry) => entry.memberId === task.assignment?.id);
+    return known ? memberLabel(known) : task.assignment.id;
+  };
+  /** What the shown version changes (a proposal against the confirmed plan) or what unsaved edits would change, in assignments and team. */
+  const changes = (plan: PlanVersion): string[] => {
+    const base = dirty() || plan.state !== "proposed" ? plan : linked.state().data?.confirmed ?? active.state().data ?? undefined;
+    return base ? assignmentChanges(base, editedTasks(), editedTeam()) : [];
   };
   const roadmap = (): RoadmapNode[] => editedTasks().map((task) => ({ id: task.id, title: task.title, deps: task.dependsOn, weight: task.estimatedMinutes ?? 1, done: false }));
   const stepCard = (task: PlanTask, critical: boolean): JSX.Element => <div class="flex min-w-0 flex-col gap-2">
@@ -206,9 +222,10 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
         <p class="flex flex-wrap gap-x-4 gap-y-1 text-caption text-ink-gray-6">
           <span class="inline-flex items-center gap-1"><span class="lucide-list-checks size-3.5" aria-hidden="true" />{editedTasks().length} {editedTasks().length === 1 ? "step" : "steps"}</span>
           <Show when={estimate() > 0}><span class="inline-flex items-center gap-1"><span class="lucide-clock size-3.5" aria-hidden="true" />About {minutesText(estimate())} of estimated work</span></Show>
-          <Show when={plan.team?.length}><span class="inline-flex items-center gap-1"><span class="lucide-users size-3.5" aria-hidden="true" />Team: {plan.team!.map((entry) => `${entry.memberId} (${entry.role})`).join(", ")}</span></Show>
+          <Show when={editedTeam().length}><span class="inline-flex items-center gap-1" data-testid="plan-team-line"><span class="lucide-users size-3.5" aria-hidden="true" />Team: {editedTeam().map((entry) => `${entry.memberId} (${entry.role})`).join(", ")}</span></Show>
         </p>
         <Show when={diff(plan)}>{(text) => <p class="text-interface text-ink-gray-7">{text()}</p>}</Show>
+        <Show when={changes(plan).length}><ul class="flex flex-col gap-0.5 text-interface text-ink-gray-7" aria-label={t("plan.team.changes")} data-testid="plan-assignment-changes"><For each={changes(plan)}>{(line) => <li class="flex items-start gap-1"><span class="lucide-user-round-cog mt-0.5 size-3.5 shrink-0 text-ink-gray-6" aria-hidden="true" />{line}</li>}</For></ul></Show>
       </div>
       <Show when={!confirmedQuiet()} fallback={<DisclosureCard label={`See the confirmed plan's ${editedTasks().length} steps`}>
         <div class="flex flex-col gap-3">
@@ -221,11 +238,13 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
         <WorkRoadmap nodes={roadmap()} label={t("plan.plan-steps-by-round.7712")}
           renderNode={(node, critical) => <Show when={editedTasks().find((task) => task.id === node.id)}>{(task) => stepCard(task(), critical)}</Show>} />
       </Show>
-      <FormSheet size="xl" open={editOpen()} onClose={() => setEditOpen(false)} title={t("plan.edit-the-plan-steps.a8fd")} description={t("plan.edits-become-a-new-plan-revision.18a4")} submit={t("plan.keep-edits.2584")} icon="lucide-check" onSubmit={() => { setEditOpen(false); }}>
+      <FormSheet size="xl" open={editOpen()} onClose={() => setEditOpen(false)} title={t("plan.edit-the-plan-steps.a8fd")} description={t("plan.edits-become-a-new-plan-revision.18a4")} submit={t("plan.keep-edits.2584")} icon="lucide-check" disabled={unfit().length > 0} onSubmit={() => { setEditOpen(false); }}>
+        <TeamSection team={editedTeam()} tasks={editedTasks()} agents={teamData.agents()} locked={teamData.lockedMembers()} onChange={changeTeam} />
         <For each={editedTasks()}>{(task, index) => <section class="flex flex-col gap-3 border-b border-outline-gray-1 pb-4" aria-label={`Step ${index() + 1}`}>
           <div class="flex flex-col gap-3"><TextInput label={`Step ${index() + 1} expected outcome`} value={task.title} onInput={(event) => updateTask(index(), "title", event.currentTarget.value)} />
             <TextInput label={t("plan.depends-on.8bfa")} value={task.dependsOn.join(", ")} description={t("plan.comma-separated-task-ids-no-depe.46ab")} onInput={(event) => updateTask(index(), "dependsOn", event.currentTarget.value)} /></div>
           <Textarea label={t("plan.acceptance-criteria.133c")} value={task.criteria.join("\n")} onInput={(event) => updateTask(index(), "criteria", event.currentTarget.value)} />
+          <Show when={editedTeam().length || task.assignment}><StepAssignment task={task} position={index() + 1} team={editedTeam()} agents={teamData.agents()} started={teamData.startedSteps().has(task.id)} onAssign={(memberId) => assign(index(), memberId)} /></Show>
           <fieldset class="flex flex-col gap-1.5" data-testid="plan-step-criteria"><legend class="text-interface font-medium text-ink-gray-8">{t("plan.serves.legend")}</legend>
             <For each={props.mission.successCriteria}>{(criterion) => <Checkbox checked={task.criterionIds?.includes(criterion.criterionId) ?? false} onCheckedChange={(checked) => toggleCriterion(index(), criterion.criterionId, Boolean(checked))} label={criterion.text} />}</For>
           </fieldset>
@@ -234,9 +253,9 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
       <Show when={!confirmedQuiet() && (plan.state === "proposed" || dirty())}><section class="brain-plan-actions" aria-label={t("plan.plan-decision.6411")}>
         <p class="brain-plan-actions-hint"><span class="lucide-shield-check size-4 shrink-0" aria-hidden="true" /><span>{editedTasks().length} {editedTasks().length === 1 ? "step" : "steps"} · nothing runs until you confirm</span></p>
         <div class="brain-plan-actions-buttons">
-          <Show when={canConfirm()}><Button class="brain-plan-primary" variant="solid" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length} onClick={() => void confirm()}>{t("plan.confirm-this-plan.f61c")}</Button></Show>
+          <Show when={canConfirm()}><Button class="brain-plan-primary" variant="solid" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length || unfit().length > 0} onClick={() => void confirm()}>{t("plan.confirm-this-plan.f61c")}</Button></Show>
           <Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditOpen(true)}>{t("plan.edit-steps.06ec")}</Button>
-          <Show when={dirty()}><Button variant="ghost" iconLeft="lucide-undo-2" onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task, criteria: [...task.criteria], dependsOn: [...task.dependsOn] }))); }}>{t("plan.reset-edits.56d9")}</Button></Show>
+          <Show when={dirty()}><Button variant="ghost" iconLeft="lucide-undo-2" onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task, criteria: [...task.criteria], dependsOn: [...task.dependsOn] }))); setEditedTeam([...(plan.team ?? [])]); }}>{t("plan.reset-edits.56d9")}</Button></Show>
           <Show when={plan.state === "proposed"}><Button variant="ghost" theme="red" iconLeft="lucide-x" disabled={busy()} onClick={() => { setRejectReason(""); setRejectOpen(true); }}>{t("plan.reject-this-proposal.09f4")}</Button></Show>
         </div>
       </section></Show>

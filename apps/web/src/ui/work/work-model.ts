@@ -149,3 +149,28 @@ export function minutesText(minutes: number): string {
   const hours = Math.floor(rounded / 60);
   return rounded % 60 ? `${hours} h ${rounded % 60} min` : `${hours} h`;
 }
+
+export const PRIORITIES = ["urgent", "high", "normal", "low"] as const;
+
+/** Urgent first: the order a column lists its cards in. */
+export function priorityRank(priority: WorkItem["priority"]): number {
+  return PRIORITIES.indexOf(priority);
+}
+
+/** The tags present on any item, sorted, for the tag filter. */
+export function tagsOf(items: readonly WorkItem[]): string[] {
+  return [...new Set(items.flatMap((item) => item.tags))].sort();
+}
+
+/** A due date is the end of that calendar day where the person is, so an item is not late until the day has passed. */
+export function dueAtFromDate(date: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(date);
+  return match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 23, 59, 59, 999).toISOString() : null;
+}
+
+/** The calendar day (yyyy-mm-dd, local) of a due timestamp, for the date field. */
+export function dateFromDueAt(dueAt: string | undefined): string {
+  if (!dueAt) return "";
+  const day = new Date(dueAt);
+  return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+}

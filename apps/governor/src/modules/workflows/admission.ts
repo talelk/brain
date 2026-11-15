@@ -3,6 +3,7 @@ import { domainDigest } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
+import { NORMAL_JOB_PRIORITY } from "../../domain/work-priority";
 import type { Db } from "../../infrastructure/persistence/open";
 import { resolveBinding } from "../configuration/index";
 import { pinnedEvaluator } from "../evidence/index";
@@ -51,6 +52,12 @@ function runnerPin(ws: Db, runId: string): string | undefined {
   return row?.runner_id ?? undefined;
 }
 
+/** The job priority of the work this run serves; every job the run creates carries it. */
+function runPriority(ws: Db, runId: string): number {
+  const row = ws.prepare("SELECT priority FROM run_inputs WHERE run_id=?").get(runId) as { priority: number } | undefined;
+  return row?.priority ?? NORMAL_JOB_PRIORITY;
+}
+
 /**
  * Admits one step. A step already past `pending` is reported as it stands;
  * a pending step gets its kind's effect. `outputs` is the run's step outputs
@@ -90,7 +97,7 @@ export function admitStep(store: Store, ports: AdmissionPorts, run: AdmissionRun
     const child = ports.host.loadWorkflow(organizationId, ref);
     const { runId: childRunId } = ports.startChildRun({
       organizationId, workspaceId, actorId: run.actorId, workflowId: ref, workflow: child.workflow,
-      configDigest: child.configDigest, runInput: bound as unknown as JsonValue, executionKey: `${runId}:${stepId}:child`,
+      configDigest: child.configDigest, runInput: bound as unknown as JsonValue, executionKey: `${runId}:${stepId}:child`, priority: runPriority(ws, runId),
     });
     ws.prepare("INSERT OR REPLACE INTO engine_links(child_run_id, parent_run_id, parent_step_id, parent_workspace_id) VALUES (?,?,?,?)").run(childRunId, runId, stepId, workspaceId);
     ws.prepare("UPDATE workflow_steps SET state='running', job_id=? WHERE run_id=? AND step_id=?").run(childRunId, runId, stepId);
@@ -103,7 +110,7 @@ export function admitStep(store: Store, ports: AdmissionPorts, run: AdmissionRun
     organizationId, workspaceId, runId, stepId,
     executionKey: `${runId}:${stepId}`, configDigest: run.configDigest, runnerId: runnerPin(ws, runId),
     placementJson: JSON.stringify(placement ?? {}),
-    executionDigest, effectClass, kind: step.kind,
+    executionDigest, effectClass, kind: step.kind, priority: runPriority(ws, runId),
     payload: { step: step as unknown as JsonValue, input: bound as unknown as JsonValue },
   });
   ws.prepare("UPDATE workflow_steps SET state='running', job_id=? WHERE run_id=? AND step_id=?").run(jobId, runId, stepId);
@@ -176,7 +183,7 @@ export function admitEvaluations(store: Store, host: WorkflowHost, run: Admissio
     const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound, evaluation } as unknown as JsonValue);
     const jobId = host.createJobForStep({
       organizationId, workspaceId, runId, stepId, executionKey: `${runId}:${stepId}`, configDigest, runnerId: runnerPin(ws, runId),
-      placementJson: JSON.stringify(step.runsOn), executionDigest, effectClass: "read", kind: "eval", payload: { step: step as unknown as JsonValue, input: bound, evaluation: evaluation as unknown as JsonValue },
+      placementJson: JSON.stringify(step.runsOn), executionDigest, effectClass: "read", kind: "eval", priority: runPriority(ws, runId), payload: { step: step as unknown as JsonValue, input: bound, evaluation: evaluation as unknown as JsonValue },
     });
     ws.prepare("UPDATE workflow_steps SET state='running',job_id=? WHERE run_id=? AND step_id=? AND state='pending'").run(jobId, runId, stepId);
   }

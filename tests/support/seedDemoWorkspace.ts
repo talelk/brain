@@ -67,6 +67,11 @@ export async function seedDemoWorkspace(brain: Brain, actor: ActorContext, works
   await run("plan.confirm", { planVersionId: first }, 1);
   const planVersionId = await run("plan.propose", { missionId: active, origin: "manual", summary: "Same plan without the page rewrite", tasks: everyTask.filter((entry) => entry.id !== "abandoned") });
   await run("plan.confirm", { planVersionId }, 2);
+  // Priority, tags and a due date (#116): one overdue item, one urgent, one low; fixed years so the screens do not change with the day.
+  const detail = async (planTaskId: string, payload: Record<string, unknown>): Promise<void> => { const current = await item(planTaskId); await run("workItem.details.set", { workItemId: current.workItemId, ...payload }, current.version); };
+  await detail("ready", { priority: "urgent", tags: ["rollout"], dueAt: "2020-01-15T12:00:00.000Z" });
+  await detail("progress", { priority: "high", tags: ["latency", "rollout"], dueAt: "2099-03-12T12:00:00.000Z" });
+  await detail("backlog", { priority: "low", tags: ["docs"] });
 
   // Walk each task to its state through the real transitions; execution links start work.
   const ws = brain.store.workspaceDb(workspaceId, actor.organizationId);

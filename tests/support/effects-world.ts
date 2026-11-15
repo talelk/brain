@@ -90,7 +90,7 @@ export async function effectsWorld(options: { containers?: string[]; runnerGroup
     /** Attempts a runner holds right now (a slot and a lease): none while a proposal waits for a person. */
     liveAttempts: () => store.control.prepare("SELECT id FROM job_attempts WHERE state IN ('offered','running','uploading','cancelling')").all() as Array<{ id: string }>,
     slotsReserved: () => (store.control.prepare("SELECT slots_reserved AS n FROM runners WHERE id=?").get(cfg.runnerId) as { n: number }).n,
-    jobs: () => store.control.prepare("SELECT id, state, queue_reason, step_id, effect_class FROM jobs ORDER BY rowid").all() as Array<{ id: string; state: string; queue_reason: string | null; step_id: string; effect_class: string }>,
+    jobs: () => store.control.prepare("SELECT id, state, queue_reason, step_id, effect_class, priority FROM jobs ORDER BY rowid").all() as Array<{ id: string; state: string; queue_reason: string | null; step_id: string; effect_class: string; priority: number }>,
     calls: () => store.control.prepare("SELECT proposal_id, approval_id, tool_id, parent_job_id, act_job_id, outcome, settled_at_ms FROM effect_calls ORDER BY rowid").all() as Array<{ proposal_id: string; approval_id: string; tool_id: string; parent_job_id: string; act_job_id: string; outcome: string | null; settled_at_ms: number | null }>,
     restarts: (): string[] => readFileSync(counter, "utf8").split("\n").filter(Boolean),
     launcherToken: () => readFileSync(`${socket}.token`, "utf8").trim(),

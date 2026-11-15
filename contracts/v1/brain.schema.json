@@ -7052,6 +7052,24 @@
         "tokensUsed": {
           "type": "integer",
           "minimum": 0
+        },
+        "priority": {
+          "$ref": "#/$defs/WorkItemPriority"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkItemTag"
+          },
+          "maxItems": 10,
+          "uniqueItems": true
+        },
+        "dueAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "overdue": {
+          "type": "boolean",
+          "const": true
         }
       },
       "required": [
@@ -7069,7 +7087,9 @@
         "createdAt",
         "updatedAt",
         "failedAttempts",
-        "parked"
+        "parked",
+        "priority",
+        "tags"
       ],
       "additionalProperties": false
     },
@@ -11454,6 +11474,9 @@
         },
         {
           "$ref": "#/$defs/WorkItemSpendCapRaiseCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkItemDetailsSetCommand"
         },
         {
           "$ref": "#/$defs/KnowledgeWithdrawUnobservedCommand"
@@ -26034,6 +26057,87 @@
         "spend",
         "attentionOutsideMissions",
         "observedAt"
+      ],
+      "additionalProperties": false
+    },
+    "WorkItemPriority": {
+      "type": "string",
+      "enum": [
+        "urgent",
+        "high",
+        "normal",
+        "low"
+      ]
+    },
+    "WorkItemTag": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "WorkItemDetailsSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workItem.details.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            },
+            "priority": {
+              "$ref": "#/$defs/WorkItemPriority"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/WorkItemTag"
+              },
+              "maxItems": 10
+            },
+            "dueAt": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/Timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "workItemId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "expectedVersion",
+        "payload"
       ],
       "additionalProperties": false
     }
