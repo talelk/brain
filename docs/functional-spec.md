@@ -224,7 +224,10 @@ Dependencies release Ready work only when every predecessor is Done; Done always
 requires verified evidence covering every criterion plus human acceptance when
 policy requires it — an agent conversation never closes work. All work mutations are
 idempotency-keyed commands (`objective.create`, `plan.propose`, `plan.confirm`,
-`workItem.transition`, `workItem.comment`) with optimistic concurrency.
+`workItem.transition`, `workItem.comment`, `workItem.details.set`) with optimistic concurrency.
+A person gives a work item a priority (urgent, high, normal, low), tags and a due date. Priority is
+written into its jobs and orders claiming inside a workspace's fair share; a past due date flags the
+item on the board and nothing else (ADR 0041).
 `board:write` belongs to operators and leads; viewers read items.
 
 ### UF-08 Record a decision

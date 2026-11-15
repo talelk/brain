@@ -27,7 +27,8 @@ import { WorkBoard } from "../work/WorkBoard";
 import { WorkCard } from "../work/WorkCard";
 import { TaskSessionsContext } from "../work/TaskNow";
 import { WorkRoadmap, type RoadmapNode } from "../work/WorkRoadmap";
-import { minutesText, workGraph, type BoardColumnId, type NextAction } from "../work/work-model";
+import { minutesText, tagsOf, workGraph, type BoardColumnId, type NextAction } from "../work/work-model";
+import { WorkItemDetails } from "./WorkItemDetails";
 import { t } from "../../i18n";
 
 const STATES: readonly { id: WorkItemState; name: string }[] = [
@@ -96,6 +97,10 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
   createEffect(on(createMemo(missionId), () => { void items.refresh({ force: true }); }));
   createEffect(on(createMemo(missionId), () => setSelectedId(""), { defer: true }));
   const live = createMemo(() => (items.state().data ?? []).filter((item) => item.state !== "abandoned"));
+  // The tag filter (#116) lives in the URL like the view; a tag no item carries any more filters nothing.
+  const tags = createMemo(() => tagsOf(live()));
+  const tag = (): string => (typeof search.tag === "string" && tags().includes(search.tag) ? search.tag : "");
+  const shown = createMemo(() => (tag() ? live().filter((item) => item.tags.includes(tag())) : live()));
   const selected = () => items.state().data?.find((item) => item.workItemId === selectedId());
   const reset = () => { setMove(""); setReason(""); setEvidence(""); };
 
@@ -168,7 +173,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
     handoffRequired={handoffRequired(item)} canDispatch={app.canDispatch()} critical={critical().has(item.workItemId) && item.state !== "done"} showState={showState}
     onOpen={() => open(item)} onAction={(action) => act(item, action)} />;
 
-  const roadmapNodes = (): RoadmapNode[] => live().map((item) => ({ id: item.workItemId, title: item.title, deps: item.dependsOn, weight: estimateOf(item) ?? 1, done: item.state === "done" }));
+  const roadmapNodes = (): RoadmapNode[] => shown().map((item) => ({ id: item.workItemId, title: item.title, deps: item.dependsOn, weight: estimateOf(item) ?? 1, done: item.state === "done" }));
 
   return <TaskSessionsContext.Provider value={() => sessions.state().data ?? []}><WorkspaceSection title={t("plan.mission-work.3906")} description={t("plan.confirmed-work-items-of-this-mis.31bc")}>
     <Show when={conflict() && sheet() !== "move"}><Alert theme="amber" variant="outline" title={t("plan.this-work-changed-your-intended.38ce")} description={conflict()} /></Show>
@@ -181,18 +186,27 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
             options={VIEWS.map((entry) => ({ value: entry.value, label: entry.label, icon: entry.icon }))} />
           <p class="flex items-center gap-1.5 text-caption text-ink-gray-6"><span class="inline-block h-0.5 w-5 rounded-full bg-surface-blue-7" aria-hidden="true" />{t("plan.critical-path-the-longest-chain.7694")}</p>
         </div>
+        <Show when={tags().length > 0}>
+          <fieldset class="m-0 flex min-w-0 flex-wrap items-center gap-2 border-0 p-0" data-testid="work-tag-filter">
+            <legend class="sr-only">{t("work.filter-by-tag")}</legend>
+            <span class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-tag size-3.5" aria-hidden="true" />{t("work.tags")}</span>
+            <Button size="sm" variant={tag() === "" ? "solid" : "outline"} theme={tag() === "" ? "blue" : "gray"} aria-pressed={tag() === ""} onClick={() => setSearch({ tag: undefined }, { replace: true })}>{t("work.all-tags")}</Button>
+            <For each={tags()}>{(entry) => <Button size="sm" variant={tag() === entry ? "solid" : "outline"} theme={tag() === entry ? "blue" : "gray"} aria-pressed={tag() === entry}
+              onClick={() => setSearch({ tag: entry }, { replace: true })}>{entry}</Button>}</For>
+          </fieldset>
+        </Show>
         <Switch>
           <Match when={view() === "timeline"}>
             <WorkRoadmap nodes={roadmapNodes()} label={t("plan.mission-work-by-round.e4ba")}
               renderNode={(node) => <Show when={live().find((item) => item.workItemId === node.id)}>{(item) => card(item(), true)}</Show>} />
           </Match>
           <Match when={view() === "board"}>
-            <WorkBoard items={live()} ownerOf={ownerOf} estimateOf={estimateOf} handoffRequired={handoffRequired} canDispatch={app.canDispatch()}
+            <WorkBoard items={shown()} context={live()} ownerOf={ownerOf} estimateOf={estimateOf} handoffRequired={handoffRequired} canDispatch={app.canDispatch()}
               critical={critical()} onOpen={(item) => open(item)} onAction={act} onMove={boardMove} />
           </Match>
           <Match when={view() === "list"}>
             <ul class="flex flex-col divide-y divide-outline-gray-1 border-y border-outline-gray-1" aria-label={t("plan.work-items.0448")}>
-              <For each={live()}>{(item) => <li class="py-3">{card(item, true)}</li>}</For>
+              <For each={shown()}>{(item) => <li class="py-3">{card(item, true)}</li>}</For>
             </ul>
           </Match>
         </Switch>
@@ -210,6 +224,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
             {/* A task waiting out the provider's quota or rate limit is not parked: it says why, and that nothing is asked of the person (ADR 0033). */}
             <Show when={item.state === "ready" && item.failureClass === "quota"}><TaskFailure item={item} /></Show>
             <div class="border-y border-outline-gray-1 py-3"><h4 class="text-base-medium">{t("plan.next-action.d816")}</h4><p class="mt-1 text-interface text-ink-gray-7">{item.nextAction}</p><Show when={item.blockedReason}><Alert theme="amber" variant="outline" title={t("plan.blocked.9961")} description={item.blockedReason} /></Show></div>
+            <WorkItemDetails item={item} canEdit={app.canDispatch()} onSaved={async () => { await items.refresh({ force: true }); }} />
             <div><h4 class="text-base-medium">{t("plan.acceptance-criteria.133c")}</h4><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
             <Show when={item.evidenceDigest}><EvidenceList bundleDigest={item.evidenceDigest} /></Show>
             <Show when={handoff.required()}><Alert theme="amber" variant="outline" title={t("plan.other-tasks-are-waiting-on-this.0743")}
