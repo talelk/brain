@@ -34,6 +34,7 @@ const PAGE_LOADERS = {
   MissionPage: () => import('./routes/pages/MissionPage'),
   PlaysPage: () => import('./routes/pages/PlaysPage'),
   LibraryPage: () => import('./routes/pages/LibraryPage'),
+  TeamsPage: () => import('./routes/pages/TeamsPage'),
   SchedulesPage: () => import('./routes/pages/SchedulesPage'),
   BoardPage: () => import('./routes/pages/BoardPage'),
   QualityPage: () => import('./routes/pages/QualityPage'),
@@ -303,6 +304,7 @@ export function App(): JSX.Element {
       {/* No tab named: the mission page opens on the view that fits the mission's step (a closed mission opens on its results, running work on Live). */}
       <Route path="/missions/:missionId" component={page("MissionPage")} />
       <Route path="/w/:id/library" component={workspacePage("LibraryPage")} />
+      <Route path="/w/:id/library/teams" component={workspacePage("TeamsPage")} />
       <Route path="/w/:id/plays" component={workspacePage("PlaysPage")} />
       <Route path="/w/:id/schedules" component={workspacePage("SchedulesPage")} />
       <Route path="/plays/:id" component={page("PlayPage")} />

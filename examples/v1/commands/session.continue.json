@@ -1,0 +1,10 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_session.continue",
+  "commandType": "session.continue",
+  "idempotencyKey": "idem_session.continue",
+  "payload": {
+    "sessionId": "fixture"
+  },
+  "workspaceId": "fixture"
+}

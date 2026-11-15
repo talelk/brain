@@ -1124,6 +1124,7 @@ export class Brain {
         const results: Array<Record<string, JsonValue>> = [];
         for (const workspaceId of workspaces().slice(0, 25)) {
           results.push(
+            ...this.missions.searchTitles(actor, workspaceId, matches),
             ...searchJobs(s, actor.organizationId, workspaceId, matches),
             ...searchApprovals(s, actor.organizationId, workspaceId, matches),
             ...searchSessions(s, actor.organizationId, workspaceId, matches),
@@ -1143,6 +1144,10 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.capitalization.query(actor, q.queryType, q.workspaceId, limit, q.resourceId));
       }
+      case "standingTeams.list": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.missions.standingTeams(actor, q.workspaceId) as unknown as JsonValue);
+      }
       case "practices.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.playProposals.practices(actor, q.workspaceId) as JsonValue);
@@ -1160,7 +1165,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         const counts = this.capitalization.query(actor, q.queryType, q.workspaceId, limit) as unknown as Record<string, number>;
         const plays = Object.keys(activeReleaseRecord(s, actor.organizationId)?.release.plays ?? {}).length;
-        return this.envelope(q.queryType, { ...counts, plays, starterPlays: this.starterPlays.status(actor.organizationId) } as unknown as JsonValue);
+        return this.envelope(q.queryType, { ...counts, plays, teams: this.missions.standingTeamCount(actor, q.workspaceId), starterPlays: this.starterPlays.status(actor.organizationId) } as unknown as JsonValue);
       }
       case "tickets.list": case "incidents.list": case "members.list": case "audit.list": {
         requireRead();

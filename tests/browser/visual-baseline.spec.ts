@@ -19,6 +19,7 @@ import { seedBrowserDemo } from "../support/browserDemo";
 import { seedHuman } from "../helpers";
 import { sendTaskBack } from "../support/evalCases";
 import { command, interruptedSession } from "../support/interrupted-session";
+import { PAUSABLE_FEATURES, runnerReports, runningSession } from "../support/running-session";
 import { seedPullRequest } from "../support/pullRequestDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 import { seedQuestion } from "../support/question-demo";
@@ -126,6 +127,39 @@ async function interruptedRoute(demo: Demo, governor: Fixture, runnerId: string,
   return `/w/operations/live?session=${(await then?.(sessionId)) ?? sessionId}`;
 }
 
+/** Two standing teams (ticket #130), made through the commands the Library sends; the three standing-team screens share them. */
+let standingTeamsSeeded = false;
+async function seedStandingTeams(governor: Fixture, _page: Page, demo: Demo): Promise<void> {
+  if (standingTeamsSeeded) return;
+  standingTeamsSeeded = true;
+  const brain = governor.app.brain;
+  const create = async (key: string, payload: Record<string, unknown>) => brain.executeCommand(demo.actor, { contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "standingTeam.create", workspaceId: demo.workspaceId, idempotencyKey: key, payload } as never, key);
+  await create("vb-team-research", { name: "Research desk", description: "Reads sources, then checks the write-up", coordinatorMemberId: "analyst",
+    members: [{ memberId: "analyst", role: "Analyst", agentId: "task-worker", engine: "fixture" }, { memberId: "checker", role: "Checker", agentId: "support-analyst", engine: "fixture" }] });
+  await create("vb-team-solo", { name: "Solo writer", members: [{ memberId: "writer-solo", role: "Writer", agentId: "task-worker", engine: "fixture" }] });
+}
+
+/** A mission whose one-member plan is still a proposal, so its editor can copy a standing team in; made when its screen is reached. */
+async function standingPlanRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  const cmd = async (type: string, key: string, payload: Record<string, unknown>) => (await brain.executeCommand(demo.actor, {
+    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: type, workspaceId: demo.workspaceId, idempotencyKey: key, payload,
+  } as never, key)).receipt;
+  const missionId = (await cmd("mission.create", "baseline-standing-create", { title: "Plan the offsite", intent: "Plan the offsite", successCriteria: ["The plan is ready"], autoStart: false })).resourceId ?? "";
+  await cmd("plan.propose", "baseline-standing-plan", { missionId, origin: "manual", team: [{ memberId: "writer", role: "Writer", agentId: "task-worker", engine: "fixture" }],
+    tasks: [{ id: "venues", title: "Shortlist venues", criteria: ["Three venues are listed"], dependsOn: [], assignment: { kind: "agent", id: "writer", role: "specialist" } }, { id: "agenda", title: "Draft the agenda", criteria: ["The agenda fits one day"], dependsOn: ["venues"] }] });
+  return `/missions/${missionId}/plan`;
+}
+
+/** The Live console on a session a person paused at its turn boundary (ADR 0058), made when its screen is reached through commands and the runner protocol. */
+async function pausedSessionRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  const running = await runningSession(brain, demo.actor, demo.workspaceId, "runner-paused", "Draft the board summary", "vb-paused", PAUSABLE_FEATURES);
+  await command(brain, demo.actor, demo.workspaceId, "session.pause", "vb-pause-now", { sessionId: running.sessionId });
+  runnerReports(brain, running, "session-paused");
+  return `/w/operations/live?session=${running.sessionId}`;
+}
+
 const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Demo) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
@@ -142,11 +176,6 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "runner-detail", route: (d) => `/runners/${d.seed.runnerId}`, heading: "runner-demo" },
   { id: "settings-setup", route: () => "/settings?tab=setup", heading: "Setup" },
   { id: "settings-work", route: () => "/settings?tab=work", heading: "How work runs" },
-  { id: "settings-model-routes", route: () => "/settings?tab=work", heading: "How work runs", prepare: async (governor, _page, demo) => {
-    const route = (routeId: string, extra: Record<string, unknown>) => ({ routeId, enabled: true, vendor: "Acme", keyRef: `${routeId}-key`, model: `${routeId}-large`, baseUrl: `https://${routeId}.acme.example/v1`, costTier: "standard", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000, ...extra });
-    await governor.app.brain.executeCommand(demo.actor, { contractVersion: "brain.command/v1", commandId: "cmd-vb-routes", commandType: "workspace.modelRoutes.set", workspaceId: demo.workspaceId, idempotencyKey: "vb-routes",
-      payload: { routes: [route("primary", {}), route("backup", { costTier: "low", enabled: false, inputMicroUsdPerMTok: 50_000, outputMicroUsdPerMTok: 200_000 })] } } as never, "vb-routes");
-  }, after: async (page) => { const routes = page.locator("[data-work-hosted]"); await expect(routes.locator("[data-work-route='2']")).toBeVisible(); await routes.scrollIntoViewIfNeeded(); } },
   { id: "settings-health", route: () => "/settings?tab=health", heading: "Health", prepare: seedBackupRecords },
   { id: "settings-egress", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { const egress = page.locator("[data-work-egress]"); await expect(egress).toBeVisible(); await egress.scrollIntoViewIfNeeded(); } },
   { id: "settings-ceiling", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { const ceiling = page.locator("[data-work-ceiling]"); await expect(ceiling).toBeVisible(); await ceiling.scrollIntoViewIfNeeded(); } },
@@ -195,6 +224,18 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "mission-usage-breakdown", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedAttributedUsage, after: async (page) => { await page.getByTestId("usage-breakdown").getByText("Where the usage went", { exact: true }).click(); await expect(page.getByTestId("usage-by-member")).toContainText("writer"); await page.getByTestId("usage-breakdown").evaluate((element) => element.scrollIntoView({ block: "center" })); } },
   // Handing a mission to a teammate (#117): the mission's menu, then the dialog with a teammate chosen. It adds one member, so it comes after every screen that lists people.
   { id: "mission-handover", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedTeammate, after: async (page) => { await page.getByRole("button", { name: "More", exact: true }).click(); await page.getByRole("menuitem", { name: "Hand this mission to someone else" }).click(); const dialog = page.getByRole("dialog", { name: "Hand this mission over" }); await dialog.getByRole("combobox", { name: "New owner" }).click(); await page.getByRole("option", { name: /Dana Cole/ }).click(); await expect(dialog.getByRole("button", { name: "Hand over", exact: true })).toBeEnabled(); } },
+  { id: "settings-model-routes", route: () => "/settings?tab=work", heading: "How work runs", prepare: async (governor, _page, demo) => {
+    const route = (routeId: string, extra: Record<string, unknown>) => ({ routeId, enabled: true, vendor: "Acme", keyRef: `${routeId}-key`, model: `${routeId}-large`, baseUrl: `https://${routeId}.acme.example/v1`, costTier: "standard", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000, ...extra });
+    await governor.app.brain.executeCommand(demo.actor, { contractVersion: "brain.command/v1", commandId: "cmd-vb-routes", commandType: "workspace.modelRoutes.set", workspaceId: demo.workspaceId, idempotencyKey: "vb-routes",
+      payload: { routes: [route("primary", {}), route("backup", { costTier: "low", enabled: false, inputMicroUsdPerMTok: 50_000, outputMicroUsdPerMTok: 200_000 })] } } as never, "vb-routes");
+  }, after: async (page) => { const routes = page.locator("[data-work-hosted]"); await expect(routes.locator("[data-work-route='2']")).toBeVisible(); await routes.scrollIntoViewIfNeeded(); } },
+  // Standing teams (ticket #130), before the push screens (those stay last): the Library's Teams place, its create form, a plan editor using a team, and a Play start choosing one.
+  { id: "library-teams", route: () => "/w/operations/library/teams", heading: "Teams", prepare: seedStandingTeams, after: async (page) => { await expect(page.getByTestId("standing-team")).toHaveCount(2); } },
+  { id: "library-teams-form", route: () => "/w/operations/library/teams", heading: "Teams", prepare: seedStandingTeams, after: async (page) => { await page.getByRole("button", { name: "New team", exact: true }).first().click(); const sheet = page.getByRole("dialog"); await sheet.getByLabel(/^Name/).fill("Support rota"); await sheet.getByTestId("plan-team").getByLabel("Role", { exact: true }).fill("Triage"); await sheet.getByTestId("plan-team").getByRole("button", { name: "Add to team", exact: true }).click(); await expect(sheet.getByTestId("plan-team-member")).toHaveCount(1); } },
+  { id: "mission-plan-standing-team", route: standingPlanRoute, heading: "Plan the offsite", prepare: seedStandingTeams, after: async (page) => { await page.getByRole("button", { name: "Edit steps", exact: true }).first().click(); const standing = page.getByRole("dialog").getByTestId("plan-standing-team"); await standing.getByLabel("Standing team", { exact: true }).click(); await page.getByRole("option", { name: /Research desk/ }).click(); await standing.getByRole("button", { name: "Add its members", exact: true }).click(); await expect(standing.getByTestId("plan-standing-done")).toBeVisible(); } },
+  { id: "start-standing-team", route: () => "/w/operations/missions/new", heading: "New mission", prepare: seedStandingTeams, after: async (page) => { await page.getByRole("dialog").getByTestId("play-chips").getByRole("button").first().click(); await expect(page.getByTestId("start-standing-team")).toBeVisible(); } },
+  // A session a person paused (ADR 0058): it adds a running session, so it comes after the screens that list sessions and before the push screens (those stay last).
+  { id: "console-session-paused", route: pausedSessionRoute, heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("continue-session")).toBeVisible(); await expect(page.getByTestId("pause-note")).toBeVisible(); } },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];
@@ -307,7 +348,7 @@ async function seedChangeApprovalRecord(governor: Parameters<typeof seedBrowserD
   changeApproval = await seedChangeApproval(governor.app.brain, demo.actor, demo.workspaceId, { runId: "demo-run-progress", key: "vb-change" });
 }
 
-test.afterEach(async () => { questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
+test.afterEach(async () => { standingTeamsSeeded = false; questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(300_000);

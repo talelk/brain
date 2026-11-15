@@ -86,7 +86,7 @@ Governor module folders share this one deployment:
 | evidence | `apps/governor/src/modules/evidence` | Evidence bundles, handoffs, mission evidence bundles, independent verification and completion acceptance |
 | artifacts | `apps/governor/src/modules/artifacts` | Content-addressed byte storage, artifact associations, uploads and storage sweep |
 | knowledge | `apps/governor/src/modules/knowledge` | Scoped memory gateway, TencentDB adapter, publication and export |
-| missions | `apps/governor/src/modules/missions` | Missions, mission briefs and accepted decisions, autonomy policies, mission budgets, plan versions with mission teams, work items and parking, handoff routing, execution links, mission messages and named outputs |
+| missions | `apps/governor/src/modules/missions` | Missions, mission briefs and accepted decisions, autonomy policies, mission budgets, plan versions with mission teams, standing teams, work items and parking, handoff routing, execution links, mission messages and named outputs |
 | sessions | `apps/governor/src/modules/sessions` | Native and managed BrainSessions, checkpoints, context assembly, message delivery and steering, and cross-agent collaboration |
 | capabilities | `apps/governor/src/modules/capabilities` | Capability discovery, private candidates, packaging, tests and governed publication |
 | resources | `apps/governor/src/modules/resources` | Documents, immutable versions, preview, associations, classification and storage lifecycle |

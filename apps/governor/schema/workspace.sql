@@ -185,7 +185,7 @@ CREATE TABLE plan_versions (
   created_at_ms INTEGER NOT NULL, confirmed_at_ms INTEGER,
   UNIQUE(mission_id,revision)
 ) STRICT;
--- work_items.priority/tags_json/due_at_ms (#116): priority orders claiming within a workspace (ADR 0041), tags slice work, a past due date flags an open item and nothing more. work_items.required_tools_json (ADR 0022): at least one must have a successful recorded call before Done. failure_class: latest failure as a code. token_cap overrides the default per-task spend cap. retry_after_ms holds a wait-and-retry or wait-for-quota (ADR 0033).
+-- work_items.parent_id (#131, ADR 0057): the work item of the plan task this one is a subtask of; it follows the parent's replacement and never forms a chain. work_items.priority/tags_json/due_at_ms (#116): priority orders claiming within a workspace (ADR 0041), tags slice work, a past due date flags an open item and nothing more. work_items.required_tools_json (ADR 0022): at least one must have a successful recorded call before Done. failure_class: latest failure as a code. token_cap overrides the default per-task spend cap. retry_after_ms holds a wait-and-retry or wait-for-quota (ADR 0033).
 CREATE TABLE work_items (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   plan_version_id TEXT NOT NULL REFERENCES plan_versions(id), plan_task_id TEXT NOT NULL,
@@ -201,12 +201,14 @@ CREATE TABLE work_items (
   token_cap INTEGER DEFAULT NULL CHECK(token_cap IS NULL OR token_cap > 0), retry_after_ms INTEGER DEFAULT NULL,
   priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high','urgent')),
   tags_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(tags_json)), due_at_ms INTEGER DEFAULT NULL,
+  parent_id TEXT DEFAULT NULL REFERENCES work_items(id),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
   UNIQUE(plan_version_id,plan_task_id), CHECK(state != 'done' OR evidence_digest IS NOT NULL)
 ) STRICT;
 CREATE INDEX work_items_board ON work_items(state,updated_at_ms,id);
 CREATE INDEX work_items_mission ON work_items(mission_id,plan_version_id,plan_task_id);
+CREATE INDEX work_items_parent ON work_items(parent_id);
 -- One row per failed run of a task: makes failure handling idempotent per run and is the source of lessons and the class counts.
 CREATE TABLE task_failures (
   run_id TEXT NOT NULL, work_item_id TEXT NOT NULL REFERENCES work_items(id), mission_id TEXT NOT NULL,
@@ -622,3 +624,12 @@ CREATE TABLE play_proposals (
  practice TEXT DEFAULT NULL, source_missions_json TEXT DEFAULT NULL
 ) STRICT;
 
+
+-- Standing teams (ADR 0056): named sets of roles bound to agent definitions and engines that plans and Plays reference. Referencing one COPIES its members into the plan version; editing or archiving a standing team never touches a plan version, a mission or work.
+CREATE TABLE standing_teams (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+  members_json TEXT NOT NULL CHECK(json_valid(members_json)), coordinator_member_id TEXT DEFAULT NULL,
+  state TEXT NOT NULL DEFAULT 'active' CHECK(state IN ('active','archived')),
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0), created_by TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;

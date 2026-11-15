@@ -120,6 +120,24 @@
       ]
     },
     {
+      "type": "session.pause",
+      "schema": "SessionPauseCommand",
+      "scope": "session:steer",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "session.continue",
+      "schema": "SessionContinueCommand",
+      "scope": "session:steer",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "session.create",
       "schema": "SessionCreateCommand",
       "scope": "session:steer",
@@ -852,6 +870,33 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "standingTeam.create",
+      "schema": "StandingTeamCreateCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "standingTeam.update",
+      "schema": "StandingTeamUpdateCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "standingTeam.archive",
+      "schema": "StandingTeamArchiveCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -963,7 +1008,8 @@
     "integrations.guide",
     "identity.oidc.get",
     "quality.breakdown",
-    "practices.list"
+    "practices.list",
+    "standingTeams.list"
   ],
   "events": [
     {
@@ -1238,6 +1284,18 @@
     },
     {
       "type": "session.steered",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "session.paused",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "session.continued",
       "envelope": "EventEnvelope",
       "payloadContract": "SessionEventPayload",
       "durable": true
@@ -1570,6 +1628,24 @@
       "type": "mission.budgetChanged",
       "envelope": "EventEnvelope",
       "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "standingTeam.created",
+      "envelope": "EventEnvelope",
+      "payloadContract": "CapitalizationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "standingTeam.updated",
+      "envelope": "EventEnvelope",
+      "payloadContract": "CapitalizationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "standingTeam.archived",
+      "envelope": "EventEnvelope",
+      "payloadContract": "CapitalizationEventPayload",
       "durable": true
     }
   ],

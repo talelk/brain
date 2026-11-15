@@ -15,6 +15,7 @@ import { ReasonDialog } from "../components/ReasonDialog";
 import { StatusBadge } from "../components/StatusBadge";
 import { RelativeTime } from "../screen-region";
 import { formatUsd } from "../format";
+import { phaseKind, sessionPhase } from "./session-phase";
 
 /** The read scope every contextual panel reads through (no fabricated scopes). */
 type ConsoleScope = Accessor<{ organizationId: string; workspaceId: string; generation: number }>;
@@ -26,7 +27,8 @@ type ConsoleScope = Accessor<{ organizationId: string; workspaceId: string; gene
  * approval linkage open on its card in the transcript. After an interruption the
  * chooser names exactly one recovery operation (reconnect / resume from
  * checkpoint / restart / reconcile) — they are not interchangeable, and the
- * UI enables only the commands that exist.
+ * UI enables only the commands that exist. Pause session / Continue session hold and release this one session (session.pause, session.continue);
+ * Pause mission / Resume mission act on the whole mission (mission.pause, mission.resume).
  */
 
 export function ConsoleToolbar(props: {
@@ -43,6 +45,9 @@ export function ConsoleToolbar(props: {
   missionState?: "active" | "paused" | string;
   onPause?: () => Promise<void>;
   onResume?: () => Promise<void>;
+  /** Hold this one session at its next turn boundary (session.pause) and let it go on again (session.continue); the mission is untouched. */
+  onPauseSession?: () => Promise<void>;
+  onContinueSession?: () => Promise<void>;
   onRefresh: () => void;
   onSteer: (message: string) => Promise<void>;
   onStop: (reason: string) => Promise<void>;
@@ -60,6 +65,13 @@ export function ConsoleToolbar(props: {
   const canSteer = () => live() && props.canOperate && (engineSteers() || Boolean(props.recordsSteer));
   const canPause = () => live() && props.canOperate && props.missionState === "active" && Boolean(props.onPause);
   const canResume = () => props.canOperate && props.missionState === "paused" && Boolean(props.onResume);
+  // One session's own pause (ADR 0058): held at its next turn boundary, same session on continue. Shown for every running session; an engine that
+  // cannot stop at a turn boundary shows it disabled, with the reason.
+  const pause = () => session()?.pause;
+  const running = () => session()?.state === "running";
+  const pauseState = () => pause()?.state ?? "running";
+  const showSessionPause = () => running() && props.canOperate && Boolean(props.onPauseSession);
+  const stopsAt = () => { const at = pause()?.stopsAt; return at ? new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""; };
   const canStop = () => !terminal() && props.canOperate;
   const canAttach = () => (live() || terminal()) && props.canOperate && !!session()?.workItemId;
   createEffect(on(() => props.steerRequest ?? 0, (token) => { if (token > 0 && canSteer()) { setDialog("steer"); setReason(""); } }, { defer: true }));
@@ -81,7 +93,7 @@ export function ConsoleToolbar(props: {
         <div class="min-w-0">
           <div class="flex min-w-0 items-center gap-2">
             <h2 class="min-w-0 truncate text-base-medium text-ink-gray-9" title={session()?.task || props.sessionId}>{session()?.task || `${session()?.agentId ?? "Agent"} session`}</h2>
-            <StatusBadge status={session()?.state ?? "unknown"} />
+            <StatusBadge kind={phaseKind(sessionPhase(session()))} status={sessionPhase(session())} />
           </div>
           <p class="truncate text-caption text-ink-gray-6" title="The engine decides which controls exist">
             {[session()?.agentId, session()?.engine.id ?? "engine unavailable"].filter((part) => part && part !== "unknown").join(" · ")}<Show when={features().length > 0}> ({features().join(", ")})</Show>
@@ -89,13 +101,25 @@ export function ConsoleToolbar(props: {
         </div>
       </div>
       <div class="ms-auto flex flex-wrap items-center gap-1">
+        <Show when={showSessionPause() && pauseState() === "running"}>
+          <Button size="sm" variant="outline" iconLeft="lucide-pause" data-testid="pause-session" aria-label={t("console.pause.action")} title={pause()?.supported === false ? pause()?.reason ?? "" : t("console.pause.title")}
+            disabled={busy() || pause()?.supported === false}
+            onClick={() => { setBusy(true); void props.onPauseSession?.().finally(() => setBusy(false)); }}>{pause()?.supported === false ? undefined : t("console.pause.short")}</Button>
+        </Show>
+        <Show when={showSessionPause() && (pauseState() === "pausing" || pauseState() === "paused")}>
+          <Button size="sm" variant="outline" theme="blue" iconLeft="lucide-play" data-testid="continue-session" aria-label={t("console.continue.action")} title={t("console.continue.title")} disabled={busy() || !props.onContinueSession}
+            onClick={() => { setBusy(true); void props.onContinueSession?.().finally(() => setBusy(false)); }}>{t("console.continue.short")}</Button>
+        </Show>
+        <Show when={showSessionPause() && pauseState() === "resuming"}>
+          <Button size="sm" variant="outline" iconLeft="lucide-play" disabled data-testid="continuing-session">{t("console.continue.continuing")}</Button>
+        </Show>
         <Show when={canPause()}>
-          <Button size="sm" variant="outline" iconLeft="lucide-pause" title="Pause the whole mission: no new task starts until you resume" disabled={busy()}
-            onClick={() => { setBusy(true); void props.onPause?.().finally(() => setBusy(false)); }}>Pause</Button>
+          <Button size="sm" variant="outline" iconLeft="lucide-pause" title={t("console.pauseMission.title")} disabled={busy()}
+            onClick={() => { setBusy(true); void props.onPause?.().finally(() => setBusy(false)); }}>{t("console.pauseMission.action")}</Button>
         </Show>
         <Show when={canResume()}>
-          <Button size="sm" variant="outline" theme="blue" iconLeft="lucide-play" title="Resume the paused mission" disabled={busy()}
-            onClick={() => { setBusy(true); void props.onResume?.().finally(() => setBusy(false)); }}>Resume</Button>
+          <Button size="sm" variant="outline" theme="blue" iconLeft="lucide-play" title={t("console.resumeMission.title")} disabled={busy()}
+            onClick={() => { setBusy(true); void props.onResume?.().finally(() => setBusy(false)); }}>{t("console.resumeMission.action")}</Button>
         </Show>
         <Show when={canSteer()}>
           <Button size="sm" variant="outline" theme="blue" iconLeft="lucide-corner-down-right"
@@ -115,6 +139,8 @@ export function ConsoleToolbar(props: {
       </div>
     </div>
     <Show when={terminal()}><p class="text-caption text-ink-gray-6">This session is stopping or has ended, so it can no longer be steered.</p></Show>
+    <Show when={showSessionPause() && pauseState() === "pausing"}><p class="text-caption text-ink-gray-7" data-testid="pause-note">{t("console.pause.pendingNote")}</p></Show>
+    <Show when={showSessionPause() && (pauseState() === "paused" || pauseState() === "resuming")}><p class="text-caption text-ink-gray-7" data-testid="pause-note">{t("console.pause.heldNote", { time: stopsAt() })}</p></Show>
     <Show when={!canSteer() && live()}><p class="text-caption text-ink-gray-6" title={`Engine features: ${features().length > 0 ? features().join(", ") : "none"}`}>This agent cannot be redirected while it works.</p></Show>
     <Show when={props.feedback}><p role="status" class="text-caption text-ink-gray-7">{props.feedback}</p></Show>
 
@@ -312,9 +338,13 @@ export function ConsoleInspection(props: {
         </div>
       </div>
       <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-caption">
-        <dt class="text-ink-gray-6">State</dt><dd class="min-w-0"><StatusBadge status={props.session?.state ?? "unknown"} /></dd>
+        <dt class="text-ink-gray-6">State</dt><dd class="min-w-0"><StatusBadge kind={phaseKind(sessionPhase(props.session))} status={sessionPhase(props.session)} /></dd>
         <dt class="text-ink-gray-6">Engine</dt><dd class="min-w-0 break-words text-ink-gray-9">{props.session?.engine.id && props.session.engine.id !== "unknown" ? `${props.session.engine.id} ${props.session.engine.version ?? ""}`.trim() : "Not reported"}</dd>
         <dt class="text-ink-gray-6">Turn limit</dt><dd class="min-w-0 text-ink-gray-9">{props.session?.budget.maxTurns ?? "—"} turns</dd>
+        <Show when={props.session?.state === "running" && props.session.pause?.supported === false}>
+          <dt class="text-ink-gray-6">{t("console.pause.factLabel")}</dt>
+          <dd class="min-w-0 break-words text-ink-gray-9" data-testid="pause-unsupported">{props.session?.pause?.reason}</dd>
+        </Show>
         <Show when={props.session?.resumedFrom}>{(from) => <>
           <dt class="text-ink-gray-6">{t("console.resume.startedFrom")}</dt>
           <dd class="min-w-0 break-words text-ink-gray-9" data-testid="resumed-from">

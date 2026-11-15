@@ -15,6 +15,13 @@ outlives any single run or session and may last minutes or weeks. It owns its pl
 versions, mission team, work items and outputs.
 _Avoid_: objective, goal, target, epic, project
 
+**Command palette**:
+The Control/Command-K dialog. It searches the Missions and Work items (by title) of the workspaces the
+person can read, plus runs, sessions, approvals, outputs and release documents, and lists actions the
+keyboard can run (new mission, open approvals, open Live, open Board, go to a mission view).
+A hit opens its own place; a Work item opens inside its mission (`?item=`).
+_Avoid_: quick switcher, global search (the query is `search.global`)
+
 **Success criterion**:
 One outcome a mission must reach, with a stable id (`c1`, `c2`: by position at creation,
 never renumbered or reused) that plan versions and brief versions keep. Covered when at
@@ -131,6 +138,10 @@ ledger; no model computes it, and it never changes a mission budget. A suggested
 a person may take.
 _Avoid_: forecast, prediction, AI estimate
 
+**Standing team**:
+A named set of roles bound to agent definitions and engines, optionally naming a coordinator, kept in the Library. A plan or a Play start copies its members into the plan version as the mission team; editing or archiving it never changes a confirmed plan or a running mission (ADR 0056).
+_Avoid_: shared team, team template
+
 **Team member**:
 A mission-scoped role (such as backend engineer or reviewer) bound to an agent
 definition and engine. A team member is served by many sessions over the mission's
@@ -238,6 +249,12 @@ An open work item past its due date, flagged on its card and the board only. It 
 and never notifies.
 _Avoid_: late alert, deadline breach
 
+**Subtask**:
+A work item that belongs to a parent work item, named by a plan version (`parentId` on its plan task), one level deep. The
+parent shows how many subtasks are done and what they cost together, and is Done only when every live subtask is Done on its
+own evidence and it has its own (ADR 0057). Not a delegated child session, which is a run of the mission.
+_Avoid_: child task, sub-item, child run
+
 **Affected branch**:
 The plan tasks a new plan version changes, plus everything downstream of them. Every
 other task must stay identical across the two versions.
@@ -338,6 +355,16 @@ and an attempt. Steering and stopping act on a session. A session may end while 
 mission continues.
 _Avoid_: runner session, auth session, upload session (all different things that
 happen to share the word), chat
+
+**Paused session**:
+One running session a person holds at its next turn boundary (`session.pause`) and lets go
+on later (`session.continue`): the same session, with its fence, lease and runner slot
+kept. The mission and the other members' sessions do not change. Held time is not working
+time and does not run down the step's timeout; a session held longer than the hold limit
+(30 minutes) is stopped. Only engines that can stop at a turn boundary offer it. Not a
+paused mission (the whole mission, no new task starts) and not resume from checkpoint (a
+new session started from a stopped session's saved conversation).
+_Avoid_: suspend, freeze, resume (alone: ambiguous with resume from checkpoint)
 
 **Work session**:
 A session that serves a work item from a confirmed plan version. No work session runs

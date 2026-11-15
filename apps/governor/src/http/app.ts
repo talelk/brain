@@ -1003,6 +1003,8 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       process.on("SIGINT", stop);
       setInterval(() => {
     try { brain.jobProtocol.expireLeases(); brain.jobProtocol.expireDeadlines(); brain.jobProtocol.settleEffects(); brain.projectOutbox(); } catch { /* timers never authorize */ }
+    // A session a person paused and forgot is stopped at the hold limit so it does not hold a runner slot for ever (ADR 0058).
+    try { brain.jobProtocol.expirePausedSessions(); } catch { /* the hold limit must not break expiry */ }
     // Stuck-run watchdog: a job nothing will move again is restarted or failed with a plain reason, never left running.
     try { brain.jobProtocol.sweepStuckJobs(); } catch { /* the watchdog must not break expiry */ }
     // Execution stream: backstop projection plus the throttled retention sweep.

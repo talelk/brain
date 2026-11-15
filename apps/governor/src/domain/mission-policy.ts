@@ -37,7 +37,7 @@ export interface PlanDiff {
   readonly operations: readonly PlanOperation[];
 }
 
-const content = (task: PlanTask) => JSON.stringify({ title: task.title, criteria: task.criteria, dependsOn: [...task.dependsOn].sort(), workflowId: task.workflowId ?? null, optional: task.optional ?? false, requiredTools: [...(task.requiredTools ?? [])].sort() });
+const content = (task: PlanTask) => JSON.stringify({ title: task.title, criteria: task.criteria, dependsOn: [...task.dependsOn].sort(), parentId: task.parentId ?? null, workflowId: task.workflowId ?? null, optional: task.optional ?? false, requiredTools: [...(task.requiredTools ?? [])].sort() });
 
 function downstream(tasks: readonly PlanTask[], roots: ReadonlySet<string>): Set<string> {
   const dependents = new Map<string, string[]>();
