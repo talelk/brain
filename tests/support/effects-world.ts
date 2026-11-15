@@ -17,7 +17,15 @@ const tmp = process.env["TMPDIR"] ?? "/tmp";
  * (its restart appends to a counter file, so "ran once" is observable) and a sandbox double that runs the pinned script locally. Read
  * the counter with `restarts()`.
  */
-export async function effectsWorld(options: { containers?: string[]; runnerGroup?: string } = {}) {
+export async function effectsWorld(options: {
+  containers?: string[]; runnerGroup?: string;
+  /** A release other than the fixture starter (an external MCP tool added to an agent, say). */
+  bundle?: ReturnType<typeof fixtureStarter>;
+  /** The workspace's egress hosts (ADR 0037). */
+  egressHosts?: string[];
+  /** Stands in for the sandbox's exec; sees the create request (network, egress hosts) of the sandbox it runs in. */
+  sandbox?: (request: Record<string, unknown>, script: string, input: string) => { exitCode: number; stdout: string; stderr: string; timedOut: boolean } | Promise<{ exitCode: number; stdout: string; stderr: string; timedOut: boolean }>;
+} = {}) {
   const root = mkdtempSync(join(tmp, "brain-effects-"));
   const counter = join(root, "restarts.log");
   writeFileSync(counter, "");
@@ -32,11 +40,14 @@ export async function effectsWorld(options: { containers?: string[]; runnerGroup
   await startLauncher();
   const realLauncher = new LauncherClient(socket);
   let toolsDir = "";
+  let lastRequest: Record<string, unknown> = {};
+  const sandboxRequests: Array<Record<string, unknown>> = [];
   // Host commands go to the real launcher; the sandbox that shapes a tool's output is a local stand-in (Docker is not needed here).
   const launcher = {
     hostCommand: (...args: Parameters<LauncherClient["hostCommand"]>) => realLauncher.hostCommand(...args),
-    createSandbox: async (input: { toolsDir?: string }) => { toolsDir = input.toolsDir ?? ""; return { sandboxId: "sb-effects" }; },
+    createSandbox: async (input: { toolsDir?: string }) => { toolsDir = input.toolsDir ?? ""; lastRequest = input as Record<string, unknown>; sandboxRequests.push(lastRequest); return { sandboxId: "sb-effects" }; },
     exec: async (_sandboxId: string, script: string, input: string) => {
+      if (options.sandbox) return options.sandbox({ ...lastRequest }, script.replace(/^\/tools/, toolsDir), input);
       const result = spawnSync("/bin/bash", [script.replace(/^\/tools/, toolsDir)], { input, encoding: "utf8", timeout: 30_000, env: { PATH: "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp" } });
       return { exitCode: result.status ?? 1, stdout: result.stdout ?? "", stderr: result.stderr ?? "", timedOut: result.error !== undefined };
     },
@@ -45,7 +56,7 @@ export async function effectsWorld(options: { containers?: string[]; runnerGroup
 
   const app = await createApp({ dataDir: join(root, "data"), allowTestActor: true });
   const w = setupWorld(app.brain);
-  const bundle = fixtureStarter();
+  const bundle = options.bundle ?? fixtureStarter();
   const release = w.brain.stageRelease(w.owner, bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas);
   w.brain.activateRelease(w.owner, release.digest);
   const command = async (commandType: string, key: string, payload: Record<string, unknown>, workspaceId = w.workspaceId): Promise<CommandReceipt> => (await w.brain.executeCommand(w.owner, {
@@ -53,7 +64,7 @@ export async function effectsWorld(options: { containers?: string[]; runnerGroup
   } as never, key)).receipt;
   const group = options.runnerGroup ?? "sre-host";
   await command("runnerGroup.set", "group", { groupId: group, hostTools: true, workspaceIds: [w.workspaceId] });
-  await command("workspace.effects.set", "effects", { containers: options.containers ?? ["demo-app"], services: [] });
+  await command("workspace.effects.set", "effects", { containers: options.containers ?? ["demo-app"], services: [], ...(options.egressHosts ? { egressHosts: options.egressHosts } : {}) });
   const transport: typeof fetch = async (input, init) => app.fetch(new Request(input, init));
   const cfg: RunnerConfig = { governorUrl: "http://127.0.0.1:3000", runnerId: "runner-sre", stateDir: join(root, "runner"), capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"], engines: ["fixture"], transport, launcher };
   const session = await enrollAndHello(cfg, w.brain.jobProtocol.issueEnrollment(w.owner, group).token);
@@ -83,7 +94,7 @@ export async function effectsWorld(options: { containers?: string[]; runnerGroup
     });
   };
   return {
-    root, app, w, release, command, cfg, session, runner, dispatch, decide, pendingApproval, store, socket, group,
+    root, app, w, release, sandboxRequests, command, cfg, session, runner, dispatch, decide, pendingApproval, store, socket, group,
     run: () => runOnce(cfg, session.sessionToken, session.epoch),
     /** Runs claimable jobs one after another until the runner finds none: a proposal's held act job after its decision, then the resumed task. */
     drain: async (limit = 10): Promise<number> => { let ran = 0; while (ran < limit && await runOnce(cfg, session.sessionToken, session.epoch)) ran++; return ran; },

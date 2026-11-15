@@ -37,6 +37,7 @@
     "verify:release": "pnpm verify:full && pnpm bench",
     "build": "pnpm typecheck && pnpm typecheck:web && pnpm --filter @brain/web build",
     "test:certification": "vitest run tests/certification",
+    "mcp:register": "tsx scripts/mcp-register.ts",
     "brain": "tsx scripts/brain.ts"
   },
   "devDependencies": {

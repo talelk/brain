@@ -11,6 +11,7 @@ import { BrainSession } from "./tools/brain-tools";
 import { OUTPUT_BROKERED } from "./tools/brokers";
 import { RunOutputDir } from "./tools/run-output";
 import { proposeEffect, type Proposal } from "./tools/effects";
+import { prepareMcpCall, type McpDeclaration } from "./tools/mcp";
 import { performHeldEffect, type ActPayload } from "./tools/act";
 import { DurableEventSpool } from "./spool-durable";
 import { GovernorClient, GovernorProtocolError } from "./governor-client";
@@ -419,14 +420,18 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           // Read tools that need data the sandboxed script cannot reach get it from a broker first; a refusal is a failed call with a
           // receipt, never a script run on missing data.
           const scriptInput = (base: Record<string, unknown>): Record<string, unknown> => { if (!OUTPUT_BROKERED.has(binding.release.id)) return base; const { content: _content, ...rest } = base; return rest; };
-          const brokered = proposed ? undefined : await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher, outputs, { session: brainSession, proposalId: proposal.proposalId });
+          // An external MCP tool (ADR 0062) is called by its pinned client inside a sandbox granted only its server host; the runner itself never connects.
+          const mcpDeclaration = (offer as { toolMcp?: Record<string, McpDeclaration> }).toolMcp?.[binding.release.id];
+          const mcpPrepared = mcpDeclaration && !proposed ? prepareMcpCall(mcpDeclaration, offer.workspaceId, offer.egressHosts) : undefined;
+          const brokered = proposed || mcpPrepared ? undefined : await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher, outputs, { session: brainSession, proposalId: proposal.proposalId });
           const executed: { ok: boolean; output: JsonValue } = proposed
             ? proposed.ok ? { ok: true, output: proposed.output as unknown as JsonValue } : { ok: false, output: { error: proposed.error } as JsonValue }
+            : mcpPrepared && !mcpPrepared.ok ? { ok: false as const, output: { error: mcpPrepared.error } as JsonValue }
             : brokered && !brokered.ok ? { ok: false as const, output: { error: brokered.error } as JsonValue } : await executeToolPayload({
               offer: { payload: { input: brokered ? { ...scriptInput(proposal.input as Record<string, unknown>), broker: brokered.data } : proposal.input as Record<string, unknown>, invocationId,
                 step: { uses: { type: "tool", release: proposal.tool }, effectClass: binding.effectClass, target: binding.target } },
                 execution: { kind: "tool" }, workspaceId: offer.workspaceId },
-              cfg, signal: controller.signal, launcher, permit: undefined, toolPins, egressHosts: offer.egressHosts,
+              cfg, signal: controller.signal, launcher, permit: undefined, toolPins, egressHosts: offer.egressHosts, mcp: mcpPrepared?.ok ? mcpPrepared.call : undefined,
               validatePermit: (token, id) => client.validatePermit(token, id),
               fetchPinnedTool: (toolId, digest) => client.toolScript(offer.configDigest, toolId, digest),
             });
@@ -467,7 +472,10 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     const directTool = (payload.step as { uses?: { type?: string; release?: { id: string; digest: string } }; effectClass?: string } | undefined);
     let toolPayload = payload;
     let brokerRefusal: string | undefined;
-    if (directTool?.uses?.type === "tool" && directTool.uses.release && (directTool.effectClass ?? "read") === "read") {
+    if (directTool?.uses?.type === "tool" && directTool.uses.release && (offer as { toolMcp?: Record<string, unknown> }).toolMcp?.[directTool.uses.release.id]) {
+      // An external MCP tool is reachable only through an agent's validated, governed call, never as a bare workflow step.
+      brokerRefusal = "an external MCP tool can be called only by an agent that lists it, not as a direct workflow step";
+    } else if (directTool?.uses?.type === "tool" && directTool.uses.release && (directTool.effectClass ?? "read") === "read") {
       const binding = { release: directTool.uses.release, effectClass: "read", allowedHosts: (offer as { toolAllowedHosts?: Record<string, string[]> }).toolAllowedHosts?.[directTool.uses.release.id] } as unknown as Parameters<typeof brokerRead>[0];
       const brokered = await brokerRead(binding, (payload.input ?? {}) as Record<string, unknown>, offer.attemptId, client, launcher);
       if (brokered && !brokered.ok) brokerRefusal = brokered.error;
@@ -475,7 +483,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     }
     if ((payload as { kind?: string }).kind === "act") {
       // The held change of an approved proposal (ADR 0028): this attempt exists only to make it, once, and report how it ended.
-      const made = await performHeldEffect({ client, cfg, launcher, signal: controller.signal, attemptId: offer.attemptId, workspaceId: offer.workspaceId, configDigest: offer.configDigest, toolPins }, payload as unknown as ActPayload);
+      const made = await performHeldEffect({ client, cfg, launcher, signal: controller.signal, attemptId: offer.attemptId, workspaceId: offer.workspaceId, configDigest: offer.configDigest, toolPins, toolMcp: (offer as { toolMcp?: Record<string, McpDeclaration> }).toolMcp, egressHosts: offer.egressHosts }, payload as unknown as ActPayload);
       result = { ok: made.ok, output: made.output };
     } else
     result = brokerRefusal !== undefined ? { ok: false, output: { error: brokerRefusal } as JsonValue } : await executeToolPayload({
