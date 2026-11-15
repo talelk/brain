@@ -16,6 +16,7 @@ import { capReached, missionUsage, outsideMissionsUsage, runUsage, setSpendCap, 
 import { planEstimate, planWallLimit } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listComments, recordComment } from "./comments";
+import { listPullRequests } from "./pull-requests";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, recordTaskResult, sendMessage, taskOf, taskResult, verifyOutputs } from "./outputs";
 import { readVerified } from "../artifacts/index";
 import { assembleMissionBundle, type ServedCriterion, dependencyHandoffs, finalizeHandoff, latestMissionBundle, needsSignOff, recordMissionVerdict, submitHandoff, trustForBundle, workflowCovers } from "../evidence/index";
@@ -1463,6 +1464,10 @@ export class MissionService {
     if (queryType === "evalCases.list") return listEvalCases(db, limit) as unknown as JsonValue;
     if (queryType === "missionOutputs.get") return outputDetail(db, String(resourceId)) as unknown as JsonValue;
     if (queryType === "missionOutputs.list") return { items: listOutputs(db, this.missionRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
+    if (queryType === "pullRequests.list") {
+      if (!resourceId) throw new BrainDomainError("INVALID_ARGUMENT", "a work item or an approval is required");
+      return { items: listPullRequests(db, resourceId) } as unknown as JsonValue;
+    }
     if (queryType === "workItemComments.list") return { items: listComments(this.store, db, actor.organizationId, this.workItemRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "missionMessages.list") return { items: listMessages(this.store, db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "missions.timeline") return missionTimeline(this.store, db, actor.organizationId, workspaceId, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) as unknown as JsonValue;

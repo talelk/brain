@@ -29,6 +29,7 @@ import { TaskSessionsContext } from "../work/TaskNow";
 import { WorkRoadmap, type RoadmapNode } from "../work/WorkRoadmap";
 import { minutesText, tagsOf, workGraph, type BoardColumnId, type NextAction } from "../work/work-model";
 import { WorkItemDetails } from "./WorkItemDetails";
+import { PullRequests } from "./PullRequests";
 import { t } from "../../i18n";
 
 const STATES: readonly { id: WorkItemState; name: string }[] = [
@@ -232,6 +233,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
               <Button variant="solid" theme="blue" iconLeft="lucide-send" onClick={() => setSheet("handoff")}>{t("plan.hand-off-to-the-next-tasks.33d2")}</Button>
             </Alert></Show>
             <WorkItemTasks origin={{ kind: "work-item", id: item.workItemId }} />
+            <PullRequests resourceId={item.workItemId} workspaceId={app.scope().workspaceId} kind="work-item" canRefresh={app.canDispatch()} />
             <WorkItemComments item={item} />
             <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3">
               <Show when={item.state === "ready" && app.canDispatch()}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={() => void navigate(startHref(item))}>{t("plan.start-this-task.375b")}</Button></Show>

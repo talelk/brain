@@ -62,6 +62,8 @@ describe("a session acts as its own machine principal (ADR 0032)", () => {
     const identity = await w.brain.resolveActor(bearer(credential), w.workspaceId);
     const attempt = (commandType: string, key: string, payload: Record<string, unknown>, workspaceId = w.workspaceId) => w.brain.executeCommand(identity.actor, command(w, commandType, key, payload, workspaceId), "corr");
     await expect(attempt("mission.verdict.record", "deny-verdict", { missionId, bundleDigest: DIGEST_A, outcome: "verified", findings: [] })).rejects.toThrow(/cannot run|missing scope/u);
+    // Reading a pull request's state goes through the connection's credentials: only a person asks for it.
+    await expect(attempt("pullRequest.refresh", "deny-refresh", { pullRequestId: "pr-any" })).rejects.toThrow(/cannot run|missing scope/u);
     await expect(attempt("mission.close", "deny-close", { missionId, outcome: "achieved" })).rejects.toThrow(/cannot run|missing scope/u);
     await expect(attempt("workspace.update", "deny-admin", { workspaceId: w.workspaceId, displayName: "Renamed", description: "", ownerId: w.owner.actorId, tags: [] })).rejects.toThrow(/cannot run|missing scope/u);
     await expect(attempt("mission.create", "deny-create", { title: "Mine", intent: "A session starts nothing", successCriteria: ["x"] })).rejects.toThrow(/its own mission/u);

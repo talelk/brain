@@ -597,6 +597,12 @@ Gitea), chosen when the connection is set up. It decides which API opens a pull 
 never inferred from the address, and any other provider is refused.
 _Avoid_: Git host (the host is only the address), vendor
 
+**Pull request record**:
+The pull request an approved change opened, kept once on its work item and its approval: the
+address, the Git provider, and the state it had when opened. Never edited; where the request
+stands later is a new observation, read from the provider only when a person refreshes it.
+_Avoid_: PR status (a record has a history of states, not one mutable status)
+
 **Diagnostics bundle**:
 The redacted file an administrator downloads from Health for support: versions, runner
 inventory as the runners reported it, readiness, backup status and recent errors (as codes

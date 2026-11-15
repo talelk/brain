@@ -7,6 +7,7 @@ import { createScopedRead } from "../../data/screens";
 import { approvalQuery, auditQuery } from "../../data/governor";
 import { ApprovalDetailScreen } from "../approvals";
 import { ActionFeedback } from "../../ui/components/ActionFeedback";
+import { auditSentence } from "../../ui/audit-text";
 
 export default function ApprovalDetailPage(): JSX.Element {
   const app = useApp();
@@ -25,7 +26,7 @@ export default function ApprovalDetailPage(): JSX.Element {
       return {
         ...loaded,
         snapshot: loaded.snapshot.items.filter((entry) => entry.resourceId === params.id)
-          .map((entry) => ({ id: entry.id, action: entry.action, actorId: entry.actorId, occurredAt: entry.occurredAt })),
+          .map((entry) => ({ id: entry.id, action: auditSentence(entry), actorId: entry.actorId, occurredAt: entry.occurredAt })),
       };
     },
   });

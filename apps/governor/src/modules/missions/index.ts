@@ -6,3 +6,4 @@ export { bridge, fleetFacts } from "./read";
 export { missionCommands } from "./commands";
 export { ShareService } from "./shares";
 export { missionsOfCommand } from "./command-mission";
+export { recordPullRequest, observePullRequest, pullRequestRef } from "./pull-requests";

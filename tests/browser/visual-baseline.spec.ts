@@ -17,6 +17,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { seedBrowserDemo } from "../support/browserDemo";
 import { sendTaskBack } from "../support/evalCases";
+import { seedPullRequest } from "../support/pullRequestDemo";
 
 type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
 type Fixture = Parameters<typeof seedBrowserDemo>[1];
@@ -106,6 +107,9 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
+  // A pull request an approved change opened, on its task and on its approval: made last, because its approval and connection join earlier lists.
+  { id: "mission-task-pull-request", route: (d) => `/missions/${d.seed.missionIds.active}/plan?item=${d.seed.workItems["review"]}`, heading: "Pull requests", prepare: seedPullRequestRecord, after: async (page) => { const section = page.getByTestId("pull-requests"); await expect(section.getByTestId("pull-request-state")).toHaveText("Open"); await section.scrollIntoViewIfNeeded(); } },
+  { id: "approval-review-pull-request", route: () => `/approvals/${pullRequestRecord!.approvalId}`, heading: "Approval review", after: async (page) => { const section = page.getByTestId("pull-requests"); await expect(section.getByTestId("pull-request-state")).toHaveText("Open"); await section.scrollIntoViewIfNeeded(); } },
 ];
 
 /** Health with a fresh backup and a passed restore test, recorded the way the host's jobs record them; `restoreBackupRecords` puts the environment back. */
@@ -180,7 +184,13 @@ async function seedEvalCases(governor: Parameters<typeof seedBrowserDemo>[1], pa
   await sendTaskBack(brain, actor, "operations", { key: "vb2", title: "Refund summary", finding: "The refund total does not add up" });
 }
 
-test.afterEach(() => restoreBackupRecords());
+/** The pull request record the last two screens show; the remote it was opened on is closed after the test. */
+let pullRequestRecord: Awaited<ReturnType<typeof seedPullRequest>> | undefined;
+async function seedPullRequestRecord(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Demo): Promise<void> {
+  pullRequestRecord = await seedPullRequest(governor.app.brain, demo.actor, demo.workspaceId, { runId: "demo-run-review", key: "vb-pr" });
+}
+
+test.afterEach(async () => { restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(300_000);

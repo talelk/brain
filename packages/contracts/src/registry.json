@@ -755,6 +755,15 @@
       ]
     },
     {
+      "type": "pullRequest.refresh",
+      "schema": "PullRequestRefreshCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "knowledge.withdrawUnobserved",
       "schema": "KnowledgeWithdrawUnobservedCommand",
       "scope": "memory:publish",
@@ -853,6 +862,7 @@
     "handoffs.forWorkItem",
     "missionMessages.list",
     "workItemComments.list",
+    "pullRequests.list",
     "missionOutputs.list",
     "missionOutputs.get",
     "plans.get",
