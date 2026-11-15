@@ -25,6 +25,8 @@ services:
       # Metrics for Prometheus (/metrics): a token file the owner puts in the data volume; without one the endpoint does not exist.
       BRAIN_METRICS_TOKEN_FILE: ${BRAIN_METRICS_TOKEN_FILE:-}
       BRAIN_BACKUP_STAMP_FILE: /host-run/last-backup-ok
+      # Health shows the monthly restore rehearsal's last result (restore-test.sh writes it).
+      BRAIN_RESTORE_TEST_FILE: /host-run/last-restore-test.json
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

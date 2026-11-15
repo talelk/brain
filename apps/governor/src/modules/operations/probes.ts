@@ -1,6 +1,7 @@
 import { statfsSync } from "node:fs";
 import type { Store } from "../../application/store";
 import { modelEndpoint } from "./local-runtime";
+import { backupStatus, restoreTestStatus } from "./backup-status";
 import { replicaLag, type ReplicaConfig } from "./replica";
 
 /**
@@ -52,6 +53,14 @@ export function checkReplica(s: Store, config: ReplicaConfig | undefined): void 
   recordProbe(s, "replica", lag.status, lag.detail);
 }
 
+/** The last backup and the last restore test, as the host job recorded them (ADR 0039), recorded as the `backup` and `restore-test` probes. */
+export function checkBackups(s: Store, env: NodeJS.ProcessEnv = process.env): void {
+  const backup = backupStatus(s.now(), env);
+  recordProbe(s, "backup", backup.status, backup.detail);
+  const restore = restoreTestStatus(s.now(), env);
+  recordProbe(s, "restore-test", restore.status, restore.detail);
+}
+
 async function reach(url: string, apiKey: string | undefined, fetchImpl: typeof fetch): Promise<{ ok: boolean; detail: string }> {
   try {
     const response = await fetchImpl(`${url.replace(/\/$/u, "")}/models`, { redirect: "error", headers: apiKey ? { authorization: `Bearer ${apiKey}` } : {}, signal: AbortSignal.timeout(5000) });
@@ -95,7 +104,8 @@ export function alertBadProbes(s: Store): Array<{ organizationId: string; worksp
     const workspaces = (probe.id.startsWith("hosted:")
       ? s.control.prepare("SELECT id, organization_id, owner_id FROM workspaces WHERE id=? AND status='active' AND owner_id IS NOT NULL").all(probe.id.slice(7))
       : s.control.prepare("SELECT id, organization_id, owner_id FROM workspaces WHERE status='active' AND owner_id IS NOT NULL").all()) as Array<{ id: string; organization_id: string; owner_id: string }>;
-    const title = probe.id === "disk" ? "Disk is filling up" : probe.id === "model" ? "The model endpoint is down" : probe.id === "replica" ? "The database replica is behind" : "The hosted model is down";
+    const title = probe.id === "disk" ? "Disk is filling up" : probe.id === "model" ? "The model endpoint is down" : probe.id === "replica" ? "The database replica is behind"
+      : probe.id === "backup" ? "The last backup is stale" : probe.id === "restore-test" ? "The last restore test needs attention" : "The hosted model is down";
     for (const workspace of workspaces) {
       const db = s.workspaceDb(workspace.id, workspace.organization_id);
       db.prepare("INSERT INTO attention_notifications(principal_id,item_id,mission_id,title,pushed,sent_at_ms) VALUES (?,?,NULL,?,0,?) ON CONFLICT(principal_id,item_id) DO UPDATE SET title=excluded.title,sent_at_ms=excluded.sent_at_ms,pushed=0")
