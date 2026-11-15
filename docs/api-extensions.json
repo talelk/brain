@@ -45,7 +45,7 @@
     {
       "method": "POST",
       "path": "/mcp",
-      "purpose": "Brain knowledge/session tools exposed over MCP to agent runtimes"
+      "purpose": "Model Context Protocol server (streamable HTTP, JSON-RPC: initialize, ping, tools/list, tools/call): every registered command and query is a tool, called as the signed-in principal with the same credentials and authorization as /v1; approval decisions are not offered"
     },
     {
       "method": "GET",

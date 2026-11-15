@@ -19,6 +19,7 @@ import { newId } from "../domain/clock";
 import type { GovernorHandle } from "../container";
 
 import { BodyReader, parseJson } from "./body";
+import { handleMcpMessage, type McpHost } from "./mcp";
 import { tlsMaterialFromEnv } from "./tls";
 const MAX_JSON = 256 * 1024;
 
@@ -391,17 +392,17 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     } catch (e) { return fail(c as never, e); }
   });
 
+  const runQuery = async (c: { req: { raw: Request } }, wsId: string | undefined, raw: unknown): Promise<JsonValue> => {
+    const { actor } = await actorFor(c, wsId);
+    // Re-scope actor with workspace scopes when a workspace is named.
+    const scoped: ActorContext = wsId ? { ...actor, scopes: scopesForPrincipal(brain.store, actor.actorId, actor.organizationId, wsId) } : actor;
+    if ((raw as { queryType?: string }).queryType === "memory.search" && wsId) return (await brain.searchMemoryAsync(scoped, wsId, (raw as { memoryQuery: never }).memoryQuery)) as never;
+    return await brain.executeQuery(scoped, raw, c.req.raw.headers);
+  };
   app.post("/v1/query", async (c) => {
     try {
       const raw = await readJson(c);
-      const wsId = (raw as { workspaceId?: string }).workspaceId;
-      const { actor } = await actorFor(c, wsId);
-      // Re-scope actor with workspace scopes when a workspace is named.
-      const scoped: ActorContext = wsId ? { ...actor, scopes: scopesForPrincipal(brain.store, actor.actorId, actor.organizationId, wsId) } : actor;
-      if ((raw as { queryType?: string }).queryType === "memory.search" && wsId) {
-        return c.json((await brain.searchMemoryAsync(scoped, wsId, (raw as { memoryQuery: never }).memoryQuery)) as never);
-      }
-      return c.json(await brain.executeQuery(scoped, raw, c.req.raw.headers) as never);
+      return c.json(await runQuery(c, (raw as { workspaceId?: string }).workspaceId, raw) as never);
     } catch (e) { return fail(c as never, e); }
   });
 
@@ -917,23 +918,33 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     } catch (e) { return fail(c as never, e); }
   });
 
-  // MCP/agent channel shares the same command handlers; approval decisions are absent by design.
+  // Brain over MCP (streamable HTTP): the signed-in principal's commands and queries as tools; see ./mcp.ts.
   app.post("/mcp", async (c) => {
     try {
-      const raw = (await readJson(c)) as { method?: string; params?: { command?: unknown; query?: unknown }; id?: unknown };
-      const wsId = (raw.params?.command as { workspaceId?: string } | undefined)?.workspaceId;
-      const { actor } = await actorFor(c, wsId);
-      if (actor.kind === "human") throw new BrainDomainError("FORBIDDEN", "MCP channel is for agent/delegated actors; humans use web/CLI");
-      if (raw.params?.command) {
-        const type = (raw.params.command as { commandType?: string }).commandType ?? "";
-        if (type.startsWith("approval.") && type !== "approval.request") throw new BrainDomainError("FORBIDDEN", "approval decisions are not available over MCP");
-        const { receipt } = await brain.executeCommand(actor, raw.params.command, correlation(c), c.req.raw.headers);
-        return c.json({ jsonrpc: "2.0", id: raw.id ?? null, result: receipt });
+      const origin = c.req.header("origin");
+      const hasBearer = (c.req.header("authorization") ?? "").startsWith("Bearer ");
+      if (origin ? new URL(origin).origin !== (publicOrigin ?? new URL(c.req.url).origin) : !hasBearer && !!c.req.header("cookie")) throw new BrainDomainError("FORBIDDEN", "cross-origin MCP request rejected");
+      await actorFor(c);
+      const corr = correlation(c);
+      const host: McpHost = {
+        command: async (workspaceId, command) => {
+          const { actor } = await actorFor(c, workspaceId);
+          return (await brain.executeCommand(actor, command, corr, c.req.raw.headers)).receipt;
+        },
+        query: async (workspaceId, query) => runQuery(c, workspaceId, query),
+        errorEnvelope: (e) => e instanceof BrainDomainError ? e.toBrainError(corr) : brainError(e instanceof ZodError ? "INVALID_CONTRACT" : "INTERNAL_ERROR", "operation failed", corr),
+      };
+      const body = await readJson(c);
+      if (Array.isArray(body)) {
+        const replies = (await Promise.all(body.map((m) => handleMcpMessage(m, host)))).filter((r) => r !== undefined);
+        return replies.length ? c.json(replies) : c.body(null, 202);
       }
-      if (raw.params?.query) return c.json({ jsonrpc: "2.0", id: raw.id ?? null, result: await brain.executeQuery(actor, raw.params.query, c.req.raw.headers) });
-      throw new BrainDomainError("INVALID_ARGUMENT", "MCP params.command or params.query required");
+      const reply = await handleMcpMessage(body, host);
+      return reply ? c.json(reply) : c.body(null, 202);
     } catch (e) { return fail(c as never, e); }
   });
+  // No server-initiated stream and no session to end: the transport is POST only.
+  app.on(["GET", "DELETE"], "/mcp", (c) => c.body(null, 405, { allow: "POST" }));
 
   // Static web bundle (production). API paths resolve above SPA fallback.
   const gzipCache = new Map<string, Buffer>();

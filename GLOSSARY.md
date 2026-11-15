@@ -710,6 +710,10 @@ plan proposal inside the autonomy policy is confirmed, outside it waits for a pe
 records a verdict, closes a mission, approves an effect or confirms beyond the policy.
 _Avoid_: agent API, MCP tool (that is another channel)
 
+**MCP server**:
+Brain's `/mcp` endpoint, a standard Model Context Protocol server over streamable HTTP. Every registered command and query is a tool (`command.<type>`, `query.<type>`) generated from the registry and `brain.schema.json`, called as the signed-in person or session principal with the same credentials, authorization matrix and idempotency as `/v1`. Approval decisions are not tools: they stay in the app.
+_Avoid_: agent API, MCP channel
+
 **Delegation**:
 A session handing one bounded sub-task to a child session of the same mission, at most three levels deep (ADR 0053). The child is a run of the mission, not of the task; its result returns to the task as a handoff that is the child's claim until a person who did not start the delegation accepts it.
 _Avoid_: subtask run, spawn
