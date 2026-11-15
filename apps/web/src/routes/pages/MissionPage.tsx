@@ -188,7 +188,7 @@ export default function MissionPage(): JSX.Element {
   // Delegated work gets a tab of its own once something was delegated: a result waiting for review is named in the tab itself.
   const delegated = createDelegations(missionId);
   const delegations = () => delegated.state().data?.items ?? [];
-  const delegationsToReview = () => delegations().filter((entry) => delegationStatus(entry) === "to-review").length;
+  const delegationsToReview = () => delegations().filter((entry) => delegationStatus(entry) === "to-review" && entry.review.possible).length;
   const mainTabs = (): readonly MissionTab[] => (delegations().length > 0 ? ["live", "plan", "delegations", "outputs"] : MAIN_TABS);
   const labelOf = (id: MissionTab): string => (id === "delegations" && delegationsToReview() > 0 ? t("mission.tab.delegations.review", { n: delegationsToReview() }) : tabLabel(id));
   const [error, setError] = createSignal("");

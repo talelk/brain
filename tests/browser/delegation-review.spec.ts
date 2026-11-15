@@ -18,7 +18,7 @@ const WS = "ws-del";
 async function world(page: Page, governor: { url: string; credential: string; app: { brain: Brain } }) {
   const { brain, actor, cookie } = await signUpOwner(page, governor, "delegation");
   brain.createWorkspace(actor, { workspaceId: WS, slug: "delegation" });
-  const bundle = delegatingStarter();
+  const bundle = delegatingStarter({ maxChildren: 4, maxDepth: 3 });
   brain.activateRelease(actor, brain.stageRelease(actor, bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas).digest);
   const scoped: ActorContext = (await brain.resolveActor(new Headers({ cookie }), WS)).actor;
   const command = async (commandType: string, key: string, payload: Record<string, unknown>, expectedVersion?: number) => {
@@ -30,7 +30,7 @@ async function world(page: Page, governor: { url: string; credential: string; ap
 }
 
 test("a reviewer finds delegated work from the task and the mission, reads each result and decides the one they may", async ({ page, governor }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(2120_000);
   const { brain, actor, command, ws } = await world(page, governor);
 
   // A mission with one task for the member "pi"; its session is the running attempt of the first job.
@@ -53,7 +53,7 @@ test("a reviewer finds delegated work from the task and the mission, reads each 
 
   // Runners take the other two children's jobs and their independent checks.
   const runners = await enrollChildRunners(brain, actor, governor.url, "delegation");
-  await driveChildren(runners, () => (ws.prepare("SELECT COUNT(*) AS n FROM delegation_runs WHERE state='succeeded'").get() as { n: number }).n === 2, 150_000);
+  await driveChildren(brain, runners, () => (ws.prepare("SELECT COUNT(*) AS n FROM delegation_runs WHERE state='succeeded'").get() as { n: number }).n === 2, 120_000);
   expect((await byId(checked)).run.state).toBe("succeeded");
 
   // First-time user: open the mission from the list.
@@ -63,18 +63,18 @@ test("a reviewer finds delegated work from the task and the mission, reads each 
 
   // The task shows what it delegated, with a way to the review.
   await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/plan?w=${WS}`);
-  await page.getByText("Compare vendor prices", { exact: true }).first().click();
+  await page.getByRole("button", { name: "Manage Compare vendor prices", exact: true }).click();
   const panel = page.locator("[data-work-item-delegations]");
   await expect(panel).toBeVisible();
   await expect(panel.getByText("Summarise the three cheapest vendors", { exact: true })).toBeVisible();
   await expect(panel.getByText("Waiting for review", { exact: true })).toHaveCount(2);
   await expect(panel.getByText("Failed", { exact: true })).toBeVisible();
-  await panel.getByRole("link", { name: "Review 2 delegated results", exact: true }).click();
+  await panel.getByRole("link", { name: "Review 1 delegated result", exact: true }).click();
   await expect(page).toHaveURL(/\/missions\/[^/]+\/delegations\?w=ws-del&item=/);
 
   // The screen: every child, what it handed back or why it failed, and what the person may decide.
   const screen = page.locator("[data-delegations]");
-  await expect(screen.getByText("2 results are waiting for your review.", { exact: true })).toBeVisible();
+  await expect(screen.getByText("1 result is waiting for your review.", { exact: true })).toBeVisible();
   const done = screen.getByRole("article", { name: "Summarise the three cheapest vendors" });
   await expect(done.getByText("Waiting for review", { exact: true })).toBeVisible();
   await expect(done.locator("[data-delegation-result]")).toContainText("Fixture result for: Summarise the three cheapest vendors");

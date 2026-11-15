@@ -1,6 +1,7 @@
 import { generateKeyPairSync, sign } from "node:crypto";
 import { join } from "node:path";
-import { domainDigest, type ActorContext, type CommandReceipt, type Delegation, type JsonValue } from "@brain/contracts";
+import { domainDigest } from "../../packages/contracts/src/index.ts";
+import type { ActorContext, CommandReceipt, Delegation, JsonValue } from "@brain/contracts";
 import type { Brain } from "../../apps/governor/src/application/brain";
 import { advertisedCapabilities } from "../../apps/runner/src/engines/isolation";
 import { enrollAndHello, runOnce } from "../../apps/runner/src/supervisor";
@@ -51,10 +52,10 @@ export async function delegateFrom(brain: Brain, actor: ActorContext, workspaceI
 }
 
 /** Fixture runners for the child's own attempts: one for the agent step, one for the independent check. */
-export async function enrollChildRunners(brain: Brain, owner: ActorContext, governorUrl: string, prefix: string): Promise<DelegationRunner[]> {
+export async function enrollChildRunners(brain: Brain, owner: ActorContext, governorUrl: string, prefix: string, transport?: typeof fetch): Promise<DelegationRunner[]> {
   const sessions: DelegationRunner[] = [];
   for (const group of ["agents", "evaluators"]) {
-    const cfg = { governorUrl, runnerId: `${prefix}-${group}`, stateDir: join(brain.store.dataDir, `${prefix}-${group}`), engines: ["fixture"], capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"] };
+    const cfg = { governorUrl, runnerId: `${prefix}-${group}`, stateDir: join(brain.store.dataDir, `${prefix}-${group}`), engines: ["fixture"], capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"], ...(transport ? { transport } : {}) };
     const hello = await enrollAndHello(cfg, brain.jobProtocol.issueEnrollment(owner, group).token);
     sessions.push({ cfg, sessionToken: hello.sessionToken, epoch: hello.epoch });
   }
@@ -62,10 +63,10 @@ export async function enrollChildRunners(brain: Brain, owner: ActorContext, gove
 }
 
 /** Lets the runners take every job the delegated children need until `until` holds. */
-export async function driveChildren(runners: readonly DelegationRunner[], until: () => boolean, timeoutMs = 60_000): Promise<void> {
+export async function driveChildren(brain: Brain, runners: readonly DelegationRunner[], until: () => boolean, timeoutMs = 60_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (!until()) {
-    if (Date.now() > deadline) throw new Error("the delegated children did not finish in time");
+    if (Date.now() > deadline) throw new Error(`the delegated children did not finish in time: ${JSON.stringify(brain.store.control.prepare("SELECT step_id, state, queue_reason FROM jobs").all())}`);
     let worked = false;
     for (const runner of runners) worked = (await runOnce(runner.cfg, runner.sessionToken, runner.epoch)) || worked;
     if (!worked) await new Promise((resolve) => setTimeout(resolve, 100));

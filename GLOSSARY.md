@@ -660,11 +660,15 @@ _Avoid_: caller
 
 **Brain tool**:
 An operator-declared, release-pinned tool through which an agent acts on Brain itself: comment on a
-work item, message a team member, submit a handoff, propose a plan (ADR 0042). Each is one command run
+work item, message a team member, submit a handoff, propose a plan, delegate a sub-task (ADR 0042, 0051). Each is one command run
 as the session principal, so the authorization matrix and the principal's own-mission scope decide. A
 plan proposal inside the autonomy policy is confirmed, outside it waits for a person; no Brain tool
 records a verdict, closes a mission, approves an effect or confirms beyond the policy.
 _Avoid_: agent API, MCP tool (that is another channel)
+
+**Delegation**:
+A session handing one bounded sub-task to a child session of the same mission, at most three levels deep (ADR 0051). The child is a run of the mission, not of the task; its result returns to the task as a handoff that is the child's claim until a person who did not start the delegation accepts it.
+_Avoid_: subtask run, spawn
 
 **Session principal**:
 The machine principal (kind agent) of one team member of a mission, bound to its workspace

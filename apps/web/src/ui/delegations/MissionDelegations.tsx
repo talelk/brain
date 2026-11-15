@@ -99,7 +99,7 @@ export function MissionDelegations(props: { mission: Mission; onChanged?: () => 
   const read = createDelegations(() => props.mission.missionId);
   const item = () => (typeof search.item === "string" ? search.item : "");
   const shown = () => (read.state().data?.items ?? []).filter((entry) => !item() || entry.workItemId === item());
-  const waiting = () => (read.state().data?.items ?? []).filter((entry) => delegationStatus(entry) === "to-review").length;
+  const waiting = () => (read.state().data?.items ?? []).filter((entry) => delegationStatus(entry) === "to-review" && entry.review.possible).length;
   return <WorkspaceSection title={t("delegations.title")} description={t("delegations.description")}>
     <ScreenRegion state={read.state()} onRetry={() => void read.refresh({ force: true })} emptyTitle={t("delegations.empty.title")} emptyDescription={t("delegations.empty.description")}>
       <div class="flex min-w-0 flex-col gap-3" data-delegations>

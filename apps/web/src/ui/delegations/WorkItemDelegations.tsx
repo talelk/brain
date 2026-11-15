@@ -21,7 +21,7 @@ export function WorkItemDelegations(props: { item: WorkItem }): JSX.Element {
   const app = useApp();
   const read = createDelegations(() => props.item.missionId);
   const mine = () => (read.state().data?.items ?? []).filter((entry) => entry.workItemId === props.item.workItemId);
-  const waiting = () => mine().filter((entry) => delegationStatus(entry) === "to-review").length;
+  const waiting = () => mine().filter((entry) => delegationStatus(entry) === "to-review" && entry.review.possible).length;
   const href = () => `${missionHref(app.workspaceId(), props.item.missionId, "delegations")}&item=${encodeURIComponent(props.item.workItemId)}`;
   return <Show when={mine().length > 0}>
     <WorkspaceSection title={t("delegations.workitem.title")} description={tn("delegations.workitem.line", mine().length)}>
