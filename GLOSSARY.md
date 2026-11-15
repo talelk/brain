@@ -53,6 +53,14 @@ to first result and top failure reasons. Every figure ships with its definition;
 computes or tunes anything.
 _Avoid_: score, health score, KPI, AI report
 
+**Eval case**:
+A regression case Brain saves, unasked, when a task is sent back from review or a mission
+sign-off is rejected (ADR 0010): the stored plan, the reviewer's findings and the
+deliverable digests, never transcripts. The Quality area lists them with source, mission
+and date. A person replays them by hand before a release; nothing replays them or changes
+a prompt, workflow or release because of one.
+_Avoid_: test case, benchmark, learned prompt
+
 **Since-last-visit summary**:
 A user's deterministic digest of a mission's notable events since they last saw it.
 What counts as seen is per user and per mission, whatever the device.
