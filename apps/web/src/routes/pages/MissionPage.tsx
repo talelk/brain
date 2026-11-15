@@ -30,11 +30,13 @@ import { MissionUsage, reportsNoCost } from "../../ui/usage/Usage";
 import { PlanEstimate } from "../../ui/usage/PlanEstimate";
 import { ReusedInBrief } from "../../ui/components/Reuse";
 import { MissionTimeline } from "../../ui/timeline/MissionTimeline";
+import { MissionDelegations, createDelegations } from "../../ui/delegations/MissionDelegations";
+import { delegationStatus } from "../../ui/delegations/delegation-model";
 
 const TAB_KEYS: Readonly<Record<MissionTab, MessageKey>> = {
-  live: "mission.tab.live", team: "mission.tab.team", plan: "mission.tab.plan", brief: "mission.tab.brief", timeline: "mission.tab.timeline", outputs: "mission.tab.outputs",
+  live: "mission.tab.live", team: "mission.tab.team", plan: "mission.tab.plan", brief: "mission.tab.brief", timeline: "mission.tab.timeline", delegations: "mission.tab.delegations", outputs: "mission.tab.outputs",
 };
-const TABS: readonly { id: MissionTab }[] = (["live", "team", "plan", "brief", "timeline", "outputs"] as const).map((id) => ({ id }));
+const TABS: readonly { id: MissionTab }[] = (["live", "team", "plan", "brief", "timeline", "delegations", "outputs"] as const).map((id) => ({ id }));
 const tabLabel = (id: MissionTab): string => t(TAB_KEYS[id]);
 
 /** The views a person needs day to day; the rest sit under "More views". */
@@ -183,6 +185,12 @@ export default function MissionPage(): JSX.Element {
       return { snapshot: response.snapshot.items.filter((item) => item.missionId === missionId()), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
   });
+  // Delegated work gets a tab of its own once something was delegated: a result waiting for review is named in the tab itself.
+  const delegated = createDelegations(missionId);
+  const delegations = () => delegated.state().data?.items ?? [];
+  const delegationsToReview = () => delegations().filter((entry) => delegationStatus(entry) === "to-review").length;
+  const mainTabs = (): readonly MissionTab[] => (delegations().length > 0 ? ["live", "plan", "delegations", "outputs"] : MAIN_TABS);
+  const labelOf = (id: MissionTab): string => (id === "delegations" && delegationsToReview() > 0 ? t("mission.tab.delegations.review", { n: delegationsToReview() }) : tabLabel(id));
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [ending, setEnding] = createSignal(false);
@@ -239,8 +247,8 @@ export default function MissionPage(): JSX.Element {
           </Dialog.Root>
           <div class="flex flex-wrap items-center gap-2">
             <TabButtons label={t("mission.tab.label")} value={tab()} wrap onValueChange={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}
-              options={TABS.filter((entry) => MAIN_TABS.includes(entry.id) || entry.id === tab()).map((entry) => ({ value: entry.id, label: tabLabel(entry.id) }))} />
-            <Dropdown aria-label={t("mission.tab.more")} options={TABS.filter((entry) => !MAIN_TABS.includes(entry.id) && entry.id !== tab()).map((entry) => ({ value: entry.id, label: tabLabel(entry.id) }))}
+              options={TABS.filter((entry) => mainTabs().includes(entry.id) || entry.id === tab()).map((entry) => ({ value: entry.id, label: labelOf(entry.id) }))} />
+            <Dropdown aria-label={t("mission.tab.more")} options={TABS.filter((entry) => !mainTabs().includes(entry.id) && entry.id !== tab()).map((entry) => ({ value: entry.id, label: tabLabel(entry.id) }))}
               onSelect={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}><span class="flex items-center gap-1.5"><span class="lucide-ellipsis size-4" aria-hidden="true" />{t("mp.more-views.5e8b")}</span></Dropdown>
           </div>
           <Switch>
@@ -249,6 +257,7 @@ export default function MissionPage(): JSX.Element {
             <Match when={tab() === "plan"}><PlanTab mission={m()} onAct={act} busy={busy()} /></Match>
             <Match when={tab() === "brief"}><BriefTab mission={m()} onAct={act} busy={busy()} /></Match>
             <Match when={tab() === "timeline"}><MissionTimeline mission={m()} /></Match>
+            <Match when={tab() === "delegations"}><MissionDelegations mission={m()} onChanged={() => void act(async () => undefined)} /></Match>
             <Match when={tab() === "outputs"}><MissionOutputs mission={m()} onChanged={() => void act(async () => undefined)} /></Match>
           </Switch>
         </>}</Show>

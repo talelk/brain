@@ -18,7 +18,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/w/:id/today` | today | Say what you want done, then act on what needs you | intent, play, reuse, attention, mission |
 | `/w/:id/missions` | missions | Act on what needs you, then open a mission | attention, tier, mission, state, spend |
 | `/w/:id/missions/new` | missions | Start a mission from a play or a description | play, intent, criteria, constraints, autonomy, budget |
-| `/missions/:missionId/:tab` | missions | Follow and steer one mission | live, team, plan, brief, timeline, outputs |
+| `/missions/:missionId/:tab` | missions | Follow and steer one mission | live, team, plan, brief, timeline, delegations, outputs |
 | `/w/:id/library` | library | See everything Brain can reuse in one place: documents, knowledge, Plays and tools, and what is waiting for review | counts, review, documents, plays, tools |
 | `/w/:id/plays` | plays | Start a mission from a play, run a single task, or describe the work | play, task, describe, origin, review |
 | `/plays/:id` | plays | Review a play or single task, its schedules and history, then start it | brief, team, plan, inputs, schedules, history |
