@@ -23,12 +23,7 @@ async function drive(governor: GovernorFixture, sessions: readonly RunnerSession
   const brain = governor.app.brain;
   const deadline = Date.now() + timeoutMs;
   while (!until()) {
-    if (Date.now() > deadline) {
-      const db = brain.store.workspaceDb("ws-coordinator", brain.store.control.prepare("SELECT organization_id AS o FROM workspaces WHERE id='ws-coordinator'").get()!["o"] as string);
-      const where = { wakes: db.prepare("SELECT reason, detail, consumed_by_run AS run, last_error AS error FROM mission_wakes").all(), states: db.prepare("SELECT id, state FROM workflow_runs").all(),
-        items: db.prepare("SELECT plan_task_id AS task, state, parked, next_action FROM work_items").all(), jobs: brain.store.control.prepare("SELECT step_id, state, queue_reason, ready_at_ms, workflow_run_id FROM jobs").all() };
-      throw new Error(`the mission did not get there in time: ${JSON.stringify(where)}`);
-    }
+    if (Date.now() > deadline) throw new Error("the mission did not get there in time");
     // The runners' heartbeat timer, which `runOnce` does not run: a runner silent for 45 s is not offered work.
     brain.store.control.prepare("UPDATE runners SET last_heartbeat_ms=?").run(brain.store.now());
     brain.missions.pumpCoordinators();
@@ -55,11 +50,23 @@ test("start a mission from the coordinator Play, confirm its starting plan, and 
 
   // The person picks the Play on Today and types the goal, as a first-time user would.
   await page.goto(`${governor.url}/w/ws-coordinator/today`);
-  await page.getByRole("button", { name: TITLE, exact: true }).click();
-  await expect(page.getByTestId("start-seed")).toContainText(TITLE);
-  await page.getByLabel(/^What do you want done/).fill("Compare three venues for the autumn offsite");
-  await shot(page, "1-play-picked");
-  await page.getByRole("button", { name: "Start", exact: true }).click();
+  const goal = "Compare three venues for the autumn offsite";
+  if ((page.viewportSize()?.width ?? 1440) < 640) {
+    // A phone shows the first three Plays on Today; the rest are behind "4 more Plays", which opens the Plays list.
+    await page.getByRole("button", { name: "4 more Plays" }).click();
+    await page.getByRole("button", { name: `Open play ${TITLE}` }).click();
+    await page.getByRole("button", { name: "Start a mission", exact: true }).click();
+    const form = page.getByRole("dialog");
+    await form.getByLabel(/^What do you want done/).fill(goal);
+    await shot(page, "1-play-picked");
+    await form.getByRole("button", { name: "Start mission", exact: true }).click();
+  } else {
+    await page.getByRole("button", { name: TITLE, exact: true }).click();
+    await expect(page.getByTestId("start-seed")).toContainText(TITLE);
+    await page.getByLabel(/^What do you want done/).fill(goal);
+    await shot(page, "1-play-picked");
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+  }
   await expect(page).toHaveURL(/\/missions\/[^/]+\/(brief|plan)/);
   const missionId = (db.prepare("SELECT id FROM missions").get() as { id: string }).id;
 

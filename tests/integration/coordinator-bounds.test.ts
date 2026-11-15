@@ -8,7 +8,6 @@ import { bearer, closeWorlds, command, freshWorld, missionOf, run, running, type
 afterEach(closeWorlds);
 
 const PLAY = "research-with-coordinator";
-const budget = { maxMicroUsd: 2_000_000, memberCap: 3, attemptReserveMicroUsd: 0, finalAllowanceMicroUsd: 200_000 };
 
 const query = async <T>(w: World, queryType: string, resourceId?: string): Promise<T> => ((await w.brain.executeQuery(w.owner, { queryType, workspaceId: w.workspaceId, ...(resourceId ? { resourceId } : {}) } as never)) as unknown as { snapshot: T }).snapshot;
 const planRows = (w: World, missionId: string) => w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT id, revision, state, origin, created_by, tasks_json, team_json FROM plan_versions WHERE mission_id=? ORDER BY revision").all(missionId) as
@@ -16,7 +15,7 @@ const planRows = (w: World, missionId: string) => w.brain.store.workspaceDb(w.wo
 const until = async (done: () => boolean): Promise<void> => { const deadline = Date.now() + 15_000; while (!done()) { if (Date.now() > deadline) throw new Error("the Governor did not get there"); await new Promise((resolve) => setTimeout(resolve, 20)); } };
 
 /** A mission from the Play, its starting plan confirmed by the person, and the coordinator's attempt running with its session credential. */
-async function wokenCoordinator(options: { autonomy?: "supervised" | "standard" | "autonomous"; autoStart?: boolean; budget?: typeof budget } = {}) {
+async function wokenCoordinator(options: { autonomy?: "supervised" | "standard" | "autonomous"; autoStart?: boolean; budget?: Record<string, number> } = {}) {
   const { w, runner } = freshWorld();
   const missionId = (await run(w, "mission.create", "play-create", { title: "Research the offsite venues", playId: PLAY, autoStart: options.autoStart ?? false, ...(options.autonomy ? { autonomy: options.autonomy } : {}), ...(options.budget ? { budget: options.budget } : {}) })).resourceId ?? "";
   const startingPlanId = planRows(w, missionId)[0]!.id;
