@@ -8,6 +8,7 @@ import { PasskeyControls } from "../ui/components/PasskeyControls";
 import { NotificationPreferences } from "../ui/components/NotificationPreferences";
 import { PushDeviceControl } from "../ui/components/PushDevice";
 import { WorkSettings } from "../ui/components/EngineAdmin";
+import { ChatIdentities } from "../ui/components/ChatIdentities";
 import { OrganizationAuthPolicy, OrganizationInvitations, OrganizationMemberSelect, OrganizationPeople } from "../ui/components/OrganizationAdmin";
 import type { JSX } from "solid-js";
 import { For, Show, createSignal, onMount } from "solid-js";
@@ -80,7 +81,7 @@ export function SettingsScreen(props: {
     <PageStack>
       <Show when={tab() === "setup" && organizationAdmin()}><LocalModelSetup /></Show>
       <Show when={tab() === "security"}><SecurityPage /></Show>
-      <Show when={tab() === "people" && identityAdmin()}><OrganizationPeople /></Show>
+      <Show when={tab() === "people" && identityAdmin()}><OrganizationPeople /><ChatIdentities /></Show>
       <Show when={tab() === "invitations" && identityAdmin()}><OrganizationInvitations /></Show>
       <Show when={tab() === "policy" && identityAdmin()}><OrganizationAuthPolicy /></Show>
       <Show when={tab() === "work" && organizationAdmin()}><WorkSettings /></Show>

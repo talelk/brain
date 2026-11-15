@@ -125,7 +125,7 @@
     {
       "method": "POST",
       "path": "/hooks/chat",
-      "purpose": "inbound chat webhook, signed (Brain or Slack signature, 5 minute window): approvals, status, deny, and the link to approve; never approves (ADR 0024)"
+      "purpose": "inbound chat webhook, signed (Brain or Slack signature, 5 minute window): approvals, status, deny, the link to approve, and start <play> as the linked member (ADR 0011 amendment); never approves or confirms a plan (ADR 0024)"
     },
     {
       "method": "POST",

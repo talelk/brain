@@ -549,7 +549,10 @@ CREATE TABLE memory_assets (
  source_type TEXT NOT NULL DEFAULT 'wiki' CHECK(source_type IN ('chat','skill','wiki','codegraph','knowledge')),
  status TEXT NOT NULL DEFAULT 'unverified' CHECK(status IN ('reviewed','unverified')),
  title TEXT NOT NULL DEFAULT '', self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1)),
- revoked INTEGER NOT NULL DEFAULT 0, created_at_ms INTEGER NOT NULL
+ revoked INTEGER NOT NULL DEFAULT 0, created_at_ms INTEGER NOT NULL,
+ -- Memory scope (#135): who may read the asset. A team asset names the mission whose team may read it, a private asset the one author.
+ visibility TEXT NOT NULL DEFAULT 'workspace' CHECK(visibility IN ('global-approved','team','workspace','private')),
+ team_id TEXT DEFAULT NULL, owner_id TEXT DEFAULT NULL
 ) STRICT;
 CREATE UNIQUE INDEX memory_assets_source ON memory_assets(organization_id, COALESCE(workspace_id,''), source_id) WHERE revoked=0;
 CREATE VIRTUAL TABLE memory_fts USING fts5(asset_id UNINDEXED,title,body,tokenize='unicode61 remove_diacritics 2');
@@ -620,6 +623,17 @@ CREATE INDEX effect_calls_open ON effect_calls(created_at_ms) WHERE settled_at_m
 -- Inbound chat webhook requests already handled (ADR 0024): a retried signed request is acknowledged, never repeated.
 CREATE TABLE inbound_hook_events (
   remote_event_id TEXT PRIMARY KEY, received_at_ms INTEGER NOT NULL
+) STRICT;
+-- Who a chat user is in Brain (ADR 0011 amendment, spec #90 ticket #123): an administrator maps one chat identity (what the signed hook
+-- says about the sender) to one member. Chat starts work only for a mapped, active member; nothing is mapped by default.
+CREATE TABLE chat_identities (
+  organization_id TEXT NOT NULL REFERENCES organizations(id),
+  provider TEXT NOT NULL CHECK(provider IN ('slack','teams','brain')),
+  chat_user_id TEXT NOT NULL,
+  principal_id TEXT NOT NULL,
+  created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(organization_id, provider, chat_user_id),
+  FOREIGN KEY(principal_id, organization_id) REFERENCES principals(id, organization_id)
 ) STRICT;
 -- Single sign-on (ADR 0026): one OpenID Connect provider per Governor. The secret is only a reference, never a value.
 CREATE TABLE identity_provider (

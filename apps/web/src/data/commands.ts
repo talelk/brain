@@ -1,5 +1,5 @@
 import { runCommand } from "../data/governor";
-import type { OidcRole } from "./engine";
+import type { ChatProvider, OidcRole } from "./engine";
 import type { CommandReceipt, GitProvider, MissionBudget, OrganizationAdminCommand, PlanTask, TeamMember, WorkItemPriority, WorkItemState } from "@brain/contracts";
 
 /**
@@ -16,14 +16,14 @@ export type CommandKind =
   | "mission.create" | "mission.owner.transfer" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "mission.watch" | "mission.seen"
   | "mission.brief.edit" | "decision.accept" | "standingTeam.create" | "standingTeam.update" | "standingTeam.archive" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
   | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise" | "workItem.details.set" | "pullRequest.refresh"
-  | "workspace.wayOfWorking.set" | "workspace.modelRoutes.set" | "workspace.effects.set" | "workspace.queueLimit.set" | "workspace.autonomyCeiling.set" | "workspace.sessions.stopAll" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set"
+  | "workspace.wayOfWorking.set" | "workspace.modelRoutes.set" | "workspace.effects.set" | "workspace.queueLimit.set" | "workspace.autonomyCeiling.set" | "workspace.sessions.stopAll" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set" | "chatIdentity.set" | "chatIdentity.remove"
   | "play.proposeFromMissions" | "knowledge.withdrawUnobserved"
   | "automation.upsert" | "automation.control"
   | "document.upload" | "document.revise" | "document.associate" | "document.delete"
   | "integration.connect" | "integration.verify" | "integration.bind"
   | "configDraft.create" | "configDraft.update" | "configDraft.validate" | "configDraft.test" | "configDraft.publish"
   | "member.grant" | "member.revoke" | "config.activate" | "memory.publish" | "memory.revoke"
-  | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "knowledge.review" | "knowledge.approveVerified" | "library.settings.set" | "plays.addStarter" | "mission.reuse.decide" | "result.challenge" | "play.propose" | "play.proposal.review" | "approval.revoke" | "workspace.update" | "workspace.control" | "workspace.export" | "workspace.import"
+  | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "knowledge.review" | "knowledge.scope.request" | "knowledge.scope.set" | "knowledge.approveVerified" | "library.settings.set" | "plays.addStarter" | "mission.reuse.decide" | "result.challenge" | "play.propose" | "play.proposal.review" | "approval.revoke" | "workspace.update" | "workspace.control" | "workspace.export" | "workspace.import"
   | OrganizationAdminCommand["commandType"];
 
 export interface CommandContext {
@@ -54,6 +54,8 @@ export type PayloadFor<K extends CommandKind> =
     : K extends "workspace.effects.set" ? { containers?: string[]; services?: string[]; approvalMinutes?: number; egressHosts?: string[] }
     : K extends "platform.drain.set" ? { draining: boolean }
     : K extends "runnerGroup.set" ? { groupId: string; hostTools: boolean; workspaceIds: string[] }
+    : K extends "chatIdentity.set" ? { provider: ChatProvider; chatUserId: string; principalId: string }
+    : K extends "chatIdentity.remove" ? { provider: ChatProvider; chatUserId: string }
     : K extends "identity.oidc.set" ? { enabled: boolean; issuer: string; clientId: string; secretRef: string; autoProvision: boolean; defaultRole?: OidcRole; groupClaim?: string; groupRoles?: { group: string; role: OidcRole }[]; workspaceIds?: string[]; allowedDomains?: string[] }
     : K extends "play.proposeFromMissions" ? { practice: string }
     : K extends "mission.watch" ? { missionId: string; watch: boolean }
@@ -68,11 +70,13 @@ export type PayloadFor<K extends CommandKind> =
       : K extends "plan.reject" ? { planVersionId: string; reason: string }
       : K extends "knowledge.approveVerified" | "plays.addStarter" | "knowledge.withdrawUnobserved" ? Record<string, never>
       : K extends "library.settings.set" ? { autoPublishKnowledge: boolean }
-      : K extends "knowledge.review" ? { assetId: string; decision: "approve" | "reject"; reason: string }
+      : K extends "knowledge.review" ? { assetId: string; decision: "approve" | "reject" | "reconfirm" | "revoke"; reason: string; scope?: "private" | "team" | "workspace" }
+      : K extends "knowledge.scope.request" ? { assetId: string; scope: "team" | "workspace" }
+      : K extends "knowledge.scope.set" ? { assetId: string; scope: "private" | "team" | "workspace"; reason: string }
       : K extends "mission.reuse.decide" ? { missionId: string; itemRef: string; decision: "keep" | "drop" }
       : K extends "result.challenge" ? { workItemId: string }
       : K extends "play.propose" ? { missionId: string }
-      : K extends "play.proposal.review" ? { proposalId: string; decision: "approve" | "reject"; reason: string }
+      : K extends "play.proposal.review" ? { proposalId: string; decision: "approve" | "reject" | "reconfirm" | "revoke"; reason: string }
         : K extends "workItem.transition" ? { workItemId: string; state: WorkItemState; evidenceDigest?: string; reason?: string }
           : K extends "handoff.submit" ? { workItemId: string; notes: { summary: string; decisions?: string[]; openQuestions?: string[]; nextAction?: string; referencedOutputs?: string[] } }
           : K extends "workItem.comment" ? { workItemId: string; text: string }
@@ -93,7 +97,7 @@ export type PayloadFor<K extends CommandKind> =
                                 : K extends "tool.propose" ? { package: unknown; evidence: string[] }
                                   : K extends "tool.publish" ? { release: { id: string; digest: string }; evidence: string[] }
                                     : K extends "capitalization.run" ? Record<string, never>
-                                      : K extends "capability.review" ? { candidateId: string; decision: "approve" | "reject"; reason: string }
+                                      : K extends "capability.review" ? { candidateId: string; decision: "approve" | "reject" | "reconfirm" | "revoke"; reason: string }
                                         : K extends "approval.revoke" ? { approvalId: string; reason: string }
                                       : K extends "workspace.update" ? { workspaceId: string; displayName: string; description: string; ownerId: string; tags: string[] }
                                           : K extends "workspace.control" ? { workspaceId: string; action: "suspend" | "resume" | "archive"; reason: string }

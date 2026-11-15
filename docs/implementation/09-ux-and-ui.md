@@ -20,6 +20,8 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/w/:id/missions/new` | missions | Start a mission from a play or a description | play, intent, criteria, constraints, autonomy, budget |
 | `/missions/:missionId/:tab` | missions | Follow and steer one mission | live, team, plan, brief, timeline, delegations, outputs |
 | `/w/:id/library` | library | See everything Brain can reuse in one place: documents, knowledge, Plays and tools, and what is waiting for review | counts, review, documents, plays, tools |
+| `/w/:id/library/agents` | library | See every agent definition with what it is doing now, worked out from its sessions | agents, status, verified-rate |
+| `/w/:id/library/agents/:agentId` | library | Read one agent: purpose, tools and limits, status from its sessions, recent runs, verified rate, failure classes and cost | definition, status, runs, verified-rate, failure-classes, cost |
 | `/w/:id/plays` | plays | Start a mission from a play, run a single task, or describe the work | play, task, describe, origin, review |
 | `/w/:id/library/teams` | library | Name the teams you reuse: roles bound to agents and engines that plans and Plays can start from | teams, members, coordinator |
 | `/plays/:id` | plays | Review a play or single task, its schedules and history, then start it | brief, team, plan, inputs, schedules, history |

@@ -758,7 +758,17 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
+    "agents.profile": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
     "usage.verifiedCost": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "members.profile": {
       "scope": "workspace:read",
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
@@ -859,6 +869,11 @@
       "redactPrivilegedDetails": false
     },
     "identity.oidc.get": {
+      "scope": "identity:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
+    "chatIdentities.list": {
       "scope": "identity:read",
       "scopeMode": "organization",
       "redactPrivilegedDetails": false
