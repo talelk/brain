@@ -881,6 +881,7 @@
     "contextPacks.reference",
     "evalCases.list",
     "library.summary",
+    "fleet.overview",
     "challenges.list",
     "playProposals.list",
     "tools.calls",

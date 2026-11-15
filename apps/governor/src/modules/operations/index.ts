@@ -4,6 +4,7 @@ export { loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscripti
 
 export { operationalReadiness } from "./readiness";
 export { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, localRunnerSettingsCurrent } from "./local-runtime";
+export { fleetOverview } from "./fleet";
 export { liveStatus, platformHealth, workspaceContext } from "./read";
 export { alertBadProbes, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, readProbes, recordProbe } from "./probes";
 export { metricsAuthorized, metricsToken, renderMetrics } from "./metrics";

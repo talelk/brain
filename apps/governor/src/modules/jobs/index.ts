@@ -14,7 +14,7 @@ export { quarantineJobsForRestore } from "./lifecycle";
 export { issueEnrollment } from "./protocol";
 export { assertAttemptLive, loadAttempt, runnerView } from "./attempts";
 export {
-  explainJob, getJob, getRunner, listJobs, listRunners, searchJobs,
+  explainJob, getJob, getRunner, listJobs, listRunners, runnerCapacity, searchJobs, type RunnerCapacityView,
 } from "./read";
 export { jobCommands } from "./commands";
 export { unknownJobsForWorkspace } from "./unknown";

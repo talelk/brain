@@ -33,7 +33,7 @@ import {
 import {
   commandReceipt, getApproval, listApprovals, searchApprovals,
 } from "../modules/governance/index";
-import { liveStatus, platformHealth, workspaceContext } from "../modules/operations/index";
+import { fleetOverview, liveStatus, platformHealth, workspaceContext } from "../modules/operations/index";
 import { getPack, listPack, slaSummary } from "../modules/packs/index";
 import { artifactHistory, diffArtifacts, listArtifacts, readArtifactBytes, searchArtifacts } from "../modules/evidence/index";
 import { bridge } from "../modules/missions/index";
@@ -1170,6 +1170,10 @@ export class Brain {
             return this.envelope(q.queryType, this.stream.compare(actor, jobId, compare.attemptIds ?? [], (compare as { limit?: number }).limit));
           }
         }
+      }
+      case "fleet.overview": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, fleetOverview(s, actor, q.workspaceId));
       }
       case "live.status": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
