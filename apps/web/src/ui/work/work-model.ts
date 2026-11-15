@@ -30,17 +30,19 @@ export function dependenciesDone(item: WorkItem, items: readonly WorkItem[]): bo
 }
 
 /**
- * The columns an item may be dragged to. Only plain Governor transitions that
- * need nothing else are offered: Start goes through the dispatch flow, Done
- * needs verified evidence (and a handoff), Blocked needs a reason, and a parked
- * item waits for a person's explicit decision — those stay buttons.
+ * The columns an item may be dragged to (and the card menu offers). Only plain
+ * Governor transitions that need nothing else are offered: Start goes through
+ * the dispatch flow, Review comes from a run submitting its evidence and Done
+ * needs that evidence verified (and a handoff), Blocked needs a reason, and a
+ * parked item waits for a person's explicit decision — those stay buttons or
+ * the item's own Move work item form (ADR 0051).
  */
 export function dragTargets(item: WorkItem, items: readonly WorkItem[], canMove: boolean): BoardColumnId[] {
   if (!canMove || item.parked) return [];
   const from = item.state;
   const here = boardColumnOf(item);
   return BOARD_COLUMNS.map((column) => column.id).filter((to) => {
-    if (to === here || to === "done" || to === "blocked") return false;
+    if (to === here || to === "done" || to === "review" || to === "blocked") return false;
     if (from === "ready" && to === "in-progress") return false;
     if (!canTransition("workItem", from, to)) return false;
     if (to === "ready" && !dependenciesDone(item, items)) return false;

@@ -111,6 +111,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "eval-cases", route: () => "/w/operations/quality/cases", heading: "Eval cases", prepare: seedEvalCases },
   // The plan editor open on a confirmed plan's team: its mission adds a work item only the screens after it could list.
   { id: "mission-plan-editor", route: planEditorRoute, heading: "Prepare the vendor review", after: async (page) => { await page.getByRole("button", { name: /^See the confirmed plan/ }).click(); await page.getByRole("button", { name: "Edit steps", exact: true }).first().click(); await expect(page.getByTestId("plan-team")).toBeVisible(); await expect(page.getByTestId("plan-step-assignment").first()).toBeVisible(); } },
+  // The board across missions, after the plan-editor mission so it holds the work of several missions.
+  { id: "workspace-board", route: () => "/w/operations/board", heading: "Board", after: async (page) => { await expect(page.getByTestId("work-board")).toBeVisible(); await expect(page.getByTestId("board-count")).toBeVisible(); } },
   // Last of all: the sign-off mission adds an attention item every earlier screen would count in its bell.
   { id: "mission-signoff", route: signOffRoute, heading: "Compile the quarterly report", waitFor: "mission-signoff" },
   // A pull request an approved change opened, on its task and on its approval: made after the other screens but before the push ones (those stay last), because its approval and connection join earlier lists.

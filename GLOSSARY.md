@@ -190,6 +190,11 @@ dependencies, assignment, a next action and an evidence binding. The unit a miss
 Plan view shows; the primary UI labels it by its plan task name.
 _Avoid_: card, ticket, issue, story
 
+**Board**:
+A view of work items in Ready, In progress, Review, Blocked and Done: a mission's Plan
+tab opens on it, and the Missions place has one across the workspace's missions, filtered
+by mission, team member, priority and tag. Review and Done are never reached by a drag.
+
 **Parked work item**:
 A work item stopped after repeated failed attempts, waiting for a human to retry,
 reassign, edit or drop it. Independent work continues; only a human unparks it.

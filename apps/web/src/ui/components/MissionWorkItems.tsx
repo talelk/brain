@@ -39,8 +39,8 @@ const STATES: readonly { id: WorkItemState; name: string }[] = [
 
 type View = "timeline" | "board" | "list";
 const VIEWS: readonly { value: View; label: string; icon: string }[] = [
-  { value: "timeline", label: "Timeline", icon: "lucide-chart-gantt" },
   { value: "board", label: "Board", icon: "lucide-square-kanban" },
+  { value: "timeline", label: "Timeline", icon: "lucide-chart-gantt" },
   { value: "list", label: "List", icon: "lucide-list" },
 ];
 
@@ -48,8 +48,8 @@ type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
 /**
  * The confirmed work of one mission (#43): an at-a-glance strip (progress,
- * critical path, time and budget), then the same items as a dependency
- * Timeline, a Kanban Board or a List — the view lives in the URL (?view=).
+ * critical path, time and budget), then the same items as a Kanban Board (the
+ * default), a dependency Timeline or a List — the view lives in the URL (?view=).
  * Opening an item manages it in place. Done stays gated by an independently
  * verified evidence bundle, and every move carries the item version it was
  * read at.
@@ -58,7 +58,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const [search, setSearch] = useSearchParams();
-  const view = (): View => (VIEWS.some((entry) => entry.value === search.view) ? search.view as View : "timeline");
+  const view = (): View => (VIEWS.some((entry) => entry.value === search.view) ? search.view as View : "board");
   const [sheet, setSheet] = createSignal<"" | "move" | "handoff">("");
   // The open task is part of the address (?item=), so a task can be linked to and a reload keeps it open.
   const selectedId = (): string => (typeof search.item === "string" ? search.item : "");
@@ -71,8 +71,8 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
   const items = createScopedRead<WorkItem[]>({
     scope: app.scope,
     load: async (scope, signal) => {
-      const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
-      return { snapshot: response.snapshot.items.filter((item) => item.missionId === missionId()), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+      const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, missionId: missionId(), limit: 100 }, signal);
+      return { snapshot: response.snapshot.items, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (list) => list.length === 0,
   });
@@ -183,7 +183,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
         <WorkOverview mission={props.mission} items={live()} criticalSteps={graph().critical.length}
           criticalMinutes={graph().critical.every((id) => estimateOf(live().find((item) => item.workItemId === id)!) !== undefined) ? graph().criticalWeight : undefined} />
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <TabButtons label={t("plan.how-to-show-the-work.a24f")} value={view()} onValueChange={(value) => setSearch({ view: value === "timeline" ? undefined : value }, { replace: true })}
+          <TabButtons label={t("plan.how-to-show-the-work.a24f")} value={view()} onValueChange={(value) => setSearch({ view: value === "board" ? undefined : value }, { replace: true })}
             options={VIEWS.map((entry) => ({ value: entry.value, label: entry.label, icon: entry.icon }))} />
           <p class="flex items-center gap-1.5 text-caption text-ink-gray-6"><span class="inline-block h-0.5 w-5 rounded-full bg-surface-blue-7" aria-hidden="true" />{t("plan.critical-path-the-longest-chain.7694")}</p>
         </div>

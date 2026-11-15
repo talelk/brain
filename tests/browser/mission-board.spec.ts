@@ -4,9 +4,10 @@ import type { Page } from "@playwright/test";
 const DIGEST = `sha256:${"c".repeat(64)}`;
 
 /**
- * The mission's work as Timeline, Board and List (#43 plan tab). The board
- * offers a drag only for transitions the Governor accepts as plain moves
- * (in progress → review, review → in progress); a ready card does not lift
+ * The mission's work as Board (the default), Timeline and List (#43, #118 plan
+ * tab). The board offers a drag only for transitions the Governor accepts as
+ * plain moves that need no evidence (in progress → ready, review → in
+ * progress); Review and Done are never a drag, a ready card does not lift
  * (Start dispatches), and the card menu lists exactly the legal moves.
  */
 async function boardWorld(page: Page, governor: { url: string; credential: string; app: { brain: import("../../apps/governor/src/application/brain").Brain } }) {
@@ -65,8 +66,12 @@ test("mission board: legal drags move work, illegal ones stay buttons, the timel
   page.on("pageerror", (error) => errors.push(error.message));
   const { state } = await boardWorld(page, governor);
 
-  // Timeline (default): stages, the critical path and the plain-language overview.
+  // The Plan tab opens on the board; the timeline is one click away and shows stages, the critical path and the plain-language overview.
   await page.goto(`${governor.url}/missions/obj-kanban/plan?w=ws-kanban`);
+  await expect(page.getByTestId("work-board")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("list", { name: "Mission work by round" })).toHaveCount(0);
+  await page.getByRole("radio", { name: "Timeline" }).click();
+  await expect(page).toHaveURL(/view=timeline/);
   const roadmap = page.getByTestId("work-roadmap").last();
   await expect(roadmap.getByRole("button", { name: "Manage Build the release candidate", exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(roadmap.locator('[data-roadmap-node="wi-build"]').getByText("Critical path")).toBeVisible();
@@ -74,9 +79,9 @@ test("mission board: legal drags move work, illegal ones stay buttons, the timel
   await expect(page.getByRole("region", { name: "Mission work at a glance" }).getByText("3 tasks in a row")).toBeVisible();
   await expect(roadmap.getByText("Release writer (writer)")).toBeVisible();
 
-  // Board: five columns; the view is carried in the URL.
+  // Board: five columns; the view is carried in the URL (the board is the address without a view).
   await page.getByRole("radio", { name: "Board" }).click();
-  await expect(page).toHaveURL(/view=board/);
+  await expect(page).not.toHaveURL(/view=/);
   const board = page.getByTestId("work-board");
   for (const name of ["Ready", "In progress", "Review", "Blocked", "Done"]) await expect(board.getByRole("heading", { name, exact: true })).toBeVisible();
   await expect(board.locator('[data-kanban-column="ready"]').getByText("Publish the release")).toBeVisible();
@@ -84,10 +89,15 @@ test("mission board: legal drags move work, illegal ones stay buttons, the timel
   await expect(board.locator('[data-kanban-id="wi-build"] [data-draggable]')).toHaveAttribute("data-draggable", "true");
 
   if ((info.project.use.viewport?.width ?? 1440) >= 1024) {
-    // A legal drag: in progress → review is a plain governed transition.
+    // Review is never a drag: it comes from a run submitting evidence. The card stays in progress and the board says why.
     await drag(page, "wi-build", "review");
-    await expect.poll(() => state("wi-build")).toBe("review");
-    await expect(board.locator('[data-kanban-column="review"] [data-kanban-id="wi-build"]')).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Review comes from a run submitting its evidence" })).toBeVisible();
+    await page.waitForTimeout(400);
+    expect(state("wi-build")).toBe("in-progress");
+    // A legal drag: in progress → ready is a plain governed transition.
+    await drag(page, "wi-build", "ready");
+    await expect.poll(() => state("wi-build")).toBe("ready");
+    await expect(board.locator('[data-kanban-column="ready"] [data-kanban-id="wi-build"]')).toBeVisible();
     // A ready card does not lift: dragging it to Done changes nothing.
     await drag(page, "wi-draft", "done");
     await page.waitForTimeout(500);
@@ -95,21 +105,23 @@ test("mission board: legal drags move work, illegal ones stay buttons, the timel
     await expect(page.locator("[data-kanban-dragging]")).toHaveCount(0);
   } else {
     await board.getByRole("button", { name: "Move Build the release candidate", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Review", exact: true }).click();
-    await expect.poll(() => state("wi-build")).toBe("review");
+    await expect(page.getByRole("menuitem", { name: "Review", exact: true })).toHaveCount(0);
+    await page.getByRole("menuitem", { name: "Ready", exact: true }).click();
+    await expect.poll(() => state("wi-build")).toBe("ready");
   }
 
   // The keyboard path: the card menu offers exactly the legal moves (review → in progress), never Done.
   await board.getByRole("button", { name: "Move Check the release candidate", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Done", exact: true })).toHaveCount(0);
-  await page.getByRole("menuitem", { name: "In progress", exact: true }).click();
-  await expect.poll(() => state("wi-check")).toBe("in-progress");
+  await expect(page.getByRole("menuitem", { name: "Review", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "In progress", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
   // A ready card has no move menu at all; Start is its action and opens the dispatch flow.
   await expect(board.getByRole("button", { name: "Move Draft the rollout notes", exact: true })).toHaveCount(0);
 
   // Work others wait on offers Hand off (not Review) and opens the hand-off sheet on the item; List shows the same work.
-  await expect(board.locator('[data-kanban-id="wi-build"]').getByText("Hand-off due")).toBeVisible();
-  await board.getByRole("button", { name: "Hand off Build the release candidate", exact: true }).click();
+  await expect(board.locator('[data-kanban-id="wi-check"]').getByText("Hand-off due")).toBeVisible();
+  await board.getByRole("button", { name: "Hand off Check the release candidate", exact: true }).click();
   await expect(page.getByRole("dialog").getByLabel(/^What was done/)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Back to mission work", exact: true })).toBeVisible();
@@ -127,7 +139,7 @@ test("mission board: legal drags move work, illegal ones stay buttons, the timel
 test("an idle plan or live view does not re-render while it polls", async ({ page, governor }) => {
   test.setTimeout(120_000);
   await boardWorld(page, governor);
-  for (const view of ["/missions/obj-kanban/plan", "/missions/obj-kanban/plan?view=board", "/missions/obj-kanban/plan?view=list", "/missions/obj-kanban/live", "/w/ws-kanban/live"]) {
+  for (const view of ["/missions/obj-kanban/plan", "/missions/obj-kanban/plan?view=timeline", "/missions/obj-kanban/plan?view=list", "/missions/obj-kanban/live", "/w/ws-kanban/live"]) {
     await page.goto(`${governor.url}${view}`);
     // "Idle" starts when the page has finished loading what it asked for: the document has not changed for 1.5 s. A fixed wait is not
     // enough on a busy machine, where the first reads land late and would be counted as the page re-rendering by itself.

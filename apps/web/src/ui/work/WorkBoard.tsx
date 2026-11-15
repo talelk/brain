@@ -14,6 +14,7 @@ interface Card { id: string; item: WorkItem }
 function refusal(item: WorkItem, to: BoardColumnId): string {
   if (item.parked) return `${item.title} is parked; open it to retry, reassign or drop it.`;
   if (to === "done") return `Done needs verified evidence. Open ${item.title} and use Review to bind it.`;
+  if (to === "review") return `Review comes from a run submitting its evidence, not from a drag. Open ${item.title} to follow it.`;
   if (to === "blocked") return `Blocking needs a reason. Open ${item.title} and use Move work item.`;
   if (to === "in-progress" && item.state === "ready") return `Starting runs an agent. Use Start on ${item.title}.`;
   if (to === "ready") return `${item.title} can return to Ready only once its dependencies are verified done.`;
@@ -23,7 +24,7 @@ function refusal(item: WorkItem, to: BoardColumnId): string {
 /**
  * The mission's work as a Kanban board (Ready, In progress, Review, Blocked,
  * Done) on the NewUI board. A card can be dragged only to the columns the
- * Governor accepts as a plain transition; every other move stays a button
+ * Governor accepts as a plain transition (never Review or Done); every other move stays a button
  * (Start, Review, Hand off, Unblock). A card with no legal drag never lifts,
  * and the card menu lists exactly the same legal moves for the keyboard.
  */
@@ -32,6 +33,8 @@ export function WorkBoard(props: {
   /** Every item of the mission when `items` is filtered: dependencies are read from it. */
   context?: readonly WorkItem[];
   ownerOf: (item: WorkItem) => string | undefined;
+  /** Set on the workspace board, where cards of several missions sit together: each card names and links its mission. */
+  missionOf?: (item: WorkItem) => { title: string; href: string } | undefined;
   estimateOf: (item: WorkItem) => number | undefined;
   handoffRequired: (item: WorkItem) => boolean;
   canDispatch: boolean;
@@ -86,7 +89,7 @@ export function WorkBoard(props: {
 
   return <div ref={root} class="brain-work-board flex min-w-0 flex-col gap-2" data-testid="work-board">
     <p class="flex items-center gap-1.5 text-caption text-ink-gray-6">
-      <span class="lucide-hand size-3.5" aria-hidden="true" />Drag a card to Ready, In progress or Blocked to move it. Review and Done need evidence, so use the button on the card.
+      <span class="lucide-hand size-3.5" aria-hidden="true" />Drag a card to move it where no evidence is needed. Review and Done come from evidence, so use the button on the card.
     </p>
     <Show when={notice()}>{(entry) => <p role="status" class={`rounded-control px-2.5 py-1.5 text-caption ${entry().tone === "warn" ? "bg-surface-amber-1 text-ink-amber-8" : "bg-surface-gray-1 text-ink-gray-7"}`}>{entry().text}</p>}</Show>
     <KanbanBoard<Card> label={t("plan.work-items.0448")} columns={columns()} itemLabel={(card) => card.item.title}
@@ -105,7 +108,7 @@ export function WorkBoard(props: {
         </Menu.Root>
       </Show>}>
       {(card) => <div data-kanban-locked={targets(card.item).length === 0 ? "" : undefined} data-draggable={targets(card.item).length > 0 ? "true" : "false"}>
-        <WorkCard item={card.item} items={props.context ?? props.items} owner={props.ownerOf(card.item)} estimateMinutes={props.estimateOf(card.item)}
+        <WorkCard item={card.item} items={props.context ?? props.items} owner={props.ownerOf(card.item)} {...(props.missionOf?.(card.item) ? { mission: props.missionOf(card.item)! } : {})} estimateMinutes={props.estimateOf(card.item)}
           handoffRequired={props.handoffRequired(card.item)} canDispatch={props.canDispatch} critical={props.critical.has(card.item.workItemId)}
           onOpen={() => props.onOpen(card.item)} onAction={(action) => props.onAction(card.item, action)} />
       </div>}

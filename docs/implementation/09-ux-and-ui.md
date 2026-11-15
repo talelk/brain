@@ -24,6 +24,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/plays/:id` | plays | Review a play or single task, its schedules and history, then start it | brief, team, plan, inputs, schedules, history |
 | `/w/:id/schedules` | schedules | Manage every schedule in one place: what it starts, when it fires next, which host runs it | schedules, history, execution host |
 | `/administration/workspaces` | administration | Manage workspaces | workspace, state, counts |
+| `/w/:id/board` | board | See and move the work of every mission in one place, filtered by mission, team member, priority and tag | board, filters, work items |
 | `/w/:id/live` | live | Run, steer and inspect live agent sessions without losing session state | sessions, console, outputs, controls, mission |
 | `/w/:id/logs` | logs | Search execution and platform logs and jump between correlated contexts | records, filters, search, correlation, runs, state |
 | `/w/:id/outputs` | outputs | Browse authorized generated artifacts with previews, diffs and history | artifacts, preview, history, diff |
