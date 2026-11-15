@@ -21716,6 +21716,7 @@
         "task.reassign",
         "member.addExistingRole",
         "member.addNewRole",
+        "member.remove",
         "decision.accept",
         "conflictTask.create",
         "backlog.drop"

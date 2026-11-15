@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActorContext, AuditEntry, Handoff, Mission, MissionBrief, MissionMessage, PlanTask, PlanVersion, TeamMember, WorkItemComment } from "@brain/contracts";
+import { SESSION_ADMITTED, type ActorContext, type AuditEntry, type Handoff, type Mission, type MissionBrief, type MissionMessage, type PlanTask, type PlanVersion, type TeamMember, type WorkItemComment } from "@brain/contracts";
 import { DIGEST_A } from "../helpers";
+import { assertSessionAdmits } from "../../apps/governor/src/application/authz";
 import { bearer, closeWorlds, command, missionOf, run, running, startedMission, task, type Offer, type World } from "../support/machine-session";
 
 // ADR 0042: the Brain tools of a mission session are Brain commands run as its own machine principal. Here the credential is the one the runner
@@ -15,10 +16,10 @@ const team: TeamMember[] = [
 const assigned = (id: string, memberId: string, extra: Partial<PlanTask> = {}): PlanTask => task(id, { assignment: { kind: "agent", id: memberId, role: "specialist" }, ...extra });
 
 /** Two independent tasks, one per member: auto-start dispatches both, and each member's session is claimed and running. */
-async function crew(options: { autonomy?: "supervised" | "standard" | "autonomous"; chain?: boolean } = {}) {
+async function crew(options: { autonomy?: "supervised" | "standard" | "autonomous"; chain?: boolean; members?: TeamMember[] } = {}) {
   // With `chain`, b waits for a: only the writer's session runs, and b receives what a hands off.
   const tasks = [assigned("a", "writer"), assigned("b", "checker", options.chain ? { dependsOn: ["a"] } : {})];
-  const started = await startedMission({ tasks, team, ...(options.autonomy ? { autonomy: options.autonomy } : {}) });
+  const started = await startedMission({ tasks, team: options.members ?? team, ...(options.autonomy ? { autonomy: options.autonomy } : {}) });
   const { w, runner } = started;
   const offers = options.chain ? [running(w, runner, "first")] : [running(w, runner, "first"), running(w, runner, "second")];
   const sessions = new Map<string, { actor: ActorContext; identity: Awaited<ReturnType<typeof w.brain.resolveActor>>; credential: string; offer: Offer; workItemId: string }>();
@@ -184,5 +185,64 @@ describe("no Brain tool can judge, close, approve or confirm beyond the policy",
     await expect(w.brain.decideApproval(writer.identity, "approval-none", { decision: "approved", reason: "ok" } as never)).rejects.toThrow();
     expect({ mission: await missionOf(w, missionId), plans: planOf(w, missionId), approvals: w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM approval_requests").get() }).toEqual(before);
     expect(((await missionOf(w, missionId)) as Mission).state).toBe("active");
+  });
+});
+
+describe("a session credential admits only the commands behind its Brain tools (ADR 0032)", () => {
+  it("refuses the other mission commands its role's scopes would admit, and each changes nothing", async () => {
+    const { w, missionId, as } = await crew();
+    const writer = as("writer");
+    const intents = () => w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM command_intents").get();
+    const items = () => w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT id, state, version FROM work_items ORDER BY id").all();
+    const before = { mission: await missionOf(w, missionId), items: items(), intents: intents() };
+    // The session holds mission:write, and these commands list the agent kind: only the allowlist stands between it and them.
+    expect(writer.actor.scopes).toContain("mission:write");
+    const refused: Array<[string, Record<string, unknown>, number?]> = [
+      ["workItem.transition", { workItemId: writer.workItemId, state: "done", reason: "I say so" }, 1],
+      ["mission.proposeCompletion", { missionId }],
+      ["decision.accept", { missionId, baseVersion: 1, statement: "We always use the 2025 figures", source: { kind: "human" } }],
+    ];
+    for (const [type, payload, expected] of refused) await expect(writer.act(type, `scope-${type}`, payload, expected), type).rejects.toThrow(/a session credential cannot run/u);
+    expect({ mission: await missionOf(w, missionId), items: items(), intents: intents() }).toEqual(before);
+    // Its own Brain tools still work, and a person's same commands are untouched by the session rule.
+    expect((await writer.act("workItem.comment", "still", { workItemId: writer.workItemId, text: "Still here" })).receipt.accepted).toBe(true);
+    expect((await run(w, "mission.proposeCompletion", "person-completion", { missionId })).accepted).toBe(true);
+  });
+
+  it("classifies every command the funnel handles for a session, and the credential's gate follows the classification", async () => {
+    const { w, as } = await crew();
+    const { actor } = as("writer");
+    const handled = w.brain.commands.commandTypes();
+    expect(handled.length).toBeGreaterThan(80);
+    for (const type of handled) {
+      if (SESSION_ADMITTED.has(type)) expect(() => assertSessionAdmits(actor, type), type).not.toThrow();
+      else expect(() => assertSessionAdmits(actor, type), type).toThrow(/a session credential cannot run/u);
+    }
+    // The Governor's own dispatch for a member is not a session credential and keeps its dispatch.
+    expect(() => assertSessionAdmits({ ...actor, authMethod: "service-credential" }, "workflow.dispatch")).not.toThrow();
+  });
+});
+
+describe("removing an idle team member through an agent's plan proposal follows the autonomy policy", () => {
+  const reviewer: TeamMember = { memberId: "reviewer", role: "Reviewer", agentId: "task-worker", engine: "fixture" };
+
+  it("under the standard policy it waits for a person, who confirms it", async () => {
+    const { w, missionId, tasks, as } = await crew({ members: [...team, reviewer] });
+    const receipt = (await as("writer").act("plan.propose", "drop-reviewer", { missionId, origin: "agent", summary: "The reviewer has nothing to do", tasks, team })).receipt;
+    expect((await plan(w, receipt.resourceId!)).state).toBe("proposed");
+    expect(planOf(w, missionId).map((entry) => entry.state)).toEqual(["confirmed", "proposed"]);
+    await run(w, "plan.confirm", "person-drop", { planVersionId: receipt.resourceId! }, (await missionOf(w, missionId)).version);
+    expect(await plan(w, receipt.resourceId!)).toMatchObject({ state: "confirmed", team });
+  });
+
+  it("under the autonomous policy it is confirmed at once", async () => {
+    const { w, missionId, tasks, as } = await crew({ autonomy: "autonomous", members: [...team, reviewer] });
+    const receipt = (await as("writer").act("plan.propose", "drop-reviewer", { missionId, origin: "agent", tasks, team })).receipt;
+    expect(await plan(w, receipt.resourceId!)).toMatchObject({ state: "confirmed", team });
+  });
+
+  it("never reaches a member with started work, under any policy", async () => {
+    const { missionId, tasks, as } = await crew({ autonomy: "autonomous", members: [...team, reviewer] });
+    await expect(as("writer").act("plan.propose", "drop-checker", { missionId, origin: "agent", tasks, team: [team[0]!, reviewer] })).rejects.toThrow(/not on the mission team/u);
   });
 });

@@ -132,7 +132,7 @@ _Avoid_: ADR, note, assumption (an assumption in a handoff is not yet accepted)
 
 **Autonomy policy**:
 The bounds within which a mission's coordinator may change unstarted work, assign tasks
-and request team members without confirmation: an explicit list of permitted plan
+and add or remove team members without confirmation: an explicit list of permitted plan
 operations (presets: supervised, standard, autonomous). It never covers effects, intent,
 constraints, budget, started work or declaring a mission achieved.
 _Avoid_: autopilot, auto-approve (it never authorizes effects), autonomy level
@@ -649,8 +649,14 @@ _Avoid_: agent API, MCP tool (that is another channel)
 **Session principal**:
 The machine principal (kind agent) of one team member of a mission, bound to its workspace
 and mission and recorded as acting for the mission owner (ADR 0032). A running attempt holds
-a credential for it that ends with the attempt or when its fence moves.
+a credential for it that ends with the attempt or when its fence moves. The credential runs
+only the **session command allowlist**.
 _Avoid_: bot, service account, agent user
+
+**Session command allowlist**:
+The commands a session credential may run: only those behind the Brain tools, not whatever its role's
+scopes admit (ADR 0032). The rest are refused; a test requires every command to be classified.
+_Avoid_: session scope, agent permissions
 
 ### Surfaces
 

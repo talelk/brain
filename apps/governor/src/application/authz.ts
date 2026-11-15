@@ -1,5 +1,5 @@
 import type { ActorContext } from "@brain/contracts";
-import { commandDef, roleScopes } from "@brain/contracts";
+import { SESSION_ADMITTED, commandDef, roleScopes } from "@brain/contracts";
 import { BrainDomainError } from "../domain/errors";
 import type { Store } from "./store";
 import { actorOf, agentBinding, resolveSessionCredential, type BrainAuth, type VerifiedSession } from "../modules/identity/index";
@@ -105,6 +105,15 @@ export function authorizeCommand(actor: ActorContext, commandType: string): void
   if (!actor.scopes.includes(def.scope)) {
     throw new BrainDomainError("FORBIDDEN", `missing scope ${def.scope} for ${commandType}`);
   }
+}
+
+/**
+ * A session credential (a running attempt's machine principal, ADR 0032) runs only the commands behind its governed Brain tools (ADR 0042),
+ * whatever its role's scopes would admit. The Governor's own dispatches for a member (service credential) are not sessions.
+ */
+export function assertSessionAdmits(actor: ActorContext, commandType: string): void {
+  if (actor.authMethod !== "machine-credential" || actor.attemptId === undefined || SESSION_ADMITTED.has(commandType)) return;
+  throw new BrainDomainError("FORBIDDEN", `a session credential cannot run ${commandType}: it admits only the commands behind its Brain tools`);
 }
 
 export function requireWorkspaceRead(store: Store, actor: ActorContext, workspaceId: string): void {
