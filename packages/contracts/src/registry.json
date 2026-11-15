@@ -638,6 +638,15 @@
       ]
     },
     {
+      "type": "mission.owner.transfer",
+      "schema": "MissionOwnerTransferCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "workspace.spendCap.set",
       "schema": "WorkspaceSpendCapSetCommand",
       "scope": "mission:write",
@@ -936,6 +945,7 @@
     "plans.estimate",
     "reuse.search",
     "reuse.forMission",
+    "missionOwnerCandidates.list",
     "contextPacks.forRun",
     "contextPacks.reference",
     "evalCases.list",

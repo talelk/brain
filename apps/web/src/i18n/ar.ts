@@ -2166,5 +2166,13 @@ export const ar: Catalog = {
   "usage.run.engine": "المحرك {name}",
   "usage.run.model": "النموذج {name}",
   "usage.breakdown.none": "لا يوجد استخدام مسجّل بعد، لذلك لا شيء لتوزيعه.",
+  "mp.handover.menu": "تسليم هذه المهمة لشخص آخر",
+  "mp.handover.title": "تسليم هذه المهمة",
+  "mp.handover.description": "المالك الحالي: {name}. يتلقى المالك الجديد عناصر الانتباه والإشعارات الخاصة بها، وتعمل جلسات أعضاء فريقها نيابةً عنه من الآن. لا يتوقف العمل الجاري.",
+  "mp.handover.to": "المالك الجديد",
+  "mp.handover.choose": "اختر زميلاً",
+  "mp.handover.none": "لا أحد آخر في مساحة العمل هذه يمكنه العمل على المهام بعد.",
+  "mp.handover.confirm": "تسليم",
+  "mp.handover.done": "أصبحت هذه المهمة الآن ملكاً لـ {name}.",
   // @@END
 };

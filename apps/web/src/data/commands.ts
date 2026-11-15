@@ -13,7 +13,7 @@ import type { CommandReceipt, GitProvider, MissionBudget, OrganizationAdminComma
 export type CommandKind =
   | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.resume"
   | "runner.control"
-  | "mission.create" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "mission.watch" | "mission.seen"
+  | "mission.create" | "mission.owner.transfer" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "mission.watch" | "mission.seen"
   | "mission.brief.edit" | "decision.accept" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
   | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise" | "workItem.details.set" | "pullRequest.refresh"
   | "workspace.wayOfWorking.set" | "workspace.hostedModel.set" | "workspace.effects.set" | "workspace.queueLimit.set" | "workspace.autonomyCeiling.set" | "workspace.sessions.stopAll" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set"
@@ -37,6 +37,7 @@ export interface CommandContext {
 export type PayloadFor<K extends CommandKind> =
   K extends "mission.create" ? { title: string; intent?: string; successCriteria?: string[]; constraints?: string[]; playId?: string; autonomy?: "supervised" | "standard" | "autonomous"; budget?: { maxMicroUsd?: number; memberCap: number }; autoStart?: boolean }
     : K extends "mission.policy.set" ? { missionId: string; autoStart?: boolean; preset?: "supervised" | "standard" | "autonomous" }
+    : K extends "mission.owner.transfer" ? { missionId: string; newOwnerId: string }
     : K extends "mission.pause" | "mission.resume" | "mission.proposeCompletion" ? { missionId: string }
     : K extends "mission.close" ? { missionId: string; outcome: "achieved" | "ended" | "cancelled" }
     : K extends "mission.verdict.record" ? { missionId: string; bundleDigest: string; outcome: "verified" | "rejected"; findings?: string[] }

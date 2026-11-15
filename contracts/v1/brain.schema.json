@@ -7950,6 +7950,7 @@
             "missions.forSubject",
             "reuse.search",
             "reuse.forMission",
+            "missionOwnerCandidates.list",
             "contextPacks.forRun",
             "contextPacks.reference",
             "evalCases.list",
@@ -8044,6 +8045,7 @@
             "missions.forSubject",
             "reuse.search",
             "reuse.forMission",
+            "missionOwnerCandidates.list",
             "contextPacks.forRun",
             "contextPacks.reference",
             "evalCases.list",
@@ -11704,6 +11706,9 @@
         },
         {
           "$ref": "#/$defs/MissionBudgetSetCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionOwnerTransferCommand"
         },
         {
           "$ref": "#/$defs/WorkspaceSpendCapSetCommand"
@@ -23694,6 +23699,56 @@
         "outputTokens",
         "cachedInputTokens",
         "estimated"
+      ],
+      "additionalProperties": false
+    },
+    "MissionOwnerTransferCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.owner.transfer"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "newOwnerId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "missionId",
+            "newOwnerId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
       ],
       "additionalProperties": false
     },

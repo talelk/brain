@@ -1628,5 +1628,13 @@ export const enExtra = {
   "usage.run.engine": "engine {name}",
   "usage.run.model": "model {name}",
   "usage.breakdown.none": "No usage recorded yet, so there is nothing to split.",
+  "mp.handover.menu": "Hand this mission to someone else",
+  "mp.handover.title": "Hand this mission over",
+  "mp.handover.description": "Owner now: {name}. The new owner receives its attention items and notifications, and its team members' sessions act for them from here on. Running work is not interrupted.",
+  "mp.handover.to": "New owner",
+  "mp.handover.choose": "Choose a teammate",
+  "mp.handover.none": "Nobody else in this workspace can work on missions yet.",
+  "mp.handover.confirm": "Hand over",
+  "mp.handover.done": "This mission now belongs to {name}.",
   // @@END
 } as const satisfies Record<string, string>;

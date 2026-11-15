@@ -768,6 +768,11 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
+    "missionOwnerCandidates.list": {
+      "scope": "mission:write",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
     "contextPacks.forRun": {
       "scope": "workspace:read",
       "scopeMode": "workspace",

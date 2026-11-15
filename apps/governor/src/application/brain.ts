@@ -1088,6 +1088,11 @@ export class Brain {
         const text = String((q as typeof q & { search?: string }).search ?? "").trim();
         return this.envelope(q.queryType, { items: this.reuse.search(actor, q.workspaceId, text, { ...(q.resourceId ? { missionId: q.resourceId } : {}), limit: Math.min(limit, 20) }) } as unknown as JsonValue);
       }
+      case "missionOwnerCandidates.list": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        if (!actor.scopes.includes("mission:write")) throw new BrainDomainError("FORBIDDEN", "only people who work on missions see who could take one over");
+        return this.envelope(q.queryType, this.missions.ownerCandidates(actor, q.workspaceId));
+      }
       case "reuse.forMission": {
         if (!q.workspaceId || !q.resourceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId and resourceId required");
         return this.envelope(q.queryType, { items: this.reuse.forMission(actor, q.workspaceId, q.resourceId) } as unknown as JsonValue);

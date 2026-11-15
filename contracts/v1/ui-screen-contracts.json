@@ -123,10 +123,12 @@
     "knowledgeAssets.list",
     "challenges.list",
     "playProposals.list",
-    "agents.list"
+    "agents.list",
+    "missionOwnerCandidates.list"
    ],
    "actions": [
     "mission.policy.set",
+    "mission.owner.transfer",
     "mission.pause",
     "mission.resume",
     "mission.proposeCompletion",

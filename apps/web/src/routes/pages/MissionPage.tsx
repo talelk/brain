@@ -189,6 +189,20 @@ export default function MissionPage(): JSX.Element {
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [ending, setEnding] = createSignal(false);
+  const [handing, setHanding] = createSignal(false);
+  const [newOwner, setNewOwner] = createSignal("");
+  const [handedTo, setHandedTo] = createSignal("");
+  const [people, setPeople] = createSignal<Array<{ principalId: string; displayName: string; email?: string }>>([]);
+  /** Who may take the mission over: the workspace members the Governor says hold what its sessions need, but the current owner. */
+  const candidates = () => people().filter((member) => member.principalId !== current()?.ownerId);
+  const canHandOver = () => app.identity()?.actor.kind === "human" && (current()?.ownerId === app.identity()?.actor.actorId || app.myRoles().includes("workspace-lead"));
+  async function openHandover(): Promise<void> {
+    setNewOwner(""); setPeople([]); setHanding(true);
+    try {
+      const response = await query<Envelope<{ items: Array<{ principalId: string; displayName: string; email?: string }> }>>({ queryType: "missionOwnerCandidates.list", workspaceId: app.workspaceId() } as never);
+      setPeople(response.snapshot.items);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "The people who could take over could not be loaded."); }
+  }
   async function act(fn: () => Promise<unknown>): Promise<void> {
     if (busy()) return;
     setBusy(true); setError("");
@@ -217,15 +231,18 @@ export default function MissionPage(): JSX.Element {
           ...(m().state === "active" ? [{ value: "pause", label: t("mp.pause-the-mission.86e9"), icon: "lucide-pause" }] : []),
           ...(m().state === "active" && !missionGuide(m(), items.state().data ?? [], app.canDispatch()).allDone ? [{ value: "finish", label: t("mp.finish-mission-propose-completio.1e4c"), icon: "lucide-badge-check" }] : []),
           { value: "autoStart", label: m().autoStart ? t("mp.starting-tasks-automatic-switch.eab0") : t("mp.starting-tasks-ask-me-before-eac.6322"), icon: m().autoStart ? "lucide-zap" : "lucide-hand" },
+          ...(canHandOver() ? [{ value: "handover", label: t("mp.handover.menu"), icon: "lucide-user-round-check" }] : []),
           { value: "end", label: t("mp.end-mission-without-completion.1351"), icon: "lucide-square" }]}
         onSelect={(value) => {
           if (value === "end") setEnding(true);
+          if (value === "handover") void openHandover();
           if (value === "pause") void act(() => app.run("mission.pause", { missionId: m().missionId }, { expectedVersion: m().version }));
           if (value === "finish") void act(() => app.run("mission.proposeCompletion", { missionId: m().missionId }, { expectedVersion: m().version }));
           if (value === "autoStart") void act(() => app.run("mission.policy.set", { missionId: m().missionId, autoStart: !m().autoStart }, { expectedVersion: m().version }));
         }}><span class="flex items-center gap-1.5"><span class="lucide-ellipsis size-4" aria-hidden="true" />{t("mp.more.4bab")}</span></Dropdown></Show>
     </div>}</Show>}>
     <PageStack>
+      <Show when={handedTo()}><Alert theme="green" variant="outline" title={t("mp.handover.done", { name: handedTo() })} /></Show>
       <Show when={error()}><Alert theme="red" variant="outline" title={t("mp.the-mission-refused-this-change.e1f1")} description={error()} /></Show>
       <ScreenRegion state={mission.state()} onRetry={() => void mission.refresh({ force: true })} emptyTitle={t("mp.mission-not-found.843a")} emptyDescription={t("mp.it-may-belong-to-another-workspa.da49")}>
         <Show when={current()}>{(m) => <>
@@ -237,6 +254,24 @@ export default function MissionPage(): JSX.Element {
               <Dialog.Footer class="flex-wrap justify-end gap-2">
                 <Button size="sm" variant="outline" onClick={() => setEnding(false)}>{t("mp.cancel.77df")}</Button>
                 <Button size="sm" variant="solid" theme="red" loading={busy()} onClick={() => void act(async () => { await app.run("mission.close", { missionId: m().missionId, outcome: "ended" }, { expectedVersion: m().version }); setEnding(false); })}>{t("mp.end-mission.c54f")}</Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Root>
+          <Dialog.Root open={handing()} onOpenChange={(open) => { if (!open) setHanding(false); }}>
+            <Dialog.Content size="md">
+              <Dialog.Header><Dialog.Title>{t("mp.handover.title")}</Dialog.Title><Dialog.Description>{t("mp.handover.description", { name: app.personName(m().ownerId) })}</Dialog.Description></Dialog.Header>
+              <Show when={candidates().length > 0} fallback={<p class="text-interface text-ink-gray-7">{t("mp.handover.none")}</p>}>
+                <Select label={t("mp.handover.to")} placeholder={t("mp.handover.choose")} value={newOwner()} onValueChange={(value) => setNewOwner(value ?? "")}
+                  options={candidates().map((member) => ({ value: member.principalId, label: member.displayName, ...(member.email ? { description: member.email } : {}) }))} />
+              </Show>
+              <Dialog.Footer class="flex-wrap justify-end gap-2">
+                <Button size="sm" variant="outline" onClick={() => setHanding(false)}>{t("mp.cancel.77df")}</Button>
+                <Button size="sm" variant="solid" theme="blue" disabled={!newOwner()} loading={busy()} onClick={() => void act(async () => {
+                  const target = newOwner();
+                  const targetName = candidates().find((member) => member.principalId === target)?.displayName ?? target;
+                  await app.run("mission.owner.transfer", { missionId: m().missionId, newOwnerId: target }, { expectedVersion: m().version });
+                  setHandedTo(targetName); setHanding(false);
+                })}>{t("mp.handover.confirm")}</Button>
               </Dialog.Footer>
             </Dialog.Content>
           </Dialog.Root>
