@@ -13,6 +13,7 @@ import type { Store } from "../../application/store";
 import { isDraining } from "./drain";
 import { heldForHostedModel, modelRouteFor } from "./model-route";
 import { effectOutcomesFor, executionArtifactId, HOLD_REASON } from "./effect-hold";
+import { ensureSkills, promptTaskText, skillTokens } from "./skill-selection";
 
 /**
  * Job/attempt lifecycle: fair claim, offers as pinned execution artifacts,
@@ -194,6 +195,8 @@ export function claim(s: Store, deps: {
         .run(runner.runnerId, runner.epoch, requestId, attemptId, requestId, s.now());
       if (decision?.admitted && deps.missionReserve) deps.missionReserve(String(job["workspace_id"]), { ...(decision.missionId ? { missionId: decision.missionId } : {}), runId: String(job["workflow_run_id"]), attemptId, microUsd: decision.reserve });
       s.control.prepare("UPDATE jobs SET queue_reason=NULL WHERE id=?").run(String(job["id"]));
+      // Skills first: the ones this task loads take their share of the prompt before the context pack is sized.
+      ensureSkills(s, runner.organizationId, job);
       if (deps.contextPack) ensureContextPack(s, deps.contextPack, runner.organizationId, job);
       offer = offerJson(s, attemptId);
       return;
@@ -217,11 +220,11 @@ export const TOOL_CONTEXT_BUDGET_TOKENS = 4000;
 
 /**
  * The pack's token budget: its own share of the ceiling, but never more than what the overall prompt budget leaves after the task's brief
- * (a long brief with upstream deliverables can be ~7000 tokens) and the instructions. A floor keeps the facts of the brief in.
+ * (a long brief with upstream deliverables can be ~7000 tokens), the instructions and the skills this task loads. A floor keeps the facts of the brief in.
  */
-export function contextBudget(maxTokens: number, taskText: string, usesTools = false): number {
+export function contextBudget(maxTokens: number, taskText: string, usesTools = false, skillsTokens = 0): number {
   const own = Math.min(Math.floor(maxTokens * CONTEXT_BUDGET_SHARE), usesTools ? TOOL_CONTEXT_BUDGET_TOKENS : Infinity);
-  const left = Math.floor(maxTokens * PROMPT_BUDGET_SHARE) - Math.ceil(taskText.length / 4) - INSTRUCTION_RESERVE_TOKENS;
+  const left = Math.floor(maxTokens * PROMPT_BUDGET_SHARE) - Math.ceil(taskText.length / 4) - INSTRUCTION_RESERVE_TOKENS - skillsTokens;
   return Math.max(256, Math.min(own, left));
 }
 
@@ -241,7 +244,7 @@ export function ensureContextPack(s: Store, build: ContextPackPort, organization
   const jobId = String(job["id"]);
   const row = s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { payload_json: string } | undefined;
   if (!row) return;
-  const payload = JSON.parse(row.payload_json) as { step?: { task?: string; uses?: { type?: string; release?: { id: string } } }; input?: unknown; contextPack?: unknown };
+  const payload = JSON.parse(row.payload_json) as { step?: { task?: string; uses?: { type?: string; release?: { id: string } } }; input?: unknown; contextPack?: unknown; skills?: Array<{ text: string }> };
   const agentId = payload.step?.uses?.type === "agent" ? payload.step.uses.release?.id : undefined;
   if (!agentId || payload.contextPack) return;
   // A job whose execution artifact is already pinned (offered before this code, or by an earlier claim) keeps exactly those bytes.
@@ -262,11 +265,10 @@ export function ensureContextPack(s: Store, build: ContextPackPort, organization
   }
 }
 
-function pinContextPack(s: Store, build: ContextPackPort, organizationId: string, workspaceId: string, job: Record<string, unknown>, jobId: string, agentId: string, maxTokens: number, payload: { step?: { task?: string }; input?: unknown; contextPack?: unknown }, tools: ReadonlyArray<{ id: string; allowedHosts?: readonly string[] }>): void {
+function pinContextPack(s: Store, build: ContextPackPort, organizationId: string, workspaceId: string, job: Record<string, unknown>, jobId: string, agentId: string, maxTokens: number, payload: { step?: { task?: string }; input?: unknown; contextPack?: unknown; skills?: Array<{ text: string }> }, tools: ReadonlyArray<{ id: string; allowedHosts?: readonly string[] }>): void {
   // The prompt the runner sends is this pack followed by the step's task (or its input): the pack budget leaves room for it, and the pack skips what the task already says.
-  const situation = (payload.input as { situation?: unknown } | null | undefined)?.situation;
-  const taskText = payload.step?.task ?? (typeof situation === "string" ? situation : JSON.stringify(payload.input ?? {}));
-  const pack = build(organizationId, workspaceId, { runId: String(job["workflow_run_id"]), jobId, agentId, budgetTokens: contextBudget(maxTokens, taskText, tools.length > 0), taskText, tools });
+  const taskText = promptTaskText(payload);
+  const pack = build(organizationId, workspaceId, { runId: String(job["workflow_run_id"]), jobId, agentId, budgetTokens: contextBudget(maxTokens, taskText, tools.length > 0, skillTokens(payload.skills)), taskText, tools });
   if (!pack) return;
   const store = (artifactId: string, text: string, mediaType: string) => {
     const bytes = new TextEncoder().encode(text);
