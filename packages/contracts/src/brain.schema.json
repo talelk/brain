@@ -7962,6 +7962,8 @@
             "usage.task",
             "usage.mission",
             "usage.workspace",
+            "usage.agent",
+            "usage.member",
             "plans.estimate",
             "missions.forSubject",
             "reuse.search",
@@ -8054,6 +8056,8 @@
             "usage.task",
             "usage.mission",
             "usage.workspace",
+            "usage.agent",
+            "usage.member",
             "plans.estimate",
             "missions.forSubject",
             "reuse.search",
@@ -24738,7 +24742,9 @@
             "run",
             "task",
             "mission",
-            "workspace"
+            "workspace",
+            "agent",
+            "member"
           ]
         },
         "id": {
@@ -24795,6 +24801,29 @@
               },
               "estimated": {
                 "type": "boolean"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "attempt",
+                  "judge"
+                ]
+              },
+              "agentId": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "memberId": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "engine": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "model": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
               }
             },
             "required": [
@@ -24806,7 +24835,8 @@
               "cachedInputTokens",
               "microUsd",
               "reservedMicroUsd",
-              "estimated"
+              "estimated",
+              "source"
             ],
             "additionalProperties": false
           }
@@ -24833,6 +24863,9 @@
           },
           "required": [],
           "additionalProperties": false
+        },
+        "breakdown": {
+          "$ref": "#/$defs/UsageBreakdown"
         }
       },
       "required": [
@@ -24840,6 +24873,62 @@
         "id",
         "usage"
       ],
+      "additionalProperties": false
+    },
+    "UsageGroup": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "attempt",
+            "judge"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "usage": {
+          "$ref": "#/$defs/UsageSummary"
+        }
+      },
+      "required": [
+        "source",
+        "usage"
+      ],
+      "additionalProperties": false
+    },
+    "UsageBreakdown": {
+      "type": "object",
+      "properties": {
+        "member": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UsageGroup"
+          }
+        },
+        "agent": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UsageGroup"
+          }
+        },
+        "engine": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UsageGroup"
+          }
+        },
+        "model": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UsageGroup"
+          }
+        }
+      },
+      "required": [],
       "additionalProperties": false
     },
     "PlanEstimate": {

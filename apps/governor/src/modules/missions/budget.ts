@@ -72,8 +72,10 @@ function settleAttempt(store: Store, db: Db, table: "mission_spend" | "workspace
   if (!released?.released_at_ms) return;
   const events = (store.control.prepare("SELECT event_json FROM attempt_events WHERE attempt_id=? ORDER BY seq").all(attemptId) as Array<{ event_json: string }>).map((row) => JSON.parse(row.event_json) as Parameters<typeof tallyUsage>[0][number]);
   const usage = tallyUsage(events);
-  db.prepare(`UPDATE ${table} SET settled_micro_usd=?,input_tokens=?,output_tokens=?,cached_input_tokens=?,accounting=?,estimated=?,settled_at_ms=? WHERE attempt_id=? AND settled_at_ms IS NULL`)
-    .run(usage.microUsd, usage.inputTokens, usage.outputTokens, usage.cachedInputTokens, usage.accounting, usage.estimated ? 1 : 0, store.now(), attemptId);
+  // The engine and model are what the runner reported for this attempt (kept once as it reported them); an attempt that reported none stays unattributed.
+  const reported = store.control.prepare("SELECT reported_engine AS engine, reported_model AS model FROM job_attempts WHERE id=?").get(attemptId) as { engine: string | null; model: string | null } | undefined;
+  db.prepare(`UPDATE ${table} SET settled_micro_usd=?,input_tokens=?,output_tokens=?,cached_input_tokens=?,accounting=?,estimated=?,engine_id=?,model_id=?,settled_at_ms=? WHERE attempt_id=? AND settled_at_ms IS NULL`)
+    .run(usage.microUsd, usage.inputTokens, usage.outputTokens, usage.cachedInputTokens, usage.accounting, usage.estimated ? 1 : 0, reported?.engine ?? null, reported?.model ?? null, store.now(), attemptId);
 }
 
 /** Settles every mission's released attempts and the interactive attempts outside missions, so workspace totals and the spend cap see current usage. */
@@ -178,15 +180,20 @@ export function reachedLimits(store: Store, db: Db, missionId: string): Array<"t
   return out;
 }
 
-/** Records the reservation of an admitted attempt against its mission, or against the workspace's "Outside missions" bucket when it has none. */
-export function reserve(store: Store, db: Db, input: { missionId?: string; runId: string; attemptId: string; microUsd: number }): void {
+/**
+ * Records the reservation of an admitted attempt against its mission, or against the workspace's "Outside missions" bucket when it has none.
+ * The agent definition (from the job's pinned payload) and the team member (from the mission's plan) are stamped now, when the Governor chose
+ * them; the engine and model are added at settlement from what the runner reported (ADR 0051).
+ */
+export function reserve(store: Store, db: Db, input: { missionId?: string; runId: string; attemptId: string; microUsd: number; agentId?: string; memberId?: string | null }): void {
+  const agentId = input.agentId ?? null;
   if (!input.missionId) {
-    db.prepare("INSERT OR IGNORE INTO workspace_spend(attempt_id,run_id,reserved_micro_usd,created_at_ms) VALUES (?,?,?,?)").run(input.attemptId, input.runId, input.microUsd, store.now());
+    db.prepare("INSERT OR IGNORE INTO workspace_spend(attempt_id,run_id,reserved_micro_usd,agent_id,created_at_ms) VALUES (?,?,?,?,?)").run(input.attemptId, input.runId, input.microUsd, agentId, store.now());
     return;
   }
   const tokens = (db.prepare("SELECT attempt_reserve_tokens FROM missions WHERE id=?").get(input.missionId) as { attempt_reserve_tokens: number } | undefined)?.attempt_reserve_tokens ?? 0;
-  db.prepare("INSERT OR IGNORE INTO mission_spend(attempt_id,mission_id,run_id,reserved_micro_usd,reserved_tokens,created_at_ms) VALUES (?,?,?,?,?,?)")
-    .run(input.attemptId, input.missionId, input.runId, input.microUsd, tokens, store.now());
+  db.prepare("INSERT OR IGNORE INTO mission_spend(attempt_id,mission_id,run_id,reserved_micro_usd,reserved_tokens,agent_id,member_id,created_at_ms) VALUES (?,?,?,?,?,?,?,?)")
+    .run(input.attemptId, input.missionId, input.runId, input.microUsd, tokens, agentId, input.memberId ?? null, store.now());
 }
 
 /** Admission of interactive work outside any mission: only the workspace spend cap applies; it is then charged to the workspace bucket. */
@@ -243,8 +250,8 @@ export function judgeAdmitted(store: Store, db: Db, missionId: string): boolean 
  * Charges one finished judge call to its mission, settled at once: the ledger row has no runner attempt to wait for. `attemptId` is
  * `judge:<bundle>:<criterion>`, so a replayed call is the same row and never charged twice.
  */
-export function recordJudgeSpend(store: Store, db: Db, input: { missionId: string; attemptId: string; runId: string; microUsd: number; inputTokens: number; outputTokens: number; estimated: boolean }): void {
+export function recordJudgeSpend(store: Store, db: Db, input: { missionId: string; attemptId: string; runId: string; model: string; microUsd: number; inputTokens: number; outputTokens: number; estimated: boolean }): void {
   const now = store.now();
-  db.prepare(`INSERT OR IGNORE INTO mission_spend(attempt_id,mission_id,run_id,reserved_micro_usd,settled_micro_usd,reserved_tokens,input_tokens,output_tokens,cached_input_tokens,accounting,estimated,created_at_ms,settled_at_ms)
-    VALUES (?,?,?,0,?,0,?,?,0,'final-total',?,?,?)`).run(input.attemptId, input.missionId, input.runId, input.microUsd, input.inputTokens, input.outputTokens, input.estimated ? 1 : 0, now, now);
+  db.prepare(`INSERT OR IGNORE INTO mission_spend(attempt_id,mission_id,run_id,reserved_micro_usd,settled_micro_usd,reserved_tokens,input_tokens,output_tokens,cached_input_tokens,accounting,estimated,source,model_id,created_at_ms,settled_at_ms)
+    VALUES (?,?,?,0,?,0,?,?,0,'final-total',?,'judge',?,?,?)`).run(input.attemptId, input.missionId, input.runId, input.microUsd, input.inputTokens, input.outputTokens, input.estimated ? 1 : 0, input.model, now, now);
 }

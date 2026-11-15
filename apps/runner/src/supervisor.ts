@@ -219,7 +219,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
   // The engine that actually executes the attempt; reported with the event
   // batches so the Governor's session view names the real adapter and its
   // probe features, not a guess.
-  let engineInfo: { id: string; adapterDigest: string; features: string[] } | undefined;
+  let engineInfo: { id: string; adapterDigest: string; features: string[]; model?: string } | undefined;
   // A failed events POST leaves the journal untouched: the same batch replays
   // on the next flush, in order, after the Governor acknowledges the batch.
   const flushEvents = async (): Promise<void> => {
@@ -244,7 +244,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     if (kind === "engine") {
       const event = eventPayload as { kind?: string; payload?: { engine?: { id: string; adapterDigest: string; features?: string[] } } };
       if (event.kind === "session.started" && event.payload?.engine) {
-        engineInfo = { id: event.payload.engine.id, adapterDigest: event.payload.engine.adapterDigest, features: event.payload.engine.features ?? [] };
+        engineInfo = { id: event.payload.engine.id, adapterDigest: event.payload.engine.adapterDigest, features: event.payload.engine.features ?? [], ...(engineInfo?.model ? { model: engineInfo.model } : {}) };
       }
     }
     eventSeq += 1;
@@ -338,7 +338,10 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       const engine = hostedRoutes.length > 0 ? candidates[0]?.engine : selectEngine(engineConfigured, offeredBindings);
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner with the ${required} isolation this step requires`);
       const engineProbe = await engine.probe();
-      engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features] };
+      // The model this attempt runs on, as the usage ledger attributes spend (#111): the hosted route's, else the runner's configured one, else the
+      // engine's own default. An engine that names none (an ACP agent picks its own) reports none: nothing is invented.
+      const modelId = hostedRoutes[0]?.model ?? process.env["BRAIN_LOCAL_MODEL_ID"] ?? engine.defaultModelId;
+      engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features], ...(modelId ? { model: modelId } : {}) };
       const task = promptWithContext(step.task ?? JSON.stringify(payload.input ?? {}), payload.contextPack) + settledEffectsNote(settledEffects) + (payload.resume ? RESUME_NOTE : "");
       const launcher = cfg.launcher ?? (LauncherClient.configured() ? LauncherClient.fromEnv() : undefined);
       const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;

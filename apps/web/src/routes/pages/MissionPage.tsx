@@ -27,6 +27,7 @@ import { SessionTranscript } from "../../ui/console/SessionTranscript";
 import { readExecFilters, writeExecFilters } from "../../ui/exec/exec-filters";
 import { MissionOutputs } from "../../ui/outputs/MissionOutputs";
 import { MissionUsage, reportsNoCost } from "../../ui/usage/Usage";
+import { UsageBreakdown } from "../../ui/usage/UsageBreakdown";
 import { PlanEstimate } from "../../ui/usage/PlanEstimate";
 import { ReusedInBrief } from "../../ui/components/Reuse";
 import { MissionTimeline } from "../../ui/timeline/MissionTimeline";
@@ -146,6 +147,7 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
       <Show when={props.tab !== "plan" && !reportsNoCost(props.mission.usage) ? props.mission.budget.maxMicroUsd : undefined}>{(limit) => <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">{t("mp.budget.7aeb")}</p><Meter label={t("mp.mission-budget.8424")} settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} /></div>}</Show>
     </div>
     <MissionUsage mission={props.mission} taskTokenCap={props.items.reduce<number | undefined>((top, item) => (item.tokenCap === undefined ? top : Math.max(top ?? 0, item.tokenCap)), undefined)} onAct={props.onAct} busy={props.busy} />
+    <UsageBreakdown mission={props.mission} />
   </div>;
 }
 

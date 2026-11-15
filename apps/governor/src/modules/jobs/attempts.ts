@@ -85,7 +85,7 @@ function jobUsesHostTools(s: Store, organizationId: string, job: Record<string, 
 export function claim(s: Store, deps: {
   isEvaluatorEligible: (runnerId: string, jobId: string) => boolean; isRunnerCurrent?: (runnerId: string) => boolean;
   missionAdmission?: (workspaceId: string, runId: string) => import("./job-protocol").MissionAdmission;
-  missionReserve?: (workspaceId: string, input: { missionId?: string; runId: string; attemptId: string; microUsd: number }) => void;
+  missionReserve?: (workspaceId: string, input: { missionId?: string; runId: string; attemptId: string; microUsd: number; agentId?: string }) => void;
   contextPack?: ContextPackPort;
 }, runner: { runnerId: string; epoch: number; organizationId: string }, requestId: string): JsonValue | null {
   let offer: JsonValue | null = null;
@@ -200,7 +200,10 @@ export function claim(s: Store, deps: {
         .run(attemptId, runner.runnerId, Math.max(1, demand.cpuMillicores), Math.max(1, demand.memoryMb), Math.max(1, demand.diskMb), Math.max(1, demand.slots));
       s.control.prepare("INSERT INTO runner_claim_requests(runner_id, runner_epoch, request_id, attempt_id, request_digest, created_at_ms) VALUES (?,?,?,?,?,?)")
         .run(runner.runnerId, runner.epoch, requestId, attemptId, requestId, s.now());
-      if (decision?.admitted && deps.missionReserve) deps.missionReserve(String(job["workspace_id"]), { ...(decision.missionId ? { missionId: decision.missionId } : {}), runId: String(job["workflow_run_id"]), attemptId, microUsd: decision.reserve });
+      if (decision?.admitted && deps.missionReserve) {
+        const agentId = pinnedAgentOf(s, String(job["id"]));
+        deps.missionReserve(String(job["workspace_id"]), { ...(decision.missionId ? { missionId: decision.missionId } : {}), runId: String(job["workflow_run_id"]), attemptId, microUsd: decision.reserve, ...(agentId ? { agentId } : {}) });
+      }
       s.control.prepare("UPDATE jobs SET queue_reason=NULL WHERE id=?").run(String(job["id"]));
       // Skills first: the ones this task loads take their share of the prompt before the context pack is sized.
       ensureSkills(s, runner.organizationId, job);
@@ -303,6 +306,14 @@ export function ensureExecutionArtifact(s: Store, jobId: string, organizationId:
   putBytes(s, bytes);
   registerArtifact(s, { artifactId, organizationId, workspaceId, digest, bytes: bytes.length, mediaType: "application/json", classification: "internal", owner: { kind: "job", id: jobId } });
   return { artifactId, digest, bytes: bytes.length };
+}
+
+/** The agent definition a job's pinned payload runs (an agent step names its release); none for an eval, merge or tool step. The model never names it. */
+function pinnedAgentOf(s: Store, jobId: string): string | undefined {
+  const row = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { kind: string; payload_json: string } | undefined;
+  if (!row || row.kind === "eval" || row.kind === "merge") return undefined;
+  const uses = (JSON.parse(row.payload_json) as { step?: { uses?: { type?: string; release?: { id?: string } } } }).step?.uses;
+  return uses?.type === "agent" && typeof uses.release?.id === "string" ? uses.release.id : undefined;
 }
 
 /** What a runner needs to act as a session: the credential, and the ids the model cannot know (the mission, the member and the task this attempt serves). */
@@ -471,7 +482,12 @@ export function attemptEvents(s: Store, runner: { runnerId: string; epoch: numbe
     s.control.prepare("UPDATE job_attempts SET last_event_seq=? WHERE id=?").run(lastSeq, attemptId);
     // Keep the session view's cursor current so the live feed resumes at the
     // authoritative sequence instead of replaying the whole transcript.
-    const eng = body["engine"] as { id?: unknown; adapterDigest?: unknown; features?: unknown } | undefined;
+    const eng = body["engine"] as { id?: unknown; adapterDigest?: unknown; features?: unknown; model?: unknown } | undefined;
+    // What the runner reports about the attempt is kept once, as reported: the usage ledger attributes the attempt's spend to it (ADR 0051).
+    if (eng && typeof eng.id === "string" && eng.id.length > 0) {
+      s.control.prepare("UPDATE job_attempts SET reported_engine=COALESCE(reported_engine,?), reported_model=COALESCE(reported_model,?) WHERE id=?")
+        .run(eng.id.slice(0, 64), typeof eng.model === "string" && eng.model.length > 0 ? eng.model.slice(0, 128) : null, attemptId);
+    }
     recordAttemptProgress(s, {
       organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]), attemptId, lastSequence: lastSeq,
       engine: eng && typeof eng.id === "string" && eng.id.length > 0

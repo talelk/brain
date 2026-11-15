@@ -162,6 +162,7 @@ CREATE TABLE job_attempts (
   interruption TEXT DEFAULT NULL CHECK(interruption IS NULL OR interruption IN ('platform')),
   failure_reason TEXT DEFAULT NULL,
   deadline_ms INTEGER DEFAULT NULL,
+  reported_engine TEXT DEFAULT NULL, reported_model TEXT DEFAULT NULL,
   UNIQUE(job_id, attempt_no), UNIQUE(job_id, job_fence)
 ) STRICT;
 CREATE UNIQUE INDEX one_active_attempt ON job_attempts(job_id)

@@ -72,6 +72,12 @@ export function TaskUsage(props: { workItemId: string }): JSX.Element {
   </div>}</Show>;
 }
 
+/** Who an attempt's usage belongs to, as far as the Governor and the runner said: nothing is shown for what was not reported. */
+const attributionOf = (row: { memberId?: string | undefined; agentId?: string | undefined; engine?: string | undefined; model?: string | undefined }): string[] => [
+  ...(row.memberId ? [t("usage.run.member", { name: row.memberId })] : []), ...(row.agentId ? [t("usage.run.agent", { name: row.agentId })] : []),
+  ...(row.engine ? [t("usage.run.engine", { name: row.engine })] : []), ...(row.model ? [t("usage.run.model", { name: row.model })] : []),
+];
+
 /** The run's attempts: totals plus what the attempt in flight has reported so far. */
 export function RunUsage(props: { runId: string }): JSX.Element {
   const usage = useUsage("usage.run", () => props.runId);
@@ -81,6 +87,7 @@ export function RunUsage(props: { runId: string }): JSX.Element {
       <ul class="flex flex-col gap-1 text-caption text-ink-gray-7" aria-label="Usage by attempt">
         <For each={view().attemptRows}>{(row, index) => <li data-testid="run-usage-attempt">
           Attempt {index() + 1}: {formatTokens(row.inputTokens + row.outputTokens + row.cachedInputTokens)} tokens · {formatUsd(row.microUsd)}{row.settled ? "" : " so far (still running)"}{row.estimated ? " · estimated" : ""}
+          <Show when={attributionOf(row).length > 0}><span class="text-ink-gray-6" data-testid="run-usage-who"> · {attributionOf(row).join(" · ")}</span></Show>
         </li>}</For>
       </ul>
     </Show>

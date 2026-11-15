@@ -138,6 +138,8 @@ export function settleRouteReport(s: Store, input: { attemptId: string; jobId: s
     const route = pinned.find((candidate) => candidate.routeId === entry.routeId);
     if (!route || (entry.outcome !== "served" && entry.outcome !== "quota" && entry.outcome !== "failed") || uses.some((use) => use.routeId === route.routeId)) continue;
     uses.push({ routeId: route.routeId, model: route.model, outcome: entry.outcome });
+    // The usage ledger attributes spend to the model that answered (#111): the runner named the first route when it took the attempt, and a failover can end on another.
+    if (entry.outcome === "served") s.control.prepare("UPDATE job_attempts SET reported_model=? WHERE id=?").run(route.model, input.attemptId);
     if (entry.outcome === "quota") markRouteQuota(s, input.workspaceId, route.routeId, typeof entry.retryAfterMs === "number" && entry.retryAfterMs > 0 ? entry.retryAfterMs : undefined, "the provider refused for quota or rate");
   }
   recordRouteUses(s, input.attemptId, input.workspaceId, uses);

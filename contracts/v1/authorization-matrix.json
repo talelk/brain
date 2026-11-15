@@ -743,6 +743,16 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
+    "usage.agent": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "usage.member": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
     "plans.estimate": {
       "scope": "workspace:read",
       "scopeMode": "workspace",

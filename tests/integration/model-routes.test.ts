@@ -135,6 +135,8 @@ describe("a quota refusal moves work to the next route and is recorded per attem
     const attemptId = finish(w, first.runner, "req-f1", [{ routeId: "a", outcome: "quota", retryAfterMs: 45_000 }, { routeId: "b", outcome: "served" }], "succeeded");
     expect(offeredRoutes(w, first.jobId)).toEqual(["a", "b", "c"]);
     expect(attemptRouteUses(w.brain.store, attemptId)).toEqual([{ routeId: "a", model: "model-a", outcome: "quota" }, { routeId: "b", model: "model-b", outcome: "served" }]);
+    // Spend is attributed to the model that answered, not the one the attempt started on (#111).
+    expect((w.brain.store.control.prepare("SELECT reported_model AS model FROM job_attempts WHERE id=?").get(attemptId) as { model: string }).model).toBe("model-b");
     // The run inspector says which route served the attempt.
     const job = ((await w.brain.executeQuery(w.owner, { queryType: "job.get", workspaceId: w.workspaceId, resourceId: first.jobId } as never)) as unknown as { snapshot: { attempts?: Array<{ modelRoutes?: unknown }> } }).snapshot;
     expect(JSON.stringify(job)).toContain('"outcome":"served"');

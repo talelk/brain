@@ -75,6 +75,7 @@ CREATE TABLE mission_spend (
   reserved_tokens INTEGER NOT NULL DEFAULT 0 CHECK(reserved_tokens >= 0),
   input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cached_input_tokens INTEGER NOT NULL DEFAULT 0,
   accounting TEXT DEFAULT NULL CHECK(accounting IS NULL OR accounting IN ('final-total','incremental')), estimated INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'attempt' CHECK(source IN ('attempt','judge')), agent_id TEXT DEFAULT NULL, member_id TEXT DEFAULT NULL, engine_id TEXT DEFAULT NULL, model_id TEXT DEFAULT NULL,
   created_at_ms INTEGER NOT NULL, settled_at_ms INTEGER
 ) STRICT;
 CREATE INDEX mission_spend_run ON mission_spend(run_id);
@@ -91,6 +92,7 @@ CREATE TABLE workspace_spend (
   reserved_tokens INTEGER NOT NULL DEFAULT 0 CHECK(reserved_tokens >= 0),
   input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cached_input_tokens INTEGER NOT NULL DEFAULT 0,
   accounting TEXT DEFAULT NULL CHECK(accounting IS NULL OR accounting IN ('final-total','incremental')), estimated INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'attempt' CHECK(source IN ('attempt','judge')), agent_id TEXT DEFAULT NULL, member_id TEXT DEFAULT NULL, engine_id TEXT DEFAULT NULL, model_id TEXT DEFAULT NULL,
   created_at_ms INTEGER NOT NULL, settled_at_ms INTEGER
 ) STRICT;
 CREATE INDEX workspace_spend_run ON workspace_spend(run_id);
