@@ -42,7 +42,7 @@ _Avoid_: result, resolution, done
 
 **Attention item**:
 Something in a mission that a human must act on (a blocking item: an approval, a plan
-proposal, a parked work item, a paused mission or a **sign-off item**) or wants to know (a
+proposal, a parked work item, a paused mission, a **sign-off item** or a **question**) or wants to know (a
 **result ready** item). Only attention items notify; progress events never do.
 _Avoid_: alert, notification (the delivery, not the item), todo
 
@@ -52,6 +52,14 @@ evidence bundle is submitted. It names the bundle, so a rejected and resubmitted
 raises a new one. A person answers it on the mission's Outputs tab with the mission
 verdict (independence L3); an agent never can.
 _Avoid_: approval (that gates an effect), review request
+
+**Question**:
+A team member's session asks a person something it cannot decide, through the `mission.ask` Brain tool
+(ADR 0050). It is a record written once, and the blocking attention item "question" is derived while no
+answer exists. The person answers from the mission's composer: the answer is a Mission message to the
+asking member, delivered like any, and clears the item. A session may ask 3 questions in all and have 2
+waiting at once; the asker is never held, and an answer authorizes nothing.
+_Avoid_: ticket, request for input, blocker
 
 **Result ready**:
 The one non-blocking attention item: a mission closed achieved or a task reached Done on
@@ -168,8 +176,9 @@ can be started by hand, on a schedule or by a trigger.
 _Avoid_: playbook, recipe, template, pack
 
 **Coordinator**:
-The team member whose role is planning and coordinating the rest of the mission team.
-Missions whose dependencies are deterministic have none.
+The team member whose role is planning and re-planning the mission within its autonomy
+policy, only through Brain tools. It starts nothing and signs nothing off. Missions whose
+dependencies are deterministic have none.
 _Avoid_: lead, orchestrator, manager
 
 **Plan version**:
@@ -311,13 +320,13 @@ _Avoid_: task session, worker session
 
 **Mission-level session**:
 A session bound to a mission but to no work item — an interactive conversation, or a
-coordinator planning and coordinating. A coordinator's mission-level sessions act only
-through Brain commands.
+coordinator planning.
 _Avoid_: planning session, chat session, free session
 
 **Mission message**:
 A durable message from a human, or from a team member's session, to one team member or (from a
-human only) to the mission, which means its coordinator. A team member names another member, never
+human only) to the mission, which means its coordinator. A person's answer to a **question** is one to
+the member that asked. A team member names another member, never
 itself, never interrupts, and has a few waiting at a time. It is steered into a live session when the
 engine allows, otherwise delivered when the recipient's next session starts, labelled with its sender.
 It never authorizes anything.
@@ -422,6 +431,17 @@ _Avoid_: approval update, approval use
 A Governor-issued authorization required immediately before a write or privileged
 effect executes.
 _Avoid_: approval (a permit is machine-validated, an approval is human), grant
+
+**Approval origin**:
+The run, work item and mission an approval was asked for, bound in its subject by the
+Governor and never claimed by the caller. Titles, the diff and the rollback are read
+beside it and are not part of the digest.
+_Avoid_: context (that is the read-time part), owner
+
+**Compensating action**:
+What a Tool document declares undoes its effect, in plain words. Shown on the approval
+as the rollback; Brain never runs it.
+_Avoid_: undo, revert button
 
 **Decision**:
 A first-class auditable business judgement — go, no, not-now, need-more-data. It is not
@@ -666,7 +686,7 @@ _Avoid_: caller
 
 **Brain tool**:
 An operator-declared, release-pinned tool through which an agent acts on Brain itself: comment on a
-work item, message a team member, submit a handoff, propose a plan (ADR 0042). Each is one command run
+work item, message a team member, submit a handoff, propose a plan (ADR 0042) or ask a person a question (ADR 0050). Each is one command run
 as the session principal, so the authorization matrix and the principal's own-mission scope decide. A
 plan proposal inside the autonomy policy is confirmed, outside it waits for a person; no Brain tool
 records a verdict, closes a mission, approves an effect or confirms beyond the policy.

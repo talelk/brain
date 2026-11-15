@@ -7,3 +7,4 @@ export { missionCommands } from "./commands";
 export { ShareService } from "./shares";
 export { missionsOfCommand } from "./command-mission";
 export { recordPullRequest, observePullRequest, pullRequestRef } from "./pull-requests";
+export { originOfRun, originProblem, describeOrigin } from "./origin";

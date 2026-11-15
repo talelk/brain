@@ -6,6 +6,7 @@
       "type": "string",
       "enum": [
         "agent-smoke",
+        "coordinator-session",
         "operations-triage",
         "support-draft"
       ]

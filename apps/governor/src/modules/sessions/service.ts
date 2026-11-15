@@ -13,11 +13,19 @@ import { enqueueSessionControl } from "./controls";
 import { readVerified } from "../artifacts/index";
 import { readableSources, toolAvailability } from "../resources/index";
 import { buildContextPack, type BuiltPack, type PackItem, type PackSection } from "./context-pack";
+import { coordinatorSections } from "./coordinator-pack";
 
 /** What a steered session reads: a teammate's message says who wrote it, so it is never mistaken for the person's own instruction. */
-function steerText(store: Store, message: MessageRow): string {
+function steerText(store: Store, db: ReturnType<Store["workspaceDb"]>, message: MessageRow): string {
+  if (message.answers_question_id) return `${answerLead(db, message.answers_question_id)}${message.body}`;
   const member = senderOf(store, message.sender_id).senderMemberId;
   return member ? `From team member ${member}: ${message.body}` : message.body;
+}
+
+/** What a person's answer says it is: the answer to this member's own question, quoted, so the session knows which one it is. */
+function answerLead(db: ReturnType<Store["workspaceDb"]>, questionId: string): string {
+  const question = db.prepare("SELECT body FROM mission_questions WHERE id=?").get(questionId) as { body: string } | undefined;
+  return `A person's answer to your question${question ? ` "${question.body.replace(/\s+/gu, " ").slice(0, 200)}"` : ""}: `;
 }
 
 export interface SessionCommand {
@@ -34,7 +42,7 @@ type SessionRow = {
   state: BrainSession["state"];
   checkpoint_digest: string | null; checkpoint_json: string | null; resumed_from_json: string | null; event_sequence: number;
   delegation_depth: number; budget_json: string; scope_json: string; worktree_id: string;
-  created_by: string; version: number; created_at_ms: number; updated_at_ms: number;
+  created_by: string; version: number; created_at_ms: number; updated_at_ms: number; mission_id: string | null;
 };
 
 type DelegationRow = {
@@ -43,7 +51,7 @@ type DelegationRow = {
   created_at_ms: number; reviewed_at_ms: number | null;
 };
 
-type MessageRow = { id: string; mission_id: string; recipient_kind: "mission" | "member"; recipient_member_id: string | null; work_item_id: string | null; sender_id: string; body: string; delivery: MissionMessage["delivery"]; correction_of: string | null; created_at_ms: number };
+type MessageRow = { id: string; mission_id: string; recipient_kind: "mission" | "member"; recipient_member_id: string | null; work_item_id: string | null; sender_id: string; body: string; delivery: MissionMessage["delivery"]; correction_of: string | null; answers_question_id: string | null; created_at_ms: number };
 
 /** What sessions need from the missions module, bound at the composition root. */
 export interface SessionMissionPort {
@@ -129,7 +137,7 @@ export class SessionService {
     return {
       sessionId: row.id, workspaceId, mode: row.mode,
       ...(row.job_id ? { jobId: row.job_id } : {}), ...(row.attempt_id ? { attemptId: row.attempt_id } : {}),
-      ...(row.work_item_id ? { workItemId: row.work_item_id } : {}),
+      ...(row.work_item_id ? { workItemId: row.work_item_id } : {}), ...(row.mission_id ? { missionId: row.mission_id } : {}),
       ...(row.parent_session_id ? { parentSessionId: row.parent_session_id } : {}),
       rootSessionId: row.root_session_id ?? row.id, agentId: row.agent_id, task: row.task,
       engine: { id: row.engine_id, version: row.mode === "managed" && !row.attempt_id ? "unbound" : "1", adapterDigest: row.adapter_digest, features: engineFeaturesOf(row.engine_features) },
@@ -399,7 +407,7 @@ export class SessionService {
     }
     const steerable = sessions.filter((session) => session.state === "running" && (JSON.parse(session.engine_features ?? "[]") as string[]).includes("steer"));
     if (steerable.length === 0) return message.delivery;
-    for (const session of steerable) enqueueSessionControl(this.store, { organizationId, workspaceId, sessionId: session.id, kind: "session.steer", payload: { sessionId: session.id, message: steerText(this.store, message) } });
+    for (const session of steerable) enqueueSessionControl(this.store, { organizationId, workspaceId, sessionId: session.id, kind: "session.steer", payload: { sessionId: session.id, message: steerText(this.store, db, message) } });
     db.prepare("UPDATE mission_messages SET delivery='delivered-live' WHERE id=? AND delivery='pending'").run(messageId);
     return "delivered-live";
   }
@@ -434,15 +442,21 @@ export class SessionService {
 
   /**
    * The pack a workflow-driven agent step receives (issue #80): built by the
-   * Governor from declared sections only, for the work item the run serves.
-   * Returns nothing for a run that serves no work item. Messages waiting for
+   * Governor from declared sections only, for the work item the run serves, or
+   * the mission for a coordinator's wake. Returns nothing for any other run.
+   * Messages waiting for
    * the item are delivered by this pack, exactly as a managed session start
    * would deliver them.
    */
   contextPackForRun(organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number; taskText?: string; tools?: ReadonlyArray<{ id: string; allowedHosts?: readonly string[] }> }): (BuiltPack & { unavailableTools: ReadonlyArray<{ id: string; reason: string }> }) | undefined {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const link = db.prepare("SELECT work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(input.runId) as { work_item_id: string } | undefined;
-    if (!link) return undefined;
+    if (!link) {
+      // A coordinator's wake serves no work item: its pack is the mission as a planner needs it (ADR 0048).
+      const coordinating = db.prepare("SELECT mission_id FROM mission_runs WHERE run_id=? AND purpose='coordinator'").get(input.runId) as { mission_id: string } | undefined;
+      const sections = coordinating ? coordinatorSections(db, coordinating.mission_id) : undefined;
+      return coordinating && sections ? { ...buildContextPack({ sections, budgetTokens: input.budgetTokens, identity: { runId: input.runId, jobId: input.jobId, missionId: coordinating.mission_id, agentId: input.agentId } }), unavailableTools: [] } : undefined;
+    }
     const item = db.prepare("SELECT * FROM work_items WHERE id=?").get(link.work_item_id) as { id: string; mission_id: string; title: string; criteria_json: string; assignment_json: string | null; parked_diagnostic: string | null } | undefined;
     if (!item) return undefined;
     const mission = db.prepare("SELECT intent, success_criteria_json, brief_version FROM missions WHERE id=?").get(item.mission_id) as { intent: string; success_criteria_json: string; brief_version: number };
@@ -463,8 +477,8 @@ export class SessionService {
     const where = `mission_id=? AND (work_item_id=? OR (recipient_kind='member' AND recipient_member_id=? AND work_item_id IS NULL))`;
     db.prepare(`UPDATE mission_messages SET delivery='delivered-at-session-start' WHERE delivery='pending' AND ${where}`).run(item.mission_id, item.id, member);
     // A person's work-item comment arrives as a message; the pack says which ones are comments (their own text, written by a person, never a command).
-    const messages = (db.prepare(`SELECT id, body, sender_id, EXISTS(SELECT 1 FROM work_item_comments WHERE message_id=mission_messages.id) AS comment FROM mission_messages
-      WHERE delivery IN ('delivered-at-session-start','delivered-live') AND ${where} ORDER BY created_at_ms DESC, id DESC LIMIT 20`).all(item.mission_id, item.id, member) as Array<{ id: string; body: string; sender_id: string; comment: number }>).reverse();
+    const messages = (db.prepare(`SELECT id, body, sender_id, answers_question_id, EXISTS(SELECT 1 FROM work_item_comments WHERE message_id=mission_messages.id) AS comment FROM mission_messages
+      WHERE delivery IN ('delivered-at-session-start','delivered-live') AND ${where} ORDER BY created_at_ms DESC, id DESC LIMIT 20`).all(item.mission_id, item.id, member) as Array<{ id: string; body: string; sender_id: string; answers_question_id: string | null; comment: number }>).reverse();
     const session = db.prepare("SELECT checkpoint_json FROM sessions WHERE work_item_id=? AND checkpoint_json IS NOT NULL ORDER BY updated_at_ms DESC, id DESC LIMIT 1").get(item.id) as { checkpoint_json: string } | undefined;
     const checkpoint = session ? JSON.parse(session.checkpoint_json) as Checkpoint : undefined;
     const failure = this.lastFailure(db, item.id, input.runId) ?? item.parked_diagnostic ?? undefined;
@@ -500,6 +514,7 @@ export class SessionService {
       { id: "messages", title: "Messages sent to this task", label: "claim", items: messages.map((row) => {
         // A teammate's message is a claim like any other message: the pack names who wrote it and it never authorizes anything.
         const member = senderOf(this.store, row.sender_id).senderMemberId;
+        if (row.answers_question_id) return prose(row.id, `- ${answerLead(db, row.answers_question_id)}${row.body}`, "A person's answer to your question");
         return row.comment === 1 ? prose(row.id, `- Comment: ${row.body}`, "A comment on this task")
           : member ? prose(row.id, `- From team member ${member}: ${row.body}`, "A message from a team member of this mission") : prose(row.id, `- ${row.body}`, "A message sent to this task");
       }) },
@@ -640,6 +655,8 @@ export function recordAttemptSession(store: Store, input: {
     VALUES (?,?,?,?,'native','',?, ?,?,?,'running',?,?,?, ?,?)
     ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id,work_item_id=COALESCE(sessions.work_item_id,excluded.work_item_id),engine_id=excluded.engine_id,adapter_digest=excluded.adapter_digest,engine_features=excluded.engine_features,state='running',updated_at_ms=excluded.updated_at_ms`)
     .run(id, input.jobId, input.attemptId, served?.id ?? null, served?.title ?? `job ${input.jobId}`, input.engineId, input.adapterDigest, features, id, `read-only:${input.workspaceId}`, "runner", now, now);
+  // A coordinator's wake serves no work item: its session is bound to the mission it plans (a mission-level session).
+  if (!served && input.runId) db.prepare("UPDATE sessions SET mission_id=(SELECT mission_id FROM mission_runs WHERE run_id=?), task='Coordinator session' WHERE id=? AND work_item_id IS NULL AND EXISTS (SELECT 1 FROM mission_runs WHERE run_id=?)").run(input.runId, id, input.runId);
 }
 
 /**

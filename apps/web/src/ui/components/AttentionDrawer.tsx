@@ -20,9 +20,10 @@ export function attentionHref(item: AttentionItem): string {
   // "See result" opens the result: the mission's Outputs tab, which also links to the write-up in the Library. It used to open the Review inbox, scrolled into a long list.
   if (item.kind === "outcome-unknown" && !item.missionId) return `/runs/${encodeURIComponent(item.resourceId)}`;
   if (item.kind === "schedule-failed" && !item.missionId) return `/w/${encodeURIComponent(item.workspaceId)}/schedules`;
-  const tab = item.kind === "result-ready" || item.kind === "sign-off" || item.kind === "verdict-ready" ? "outputs" : item.kind === "plan-proposal" || item.kind === "parked" || item.kind === "needs-attention" || item.kind === "outcome-unknown" ? "plan" : item.kind === "routed" ? "live" : "brief";
+  const tab = item.kind === "result-ready" || item.kind === "sign-off" || item.kind === "verdict-ready" ? "outputs" : item.kind === "plan-proposal" || item.kind === "parked" || item.kind === "needs-attention" || item.kind === "outcome-unknown" ? "plan" : item.kind === "routed" || item.kind === "question" ? "live" : "brief";
   const href = missionHref(item.workspaceId, item.missionId ?? item.resourceId, tab);
   if (item.kind === "result-ready" && item.missionId && item.resourceId !== item.missionId) return `${href}&result=${encodeURIComponent(item.resourceId)}`;
+  if (item.kind === "question") return `${href}&question=${encodeURIComponent(item.resourceId)}`;
   return item.kind === "plan-proposal" ? `${href}&proposal=${encodeURIComponent(item.resourceId)}` : href;
 }
 
@@ -31,6 +32,7 @@ export function attentionAction(item: AttentionItem): string {
   switch (item.kind) {
     case "result-ready": return t("decision.seeResult");
     case "sign-off": return t("decision.signOff.open");
+    case "question": return t("decision.question.answer");
     case "parked": case "outcome-unknown": case "schedule-failed": return t("decision.retry");
     default: return t("decision.decide");
   }

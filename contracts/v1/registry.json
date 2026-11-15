@@ -601,6 +601,15 @@
       ]
     },
     {
+      "type": "mission.question.ask",
+      "schema": "MissionQuestionAskCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "agent"
+      ]
+    },
+    {
       "type": "handoff.submit",
       "schema": "HandoffSubmitCommand",
       "scope": "mission:write",
@@ -1513,6 +1522,12 @@
     },
     {
       "type": "mission.messageSent",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "mission.questionAsked",
       "envelope": "EventEnvelope",
       "payloadContract": "WorkEventPayload",
       "durable": true

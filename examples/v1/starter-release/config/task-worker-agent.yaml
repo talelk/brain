@@ -39,6 +39,10 @@
       {
         "id": "mission.propose-plan",
         "digest": "sha256:99f2e106e027d5b01e67eabfcd9ae2753b7decf62aff7f4a9279625302239fcd"
+      },
+      {
+        "id": "mission.ask",
+        "digest": "sha256:11640baf9be1fdc934e1d516bcf11d4750085954e5644a90c54ebf09e17866d4"
       }
     ],
     "engine": {
