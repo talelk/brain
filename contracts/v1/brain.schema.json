@@ -9255,6 +9255,15 @@
       ],
       "additionalProperties": false
     },
+    "GitProvider": {
+      "type": "string",
+      "enum": [
+        "github",
+        "github-enterprise",
+        "gitlab",
+        "gitea"
+      ]
+    },
     "GitConnection": {
       "type": "object",
       "properties": {
@@ -9268,6 +9277,9 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 128
+        },
+        "provider": {
+          "$ref": "#/$defs/GitProvider"
         },
         "repositoryUrl": {
           "type": "string",
@@ -9303,6 +9315,7 @@
         "connectionId",
         "organizationId",
         "name",
+        "provider",
         "repositoryUrl",
         "status",
         "createdBy",
@@ -9486,6 +9499,10 @@
           "minLength": 1,
           "maxLength": 128
         },
+        "provider": {
+          "type": "string",
+          "maxLength": 64
+        },
         "repositoryUrl": {
           "type": "string",
           "minLength": 1,
@@ -9504,6 +9521,7 @@
       },
       "required": [
         "name",
+        "provider",
         "repositoryUrl"
       ],
       "additionalProperties": false

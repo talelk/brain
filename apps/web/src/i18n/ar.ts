@@ -702,7 +702,6 @@ export const ar: Catalog = {
   "guide.step.verify": "يستطيع Brain الوصول إلى المستودع ويُقبل الرمز",
   "guide.step.write": "يمكن للرمز الدفع",
   "guide.step.bind": "المستودع مرتبط بمساحة عمل لطلبات الدمج",
-  "guide.step.provider": "يمكن فتح طلبات الدمج على هذا المضيف",
   "guide.state.done": "تم",
   "guide.state.todo": "قيد الإنجاز",
   "guide.state.failed": "يحتاج إلى معالجة",
@@ -1757,5 +1756,10 @@ export const ar: Catalog = {
   "quality.evalcases.link": "تُحفظ النتائج المُعادة من المراجعة أو المرفوضة عند الاعتماد كحالات تقييم يمكنك إعادة تشغيلها يدويًا قبل أي إصدار.",
   "quality.evalcases.open": "فتح حالات التقييم",
   "health.activity.by-agent": "بواسطة وكيل يعمل لصالح {name}",
+  "adm.git-provider.label": "مزوّد Git",
+  "adm.git-provider.choose": "اختر مزوّدًا",
+  "adm.git-provider.hint": "يفتح Brain طلبات الدمج عبر واجهة برمجة هذا المزوّد ولا يخمّنه من العنوان.",
+  "adm.git-provider.required": "اختر مزوّد خادم Git هذا.",
+  "adm.git-provider.first-step": "اختر ربط مستودع بعيد، ثم حدّد مزوّد Git، ثم أدخل عنوان المستودع (ورمزًا إن كان خاصًا).",
   // @@END
 };

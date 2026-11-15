@@ -665,7 +665,6 @@ export const fr: Catalog = {
   "guide.step.verify": "Brain peut joindre le dépôt et le jeton est accepté",
   "guide.step.write": "Le jeton peut pousser",
   "guide.step.bind": "Dépôt lié à un espace de travail pour les demandes de fusion",
-  "guide.step.provider": "Des demandes de fusion peuvent être ouvertes sur cet hôte",
   "guide.state.done": "Fait",
   "guide.state.todo": "À faire",
   "guide.state.failed": "À corriger",
@@ -1695,5 +1694,10 @@ export const fr: Catalog = {
   "quality.evalcases.link": "Les résultats renvoyés en revue ou rejetés à la validation sont conservés comme cas d'évaluation à rejouer à la main avant une version.",
   "quality.evalcases.open": "Ouvrir les cas d'évaluation",
   "health.activity.by-agent": "Par un agent travaillant pour {name}",
+  "adm.git-provider.label": "Fournisseur Git",
+  "adm.git-provider.choose": "Choisir un fournisseur",
+  "adm.git-provider.hint": "Brain ouvre les demandes de fusion via l'API de ce fournisseur. Il ne le devine pas d'après l'adresse.",
+  "adm.git-provider.required": "Choisissez le fournisseur de cet hôte Git.",
+  "adm.git-provider.first-step": "Choisissez Connecter un dépôt distant, indiquez le fournisseur Git, puis l'URL du dépôt (et un jeton s'il est privé).",
   // @@END
 };

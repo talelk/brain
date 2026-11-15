@@ -24,7 +24,7 @@ CREATE TABLE workspaces (
 ) STRICT;
 CREATE TABLE git_connections (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
-  name TEXT NOT NULL, provider TEXT NOT NULL CHECK(provider IN ('git')),
+  name TEXT NOT NULL, provider TEXT NOT NULL CHECK(provider IN ('github','github-enterprise','gitlab','gitea')),
   base_url TEXT NOT NULL, encrypted_credentials TEXT NOT NULL,
   status TEXT NOT NULL CHECK(status IN ('pending','verified','failed')), detail TEXT,
   repositories_json TEXT NOT NULL CHECK(json_valid(repositories_json)),
