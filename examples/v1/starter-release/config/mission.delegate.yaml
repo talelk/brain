@@ -1,0 +1,27 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "mission.delegate",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "read",
+    "inputSchemaRef": "schemas/mission-delegate-input.json",
+    "outputSchemaRef": "schemas/mission-delegate-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 20,
+    "maxOutputBytes": 65536,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "description": "Hands one bounded sub-task to a child session of this mission, which runs as a team member's session under the mission's member cap and budget. The result comes back to your task as a handoff note from the child, which is its claim until a person accepts it; a failure comes back as a failure. You may delegate only as far as your agent's limits allow, at most three levels deep, and you never wait for the child.",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}

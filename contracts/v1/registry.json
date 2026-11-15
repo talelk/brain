@@ -151,7 +151,7 @@
     {
       "type": "session.delegate",
       "schema": "SessionDelegateCommand",
-      "scope": "session:steer",
+      "scope": "mission:write",
       "authority": "workspace",
       "actors": [
         "human",
@@ -638,6 +638,15 @@
       ]
     },
     {
+      "type": "mission.owner.transfer",
+      "schema": "MissionOwnerTransferCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "workspace.spendCap.set",
       "schema": "WorkspaceSpendCapSetCommand",
       "scope": "mission:write",
@@ -746,8 +755,8 @@
       ]
     },
     {
-      "type": "workspace.hostedModel.set",
-      "schema": "WorkspaceHostedModelSetCommand",
+      "type": "workspace.modelRoutes.set",
+      "schema": "WorkspaceModelRoutesSetCommand",
       "scope": "config:activate",
       "authority": "control",
       "actors": [
@@ -938,6 +947,7 @@
     "plans.estimate",
     "reuse.search",
     "reuse.forMission",
+    "missionOwnerCandidates.list",
     "contextPacks.forRun",
     "contextPacks.reference",
     "evalCases.list",

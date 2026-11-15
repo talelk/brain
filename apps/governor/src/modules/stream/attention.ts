@@ -136,6 +136,7 @@ const NOTABLE: Readonly<Record<string, (payload: Record<string, unknown>, title:
   "output.versionRecorded": () => "Output version recorded",
   "mission.briefChanged": (payload) => `Brief updated to version ${String(payload["briefVersion"])}`,
   "mission.budgetChanged": (payload) => typeof payload["note"] === "string" ? payload["note"] : "Budget changed",
+  "mission.ownerChanged": () => "Mission handed to a new owner",
   "mission.verdictRecorded": () => "Mission verdict recorded",
   "mission.questionAsked": () => "A team member asked you a question",
 };

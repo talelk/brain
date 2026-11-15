@@ -300,22 +300,35 @@ tool outage, quota, budget or unclassified. Each class has one remedy.
 _Avoid_: error type
 
 **Quota failure**:
-The model provider refused with a 429 or quota or rate-limit text. Its remedy waits the
-provider's retry-after (bounded), without spending an attempt, then retries.
+The model provider refused with a 429 or quota or rate-limit text. A model route that refuses
+is left out of every offer until the provider's retry-after (bounded) has passed and the
+attempt moves to the next route at once; when no route is left the task waits that long,
+without spending an attempt, then retries.
 _Avoid_: rate-limit error, throttling
+
+**Key reference**:
+The short name (such as `acme-main`) by which a model route names its API key. The runner and
+the Governor resolve it from their own environment (`BRAIN_MODEL_KEY_` and the name in
+capitals); it never appears in a job, an event, an output or the interface.
+_Avoid_: API key (the key itself), secret name
+
+**Cost tier**:
+A model route's price class (low, standard or premium). An agent that names a cost tier takes
+routes of that tier or a cheaper one.
+_Avoid_: price plan
 
 **Way of working**:
 The kind of worker and independent check a task runs with, chosen from the active
 release (a workspace has a default); the engine calls it a workflow.
 _Avoid_: recipe, template
 
-**Hosted model**:
-A workspace's optional vendor model for independent checks, second attempts and the advisory
-judge only. It is
-always priced: input and output token prices (micro-USD per million tokens) travel with the
-route, and an attempt on it costs its tokens times those prices, so mission and workspace
-dollar caps bind it. The self-hosted model costs no dollars.
-_Avoid_: external model, cloud model
+**Model route**:
+One entry of a workspace's ordered list of hosted models: provider, model, address, key
+reference, cost tier and input and output token prices (micro-USD per million tokens). Routes
+serve independent checks, second attempts and the advisory judge only. An attempt on one costs
+its tokens times its prices, so mission and workspace dollar caps bind it; the self-hosted
+model costs no dollars. A route names its API key by reference, never the key.
+_Avoid_: hosted model, external model, cloud model
 
 **Session**:
 A governed agent conversation served by one team member and bound to a mission, a job
@@ -697,11 +710,15 @@ _Avoid_: caller
 
 **Brain tool**:
 An operator-declared, release-pinned tool through which an agent acts on Brain itself: comment on a
-work item, message a team member, submit a handoff, propose a plan (ADR 0042) or ask a person a question (ADR 0050). Each is one command run
+work item, message a team member, submit a handoff, propose a plan, delegate a sub-task (ADR 0042, 0051) or ask a person a question (ADR 0050). Each is one command run
 as the session principal, so the authorization matrix and the principal's own-mission scope decide. A
 plan proposal inside the autonomy policy is confirmed, outside it waits for a person; no Brain tool
 records a verdict, closes a mission, approves an effect or confirms beyond the policy.
 _Avoid_: agent API, MCP tool (that is another channel)
+
+**Delegation**:
+A session handing one bounded sub-task to a child session of the same mission, at most three levels deep (ADR 0053). The child is a run of the mission, not of the task; its result returns to the task as a handoff that is the child's claim until a person who did not start the delegation accepts it.
+_Avoid_: subtask run, spawn
 
 **Session principal**:
 The machine principal (kind agent) of one team member of a mission, bound to its workspace
@@ -709,6 +726,12 @@ and mission and recorded as acting for the mission owner (ADR 0032). A running a
 a credential for it that ends with the attempt or when its fence moves. The credential runs
 only the **session command allowlist**.
 _Avoid_: bot, service account, agent user
+
+**Owner transfer**:
+`mission.owner.transfer`: the mission's owner or a workspace administrator hands an open mission to an active
+member who holds what its sessions need (ADR 0054). Audited; attention and notifications follow; **session
+principals** act for the new owner at once, running attempts keep their fence. Sessions never run it.
+_Avoid_: reassign mission, change owner
 
 **Session command allowlist**:
 The commands a session credential may run: only those behind the Brain tools, not whatever its role's

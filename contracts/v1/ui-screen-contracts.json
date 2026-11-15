@@ -126,10 +126,13 @@
     "knowledgeAssets.list",
     "challenges.list",
     "playProposals.list",
-    "agents.list"
+    "agents.list",
+    "delegations.list",
+    "missionOwnerCandidates.list"
    ],
    "actions": [
     "mission.policy.set",
+    "mission.owner.transfer",
     "mission.pause",
     "mission.resume",
     "mission.proposeCompletion",
@@ -154,7 +157,8 @@
     "job.reconcile",
     "mission.reuse.decide",
     "result.challenge",
-    "play.propose"
+    "play.propose",
+    "delegation.review"
    ],
    "content": [
     "live",
@@ -162,6 +166,7 @@
     "plan",
     "brief",
     "timeline",
+    "delegations",
     "outputs"
    ],
    "owner": "T64",
@@ -762,7 +767,7 @@
     "member.revoke",
     "config.activate",
     "workspace.wayOfWorking.set",
-    "workspace.hostedModel.set",
+    "workspace.modelRoutes.set",
     "workspace.effects.set",
     "workspace.autonomyCeiling.set",
     "workspace.sessions.stopAll",

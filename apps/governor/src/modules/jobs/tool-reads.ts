@@ -81,7 +81,8 @@ export function brokerToolRead(s: Store, ports: ToolReadPorts, runner: { runnerI
   const runId = String(row["workflow_run_id"]);
   const work = ws.prepare("SELECT mission_id, work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(runId) as { mission_id: string; work_item_id: string } | undefined;
   const planning = work ? undefined : ws.prepare("SELECT mission_id FROM planning_requests WHERE run_id=?").get(runId) as { mission_id: string } | undefined;
-  try { return ports.knowledgeSearch(organizationId, workspaceId, { missionId: work?.mission_id ?? planning?.mission_id, workItemId: work?.work_item_id }, { query, limit }); } catch (error) { return refuseFrom(refuse, error); }
+  const delegated = work || planning ? undefined : ws.prepare("SELECT mission_id FROM delegation_runs WHERE run_id=?").get(runId) as { mission_id: string } | undefined;
+  try { return ports.knowledgeSearch(organizationId, workspaceId, { missionId: work?.mission_id ?? planning?.mission_id ?? delegated?.mission_id, workItemId: work?.work_item_id }, { query, limit }); } catch (error) { return refuseFrom(refuse, error); }
 }
 
 function refuseFrom(refuse: (reason: string, code?: "FORBIDDEN" | "INVALID_ARGUMENT" | "NOT_FOUND") => never, error: unknown): never {

@@ -11,12 +11,12 @@ import type { CommandReceipt, GitProvider, MissionBudget, OrganizationAdminComma
  * newer server state.
  */
 export type CommandKind =
-  | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.resume"
+  | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.resume" | "delegation.review"
   | "runner.control"
-  | "mission.create" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "mission.watch" | "mission.seen"
+  | "mission.create" | "mission.owner.transfer" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "mission.watch" | "mission.seen"
   | "mission.brief.edit" | "decision.accept" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
   | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise" | "workItem.details.set" | "pullRequest.refresh"
-  | "workspace.wayOfWorking.set" | "workspace.hostedModel.set" | "workspace.effects.set" | "workspace.queueLimit.set" | "workspace.autonomyCeiling.set" | "workspace.sessions.stopAll" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set"
+  | "workspace.wayOfWorking.set" | "workspace.modelRoutes.set" | "workspace.effects.set" | "workspace.queueLimit.set" | "workspace.autonomyCeiling.set" | "workspace.sessions.stopAll" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set"
   | "play.proposeFromMissions" | "knowledge.withdrawUnobserved"
   | "automation.upsert" | "automation.control"
   | "document.upload" | "document.revise" | "document.associate" | "document.delete"
@@ -37,6 +37,7 @@ export interface CommandContext {
 export type PayloadFor<K extends CommandKind> =
   K extends "mission.create" ? { title: string; intent?: string; successCriteria?: string[]; constraints?: string[]; playId?: string; autonomy?: "supervised" | "standard" | "autonomous"; budget?: { maxMicroUsd?: number; memberCap: number }; autoStart?: boolean }
     : K extends "mission.policy.set" ? { missionId: string; autoStart?: boolean; preset?: "supervised" | "standard" | "autonomous" }
+    : K extends "mission.owner.transfer" ? { missionId: string; newOwnerId: string }
     : K extends "mission.pause" | "mission.resume" | "mission.proposeCompletion" ? { missionId: string }
     : K extends "mission.close" ? { missionId: string; outcome: "achieved" | "ended" | "cancelled" }
     : K extends "mission.verdict.record" ? { missionId: string; bundleDigest: string; outcome: "verified" | "rejected"; findings?: string[] }
@@ -46,7 +47,7 @@ export type PayloadFor<K extends CommandKind> =
     : K extends "workItem.details.set" ? { workItemId: string; priority?: WorkItemPriority; tags?: string[]; dueAt?: string | null }
     : K extends "pullRequest.refresh" ? { pullRequestId: string }
     : K extends "workspace.wayOfWorking.set" ? { workflowId: string; requiredTools?: string[] }
-    : K extends "workspace.hostedModel.set" ? { enabled: boolean; vendor?: string; model?: string; baseUrl?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number }
+    : K extends "workspace.modelRoutes.set" ? { routes: Array<{ routeId: string; enabled: boolean; vendor: string; keyRef: string; model: string; baseUrl: string; costTier: "low" | "standard" | "premium"; inputMicroUsdPerMTok: number; outputMicroUsdPerMTok: number }> }
     : K extends "workspace.queueLimit.set" ? { maxQueued: number }
     : K extends "workspace.autonomyCeiling.set" ? { workspaceId: string; preset: "supervised" | "standard" | "autonomous"; stepUpEvidenceId: string }
     : K extends "workspace.sessions.stopAll" ? { workspaceId: string; reason: string; stepUpEvidenceId: string }
@@ -78,6 +79,7 @@ export type PayloadFor<K extends CommandKind> =
       : K extends "job.reconcile" ? { jobId: string; reason: string; resolution?: "fail" | "retry" }
         : K extends "session.steer" ? { sessionId: string; message: string }
           : K extends "session.stop" ? { sessionId: string; reason: string }
+          : K extends "delegation.review" ? { delegationId: string; decision: "accepted" | "rejected"; evidenceDigest: string }
             : K extends "session.resume" ? { sessionId: string }
                       : K extends "runner.control" ? { runnerId: string; action: "enable" | "disable" | "drain" | "quarantine" | "rotate" | "deregister"; reason: string }
                         : K extends "member.grant" ? { principalId: string; role: string; reason: string }
