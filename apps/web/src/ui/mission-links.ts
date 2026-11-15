@@ -10,6 +10,16 @@ export function missionHref(workspaceId: string, missionId: string, tab?: Missio
   return `/missions/${encodeURIComponent(missionId)}${tab ? `/${tab}` : ""}?w=${encodeURIComponent(workspaceId)}`;
 }
 
+/** An agent definition's page in the Library (ADR 0014): its status, runs, rates and cost. */
+export function agentHref(workspaceId: string, agentId: string): string {
+  return `/w/${encodeURIComponent(workspaceId)}/library/agents/${encodeURIComponent(agentId)}`;
+}
+
+/** One team member's panel on its mission's Team tab. */
+export function memberHref(workspaceId: string, missionId: string, memberId: string): string {
+  return `${missionHref(workspaceId, missionId, "team")}&member=${encodeURIComponent(memberId)}`;
+}
+
 /**
  * Missions that share a title (a repeated run, two near-identical goals) look the same in a list. Each one in such a group gets the time
  * it started, so a person can tell them apart; a mission with a title of its own gets nothing.

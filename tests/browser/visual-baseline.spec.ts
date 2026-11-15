@@ -21,6 +21,7 @@ import { command, interruptedSession } from "../support/interrupted-session";
 import { seedPullRequest } from "../support/pullRequestDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 import { seedQuestion } from "../support/question-demo";
+import { seedAgentActivity } from "../support/agent-activity";
 
 type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
 type Fixture = Parameters<typeof seedBrowserDemo>[1];
@@ -94,6 +95,9 @@ async function interruptedRoute(demo: Demo, governor: Fixture, runnerId: string,
   return `/w/operations/live?session=${(await then?.(sessionId)) ?? sessionId}`;
 }
 
+/** The agent-activity mission, made once when the first agent screen is reached. */
+let agentActivity: Awaited<ReturnType<typeof seedAgentActivity>> | undefined;
+
 const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Demo) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
@@ -155,6 +159,10 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
   // Where a mission's usage went (#111): it adds spend to the active mission, which the screens before it would show in their totals.
   { id: "mission-usage-breakdown", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedAttributedUsage, after: async (page) => { await page.getByTestId("usage-breakdown").getByText("Where the usage went", { exact: true }).click(); await expect(page.getByTestId("usage-by-member")).toContainText("writer"); await page.getByTestId("usage-breakdown").evaluate((element) => element.scrollIntoView({ block: "center" })); } },
+  // Agent page and team-member panel (ticket #113): a runner took a two-member team's tasks, one attempt failed and one is working. The mission adds a parked task to Needs you, which the push screens after it count.
+  { id: "agents-list", route: () => "/w/operations/library/agents", heading: "Agents", prepare: async (governor, _page, demo) => { agentActivity ??= await seedAgentActivity(governor.app.brain, demo.actor, demo.workspaceId, "vb-agents"); }, after: async (page) => { await expect(page.getByTestId("agent-list")).toBeVisible(); await expect(page.locator("[data-agent=task-worker]").getByTestId("activity-status")).toBeVisible(); } },
+  { id: "agent-page", route: () => "/w/operations/library/agents/task-worker", heading: "Task worker", after: async (page) => { await expect(page.getByTestId("figure-cost-value")).toContainText("tokens"); await expect(page.getByTestId("recent-run").first()).toBeVisible(); } },
+  { id: "mission-team-member", route: () => `/missions/${agentActivity!.missionId}/team?member=writer`, heading: "Draft and review the vendor summary", after: async (page) => { await expect(page.getByTestId("member-panel")).toBeVisible(); await expect(page.getByTestId("figure-cost-value")).toContainText("tokens"); await page.getByTestId("member-panel").evaluate((element) => element.scrollIntoView({ block: "start" })); } },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];
@@ -259,7 +267,7 @@ async function seedChangeApprovalRecord(governor: Parameters<typeof seedBrowserD
 test.afterEach(async () => { questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(900_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const demo = await seedBrowserDemo(page, governor);
   for (const screen of SCREENS) {

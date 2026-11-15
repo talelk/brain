@@ -123,7 +123,9 @@
     "knowledgeAssets.list",
     "challenges.list",
     "playProposals.list",
-    "agents.list"
+    "agents.list",
+    "members.profile",
+    "usage.member"
    ],
    "actions": [
     "mission.policy.set",
@@ -198,6 +200,48 @@
    "icon": "lucide-library",
    "task": "See everything Brain can reuse in one place: documents, knowledge, Plays and tools, and what is waiting for review",
    "title": "Library"
+  },
+  {
+   "route": "/w/:id/library/agents",
+   "queries": [
+    "agents.list",
+    "agents.profile"
+   ],
+   "content": [
+    "agents",
+    "status",
+    "verified-rate"
+   ],
+   "actions": [],
+   "owner": "T39",
+   "navigationGroup": "library",
+   "area": "library",
+   "icon": "lucide-bot",
+   "task": "See every agent definition with what it is doing now, worked out from its sessions",
+   "title": "Agents"
+  },
+  {
+   "route": "/w/:id/library/agents/:agentId",
+   "queries": [
+    "agents.get",
+    "agents.profile",
+    "usage.agent"
+   ],
+   "content": [
+    "definition",
+    "status",
+    "runs",
+    "verified-rate",
+    "failure-classes",
+    "cost"
+   ],
+   "actions": [],
+   "owner": "T39",
+   "navigationGroup": "library",
+   "area": "library",
+   "icon": "lucide-bot",
+   "task": "Read one agent: purpose, tools and limits, status from its sessions, recent runs, verified rate, failure classes and cost",
+   "title": "Agent"
   },
   {
    "route": "/w/:id/plays",
@@ -1203,6 +1247,11 @@
     "label": "Review inbox",
     "route": "/w/:id/knowledge/review",
     "icon": "lucide-list-checks"
+   },
+   {
+    "label": "Agents",
+    "route": "/w/:id/library/agents",
+    "icon": "lucide-bot"
    },
    {
     "label": "Support",

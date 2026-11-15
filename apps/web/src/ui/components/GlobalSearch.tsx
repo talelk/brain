@@ -4,6 +4,7 @@ import { useNavigate } from "@solidjs/router";
 import { Combobox, Dialog } from "@talelk/newui-molecules";
 import type { QueryResponse } from "@brain/contracts";
 import { query } from "../../data/client";
+import { agentHref } from "../mission-links";
 
 type SearchItem = Extract<QueryResponse, { queryType: "search.global" }>["snapshot"]["items"][number];
 
@@ -31,7 +32,7 @@ export function GlobalSearchDialog(props: { open: boolean; onOpenChange: (open: 
     if (item.category === "approval") return `/approvals/${item.resourceId}`;
     if (item.category === "session") return `/sessions/${item.resourceId}`;
     if (item.category === "artifact") return `/outputs/${item.resourceId}`;
-    if (item.category === "agent") return `/studio/Agent?selected=${encodeURIComponent(item.resourceId)}`;
+    if (item.category === "agent") return item.workspaceId ? agentHref(item.workspaceId, item.resourceId) : `/studio/Agent?selected=${encodeURIComponent(item.resourceId)}`;
     if (item.category === "workflow") return `/plays/${encodeURIComponent(item.resourceId)}`;
     return "/";
   }

@@ -651,10 +651,12 @@ export function recordAttemptSession(store: Store, input: {
   const served = input.runId
     ? db.prepare("SELECT wi.id AS id, wi.title AS title FROM execution_links el JOIN work_items wi ON wi.id=el.work_item_id WHERE el.run_id=? ORDER BY el.created_at_ms DESC LIMIT 1").get(input.runId) as { id: string; title: string } | undefined
     : undefined;
+  // The session names the agent definition the Governor chose for the attempt: the one its reservation was stamped with (ADR 0051), never anything the model says.
+  const agentId = (db.prepare("SELECT agent_id FROM (SELECT attempt_id, agent_id FROM mission_spend UNION ALL SELECT attempt_id, agent_id FROM workspace_spend) WHERE attempt_id=?").get(input.attemptId) as { agent_id: string | null } | undefined)?.agent_id ?? "";
   db.prepare(`INSERT INTO sessions(id,job_id,attempt_id,work_item_id,mode,agent_id,task,engine_id,adapter_digest,engine_features,state,root_session_id,worktree_id,created_by,created_at_ms,updated_at_ms)
-    VALUES (?,?,?,?,'native','',?, ?,?,?,'running',?,?,?, ?,?)
-    ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id,work_item_id=COALESCE(sessions.work_item_id,excluded.work_item_id),engine_id=excluded.engine_id,adapter_digest=excluded.adapter_digest,engine_features=excluded.engine_features,state='running',updated_at_ms=excluded.updated_at_ms`)
-    .run(id, input.jobId, input.attemptId, served?.id ?? null, served?.title ?? `job ${input.jobId}`, input.engineId, input.adapterDigest, features, id, `read-only:${input.workspaceId}`, "runner", now, now);
+    VALUES (?,?,?,?,'native',?,?, ?,?,?,'running',?,?,?, ?,?)
+    ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id,agent_id=COALESCE(NULLIF(excluded.agent_id,''),sessions.agent_id),work_item_id=COALESCE(sessions.work_item_id,excluded.work_item_id),engine_id=excluded.engine_id,adapter_digest=excluded.adapter_digest,engine_features=excluded.engine_features,state='running',updated_at_ms=excluded.updated_at_ms`)
+    .run(id, input.jobId, input.attemptId, served?.id ?? null, agentId, served?.title ?? `job ${input.jobId}`, input.engineId, input.adapterDigest, features, id, `read-only:${input.workspaceId}`, "runner", now, now);
   // A coordinator's wake serves no work item: its session is bound to the mission it plans (a mission-level session).
   if (!served && input.runId) db.prepare("UPDATE sessions SET mission_id=(SELECT mission_id FROM mission_runs WHERE run_id=?), task='Coordinator session' WHERE id=? AND work_item_id IS NULL AND EXISTS (SELECT 1 FROM mission_runs WHERE run_id=?)").run(input.runId, id, input.runId);
 }

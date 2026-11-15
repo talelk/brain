@@ -35,6 +35,13 @@ needs attention (a blocking attention item names it, an approval its task propos
 working (a task of it is running), else waiting. Closed missions have none.
 _Avoid_: mission status, health
 
+**Agent status**:
+What an agent definition or a mission's team member is doing now, derived from its sessions and never stored, the first that holds: working (a session is starting, running or stopping), waiting (one waits for a person or an answer), failing (its latest ended session failed), else idle.
+_Avoid_: agent health
+
+**Verified rate**:
+Of the results an agent's attempts submitted in the last 30 days that an independent check judged, the share whose latest verdict is verified. Counted on verdicts; no judged result means no number.
+
 **Mission outcome**:
 How a closed mission ended, set by a human: achieved (only after a verified verdict),
 ended (stopped without claiming success) or cancelled (in-flight work cancelled).

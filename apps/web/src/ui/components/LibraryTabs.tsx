@@ -6,7 +6,7 @@ import { createScopedRead } from "../../data/screens";
 import { t } from "../../i18n";
 import { librarySummary, type LibrarySummary } from "../../data/library";
 
-export type LibraryTab = "overview" | "plays" | "find" | "documents" | "tools" | "review";
+export type LibraryTab = "overview" | "plays" | "find" | "documents" | "tools" | "review" | "agents";
 
 /**
  * The Library's places (ADR 0014): everything Brain can reuse, side by side. Overview shows the counts; Plays,
@@ -27,7 +27,7 @@ export function LibraryTabs(props: { value: LibraryTab; trailing?: JSX.Element }
   };
   const go = (value: string) => {
     const base = `/w/${app.workspaceId()}`;
-    const target = value === "overview" ? `${base}/library` : value === "plays" ? `${base}/plays` : value === "review" ? `${base}/knowledge/review` : value === "find" ? `${base}/knowledge` : `${base}/knowledge?tab=${value}`;
+    const target = value === "overview" ? `${base}/library` : value === "plays" ? `${base}/plays` : value === "review" ? `${base}/knowledge/review` : value === "agents" ? `${base}/library/agents` : value === "find" ? `${base}/knowledge` : `${base}/knowledge?tab=${value}`;
     void navigate(target);
   };
   return <div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
@@ -38,6 +38,7 @@ export function LibraryTabs(props: { value: LibraryTab; trailing?: JSX.Element }
       { value: "documents", label: `${t("library.tab.documents")}${count((data) => data.documents)}` },
       { value: "tools", label: `${t("library.tab.tools")}${count((data) => data.tools)}` },
       { value: "review", label: `${t("library.tab.review")}${count((data) => data.awaitingReview)}` },
+      { value: "agents", label: t("library.tab.agents") },
     ]} /></div></div>
     {props.trailing}
   </div>;
