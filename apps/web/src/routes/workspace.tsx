@@ -138,6 +138,33 @@ export function RunnerDetailScreen(props: {
                   hint
                 />
               </WorkspaceSection>
+              <WorkspaceSection title="Engines" description="As the runner reported them at its last hello or heartbeat. A field the runner did not report is not shown.">
+                <Show
+                  when={runner()?.engines.length}
+                  fallback={<p class="text-interface text-ink-gray-7">This runner has not reported an engine.</p>}
+                >
+                  <div class="brain-queue">
+                    <For each={runner()?.engines ?? []}>
+                      {(engine) => (
+                        <div class="grid gap-1 border-b border-outline-gray-1 py-3" data-testid={`runner-engine-${engine.id}`}>
+                          <p class="break-words text-base-medium">
+                            {engine.id}
+                            <Show when={engine.version}>
+                              <span class="ms-2 text-interface text-ink-gray-7">version {engine.version}</span>
+                            </Show>
+                          </p>
+                          <Show when={engine.adapterDigest}>
+                            <p class="break-all text-caption text-ink-gray-6">Adapter digest {engine.adapterDigest}</p>
+                          </Show>
+                          <Show when={engine.features.length}>
+                            <p class="break-words text-caption text-ink-gray-6">Features: {engine.features.join(", ")}</p>
+                          </Show>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </WorkspaceSection>
               <WorkspaceSection
                 title="Verified capability inventory"
                 description="Every capability retains its own verification and expiry; a stale probe is not permission."
@@ -159,13 +186,13 @@ export function RunnerDetailScreen(props: {
                           <div>
                             <p class="break-words text-base-medium">{capability.capability}</p>
                             <p class="mt-1 text-caption text-ink-gray-6">
-                              Observed <DateText value={capability.observedAt} /> · expires <DateText value={capability.expiresAt} />
+                              {capability.source === "admin-attestation" ? "Attested by an administrator" : "Reported by the runner"} <DateText value={capability.observedAt} /> · expires <DateText value={capability.expiresAt} />
                             </p>
                           </div>
                           <Badge
                             variant="outline"
                             theme={capability.verified ? "green" : "gray"}
-                            label={capability.verified ? "Verified probe" : "Unverified"}
+                            label={capability.verified ? (capability.source === "admin-attestation" ? "Attested" : "Verified probe") : "Unverified"}
                           />
                         </div>
                       )}

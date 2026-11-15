@@ -7,6 +7,7 @@ import { engineFailureDetail, QUOTA_TEXT } from "./failure-detail";
 import { holdsCompleteObject } from "./json-reply";
 import { attemptLimitsNotice, finalTurnNotice, overAllowanceReason, REPEAT_BUDGET, toolCallCeiling, wrapUpReason } from "./limits";
 import { hostedMicroUsd, type HostedPrices } from "./pricing";
+import { installedVersion } from "./package-version";
 import { GovernedToolCalls } from "./tool-calls";
 
 /**
@@ -46,16 +47,16 @@ export class PiEngine implements EngineAdapter {
   private modelId(): string { return process.env["BRAIN_LOCAL_MODEL_ID"] ?? "qwen3.8-flash-next-a5b"; }
 
   async probe() {
-    let version = "unavailable";
     let reachable = false;
     try {
       await import("@earendil-works/pi-coding-agent");
-      version = "1.4.0";
       const res = await fetch(`${this.modelUrl()}/models`, { redirect: "error", headers: process.env["BRAIN_LOCAL_MODEL_API_KEY"] ? { authorization: `Bearer ${process.env["BRAIN_LOCAL_MODEL_API_KEY"]}` } : {}, signal: AbortSignal.timeout(5000) });
       reachable = res.ok && ((await res.json()) as { data?: {id:string}[] }).data?.some((model) => model.id === this.modelId()) === true;
-    } catch { version = "unavailable"; }
+    } catch { reachable = false; }
+    // The version is the installed package's own; whether the model answers is a feature (sessions), never part of the version.
+    const version = installedVersion("@earendil-works/pi-coding-agent");
     return {
-      id: "pi", version: reachable ? version : `${version}-model-unreachable`,
+      id: "pi", ...(version ? { version } : {}),
       adapterDigest: sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url)))),
       features: reachable ? ["sessions", "checkpoint", "resume", "steer"] : [],
     };

@@ -1,4 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { sha256Digest } from "@brain/contracts";
 import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding } from "@brain/contracts";
 import { nativeToolName } from "./tool-calls";
 
@@ -35,6 +37,9 @@ const RAN = new Set(["in_progress", "completed"]);
 interface AgentToolCall { name?: string; kind?: string }
 type PermissionOutcome = { outcome: "selected"; optionId: string } | { outcome: "cancelled" };
 
+/** The digest of this adapter's own code, as the other engines state theirs. */
+const adapterDigest = (): string => sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url))));
+
 export class AcpEngine implements EngineAdapter {
   readonly id: string;
   private readonly commandEnv: string;
@@ -47,7 +52,9 @@ export class AcpEngine implements EngineAdapter {
   private attemptId = "";
   private seq = 0;
   private readonly eventsBuffer: EngineEvent[] = [];
-  private agentVersion = "unknown";
+  /** What the agent said about itself in `initialize`; absent until probed and when it states no version. */
+  private agentVersion: string | undefined;
+  private probed = false;
   private readonly bindings: readonly EngineToolBinding[];
   private readonly agentEnv: Readonly<Record<string, string>>;
   /** The broker tool names this session may use: the release's tools that the session spec allows, by id and digest. Empty until start. */
@@ -220,7 +227,7 @@ export class AcpEngine implements EngineAdapter {
         clientCapabilities: ACP_CLIENT_CAPABILITIES,
       }, 20_000);
       const info = (init["agentInfo"] ?? {}) as { name?: string; version?: string };
-      this.agentVersion = info.version ?? "acp-1";
+      this.agentVersion = typeof info.version === "string" && info.version.length > 0 && info.version.length <= 64 ? info.version : undefined;
       const capabilities = (init["agentCapabilities"] ?? {}) as { loadSession?: boolean; sessionCapabilities?: { resume?: unknown; fork?: unknown } };
       this.negotiated = {
         loadSession: capabilities.loadSession === true,
@@ -229,16 +236,17 @@ export class AcpEngine implements EngineAdapter {
       };
       // Only implemented and advertised features are offered; load/resume/fork are
       // recorded for negotiation but not offered until this adapter maps them.
-      return { id: this.id, version: this.agentVersion, adapterDigest: `sha256:${"0".repeat(64)}`, features: ["sessions"] };
+      this.probed = true;
+      return { id: this.id, ...(this.agentVersion ? { version: this.agentVersion } : {}), adapterDigest: adapterDigest(), features: ["sessions"] };
     } catch {
-      return { id: this.id, version: "unavailable", adapterDigest: `sha256:${"0".repeat(64)}`, features: [] };
+      return { id: this.id, adapterDigest: adapterDigest(), features: [] };
     }
   }
 
   async start(spec: EngineSessionSpec, signal: AbortSignal): Promise<{ sessionId: string }> {
     const cwd = process.env["BRAIN_ACP_CWD"] ?? process.cwd();
     this.ensureProc(cwd);
-    if (this.agentVersion === "unknown") await this.probe();
+    if (!this.probed) await this.probe();
     if (signal.aborted) throw new Error("aborted");
     const created = await this.request("session/new", { cwd, mcpServers: [] }, 30_000);
     this.sessionId = String(created["sessionId"] ?? "");
