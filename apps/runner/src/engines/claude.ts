@@ -6,6 +6,7 @@ import { engineFailureDetail } from "./failure-detail";
 import type { HostedRoute } from "./pi";
 import { hostedMicroUsd } from "./pricing";
 import { overCostCap } from "./limits";
+import { installedVersion } from "./package-version";
 import { GovernedToolCalls } from "./tool-calls";
 import { z } from "zod";
 import type { ZodTypeAny } from "zod";
@@ -161,16 +162,18 @@ export class ClaudeEngine implements EngineAdapter {
   }
 
   async probe() {
-    let version = "unavailable";
+    let ready = false;
     try {
       this.ensureEnv();
       await import("@anthropic-ai/claude-agent-sdk");
       const base = this.baseUrl();
       const credential = this.attemptEnv()["ANTHROPIC_AUTH_TOKEN"]!;
       const res = await fetch(`${base}/v1/models`, { headers: { authorization: `Bearer ${credential}`, "x-api-key": credential, "anthropic-version": "2023-06-01" }, signal: AbortSignal.timeout(5000) });
-      version = res.ok ? "0.3.311-local" : "0.3.311-model-unreachable";
-    } catch { version = "unavailable"; }
-    return { id: "claude", version, adapterDigest: sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url)))), features: version.endsWith("-local") ? ["sessions", "steer"] : [] };
+      ready = res.ok;
+    } catch { ready = false; }
+    // The version is the installed SDK's own; whether the model answers is a feature (sessions), never part of the version.
+    const version = installedVersion("@anthropic-ai/claude-agent-sdk");
+    return { id: "claude", ...(version ? { version } : {}), adapterDigest: sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url)))), features: ready ? ["sessions", "steer"] : [] };
   }
 
   private push(kind: EngineEvent["kind"], payload: EngineEvent["payload"]): void {

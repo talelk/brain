@@ -34,7 +34,7 @@ describe("trust-domain verifier (T28/L2)", () => {
     expect(result.capability).toBe("trust:domain:prod-host-1");
     const cap = brain.store.control.prepare("SELECT verified, source FROM runner_capabilities WHERE runner_id=? AND capability=?").get(runnerId, "trust:domain:prod-host-1") as { verified: number; source: string };
     expect(cap.verified).toBe(1);
-    expect(cap.source).toBe("governor-verifier");
+    expect(cap.source).toBe("admin-attestation");
 
     const audit = brain.store.control.prepare("SELECT COUNT(*) AS n FROM events WHERE event_type='runner.trust.verified'").get() as { n: number } | undefined;
     expect(audit?.n ?? 0).toBeGreaterThanOrEqual(1);

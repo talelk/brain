@@ -2358,7 +2358,6 @@
       },
       "required": [
         "id",
-        "version",
         "adapterDigest",
         "features"
       ],
@@ -2619,6 +2618,14 @@
           },
           "minItems": 0,
           "maxItems": 200
+        },
+        "engines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EngineInfo"
+          },
+          "minItems": 0,
+          "maxItems": 20
         }
       },
       "required": [

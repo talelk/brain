@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { cpus, freemem } from "node:os";
 import { join } from "node:path";
 import { domainDigest, sha256Digest } from "@brain/contracts";
-import type { ArtifactRef, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
+import type { ArtifactRef, EngineInfo, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
 import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
 import { brokerRead } from "./tools/broker-read";
@@ -96,15 +96,22 @@ export function loadOrCreateKeys(stateDir: string): { publicKeyPem: string; priv
   return { publicKeyPem, privateKeyPem };
 }
 
-async function availableEngines(cfg: RunnerConfig) {
-  const available = [];
+/** The engines that answered their probe, and when the probing finished: the time every observation made from it carries. */
+async function availableEngines(cfg: RunnerConfig): Promise<{ engines: EngineInfo[]; probedAt: string }> {
+  const engines: EngineInfo[] = [];
   for (const id of cfg.engines ?? ["fixture"]) {
     const engine = selectEngine(id);
     if (!engine) continue;
     const info = await engine.probe();
-    if (info.features.includes("sessions")) available.push(info);
+    if (info.features.includes("sessions")) engines.push(info);
   }
-  return available;
+  return { engines, probedAt: new Date().toISOString() };
+}
+
+/** What this runner observes about itself, each dated by the probe that produced it (never by when the message is assembled). */
+function observedCapabilities(cfg: RunnerConfig, probed: { engines: readonly EngineInfo[]; probedAt: string }) {
+  const expiresAt = new Date(Date.parse(probed.probedAt) + 5 * 60_000).toISOString();
+  return advertisedCapabilities(cfg.capabilities, probed.engines).map((capability) => ({ capability, observedAt: probed.probedAt, source: "runner-probe" as const, verified: true, expiresAt }));
 }
 
 /**
@@ -115,12 +122,12 @@ async function challengeHello(cfg: RunnerConfig, credential: string, bootNonce =
   const keys = loadOrCreateKeys(cfg.stateDir);
   const client = new GovernorClient(cfg);
   const { challengeId, nonce } = await client.challenge(cfg.runnerId, credential);
-  const engines = await availableEngines(cfg);
-  const capabilities = advertisedCapabilities(cfg.capabilities, engines);
+  const probed = await availableEngines(cfg);
+  const { engines } = probed;
   const helloBody = {
     contractVersion: "brain.runner/v1", runnerId: cfg.runnerId, bootNonce, runtimeVersion: "brain-runner/0.1.0",
     configDigest: `sha256:${"0".repeat(64)}`,
-    capabilities: capabilities.map((capability) => ({ capability, observedAt: new Date().toISOString(), source: "runner-probe", verified: true, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() })),
+    capabilities: observedCapabilities(cfg, probed),
     engines,
     capacity: runnerCapacity(),
     isolationModes: advertisedIsolationModes(engines),
@@ -550,7 +557,7 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
   const launcherCheck = launcherHealthCheck();
   const heartbeatTimer = setInterval(() => {
     seq += 1;
-    void Promise.all([availableEngines(cfg), launcherCheck()]).then(([engines, health]) => client.heartbeat({
+    void Promise.all([availableEngines(cfg), launcherCheck()]).then(([probed, health]) => client.heartbeat({
       // Full RunnerHeartbeat body: command delivery sits on the declared shape.
       runnerId: cfg.runnerId,
       runnerEpoch: session.epoch,
@@ -564,8 +571,8 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
       },
       activeAttemptIds: [...controls.activeAttemptIds],
       observedAt: new Date().toISOString(),
-      capabilities: advertisedCapabilities(cfg.capabilities, engines)
-        .map((capability) => ({ capability, verified: true, source: "runner-probe", observedAt: new Date().toISOString(), expiresAt: new Date(Date.now()+300000).toISOString() })),
+      capabilities: observedCapabilities(cfg, probed),
+      engines: probed.engines,
     })).then((ack) => {
       // At-most-once delivery: the Governor deleted the control rows when it
       // built this ack. Stop joins the watchdog path; steer waits in the

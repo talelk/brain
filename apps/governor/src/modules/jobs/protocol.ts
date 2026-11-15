@@ -5,6 +5,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 import { activeReleaseRecord } from "../configuration/index";
+import { reportedEngines, reportedObservedMs } from "./reported";
 import { drainSessionControls, type LiveAttempt, type SessionControlDelivery } from "../sessions/index";
 
 /**
@@ -60,7 +61,10 @@ export function operateRunner(s: Store, actor: { scopes: readonly string[]; acto
         .run(input.action, now, input.runnerId);
       s.control.prepare("UPDATE runner_sessions SET revoked_at_ms=? WHERE runner_id=? AND revoked_at_ms IS NULL").run(now, input.runnerId);
       s.control.prepare("UPDATE runner_identity_credentials SET revoked_at_ms=? WHERE runner_id=? AND revoked_at_ms IS NULL").run(now, input.runnerId);
-      if (input.action === "deregister") s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=?").run(input.runnerId);
+      if (input.action === "deregister") {
+        s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=?").run(input.runnerId);
+        s.control.prepare("UPDATE runners SET engines_json='[]' WHERE id=?").run(input.runnerId);
+      }
       s.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1 WHERE id=?").run(actor.organizationId);
     } else {
       throw new BrainDomainError("INVALID_ARGUMENT", "runner action must be enable, disable, drain, quarantine, rotate or deregister");
@@ -146,9 +150,10 @@ export function runnerHello(s: Store, hello: Record<string, unknown>): { session
       s.control.prepare("UPDATE runner_sessions SET revoked_at_ms=? WHERE runner_id=? AND revoked_at_ms IS NULL").run(s.now(), runnerId);
     }
     const capacity = hello["capacity"] as { cpuMillicores: number; memoryMb: number; diskMb: number; slots: number };
+    const engines = reportedEngines(hello["engines"]);
     s.control.prepare(`UPDATE runners SET session_epoch=?, boot_nonce=?, last_heartbeat_ms=?, heartbeat_seq=0, config_digest=?,
-      cpu_capacity=?, memory_capacity=?, disk_capacity=?, slot_capacity=? WHERE id=?`)
-      .run(epoch, String(hello["bootNonce"]), s.now(), String(hello["configDigest"]), capacity?.cpuMillicores ?? 0, capacity?.memoryMb ?? 0, capacity?.diskMb ?? 0, Math.max(1, capacity?.slots ?? 1), runnerId);
+      cpu_capacity=?, memory_capacity=?, disk_capacity=?, slot_capacity=?, engines_json=? WHERE id=?`)
+      .run(epoch, String(hello["bootNonce"]), s.now(), String(hello["configDigest"]), capacity?.cpuMillicores ?? 0, capacity?.memoryMb ?? 0, capacity?.diskMb ?? 0, Math.max(1, capacity?.slots ?? 1), JSON.stringify(engines), runnerId);
     s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=?").run(runnerId);
     for (const cap of (hello["capabilities"] as Array<Record<string, unknown>> | undefined) ?? []) {
       const capability = String(cap["capability"]);
@@ -157,8 +162,10 @@ export function runnerHello(s: Store, hello: Record<string, unknown>): { session
       // only a Governor-side verifier may mark them verified. The runner's
       // group likewise comes from enrollment, never from the hello body.
       const privilegedClaim = /^(privileged|admin|target|group|trust):/i.test(capability);
-      s.control.prepare("INSERT OR REPLACE INTO runner_capabilities(runner_id, capability, verified, source, observed_at_ms, expires_at_ms) VALUES (?,?,?,?,?,?)")
-        .run(runnerId, capability, privilegedClaim ? 0 : cap["verified"] ? 1 : 0, String(cap["source"] ?? "hello"), s.now(), s.now() + 5 * 60_000);
+      // The observation time is the runner's own, as reported. The label says where the fact came from, never what the runner claims it is
+      // (a runner cannot present itself as an admin attestation), and the expiry is the Governor's window from receipt, never the runner's.
+      s.control.prepare("INSERT OR REPLACE INTO runner_capabilities(runner_id, capability, verified, source, observed_at_ms, expires_at_ms) VALUES (?,?,?,'runner-probe',?,?)")
+        .run(runnerId, capability, privilegedClaim ? 0 : cap["verified"] ? 1 : 0, reportedObservedMs(cap["observedAt"], s.now()), s.now() + 5 * 60_000);
     }
     sessionToken = randomBytes(32).toString("base64url");
     s.control.prepare("INSERT INTO runner_sessions(token_digest, runner_id, runner_epoch, expires_at_ms, created_at_ms) VALUES (?,?,?,?,?) ON CONFLICT(runner_id, runner_epoch) DO UPDATE SET token_digest=excluded.token_digest, expires_at_ms=excluded.expires_at_ms, revoked_at_ms=NULL")
@@ -211,14 +218,15 @@ export function heartbeat(s: Store, runner: { runnerId: string; epoch: number },
     } else {
       s.control.prepare("UPDATE runners SET heartbeat_seq=?, heartbeat_digest=?, last_heartbeat_ms=? WHERE id=?").run(seq, digest, s.now(), runner.runnerId);
     }
+    if (body["engines"] !== undefined) s.control.prepare("UPDATE runners SET engines_json=? WHERE id=?").run(JSON.stringify(reportedEngines(body["engines"])), runner.runnerId);
     if (Array.isArray(body["capabilities"])) {
       if (body["capabilities"].length > 128) throw new BrainDomainError("INVALID_CONTRACT", "too many capability observations");
       s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=? AND source='runner-probe'").run(runner.runnerId);
       for (const raw of body["capabilities"]) {
-        const cap = raw as { capability?: unknown; verified?: unknown };
+        const cap = raw as { capability?: unknown; verified?: unknown; observedAt?: unknown };
         if (typeof cap.capability !== "string" || !/^[a-zA-Z0-9:._-]{1,128}$/u.test(cap.capability)) throw new BrainDomainError("INVALID_CONTRACT", "invalid capability observation");
         if (/^(privileged|admin|target|group|trust):/iu.test(cap.capability)) continue;
-        s.control.prepare("INSERT OR REPLACE INTO runner_capabilities(runner_id,capability,verified,source,observed_at_ms,expires_at_ms) VALUES (?,?,?,'runner-probe',?,?)").run(runner.runnerId,cap.capability,cap.verified === true ? 1 : 0,s.now(),s.now()+300000);
+        s.control.prepare("INSERT OR REPLACE INTO runner_capabilities(runner_id,capability,verified,source,observed_at_ms,expires_at_ms) VALUES (?,?,?,'runner-probe',?,?)").run(runner.runnerId,cap.capability,cap.verified === true ? 1 : 0,reportedObservedMs(cap.observedAt, s.now()),s.now()+300000);
       }
     }
   });
