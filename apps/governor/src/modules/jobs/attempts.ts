@@ -745,8 +745,8 @@ export function expireAttemptDeadlines(s: Store, deps: { completeStep: (organiza
     const ended = s.inTx(s.control, () => {
       const row = s.control.prepare("SELECT a.state, a.last_event_seq AS lastSeq, j.state AS jobState FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE a.id=?").get(item.attemptId) as { state: string; lastSeq: number; jobState: string } | undefined;
       if (!row || row.state !== "running" || row.jobState !== "running") return false;
-      const seconds = stepPolicy(s, item.jobId).timeoutSeconds ?? 0;
-      const message = `The step timed out after ${seconds} seconds.`;
+      const { timeoutSeconds, cappedBy } = stepPolicy(s, item.jobId);
+      const message = `The step timed out after ${timeoutSeconds ?? 0} seconds${cappedBy ? ` (the longest runtime policy ${cappedBy} allows)` : ""}.`;
       if (heldEffect(s, item.attemptId)) {
         // It may have changed something: only reconciliation settles it (E056), as for a runner that vanished.
         transitionState(s.control, "attempt", item.attemptId, "outcome_unknown");

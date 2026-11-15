@@ -122,6 +122,8 @@ export function RunDetail(props: {
   const problem = (): { theme: "red" | "amber"; title: string; reason: string; next: string } | undefined => {
     const current = state() ?? "";
     if (unknown() || job()?.context?.resolution || !["failed", "blocked", "cancelled", "expired"].includes(current)) return undefined;
+    // A step the release policy refused never started: the page says so, and the refusal below says which layer and rule did it.
+    if (job()?.policyRefusal) return { theme: "red", title: t("run.policy.title"), reason: t("run.policy.what"), next: t("run.policy.next") };
     const last = lastAttempt();
     const where = last ? ` on ${last.runnerId}` : "";
     if (current === "cancelled") return { theme: "amber", title: "This run was stopped", reason: "Someone cancelled it before it finished, so there is no result.", next: "start the task again from its mission if you still need it." };
@@ -158,6 +160,10 @@ export function RunDetail(props: {
         <Show when={job()}><p class="-mt-2 flex flex-wrap items-center gap-x-2 text-caption text-ink-gray-6">Run id <DigestValue value={job()!.jobId} label="run id" short={false} /></p></Show>
         <Show when={unknown()}><Alert theme="amber" variant="outline" title="Effect outcome is unknown" description="The effect may already have applied. Reconcile against the target system before considering another attempt; generic Retry is intentionally unavailable." /></Show>
         <Show when={problem()}>{(note) => <Alert theme={note().theme} variant="outline" title={note().title} description={t("run.fail.next", { what: note().reason, next: note().next })} />}</Show>
+        <Show when={job()?.policyRefusal}>{(refusal) => <section class="-mt-2 min-w-0 rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-caption text-ink-gray-8" data-run-policy-refusal aria-label={t("run.policy.why")}>
+          <p class="m-0 break-words"><span class="font-medium">{t("run.policy.why")}:</span> {refusal().message}</p>
+          <p class="m-0 mt-1 break-all text-ink-gray-6"><span class="font-medium">{t("run.policy.layer")}:</span> <span class="font-mono">{refusal().layer}</span> · <span class="font-medium">{t("run.policy.field")}:</span> <span class="font-mono">{refusal().field}</span></p>
+        </section>}</Show>
         <Show when={problem() && failureDetail()}>{(detail) => <p class="-mt-2 m-0 min-w-0 break-words rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-caption text-ink-gray-8" data-run-failure-reason><span class="font-medium">{t("run.fail.reason")}:</span> <span class="font-mono">{detail()}</span></p>}</Show>
         <Show when={job()?.origin}>{(origin) => origin().kind === "work-item"
           ? <WorkItemLink workspaceId={job()?.workspaceId ?? ""} workItemId={origin().id} class="inline-flex w-fit items-center gap-2 rounded-control text-interface font-medium text-ink-blue-link focus-visible:focus-ring"><span class="lucide-arrow-left size-4" aria-hidden="true" />Back to the mission plan</WorkItemLink>
@@ -182,7 +188,7 @@ export function RunDetail(props: {
             <TabButtons label="Run inspector" wrap options={TABS()} value={tab()} onValueChange={setTab} />
             <Show when={tab() === "summary"}><div class="flex min-w-0 flex-col gap-4">
               <WorkspaceSection title="What is happening" description="The latest authoritative condition, not a model's claim of completion.">
-                <PlainSummary icon="lucide-activity">{runSentence(state() ?? "", job()?.attempts.at(-1), job()?.attempts.length ?? 0, job()?.queueReasons ?? [])}</PlainSummary>
+                <PlainSummary icon="lucide-activity">{job()?.policyRefusal ? t("run.policy.status") : runSentence(state() ?? "", job()?.attempts.at(-1), job()?.attempts.length ?? 0, job()?.queueReasons ?? [])}</PlainSummary>
                 <Show when={latestEvent()} keyed fallback={<Show when={!job()?.queueReasons.length}><p class="text-interface text-ink-gray-7">No engine event has been recorded yet. Placement and attempt details explain the current wait.</p></Show>}>
                   {(event) => <div class="flex items-start gap-2.5 border-y border-outline-gray-1 py-3"><span class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-control bg-surface-blue-2 text-ink-blue-8"><span class="lucide-activity size-3.5" aria-hidden="true" /></span><div class="min-w-0"><h3 class="break-words text-base-medium capitalize">{eventTitle(event.kind)}</h3><p class="mt-0.5 text-caption text-ink-gray-6">Latest engine event · <DateText value={event.occurredAt} /></p></div></div>}
                 </Show>

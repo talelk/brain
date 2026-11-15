@@ -16773,6 +16773,32 @@
         "origin": {
           "$ref": "#/$defs/TaskOrigin"
         },
+        "policyRefusal": {
+          "type": "object",
+          "properties": {
+            "layer": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "field": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "layer",
+            "field",
+            "message"
+          ],
+          "additionalProperties": false
+        },
         "sessionId": {
           "$ref": "#/$defs/Id"
         }

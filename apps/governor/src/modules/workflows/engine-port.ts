@@ -49,6 +49,8 @@ export interface WorkflowHost {
     resume?: RunResume | undefined;
     /** The priority of the work the run serves: written into the job so the claim can order by it. */
     priority: number;
+    /** Set when the release policy refuses the step: the job is recorded as failed with this reason and never queued (ADR 0067). */
+    refusal?: { layer: string; field: string; message: string } | undefined;
   }): string;
   createApprovalForGate(input: {
     organizationId: string; workspaceId: string; runId: string; stepId: string;

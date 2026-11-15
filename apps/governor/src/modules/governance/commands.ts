@@ -8,9 +8,18 @@ import { BrainDomainError } from "../../domain/errors";
 import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
 import { assertHumanIdentity, type BrainAuth } from "../identity/index";
 import { originProblem } from "../missions/index";
+import { approvalPolicyProblem } from "./approval-policy";
 
 export interface GovernanceCommandPorts {
   readonly auth: BrainAuth;
+}
+
+/** Throws the policy's refusal, naming its layer and field, when the release policy does not let this approver decide this approval. */
+function refuseByPolicy(store: Store, approvalId: string, organizationId: string, approver: { actorId: string; kind: string }): void {
+  const row = store.control.prepare("SELECT subject_json FROM approval_requests WHERE id=? AND organization_id=?").get(approvalId, organizationId) as { subject_json: string } | undefined;
+  if (!row) return;
+  const problem = approvalPolicyProblem(store, JSON.parse(row.subject_json) as ActionSubject, approver);
+  if (problem) throw new BrainDomainError("FORBIDDEN", problem.message);
 }
 
 /**
@@ -20,10 +29,12 @@ export interface GovernanceCommandPorts {
  * a retry finds its own command intent (ADR 0002).
  */
 export function admitApprovalDecision(store: Store, auth: BrainAuth, identity: ResolvedActor, approvalId: string, body: HumanApprovalDecision): { actor: ActorContext; cmd: Command } {
-  assertHumanIdentity(store, auth, identity);
   const actorIn = identity.actor;
   const wsRow = store.control.prepare("SELECT workspace_id FROM approval_requests WHERE id=? AND organization_id=?").get(approvalId, actorIn.organizationId) as { workspace_id: string } | undefined;
   if (!wsRow) throw new BrainDomainError("NOT_FOUND", "approval not found");
+  // A machine principal never decides a production change, and the policy that says so is named; this runs before the generic human-session refusal.
+  if (body.decision === "approve") refuseByPolicy(store, approvalId, actorIn.organizationId, { actorId: actorIn.actorId, kind: actorIn.kind });
+  assertHumanIdentity(store, auth, identity);
   const actor: ActorContext = { ...actorIn, workspaceId: wsRow.workspace_id, scopes: scopesForPrincipal(store, actorIn.actorId, actorIn.organizationId, wsRow.workspace_id) };
   if (!actor.scopes.includes("approval:decide")) throw new BrainDomainError("FORBIDDEN", "missing approval:decide scope");
   const check = validate("HumanApprovalDecision", body);
@@ -95,6 +106,12 @@ export function governanceCommands(store: Store, ports: GovernanceCommandPorts):
         // Separation of duties: author cannot approve own high-risk request.
         if (body.decision === "approve" && row.requested_by === actor.actorId) {
           throw new BrainDomainError("FORBIDDEN", "separation of duties: requester cannot approve own action");
+        }
+        // The release policy asks more of the approver than the rule above: its layer and field are named in the refusal (ADR 0067).
+        if (body.decision === "approve") {
+          const kind = (s.control.prepare("SELECT kind FROM principals WHERE id=? AND organization_id=?").get(actor.actorId, actor.organizationId) as { kind: string } | undefined)?.kind ?? actor.kind;
+          const problem = approvalPolicyProblem(s, JSON.parse(row.subject_json) as ActionSubject, { actorId: actor.actorId, kind });
+          if (problem) throw new BrainDomainError("FORBIDDEN", problem.message);
         }
         if (body.decision === "approve") {
           if (!body.stepUpEvidenceId) throw new BrainDomainError("APPROVAL_REQUIRED", "fresh step-up evidence required to approve");

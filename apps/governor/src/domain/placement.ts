@@ -1,4 +1,4 @@
-import type { Placement, Resources } from "@brain/contracts";
+import { isolationLevelsMeeting, isolationSatisfies, type Placement, type Resources } from "@brain/contracts";
 
 export interface RunnerView {
   readonly id: string;
@@ -43,7 +43,8 @@ export function evaluateRunner(placement: Placement, demand: Resources, runner: 
   if (!runner.online) reasons.push("runner-offline");
   if (runner.health === "unhealthy") reasons.push("runner-unhealthy");
   if (runner.groupId !== placement.group) reasons.push("group-mismatch");
-  if (runner.isolation !== placement.isolation) reasons.push("isolation-mismatch");
+  // Isolation is an ordered level (ADR 0067): a runner or engine that states a stronger level than the step needs takes it; a weaker one never does.
+  if (!isolationSatisfies(runner.isolation, placement.isolation)) reasons.push("isolation-mismatch");
   for (const cap of placement.all) {
     const seen = runner.capabilities.get(cap);
     if (!seen) reasons.push(`missing-capability:${cap}`);
@@ -64,8 +65,8 @@ export function evaluateRunner(placement: Placement, demand: Resources, runner: 
     };
     const usable = placement.engine.anyOf.filter((e) => runner.engines.includes(e) && placement.engine!.features.every((feature) => fresh(`engine-feature:${e}:${feature}`)));
     if (usable.length === 0) reasons.push("engine-mismatch");
-    // The runner states the isolation each engine really provides (ADR 0035); an engine that does not state the step's isolation, or states another, cannot take it.
-    else if (!usable.some((e) => fresh(`engine-isolation:${e}:${placement.isolation}`)) && !reasons.includes("isolation-mismatch")) reasons.push("isolation-mismatch");
+    // The runner states the isolation each engine really provides (ADR 0035); an engine that does not state the step's isolation or a stronger one cannot take it.
+    else if (!usable.some((e) => isolationLevelsMeeting(placement.isolation).some((level) => fresh(`engine-isolation:${e}:${level}`))) && !reasons.includes("isolation-mismatch")) reasons.push("isolation-mismatch");
   }
   if (!fits(demand, available(runner))) reasons.push("insufficient-capacity");
   return { eligible: reasons.length === 0, reasons };

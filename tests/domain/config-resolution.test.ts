@@ -43,7 +43,7 @@ describe("config resolution and compiler bounds (T09)", () => {
     const floor = { productionHumanApproval: "required", defaultEffect: "deny", allowedOperations: ["a", "b", "c"], deniedOperations: [], maxMicroUsd: 100, maxRuntimeSeconds: 120, minimumIsolation: "ephemeral-container", separationOfDuties: true };
     const merged = mergePolicyFloor([
       { name: "floor", spec: floor },
-      { name: "ws", spec: { allowedOperations: ["b", "c", "d"], deniedOperations: ["c"], maxMicroUsd: 999, maxRuntimeSeconds: 30, minimumIsolation: "process", separationOfDuties: false } },
+      { name: "ws", spec: { allowedOperations: ["b", "c", "d"], deniedOperations: ["c"], maxMicroUsd: 999, maxRuntimeSeconds: 30, minimumIsolation: "trusted-local", separationOfDuties: false } },
     ]);
     expect(merged.effective.allowedOperations).toEqual(["b"]);
     expect(merged.effective.maxMicroUsd).toBe(100);
