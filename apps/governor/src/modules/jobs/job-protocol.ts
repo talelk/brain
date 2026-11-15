@@ -1,7 +1,7 @@
 import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, runnerChallenge, runnerHello, type HeartbeatCommand } from "./protocol";
-import { ackAttempt, attemptEvents, claim, completeAttempt, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, type ContextPackPort, type SessionCredential } from "./attempts";
+import { ackAttempt, attemptEvents, claim, completeAttempt, expireAttemptDeadlines, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, type ContextPackPort, type SessionCredential } from "./attempts";
 import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
 import { BrainDomainError } from "../../domain/errors";
 import { sweepStuckJobs } from "./watchdog";
@@ -9,6 +9,7 @@ import { settleEffects } from "./effect-hold";
 import { resolveUnknownJob, type UnknownResolution } from "./unknown";
 import { runScheduledDispatch } from "./scheduler";
 import { AutomationService } from "./automation";
+import { stopWorkspaceWork, type StoppedWork } from "./stop-all";
 import { cancelJobsForRun, concludeAttempt, createJobForStep, reprioritizeQueuedJobs, resolveReconciliation, workspaceJobLoad, type CreateJobInput, type ReconciliationOutcome } from "./lifecycle";
 
 /**
@@ -176,6 +177,13 @@ export class JobProtocol {
     return expireLeases(this.store);
   }
 
+  /** Ends the running attempts that passed the deadline their step's timeout set (ADR 0046); idempotent. */
+  expireDeadlines(): number {
+    return expireAttemptDeadlines(this.store, {
+      completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.ports.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
+    });
+  }
+
   /** Settles decided effect proposals, releases or cancels their held act jobs and resumes jobs whose changes are all settled (ADR 0028); idempotent. */
   settleEffects(): number {
     return settleEffects(this.store, {
@@ -214,6 +222,11 @@ export class JobProtocol {
   /** Cancels the run's jobs that no runner holds yet. */
   cancelForRun(runId: string): void {
     cancelJobsForRun(this.store, runId);
+  }
+
+  /** Fences and ends every attempt of the workspace, revokes their permits and session credentials, cancels the jobs nobody holds (ADR 0047). */
+  stopAll(input: { organizationId: string; workspaceId: string }): StoppedWork {
+    return stopWorkspaceWork(this.store, input);
   }
 
   /** Resolves an outcome_unknown job's reconciliation with target evidence. */

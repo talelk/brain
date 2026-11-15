@@ -24,7 +24,7 @@
           "type": "agent",
           "release": {
             "id": "diagnostic",
-            "digest": "sha256:35a266b009b4ad079d89e79b6a387041fd6c58f192f1c3d98aa354181cddd2e8"
+            "digest": "sha256:fbac54bf55b8946f75edd7b082f1f45867b07754f96b986d9edfb4f024d819b7"
           }
         },
         "runsOn": {
@@ -63,7 +63,7 @@
           }
         },
         "outputSchemaRef": "schemas/validation-output.json",
-        "timeoutSeconds": 30,
+        "timeoutSeconds": 300,
         "evaluator": {
           "id": "operations-validator",
           "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"

@@ -551,6 +551,24 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     } catch (e) { return fail(c as never, e); }
   });
 
+  app.post("/v1/step-up/commands", async (c) => {
+    try {
+      const body = (await readJson(c)) as { commandType: string; workspaceId: string; payload: JsonValue };
+      requireBody("CommandStepUpChallengeRequest", body);
+      const identity = await actorFor(c);
+      return c.json(brain.stepUp.createCommandChallenge(identity, body), 201);
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  app.post("/v1/step-up/commands/verify", async (c) => {
+    try {
+      const body = (await readJson(c)) as { challengeId: string; code?: string };
+      requireBody("StepUpVerify", body);
+      const identity = await actorFor(c);
+      return c.json(await brain.stepUp.verifyCommand(identity, body.challengeId, body.code ?? "", c.req.raw.headers));
+    } catch (e) { return fail(c as never, e); }
+  });
+
   app.post("/v1/approvals/:id/decision", async (c) => {
     try {
       const body = (await readJson(c)) as HumanApprovalDecision;
@@ -739,6 +757,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
       const body = (await readJson(c)) as { requestId: string };
       brain.jobProtocol.expireLeases();
+      brain.jobProtocol.expireDeadlines();
       const offer = brain.jobProtocol.claim(runner, body.requestId);
       if (!offer) return new Response(null, { status: 204 });
       return c.json(offer as never);
@@ -983,7 +1002,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       process.on("SIGTERM", stop);
       process.on("SIGINT", stop);
       setInterval(() => {
-    try { brain.jobProtocol.expireLeases(); brain.jobProtocol.settleEffects(); brain.projectOutbox(); } catch { /* timers never authorize */ }
+    try { brain.jobProtocol.expireLeases(); brain.jobProtocol.expireDeadlines(); brain.jobProtocol.settleEffects(); brain.projectOutbox(); } catch { /* timers never authorize */ }
     // Stuck-run watchdog: a job nothing will move again is restarted or failed with a plain reason, never left running.
     try { brain.jobProtocol.sweepStuckJobs(); } catch { /* the watchdog must not break expiry */ }
     // Execution stream: backstop projection plus the throttled retention sweep.

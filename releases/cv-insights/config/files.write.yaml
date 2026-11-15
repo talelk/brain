@@ -1,0 +1,27 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "files.write",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "read",
+    "inputSchemaRef": "schemas/files-write-input.json",
+    "outputSchemaRef": "schemas/files-write-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 20,
+    "maxOutputBytes": 65536,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "description": "Writes one text file (a report, a table) into the run's own output folder on the runner. The folder is private to the attempt, holds at most 20 small files, and what is in it when the attempt succeeds is attached to the run as artifacts. It reaches nothing else on the host, so it needs no approval.",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}

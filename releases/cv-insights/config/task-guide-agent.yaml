@@ -20,7 +20,7 @@
     "maxTurns": 2,
     "maxChildren": 0,
     "maxDepth": 0,
-    "maxTokens": 16384,
+    "maxTokens": 100000,
     "maxMicroUsd": 0
   }
 }

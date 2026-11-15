@@ -7,6 +7,7 @@
   },
   "spec": {
     "title": "Research and write a brief",
+    "practice": "data",
     "description": "Gather what is known about a topic, then write a short brief a colleague can read in two minutes. Every claim says where it came from. Nothing is sent or changed.",
     "intent": "Research the topic in the brief and write a short written brief (one page) that a colleague can read in two minutes and act on.",
     "successCriteria": [
@@ -35,6 +36,9 @@
             "Each fact names its source"
           ],
           "dependsOn": [],
+          "criterionIds": [
+            "c2"
+          ],
           "assignment": {
             "kind": "agent",
             "id": "worker",
@@ -52,6 +56,10 @@
           ],
           "dependsOn": [
             "gather"
+          ],
+          "criterionIds": [
+            "c1",
+            "c3"
           ],
           "assignment": {
             "kind": "agent",

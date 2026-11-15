@@ -492,6 +492,25 @@
       ],
       "additionalProperties": false
     },
+    "StepCondition": {
+      "type": "object",
+      "properties": {
+        "step": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "pointer": {
+          "$ref": "#/$defs/Pointer"
+        },
+        "equals": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "step",
+        "pointer"
+      ],
+      "additionalProperties": false
+    },
     "DispatchUse": {
       "type": "object",
       "properties": {
@@ -541,6 +560,9 @@
         },
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
+        },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
         },
         "uses": {
           "$ref": "#/$defs/DispatchUse"
@@ -599,6 +621,9 @@
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
         },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
+        },
         "approvalPolicy": {
           "$ref": "#/$defs/ReleaseRef"
         },
@@ -651,6 +676,9 @@
         },
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
+        },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
         },
         "evaluator": {
           "$ref": "#/$defs/ReleaseRef"
@@ -709,6 +737,9 @@
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
         },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
+        },
         "sessionFrom": {
           "$ref": "#/$defs/Binding"
         },
@@ -755,6 +786,9 @@
         },
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
+        },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
         },
         "tool": {
           "$ref": "#/$defs/ReleaseRef"
@@ -807,6 +841,9 @@
         },
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
+        },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
         },
         "workflow": {
           "$ref": "#/$defs/ReleaseRef"
@@ -6614,7 +6651,8 @@
           "type": "string",
           "enum": [
             "human",
-            "budget"
+            "budget",
+            "stopped"
           ]
         },
         "outcome": {
@@ -6693,6 +6731,11 @@
             "text"
           ],
           "additionalProperties": false
+        },
+        "pauseNote": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
         }
       },
       "required": [
@@ -11522,6 +11565,9 @@
         },
         {
           "$ref": "#/$defs/WorkspaceAutonomyCeilingSetCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceSessionsStopAllCommand"
         },
         {
           "$ref": "#/$defs/MissionSeenCommand"
@@ -23656,18 +23702,17 @@
             "workspaceId": {
               "$ref": "#/$defs/Id"
             },
-            "operations": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/PlanOperation"
-              },
-              "maxItems": 9,
-              "uniqueItems": true
+            "preset": {
+              "$ref": "#/$defs/AutonomyPreset"
+            },
+            "stepUpEvidenceId": {
+              "$ref": "#/$defs/Id"
             }
           },
           "required": [
             "workspaceId",
-            "operations"
+            "preset",
+            "stepUpEvidenceId"
           ],
           "additionalProperties": false
         }
@@ -26773,6 +26818,118 @@
         "workspaceId",
         "idempotencyKey",
         "payload"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceSessionsStopAllCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workspace.sessions.stopAll"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "stepUpEvidenceId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "workspaceId",
+            "reason",
+            "stepUpEvidenceId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "CommandStepUpChallengeRequest": {
+      "type": "object",
+      "properties": {
+        "commandType": {
+          "type": "string",
+          "enum": [
+            "workspace.autonomyCeiling.set",
+            "workspace.sessions.stopAll"
+          ]
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "commandType",
+        "workspaceId",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "CommandStepUpChallenge": {
+      "type": "object",
+      "properties": {
+        "challengeId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string"
+        },
+        "subjectDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "session",
+            "totp"
+          ]
+        }
+      },
+      "required": [
+        "challengeId",
+        "commandType",
+        "subjectDigest",
+        "expiresAt",
+        "method"
       ],
       "additionalProperties": false
     }

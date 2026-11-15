@@ -656,6 +656,15 @@
       ]
     },
     {
+      "type": "workspace.sessions.stopAll",
+      "schema": "WorkspaceSessionsStopAllCommand",
+      "scope": "workspace:admin",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "mission.seen",
       "schema": "MissionSeenCommand",
       "scope": "workspace:read",

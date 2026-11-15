@@ -126,3 +126,19 @@ it("the pinned plan guide has no tools and a short turn budget, and a human task
  expect(instructions).toContain("id is never left out");
  expect(instructions).not.toContain("knowledge.search");
 });
+it("a plan being drafted when an administrator stops all sessions is not drafted again until a person asks (ADR 0047)", async () => {
+ const w = await world(); const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+ const started = await w.tasks.startMissionPlan(w.owner, { workspaceId: w.workspaceId, requestId: "plan-stop", title: "Stabilize authentication", intent: "Resolve expired user sessions", successCriteria: ["Users remain signed in"] });
+ expect((await w.tasks.missionPlan(w.owner, w.workspaceId, started.missionId)).state).toBe("running");
+ const headers = new Headers({ authorization: `Bearer ${w.ownerToken}` });
+ const identity = await w.brain.resolveActor(headers, w.workspaceId);
+ const reason = "Stop everything while we look";
+ const evidence = await w.brain.stepUp.verifyCommand(identity, w.brain.stepUp.createCommandChallenge(identity, { commandType: "workspace.sessions.stopAll", workspaceId: w.workspaceId, payload: { workspaceId: w.workspaceId, reason } }).challengeId, "", headers);
+ expect((await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "cmd-stop-plan", commandType: "workspace.sessions.stopAll", workspaceId: w.workspaceId, idempotencyKey: "stop-plan",
+  payload: { workspaceId: w.workspaceId, reason, stepUpEvidenceId: evidence.evidenceId } } as never, "stop-plan", headers)).receipt.accepted).toBe(true);
+ // Reading the plan shows the stop in words and starts nothing: one run, no new job.
+ const plan = await w.tasks.missionPlan(w.owner, w.workspaceId, started.missionId);
+ expect(plan).toMatchObject({ state: "failed", error: "Drafting the plan was stopped by an administrator. Resume the mission, then try again." });
+ expect(db.prepare("SELECT COUNT(*) AS n FROM workflow_runs").get()).toEqual({ n: 1 });
+ expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM jobs WHERE state IN ('queued','offered','running')").get()).toEqual({ n: 0 });
+});

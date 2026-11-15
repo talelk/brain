@@ -110,7 +110,8 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
     const stopped = props.items.filter((item) => isStoppedForRetry(item)).length;
     const parked = props.items.filter((item) => item.parked).length - stopped;
     if (stopped) out.push(`${stopped} ${stopped === 1 ? "task has" : "tasks have"} stopped: waiting for you to try again. The agent was interrupted too often to carry on by itself. Next: open ${stopped === 1 ? "it" : "them"} in the plan and press Try again.`);
-    if (props.mission.state === "paused") out.push(`The mission is paused${props.mission.pauseReason === "budget" ? " because a time, spending or token limit was reached. Next: use Raise limits below" : " by a person"}.`);
+    if (props.mission.state === "paused" && props.mission.pauseReason === "stopped") out.push(t("mission.waits.stopped", { reason: props.mission.pauseNote ?? "" }));
+    else if (props.mission.state === "paused") out.push(`The mission is paused${props.mission.pauseReason === "budget" ? " because a time, spending or token limit was reached. Next: use Raise limits below" : " by a person"}.`);
     if (parked) out.push(`${parked} ${parked === 1 ? "task is" : "tasks are"} parked after repeated failures and need a person. Next: open ${parked === 1 ? "it" : "them"} in the plan and press Decide.`);
     const blockedItems = props.items.filter((item) => item.state === "blocked" && !item.parked);
     if (blockedItems.length) out.push(`${blockedItems.length} ${blockedItems.length === 1 ? "task is" : "tasks are"} blocked: ${blockedItems[0]?.blockedReason ?? "waiting on something outside the task"}. Next: fix that, then press Unblock on the task.`);

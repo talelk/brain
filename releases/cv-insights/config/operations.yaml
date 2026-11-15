@@ -15,12 +15,13 @@
     "repositories": [],
     "runnerGroups": [
       "agents",
-      "evaluators"
+      "evaluators",
+      "sre-host"
     ],
     "workflows": [
       {
         "id": "agent-smoke",
-        "digest": "sha256:9a3997862941842658559601aceb6ffe6eac48b9a8559dabffed42a08d7adcb4"
+        "digest": "sha256:11f53f225d6180c8c240c01f6d59d03face351b78e13890d5d161ed79859276f"
       },
       {
         "id": "general-task",
@@ -28,15 +29,15 @@
       },
       {
         "id": "operations-triage",
-        "digest": "sha256:97f17aeb2424d064bd6aa6d38140ccbbe691ace2afd4bf3a73b11e45cd44356b"
+        "digest": "sha256:8287d0dd1620042e5955ab30e7db3c1e2b333c5d5537266076a1c93d1ac6f504"
       },
       {
         "id": "support-draft",
-        "digest": "sha256:b940949b49bca33088b582792988a7c01f64d9c5886ac2cec706f94a035da3fd"
+        "digest": "sha256:4e9f27c3c95d4aaf2478b1df33e9bc308993da079b616566e04878dd6bc0f54b"
       },
       {
         "id": "task-guide",
-        "digest": "sha256:8531759e88ee8fc0232b5310ff9a12c7564ebe51159b488983c52c98a2fe9b67"
+        "digest": "sha256:564002de9ecdde7b453ea9b7c374b534c76e6e806db532c33e7452508e551111"
       },
       {
         "id": "plan-guide",
@@ -44,7 +45,7 @@
       },
       {
         "id": "runner-topology-smoke",
-        "digest": "sha256:5183dc45530d67a49e8b4673f25ca78a2f6a66d4c70eba08380edea5b3c66208"
+        "digest": "sha256:5ba6647e901751e0958cd1fb48f7eaa172c04c94cf2e00ec4155fb6ba1759126"
       }
     ],
     "memoryEnabled": true,

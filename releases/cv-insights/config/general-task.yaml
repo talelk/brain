@@ -24,7 +24,7 @@
           "type": "agent",
           "release": {
             "id": "task-worker",
-            "digest": "sha256:b09967f00f2f43f87437de18460c8ed067a1d9e82b5fa4b1ad1bcd83a418ed61"
+            "digest": "sha256:21e9112296d923f5fbadee9be75e94748894340126346ec1cf60b9c415d98270"
           }
         },
         "runsOn": {
@@ -67,7 +67,7 @@
           }
         },
         "outputSchemaRef": "schemas/task-validation-output.json",
-        "timeoutSeconds": 30,
+        "timeoutSeconds": 300,
         "evaluator": {
           "id": "task-validator",
           "digest": "sha256:2e1c5115766a4272e13c597569a58f52f732bed8e9f55d6c34659b9b4ee6507c"

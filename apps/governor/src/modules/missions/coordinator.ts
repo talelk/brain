@@ -5,7 +5,7 @@ import { ensureAgentPrincipal } from "../identity/index";
 type Db = ReturnType<Store["workspaceDb"]>;
 
 /** Why a coordinator is woken (ADR 0004): missions advance on events, never inside a long run. */
-export type WakeReason = "work-verified" | "message" | "plan-resolved" | "budget-changed" | "mission-paused";
+export type WakeReason = "work-verified" | "message" | "plan-resolved" | "budget-changed" | "mission-paused" | "mission-resumed";
 
 /** The host capability to start the coordinator's workflow run, bound at the composition root. */
 export interface CoordinatorPort {

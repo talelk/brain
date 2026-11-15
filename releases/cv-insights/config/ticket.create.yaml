@@ -1,0 +1,27 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "ticket.create",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "write",
+    "inputSchemaRef": "schemas/ticket-create-input.json",
+    "outputSchemaRef": "schemas/ticket-create-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 60,
+    "maxOutputBytes": 65536,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "description": "Creates ONE ticket in the connected ticketing system. Each call stops until the owner approves exactly that call. The ticketing credentials stay in the Governor.",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}

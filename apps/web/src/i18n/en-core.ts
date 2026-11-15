@@ -132,6 +132,7 @@ export const enCore = {
   "mission.outcome.cancelled": "cancelled",
   "mission.pause.human": "human",
   "mission.pause.budget": "budget",
+  "mission.pause.stopped": "stopped by an administrator",
   "missions.open": "Open mission {title}",
   "missions.updated": "updated {when}",
   "start.busyNote_one": "Brain is working on {n} thing; yours queues and starts next.",
