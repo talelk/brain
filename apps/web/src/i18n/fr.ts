@@ -2000,5 +2000,16 @@ export const fr: Catalog = {
   "console.resume.startedFrom": "Démarrée depuis",
   "console.resume.startedFromBody": "le point de sauvegarde {digest}… détenu par l'exécuteur {runner}, de la session précédente",
   "console.resume.openEarlier": "Session précédente",
+  "approval.ctx.belongs": "Où cela a été demandé",
+  "approval.ctx.mission": "Mission",
+  "approval.ctx.task": "Tâche",
+  "approval.ctx.run": "Exécution",
+  "approval.ctx.no-mission": "Ne fait partie d'aucune mission",
+  "approval.ctx.change": "Fichiers qui seraient validés",
+  "approval.ctx.file-lines": "Lignes : {lines}",
+  "approval.ctx.change-note": "Chaque fichier est montré avec tout son nouveau contenu. Un fichier déjà présent à ce chemin est remplacé. Brain ne lit pas le dépôt avant votre décision.",
+  "approval.ctx.rollback": "Annulation : {action}",
+  "approval.ctx.rollback-note": "Brain l'affiche mais ne l'exécute pas.",
+  "approval.ctx.rollback-none": "Aucune annulation déclarée",
   // @@END
 };
