@@ -19,6 +19,8 @@ import { LauncherClient } from "./launcher-client";
 import { payloadValidator } from "@brain/contracts/validate";
 import { instructionsWithSkills, promptWithContext, runAgentExecution, runAgentOnRoutes, selectEngine, type RouteReport } from "./engines/run";
 import { advertisedCapabilities, advertisedIsolationModes, engineIsolation } from "./engines/isolation";
+import { attemptEngine, type EngineSandboxSupport } from "./engines/hosting";
+import { ENGINE_SANDBOX_IMAGE, SandboxedEngine } from "./engines/sandboxed";
 import type { HostedRoute } from "./engines/pi";
 
 /** The step's output schema, as sent with its job, turned into a check that lists the violations of a reply; a schema that cannot be compiled checks nothing. */
@@ -44,6 +46,28 @@ export interface RunnerConfig {
   readonly dataMounts?: ReadonlyMap<string, readonly string[]>;
   /** Tests and embedders supply the trusted launcher directly; otherwise it is built from BRAIN_LAUNCHER_SOCKET. */
   readonly launcher?: LauncherClient;
+  /**
+   * The directory of per-attempt engine state (BRAIN_RUNNER_ENGINE_STATE_DIR), the same directory the launcher's BRAIN_LAUNCHER_ENGINE_STATE_ROOT
+   * names on its host. With a launcher and this, engines run in their own sandboxes (ADR 0073); without them they run in this process and
+   * the runner states the isolation of that.
+   */
+  readonly engineStateDir?: string;
+}
+
+/** What this runner needs to run engines in sandboxes, when it has it: a launcher and the engine state directory. */
+export function engineSandboxSupport(cfg: RunnerConfig): EngineSandboxSupport | undefined {
+  const launcher = cfg.launcher ?? (LauncherClient.configured() ? LauncherClient.fromEnv() : undefined);
+  return launcher && cfg.engineStateDir ? { opener: launcher, stateRoot: cfg.engineStateDir } : undefined;
+}
+
+/**
+ * Whether engines can run in sandboxes right now, which is what the runner may claim for them: it is set up for it, and its launcher answers with Docker
+ * up and the engine image built. Used by the hello and every heartbeat; an attempt placed on the claim that cannot start its sandbox fails, it never runs in the runner.
+ */
+export async function engineSandboxReady(cfg: RunnerConfig, probe?: () => Promise<{ docker: boolean; missingImages?: readonly string[] }>): Promise<boolean> {
+  const launcher = cfg.launcher ?? (LauncherClient.configured() ? LauncherClient.fromEnv() : undefined);
+  if (!launcher || !cfg.engineStateDir) return false;
+  try { const health = await (probe ?? (() => launcher.health()))(); return health.docker && !(health.missingImages ?? []).includes(ENGINE_SANDBOX_IMAGE); } catch { return false; }
 }
 
 /** "host.read=srv+logs,csv.query=cv-data" -> tool id -> mount names. Malformed entries are ignored, never widened. */
@@ -115,9 +139,9 @@ async function availableEngines(cfg: RunnerConfig): Promise<{ engines: EngineInf
 }
 
 /** What this runner observes about itself, each dated by the probe that produced it (never by when the message is assembled). */
-function observedCapabilities(cfg: RunnerConfig, probed: { engines: readonly EngineInfo[]; probedAt: string }) {
+function observedCapabilities(cfg: RunnerConfig, probed: { engines: readonly EngineInfo[]; probedAt: string }, sandboxAvailable: boolean) {
   const expiresAt = new Date(Date.parse(probed.probedAt) + 5 * 60_000).toISOString();
-  return advertisedCapabilities(cfg.capabilities, probed.engines).map((capability) => ({ capability, observedAt: probed.probedAt, source: "runner-probe" as const, verified: true, expiresAt }));
+  return advertisedCapabilities(cfg.capabilities, probed.engines, sandboxAvailable).map((capability) => ({ capability, observedAt: probed.probedAt, source: "runner-probe" as const, verified: true, expiresAt }));
 }
 
 /**
@@ -130,13 +154,14 @@ async function challengeHello(cfg: RunnerConfig, credential: string, bootNonce =
   const { challengeId, nonce } = await client.challenge(cfg.runnerId, credential);
   const probed = await availableEngines(cfg);
   const { engines } = probed;
+  const sandboxAvailable = await engineSandboxReady(cfg);
   const helloBody = {
     contractVersion: "brain.runner/v1", runnerId: cfg.runnerId, bootNonce, runtimeVersion: "brain-runner/0.1.0",
     configDigest: `sha256:${"0".repeat(64)}`,
-    capabilities: observedCapabilities(cfg, probed),
+    capabilities: observedCapabilities(cfg, probed, sandboxAvailable),
     engines,
     capacity: runnerCapacity(),
-    isolationModes: advertisedIsolationModes(engines),
+    isolationModes: advertisedIsolationModes(engines, sandboxAvailable),
   };
   const helloDigest = domainDigest("brain:runner-hello:v1", helloBody as unknown as JsonValue);
   const signed = JSON.stringify({ challengeId, nonce, runnerId: cfg.runnerId, bootNonce, helloDigest });
@@ -186,10 +211,15 @@ export const RESUME_NOTE = "\n\n# Resuming earlier work\nThis conversation conti
  * The hosted model routes the Governor offered this attempt (a check, a second attempt, ADR 0023), in the order they are tried. A route without
  * both prices would run hosted spend for free, and one without a key reference has nowhere to find its key; neither is accepted here.
  */
-export function hostedRoutesOf(routes: ReadonlyArray<{ tier?: string; role?: string; routeId?: string; keyRef?: string; baseUrl?: string; model?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number }> | undefined): HostedRoute[] {
+export function hostedRoutesOf(routes: ReadonlyArray<{ tier?: string; role?: string; routeId?: string; keyRef?: string; baseUrl?: string; model?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number; viaGateway?: boolean }> | undefined, gateway?: { baseUrl: (routeId: string) => string; token: string }): HostedRoute[] {
   const priced = (price: number | undefined): price is number => typeof price === "number" && price >= 1;
-  return (routes ?? []).flatMap((route) => route.tier === "hosted" && (route.role === "second-attempt" || route.role === "evaluator") && route.routeId && route.keyRef && isKeyReference(route.keyRef) && route.baseUrl && route.model && priced(route.inputMicroUsdPerMTok) && priced(route.outputMicroUsdPerMTok)
-    ? [{ routeId: route.routeId, keyRef: route.keyRef, baseUrl: route.baseUrl, model: route.model, inputMicroUsdPerMTok: route.inputMicroUsdPerMTok, outputMicroUsdPerMTok: route.outputMicroUsdPerMTok }] : []);
+  return (routes ?? []).flatMap((route): HostedRoute[] => {
+    if (route.tier !== "hosted" || !(route.role === "second-attempt" || route.role === "evaluator") || !route.routeId || !route.model || !priced(route.inputMicroUsdPerMTok) || !priced(route.outputMicroUsdPerMTok)) return [];
+    const prices = { inputMicroUsdPerMTok: route.inputMicroUsdPerMTok, outputMicroUsdPerMTok: route.outputMicroUsdPerMTok };
+    // A route through the Governor's gateway (ADR 0072) carries no key reference and no upstream address: the runner calls the gateway with its attempt's token.
+    if (route.viaGateway === true) return gateway ? [{ routeId: route.routeId, keyRef: "", baseUrl: gateway.baseUrl(route.routeId), model: route.model, ...prices, gatewayToken: gateway.token }] : [];
+    return route.keyRef && isKeyReference(route.keyRef) && route.baseUrl ? [{ routeId: route.routeId, keyRef: route.keyRef, baseUrl: route.baseUrl, model: route.model, ...prices }] : [];
+  });
 }
 
 export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => string), runnerEpoch = 1, controls: RunnerControls = newRunnerControls()): Promise<boolean> {
@@ -219,6 +249,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
   let leaseLost = false;
   let abortReason: "lease" | "deadline" | undefined;
   const controller = new AbortController();
+  // The sandboxes this attempt's engines started: ended with the attempt, whichever way it ended.
+  const engineSandboxes: SandboxedEngine[] = [];
   const spool = DurableEventSpool.load(join(cfg.stateDir, "spool", `${offer.attemptId}.jsonl`));
   let eventSeq = spool.stats().lastSequence;
   // The engine that actually executes the attempt; reported with the event
@@ -331,18 +363,30 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       // The engine must be configured here and provide the isolation this step's placement requires (ADR 0035): an engine that cannot is never used,
       // even when the runner also has one that can.
       const required = offer.placement?.isolation ?? "none stated";
-      const engineConfigured = asset.agent.spec.engine.anyOf.find((id) => configured.includes(id) && isolationSatisfies(engineIsolation(id), required));
+      const sandbox = engineSandboxSupport(cfg);
+      const engineConfigured = asset.agent.spec.engine.anyOf.find((id) => configured.includes(id) && isolationSatisfies(engineIsolation(id, sandbox !== undefined), required));
       // Tools the Governor found to have nothing to read for this task (no documents, no CSV files) are not offered to the model at all:
       // each call it would waste is a model round trip. The pinned allowlist above still bounds what could ever run.
       const withheld = new Set((payload.contextPack?.unavailableTools ?? []).map((tool) => tool.id));
       const offeredBindings = asset.toolBindings.filter((binding) => !withheld.has(binding.release.id));
       const offeredTools = asset.agent.spec.tools.filter((tool) => !withheld.has(tool.id));
       // A second attempt the Governor routed to the workspace's hosted model (ADR 0023); every other attempt stays on this runner's own model.
-      const hostedRoutes = hostedRoutesOf(payload.modelRoutes);
-      const candidates = hostedRoutes.flatMap((route) => { const picked = selectEngine(engineConfigured, offeredBindings, route); return picked ? [{ route, engine: picked }] : []; });
-      const engine = hostedRoutes.length > 0 ? candidates[0]?.engine : selectEngine(engineConfigured, offeredBindings);
+      // A route through the Governor's gateway is called with this attempt's own token, asked for now that the attempt runs; the key stays on the Governor host (ADR 0072).
+      const gatewayToken = payload.modelRoutes?.some((route) => route.viaGateway === true) ? (await client.modelGatewayToken(offer.attemptId)).token : undefined;
+      const hostedRoutes = hostedRoutesOf(payload.modelRoutes, gatewayToken ? { baseUrl: (routeId) => client.gatewayBaseUrl(routeId), token: gatewayToken } : undefined);
+      // An engine this runner can sandbox runs in its attempt's sandbox with the job's reservation and the workspace's hosts plus its model's; one it
+      // cannot is the in-process engine (the fixture), whose isolation the runner states accordingly (ADR 0073).
+      const attemptSandbox = (routeIndex: number) => sandbox ? { support: sandbox, attemptId: offer.attemptId, resources: offer.placement?.resources ?? { cpuMillicores: 1000, memoryMb: 1024 }, workspaceHosts: offer.egressHosts ?? [], routeIndex } : undefined;
+      const engineFor = (route: HostedRoute | undefined, routeIndex: number) => {
+        const picked = engineConfigured === undefined ? undefined : attemptEngine(engineConfigured, offeredBindings, route, attemptSandbox(routeIndex));
+        if (picked instanceof SandboxedEngine) engineSandboxes.push(picked);
+        return picked;
+      };
+      const candidates = hostedRoutes.flatMap((route, index) => { const picked = engineFor(route, index); return picked ? [{ route, engine: picked }] : []; });
+      const engine = hostedRoutes.length > 0 ? candidates[0]?.engine : engineFor(undefined, 0);
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner with the ${required} isolation this step requires`);
-      const engineProbe = await engine.probe();
+      // A sandboxed engine is probed in its sandbox; when that cannot start, the run below fails the attempt with the reason, so a probe that throws here is not the end of it.
+      const engineProbe = await engine.probe().catch(() => ({ id: engine.id, adapterDigest: sha256Digest(new TextEncoder().encode(`${engine.id}:unprobed`)), features: [] as string[] }));
       // The model this attempt runs on, as the usage ledger attributes spend (#111): the hosted route's, else the runner's configured one, else the
       // engine's own default. An engine that names none (an ACP agent picks its own) reports none: nothing is invented.
       const modelId = hostedRoutes[0]?.model ?? process.env["BRAIN_LOCAL_MODEL_ID"] ?? engine.defaultModelId;
@@ -578,6 +622,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     clearInterval(watchdog);
     controls.activeAttemptIds.delete(offer.attemptId);
     controls.stopRequests.delete(offer.attemptId);
+    // The attempt's engine sandboxes end with it (a closed channel also ends a container whose launcher call fails: the launcher stops one its runner stops talking to).
+    await Promise.all(engineSandboxes.map((sandbox) => sandbox.close().catch(() => undefined)));
     for (let index = controls.pauseQueue.length - 1; index >= 0; index--) if (controls.pauseQueue[index]!.attemptId === offer.attemptId) controls.pauseQueue.splice(index, 1);
     try { new RunOutputDir(cfg.stateDir, offer.attemptId).dispose(); } catch { /* an unusable attempt id never created a folder */ }
   }
@@ -595,7 +641,9 @@ export function launcherHealthCheck(env: NodeJS.ProcessEnv = process.env, probe:
     try {
       const result = await probe();
       // Docker answering is not enough: with a sandbox image never built here every sandboxed step fails on its first container, so the engine is unusable.
-      misses = result.docker && (result.missingImages ?? []).length === 0 ? 0 : misses + 1;
+      // The engine image matters only to a runner set up for engine sandboxes (ADR 0073); one that is not still runs tools and the fixture, and says so in its engine isolation.
+      const missing = (result.missingImages ?? []).filter((image) => image !== ENGINE_SANDBOX_IMAGE || Boolean(env["BRAIN_RUNNER_ENGINE_STATE_DIR"]));
+      misses = result.docker && missing.length === 0 ? 0 : misses + 1;
     } catch { misses += 1; }
     return misses === 0 ? "healthy" : misses === 1 ? "degraded" : "unhealthy";
   };
@@ -609,6 +657,7 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
     capabilities: (process.env["BRAIN_RUNNER_CAPABILITIES"] ?? "os:linux,arch:amd64,tool:fixture.echo,tool:fixture.verify,isolation:ephemeral-container").split(","),
     engines: (process.env["BRAIN_RUNNER_ENGINE"] ?? "fixture").split(",").map((id) => id.trim()).filter(Boolean),
     dataMounts: parseToolDataMounts(process.env["BRAIN_TOOL_DATA_MOUNTS"] ?? ""),
+    ...(process.env["BRAIN_RUNNER_ENGINE_STATE_DIR"] ? { engineStateDir: process.env["BRAIN_RUNNER_ENGINE_STATE_DIR"] } : {}),
   };
   const enrollToken = process.env["BRAIN_RUNNER_ENROLL_TOKEN"] ?? "";
   const initial = await enrollAndHello(cfg, enrollToken);
@@ -630,10 +679,16 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
   };
   let seq = 0;
   const controls = newRunnerControls();
-  const launcherCheck = launcherHealthCheck();
+  // One look at the launcher per heartbeat serves both its health and whether engine sandboxes can start.
+  let lastLook: { at: number; result: Promise<{ docker: boolean; missingImages: string[] }> } | undefined;
+  const launcherLook = () => {
+    if (!lastLook || Date.now() - lastLook.at > 2000) lastLook = { at: Date.now(), result: (cfg.launcher ?? LauncherClient.fromEnv()).health() };
+    return lastLook.result;
+  };
+  const launcherCheck = launcherHealthCheck(process.env, launcherLook);
   const heartbeatTimer = setInterval(() => {
     seq += 1;
-    void Promise.all([availableEngines(cfg), launcherCheck()]).then(([probed, health]) => client.heartbeat({
+    void Promise.all([availableEngines(cfg), launcherCheck(), engineSandboxReady(cfg, launcherLook)]).then(([probed, health, sandboxAvailable]) => client.heartbeat({
       // Full RunnerHeartbeat body: command delivery sits on the declared shape.
       runnerId: cfg.runnerId,
       runnerEpoch: session.epoch,
@@ -647,7 +702,7 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
       },
       activeAttemptIds: [...controls.activeAttemptIds],
       observedAt: new Date().toISOString(),
-      capabilities: observedCapabilities(cfg, probed),
+      capabilities: observedCapabilities(cfg, probed, sandboxAvailable),
       engines: probed.engines,
     })).then((ack) => {
       // Stop is delivered until the session has ended and applied once however often it repeats; steer is delivered once and waits in

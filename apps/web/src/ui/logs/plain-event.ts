@@ -52,6 +52,8 @@ const ACTIONS: Record<string, string> = {
   "mission.briefChanged": "updated the mission brief",
   "mission.budgetChanged": "changed the mission budget",
   "mission.policyChanged": "changed how the mission starts work",
+  "autonomy.suggestionAccepted": "accepted an autonomy suggestion",
+  "autonomy.suggestionDismissed": "dismissed an autonomy suggestion",
   "mission.messageSent": "sent a message to the mission",
   "mission.verdictRecorded": "recorded the verdict on the mission",
   "mission.bundleAssembled": "gathered the mission's evidence",

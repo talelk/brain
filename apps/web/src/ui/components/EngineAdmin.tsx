@@ -75,12 +75,12 @@ const COST_TIERS: readonly CostTier[] = ["low", "standard", "premium"];
 const TIER_LABEL: Readonly<Record<CostTier, MessageKey>> = { low: "work.routes.tier.low", standard: "work.routes.tier.standard", premium: "work.routes.tier.premium" };
 
 /** One route as typed: prices stay text until saved, so a half-typed number is not rewritten under the cursor. */
-interface RouteDraft { routeId: string; enabled: boolean; vendor: string; keyRef: string; model: string; baseUrl: string; costTier: CostTier; priceIn: string; priceOut: string }
-const draftOf = (route: ModelRouteRow): RouteDraft => ({ routeId: route.routeId, enabled: route.enabled, vendor: route.vendor, keyRef: route.keyRef, model: route.model, baseUrl: route.baseUrl, costTier: route.costTier, priceIn: usdPrice(route.inputMicroUsdPerMTok), priceOut: usdPrice(route.outputMicroUsdPerMTok) });
+interface RouteDraft { routeId: string; enabled: boolean; vendor: string; keyRef: string; model: string; baseUrl: string; costTier: CostTier; priceIn: string; priceOut: string; viaGateway: boolean }
+const draftOf = (route: ModelRouteRow): RouteDraft => ({ routeId: route.routeId, enabled: route.enabled, vendor: route.vendor, keyRef: route.keyRef, model: route.model, baseUrl: route.baseUrl, costTier: route.costTier, priceIn: usdPrice(route.inputMicroUsdPerMTok), priceOut: usdPrice(route.outputMicroUsdPerMTok), viaGateway: route.viaGateway });
 const newDraft = (existing: readonly RouteDraft[]): RouteDraft => {
   let n = existing.length + 1;
   while (existing.some((route) => route.routeId === `route-${n}`)) n++;
-  return { routeId: `route-${n}`, enabled: false, vendor: "", keyRef: "", model: "", baseUrl: "", costTier: "standard", priceIn: "", priceOut: "" };
+  return { routeId: `route-${n}`, enabled: false, vendor: "", keyRef: "", model: "", baseUrl: "", costTier: "standard", priceIn: "", priceOut: "", viaGateway: false };
 };
 
 const SLUG = /^[a-z][a-z0-9-]{0,31}$/u;
@@ -116,7 +116,7 @@ function ModelRoutes(props: { settings: EngineSettings; reload: () => Promise<un
   const statusOf = (routeId: string): ModelRouteRow | undefined => saved().find((route) => route.routeId === routeId);
   const saver = createSaver(async () => { setEdited(undefined); await props.reload(); });
   const payload = () => list().map((route) => ({ routeId: route.routeId.trim(), enabled: route.enabled, vendor: route.vendor.trim(), keyRef: route.keyRef.trim(), model: route.model.trim(), baseUrl: route.baseUrl.trim(), costTier: route.costTier,
-    inputMicroUsdPerMTok: microPrice(route.priceIn) ?? 0, outputMicroUsdPerMTok: microPrice(route.priceOut) ?? 0 }));
+    inputMicroUsdPerMTok: microPrice(route.priceIn) ?? 0, outputMicroUsdPerMTok: microPrice(route.priceOut) ?? 0, viaGateway: route.viaGateway }));
   return <WorkspaceSection title={t("work.routes.title")} description={t("work.routes.description")}>
     <div class="flex min-w-0 flex-col gap-3" data-work-hosted>
       <p class="m-0 text-caption text-ink-gray-6">{t("work.hosted.roles")}</p>
@@ -139,6 +139,10 @@ function ModelRoutes(props: { settings: EngineSettings; reload: () => Promise<un
                 <TextInput label={label("work.routes.keyRef")} description={t("work.routes.keyRefHint")} value={route.keyRef} onInput={(event) => patch(index(), { keyRef: event.currentTarget.value })} />
               </div>
               <TextInput label={label("work.hosted.address")} description={t("work.hosted.addressHint")} value={route.baseUrl} placeholder="https://" onInput={(event) => patch(index(), { baseUrl: event.currentTarget.value })} />
+              <div class="flex min-w-0 flex-col gap-1" data-work-route-gateway>
+                <Checkbox checked={route.viaGateway} onCheckedChange={(checked) => patch(index(), { viaGateway: checked === true })} label={label("work.routes.gateway")} />
+                <p class="m-0 text-caption text-ink-gray-6">{t("work.routes.gatewayHint")}</p>
+              </div>
               <div class="grid min-w-0 gap-3 sm:grid-cols-3">
                 <Select label={label("work.routes.tier")} value={route.costTier} onValueChange={(value) => patch(index(), { costTier: (value ?? "standard") as CostTier })} options={COST_TIERS.map((tier) => ({ value: tier, label: t(TIER_LABEL[tier]) }))} />
                 <TextInput label={label("work.hosted.priceIn")} type="number" min={0} step="any" inputmode="decimal" value={route.priceIn} onInput={(event) => patch(index(), { priceIn: event.currentTarget.value })} />

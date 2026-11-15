@@ -37,7 +37,7 @@ export interface PlanDiff {
   readonly operations: readonly PlanOperation[];
 }
 
-const content = (task: PlanTask) => JSON.stringify({ title: task.title, criteria: task.criteria, dependsOn: [...task.dependsOn].sort(), parentId: task.parentId ?? null, workflowId: task.workflowId ?? null, optional: task.optional ?? false, requiredTools: [...(task.requiredTools ?? [])].sort() });
+const content = (task: PlanTask) => JSON.stringify({ title: task.title, criteria: task.criteria, dependsOn: [...task.dependsOn].sort(), parentId: task.parentId ?? null, workflowId: task.workflowId ?? null, optional: task.optional ?? false, requiredTools: [...(task.requiredTools ?? [])].sort(), candidates: task.candidates ?? null });
 
 function downstream(tasks: readonly PlanTask[], roots: ReadonlySet<string>): Set<string> {
   const dependents = new Map<string, string[]>();
@@ -111,6 +111,16 @@ export function assertTeamEligible(team: readonly TeamMember[], tasks: readonly 
     if (!agent) throw new BrainDomainError("INVALID_ARGUMENT", `team member ${member.memberId} names no published agent definition ${member.agentId}`);
     if (!agent.engines.includes(member.engine)) throw new BrainDomainError("INVALID_ARGUMENT", `agent ${member.agentId} does not run on engine ${member.engine}`);
     members.set(member.memberId, member);
+  }
+  for (const task of tasks) {
+    for (const candidate of task.candidates ?? []) {
+      if (!candidate.memberId) continue;
+      const member = members.get(candidate.memberId);
+      if (!member) throw new BrainDomainError("INVALID_ARGUMENT", `candidate ${candidate.id} of plan task ${task.id} names ${candidate.memberId}, who is not on the mission team`);
+      const capable = agents[member.agentId] as AgentCapabilities;
+      const lacking = (task.requiredTools ?? []).filter((tool) => !capable.tools.includes(tool));
+      if (lacking.length > 0) throw new BrainDomainError("INVALID_ARGUMENT", `${member.memberId} is not eligible as a candidate for ${task.id}: missing tools ${lacking.join(", ")}`);
+    }
   }
   if (team.length === 0) return chosen;
   const accepts = (agent: AgentCapabilities, task: PlanTask): boolean =>

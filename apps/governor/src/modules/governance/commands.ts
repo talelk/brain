@@ -61,7 +61,7 @@ export function governanceCommands(store: Store, ports: GovernanceCommandPorts):
         // The origin is bound with the subject, so a caller cannot name a run, task or mission the Governor's own links do not support (ADR 0049).
         const mismatch = proposed.origin ? originProblem(s.workspaceDb(workspaceId, actor.organizationId), proposed.origin) : undefined;
         if (mismatch) throw new BrainDomainError("INVALID_ARGUMENT", mismatch);
-        // The risk tier is the Governor's to compute and is bound with the rest (ADR 0071): a proposal cannot name a lower one.
+        // The risk tier is the Governor's to compute and is bound with the rest (ADR 0075): a proposal cannot name a lower one.
         const subject = withRisk(s, proposed, { organizationId: actor.organizationId, workspaceId });
         const digest = approvalSubjectDigest(subject as unknown as JsonValue);
         // E083: one live request per exact subject signature — a repeated
@@ -107,7 +107,7 @@ export function governanceCommands(store: Store, ports: GovernanceCommandPorts):
           transitionState(s.control, "approval", approvalId, "expired", { bumpVersion: true });
           throw new BrainDomainError("APPROVAL_EXPIRED", "approval expired");
         }
-        // What the tier asked of this approval when it was requested holds, and nothing later lowers it (ADR 0071).
+        // What the tier asked of this approval when it was requested holds, and nothing later lowers it (ADR 0075).
         const risk = subject.risk ?? assessRisk(s, subject, { organizationId: actor.organizationId, workspaceId: row.workspace_id });
         const prior = body.decision === "approve" ? approversSoFar(s, approvalId) : [];
         if (body.decision === "approve") {

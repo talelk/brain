@@ -119,9 +119,10 @@ export function planEstimate(plan: PlanVersion, store: Store, db: Db, workspaceI
   const mission = db.prepare("SELECT budget_micro_usd, budget_tokens, budget_wall_ms, budget_wall_explicit, final_allowance_micro_usd, play_id FROM missions WHERE id=?").get(plan.missionId) as
     { budget_micro_usd: number | null; budget_tokens: number | null; budget_wall_ms: number | null; budget_wall_explicit: number; final_allowance_micro_usd: number; play_id: string | null } | undefined;
   const defaultWorkflowId = wayOfWorking(store, workspaceId)?.workflowId ?? GENERAL_TASK_WORKFLOW;
+  // Every candidate of a best-of-N task spends up to the task's ceiling (ADR 0071), so a declared cost counts them all.
   const rows = plan.tasks.map((task) => {
     const history = historyOf(store, db, plan.missionId, mission?.play_id ?? null, task, defaultWorkflowId);
-    return { task, time: figureOf(history, (sample) => sample.ms, minutesOf, task.estimatedMinutes), cost: figureOf(history, (sample) => sample.microUsd, (raw) => raw, task.maxMicroUsd) };
+    return { task, time: figureOf(history, (sample) => sample.ms, minutesOf, task.estimatedMinutes), cost: figureOf(history, (sample) => sample.microUsd, (raw) => raw, task.maxMicroUsd === undefined ? undefined : task.maxMicroUsd * (task.candidates?.length ?? 1)) };
   });
   const tasks = rows.map(({ task, time, cost }) => ({
     taskId: task.id, title: task.title,

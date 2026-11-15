@@ -627,6 +627,24 @@
       ]
     },
     {
+      "type": "autonomy.suggestion.accept",
+      "schema": "AutonomySuggestionAcceptCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "autonomy.suggestion.dismiss",
+      "schema": "AutonomySuggestionDismissCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "mission.message.send",
       "schema": "MissionMessageSendCommand",
       "scope": "mission:write",
@@ -820,6 +838,15 @@
     {
       "type": "workItem.spendCap.raise",
       "schema": "WorkItemSpendCapRaiseCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "workItem.candidate.keep",
+      "schema": "WorkItemCandidateKeepCommand",
       "scope": "mission:write",
       "authority": "workspace",
       "actors": [
@@ -1060,7 +1087,8 @@
     "chatIdentities.list",
     "quality.breakdown",
     "practices.list",
-    "standingTeams.list"
+    "standingTeams.list",
+    "autonomy.suggestions"
   ],
   "events": [
     {

@@ -119,6 +119,10 @@ test("How work runs: way of working, model routes, tool allow-list, runner group
   const first = hosted.locator("[data-work-route='1']");
   await expect(first).toContainText("Not checked yet".replace("Not checked yet", "Off"));
   await first.getByRole("checkbox", { name: "Use this route (route 1)" }).check();
+  // Sending calls through the Governor is off by default and says what it changes before anyone turns it on (ticket #155).
+  const gateway = first.getByRole("checkbox", { name: "Send calls through the Governor (route 1)" });
+  await expect(gateway).not.toBeChecked();
+  await expect(first.locator("[data-work-route-gateway]")).toContainText("the runner never holds this route's key");
   await hosted.getByRole("button", { name: "Save", exact: true }).click();
   // A key is only ever named by reference: the form says so, and the first thing missing is that name.
   await expect(hosted.getByRole("alert")).toContainText("name its API key by a short reference");
@@ -151,12 +155,17 @@ test("How work runs: way of working, model routes, tool allow-list, runner group
   await second.getByLabel("Input price (USD per million tokens) (route 2)").fill("0.05");
   await second.getByLabel("Output price (USD per million tokens) (route 2)").fill("0.2");
   await second.getByRole("checkbox", { name: "Use this route (route 2)" }).check();
+  await second.getByRole("checkbox", { name: "Send calls through the Governor (route 2)" }).check();
   await second.getByRole("button", { name: "Move up (route 2)" }).click();
   await expect(hosted.locator("[data-work-route='1']")).toContainText("1. backup");
   await hosted.getByRole("button", { name: "Save", exact: true }).click();
   await expect(hosted.getByRole("status")).toHaveText("The model routes were saved.");
-  expect(brain.store.control.prepare("SELECT route_id AS id, position AS p, enabled AS e, key_ref AS k, input_micro_usd_per_mtok AS i, output_micro_usd_per_mtok AS o FROM workspace_model_routes WHERE workspace_id=? ORDER BY position").all(demo.workspaceId))
-    .toEqual([{ id: "backup", p: 0, e: 1, k: "backup-key", i: 50_000, o: 200_000 }, { id: "acme", p: 1, e: 1, k: "acme-main", i: 150_000, o: 600_000 }]);
+  expect(brain.store.control.prepare("SELECT route_id AS id, position AS p, enabled AS e, key_ref AS k, input_micro_usd_per_mtok AS i, output_micro_usd_per_mtok AS o, via_gateway AS g FROM workspace_model_routes WHERE workspace_id=? ORDER BY position").all(demo.workspaceId))
+    .toEqual([{ id: "backup", p: 0, e: 1, k: "backup-key", i: 50_000, o: 200_000, g: 1 }, { id: "acme", p: 1, e: 1, k: "acme-main", i: 150_000, o: 600_000, g: 0 }]);
+  // The choice is kept: after a reload the gateway route is still sent through the Governor and the direct one is not.
+  await page.reload();
+  await expect(hosted.locator("[data-work-route='1']").getByRole("checkbox", { name: "Send calls through the Governor (route 1)" })).toBeChecked();
+  await expect(hosted.locator("[data-work-route='2']").getByRole("checkbox", { name: "Send calls through the Governor (route 2)" })).not.toBeChecked();
   // Removing both leaves the workspace self-hosted again.
   await hosted.getByRole("button", { name: "Remove (route 1)" }).click();
   await hosted.getByRole("button", { name: "Remove (route 1)" }).click();

@@ -8,14 +8,17 @@ import { quotaRetryAfterMs, QUOTA_TEXT } from "./failure-detail";
 import { ClaudeEngine } from "./claude";
 import { AcpEngine } from "./acp";
 import { OpenCodeEngine } from "./opencode";
+import { CodexEngine } from "./codex";
 
 export function selectEngine(configured: string | undefined, toolBindings: readonly EngineToolBinding[] = [], route?: HostedRoute): EngineAdapter | undefined {
   switch (configured) {
     case "fixture": return new FixtureEngine(toolBindings);
     case "pi": return new PiEngine(toolBindings, route);
-    case "claude": return new ClaudeEngine(toolBindings, route);
+    // The gateway speaks the OpenAI protocol only: the Anthropic-protocol engine cannot call a route through it (ADR 0072), so that route is not offered to it.
+    case "claude": return route?.gatewayToken ? undefined : new ClaudeEngine(toolBindings, route);
     case "acp": return new AcpEngine({ toolBindings });
     case "opencode": return new OpenCodeEngine(toolBindings);
+    case "codex": return new CodexEngine(toolBindings);
     default: return undefined;
   }
 }

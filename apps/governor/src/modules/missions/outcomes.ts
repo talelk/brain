@@ -13,10 +13,11 @@ export interface ObservedCalls { readonly succeeded: number; readonly failed: nu
  * A call counts as successful only when it finished without failing. A call that never recorded a result (the attempt ended
  * mid-call) is a failed one that looks like an outage. Tool-test runs are tagged apart and never counted: they are not task runs.
  */
-export function observedCalls(store: Store, db: Db, workItemId: string, tools: readonly string[]): ObservedCalls {
+export function observedCalls(store: Store, db: Db, workItemId: string, tools: readonly string[], onlyRun?: string): ObservedCalls {
   const none: ObservedCalls = { succeeded: 0, failed: 0, outageLike: 0 };
   if (tools.length === 0) return none;
-  const runs = (db.prepare("SELECT run_id FROM execution_links WHERE work_item_id=?").all(workItemId) as Array<{ run_id: string }>).map((row) => row.run_id);
+  // One run's calls when asked (a candidate answers for its own run only, ADR 0071); else every run of the task.
+  const runs = onlyRun ? [onlyRun] : (db.prepare("SELECT run_id FROM execution_links WHERE work_item_id=?").all(workItemId) as Array<{ run_id: string }>).map((row) => row.run_id);
   if (runs.length === 0) return none;
   const rows = store.control.prepare(`SELECT failed, finished_at, failure_message FROM tool_calls WHERE run_id IN (${runs.map(() => "?").join(",")}) AND tool_id IN (${tools.map(() => "?").join(",")})`)
     .all(...runs, ...tools) as Array<{ failed: number; finished_at: string | null; failure_message: string | null }>;

@@ -183,6 +183,13 @@ operations (presets: supervised, standard, autonomous). It never covers effects,
 constraints, budget, started work or declaring a mission achieved.
 _Avoid_: autopilot, auto-approve (it never authorizes effects), autonomy level
 
+**Autonomy suggestion**:
+A deterministic offer, worked out on every read from a Play's, mission's or repeated plan's record since its last problem
+(at least 5 completed tasks, every judged result verified, nothing parked, sent back or failed), to raise the autonomy
+preset one step, never past the ceiling, or to confirm a repeated plan automatically (ADR 0074). A person accepts or
+dismisses it; acceptance records who and the figures. It is not an attention item, never notifies, and never covers effects.
+_Avoid_: recommendation, auto-upgrade, promotion
+
 **Autonomy ceiling**:
 The most autonomy any mission of a workspace may be given, one of the autonomy presets,
 set by an organization administrator with a fresh step-up. A mission can be set lower,
@@ -267,6 +274,19 @@ A work item that belongs to a parent work item, named by a plan version (`parent
 parent shows how many subtasks are done and what they cost together, and is Done only when every live subtask is Done on its
 own evidence and it has its own (ADR 0057). Not a delegated child session, which is a run of the mission.
 _Avoid_: child task, sub-item, child run
+
+**Candidate**:
+One of two to four ways a plan task is run together (`candidates` on the plan task), each naming a team member or a way
+of working. Each candidate is its own run of the task, judged by its own evaluator verdict, and records its own version of
+the task's output; the budget must cover all of them before any starts (ADR 0071). Not a subtask, and not the work
+item's assignee.
+_Avoid_: variant, fork, option, attempt (an attempt is one try of one job)
+
+**Kept candidate**:
+The one candidate a person keeps for a task in review. Its output version is the task's result and its own observed
+evidence is what Done needs; the other candidates' versions stay as unverified compared outputs. Brain may suggest the
+only verified candidate but never keeps one (ADR 0071).
+_Avoid_: winner, chosen, selected output
 
 **Affected branch**:
 The plan tasks a new plan version changes, plus everything downstream of them. Every
@@ -374,6 +394,19 @@ serve independent checks, second attempts and the advisory judge only. An attemp
 its tokens times its prices, so mission and workspace dollar caps bind it; the self-hosted
 model costs no dollars. A route names its API key by reference, never the key.
 _Avoid_: hosted model, external model, cloud model
+
+**Model gateway**:
+The Governor's optional OpenAI-compatible endpoint for a model route marked "send calls through
+the Governor" (off by default). The runner calls it with its attempt's gateway token; the
+Governor forwards with the key held only on its own host, applies the route's order, prices and
+quota cooldown, and refuses once the attempt ended or the mission's money or the workspace cap
+is spent. It keeps counts and status per call, never what was said.
+_Avoid_: proxy, relay
+
+**Gateway token**:
+The credential of one running attempt for the model gateway: bound to the attempt and its fence,
+shown once, revoked when the attempt ends or its fence moves, expiring at the attempt's deadline.
+_Avoid_: model key, API key
 
 **Session**:
 A governed agent conversation served by one team member and bound to a mission, a job
@@ -494,11 +527,25 @@ runner's broker, which validates it and runs it in a sandbox. An engine has no o
 tool: its own native shell, edit and fetch are refused (ADR 0035).
 _Avoid_: native tool (the engine's own, never allowed), plugin
 
+**Broker bridge**:
+The loopback MCP endpoint a runner opens per attempt so an ACP agent can call the job's
+broker tools; token-authenticated, serves only declared tools, and every call takes the
+runner's governed tool-call path (ADR 0035).
+_Avoid_: MCP server (the agent's own are not the bridge)
+
 **Engine isolation**:
 The isolation an engine really provides on a runner, stated by the runner per engine
 (`engine-isolation:<engine>:<mode>`); a step is placed on an engine only if it states
-the step's isolation. ACP engines are `trusted-local` until engines run sandboxed.
+the step's isolation. `ephemeral-container` is stated only for an engine in its engine
+sandbox (and the fixture, which runs no model or tool); else `trusted-local` (ADR 0073).
 _Avoid_: runner isolation (what the runner's tool sandboxes provide)
+
+**Engine sandbox**:
+The launcher container for one attempt's engine process: read-only, no capabilities,
+limits from the job's reservation, one mount (the attempt's state), network only through
+the egress proxy. If it cannot start the attempt fails; the engine never runs in the
+runner instead (ADR 0073).
+_Avoid_: tool sandbox (the launcher containers broker tools run in), engine container
 
 **Lease**:
 Time-boxed ownership of a resource by an attempt, carrying a fence. Lease expiry proves

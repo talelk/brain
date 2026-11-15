@@ -21,7 +21,15 @@ export interface HostedRoute extends HostedPrices {
   readonly model: string;
   /** The key's reference (ADR 0055): resolved from this runner's environment as BRAIN_MODEL_KEY_<REFERENCE>, never carried in a job. */
   readonly keyRef: string;
+  /**
+   * Set for a route reached through the Governor's model gateway (ADR 0072): `baseUrl` is the gateway's address for this route and this is the
+   * attempt's gateway token, held in memory only. The vendor's key is on the Governor host and this runner never sees it.
+   */
+  readonly gatewayToken?: string;
 }
+
+/** Where Pi calls when the runner names no model address. */
+export const DEFAULT_LOCAL_MODEL_URL = "http://tntungx10:8000/v1";
 
 /** What an attempt is told when this runner has no key for a route: the route is skipped, nothing was sent anywhere. */
 export const missingKeyMessage = (keyRef: string): string => `The model route needs its API key on this runner (${modelKeyEnvName(keyRef)}); the attempt was not sent anywhere`;
@@ -59,7 +67,7 @@ export class PiEngine implements EngineAdapter {
   }
   private sessionsDir(): string { return join(this.agentDir(), "sessions"); }
   private checkpointsDir(): string { return join(this.agentDir(), "checkpoints"); }
-  private modelUrl(): string { return process.env["BRAIN_LOCAL_MODEL_URL"] ?? "http://tntungx10:8000/v1"; }
+  private modelUrl(): string { return process.env["BRAIN_LOCAL_MODEL_URL"] ?? DEFAULT_LOCAL_MODEL_URL; }
   private modelId(): string { return process.env["BRAIN_LOCAL_MODEL_ID"] ?? "qwen3.8-flash-next-a5b"; }
 
   async probe() {
@@ -94,7 +102,7 @@ export class PiEngine implements EngineAdapter {
     mkdirSync(agentDir, { recursive: true });
     mkdirSync(this.sessionsDir(), { recursive: true });
     // A routed attempt reads its own models file, named explicitly, so it can never change which model another attempt of this process uses.
-    const hostedKey = this.route ? resolveModelKey(this.route.keyRef) : undefined;
+    const hostedKey = this.route ? (this.route.gatewayToken ?? resolveModelKey(this.route.keyRef)) : undefined;
     if (this.route && !hostedKey) throw Object.assign(new Error(`${missingKeyMessage(this.route.keyRef)}`), { code: "UNSUPPORTED_CAPABILITY" });
     const providerId = this.route ? "hosted-model" : "local-qwen";
     const modelsFile = join(agentDir, this.route ? `models-hosted-${spec.jobId}.json` : "models.json");

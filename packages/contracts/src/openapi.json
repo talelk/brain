@@ -5063,6 +5063,206 @@
     }
    }
   },
+  "/runner/v1/attempts/{id}/model-gateway-token": {
+   "post": {
+    "operationId": "post_runner_v1_attempts_id_model_gateway_token",
+    "summary": "the runner holding a running attempt whose model routes include one through the Governor's gateway asks for that attempt's gateway token (ADR 0072); asking again replaces it",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Invalid request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Not signed in",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Not allowed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflict with current state",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/model-gateway/v1/routes/{routeId}/chat/completions": {
+   "post": {
+    "operationId": "post_model_gateway_v1_routes_routeId_chat_completions",
+    "summary": "optional Governor model gateway (ADR 0072): an OpenAI-compatible chat completions endpoint authenticated only by an attempt's gateway token; forwards to the route's upstream with the key held on the Governor host and relays the answer or stream; stores counts and status, never request or response bodies",
+    "security": [
+     {
+      "modelGatewayToken": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "routeId",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The upstream answer, or its event stream",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       },
+       "text/event-stream": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Invalid request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Not signed in",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Not allowed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Too large",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Rate limited",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "The model endpoint behind the gateway failed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/mcp": {
    "post": {
     "operationId": "post_mcp",
@@ -7057,6 +7257,11 @@
     "type": "http",
     "scheme": "bearer",
     "description": "BRAIN_METRICS_TOKEN_FILE token; the route does not exist when it is unset."
+   },
+   "modelGatewayToken": {
+    "type": "http",
+    "scheme": "bearer",
+    "description": "An attempt's model gateway token (ADR 0072): minted for one running attempt and its fence, shown once, revoked when the attempt ends."
    }
   },
   "schemas": {
@@ -14230,6 +14435,14 @@
      },
      "parentId": {
       "$ref": "#/components/schemas/ConfigId"
+     },
+     "candidates": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/PlanCandidate"
+      },
+      "minItems": 2,
+      "maxItems": 4
      }
     },
     "required": [
@@ -14487,6 +14700,9 @@
      },
      "subtasks": {
       "$ref": "#/components/schemas/WorkItemSubtasks"
+     },
+     "candidates": {
+      "$ref": "#/components/schemas/WorkItemCandidates"
      }
     },
     "required": [
@@ -15215,7 +15431,8 @@
        "quality.breakdown",
        "practices.list",
        "standingTeams.list",
-       "chatIdentities.list"
+       "chatIdentities.list",
+       "autonomy.suggestions"
       ]
      },
      "workspaceId": {
@@ -15316,7 +15533,8 @@
        "quality.breakdown",
        "practices.list",
        "standingTeams.list",
-       "chatIdentities.list"
+       "chatIdentities.list",
+       "autonomy.suggestions"
       ]
      },
      "snapshot": {
@@ -19080,6 +19298,12 @@
       "$ref": "#/components/schemas/MissionPolicySetCommand"
      },
      {
+      "$ref": "#/components/schemas/AutonomySuggestionAcceptCommand"
+     },
+     {
+      "$ref": "#/components/schemas/AutonomySuggestionDismissCommand"
+     },
+     {
       "$ref": "#/components/schemas/MissionMessageSendCommand"
      },
      {
@@ -19144,6 +19368,9 @@
      },
      {
       "$ref": "#/components/schemas/WorkItemSpendCapRaiseCommand"
+     },
+     {
+      "$ref": "#/components/schemas/WorkItemCandidateKeepCommand"
      },
      {
       "$ref": "#/components/schemas/WorkItemDetailsSetCommand"
@@ -35345,6 +35572,9 @@
            "type": "integer",
            "minimum": 1,
            "maximum": 1000000000
+          },
+          "viaGateway": {
+           "type": "boolean"
           }
          },
          "required": [
@@ -36315,6 +36545,631 @@
     "type": "string",
     "pattern": "^[0-9a-f]{32}$"
    },
+   "PlanCandidate": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "$ref": "#/components/schemas/ConfigId"
+     },
+     "memberId": {
+      "$ref": "#/components/schemas/ConfigId"
+     },
+     "workflowId": {
+      "$ref": "#/components/schemas/ConfigId"
+     }
+    },
+    "required": [
+     "id"
+    ],
+    "additionalProperties": false
+   },
+   "WorkItemCandidate": {
+    "type": "object",
+    "properties": {
+     "candidateId": {
+      "$ref": "#/components/schemas/ConfigId"
+     },
+     "runId": {
+      "$ref": "#/components/schemas/RunId"
+     },
+     "memberId": {
+      "$ref": "#/components/schemas/ConfigId"
+     },
+     "workflowId": {
+      "$ref": "#/components/schemas/ConfigId"
+     },
+     "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+     },
+     "state": {
+      "type": "string",
+      "enum": [
+       "waiting",
+       "running",
+       "succeeded",
+       "failed",
+       "cancelled"
+      ]
+     },
+     "verdict": {
+      "type": "string",
+      "enum": [
+       "verified",
+       "not-verified",
+       "pending"
+      ]
+     },
+     "outputId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "outputVersionId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "settledMicroUsd": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "reservedMicroUsd": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "tokensUsed": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "durationMs": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "proposed": {
+      "type": "boolean",
+      "const": true
+     },
+     "kept": {
+      "type": "boolean",
+      "const": true
+     }
+    },
+    "required": [
+     "candidateId",
+     "runId",
+     "label",
+     "state",
+     "verdict",
+     "settledMicroUsd",
+     "reservedMicroUsd",
+     "tokensUsed"
+    ],
+    "additionalProperties": false
+   },
+   "WorkItemCandidates": {
+    "type": "object",
+    "properties": {
+     "round": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/WorkItemCandidate"
+      },
+      "minItems": 2,
+      "maxItems": 4
+     },
+     "keptRunId": {
+      "$ref": "#/components/schemas/RunId"
+     },
+     "keptBy": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "keptAt": {
+      "$ref": "#/components/schemas/Timestamp"
+     }
+    },
+    "required": [
+     "round",
+     "items"
+    ],
+    "additionalProperties": false
+   },
+   "WorkItemCandidateKeepCommand": {
+    "type": "object",
+    "properties": {
+     "contractVersion": {
+      "type": "string",
+      "const": "brain.command/v1"
+     },
+     "commandId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "commandType": {
+      "type": "string",
+      "const": "workItem.candidate.keep"
+     },
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "idempotencyKey": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "expectedVersion": {
+      "$ref": "#/components/schemas/Counter"
+     },
+     "payload": {
+      "type": "object",
+      "properties": {
+       "workItemId": {
+        "$ref": "#/components/schemas/Id"
+       },
+       "runId": {
+        "$ref": "#/components/schemas/RunId"
+       }
+      },
+      "required": [
+       "workItemId",
+       "runId"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "required": [
+     "contractVersion",
+     "commandId",
+     "commandType",
+     "workspaceId",
+     "idempotencyKey",
+     "payload"
+    ],
+    "additionalProperties": false
+   },
+   "AutonomyFigure": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "label",
+     "unit",
+     "numerator",
+     "needed",
+     "met",
+     "definition"
+    ],
+    "properties": {
+     "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+     },
+     "label": {
+      "type": "string",
+      "maxLength": 128
+     },
+     "unit": {
+      "type": "string",
+      "enum": [
+       "count",
+       "ratio"
+      ]
+     },
+     "value": {
+      "type": "number"
+     },
+     "numerator": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "denominator": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "needed": {
+      "type": "string",
+      "maxLength": 128
+     },
+     "met": {
+      "type": "boolean"
+     },
+     "definition": {
+      "type": "string",
+      "maxLength": 1024
+     }
+    }
+   },
+   "AutonomySuggestion": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "suggestionId",
+     "kind",
+     "subjectId",
+     "subjectTitle",
+     "from",
+     "to",
+     "window",
+     "counted",
+     "figures",
+     "evidence",
+     "effectsNote"
+    ],
+    "properties": {
+     "suggestionId": {
+      "type": "string",
+      "maxLength": 400
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "play",
+       "mission",
+       "repeat"
+      ]
+     },
+     "subjectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+     },
+     "subjectTitle": {
+      "type": "string",
+      "maxLength": 300
+     },
+     "from": {
+      "type": "string",
+      "maxLength": 64
+     },
+     "to": {
+      "type": "string",
+      "maxLength": 64
+     },
+     "sourceMissionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+     },
+     "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "from",
+       "to",
+       "days"
+      ],
+      "properties": {
+       "from": {
+        "$ref": "#/components/schemas/Timestamp"
+       },
+       "to": {
+        "$ref": "#/components/schemas/Timestamp"
+       },
+       "days": {
+        "type": "integer",
+        "minimum": 1
+       }
+      }
+     },
+     "counted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "since",
+       "reason",
+       "windowOnly",
+       "definition"
+      ],
+      "properties": {
+       "since": {
+        "$ref": "#/components/schemas/Timestamp"
+       },
+       "reason": {
+        "type": "string",
+        "maxLength": 256
+       },
+       "definition": {
+        "type": "string",
+        "maxLength": 1024
+       },
+       "windowOnly": {
+        "type": "boolean"
+       }
+      }
+     },
+     "figures": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+       "$ref": "#/components/schemas/AutonomyFigure"
+      }
+     },
+     "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "missionIds",
+       "agentIds",
+       "evalCases",
+       "failureClasses"
+      ],
+      "properties": {
+       "missionIds": {
+        "type": "array",
+        "maxItems": 50,
+        "items": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 128
+        }
+       },
+       "agentIds": {
+        "type": "array",
+        "maxItems": 20,
+        "items": {
+         "$ref": "#/components/schemas/ConfigId"
+        }
+       },
+       "evalCases": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "failureClasses": {
+        "type": "array",
+        "maxItems": 5,
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "code",
+          "label",
+          "count"
+         ],
+         "properties": {
+          "code": {
+           "type": "string",
+           "maxLength": 64
+          },
+          "label": {
+           "type": "string",
+           "maxLength": 128
+          },
+          "count": {
+           "type": "integer",
+           "minimum": 0
+          }
+         }
+        }
+       }
+      }
+     },
+     "effectsNote": {
+      "type": "string",
+      "maxLength": 512
+     }
+    }
+   },
+   "AutonomyDecisionRecord": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "decisionId",
+     "kind",
+     "subjectId",
+     "decision",
+     "from",
+     "to",
+     "figures",
+     "counted",
+     "decidedBy",
+     "decidedAt"
+    ],
+    "properties": {
+     "decisionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "play",
+       "mission",
+       "repeat"
+      ]
+     },
+     "subjectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+     },
+     "decision": {
+      "type": "string",
+      "enum": [
+       "accepted",
+       "dismissed"
+      ]
+     },
+     "from": {
+      "type": "string",
+      "maxLength": 64
+     },
+     "to": {
+      "type": "string",
+      "maxLength": 64
+     },
+     "figures": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+       "$ref": "#/components/schemas/AutonomyFigure"
+      }
+     },
+     "counted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "since",
+       "reason",
+       "windowOnly",
+       "definition"
+      ],
+      "properties": {
+       "since": {
+        "$ref": "#/components/schemas/Timestamp"
+       },
+       "reason": {
+        "type": "string",
+        "maxLength": 256
+       },
+       "definition": {
+        "type": "string",
+        "maxLength": 1024
+       },
+       "windowOnly": {
+        "type": "boolean"
+       }
+      }
+     },
+     "decidedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+     },
+     "decidedAt": {
+      "$ref": "#/components/schemas/Timestamp"
+     }
+    }
+   },
+   "AutonomySuggestions": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "items",
+     "decisions"
+    ],
+    "properties": {
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/AutonomySuggestion"
+      }
+     },
+     "decisions": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/AutonomyDecisionRecord"
+      }
+     }
+    }
+   },
+   "AutonomySuggestionAcceptCommand": {
+    "type": "object",
+    "properties": {
+     "contractVersion": {
+      "type": "string",
+      "const": "brain.command/v1"
+     },
+     "commandId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "commandType": {
+      "type": "string",
+      "const": "autonomy.suggestion.accept"
+     },
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "idempotencyKey": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "kind",
+       "subjectId"
+      ],
+      "properties": {
+       "kind": {
+        "type": "string",
+        "enum": [
+         "play",
+         "mission",
+         "repeat"
+        ]
+       },
+       "subjectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+       }
+      }
+     }
+    },
+    "required": [
+     "contractVersion",
+     "commandId",
+     "commandType",
+     "workspaceId",
+     "idempotencyKey",
+     "payload"
+    ],
+    "additionalProperties": false
+   },
+   "AutonomySuggestionDismissCommand": {
+    "type": "object",
+    "properties": {
+     "contractVersion": {
+      "type": "string",
+      "const": "brain.command/v1"
+     },
+     "commandId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "commandType": {
+      "type": "string",
+      "const": "autonomy.suggestion.dismiss"
+     },
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "idempotencyKey": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "kind",
+       "subjectId"
+      ],
+      "properties": {
+       "kind": {
+        "type": "string",
+        "enum": [
+         "play",
+         "mission",
+         "repeat"
+        ]
+       },
+       "subjectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+       }
+      }
+     }
+    },
+    "required": [
+     "contractVersion",
+     "commandId",
+     "commandType",
+     "workspaceId",
+     "idempotencyKey",
+     "payload"
+    ],
+    "additionalProperties": false
+   },
    "ApprovalRisk": {
     "type": "object",
     "properties": {
@@ -37003,6 +37858,24 @@
    ]
   },
   {
+   "type": "autonomy.suggestion.accept",
+   "schema": "AutonomySuggestionAcceptCommand",
+   "scope": "mission:write",
+   "authority": "workspace",
+   "actors": [
+    "human"
+   ]
+  },
+  {
+   "type": "autonomy.suggestion.dismiss",
+   "schema": "AutonomySuggestionDismissCommand",
+   "scope": "mission:write",
+   "authority": "workspace",
+   "actors": [
+    "human"
+   ]
+  },
+  {
    "type": "mission.message.send",
    "schema": "MissionMessageSendCommand",
    "scope": "mission:write",
@@ -37196,6 +38069,15 @@
   {
    "type": "workItem.spendCap.raise",
    "schema": "WorkItemSpendCapRaiseCommand",
+   "scope": "mission:write",
+   "authority": "workspace",
+   "actors": [
+    "human"
+   ]
+  },
+  {
+   "type": "workItem.candidate.keep",
+   "schema": "WorkItemCandidateKeepCommand",
    "scope": "mission:write",
    "authority": "workspace",
    "actors": [
@@ -37436,7 +38318,8 @@
   "chatIdentities.list",
   "quality.breakdown",
   "practices.list",
-  "standingTeams.list"
+  "standingTeams.list",
+  "autonomy.suggestions"
  ],
  "x-brain-roles": {
   "viewer": [

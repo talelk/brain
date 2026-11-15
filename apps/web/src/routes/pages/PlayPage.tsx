@@ -9,6 +9,7 @@ import { query } from "../../data/client";
 import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import { ActionFeedback } from "../../ui/components/ActionFeedback";
+import { AutonomySuggestions } from "../../ui/components/AutonomySuggestions";
 import { TaskReview } from "../../ui/components/TaskReview";
 import type { TaskHandoff } from "../../ui/components/TaskReview";
 import { SchedulesLink } from "../../ui/components/SchedulesPanel";
@@ -98,7 +99,7 @@ function PlayDetail(props: { play: PlayView; agents: readonly AgentCatalogEntry[
       <StatGrid compact stats={[
         { label: "Team", value: String(props.play.team.length), hint: "Members on the mission team", icon: "lucide-users" },
         { label: "Plan", value: `${props.play.taskCount} tasks`, hint: "Proposed when a mission starts", icon: "lucide-list-tree" },
-        { label: "Autonomy", value: props.play.autonomy ?? "standard", hint: "Capped by the workspace ceiling", icon: "lucide-shield" },
+        { label: "Autonomy", value: detail.state().data?.autonomy ?? props.play.autonomy ?? "standard", hint: "Capped by the workspace ceiling", icon: "lucide-shield" },
         { label: "Budget", value: spec()?.budget?.maxMicroUsd !== undefined ? formatUsd(spec()!.budget!.maxMicroUsd!) : "Workspace default", hint: "Per mission", icon: "lucide-wallet" },
       ]} />
       <Show when={spec()}>{(brief) => <WorkspaceSection title="Brief" description="What every mission started from this play is asked to achieve.">
@@ -107,6 +108,7 @@ function PlayDetail(props: { play: PlayView; agents: readonly AgentCatalogEntry[
         <ul class="mt-2 list-disc ps-5 text-interface"><For each={brief().successCriteria}>{(criterion) => <li>{criterion}</li>}</For></ul>
         <Show when={brief().constraints?.length}><h3 class="mt-4 text-base-medium">Constraints</h3><ul class="mt-2 list-disc ps-5 text-interface"><For each={brief().constraints}>{(constraint) => <li>{constraint}</li>}</For></ul></Show>
       </WorkspaceSection>}</Show>
+      <AutonomySuggestions resourceId={`play:${props.play.playId}`} onChanged={() => void detail.refresh({ force: true })} />
       <TeamRoles members={props.play.team} agents={props.agents} />
       <Show when={spec()}>{(brief) => <WorkspaceSection title="Plan shape" description="The tasks proposed as the first plan version; the coordinator may revise it within the mission's autonomy.">
         <ol class="flex flex-col gap-2"><For each={brief().plan.tasks}>{(task, index) => <li class="rounded-control border border-outline-gray-1 p-3">

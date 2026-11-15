@@ -63,7 +63,7 @@ export interface JobOffer {
   /** The hosts this workspace lets a sandboxed tool reach through the egress proxy (ADR 0037); none means no network. */
   egressHosts?: string[];
   /** Where the step must run; `isolation` is what an engine has to provide (ADR 0035). */
-  placement?: { isolation?: string };
+  placement?: { isolation?: string; resources?: { cpuMillicores: number; memoryMb: number } };
   authorEvidence?: { toolReleases: { id: string; digest: string }[]; claimedChecks: unknown[] };
   execution: { kind: string; artifact: { artifactId: string; digest: string; bytes: number } };
 }
@@ -290,6 +290,16 @@ export class GovernorClient {
   /** The credential this running attempt acts with as its team member's machine principal, and the ids it acts on. Asking again replaces it. */
   async sessionCredential(attemptId: string): Promise<SessionGrant> {
     return this.expect("session credential", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/session-credential`, {}), 200);
+  }
+
+  /** The token this running attempt calls the Governor's model gateway with (ADR 0072), and the base address of a route through it. Asking again replaces it. */
+  async modelGatewayToken(attemptId: string): Promise<{ token: string; expiresAt: string }> {
+    return this.expect("model gateway token", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/model-gateway-token`, {}), 200);
+  }
+
+  /** The address an OpenAI-compatible client uses for one model route through the Governor's gateway. */
+  gatewayBaseUrl(routeId: string): string {
+    return `${this.cfg.governorUrl.replace(/\/$/, "")}/model-gateway/v1/routes/${encodeURIComponent(routeId)}`;
   }
 
   /**

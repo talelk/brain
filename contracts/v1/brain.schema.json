@@ -7173,6 +7173,14 @@
         },
         "parentId": {
           "$ref": "#/$defs/ConfigId"
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlanCandidate"
+          },
+          "minItems": 2,
+          "maxItems": 4
         }
       },
       "required": [
@@ -7430,6 +7438,9 @@
         },
         "subtasks": {
           "$ref": "#/$defs/WorkItemSubtasks"
+        },
+        "candidates": {
+          "$ref": "#/$defs/WorkItemCandidates"
         }
       },
       "required": [
@@ -8158,7 +8169,8 @@
             "quality.breakdown",
             "practices.list",
             "standingTeams.list",
-            "chatIdentities.list"
+            "chatIdentities.list",
+            "autonomy.suggestions"
           ]
         },
         "workspaceId": {
@@ -8259,7 +8271,8 @@
             "quality.breakdown",
             "practices.list",
             "standingTeams.list",
-            "chatIdentities.list"
+            "chatIdentities.list",
+            "autonomy.suggestions"
           ]
         },
         "snapshot": {
@@ -12023,6 +12036,12 @@
           "$ref": "#/$defs/MissionPolicySetCommand"
         },
         {
+          "$ref": "#/$defs/AutonomySuggestionAcceptCommand"
+        },
+        {
+          "$ref": "#/$defs/AutonomySuggestionDismissCommand"
+        },
+        {
           "$ref": "#/$defs/MissionMessageSendCommand"
         },
         {
@@ -12087,6 +12106,9 @@
         },
         {
           "$ref": "#/$defs/WorkItemSpendCapRaiseCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkItemCandidateKeepCommand"
         },
         {
           "$ref": "#/$defs/WorkItemDetailsSetCommand"
@@ -28288,6 +28310,9 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 1000000000
+                  },
+                  "viaGateway": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -29257,6 +29282,631 @@
     "TraceId": {
       "type": "string",
       "pattern": "^[0-9a-f]{32}$"
+    },
+    "PlanCandidate": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "memberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "workflowId": {
+          "$ref": "#/$defs/ConfigId"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "WorkItemCandidate": {
+      "type": "object",
+      "properties": {
+        "candidateId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "runId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "memberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "workflowId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "waiting",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "not-verified",
+            "pending"
+          ]
+        },
+        "outputId": {
+          "$ref": "#/$defs/Id"
+        },
+        "outputVersionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "settledMicroUsd": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reservedMicroUsd": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensUsed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proposed": {
+          "type": "boolean",
+          "const": true
+        },
+        "kept": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "candidateId",
+        "runId",
+        "label",
+        "state",
+        "verdict",
+        "settledMicroUsd",
+        "reservedMicroUsd",
+        "tokensUsed"
+      ],
+      "additionalProperties": false
+    },
+    "WorkItemCandidates": {
+      "type": "object",
+      "properties": {
+        "round": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkItemCandidate"
+          },
+          "minItems": 2,
+          "maxItems": 4
+        },
+        "keptRunId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "keptBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "keptAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "round",
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "WorkItemCandidateKeepCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workItem.candidate.keep"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            },
+            "runId": {
+              "$ref": "#/$defs/RunId"
+            }
+          },
+          "required": [
+            "workItemId",
+            "runId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "AutonomyFigure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "unit",
+        "numerator",
+        "needed",
+        "met",
+        "definition"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "count",
+            "ratio"
+          ]
+        },
+        "value": {
+          "type": "number"
+        },
+        "numerator": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "denominator": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "needed": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "met": {
+          "type": "boolean"
+        },
+        "definition": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      }
+    },
+    "AutonomySuggestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "suggestionId",
+        "kind",
+        "subjectId",
+        "subjectTitle",
+        "from",
+        "to",
+        "window",
+        "counted",
+        "figures",
+        "evidence",
+        "effectsNote"
+      ],
+      "properties": {
+        "suggestionId": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "play",
+            "mission",
+            "repeat"
+          ]
+        },
+        "subjectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "subjectTitle": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "from": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "to": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "sourceMissionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "from",
+            "to",
+            "days"
+          ],
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "to": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "days": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "counted": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "since",
+            "reason",
+            "windowOnly",
+            "definition"
+          ],
+          "properties": {
+            "since": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "definition": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "windowOnly": {
+              "type": "boolean"
+            }
+          }
+        },
+        "figures": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/AutonomyFigure"
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "missionIds",
+            "agentIds",
+            "evalCases",
+            "failureClasses"
+          ],
+          "properties": {
+            "missionIds": {
+              "type": "array",
+              "maxItems": 50,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "agentIds": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "$ref": "#/$defs/ConfigId"
+              }
+            },
+            "evalCases": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failureClasses": {
+              "type": "array",
+              "maxItems": 5,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "code",
+                  "label",
+                  "count"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "label": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "effectsNote": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "AutonomyDecisionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decisionId",
+        "kind",
+        "subjectId",
+        "decision",
+        "from",
+        "to",
+        "figures",
+        "counted",
+        "decidedBy",
+        "decidedAt"
+      ],
+      "properties": {
+        "decisionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "play",
+            "mission",
+            "repeat"
+          ]
+        },
+        "subjectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "accepted",
+            "dismissed"
+          ]
+        },
+        "from": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "to": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "figures": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/AutonomyFigure"
+          }
+        },
+        "counted": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "since",
+            "reason",
+            "windowOnly",
+            "definition"
+          ],
+          "properties": {
+            "since": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "definition": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "windowOnly": {
+              "type": "boolean"
+            }
+          }
+        },
+        "decidedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "decidedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      }
+    },
+    "AutonomySuggestions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "decisions"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AutonomySuggestion"
+          }
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AutonomyDecisionRecord"
+          }
+        }
+      }
+    },
+    "AutonomySuggestionAcceptCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "autonomy.suggestion.accept"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "subjectId"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "play",
+                "mission",
+                "repeat"
+              ]
+            },
+            "subjectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          }
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "AutonomySuggestionDismissCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "autonomy.suggestion.dismiss"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "subjectId"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "play",
+                "mission",
+                "repeat"
+              ]
+            },
+            "subjectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          }
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
     },
     "ApprovalRisk": {
       "type": "object",

@@ -20,7 +20,7 @@ export type Remedy = NonNullable<WorkItem["remedy"]>;
 export type CostTier = "low" | "standard" | "premium";
 export interface ModelRouteRow {
   routeId: string; enabled: boolean; vendor: string; keyRef: string; model: string; baseUrl: string; costTier: CostTier;
-  inputMicroUsdPerMTok: number; outputMicroUsdPerMTok: number; position: number; usable: boolean;
+  inputMicroUsdPerMTok: number; outputMicroUsdPerMTok: number; viaGateway: boolean; position: number; usable: boolean;
   status: "off" | "down" | "up" | "unknown" | "quota"; quotaUntil?: string;
 }
 

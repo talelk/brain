@@ -2,7 +2,7 @@ import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, runnerChallenge, runnerHello, type HeartbeatCommand } from "./protocol";
 import { stopOverlongPauses } from "../sessions/index";
-import { ackAttempt, attemptEvents, claim, completeAttempt, expireAttemptDeadlines, expireLeases, mintSecretCredentials, readExecutionArtifact, readResumeCheckpoint, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, validateSecretCredentials, type ContextPackPort, type SessionCredential } from "./attempts";
+import { ackAttempt, attemptEvents, claim, completeAttempt, expireAttemptDeadlines, expireLeases, mintSecretCredentials, modelGatewayToken, readExecutionArtifact, readResumeCheckpoint, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, validateSecretCredentials, type ContextPackPort, type SessionCredential } from "./attempts";
 import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
 import { BrainDomainError } from "../../domain/errors";
 import { sweepStuckJobs } from "./watchdog";
@@ -154,6 +154,11 @@ export class JobProtocol {
   private secretBroker(): SecretBroker {
     if (!this.ports.secrets) throw new BrainDomainError("FORBIDDEN", "no secrets adapter is configured on this server");
     return this.ports.secrets;
+  }
+
+  /** The credential this running attempt calls the Governor's model gateway with (ADR 0072). Asking again replaces it. */
+  modelGatewayToken(runner: RunnerIdentity, attemptId: string): { token: string; expiresAt: string } {
+    return modelGatewayToken(this.store, runner, attemptId);
   }
 
   executionArtifact(runner: RunnerIdentity, attemptId: string): Uint8Array {

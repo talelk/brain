@@ -24,7 +24,9 @@ import { seedStaleKnowledge } from "../support/stale-knowledge";
 import { seedPullRequest } from "../support/pullRequestDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 import { seedQuestion } from "../support/question-demo";
+import { finishCandidates, seedCandidateMission, stageSingleStepWorkflows, steadyDurations } from "../support/candidates-world";
 import { seedAgentActivity } from "../support/agent-activity";
+import { autonomyContext, cleanMission, cleanPlayMissions } from "../support/autonomy-world";
 import { delegationsOf, driveChildren, enrollChildRunners } from "../support/delegation-world";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
 import { seedWhyRun } from "../support/why-demo";
@@ -76,6 +78,23 @@ async function whyRoute(demo: Demo, governor: Fixture): Promise<string> {
   const scoped = { ...demo.actor, workspaceId: "why-baseline", scopes: scopesForPrincipal(brain.store, demo.actor.actorId, demo.actor.organizationId, "why-baseline") };
   const { jobId } = await seedWhyRun(governor as never, scoped, "why-baseline", "baseline-why");
   return `/runs/${jobId}?tab=placement&w=why-baseline`;
+}
+
+/** A task run as three candidates (#127), made when its screen is reached: two finished (one verified), one failed; the task is open in its mission. */
+async function candidatesRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  stageSingleStepWorkflows(brain, demo.actor);
+  const { missionId, workItemId } = await seedCandidateMission(brain, demo.actor, demo.workspaceId, { key: "vb-candidates", title: "Compare three briefs", autoStart: true });
+  await finishCandidates(brain, demo.actor, demo.workspaceId, workItemId);
+  steadyDurations(brain, demo.actor, demo.workspaceId, workItemId);
+  return `/missions/${missionId}/plan?item=${workItemId}`;
+}
+
+/** The same task before any candidate has started: its plan editor open on the step's candidates. */
+async function candidatePlanRoute(demo: Demo, governor: Fixture): Promise<string> {
+  stageSingleStepWorkflows(governor.app.brain, demo.actor);
+  const { missionId } = await seedCandidateMission(governor.app.brain, demo.actor, demo.workspaceId, { key: "vb-candidate-plan", title: "Compare three briefs, planned", autoStart: false });
+  return `/missions/${missionId}/plan`;
 }
 
 /** A mission with a confirmed two-member team, made when its screen is reached; the screen is its plan editor open on the team and the first step. */
@@ -173,6 +192,16 @@ async function pausedSessionRoute(demo: Demo, governor: Fixture): Promise<string
   return `/w/operations/live?session=${running.sessionId}`;
 }
 
+/** Missions and a Play with a clean record (#158): each earned one step, so their pages, Quality and the Play page show a suggestion. Made once, when the first of those screens is reached. */
+let autonomyRecords: { missionId: string } | undefined;
+async function seedAutonomyRecords(governor: Fixture, _page: Page, demo: Demo): Promise<void> {
+  if (autonomyRecords) return;
+  const ctx = autonomyContext(governor.app.brain, demo.actor.organizationId, demo.actor, demo.workspaceId);
+  const missionId = await cleanMission(ctx, "vb-autonomy", 5, { autonomy: "supervised", title: "Weekly vendor review" });
+  await cleanPlayMissions(ctx, "vb-autonomy-play", "checklist-runbook", 5);
+  autonomyRecords = { missionId };
+}
+
 /** The agent-activity mission, made once when the first agent screen is reached. */
 let agentActivity: Awaited<ReturnType<typeof seedAgentActivity>> | undefined;
 
@@ -260,7 +289,7 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "settings-model-routes", route: () => "/settings?tab=work", heading: "How work runs", prepare: async (governor, _page, demo) => {
     const route = (routeId: string, extra: Record<string, unknown>) => ({ routeId, enabled: true, vendor: "Acme", keyRef: `${routeId}-key`, model: `${routeId}-large`, baseUrl: `https://${routeId}.acme.example/v1`, costTier: "standard", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000, ...extra });
     await governor.app.brain.executeCommand(demo.actor, { contractVersion: "brain.command/v1", commandId: "cmd-vb-routes", commandType: "workspace.modelRoutes.set", workspaceId: demo.workspaceId, idempotencyKey: "vb-routes",
-      payload: { routes: [route("primary", {}), route("backup", { costTier: "low", enabled: false, inputMicroUsdPerMTok: 50_000, outputMicroUsdPerMTok: 200_000 })] } } as never, "vb-routes");
+      payload: { routes: [route("primary", { viaGateway: true }), route("backup", { costTier: "low", enabled: false, inputMicroUsdPerMTok: 50_000, outputMicroUsdPerMTok: 200_000 })] } } as never, "vb-routes");
   }, after: async (page) => { const routes = page.locator("[data-work-hosted]"); await expect(routes.locator("[data-work-route='2']")).toBeVisible(); await routes.scrollIntoViewIfNeeded(); } },
   // Standing teams (ticket #130), before the push screens (those stay last): the Library's Teams place, its create form, a plan editor using a team, and a Play start choosing one.
   { id: "library-teams", route: () => "/w/operations/library/teams", heading: "Teams", prepare: seedStandingTeams, after: async (page) => { await expect(page.getByTestId("standing-team")).toHaveCount(2); } },
@@ -269,8 +298,15 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "start-standing-team", route: () => "/w/operations/missions/new", heading: "New mission", prepare: seedStandingTeams, after: async (page) => { await page.getByRole("dialog").getByTestId("play-chips").getByRole("button").first().click(); await expect(page.getByTestId("start-standing-team")).toBeVisible(); } },
   // A session a person paused (ADR 0058): it adds a running session, so it comes after the screens that list sessions and before the push screens (those stay last).
   { id: "console-session-paused", route: pausedSessionRoute, heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("continue-session")).toBeVisible(); await expect(page.getByTestId("pause-note")).toBeVisible(); } },
+  // Best of several (#127): a task's candidates side by side, then the plan editor's candidates for a step. They add a mission and release, so they come after the screens that list missions and before the push screens.
+  { id: "mission-candidates", route: candidatesRoute, heading: "Write the one-page brief", after: async (page) => { const panel = page.getByTestId("work-candidates"); await expect(panel.getByTestId("work-candidate")).toHaveCount(3); await expect(panel).toContainText("Suggested"); await panel.scrollIntoViewIfNeeded(); } },
+  { id: "mission-plan-candidates", route: candidatePlanRoute, heading: "Compare three briefs, planned", after: async (page) => { await page.getByRole("button", { name: /^See the confirmed plan/ }).click(); await page.getByRole("button", { name: "Edit steps", exact: true }).first().click(); await expect(page.getByTestId("plan-step-candidates").first()).toContainText("Best of 3"); await page.getByTestId("plan-step-candidates").first().scrollIntoViewIfNeeded(); } },
   // Who can read what Brain learned (#135): the review inbox with a record for the workspace, one kept private with a request for the team and one the team reads. It adds knowledge, so it comes after every screen that counts it.
   { id: "knowledge-scopes", route: () => "/w/operations/knowledge/review", heading: "Review inbox", prepare: seedKnowledgeScopes, waitFor: "knowledge-inbox", after: async (page) => { await expect(page.getByTestId("knowledge-inbox")).toContainText("Readable by: Only its author"); } },
+  // Autonomy suggestions (#158): a mission, a Play and the Quality page each show what a clean record earned, with its figures and definitions. They add finished missions, so they come after every screen that counts them and before the push screens.
+  { id: "mission-autonomy-suggestion", route: () => `/missions/${autonomyRecords!.missionId}/live`, heading: "Weekly vendor review", prepare: seedAutonomyRecords, after: async (page) => { const card = page.getByTestId("autonomy-suggestion"); await expect(card).toHaveCount(1); await expect(card.getByTestId("autonomy-figure")).toHaveCount(5); await card.evaluate((element) => element.scrollIntoView({ block: "start" })); } },
+  { id: "play-autonomy-suggestion", route: () => "/plays/checklist-runbook", heading: "Write a checklist or runbook", prepare: seedAutonomyRecords, after: async (page) => { const card = page.getByTestId("autonomy-suggestion"); await expect(card).toHaveCount(1); await card.evaluate((element) => element.scrollIntoView({ block: "start" })); } },
+  { id: "quality-autonomy-suggestion", route: () => "/quality", heading: "Quality", prepare: seedAutonomyRecords, after: async (page) => { await expect(page.getByTestId("autonomy-suggestion")).toHaveCount(2); await page.getByTestId("autonomy-suggestions").evaluate((element) => element.scrollIntoView({ block: "start" })); } },
   // The run page's Why tab (ticket #144): it adds a mission, a run and a runner, so it comes after every screen that counts them and before the push screens (those stay last).
   { id: "run-why", route: whyRoute, heading: "Run inspector", waitFor: "why-choices" },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
@@ -424,7 +460,7 @@ async function seedChangeApprovalRecord(governor: Parameters<typeof seedBrowserD
   changeApproval = await seedChangeApproval(governor.app.brain, demo.actor, demo.workspaceId, { runId: "demo-run-progress", key: "vb-change" });
 }
 
-test.afterEach(async () => { standingTeamsSeeded = false; questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
+test.afterEach(async () => { standingTeamsSeeded = false; autonomyRecords = undefined; questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(900_000);

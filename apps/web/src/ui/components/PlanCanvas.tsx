@@ -19,8 +19,8 @@ import { ReasonDialog } from "./ReasonDialog";
 import { DisclosureCard } from "./primitives";
 import { WorkRoadmap, type RoadmapNode } from "../work/WorkRoadmap";
 import { minutesText } from "../work/work-model";
-import { assignmentChanges, assignTo, ineligibleSteps, memberLabel } from "../work/plan-team";
-import { createPlanTeamData, StepAssignment, TeamSection } from "./PlanTeamEditor";
+import { assignmentChanges, assignTo, candidatesComplete, ineligibleSteps, memberLabel, withCandidateChoice, withCandidateCount } from "../work/plan-team";
+import { createPlanTeamData, StepAssignment, StepCandidates, TeamSection } from "./PlanTeamEditor";
 import { InlineMarkdown } from "../outputs/Markdown";
 import { t } from "../../i18n";
 
@@ -176,7 +176,16 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     { value: NO_PARENT, label: t("plan.no-parent") },
     ...editedTasks().filter((other) => other.id !== task.id && !other.parentId && !editedTasks().some((child) => child.parentId === task.id)).map((other) => ({ value: other.id, label: other.title || other.id })),
   ];
-  const incomplete = () => editedTasks().some((task) => !task.title.trim() || task.criteria.length === 0);
+  /** A step runs as two to four candidates or as one attempt (ADR 0071). */
+  function setCandidateCount(index: number, count: number) {
+    setDirty(true);
+    setEditedTasks((tasks) => tasks.map((task, position) => position === index ? withCandidateCount(task, count) : task));
+  }
+  function chooseCandidate(index: number, candidate: number, choice: string) {
+    setDirty(true);
+    setEditedTasks((tasks) => tasks.map((task, position) => position === index ? withCandidateChoice(task, candidate, choice) : task));
+  }
+  const incomplete = () => editedTasks().some((task) => !task.title.trim() || task.criteria.length === 0 || !candidatesComplete(task));
   function changeTeam(team: TeamMember[]) { setDirty(true); setEditedTeam(team); }
   const unfit = () => ineligibleSteps(editedTasks(), editedTeam(), teamData.agents());
   const serves = (task: PlanTask) => props.mission.successCriteria.filter((criterion) => task.criterionIds?.includes(criterion.criterionId));
@@ -236,6 +245,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     <p class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-6">
       <Show when={member(task)}>{(name) => <span class="inline-flex items-center gap-1"><span class="lucide-bot size-3.5" aria-hidden="true" />{name()}</span>}</Show>
       <Show when={task.estimatedMinutes}>{(minutes) => <span class="inline-flex items-center gap-1" title="Estimate declared by the planner"><span class="lucide-clock size-3.5" aria-hidden="true" />{minutesText(minutes())}</span>}</Show>
+      <Show when={task.candidates}>{(candidates) => <span class="inline-flex items-center gap-1" data-testid="plan-step-candidates-line"><span class="lucide-git-fork size-3.5" aria-hidden="true" />{t("plan.candidates-line", { n: candidates().length, names: candidates().map((candidate) => candidate.memberId ?? candidate.workflowId ?? candidate.id).join(", ") })}</span>}</Show>
       <Show when={task.optional}><span>{t("plan.optional.0c6c")}</span></Show>
     </p>
   </div>;
@@ -281,6 +291,8 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
               <span class="text-caption text-ink-gray-6">{t("plan.subtask-hint")}</span></div></Show>
           </div>
           <Show when={editedTeam().length || task.assignment}><StepAssignment task={task} position={index() + 1} team={editedTeam()} agents={teamData.agents()} started={teamData.startedSteps().has(task.id)} onAssign={(memberId) => assign(index(), memberId)} /></Show>
+          <StepCandidates task={task} position={index() + 1} team={editedTeam()} ways={teamData.ways()} started={teamData.startedSteps().has(task.id)}
+            nested={Boolean(task.parentId) || editedTasks().some((child) => child.parentId === task.id)} onCount={(count) => setCandidateCount(index(), count)} onChoose={(candidate, choice) => chooseCandidate(index(), candidate, choice)} />
           <fieldset class="flex flex-col gap-1.5" data-testid="plan-step-criteria"><legend class="text-interface font-medium text-ink-gray-8">{t("plan.serves.legend")}</legend>
             <For each={props.mission.successCriteria}>{(criterion) => <Checkbox checked={task.criterionIds?.includes(criterion.criterionId) ?? false} onCheckedChange={(checked) => toggleCriterion(index(), criterion.criterionId, Boolean(checked))} label={criterion.text} />}</For>
           </fieldset>

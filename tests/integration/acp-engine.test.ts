@@ -33,7 +33,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-const spec = (): EngineSessionSpec => ({ ...(JSON.parse(readFileSync("examples/v1/transport/EngineSessionSpec.json", "utf8")) as EngineSessionSpec), allowedTools: [BROKER] });
+const spec = (over: Partial<EngineSessionSpec> = {}): EngineSessionSpec => ({ ...(JSON.parse(readFileSync("examples/v1/transport/EngineSessionSpec.json", "utf8")) as EngineSessionSpec), allowedTools: [BROKER], ...over });
 interface AgentLogEntry {
   event: string;
   clientCapabilities?: unknown;
@@ -56,19 +56,19 @@ const permission = (name: string | undefined, kind: string, extra: Record<string
   },
 });
 
-async function play(engine: AcpEngine, steps: unknown[]): Promise<EngineEvent[]> {
+/** The attempt as the runner runs it: start (which prompts the agent with the steps as its task) and read the event stream to its end. */
+async function play(engine: AcpEngine, steps: unknown[], over: Partial<EngineSessionSpec> = {}): Promise<EngineEvent[]> {
   const controller = new AbortController();
-  const { sessionId } = await engine.start(spec(), controller.signal);
-  await engine.prompt(JSON.stringify(steps));
+  const { sessionId } = await engine.start(spec({ task: JSON.stringify(steps), ...over }), controller.signal);
   const events: EngineEvent[] = [];
   for await (const event of engine.events(sessionId, 0, controller.signal)) events.push(event);
   return events;
 }
 
 describe("an ACP agent has no way to the host except broker tools (ADR 0035)", () => {
-  it("declares no client capabilities and no MCP servers", async () => {
+  it("declares no client capabilities, and no MCP servers for a job without tools", async () => {
     const engine = new AcpEngine({ toolBindings: [BINDING] });
-    try { await play(engine, []); } finally { await engine.dispose(); }
+    try { await play(engine, [], { allowedTools: [] }); } finally { await engine.dispose(); }
     const log = agentLog();
     expect(log.find((entry) => entry.event === "initialize")?.clientCapabilities).toEqual({ fs: { readTextFile: false, writeTextFile: false }, terminal: false });
     expect(log.find((entry) => entry.event === "session/new")?.mcpServers).toEqual([]);
@@ -142,15 +142,11 @@ describe("an ACP agent has no way to the host except broker tools (ADR 0035)", (
   it("stops an agent that runs a native tool, with or without having asked, and fails the session", async () => {
     for (const asked of [true, false]) {
       const engine = new AcpEngine({ toolBindings: [BINDING] });
-      const controller = new AbortController();
-      const { sessionId } = await engine.start(spec(), controller.signal);
       const call = { toolCallId: "call-bash", name: "bash", kind: "execute", title: "ls /" };
       // A call that was only attempted and refused is not a violation; one that runs is.
       const steps = [...(asked ? [permission("bash", "execute")] : []), { update: { sessionUpdate: "tool_call", ...call, status: "pending" } }, { update: { sessionUpdate: "tool_call_update", toolCallId: "call-bash", status: "in_progress" } }, { text: "never reached" }];
-      await expect(engine.prompt(JSON.stringify(steps))).rejects.toThrow("ran a native tool (bash, execute)");
-      const events: EngineEvent[] = [];
-      for await (const event of engine.events(sessionId, 0, controller.signal)) events.push(event);
-      expect(events.find((event) => event.kind === "error")).toMatchObject({ payload: { error: { code: "POLICY_DENIED", retryable: false }, retryClass: "never" } });
+      const events = await play(engine, steps);
+      expect(events.find((event) => event.kind === "error")).toMatchObject({ payload: { error: { code: "POLICY_DENIED", retryable: false, detail: expect.stringContaining("ran a native tool (bash, execute)") }, retryClass: "never" } });
       expect(events.at(-1)).toMatchObject({ kind: "session.stopped", payload: { reason: "error", terminationConfirmed: true } });
       expect(events.some((event) => event.kind === "text" && event.payload.channel === "assistant")).toBe(false);
       await engine.dispose();
@@ -176,9 +172,8 @@ describe("an ACP agent has no way to the host except broker tools (ADR 0035)", (
 
   it("stops an agent that reports a broker tool as a command", async () => {
     const engine = new AcpEngine({ toolBindings: [BINDING] });
-    await engine.start(spec(), new AbortController().signal);
-    const steps = [{ update: { sessionUpdate: "tool_call", toolCallId: "spoof", name: BROKER_NAME, kind: "execute", status: "in_progress" } }];
-    await expect(engine.prompt(JSON.stringify(steps))).rejects.toThrow("ran a native tool");
+    const events = await play(engine, [{ update: { sessionUpdate: "tool_call", toolCallId: "spoof", name: BROKER_NAME, kind: "execute", status: "in_progress" } }]);
+    expect(events.find((event) => event.kind === "error")).toMatchObject({ payload: { error: { code: "POLICY_DENIED" } } });
     await engine.dispose();
   });
 });
@@ -216,27 +211,36 @@ describe("OpenCode starts with its native tools off and without any other config
   });
 });
 
-describe("a runner states the isolation each engine really provides (ADR 0035)", () => {
+describe("a runner states the isolation each engine really provides (ADR 0035, 0073)", () => {
   const probed = (...ids: string[]) => ids.map((id) => ({ id, features: ["sessions"] }));
 
-  it("states trusted-local for the ACP engines and ephemeral-container for the engines without native tools", () => {
-    const capabilities = advertisedCapabilities(["os:linux", "isolation:ephemeral-container"], probed("fixture", "pi", "claude", "acp", "opencode"));
+  it("states trusted-local for every engine that runs in the runner process, except the fixture that runs no model or tool", () => {
+    const capabilities = advertisedCapabilities(["os:linux", "isolation:ephemeral-container"], probed("fixture", "pi", "claude", "acp", "opencode"), false);
     expect(capabilities).toEqual(expect.arrayContaining([
-      "engine-isolation:fixture:ephemeral-container", "engine-isolation:pi:ephemeral-container", "engine-isolation:claude:ephemeral-container",
+      "engine-isolation:fixture:ephemeral-container", "engine-isolation:pi:trusted-local", "engine-isolation:claude:trusted-local",
       "engine-isolation:acp:trusted-local", "engine-isolation:opencode:trusted-local", "engine:opencode", "engine-feature:opencode:sessions", "os:linux",
     ]));
-    expect(engineIsolation("a-new-engine")).toBe("trusted-local");
+    expect(engineIsolation("a-new-engine", true)).toBe("trusted-local");
+  });
+
+  it("states ephemeral-container for every engine that runs in its own sandbox, ACP agents included", () => {
+    const capabilities = advertisedCapabilities(["os:linux"], probed("fixture", "pi", "claude", "acp", "opencode"), true);
+    expect(capabilities).toEqual(expect.arrayContaining([
+      "engine-isolation:fixture:ephemeral-container", "engine-isolation:pi:ephemeral-container", "engine-isolation:claude:ephemeral-container",
+      "engine-isolation:acp:ephemeral-container", "engine-isolation:opencode:ephemeral-container",
+    ]));
+    expect(capabilities.filter((capability) => capability.endsWith(":trusted-local"))).toEqual([]);
   });
 
   it("does not let an operator configure an engine's isolation, or an engine that was not probed", () => {
-    const capabilities = advertisedCapabilities(["os:linux", "engine-isolation:opencode:ephemeral-container", "engine:pi", "engine-feature:pi:sessions"], probed("opencode"));
+    const capabilities = advertisedCapabilities(["os:linux", "engine-isolation:opencode:ephemeral-container", "engine:pi", "engine-feature:pi:sessions"], probed("opencode"), false);
     expect(capabilities).toContain("engine-isolation:opencode:trusted-local");
     expect(capabilities).not.toContain("engine-isolation:opencode:ephemeral-container");
     expect(capabilities.filter((capability) => capability.startsWith("engine")).sort()).toEqual(["engine-feature:opencode:sessions", "engine-isolation:opencode:trusted-local", "engine:opencode"]);
   });
 
   it("lists the runner's isolation modes from what it runs", () => {
-    expect(advertisedIsolationModes(probed("fixture", "pi"))).toEqual(["ephemeral-container"]);
-    expect(advertisedIsolationModes(probed("pi", "opencode")).sort()).toEqual(["ephemeral-container", "trusted-local"]);
+    expect(advertisedIsolationModes(probed("fixture", "pi"), true)).toEqual(["ephemeral-container"]);
+    expect(advertisedIsolationModes(probed("pi", "opencode"), false).sort()).toEqual(["ephemeral-container", "trusted-local"]);
   });
 });

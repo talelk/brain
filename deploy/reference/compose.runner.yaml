@@ -21,8 +21,12 @@ services:
       BRAIN_RUNNER_ENROLL_TOKEN: ${BRAIN_RUNNER_ENROLL_TOKEN:-}
       BRAIN_RUNNER_SLOTS: '1'
       BRAIN_LAUNCHER_SOCKET: /launcher/launcher.sock
+      # Engines run in their own sandboxes (ADR 0073): the runner makes one directory per attempt here, and the launcher (its
+      # BRAIN_LAUNCHER_ENGINE_STATE_ROOT, the same host directory, owned by the same uid as this service) mounts that one into the engine's container.
+      BRAIN_RUNNER_ENGINE_STATE_DIR: /engine-state
     volumes:
       - runner_state:/state
+      - ${BRAIN_ENGINE_STATE_DIR:?launcher-engine-state-root-required}:/engine-state
       - ${BRAIN_LAUNCHER_SOCKET_DIR:?constrained-launcher-socket-directory-required}:/launcher
     tmpfs: ['/tmp:size=64m,mode=1770,uid=10002,gid=10002']
     # Launcher is a separately managed trusted host service. Its constrained API

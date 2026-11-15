@@ -15,6 +15,7 @@ import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 import { isDraining } from "./drain";
 import { modelRoutesForJob, recordRouteOffer, settleRouteReport } from "./model-route";
+import { issueGatewayToken, revokeGatewayTokens } from "./gateway-token";
 import { effectOutcomesFor, executionArtifactId, HOLD_REASON } from "./effect-hold";
 import { ensureSkills, promptTaskText, skillTokens } from "./skill-selection";
 import { heldEffect, retryFailedAttempt, stampAttemptDeadline, stepPolicy } from "./step-policy";
@@ -386,6 +387,19 @@ export function validateSecretCredentials(s: Store, broker: SecretBroker, runner
   broker.validate(attemptId, ids);
 }
 
+/** See JobProtocol.modelGatewayToken. Only a running attempt whose pinned routes include one through the gateway may ask. */
+export function modelGatewayToken(s: Store, runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): { token: string; expiresAt: string } {
+  const row = loadAttempt(s, attemptId);
+  if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
+  assertAttemptLive(s, runner, row);
+  if (String(row["state"]) !== "running") throw new BrainDomainError("CONFLICT", "only a running attempt may use the model gateway");
+  const payload = s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(String(row["job_id"])) as { payload_json: string } | undefined;
+  const pinned = (() => { try { return (JSON.parse(payload?.payload_json ?? "{}") as { modelRoutes?: Array<{ viaGateway?: boolean }> }).modelRoutes ?? []; } catch { return []; } })();
+  if (!pinned.some((route) => route.viaGateway === true)) throw new BrainDomainError("FORBIDDEN", "none of this attempt's model routes goes through the gateway");
+  const { token, expiresAtMs } = issueGatewayToken(s, { organizationId: runner.organizationId, workspaceId: String(row["workspace_id"]), attemptId, jobFence: Number(row["job_fence"]), deadlineMs: row["deadline_ms"] === null || row["deadline_ms"] === undefined ? null : Number(row["deadline_ms"]) });
+  return { token, expiresAt: iso(expiresAtMs) };
+}
+
 export function readExecutionArtifact(s: Store, runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): Uint8Array {
   const row = loadAttempt(s, attemptId);
   if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
@@ -426,7 +440,9 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
     // The reason is written now, with the route the job was handed first and every route left out, and never rebuilt later.
     recordRouteOffer(s, String(row["job_id"]), offer);
     if (routes.length > 0) {
-      artifactText = JSON.stringify({ ...(JSON.parse(artifactText) as Record<string, JsonValue>), modelRoutes: routes as unknown as JsonValue });
+      // A route through the gateway names neither its upstream address nor its key reference: the runner learns only that it is reached through the Governor (ADR 0072).
+      const offered = routes.map((route) => route.viaGateway ? (({ keyRef: _keyRef, baseUrl: _baseUrl, ...rest }) => rest)(route) : route);
+      artifactText = JSON.stringify({ ...(JSON.parse(artifactText) as Record<string, JsonValue>), modelRoutes: offered as unknown as JsonValue });
       s.control.prepare("UPDATE job_payloads SET payload_json=? WHERE job_id=?").run(artifactText, String(row["job_id"]));
     }
   }
@@ -670,6 +686,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     if (body["checkpoint"] !== undefined) recordAttemptCheckpoint(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, checkpoint: body["checkpoint"] });
     revokeSessionCredentials(s, attemptId);
     revokeAttemptSecrets(s, attemptId, "ended");
+    revokeGatewayTokens(s, attemptId);
     for (const keyRow of s.control.prepare("SELECT resource_key FROM resource_leases WHERE attempt_id=?").all(attemptId) as Array<{ resource_key: string }>) {
       void keyRow; // unresolved guards persist until reconciled; compute release is separate
     }
@@ -786,6 +803,7 @@ export function expireLeases(s: Store): number {
       markPlatformInterruption(s, a.id);
       revokeSessionCredentials(s, a.id);
       revokeAttemptSecrets(s, a.id, "lease-lost");
+      revokeGatewayTokens(s, a.id);
       transitionState(s.control, "attempt", a.id, "outcome_unknown");
       transitionState(s.control, "job", a.job_id, "outcome_unknown", { bumpVersion: true });
       restartInterruptedReadJob(s, a.job_id, a.id);
@@ -829,6 +847,7 @@ export function expireAttemptDeadlines(s: Store, deps: { completeStep: (organiza
       endAttemptSession(s, { organizationId: item.organizationId, workspaceId: item.workspaceId, attemptId: item.attemptId, failed: true });
       revokeSessionCredentials(s, item.attemptId);
       revokeAttemptSecrets(s, item.attemptId, "deadline");
+      revokeGatewayTokens(s, item.attemptId);
       return true;
     });
     if (!ended) continue;

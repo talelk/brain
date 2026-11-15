@@ -74,12 +74,13 @@ export function engineSettingsCommands(store: Store): CommandHandlers {
           if (seen.has(routeId)) throw new BrainDomainError("INVALID_ARGUMENT", `Two routes are named ${routeId}`);
           seen.add(routeId);
           const keyRef = String(entry["keyRef"] ?? "").trim();
-          if (!isKeyReference(keyRef)) throw new BrainDomainError("INVALID_ARGUMENT", `Route ${routeId}: name the API key by a short reference such as acme-main, never the key itself; the key is set on the runner host as BRAIN_MODEL_KEY_<REFERENCE>`);
+          if (!isKeyReference(keyRef)) throw new BrainDomainError("INVALID_ARGUMENT", `Route ${routeId}: name the API key by a short reference such as acme-main, never the key itself; the key is set on the runner host as BRAIN_MODEL_KEY_<REFERENCE>, or on the Governor host for a route through the gateway`);
           const costTier = String(entry["costTier"] ?? "") as CostTier;
           if (!COST_TIERS.includes(costTier)) throw new BrainDomainError("INVALID_ARGUMENT", `Route ${routeId}: choose a cost tier (${COST_TIERS.join(", ")})`);
           const route = {
             routeId, enabled: entry["enabled"] === true, vendor: String(entry["vendor"] ?? "").trim(), keyRef, model: String(entry["model"] ?? "").trim(), baseUrl: hostedUrl(String(entry["baseUrl"] ?? "")), costTier,
             inputMicroUsdPerMTok: Number(entry["inputMicroUsdPerMTok"]), outputMicroUsdPerMTok: Number(entry["outputMicroUsdPerMTok"]),
+            viaGateway: entry["viaGateway"] === true,
           };
           if (!route.vendor || !route.model) throw new BrainDomainError("INVALID_ARGUMENT", `Route ${routeId}: choose the vendor and the model`);
           // A route is always priced: its spend must reach the mission and workspace dollar caps (ADR 0023).
@@ -90,15 +91,15 @@ export function engineSettingsCommands(store: Store): CommandHandlers {
         if (routes.some((route) => route.enabled) && usesHostTools(s, actor.organizationId, workspaceId)) throw new BrainDomainError("CONFLICT", "this workspace reads production hosts; it stays self-hosted");
         {
           s.control.prepare("DELETE FROM workspace_model_routes WHERE workspace_id=?").run(workspaceId);
-          const insert = s.control.prepare(`INSERT INTO workspace_model_routes(workspace_id,route_id,organization_id,position,enabled,vendor,key_ref,model,base_url,cost_tier,input_micro_usd_per_mtok,output_micro_usd_per_mtok,updated_by,updated_at_ms)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-          routes.forEach((route, position) => { insert.run(workspaceId, route.routeId, actor.organizationId, position, route.enabled ? 1 : 0, route.vendor, route.keyRef, route.model, route.baseUrl, route.costTier, route.inputMicroUsdPerMTok, route.outputMicroUsdPerMTok, actor.actorId, s.now()); });
+          const insert = s.control.prepare(`INSERT INTO workspace_model_routes(workspace_id,route_id,organization_id,position,enabled,vendor,key_ref,model,base_url,cost_tier,input_micro_usd_per_mtok,output_micro_usd_per_mtok,via_gateway,updated_by,updated_at_ms)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+          routes.forEach((route, position) => { insert.run(workspaceId, route.routeId, actor.organizationId, position, route.enabled ? 1 : 0, route.vendor, route.keyRef, route.model, route.baseUrl, route.costTier, route.inputMicroUsdPerMTok, route.outputMicroUsdPerMTok, route.viaGateway ? 1 : 0, actor.actorId, s.now()); });
           // A route that is gone loses its cooldown; one that stays keeps it (a reorder never forgives an account that is out of quota).
           for (const row of s.control.prepare("SELECT route_id FROM model_route_cooldowns WHERE workspace_id=?").all(workspaceId) as Array<{ route_id: string }>) {
             if (!seen.has(row.route_id)) s.control.prepare("DELETE FROM model_route_cooldowns WHERE workspace_id=? AND route_id=?").run(workspaceId, row.route_id);
           }
         }
-        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.modelRoutesSet", payload: { workspaceId, routes: routes.map((route) => ({ routeId: route.routeId, enabled: route.enabled, vendor: route.vendor, keyRef: route.keyRef, model: route.model, costTier: route.costTier, inputMicroUsdPerMTok: route.inputMicroUsdPerMTok, outputMicroUsdPerMTok: route.outputMicroUsdPerMTok })) } });
+        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.modelRoutesSet", payload: { workspaceId, routes: routes.map((route) => ({ routeId: route.routeId, enabled: route.enabled, vendor: route.vendor, keyRef: route.keyRef, model: route.model, costTier: route.costTier, inputMicroUsdPerMTok: route.inputMicroUsdPerMTok, outputMicroUsdPerMTok: route.outputMicroUsdPerMTok, viaGateway: route.viaGateway })) } });
         return { resourceId: workspaceId };
       },
     },

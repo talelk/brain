@@ -9,7 +9,7 @@ import { approvalCurrentlyUsable } from "../../apps/governor/src/modules/governa
 import { scaled } from "../support/timing";
 
 // A risk tier is computed per effect request from facts the Governor holds, shown with its reasons, and bound into the approval (#149,
-// ADR 0071). Higher tiers ask MORE of the approval (a TOTP step-up, a second different approver); none ever skips a per-effect approval.
+// ADR 0075). Higher tiers ask MORE of the approval (a TOTP step-up, a second different approver); none ever skips a per-effect approval.
 const cleanup: Array<() => Promise<void> | void> = [];
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close(); });
 

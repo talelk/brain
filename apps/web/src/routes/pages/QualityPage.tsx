@@ -6,6 +6,7 @@ import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { qualityBreakdownRead, type BreakdownRow, type QualityBreakdown } from "../../data/engine";
+import { AutonomySuggestions } from "../../ui/components/AutonomySuggestions";
 import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { WorkspaceSection } from "../../ui/components/Domain";
@@ -128,6 +129,7 @@ export default function QualityPage(): JSX.Element {
           </WorkspaceSection>
         </>}</Show>
       </ScreenRegion>
+      <Show when={app.workspaceId()}><AutonomySuggestions /></Show>
       <Show when={app.workspaceId()}>{(workspaceId) => <WorkspaceSection title={t("evalcases.title")} description={t("quality.evalcases.link")}>
         <div><A class="text-interface text-ink-blue-link underline focus-visible:focus-ring" href={`/w/${encodeURIComponent(workspaceId())}/quality/cases`}>{t("quality.evalcases.open")}</A></div>
       </WorkspaceSection>}</Show>

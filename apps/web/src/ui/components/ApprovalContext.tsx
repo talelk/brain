@@ -52,7 +52,7 @@ const TIER_TONE = { low: "bg-surface-gray-2 text-ink-gray-8", elevated: "bg-surf
 
 /**
  * The risk tier of the approval with the reasons the Governor computed it from, and what the tier asks of the decision. The tier is bound
- * by the approval's digest (ADR 0071); every change still needs its own approval.
+ * by the approval's digest (ADR 0075); every change still needs its own approval.
  */
 export function RiskBlock(props: { approval: ApprovalRequest }): JSX.Element {
   const app = useApp();

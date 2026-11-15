@@ -18,7 +18,7 @@ export interface ApprovalView {
   expiresAt: string;
   /** Read beside the subject, never bound by it: the mission and task, the change as a diff and the rollback (ADR 0049). */
   context: ApprovalContext;
-  /** The people who have approved so far: a critical request stays pending until a second, different person does (ADR 0071). */
+  /** The people who have approved so far: a critical request stays pending until a second, different person does (ADR 0075). */
   approvedBy: string[];
 }
 

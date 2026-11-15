@@ -13,9 +13,9 @@ import type { CommandReceipt, GitProvider, MissionBudget, OrganizationAdminComma
 export type CommandKind =
   | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.pause" | "session.continue" | "session.resume" | "delegation.review"
   | "runner.control"
-  | "mission.create" | "mission.owner.transfer" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "evaluation.attest" | "mission.watch" | "mission.seen"
+  | "mission.create" | "mission.owner.transfer" | "mission.policy.set" | "autonomy.suggestion.accept" | "autonomy.suggestion.dismiss" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "evaluation.attest" | "mission.watch" | "mission.seen"
   | "mission.brief.edit" | "decision.accept" | "standingTeam.create" | "standingTeam.update" | "standingTeam.archive" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
-  | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise" | "workItem.details.set" | "pullRequest.refresh"
+  | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise" | "workItem.candidate.keep" | "workItem.details.set" | "pullRequest.refresh"
   | "workspace.wayOfWorking.set" | "workspace.modelRoutes.set" | "workspace.effects.set" | "workspace.queueLimit.set" | "workspace.autonomyCeiling.set" | "workspace.sessions.stopAll" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set" | "chatIdentity.set" | "chatIdentity.remove"
   | "play.proposeFromMissions" | "knowledge.withdrawUnobserved"
   | "automation.upsert" | "automation.control"
@@ -36,7 +36,8 @@ export interface CommandContext {
 
 export type PayloadFor<K extends CommandKind> =
   K extends "mission.create" ? { title: string; intent?: string; successCriteria?: string[]; constraints?: string[]; playId?: string; standingTeamId?: string; autonomy?: "supervised" | "standard" | "autonomous"; budget?: { maxMicroUsd?: number; memberCap: number }; autoStart?: boolean }
-    : K extends "mission.policy.set" ? { missionId: string; autoStart?: boolean; preset?: "supervised" | "standard" | "autonomous" }
+    : K extends "autonomy.suggestion.accept" | "autonomy.suggestion.dismiss" ? { kind: "play" | "mission" | "repeat"; subjectId: string }
+    : K extends "mission.policy.set" ?{ missionId: string; autoStart?: boolean; preset?: "supervised" | "standard" | "autonomous" }
     : K extends "mission.owner.transfer" ? { missionId: string; newOwnerId: string }
     : K extends "mission.pause" | "mission.resume" | "mission.proposeCompletion" ? { missionId: string }
     : K extends "mission.close" ? { missionId: string; outcome: "achieved" | "ended" | "cancelled" }
@@ -45,6 +46,7 @@ export type PayloadFor<K extends CommandKind> =
     : K extends "mission.budget.set" ? { missionId: string; budget: MissionBudget }
     : K extends "workspace.spendCap.set" ? { dailyMicroUsd?: number; weeklyMicroUsd?: number }
     : K extends "workItem.spendCap.raise" ? { workItemId: string; maxTokens: number }
+    : K extends "workItem.candidate.keep" ? { workItemId: string; runId: string }
     : K extends "workItem.details.set" ? { workItemId: string; priority?: WorkItemPriority; tags?: string[]; dueAt?: string | null }
     : K extends "pullRequest.refresh" ? { pullRequestId: string }
     : K extends "workspace.wayOfWorking.set" ? { workflowId: string; requiredTools?: string[] }

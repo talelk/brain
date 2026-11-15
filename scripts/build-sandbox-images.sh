@@ -5,3 +5,4 @@ docker build -f deploy/sandbox.Dockerfile -t brain-sandbox-evaluator .
 docker tag brain-sandbox-evaluator brain-sandbox-agent
 docker tag brain-sandbox-evaluator brain-sandbox-tool
 docker build -f deploy/egress-proxy.Dockerfile -t brain-egress-proxy .
+docker build -f deploy/engine-sandbox.Dockerfile -t brain-sandbox-engine .
