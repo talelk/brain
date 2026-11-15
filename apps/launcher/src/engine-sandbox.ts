@@ -6,7 +6,7 @@ import { execa } from "execa";
 import { isEgressHost, removeEgressGrant, writeEgressGrant } from "./egress-proxy";
 
 /**
- * Engine sandboxes (ADR 0065): one container per attempt (and route) that runs an engine's host process, with its stdin and stdout held
+ * Engine sandboxes (ADR 0067): one container per attempt (and route) that runs an engine's host process, with its stdin and stdout held
  * by the launcher and handed to the runner as lines. The container's shape is decided here and only here: the request names the engine, the
  * attempt, the reservation and the hosts, and nothing else of it.
  */

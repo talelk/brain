@@ -82,7 +82,7 @@ describe("a failed attempt carries its reason", () => {
     }
   });
 
-  it("an attempt whose engine sandbox could not start fails with a sandbox failure code, never a silent downgrade (ADR 0065)", async () => {
+  it("an attempt whose engine sandbox could not start fails with a sandbox failure code, never a silent downgrade (ADR 0067)", async () => {
     const w = setupWorld();
     try {
       const codeOf = async (key: string, error: string): Promise<{ code: string | undefined; reason: string | undefined }> => {

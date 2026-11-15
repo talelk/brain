@@ -3,7 +3,7 @@ import type { EngineInfo, Placement } from "@brain/contracts";
 export type IsolationMode = Placement["isolation"];
 
 /**
- * The isolation each engine really provides on this runner (ADR 0035, 0065). An engine that runs in the runner process is `trusted-local`:
+ * The isolation each engine really provides on this runner (ADR 0035, 0067). An engine that runs in the runner process is `trusted-local`:
  * nothing outside it contains it. An engine run by the engine sandbox (its own container, read-only root, no capabilities, resource limits,
  * network only through the egress proxy) is `ephemeral-container`; that is claimed only while this runner can start such sandboxes, and the
  * runner never runs a sandboxable engine in its own process when it claims it. The fixture engine runs no model, no agent code and no

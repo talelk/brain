@@ -99,7 +99,7 @@ export async function startLauncher(): Promise<void> {
     try { digests = JSON.parse(String(inspect.stdout)) as string[]; } catch { digests = []; }
     return inspect.exitCode !== 0 || !digests.some((d) => d.endsWith(pin)) ? `image ${image} does not match pinned ${pin}; refusing to run unpinned bytes` : undefined;
   };
-  // Engine sandboxes (ADR 0065): the host directory holding every attempt's engine state, who the engine runs as there, and how long a
+  // Engine sandboxes (ADR 0067): the host directory holding every attempt's engine state, who the engine runs as there, and how long a
   // sandbox may go unspoken to before it is stopped (a runner that died leaves no container holding a network grant).
   const engineIdleMs = Number(process.env["BRAIN_LAUNCHER_ENGINE_IDLE_MS"] ?? 90_000);
   const engineUser = process.env["BRAIN_LAUNCHER_ENGINE_USER"] ?? `${process.getuid?.() ?? 0}:${process.getgid?.() ?? 0}`;

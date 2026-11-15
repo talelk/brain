@@ -1,4 +1,4 @@
-# The engine sandbox image (ADR 0065): the runner's engines (Pi, Claude, an ACP agent) and the host process that serves one of them to the
+# The engine sandbox image (ADR 0067): the runner's engines (Pi, Claude, an ACP agent) and the host process that serves one of them to the
 # runner over the launcher. The launcher runs it per attempt with a read-only root, no capabilities, resource limits, one writable mount
 # (the attempt's state) and a network only through the egress proxy; nothing here may assume more.
 # Build from the repository root: docker build -f deploy/engine-sandbox.Dockerfile -t brain-sandbox-engine .

@@ -216,7 +216,7 @@ describe("OpenCode starts with its native tools off and without any other config
   });
 });
 
-describe("a runner states the isolation each engine really provides (ADR 0035, 0065)", () => {
+describe("a runner states the isolation each engine really provides (ADR 0035, 0067)", () => {
   const probed = (...ids: string[]) => ids.map((id) => ({ id, features: ["sessions"] }));
 
   it("states trusted-local for every engine that runs in the runner process, except the fixture that runs no model or tool", () => {

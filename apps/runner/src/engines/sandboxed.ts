@@ -104,7 +104,7 @@ export interface SandboxedEngineOptions {
 }
 
 /**
- * An engine adapter whose engine runs in its attempt's sandbox (ADR 0065): every call goes over the sandbox's channel to the engine host in
+ * An engine adapter whose engine runs in its attempt's sandbox (ADR 0067): every call goes over the sandbox's channel to the engine host in
  * the container. The sandbox starts with the first session and lives until `close()`, so the correction session of one attempt shares it. If
  * the sandbox cannot start the call fails with SANDBOX_REFUSAL; there is no in-process engine behind this class to fall back to.
  */

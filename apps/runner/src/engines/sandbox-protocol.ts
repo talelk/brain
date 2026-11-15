@@ -2,7 +2,7 @@ import type { EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecu
 import type { HostedRoute } from "./pi";
 
 /**
- * The wire between the runner and an engine running in its per-attempt sandbox (ADR 0065): one JSON object per line, each prefixed so an
+ * The wire between the runner and an engine running in its per-attempt sandbox (ADR 0067): one JSON object per line, each prefixed so an
  * engine library that prints to stdout cannot be taken for a frame. The requests mirror the EngineAdapter port one to one; the engine itself
  * is unchanged and runs behind them in the container.
  */

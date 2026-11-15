@@ -152,7 +152,7 @@ describe("runner reports its launcher (health below the application)", () => {
     expect(await check()).toBe("healthy");
   });
 
-  it("the engine image counts only for a runner set up for engine sandboxes (ADR 0065): without one it still runs tools and the fixture", async () => {
+  it("the engine image counts only for a runner set up for engine sandboxes (ADR 0067): without one it still runs tools and the fixture", async () => {
     const probe = async () => ({ docker: true, missingImages: ["brain-sandbox-engine"] });
     expect(await launcherHealthCheck({ BRAIN_LAUNCHER_SOCKET: "/run/launcher.sock" }, probe)()).toBe("healthy");
     const configured = launcherHealthCheck({ BRAIN_LAUNCHER_SOCKET: "/run/launcher.sock", BRAIN_RUNNER_ENGINE_STATE_DIR: "/engine-state" }, probe);

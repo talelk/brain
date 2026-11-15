@@ -13,7 +13,7 @@ import { serveEngineHost } from "../../apps/runner/src/engines/sandbox-host";
 import { decodeFrame, type HostRequest } from "../../apps/runner/src/engines/sandbox-protocol";
 import { prepareAttemptState, SandboxedEngine, type EngineChannel, type EngineSandboxOpener, type EngineSandboxRequest } from "../../apps/runner/src/engines/sandboxed";
 
-// ADR 0065 at the runner's engine-adapter seam. The launcher is a test double whose "container" serves the real engine host in this
+// ADR 0067 at the runner's engine-adapter seam. The launcher is a test double whose "container" serves the real engine host in this
 // process over an in-memory pipe, with the fixture engine behind it; nothing is a real container, model or Docker.
 
 const digest = (c: string) => `sha256:${c.repeat(64)}`;

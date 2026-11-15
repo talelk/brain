@@ -1,6 +1,6 @@
 # 35. ACP engines have no native tools
 
-Status: accepted, 2026-11-14. Closes the hole ADR 0021 leaves open for ACP agents. Decision 5 (isolation per engine) is superseded in part by ADR 0065: an engine states `ephemeral-container` only when it runs in its engine sandbox, so Pi and Claude no longer claim it from the runner process, and an ACP engine may claim it when sandboxed.
+Status: accepted, 2026-11-14. Closes the hole ADR 0021 leaves open for ACP agents. Decision 5 (isolation per engine) is superseded in part by ADR 0067: an engine states `ephemeral-container` only when it runs in its engine sandbox, so Pi and Claude no longer claim it from the runner process, and an ACP engine may claim it when sandboxed.
 
 ADR 0021 says an agent reaches the host only through operator-declared tools. The ACP engine (OpenCode, any `acp` agent) did not keep that: the client answered no permission requests, and OpenCode's default is to allow its own shell, edit and fetch without asking, so an OpenCode session could act on the runner host while the runner reported `ephemeral-container` isolation.
 

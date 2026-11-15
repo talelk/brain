@@ -9,7 +9,7 @@ import { LauncherClient } from "../../apps/runner/src/launcher-client";
 import { decodeFrame, encodeFrame, type HostFrame } from "../../apps/runner/src/engines/sandbox-protocol";
 import { scaled } from "../support/timing";
 
-// ADR 0065 at the launcher's boundary: what `docker run` is given for an engine's sandbox (argv, limits, network, mount, secrets), what is
+// ADR 0067 at the launcher's boundary: what `docker run` is given for an engine's sandbox (argv, limits, network, mount, secrets), what is
 // refused before docker is called, and how a sandbox that cannot start or whose runner went quiet ends. `docker` is the stand-in in
 // tests/support/fake-docker.mjs, which records its argv; no container runtime and no engine is started.
 
@@ -70,7 +70,7 @@ async function launcher(dir = "run"): Promise<{ socket: string; token: string; c
 
 const create = (attemptId = "att-1", over: Record<string, unknown> = {}) => ({ engine: "pi", attemptId, requestId: `engine-${attemptId}-0`, cpuMillicores: 2000, memoryMb: 2048, egressHosts: ["api.example.com", "models.internal:8000"], ...over });
 
-describe("an engine's sandbox is shaped by the launcher alone (ADR 0065)", () => {
+describe("an engine's sandbox is shaped by the launcher alone (ADR 0067)", () => {
   it("runs the engine image read-only with no capabilities, the reservation's limits, the proxy's network and one mount", async () => {
     mkdirSync(join(stateRoot, "att-1"));
     const l = await launcher();

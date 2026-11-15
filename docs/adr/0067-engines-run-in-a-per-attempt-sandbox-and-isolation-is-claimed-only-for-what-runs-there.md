@@ -1,4 +1,4 @@
-# 65. Engines run in a per-attempt sandbox, and isolation is claimed only for what runs there
+# 67. Engines run in a per-attempt sandbox, and isolation is claimed only for what runs there
 
 Status: accepted, 2026-11-15. Spec #90, story 106. Builds on ADR 0021 (agents reach the host only through declared tools), 0035 (ACP engines have no native tools) and 0037 (the egress proxy).
 

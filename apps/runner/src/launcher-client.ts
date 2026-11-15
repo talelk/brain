@@ -92,7 +92,7 @@ export class LauncherClient implements EngineSandboxOpener {
   }
 
   /**
-   * Starts an engine's own container for one attempt (ADR 0065) and returns the channel to the engine host in it. The launcher alone decides
+   * Starts an engine's own container for one attempt (ADR 0067) and returns the channel to the engine host in it. The launcher alone decides
    * the image, the argv, the mount and the network's form; this names the engine, the attempt, the reservation and the hosts. A container
    * that does not come up rejects with the launcher's reason, and nothing else runs the engine.
    */

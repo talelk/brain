@@ -31,7 +31,7 @@ describe("failure reason", () => {
     const missing = "sandboxed execution failed: sandbox create failed 503: docker run failed: Unable to find image 'brain-sandbox-evaluator:latest' locally";
     expect(failureCode(missing)).toBe("sandbox-image-missing");
     expect(failureCode("sandbox create failed 503: Cannot connect to the Docker daemon")).toBe("sandbox-unavailable");
-    // An engine's own sandbox (ADR 0065) fails in the same classes: a missing image is the image, every other way it could not run is the sandbox.
+    // An engine's own sandbox (ADR 0067) fails in the same classes: a missing image is the image, every other way it could not run is the sandbox.
     expect(failureCode("engine sandbox create failed 503: docker run failed: Unable to find image 'brain-sandbox-engine:latest' locally")).toBe("sandbox-image-missing");
     expect(failureCode("engine sandbox create failed 409: the attempt's state directory is absent on this host")).toBe("sandbox-unavailable");
     expect(failureCode("engine sandbox create failed: this runner has no launcher, and pi does not run in the runner itself")).toBe("sandbox-unavailable");

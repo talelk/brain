@@ -194,7 +194,7 @@ if ! $SSH "docker images -q brain-sandbox-agent" | grep -q . || ! $SSH "docker i
   $SSH "cd $REMOTE_DIR/src && bash scripts/build-sandbox-images.sh >/dev/null 2>&1"
 fi
 
-# ---- engine sandboxes (ADR 0065): every engine runs in its own container, reaching a network only through the egress proxy ----
+# ---- engine sandboxes (ADR 0067): every engine runs in its own container, reaching a network only through the egress proxy ----
 # The engine state root is shared by the runners (their attempts' directories) and the launcher (which mounts one per attempt); the grants
 # directory is where the launcher writes each sandbox's allowed hosts for the proxy (ADR 0037). Idempotent on every deploy.
 echo "==> Engine sandboxes (state root, egress proxy)"

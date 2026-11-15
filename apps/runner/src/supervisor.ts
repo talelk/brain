@@ -48,7 +48,7 @@ export interface RunnerConfig {
   readonly launcher?: LauncherClient;
   /**
    * The directory of per-attempt engine state (BRAIN_RUNNER_ENGINE_STATE_DIR), the same directory the launcher's BRAIN_LAUNCHER_ENGINE_STATE_ROOT
-   * names on its host. With a launcher and this, engines run in their own sandboxes (ADR 0065); without them they run in this process and
+   * names on its host. With a launcher and this, engines run in their own sandboxes (ADR 0067); without them they run in this process and
    * the runner states the isolation of that.
    */
   readonly engineStateDir?: string;
@@ -368,7 +368,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       // A second attempt the Governor routed to the workspace's hosted model (ADR 0023); every other attempt stays on this runner's own model.
       const hostedRoutes = hostedRoutesOf(payload.modelRoutes);
       // An engine this runner can sandbox runs in its attempt's sandbox with the job's reservation and the workspace's hosts plus its model's; one it
-      // cannot is the in-process engine (the fixture), whose isolation the runner states accordingly (ADR 0065).
+      // cannot is the in-process engine (the fixture), whose isolation the runner states accordingly (ADR 0067).
       const attemptSandbox = (routeIndex: number) => sandbox ? { support: sandbox, attemptId: offer.attemptId, resources: offer.placement?.resources ?? { cpuMillicores: 1000, memoryMb: 1024 }, workspaceHosts: offer.egressHosts ?? [], routeIndex } : undefined;
       const engineFor = (route: HostedRoute | undefined, routeIndex: number) => {
         const picked = engineConfigured === undefined ? undefined : attemptEngine(engineConfigured, offeredBindings, route, attemptSandbox(routeIndex));
@@ -609,7 +609,7 @@ export function launcherHealthCheck(env: NodeJS.ProcessEnv = process.env, probe:
     try {
       const result = await probe();
       // Docker answering is not enough: with a sandbox image never built here every sandboxed step fails on its first container, so the engine is unusable.
-      // The engine image matters only to a runner set up for engine sandboxes (ADR 0065); one that is not still runs tools and the fixture, and says so in its engine isolation.
+      // The engine image matters only to a runner set up for engine sandboxes (ADR 0067); one that is not still runs tools and the fixture, and says so in its engine isolation.
       const missing = (result.missingImages ?? []).filter((image) => image !== ENGINE_SANDBOX_IMAGE || Boolean(env["BRAIN_RUNNER_ENGINE_STATE_DIR"]));
       misses = result.docker && missing.length === 0 ? 0 : misses + 1;
     } catch { misses += 1; }
