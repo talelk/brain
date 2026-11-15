@@ -745,6 +745,15 @@
       ]
     },
     {
+      "type": "workItem.details.set",
+      "schema": "WorkItemDetailsSetCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "knowledge.withdrawUnobserved",
       "schema": "KnowledgeWithdrawUnobservedCommand",
       "scope": "memory:publish",

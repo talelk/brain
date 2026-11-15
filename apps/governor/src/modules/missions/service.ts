@@ -1,11 +1,12 @@
 import { domainDigest } from "@brain/contracts";
-import type { AcceptedDecision, ActorContext, AutonomyPolicy, AutonomyPreset, ExecutionLink, JsonValue, Mission, MissionBrief, MissionOutcome, OutputInput, PlanAssignment, PlanOperation, PlanTask, PlanVersion, TeamMember, WorkItem, WorkItemState } from "@brain/contracts";
+import type { AcceptedDecision, ActorContext, AutonomyPolicy, AutonomyPreset, ExecutionLink, JsonValue, Mission, MissionBrief, MissionOutcome, OutputInput, PlanAssignment, PlanOperation, PlanTask, PlanVersion, TeamMember, WorkItem, WorkItemPriority, WorkItemState } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
 import { assertPlanTasks } from "../../domain/work-plan";
+import { JOB_PRIORITY, normalizeTags } from "../../domain/work-priority";
 import { assertServedCriteria, criteriaFromText, criteriaCoverage, parseCriteria } from "../../domain/criteria";
-import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
+import { AUTONOMY_PRESETS, assertMembersBound, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
 import { repeatGate, type RepeatPlan, type RepeatSchedule } from "./repeat";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
@@ -81,8 +82,14 @@ type WorkItemRow = {
   next_action: string; blocked_reason: string | null; scheduled_at_ms: number | null; evidence_digest: string | null;
   failed_attempts: number; parked: number; parked_diagnostic: string | null;
   required_tools_json: string; failure_class: FailureClass | null; token_cap: number | null; retry_after_ms: number | null;
+  priority: WorkItemPriority; tags_json: string; due_at_ms: number | null;
   version: number; created_at_ms: number; updated_at_ms: number;
 };
+
+/** A person's new priority reaches the runs already started for the work: their later steps and their queued jobs follow. Bound at the composition root. */
+export interface RunPriorityPort {
+  setRunPriority(organizationId: string, workspaceId: string, runId: string, jobPriority: number): void;
+}
 
 /** Live message delivery is the sessions module's, bound at the composition root. */
 export interface MissionDeliveryPort {
@@ -93,7 +100,7 @@ export interface MissionDeliveryPort {
 export const PARKED_INTERRUPTED_REASON = "Stopped: waiting for you to try again";
 
 export class MissionService {
-  constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort, private readonly coordinatorPort?: CoordinatorPort, private readonly capitalization?: { requestMissionRun(organizationId: string, workspaceId: string, missionId: string): string }) {}
+  constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort, private readonly coordinatorPort?: CoordinatorPort, private readonly capitalization?: { requestMissionRun(organizationId: string, workspaceId: string, missionId: string): string }, private readonly runs?: RunPriorityPort) {}
 
   /** Starts coordinator runs for pending wakes across active workspaces (maintenance pass). */
   pumpCoordinators(): number {
@@ -209,6 +216,10 @@ export class MissionService {
       ...(JSON.parse(row.required_tools_json) as string[]).length > 0 ? { requiredTools: JSON.parse(row.required_tools_json) as string[] } : {},
       ...(row.failure_class ? { failureClass: row.failure_class, remedy: REMEDY[row.failure_class] } : {}),
       tokenCap: taskTokenCap(row), tokensUsed: taskTokens(this.store, this.store.workspaceDb(workspaceId, actor.organizationId), row.id),
+      priority: row.priority, tags: JSON.parse(row.tags_json) as string[],
+      ...(row.due_at_ms !== null ? { dueAt: iso(row.due_at_ms) } : {}),
+      // A board flag derived on read, never stored: an open item past its due date. It raises no attention item and notifies nobody.
+      ...(row.due_at_ms !== null && row.due_at_ms < this.store.now() && row.state !== "done" && row.state !== "abandoned" ? { overdue: true as const } : {}),
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }
@@ -234,6 +245,7 @@ export class MissionService {
       case "plan.reject": return this.rejectPlan(actor, workspaceId, command.payload);
       case "workItem.transition": return this.transition(actor, workspaceId, command.payload, command.expectedVersion);
       case "workItem.comment": return this.comment(actor, workspaceId, command.payload);
+      case "workItem.details.set": return this.setDetails(actor, workspaceId, command.payload, command.expectedVersion);
       default: throw new BrainDomainError("INVALID_CONTRACT", `unsupported work command ${command.commandType}`);
     }
   }
@@ -326,6 +338,7 @@ export class MissionService {
     const started = new Set((db.prepare("SELECT plan_task_id AS id, state, parked FROM work_items WHERE mission_id=? AND state!='abandoned'").all(mission.id) as Array<{ id: string; state: WorkItemState; parked: number }>)
       .filter(isStarted).map((row) => row.id));
     const diff = diffPlan(confirmed, tasks, started);
+    assertMembersBound(JSON.parse(active.team_json) as TeamMember[], team, tasks);
     const policy = JSON.parse(mission.policy_json) as AutonomyPolicy;
     const beyond = [...new Set([...beyondPolicy(diff, policy), ...teamOperations(JSON.parse(active.team_json) as TeamMember[], team).filter((operation) => !policy.operations.includes(operation))])].sort();
     return { autoConfirm: actor.kind === "agent" && mission.state === "active" && beyond.length === 0, beyond };
@@ -362,13 +375,18 @@ export class MissionService {
     const tasks = JSON.parse(plan.tasks_json) as PlanTask[];
     assertPlanTasks(tasks);
     assertServedCriteria(tasks, new Set(parseCriteria(mission.success_criteria_json).map((criterion) => criterion.id)));
+    const team = JSON.parse(plan.team_json) as TeamMember[];
+    // The release may have changed since the version was proposed: eligibility holds at confirmation too.
+    assertTeamEligible(team, tasks, this.agentCapabilities(actor.organizationId));
     this.assertWayOfWorking(actor.organizationId, workspaceId, tasks);
-    this.gate(actor, workspaceId, mission, tasks, JSON.parse(plan.team_json) as TeamMember[]);
+    this.gate(actor, workspaceId, mission, tasks, team);
     const db = this.db(actor, workspaceId);
     const defaults = wayOfWorking(this.store, workspaceId);
     this.store.inTx(db, () => {
       const priorActive = mission.active_plan_version_id;
       if (priorActive) transitionState(db, "planVersion", priorActive, "superseded");
+      // An older proposal this version was edited from (or that it overtakes) is no longer a live proposal: left open it would come back as the plan to confirm.
+      for (const open of db.prepare("SELECT id FROM plan_versions WHERE mission_id=? AND state='proposed' AND revision<? AND id!=?").all(mission.id, plan.revision, plan.id) as Array<{ id: string }>) transitionState(db, "planVersion", open.id, "superseded");
       const previous = db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state!='abandoned' ORDER BY created_at_ms DESC,id DESC").all(mission.id) as WorkItemRow[];
       const latestByTask = new Map<string, WorkItemRow>();
       for (const item of previous) if (!latestByTask.has(item.plan_task_id)) latestByTask.set(item.plan_task_id, item);
@@ -387,10 +405,12 @@ export class MissionService {
         const state: WorkItemState = task.dependsOn.length === 0 ? "ready" : "backlog";
         // Failed attempts follow the plan task across members: reassignment never resets the parking count.
         const carried = prior && prior.state !== "done" ? prior.failed_attempts : 0;
-        db.prepare(`INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,assignment_json,workflow_id,next_action,failed_attempts,required_tools_json,token_cap,created_at_ms,updated_at_ms)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id, mission.id, plan.id, task.id, task.title, state, JSON.stringify(task.criteria),
+        // What a person set on the task (priority, tags, due date) follows the task to its new work item, like the token cap.
+        db.prepare(`INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,assignment_json,workflow_id,next_action,failed_attempts,required_tools_json,token_cap,priority,tags_json,due_at_ms,created_at_ms,updated_at_ms)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id, mission.id, plan.id, task.id, task.title, state, JSON.stringify(task.criteria),
           task.assignment ? JSON.stringify(task.assignment) : null, task.workflowId ?? null,
-          state === "ready" ? "Start this task" : "Wait for predecessor completion", carried, JSON.stringify(effectiveTools(task, defaults)), prior?.token_cap ?? null, now, now);
+          state === "ready" ? "Start this task" : "Wait for predecessor completion", carried, JSON.stringify(effectiveTools(task, defaults)), prior?.token_cap ?? null,
+          prior?.priority ?? "normal", prior?.tags_json ?? "[]", prior?.due_at_ms ?? null, now, now);
       }
       for (const item of previous) {
         if (retained.has(item.id) || isStarted(item)) continue;
@@ -443,6 +463,36 @@ export class MissionService {
         throw new BrainDomainError("INVALID_ARGUMENT", `task ${task.id} needs ${missing.join(", ")} but its way of working ${workflowId} lacks ${missing.length === 1 ? "it" : "them"}${alternatives.length ? `; use ${alternatives.slice(0, 3).join(" or ")}` : ""}`);
       }
     }
+  }
+
+  /**
+   * A person sets a work item's priority, tags and due date (#116). A field left out stays; a null due date clears it. Priority changes the
+   * order work is claimed in and nothing else: Done keeps its evidence rule (ADR 0022). The runs already started for the item follow at once.
+   */
+  private setDetails(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person sets a work item's priority, tags or due date");
+    const item = this.workItemRow(actor, workspaceId, String(payload["workItemId"]));
+    assertExpectedVersion(item.version, expectedVersion);
+    if (item.state === "abandoned") throw new BrainDomainError("CONFLICT", "a replaced work item takes no changes");
+    const priority = (payload["priority"] === undefined ? item.priority : String(payload["priority"])) as WorkItemPriority;
+    if (!(priority in JOB_PRIORITY)) throw new BrainDomainError("INVALID_ARGUMENT", `unknown priority ${priority}`);
+    const tags = payload["tags"] === undefined ? item.tags_json : JSON.stringify(normalizeTags(payload["tags"] as unknown[]));
+    const dueAtMs = payload["dueAt"] === undefined ? item.due_at_ms : payload["dueAt"] === null ? null : Date.parse(String(payload["dueAt"]));
+    if (dueAtMs !== null && !Number.isFinite(dueAtMs)) throw new BrainDomainError("INVALID_ARGUMENT", "dueAt must be a date and time");
+    const db = this.db(actor, workspaceId);
+    this.store.inTx(db, () => {
+      db.prepare("UPDATE work_items SET priority=?,tags_json=?,due_at_ms=?,version=version+1,updated_at_ms=? WHERE id=?").run(priority, tags, dueAtMs, this.store.now(), item.id);
+      if (priority !== item.priority) {
+        for (const link of db.prepare("SELECT run_id FROM execution_links WHERE work_item_id=?").all(item.id) as Array<{ run_id: string }>) this.runs?.setRunPriority(actor.organizationId, workspaceId, link.run_id, JOB_PRIORITY[priority]);
+      }
+      this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.detailsSet", payload: { workItemId: item.id, priority } });
+    });
+    return item.id;
+  }
+
+  /** The job priority a run dispatched for this work item starts with. */
+  jobPriorityOf(actor: ActorContext, workspaceId: string, workItemId: string): number {
+    return JOB_PRIORITY[this.workItemRow(actor, workspaceId, workItemId).priority];
   }
 
   /** An owner raises the token cap of one task; a task parked for budget is released to try again. */
@@ -1276,7 +1326,7 @@ export class MissionService {
           });
         }
       }
-      const items = (db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state='ready' AND parked=0 AND (retry_after_ms IS NULL OR retry_after_ms<=?) ORDER BY created_at_ms, id").all(mission.id, now) as WorkItemRow[]);
+      const items = (db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state='ready' AND parked=0 AND (retry_after_ms IS NULL OR retry_after_ms<=?) ORDER BY CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, created_at_ms, id").all(mission.id, now) as WorkItemRow[]);
       if (items.length === 0) continue;
       const running = (db.prepare("SELECT COUNT(*) AS n FROM work_items WHERE mission_id=? AND state='in-progress'").get(mission.id) as { n: number }).n;
       plan.push({

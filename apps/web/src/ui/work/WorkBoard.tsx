@@ -4,7 +4,7 @@ import { Icon } from "@talelk/newui-atoms";
 import { Menu } from "@talelk/newui-molecules";
 import { KanbanBoard, type KanbanColumn, type KanbanMove } from "@talelk/newui-organisms";
 import type { WorkItem } from "@brain/contracts";
-import { BOARD_COLUMNS, boardColumnOf, dragTargets, type BoardColumnId, type NextAction } from "./work-model";
+import { BOARD_COLUMNS, boardColumnOf, dragTargets, priorityRank, type BoardColumnId, type NextAction } from "./work-model";
 import { WorkCard } from "./WorkCard";
 import { t } from "../../i18n";
 
@@ -29,6 +29,8 @@ function refusal(item: WorkItem, to: BoardColumnId): string {
  */
 export function WorkBoard(props: {
   items: readonly WorkItem[];
+  /** Every item of the mission when `items` is filtered: dependencies are read from it. */
+  context?: readonly WorkItem[];
   ownerOf: (item: WorkItem) => string | undefined;
   estimateOf: (item: WorkItem) => number | undefined;
   handoffRequired: (item: WorkItem) => boolean;
@@ -49,12 +51,12 @@ export function WorkBoard(props: {
     cards.set(item.workItemId, { version: item.version, card });
     return card;
   };
-  const targets = (item: WorkItem) => dragTargets(item, props.items, props.canDispatch);
+  const targets = (item: WorkItem) => dragTargets(item, props.context ?? props.items, props.canDispatch);
   const columnOf = (item: WorkItem) => pending()[item.workItemId] ?? boardColumnOf(item);
   const columns = createMemo<KanbanColumn<Card>[]>(() => BOARD_COLUMNS.map((column) => {
     const items = props.items.filter((item) => columnOf(item) === column.id)
-      // Ready lists startable work before work still waiting on dependencies.
-      .sort((a, b) => (a.state === "backlog" ? 1 : 0) - (b.state === "backlog" ? 1 : 0));
+      // Ready lists startable work before work still waiting on dependencies; within that the most urgent first, which is the order work is claimed in.
+      .sort((a, b) => (a.state === "backlog" ? 1 : 0) - (b.state === "backlog" ? 1 : 0) || priorityRank(a.priority) - priorityRank(b.priority));
     return {
       id: column.id, name: column.name, items: items.map(cardOf),
       summary: <span title={column.hint}>{column.hint}</span>,
@@ -103,7 +105,7 @@ export function WorkBoard(props: {
         </Menu.Root>
       </Show>}>
       {(card) => <div data-kanban-locked={targets(card.item).length === 0 ? "" : undefined} data-draggable={targets(card.item).length > 0 ? "true" : "false"}>
-        <WorkCard item={card.item} items={props.items} owner={props.ownerOf(card.item)} estimateMinutes={props.estimateOf(card.item)}
+        <WorkCard item={card.item} items={props.context ?? props.items} owner={props.ownerOf(card.item)} estimateMinutes={props.estimateOf(card.item)}
           handoffRequired={props.handoffRequired(card.item)} canDispatch={props.canDispatch} critical={props.critical.has(card.item.workItemId)}
           onOpen={() => props.onOpen(card.item)} onAction={(action) => props.onAction(card.item, action)} />
       </div>}

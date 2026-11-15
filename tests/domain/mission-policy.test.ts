@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlanTask } from "@brain/contracts";
-import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations } from "../../apps/governor/src/domain/mission-policy";
+import { AUTONOMY_PRESETS, assertMembersBound, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations } from "../../apps/governor/src/domain/mission-policy";
 
 const task = (id: string, dependsOn: string[] = [], extra: Partial<PlanTask> = {}): PlanTask => ({ id, title: id, criteria: [`${id}-done`], dependsOn, ...extra });
 
@@ -54,6 +54,17 @@ describe("mission plan diff and autonomy policy (T51, E113/E114)", () => {
     expect(() => assertTeamEligible(team, [assigned("fix", "stranger")], agents)).toThrow(/not on the mission team/);
     expect(() => assertTeamEligible([{ ...team[1]!, engine: "claude" }], [], agents)).toThrow(/does not run on engine claude/);
     expect(() => assertTeamEligible([{ ...team[0]!, agentId: "ghost" }], [], agents)).toThrow(/no published agent definition ghost/);
+  });
+
+  it("dropping the team strands assigned tasks; a member keeps its agent and engine for the mission", () => {
+    expect(() => assertMembersBound(team, [], [assigned("fix", "backend")])).toThrow(/plan task fix is assigned to backend, who is not on the mission team/);
+    expect(() => assertMembersBound(team, [], [task("fix")])).not.toThrow();
+    expect(() => assertMembersBound([], [], [assigned("fix", "pi")])).not.toThrow();
+    expect(() => assertMembersBound(team, [...team, { memberId: "backend-2", role: "Backend engineer", agentId: "reader", engine: "pi" }], [])).not.toThrow();
+    expect(() => assertMembersBound(team, team.slice(1), [])).not.toThrow();
+    expect(() => assertMembersBound(team, [{ ...team[0]!, agentId: "reader" }, team[1]!], [])).toThrow(/backend is bound to builder on claude/);
+    expect(() => assertMembersBound(team, [{ ...team[0]!, engine: "pi" }, team[1]!], [])).toThrow(/backend is bound to builder on claude/);
+    expect(() => assertMembersBound(team, [{ ...team[0]!, role: "Platform engineer" }, team[1]!], [])).not.toThrow();
   });
 
   it("team growth is an existing-role or new-role operation", () => {

@@ -60,6 +60,7 @@ const ACTIONS: Record<string, string> = {
   "plan.autoConfirmed": "confirmed the plan automatically",
   "plan.rejected": "turned the plan down",
   "workItem.transitioned": "moved the task to its next stage",
+  "workItem.detailsSet": "changed the task's priority, tags or due date",
   "workItem.parked": "parked the task after repeated failures",
   "workItem.unparked": "took the task out of parking",
   "workItem.comment": "left a note on the task",

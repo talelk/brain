@@ -39,7 +39,7 @@ describe("job lifecycle (jobs module)", () => {
     const input = {
       organizationId: w.org, workspaceId: row.workspace_id, runId: row.workflow_run_id, stepId: row.step_id,
       executionKey: row.execution_key, configDigest: row.config_digest, placementJson: "{}",
-      executionDigest: DIGEST_A, effectClass: "read", kind: "dispatch", payload: {},
+      executionDigest: DIGEST_A, effectClass: "read", kind: "dispatch", payload: {}, priority: 1,
     };
     expect(w.brain.jobProtocol.createForStep(input)).toBe(jobId);
     const pinned = w.brain.jobProtocol.createForStep({ ...input, executionKey: `${row.execution_key}:pinned`, runnerId: "runner-pin" });

@@ -121,7 +121,8 @@
     "reuse.forMission",
     "knowledgeAssets.list",
     "challenges.list",
-    "playProposals.list"
+    "playProposals.list",
+    "agents.list"
    ],
    "actions": [
     "mission.policy.set",
@@ -138,6 +139,7 @@
     "plan.confirm",
     "workItem.transition",
     "workItem.comment",
+    "workItem.details.set",
     "automation.upsert",
     "automation.control",
     "plan.propose",

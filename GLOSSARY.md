@@ -114,6 +114,8 @@ A mission-scoped role (such as backend engineer or reviewer) bound to an agent
 definition and engine. A team member is served by many sessions over the mission's
 life; it is neither a runner nor a session. It is eligible for a plan task only when its
 definition's tools, engine and caps cover what the task requires; the role name is a label.
+It keeps its agent definition and engine for the whole mission: a new plan version may add or
+drop members, never rebind one.
 _Avoid_: agent (an agent is a definition), worker, bot
 
 **Mission brief**:
@@ -154,7 +156,8 @@ _Avoid_: lead, orchestrator, manager
 **Plan version**:
 An immutable, versioned decomposition of a mission into plan tasks and the mission team
 assigned to them. Exactly one is
-confirmed per mission at a time; editing a plan always produces a new plan version.
+confirmed per mission at a time; editing a plan, including a task's assignment or the team,
+always produces a new plan version, and started work is never changed in place.
 _Avoid_: plan (unqualified — say plan version or plan proposal), plan revision
 
 **Plan proposal**:
@@ -178,6 +181,21 @@ _Avoid_: card, ticket, issue, story
 A work item stopped after repeated failed attempts, waiting for a human to retry,
 reassign, edit or drop it. Independent work continues; only a human unparks it.
 _Avoid_: stuck, failed (failure is an attempt's outcome), quarantined
+
+**Priority**:
+A work item's urgent, high, normal or low, written into the priority of every job its runs create. Inside
+a workspace's fair share the higher priority is claimed first; it never lets a workspace jump another's
+turn and never changes what Done needs (ADR 0041).
+_Avoid_: rank, severity
+
+**Tag**:
+A lower-case label (up to 10) a person puts on a work item to slice the board.
+_Avoid_: category, label
+
+**Overdue**:
+An open work item past its due date, flagged on its card and the board only. It is not an attention item
+and never notifies.
+_Avoid_: late alert, deadline breach
 
 **Affected branch**:
 The plan tasks a new plan version changes, plus everything downstream of them. Every

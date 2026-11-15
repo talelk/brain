@@ -6,6 +6,7 @@ const quoted = (what: string | undefined): string => (what ? ` "${what}"` : "");
 /** Sentence builders for Health's "Recent activity", keyed by event type; `what` is the task or mission title when Brain knows it. */
 const SENTENCES: Record<string, (what: string | undefined) => string> = {
   "workItem.transitioned": (what) => `Task${quoted(what)} changed state`,
+  "workItem.detailsSet": (what) => `Priority, tags or due date of task${quoted(what)} changed`,
   "workItem.parked": (what) => `Task${quoted(what)} stopped and is waiting for you`,
   "workItem.unparked": (what) => `Task${quoted(what)} was set going again`,
   "mission.created": (what) => `Mission${quoted(what)} was started`,

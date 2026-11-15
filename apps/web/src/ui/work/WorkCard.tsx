@@ -1,8 +1,9 @@
-import { Show } from "solid-js";
+import { For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
 import type { WorkItem } from "@brain/contracts";
 import { statusLabel, statusTheme } from "../components/StatusBadge";
+import { formatInstant } from "../format";
 import { StatusIcon } from "../viz/StatusIcon";
 import { t } from "../../i18n";
 import { TaskNowLine } from "./TaskNow";
@@ -14,6 +15,13 @@ const ACCENT: Record<string, string> = {
 const STATE_INK: Record<string, string> = {
   gray: "text-ink-gray-7", blue: "text-ink-blue-8", amber: "text-ink-amber-8", red: "text-ink-red-8", green: "text-ink-green-8",
 };
+
+const PRIORITY_MARK: Record<string, { icon: string; tone: string }> = {
+  urgent: { icon: "lucide-chevrons-up", tone: "text-ink-red-8" }, high: { icon: "lucide-arrow-up", tone: "text-ink-amber-8" }, low: { icon: "lucide-arrow-down", tone: "text-ink-gray-6" },
+};
+
+/** "15 Jan 2026" in the viewer's language and timezone. */
+const dayText = (value: string): string => formatInstant(value, { day: "numeric", month: "short", year: "numeric" });
 
 /**
  * One work item as a card, shared by the Board and the Timeline: state (icon,
@@ -58,6 +66,11 @@ export function WorkCard(props: {
       </p>
     </Show>
     <ul class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-6" aria-label={t("plan.facts.aeff")}>
+      <Show when={PRIORITY_MARK[props.item.priority]}>{(mark) => <li class={`inline-flex items-center gap-1 font-medium ${mark().tone}`} title={t("work.priority")} data-testid="work-priority">
+        <span class={`${mark().icon} size-3.5`} aria-hidden="true" />{t(`work.priority.${props.item.priority}` as "work.priority.urgent")}</li>}</Show>
+      <Show when={props.item.dueAt}>{(due) => <li class={`inline-flex items-center gap-1 ${props.item.overdue ? "font-medium text-ink-red-8" : ""}`} title={t("work.due-date")} data-testid={props.item.overdue ? "work-overdue" : "work-due"}>
+        <span class={`${props.item.overdue ? "lucide-calendar-x" : "lucide-calendar"} size-3.5`} aria-hidden="true" />{props.item.overdue ? t("work.overdue", { date: dayText(due()) }) : t("work.due", { date: dayText(due()) })}</li>}</Show>
+      <For each={props.item.tags}>{(tag) => <li class="inline-flex items-center gap-1 rounded-full bg-surface-gray-2 px-1.5 text-ink-gray-7" data-testid="work-tag"><span class="lucide-tag size-3" aria-hidden="true" />{tag}</li>}</For>
       <Show when={props.owner}><li class="inline-flex min-w-0 items-center gap-1" title={t("plan.who-works-on-it.cb91")}><span class="lucide-bot size-3.5 shrink-0" aria-hidden="true" /><span class="truncate">{props.owner}</span></li></Show>
       <Show when={deps() > 0}><li class="inline-flex items-center gap-1" title={t("plan.tasks-that-must-be-verified-done.74ce")}>
         <span class={`${depsDone() === deps() ? "lucide-link" : "lucide-lock"} size-3.5`} aria-hidden="true" />{depsDone()} of {deps()} {deps() === 1 ? "dependency" : "dependencies"} done</li></Show>
