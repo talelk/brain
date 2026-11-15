@@ -377,7 +377,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
               offer: { payload: { input: brokered ? { ...scriptInput(proposal.input as Record<string, unknown>), broker: brokered.data } : proposal.input as Record<string, unknown>, invocationId,
                 step: { uses: { type: "tool", release: proposal.tool }, effectClass: binding.effectClass, target: binding.target } },
                 execution: { kind: "tool" }, workspaceId: offer.workspaceId },
-              cfg, signal: controller.signal, launcher, permit: undefined, toolPins,
+              cfg, signal: controller.signal, launcher, permit: undefined, toolPins, egressHosts: offer.egressHosts,
               validatePermit: (token, id) => client.validatePermit(token, id),
               fetchPinnedTool: (toolId, digest) => client.toolScript(offer.configDigest, toolId, digest),
             });
@@ -428,7 +428,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     } else
     result = brokerRefusal !== undefined ? { ok: false, output: { error: brokerRefusal } as JsonValue } : await executeToolPayload({
       offer: { payload: toolPayload, execution: offer.execution, workspaceId: offer.workspaceId },
-      cfg, signal: controller.signal, launcher, permit, toolPins,
+      cfg, signal: controller.signal, launcher, permit, toolPins, egressHosts: offer.egressHosts,
       validatePermit: (token, invocationId) => client.validatePermit(token, invocationId),
       fetchPinnedTool: (toolId, digest) => client.toolScript(offer.configDigest, toolId, digest),
     });

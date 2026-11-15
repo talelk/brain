@@ -57,6 +57,8 @@ export interface JobOffer {
   toolPins?: Record<string, string>;
   /** The hosts each tool of the job's release may reach, from the pinned tool definition. */
   toolAllowedHosts?: Record<string, string[]>;
+  /** The hosts this workspace lets a sandboxed tool reach through the egress proxy (ADR 0037); none means no network. */
+  egressHosts?: string[];
   /** Where the step must run; `isolation` is what an engine has to provide (ADR 0035). */
   placement?: { isolation?: string };
   authorEvidence?: { toolReleases: { id: string; digest: string }[]; claimedChecks: unknown[] };
