@@ -489,17 +489,15 @@ _Avoid_: native tool (the engine's own, never allowed), plugin
 **Engine isolation**:
 The isolation an engine really provides on a runner, stated by the runner per engine
 (`engine-isolation:<engine>:<mode>`); a step is placed on an engine only if it states
-the step's isolation. `ephemeral-container` is stated only for an engine that runs in its
-engine sandbox (and for the fixture, which runs no model or tool); an engine in the
-runner's own process is `trusted-local` (ADR 0035, 0067).
+the step's isolation. `ephemeral-container` is stated only for an engine in its engine
+sandbox (and the fixture, which runs no model or tool); else `trusted-local` (ADR 0067).
 _Avoid_: runner isolation (what the runner's tool sandboxes provide)
 
 **Engine sandbox**:
-The container the launcher starts for one attempt's engine process: read-only root, no
-capabilities, cpu, memory and pid limits, one writable mount (the attempt's state) and a
-network only through the egress proxy (the workspace's hosts plus the model's). The runner
-talks to the engine in it over the engine adapter port; if it cannot start, the attempt
-fails and the engine never runs in the runner instead (ADR 0067).
+The launcher container for one attempt's engine process: read-only, no capabilities,
+limits from the job's reservation, one mount (the attempt's state), network only through
+the egress proxy. If it cannot start the attempt fails; the engine never runs in the
+runner instead (ADR 0067).
 _Avoid_: tool sandbox (the launcher containers broker tools run in), engine container
 
 **Lease**:
