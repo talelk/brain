@@ -143,7 +143,7 @@ describe("a session's Brain tools, called as the runner makes them", () => {
       await brain.call("mission.comment", { text: "two" }, "e2");
       expect(asked).toBe(1);
       clock += 3_600_000;
-      await brain.call("mission.comment", { text: "three" }, "e3");
+      expect(await brain.call("mission.comment", { text: "three" }, "e3")).toMatchObject({ ok: true });
       expect(asked).toBe(2);
       const [first, , , last] = bearers.filter((token, index, all) => all.indexOf(token) === index && token !== "");
       expect(first).toBeTruthy();
@@ -205,8 +205,10 @@ describe("an agent attempt calling Brain tools end to end (supervisor, fixture e
       const credentials = [...new Set(bearers)].filter((token) => token !== "" && token !== session.sessionToken);
       expect(credentials.length).toBeGreaterThan(0);
       const recorded = [...events, ...outputs.map((entry) => JSON.stringify(entry.output))];
-      const artifactDir = join(w.brain.store.dataDir, "artifacts");
-      const stored = (function walk(dir: string): string[] { try { return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? walk(join(dir, entry.name)) : [readFileSync(join(dir, entry.name), "utf8")])); } catch { return []; } })(artifactDir);
+      const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? walk(join(dir, entry.name)) : [readFileSync(join(dir, entry.name), "utf8")]));
+      const stored = walk(join(w.brain.store.dataDir, "cas"));
+      // The search must have had something to read: the tool outputs and the agent's own result were uploaded as artifacts of the attempt.
+      expect(stored.length).toBeGreaterThanOrEqual(6);
       for (const credential of credentials) for (const text of [...recorded, ...stored]) expect(text).not.toContain(credential);
     });
   });

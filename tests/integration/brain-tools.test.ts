@@ -54,6 +54,13 @@ describe("a session proposes a plan through its Brain tool", () => {
     expect((w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT COUNT(*) AS n FROM events WHERE event_type='plan.autoConfirmed'").get() as { n: number }).n).toBe(1);
   });
 
+  it("a proposal that names no team keeps the mission's team, so its members can still be messaged", async () => {
+    const { w, missionId, tasks, as } = await crew();
+    const receipt = (await as("writer").act("plan.propose", "no-team", { missionId, origin: "agent", tasks: [...tasks, assigned("c", "checker", { dependsOn: ["b"] })] })).receipt;
+    expect((await plan(w, receipt.resourceId!))).toMatchObject({ state: "confirmed", team });
+    expect((await as("writer").act("mission.message.send", "still-team", { missionId, recipient: { kind: "member", memberId: "checker" }, body: "Still reachable" })).receipt.accepted).toBe(true);
+  });
+
   it("a proposal outside the policy waits for a person, who confirms it; the session cannot", async () => {
     const { w, missionId, tasks, as } = await crew();
     // A new role is not in the standard preset, so this needs a person.

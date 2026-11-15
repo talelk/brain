@@ -301,7 +301,9 @@ export class MissionService {
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
     assertNotClosed(mission);
     const tasks = payload["tasks"] as unknown as PlanTask[];
-    const team = (payload["team"] as TeamMember[] | undefined) ?? [];
+    // A session that does not name a team keeps the confirmed one: it cannot see the team, and leaving it out must not dissolve it.
+    const named = payload["team"] as TeamMember[] | undefined;
+    const team = named ?? (actor.kind === "agent" && mission.active_plan_version_id ? JSON.parse(this.planRow(actor, workspaceId, mission.active_plan_version_id).team_json) as TeamMember[] : []);
     assertPlanTasks(tasks);
     assertServedCriteria(tasks, new Set(parseCriteria(mission.success_criteria_json).map((criterion) => criterion.id)));
     assertTeamEligible(team, tasks, this.agentCapabilities(actor.organizationId));
