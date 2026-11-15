@@ -1,0 +1,27 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "host.read",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "read",
+    "inputSchemaRef": "schemas/host-read-input.json",
+    "outputSchemaRef": "schemas/host-read-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 20,
+    "maxOutputBytes": 65536,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "description": "Reads the demos host's /srv read-only: lists a folder, reads a text file or finds files by name. Secrets, databases, backups and anything outside /srv are refused; secret-looking values are redacted.",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}

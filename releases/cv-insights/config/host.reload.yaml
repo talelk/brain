@@ -1,0 +1,27 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "host.reload",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "privileged",
+    "inputSchemaRef": "schemas/host-reload-input.json",
+    "outputSchemaRef": "schemas/host-effect-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 90,
+    "maxOutputBytes": 65536,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "description": "Reloads ONE named service on the demos host (systemctl reload). Each call stops until the owner approves exactly that call (the service must be on the workspace's allow-list); the approval is single use.",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}

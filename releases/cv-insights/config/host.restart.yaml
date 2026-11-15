@@ -1,0 +1,27 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "host.restart",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "privileged",
+    "inputSchemaRef": "schemas/host-restart-input.json",
+    "outputSchemaRef": "schemas/host-effect-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 90,
+    "maxOutputBytes": 65536,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "description": "Restarts ONE named container on the demos host. Each call stops until the owner approves exactly that call (the container must be on the workspace's allow-list); the approval is single use. Runs only on the runner group set aside for host tools.",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}

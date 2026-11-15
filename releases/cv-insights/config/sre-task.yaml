@@ -1,0 +1,122 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Workflow",
+  "metadata": {
+    "id": "sre-task",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "inputSchemaRef": "schemas/task-input.json",
+    "outputSchemaRef": "schemas/workflow-output.json",
+    "jobs": {
+      "respond": {
+        "kind": "dispatch",
+        "needs": [],
+        "input": {
+          "situation": {
+            "source": "input",
+            "pointer": "/situation"
+          }
+        },
+        "outputSchemaRef": "schemas/task-output.json",
+        "timeoutSeconds": 900,
+        "uses": {
+          "type": "agent",
+          "release": {
+            "id": "sre-operator",
+            "digest": "sha256:4052deaff8138ffa2250c188cc6c13359b1f3f5a20bc5daf596f55be1928afea"
+          }
+        },
+        "runsOn": {
+          "group": "sre-host",
+          "engine": {
+            "anyOf": ["pi"],
+            "features": ["sessions"]
+          },
+          "all": [
+            "os:linux"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 512,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "effectClass": "read"
+      },
+      "validate": {
+        "kind": "eval",
+        "needs": [
+          "respond"
+        ],
+        "input": {
+          "kind": {
+            "source": "literal",
+            "value": "general-task"
+          },
+          "situation": {
+            "source": "input",
+            "pointer": "/situation"
+          },
+          "report": {
+            "source": "job",
+            "jobId": "respond",
+            "pointer": ""
+          }
+        },
+        "outputSchemaRef": "schemas/task-validation-output.json",
+        "timeoutSeconds": 300,
+        "evaluator": {
+          "id": "task-validator",
+          "digest": "sha256:2e1c5115766a4272e13c597569a58f52f732bed8e9f55d6c34659b9b4ee6507c"
+        },
+        "runsOn": {
+          "group": "evaluators",
+          "engine": {
+            "anyOf": ["claude"],
+            "features": ["sessions"]
+          },
+          "all": [
+            "os:linux",
+            "tool:bash",
+            "tool:python3"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 256,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "independence": "L1"
+      }
+    },
+    "outputs": {
+      "response": {
+        "source": "job",
+        "jobId": "respond",
+        "pointer": ""
+      },
+      "passed": {
+        "source": "job",
+        "jobId": "validate",
+        "pointer": "/passed"
+      }
+    },
+    "failFast": true,
+    "deadlineSeconds": 1200,
+    "presentation": {
+      "title": "Investigate the demos server",
+      "description": "Look at the real demos server (files under /srv and read-only diagnostics) and get a written, evidence-based result checked against its success criteria. Nothing on the server is changed.",
+      "examples": [
+        {
+          "situation": "Check which demo containers are unhealthy and why\nAcceptance criteria:\n1. Lists every container that is not healthy with its status\n2. Names the most likely cause for each, with the tool call that shows it"
+        }
+      ],
+      "system": true
+    }
+  }
+}
