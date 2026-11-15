@@ -55,6 +55,7 @@ const ACTIONS: Record<string, string> = {
   "mission.messageSent": "sent a message to the mission",
   "mission.verdictRecorded": "recorded the verdict on the mission",
   "mission.bundleAssembled": "gathered the mission's evidence",
+  "mission.bundleJudged": "updated the model judge's read of the mission's evidence",
   "plan.proposed": "drafted a plan",
   "plan.confirmed": "confirmed the plan",
   "plan.autoConfirmed": "confirmed the plan automatically",

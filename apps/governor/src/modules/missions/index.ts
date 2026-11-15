@@ -1,5 +1,6 @@
 export { MissionService, PARKED_INTERRUPTED_REASON } from "./service";
-export { workingMs, reachedLimits } from "./budget";
+export { workingMs, reachedLimits, judgeAdmitted, recordJudgeSpend } from "./budget";
+export { taskResult } from "./outputs";
 export { missionObserved, wayOfWorking, workflowAgentTools } from "./outcomes";
 export { bridge, fleetFacts } from "./read";
 export { missionCommands } from "./commands";

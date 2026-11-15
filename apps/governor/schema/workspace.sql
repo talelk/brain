@@ -141,6 +141,14 @@ CREATE TABLE mission_bundle_checks (
   evidence_digest TEXT NOT NULL, advisory INTEGER NOT NULL CHECK(advisory IN (0,1)), created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(bundle_digest, criterion_id, evaluator)
 ) STRICT;
+-- The advisory judge's request for one submitted bundle (#95, ADR 0023): one row per bundle, never a verdict. tries counts model calls that failed.
+CREATE TABLE mission_bundle_judgements (
+  bundle_digest TEXT PRIMARY KEY REFERENCES mission_evidence_bundles(digest),
+  state TEXT NOT NULL CHECK(state IN ('pending','running','done','unavailable','not-run')),
+  reason TEXT NOT NULL DEFAULT '' CHECK(reason IN ('','hosted-off','budget','no-evidence','too-late','model-unavailable')),
+  detail TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', tries INTEGER NOT NULL DEFAULT 0,
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
 CREATE TABLE mission_messages (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   recipient_kind TEXT NOT NULL CHECK(recipient_kind IN ('mission','member')), recipient_member_id TEXT,

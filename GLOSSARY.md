@@ -266,7 +266,8 @@ release (a workspace has a default); the engine calls it a workflow.
 _Avoid_: recipe, template
 
 **Hosted model**:
-A workspace's optional vendor model for independent checks and second attempts only. It is
+A workspace's optional vendor model for independent checks, second attempts and the advisory
+judge only. It is
 always priced: input and output token prices (micro-USD per million tokens) travel with the
 route, and an attempt on it costs its tokens times those prices, so mission and workspace
 dollar caps bind it. The self-hosted model costs no dollars.
@@ -475,6 +476,14 @@ _Avoid_: mission report, completion report
 An independent evaluator's judgement of an evidence bundle: verified, rejected or
 incomplete, with the checks it ran and the independence level it held.
 _Avoid_: validation verdict, score, outcome
+
+**Advisory judge**:
+The hosted model's opinion on each success criterion of a submitted mission evidence bundle,
+written as an advisory check with its transcript as evidence. It never records a verdict,
+changes a bundle or links a criterion, never blocks sign-off, writes nothing without a model
+reply, and its calls are mission spend under the caps. Without a hosted model the view says
+no judge ran.
+_Avoid_: AI verdict, auto-verify
 
 **Independent evaluator**:
 A separate process, trust domain or human that judges evidence. An LLM judge cannot
