@@ -6939,6 +6939,9 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 1000
+        },
+        "traceId": {
+          "$ref": "#/$defs/TraceId"
         }
       },
       "required": [
@@ -6958,7 +6961,8 @@
         "autoStart",
         "budget",
         "usage",
-        "subjects"
+        "subjects",
+        "traceId"
       ],
       "additionalProperties": false
     },
@@ -16690,13 +16694,17 @@
                 "mission-closed",
                 "set-aside"
               ]
+            },
+            "traceId": {
+              "$ref": "#/$defs/TraceId"
             }
           },
           "required": [
             "missionId",
             "missionTitle",
             "workItemId",
-            "workItemTitle"
+            "workItemTitle",
+            "traceId"
           ],
           "additionalProperties": false
         },
@@ -28870,6 +28878,10 @@
         "kind"
       ],
       "additionalProperties": false
+    },
+    "TraceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
     }
   }
 }

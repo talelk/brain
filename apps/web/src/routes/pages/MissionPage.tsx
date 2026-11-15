@@ -9,7 +9,8 @@ import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { ScreenRegion } from "../../ui/screen-region";
 import { FormSheet } from "../../ui/components/BrainForm";
-import { BrainPage, PageStack } from "../../ui/components/PageLayout";
+import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/PageLayout";
+import { DigestValue } from "../../ui/components/DigestValue";
 import { WorkspaceSection } from "../../ui/components/Domain";
 import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
 import { MissionCriteria } from "../../ui/components/MissionCriteria";
@@ -600,6 +601,7 @@ function BriefTab(props: ActProps): JSX.Element {
           <TextInput label={t("mp.new-decision.5e24")} required value={decision()} onInput={(event) => setDecision(event.currentTarget.value)} />
         </FormSheet>
       </WorkspaceSection>
+      <TechnicalDetails label="Trace id"><p class="mb-1">Search for this id in your trace backend or in Logs to follow this whole mission.</p><DigestValue value={props.mission.traceId} label="Trace id" short={false} /></TechnicalDetails>
       <ReusedInBrief missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} />
       <WorkspaceSection title={t("mp.progress.1b90")} description={t("mp.derived-from-work-items-nobody-w.2666")}>
         <p class="text-interface">{b().progress.total} work items · {Object.entries(b().progress.byState).map(([state, count]) => `${count} ${state}`).join(" · ") || "none yet"}</p>

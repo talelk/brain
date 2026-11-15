@@ -1,4 +1,5 @@
 import type { Store } from "../../application/store";
+import { missionTraceId } from "../../domain/trace";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 
@@ -8,6 +9,8 @@ export type RunResolution = "retried-and-succeeded" | "retried" | "mission-close
 export interface RunContext {
   missionId: string;
   missionTitle: string;
+  /** The mission's trace id: what an operator searches for in a trace backend or the logs. */
+  traceId: string;
   workItemId: string;
   workItemTitle: string;
   resolution?: RunResolution;
@@ -25,7 +28,7 @@ export function runContext(db: Db, runId: string, jobState?: string): RunContext
     FROM execution_links l JOIN work_items w ON w.id=l.work_item_id JOIN missions m ON m.id=l.mission_id WHERE l.run_id=? LIMIT 1`).get(runId) as
     { missionId: string; missionTitle: string; missionState: string; workItemId: string; workItemTitle: string; workState: string; linkedAt: number } | undefined;
   if (!row) return delegatedContext(db, runId, jobState);
-  const base = { missionId: row.missionId, missionTitle: row.missionTitle, workItemId: row.workItemId, workItemTitle: row.workItemTitle };
+  const base = { missionId: row.missionId, traceId: missionTraceId(row.missionId), missionTitle: row.missionTitle, workItemId: row.workItemId, workItemTitle: row.workItemTitle };
   // A run that itself succeeded needs no settling story.
   if (jobState === "succeeded" || db.prepare("SELECT 1 FROM workflow_runs WHERE id=? AND state='succeeded'").get(runId)) return base;
   if (row.workState === "done") return { ...base, resolution: "retried-and-succeeded" };
@@ -43,7 +46,8 @@ function delegatedContext(db: Db, runId: string, jobState?: string): RunContext 
   const row = db.prepare(`SELECT r.mission_id AS missionId, m.title AS missionTitle, d.work_item_id AS workItemId, w.title AS workItemTitle
     FROM delegation_runs r JOIN delegations d ON d.id=r.delegation_id JOIN missions m ON m.id=r.mission_id JOIN work_items w ON w.id=d.work_item_id WHERE r.run_id=?`).get(runId) as
     { missionId: string; missionTitle: string; workItemId: string; workItemTitle: string } | undefined;
-  return row && (jobState === "failed" ? { ...row, resolution: "set-aside" as const } : row);
+  const traced = row && { ...row, traceId: missionTraceId(row.missionId) };
+  return traced && (jobState === "failed" ? { ...traced, resolution: "set-aside" as const } : traced);
 }
 
 /** Same rule for a job row: only stuck or failed states with no settling event ask for a person, and Brain's own restarts never do. */
