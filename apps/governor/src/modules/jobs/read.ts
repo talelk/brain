@@ -313,6 +313,26 @@ export function listRunners(store: Store, actor: ActorContext, limit: number): J
   return { items } as unknown as JsonValue;
 }
 
+export interface RunnerCapacityView {
+  registered: number;
+  online: number;
+  slotsUsed: number;
+  slotsTotal: number;
+}
+
+/**
+ * The fleet's capacity in aggregate: runners that are enabled and heard from lately, and how many of their slots are taken. It names no
+ * runner, group, engine or attempt: the detail stays with runners.list for administrators.
+ */
+export function runnerCapacity(store: Store, organizationId: string): RunnerCapacityView {
+  const row = store.control.prepare(`SELECT COUNT(*) AS registered,
+      COUNT(*) FILTER (WHERE admin_state='enabled' AND last_heartbeat_ms>?) AS online,
+      COALESCE(SUM(CASE WHEN admin_state='enabled' AND last_heartbeat_ms>? THEN slots_reserved END),0) AS slotsUsed,
+      COALESCE(SUM(CASE WHEN admin_state='enabled' AND last_heartbeat_ms>? THEN slot_capacity END),0) AS slotsTotal
+    FROM runners WHERE organization_id=? AND deregistered_at_ms IS NULL`).get(...[store.now() - 45_000, store.now() - 45_000, store.now() - 45_000], organizationId) as RunnerCapacityView;
+  return row;
+}
+
 /** runner.get: one runner's summary; a deregistered runner is still addressable. */
 export function getRunner(store: Store, actor: ActorContext, runnerId: string): JsonValue {
   const v = runnerSummary(store, actor.organizationId, runnerId);

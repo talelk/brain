@@ -44,6 +44,7 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "approvals", route: () => "/approvals", heading: "Approvals" },
   { id: "approval-review", route: (d) => `/approvals/${d.seed.approvalId}`, heading: "Approval review" },
   { id: "runners", route: () => "/runners", heading: "Runners" },
+  { id: "today-fleet", route: () => "/w/operations/today", heading: "Today", after: async (page) => { const fleet = page.getByTestId("fleet-overview"); await expect(fleet).toBeVisible(); await expect(page.getByTestId("fleet-spend-today")).toBeVisible(); await fleet.evaluate((element) => element.scrollIntoView({ block: "center" })); } },
   { id: "runner-detail", route: (d) => `/runners/${d.seed.runnerId}`, heading: "runner-demo" },
   { id: "settings-setup", route: () => "/settings?tab=setup", heading: "Setup" },
   { id: "settings-work", route: () => "/settings?tab=work", heading: "How work runs" },

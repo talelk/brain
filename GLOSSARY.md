@@ -28,6 +28,12 @@ A mission's stored position: active, paused, verifying or closed. Working, waiti
 needing attention are conditions derived from its work, never stored states.
 _Avoid_: mission status, draft
 
+**Mission condition**:
+Where an open mission stands, derived and never stored, counted once in the first that holds:
+needs attention (a blocking attention item names it, an approval its task proposed included),
+working (a task of it is running), else waiting. Closed missions have none.
+_Avoid_: mission status, health
+
 **Mission outcome**:
 How a closed mission ended, set by a human: achieved (only after a verified verdict),
 ended (stopped without claiming success) or cancelled (in-flight work cancelled).
@@ -556,6 +562,13 @@ a credential for it that ends with the attempt or when its fence moves.
 _Avoid_: bot, service account, agent user
 
 ### Surfaces
+
+**Fleet overview**:
+The glance on Today that every workspace member sees: open missions by **mission condition**,
+team members with a live session, the runners' slots in use of the total (shared by the
+organization) and spend today (trailing 24 hours plus open reservations). It names no runner;
+only a holder of runner administration also gets the runner list and the way into **Runners**.
+_Avoid_: dashboard, fleet page, health score
 
 Four places, named by where you look, never by what something is: **Today**, **Missions**,
 **Library** and **Administration** (ADR 0029). **Live**, **Outputs** and **Schedules** are views of
