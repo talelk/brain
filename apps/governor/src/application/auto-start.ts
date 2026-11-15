@@ -3,7 +3,7 @@ import { payloadValidator } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
 import type { MissionService } from "../modules/missions/index";
 import { workflowAgentTools } from "../modules/missions/index";
-import { isDraining } from "../modules/jobs/index";
+import { isDraining, recordChoice } from "../modules/jobs/index";
 import { dispatchActor } from "../modules/identity/index";
 import { GENERAL_TASK_WORKFLOW, workItemSituation } from "../modules/workflows/index";
 import type { Store } from "./store";
@@ -94,19 +94,26 @@ export class AutoStart {
         const catalogIds = catalog.map((candidate) => candidate.release.id).sort();
         // The workspace's way of working comes right after the task's own workflow: it is what declared the task's tools (ADR 0022).
         // A task that must observe tools only runs on a workflow whose agent has them (the remedy for a missing tool is exactly this switch).
-        const covers = (id: string): boolean => item.requiredTools.length === 0 || item.requiredTools.every((tool) => (workflowAgentTools(this.ports.store, organizationId, id) ?? []).includes(tool));
-        const candidates = [...new Set([item.workflowId, mission.wayOfWorkingId, GENERAL_TASK_WORKFLOW, mission.defaultWorkflowId, ...catalogIds].filter((id): id is string => id !== null))].filter(covers);
+        const lacking = (id: string): string[] => item.requiredTools.filter((tool) => !(workflowAgentTools(this.ports.store, organizationId, id) ?? []).includes(tool));
+        // What was judged is kept as the choice's reason (ADR 0062): every workflow ruled out, and why, in the order they were considered.
+        const rejected: Array<Record<string, JsonValue>> = [];
+        const candidates = [...new Set([item.workflowId, mission.wayOfWorkingId, GENERAL_TASK_WORKFLOW, mission.defaultWorkflowId, ...catalogIds].filter((id): id is string => id !== null))].filter((id) => {
+          const missing = lacking(id);
+          if (missing.length === 0) return true;
+          rejected.push({ workflowId: id, why: "missing-tool", missingTools: missing });
+          return false;
+        });
         if (candidates.length === 0) { note(item.requiredTools.length > 0 ? `Needs input before it can start: no way of working has ${item.requiredTools.join(" or ")}` : "Needs input before it can start: no workflow is available in this workspace"); continue; }
         let entry: WorkflowCatalogEntry | undefined;
         let problem = "";
         for (const workflowId of candidates) {
           const found = catalog.find((candidate) => candidate.release.id === workflowId);
-          if (!found) { problem ||= `workflow ${workflowId} is not in the active release`; continue; }
+          if (!found) { problem ||= `workflow ${workflowId} is not in the active release`; rejected.push({ workflowId, why: "not-in-release" }); continue; }
           // Without a declared input schema nothing can vouch for the input, so a person supplies it.
-          if (!found.inputSchema) { problem ||= "the workflow declares no input schema"; continue; }
+          if (!found.inputSchema) { problem ||= "the workflow declares no input schema"; rejected.push({ workflowId, why: "no-input-schema" }); continue; }
           const validate = payloadValidator(found.inputSchema as object);
           const accepted = briefs.find((brief) => validate(brief).ok);
-          if (!accepted) { const compact = validate(briefs[1]!); problem ||= compact.ok ? "" : compact.errors.join("; "); continue; }
+          if (!accepted) { const compact = validate(briefs[1]!); problem ||= compact.ok ? "" : compact.errors.join("; "); rejected.push({ workflowId, why: "input-refused", detail: compact.ok ? "" : compact.errors.join("; ").slice(0, 200) }); continue; }
           entry = found; input = accepted; break;
         }
         if (!entry) { note(`Needs input before it can start: ${problem}`); continue; }
@@ -114,6 +121,12 @@ export class AutoStart {
         if (slots <= 0) { note(`Waiting for a free member: ${mission.memberCap} tasks are already in progress`); continue; }
         // One id per attempt and per run, so sending a task back dispatches a fresh run instead of replaying the first.
         const commandId = `autostart-${item.workItemId}-${item.failedAttempts}-${item.runs}`;
+        // The reason for the way of working is written now, keyed by this start's command id (the run it makes carries that id as its execution key).
+        const workflowId = entry.release.id;
+        const source = workflowId === item.workflowId ? "task-workflow" : workflowId === mission.wayOfWorkingId ? "workspace-way-of-working" : workflowId === GENERAL_TASK_WORKFLOW ? "general-task" : workflowId === mission.defaultWorkflowId ? "mission-most-used" : "catalog";
+        recordChoice(this.ports.store, { organizationId, workspaceId }, { kind: "command", id: commandId }, { kind: "way-of-working", code: source, facts: {
+          workflowId, workItemId: item.workItemId, requiredTools: item.requiredTools, brief: input === briefs[0] ? "with-upstream-results" : "compact", rejected,
+        } });
         try {
           const { receipt } = await this.ports.dispatch(actor, {
             contractVersion: "brain.command/v1", commandId, idempotencyKey: commandId, commandType: "workflow.dispatch", workspaceId,

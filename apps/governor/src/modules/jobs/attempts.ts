@@ -13,7 +13,7 @@ import { evaluateRunner, type RunnerView } from "../../domain/placement";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 import { isDraining } from "./drain";
-import { modelRoutesForJob, settleRouteReport } from "./model-route";
+import { modelRoutesForJob, recordRouteOffer, settleRouteReport } from "./model-route";
 import { effectOutcomesFor, executionArtifactId, HOLD_REASON } from "./effect-hold";
 import { ensureSkills, promptTaskText, skillTokens } from "./skill-selection";
 import { heldEffect, retryFailedAttempt, stampAttemptDeadline, stepPolicy } from "./step-policy";
@@ -131,7 +131,8 @@ export function claim(s: Store, deps: {
           if (jobUsesHostTools(s, runner.organizationId, job, hostJobs) && !hostGroupFor(s, runner.organizationId, view.groupId, String(job["workspace_id"]))) continue;
           if (!evaluateRunner(placement, demand, view, s.now()).eligible || !deps.isEvaluatorEligible(runner.runnerId, String(job["id"]))) continue;
           // A check or second attempt whose every route is down or out of quota waits for one (ADR 0023, ADR 0055); nothing else is held.
-          if (modelRoutesForJob(s, String(job["id"])).held) continue;
+          const routeOffer = modelRoutesForJob(s, String(job["id"]));
+          if (routeOffer.held) { recordRouteOffer(s, String(job["id"]), routeOffer); continue; }
           eligible.push(job);
           found++;
         }
@@ -356,7 +357,10 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
   let artifactText = payloadRow?.payload_json ?? "{}";
   // The model routes are decided once, when the job is first offered, and stored with the payload so every later offer pins the same bytes.
   if (!s.control.prepare("SELECT 1 FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(`exec-${String(row["job_id"])}`, String(row["organization_id"]))) {
-    const { routes } = modelRoutesForJob(s, String(row["job_id"]));
+    const offer = modelRoutesForJob(s, String(row["job_id"]));
+    const { routes } = offer;
+    // The reason is written now, with the route the job was handed first and every route left out, and never rebuilt later.
+    recordRouteOffer(s, String(row["job_id"]), offer);
     if (routes.length > 0) {
       artifactText = JSON.stringify({ ...(JSON.parse(artifactText) as Record<string, JsonValue>), modelRoutes: routes as unknown as JsonValue });
       s.control.prepare("UPDATE job_payloads SET payload_json=? WHERE job_id=?").run(artifactText, String(row["job_id"]));

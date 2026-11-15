@@ -323,6 +323,13 @@ The kind of worker and independent check a task runs with, chosen from the activ
 release (a workspace has a default); the engine calls it a workflow.
 _Avoid_: recipe, template
 
+**Choice reason**:
+A small immutable record, a code plus the facts judged, written when the Governor chooses a
+task's way of working, a team member or a model route; a later choice adds a record. The run's
+Why tab words it in plain sentences from the record, never from today's state, and a choice
+nobody made has none. No model writes it (ADR 0062).
+_Avoid_: explanation log, audit note
+
 **Model route**:
 One entry of a workspace's ordered list of hosted models: provider, model, address, key
 reference, cost tier and input and output token prices (micro-USD per million tokens). Routes
