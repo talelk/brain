@@ -6,7 +6,7 @@ export { operationalReadiness } from "./readiness";
 export { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, localRunnerSettingsCurrent } from "./local-runtime";
 export { fleetOverview } from "./fleet";
 export { liveStatus, platformHealth, workspaceContext } from "./read";
-export { alertBadProbes, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, readProbes, recordProbe } from "./probes";
+export { alertBadProbes, checkBackups, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, readProbes, recordProbe } from "./probes";
 export { metricsAuthorized, metricsToken, renderMetrics } from "./metrics";
 export { replicaConfig, replicateOnce, restoreFromReplica } from "./replica";
 export { channelsFor, notifyAttention, notificationsFor, sendDigests, watchCommands, type Sender } from "./attention-notify";
@@ -15,3 +15,4 @@ export { absoluteLink, emailContent, safeMailLink, sendEmail, preferencesView, s
 export { approvalLink, platformAlertLink, securitySettingsLink } from "./notification-links";
 export { handleInbound } from "./inbound";
 export { connectorsFromEnv, type Connectors } from "./connectors";
+export { diagnosticsBundle } from "./diagnostics";

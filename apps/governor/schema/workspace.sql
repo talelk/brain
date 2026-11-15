@@ -159,7 +159,7 @@ CREATE TABLE plan_versions (
   created_at_ms INTEGER NOT NULL, confirmed_at_ms INTEGER,
   UNIQUE(mission_id,revision)
 ) STRICT;
--- work_items.priority/tags_json/due_at_ms (#116): priority orders claiming within a workspace (ADR 0040), tags slice work, a past due date flags an open item and nothing more. work_items.required_tools_json (ADR 0022): at least one must have a successful recorded call before Done. failure_class: latest failure as a code. token_cap overrides the default per-task spend cap. retry_after_ms holds a wait-and-retry or wait-for-quota (ADR 0033).
+-- work_items.priority/tags_json/due_at_ms (#116): priority orders claiming within a workspace (ADR 0041), tags slice work, a past due date flags an open item and nothing more. work_items.required_tools_json (ADR 0022): at least one must have a successful recorded call before Done. failure_class: latest failure as a code. token_cap overrides the default per-task spend cap. retry_after_ms holds a wait-and-retry or wait-for-quota (ADR 0033).
 CREATE TABLE work_items (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   plan_version_id TEXT NOT NULL REFERENCES plan_versions(id), plan_task_id TEXT NOT NULL,

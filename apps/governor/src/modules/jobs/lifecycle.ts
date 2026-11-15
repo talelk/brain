@@ -19,7 +19,7 @@ export interface CreateJobInput {
   executionDigest: string; effectClass: string; kind: string; payload: JsonValue;
   /** The runner the run was pinned to at dispatch, if any. */
   runnerId?: string | undefined;
-  /** The priority of the work the run serves, 0 low .. 3 urgent: the claim sorts on it within a workspace (ADR 0040). */
+  /** The priority of the work the run serves, 0 low .. 3 urgent: the claim sorts on it within a workspace (ADR 0041). */
   priority: number;
 }
 

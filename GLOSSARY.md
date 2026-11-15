@@ -162,7 +162,7 @@ _Avoid_: stuck, failed (failure is an attempt's outcome), quarantined
 **Priority**:
 A work item's urgent, high, normal or low, written into the priority of every job its runs create. Inside
 a workspace's fair share the higher priority is claimed first; it never lets a workspace jump another's
-turn and never changes what Done needs (ADR 0040).
+turn and never changes what Done needs (ADR 0041).
 _Avoid_: rank, severity
 
 **Tag**:
@@ -312,6 +312,12 @@ The hosts an administrator lets a workspace's sandboxed tools reach (`host` or `
 The egress proxy gives each sandbox a grant of exactly those hosts; none means no network
 (ADR 0037). Not the per-tool `allowedHosts` of the fetch broker.
 _Avoid_: firewall, whitelist, network policy
+
+**Queue limit**:
+How many of a workspace's jobs may wait for a runner (default 100, set by an administrator).
+At the limit a person's new work is refused with the reason; work already admitted carries
+on (ADR 0040). Not mission budget admission or the spend cap.
+_Avoid_: rate limit, quota (quota is a model provider's limit)
 
 **Engine**:
 A model-execution harness a runner adapts, pinned for the duration of an attempt.
@@ -549,6 +555,21 @@ The hosting product a Git connection is declared to be (GitHub, GitHub Enterpris
 Gitea), chosen when the connection is set up. It decides which API opens a pull request; it is
 never inferred from the address, and any other provider is refused.
 _Avoid_: Git host (the host is only the address), vendor
+
+**Diagnostics bundle**:
+The redacted file an administrator downloads from Health for support: versions, runner
+inventory as the runners reported it, readiness, backup status and recent errors (as codes
+and ids). Built field by field from an allowlist; it holds no credential, token or private
+text, and no value nobody observed.
+_Avoid_: support dump, debug export
+
+**Stale backup**:
+A backup whose recorded finish time is older than the limit (36 hours unless set), shown
+in Health as degraded. Health only reads what the host's backup job recorded (ADR 0039);
+a backup nobody recorded is a warning, never a pass. The **restore test** is the host's
+monthly rehearsal restoring the newest backup into a scratch directory; Health shows its
+last result.
+_Avoid_: missed backup
 
 ### People and tenancy
 

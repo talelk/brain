@@ -14,10 +14,13 @@ services:
     pids_limit: 128
     environment:
       BRAIN_GOVERNOR_URL: ${BRAIN_GOVERNOR_URL:?https-url-required}
-      BRAIN_RUNNER_CREDENTIAL_FILE: /run/secrets/runner_credential
+      BRAIN_RUNNER_ID: ${BRAIN_RUNNER_ID:?runner-id-required}
+      # The runner keeps its credential in <state dir>/credential.txt. The enrollment token is read on the first boot only and
+      # may then be left empty: the credential is already in the runner_state volume.
+      BRAIN_RUNNER_STATE_DIR: /state
+      BRAIN_RUNNER_ENROLL_TOKEN: ${BRAIN_RUNNER_ENROLL_TOKEN:-}
+      BRAIN_RUNNER_SLOTS: '1'
       BRAIN_LAUNCHER_SOCKET: /launcher/launcher.sock
-      BRAIN_SLOT_LIMIT: '1'
-    secrets: [runner_credential]
     volumes:
       - runner_state:/state
       - ${BRAIN_LAUNCHER_SOCKET_DIR:?constrained-launcher-socket-directory-required}:/launcher
@@ -53,6 +56,3 @@ networks:
     name: brain-internal
     internal: true
   uplink: {}
-secrets:
-  runner_credential:
-    file: ${BRAIN_RUNNER_CREDENTIAL_PATH:?host-secret-file-required}

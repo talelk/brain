@@ -1,4 +1,4 @@
-# 40. Priority orders work inside a workspace's fair share, never across workspaces
+# 41. Priority orders work inside a workspace's fair share, never across workspaces
 
 Status: accepted, 2026-11-15.
 

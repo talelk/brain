@@ -101,7 +101,7 @@ export function claim(s: Store, deps: {
     if (!view) throw new BrainDomainError("UNAUTHENTICATED", "runner missing");
     // Fair paging (E047/E048/E049): scan each workspace beyond its first 100 rows with a keyset cursor so an eligible job is eventually
     // found. Each workspace is scanned on its own, best priority first, so a workspace with hundreds of urgent jobs queued cannot push
-    // another workspace's jobs out of the candidate set (ADR 0040); the order between workspaces is decided below, by fairness.
+    // another workspace's jobs out of the candidate set (ADR 0041); the order between workspaces is decided below, by fairness.
     const eligible: Array<Record<string, unknown>> = [];
     const groups = new Map((s.control.prepare("SELECT group_id, workspaces_json FROM runner_groups WHERE organization_id=?").all(runner.organizationId) as Array<{ group_id: string; workspaces_json: string }>).map((row) => [row.group_id, JSON.parse(row.workspaces_json) as string[]] as const));
     const hostJobs = new Map<string, boolean>();
@@ -159,7 +159,7 @@ export function claim(s: Store, deps: {
       for (const decision of admission.values()) if (decision.missionId) missionLoad.set(decision.missionId, decision.running);
     }
     const missionOf = (job: Record<string, unknown>) => admission.get(String(job["id"]))?.missionId;
-    // Claim order (ADR 0040): the workspace with the fewest attempts in flight first, so none is starved; inside it the higher priority
+    // Claim order (ADR 0041): the workspace with the fewest attempts in flight first, so none is starved; inside it the higher priority
     // first; then interactive work before missions, missions in turn by fewest running, and the oldest job.
     eligible.sort((a, b) => {
       const fa = inFlight.get(String(a["workspace_id"])) ?? 0;

@@ -96,7 +96,7 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   await page.getByRole("button", { name: "Download diagnostics", exact: true }).click();
   const download = await downloading; const reportPath = info.outputPath("diagnostics.json"); await download.saveAs(reportPath);
   const report = readFileSync(reportPath, "utf8");
-  expect(JSON.parse(report).format).toBe("brain.redacted-diagnostics/v1");
+  expect(JSON.parse(report).format).toBe("brain.redacted-diagnostics/v2");
   expect(report).not.toContain("task-entry-password-123"); expect(report).not.toContain(boot.sessionToken);
 
   await page.goto(firstConversationUrl);

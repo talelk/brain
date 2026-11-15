@@ -772,6 +772,15 @@
       ]
     },
     {
+      "type": "workspace.queueLimit.set",
+      "schema": "WorkspaceQueueLimitSetCommand",
+      "scope": "config:activate",
+      "authority": "control",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "runnerGroup.set",
       "schema": "RunnerGroupSetCommand",
       "scope": "config:activate",
