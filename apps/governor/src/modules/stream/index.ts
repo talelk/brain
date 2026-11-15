@@ -68,6 +68,6 @@ export { emitterOf, severityOf } from "./classify";
 export { frameOf, type StreamFilters, type StreamRecordView } from "./query";
 export { sweepStream } from "./projector";
 
-export { attentionCommands, attentionItems, attentionQuery } from "./attention";
+export { attentionCommands, attentionItems, attentionQuery, pendingApprovalItems } from "./attention";
 export { qualitySummary } from "./quality";
 export { qualityBreakdown } from "./quality-breakdown";

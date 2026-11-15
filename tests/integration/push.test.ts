@@ -1,4 +1,4 @@
-import { createDecipheriv, createECDH, createVerify, hkdfSync, randomBytes } from "node:crypto";
+import { createECDH, createVerify, randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { Brain } from "../../apps/governor/src/application/brain";
 import { setupWorld } from "../helpers";
+import { decryptPush, startPushReceiver } from "../support/push-receiver";
 import { scaled } from "../support/timing";
 
 // T45: Web Push round-trip against a local mock push service. The receiver
@@ -18,27 +19,6 @@ afterEach(async () => {
   if (server) await new Promise((r) => server!.close(r));
   server = undefined;
 });
-
-function decryptPush(body: Buffer, receiverPrivate: ReturnType<typeof createECDH>, authSecret: Buffer): string {
-  const salt = body.subarray(0, 16);
-  const idLen = body[20]!;
-  const serverPublic = body.subarray(21, 21 + idLen);
-  const ciphertext = body.subarray(21 + idLen);
-  const shared = receiverPrivate.computeSecret(serverPublic);
-  const receiverPublic = receiverPrivate.getPublicKey();
-  const authInfo = Buffer.concat([Buffer.from("WebPush: info\0", "utf8"), receiverPublic, serverPublic]);
-  const ikm = Buffer.from(hkdfSync("sha256", shared, authSecret, authInfo, 32));
-  const cek = Buffer.from(hkdfSync("sha256", ikm, salt, Buffer.from("Content-Encoding: aes128gcm\0", "utf8"), 16));
-  const nonce = Buffer.from(hkdfSync("sha256", ikm, salt, Buffer.from("Content-Encoding: nonce\0", "utf8"), 12));
-  const decipher = createDecipheriv("aes-128-gcm", cek, nonce);
-  decipher.setAuthTag(ciphertext.subarray(ciphertext.length - 16));
-  const pt = Buffer.concat([decipher.update(ciphertext.subarray(0, ciphertext.length - 16)), decipher.final()]);
-  // Strip RFC 8188 padding: find the 0x02 delimiter from the end.
-  let end = pt.length;
-  while (end > 0 && pt[end - 1] === 0) end -= 1;
-  expect(pt[end - 1]).toBe(0x02);
-  return pt.subarray(0, end - 1).toString("utf8");
-}
 
 describe("web push delivery (T45)", () => {
   it("registers, encrypts, signs and delivers; gone endpoints are revoked", async () => {
@@ -109,4 +89,33 @@ describe("web push delivery (T45)", () => {
     expect(after.revoked_at_ms).not.toBeNull();
     expect(await brain.notifyPrincipal(w.org, "owner-1", { title: "Third", body: "nobody" })).toBe(0);
   }, scaled(120_000));
+
+  it("unsubscribing removes only that device and nothing is sent to it again (#104)", async () => {
+    brain = new Brain({ dataDir: mkdtempSync(join(tmpdir(), "brain-push-")), allowTestActor: true });
+    const w = setupWorld(brain);
+    const phone = await startPushReceiver("/push/phone");
+    const laptop = await startPushReceiver("/push/laptop");
+    try {
+      brain.registerPushSubscription(w.owner, phone.subscription);
+      brain.registerPushSubscription(w.owner, laptop.subscription);
+      expect(await brain.notifyPrincipal(w.org, "owner-1", { title: "One", body: "both devices" })).toBe(2);
+
+      brain.unregisterPushSubscription(w.owner, phone.subscription.endpoint);
+      const rows = brain.store.control.prepare("SELECT COUNT(*) AS n FROM notification_subscriptions WHERE principal_id='owner-1'").get() as { n: number };
+      expect(rows.n).toBe(1);
+      expect(await brain.notifyPrincipal(w.org, "owner-1", { title: "Two", body: "the laptop only" })).toBe(1);
+      expect(phone.messages.map((message) => message.title)).toEqual(["One"]);
+      expect(laptop.messages.map((message) => message.title)).toEqual(["One", "Two"]);
+
+      // Someone else cannot remove this person's device, and removing it twice is harmless.
+      const other = await w.grantApprover("approver-1");
+      brain.unregisterPushSubscription(other.actor, laptop.subscription.endpoint);
+      brain.unregisterPushSubscription(w.owner, phone.subscription.endpoint);
+      expect(await brain.notifyPrincipal(w.org, "owner-1", { title: "Three", body: "still the laptop" })).toBe(1);
+
+      // Turning the device back on makes it a new subscription.
+      brain.registerPushSubscription(w.owner, phone.subscription);
+      expect(await brain.notifyPrincipal(w.org, "owner-1", { title: "Four", body: "both again" })).toBe(2);
+    } finally { await phone.close(); await laptop.close(); }
+  }, scaled(60_000));
 });

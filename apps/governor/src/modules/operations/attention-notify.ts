@@ -1,15 +1,15 @@
-import type { ActorContext, JsonValue, NotificationEntry } from "@brain/contracts";
+import type { ActorContext, AttentionItem, JsonValue, NotificationEntry } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { handlersFor, type CommandHandlers } from "../../application/command-funnel";
 import { hasWorkspaceMembership, requireWorkspaceRead } from "../../application/authz";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
-import { attentionItems } from "../stream/index";
+import { attentionItems, pendingApprovalItems } from "../stream/index";
 import { preferencesOf, webhookTarget } from "./channels";
 import { attentionLink, digestLink } from "./notification-links";
 import { smtpTarget } from "./smtp";
 
-/** One notification per mission per recipient in this window; approvals notify immediately elsewhere (#40). */
+/** One notification per mission per recipient in this window (#40). */
 const MISSION_WINDOW_MS = 15 * 60_000;
 
 /** One outbound message: the words and the in-app path it links to. The webhook sends only the kind and the link. */
@@ -27,14 +27,60 @@ export function channelsFor(store: Store, organizationId: string, principalId: s
 /** The only non-urgent kind (ADR 0005): the one a daily digest may batch. Everything else is blocking and goes out at once. */
 const batchable = (kind: string): boolean => kind === "result-ready";
 
+type Db = ReturnType<Store["workspaceDb"]>;
+
+/** The one outbound message an attention item makes for its recipient (a link plus the words the push shows). */
+function messageFor(item: AttentionItem): OutboundMessage {
+  const url = attentionLink({ kind: item.kind, workspaceId: item.workspaceId, ...(item.missionId ? { missionId: item.missionId } : {}), resourceId: item.resourceId, ...(item.knowledgeAssetId ? { knowledgeAssetId: item.knowledgeAssetId } : {}) });
+  if (item.kind === "approval") return { title: "Approval requested", body: item.title, url, kind: item.kind };
+  const body = item.detail ?? (item.kind === "result-ready" ? "A result is ready." : item.missionId ? "A mission needs you." : "Something needs you.");
+  return { title: item.title, body, url, kind: item.kind };
+}
+
 /**
- * Notifies the people a mission's attention items concern — its starter and
- * its watchers, while they still have workspace access — once per item, at
- * most once per mission every 15 minutes. Every notification lands in the
- * in-app inbox; push and webhook go out only on the channels the person
- * switched on, and a person on the daily digest gets result-ready items in the
- * digest instead of at once. Progress never notifies: only attention items do
- * (blocking ones, and result-ready, ADR 0005).
+ * Tells one person about one attention item, once: the in-app inbox always, the outbound channels the person switched on, and a
+ * mission's items at most once per mission per window. A blocking item is never held (only result-ready may wait for the digest).
+ * Returns whether it was notified now (false when already told, or held back by the mission's throttle).
+ */
+function notifyPerson(store: Store, db: Db, send: Sender | undefined, organizationId: string, principalId: string, item: AttentionItem): boolean {
+  if (db.prepare("SELECT 1 FROM attention_notifications WHERE principal_id=? AND item_id=?").get(principalId, item.id)) return false;
+  if (item.missionId) {
+    // Good news never delays a decision: only result-ready items count against result-ready.
+    const recent = db.prepare(`SELECT 1 FROM attention_notifications WHERE principal_id=? AND mission_id=? AND sent_at_ms>?${item.kind === "result-ready" ? "" : " AND item_id NOT LIKE 'result:%'"}`).get(principalId, item.missionId, store.now() - MISSION_WINDOW_MS);
+    if (recent) return false;
+  }
+  const allowed = channelsFor(store, organizationId, principalId);
+  const held = batchable(item.kind) && preferencesOf(store, organizationId, principalId).digest;
+  const channels: Channels = held ? { push: false, webhook: false, email: false } : allowed;
+  const pushed = Boolean(send) && (channels.push || channels.webhook || channels.email);
+  db.prepare("INSERT INTO attention_notifications(principal_id,item_id,mission_id,title,pushed,sent_at_ms) VALUES (?,?,?,?,?,?)").run(principalId, item.id, item.missionId ?? null, item.title, pushed ? 1 : 0, store.now());
+  if (send && pushed) void send(organizationId, principalId, messageFor(item), channels).catch(() => undefined);
+  return true;
+}
+
+/** Who an item concerns: an approval its workspace's approvers, a mission's item its starter and watchers, any other the workspace owner. */
+function recipientsOf(store: Store, db: Db, organizationId: string, workspaceId: string, item: AttentionItem): string[] {
+  if (item.kind === "approval") {
+    return (store.control.prepare("SELECT DISTINCT principal_id FROM workspace_memberships WHERE workspace_id=? AND organization_id=? AND role IN ('approver','workspace-lead') AND revoked_at_ms IS NULL").all(workspaceId, organizationId) as Array<{ principal_id: string }>).map((row) => row.principal_id);
+  }
+  const people = new Set<string>();
+  if (item.missionId) {
+    const owner = db.prepare("SELECT owner_id FROM missions WHERE id=?").get(item.missionId) as { owner_id: string } | undefined;
+    if (owner) people.add(owner.owner_id);
+    for (const row of db.prepare("SELECT principal_id FROM mission_watchers WHERE mission_id=?").all(item.missionId) as Array<{ principal_id: string }>) people.add(row.principal_id);
+  } else {
+    const owner = store.control.prepare("SELECT owner_id FROM workspaces WHERE id=? AND organization_id=?").get(workspaceId, organizationId) as { owner_id: string | null } | undefined;
+    if (owner?.owner_id) people.add(owner.owner_id);
+  }
+  return [...people].filter((principalId) => hasWorkspaceMembership(store, principalId, organizationId, workspaceId));
+}
+
+/**
+ * Notifies the people every attention item concerns, once per item (ADR 0005): the in-app inbox always, and push, webhook and email on
+ * the channels the person switched on. A mission's items go to its starter and watchers at most once per mission every 15 minutes; a
+ * person on the daily digest gets result-ready items in the digest instead of at once. Approvals go to the workspace's approvers
+ * (ADR 0011) and never wait on a mission's window; the other items without a mission go to the workspace owner. Progress never
+ * notifies: only attention items do.
  */
 export function notifyAttention(store: Store, send: Sender | undefined): number {
   let sent = 0;
@@ -42,25 +88,18 @@ export function notifyAttention(store: Store, send: Sender | undefined): number 
   for (const ws of workspaces) {
     const db = store.workspaceDb(ws.id, ws.organization_id);
     for (const item of attentionItems(store, ws.organization_id, [ws.id])) {
-      if (item.kind === "approval" || !item.missionId) continue;
-      const owner = db.prepare("SELECT owner_id FROM missions WHERE id=?").get(item.missionId) as { owner_id: string } | undefined;
-      const watchers = (db.prepare("SELECT principal_id FROM mission_watchers WHERE mission_id=?").all(item.missionId) as Array<{ principal_id: string }>).map((row) => row.principal_id);
-      for (const principalId of new Set([...(owner ? [owner.owner_id] : []), ...watchers])) {
-        if (!hasWorkspaceMembership(store, principalId, ws.organization_id, ws.id)) continue;
-        if (db.prepare("SELECT 1 FROM attention_notifications WHERE principal_id=? AND item_id=?").get(principalId, item.id)) continue;
-        // Good news never delays a decision: only result-ready items count against result-ready.
-        const recent = db.prepare(`SELECT 1 FROM attention_notifications WHERE principal_id=? AND mission_id=? AND sent_at_ms>?${item.kind === "result-ready" ? "" : " AND item_id NOT LIKE 'result:%'"}`).get(principalId, item.missionId, store.now() - MISSION_WINDOW_MS);
-        if (recent) continue;
-        const allowed = channelsFor(store, ws.organization_id, principalId);
-        const held = batchable(item.kind) && preferencesOf(store, ws.organization_id, principalId).digest;
-        const channels: Channels = held ? { push: false, webhook: false, email: false } : allowed;
-        const pushed = Boolean(send) && (channels.push || channels.webhook || channels.email);
-        db.prepare("INSERT INTO attention_notifications(principal_id,item_id,mission_id,title,pushed,sent_at_ms) VALUES (?,?,?,?,?,?)").run(principalId, item.id, item.missionId, item.title, pushed ? 1 : 0, store.now());
-        const url = attentionLink({ kind: item.kind, workspaceId: item.workspaceId, missionId: item.missionId, ...(item.resourceId !== undefined ? { resourceId: item.resourceId } : {}), ...(item.knowledgeAssetId ? { knowledgeAssetId: item.knowledgeAssetId } : {}) });
-        if (send && pushed) void send(ws.organization_id, principalId, { title: item.title, body: item.detail ?? (item.kind === "result-ready" ? "A result is ready." : "A mission needs you."), url, kind: item.kind }, channels).catch(() => undefined);
-        sent++;
-      }
+      for (const principalId of recipientsOf(store, db, ws.organization_id, ws.id, item)) if (notifyPerson(store, db, send, ws.organization_id, principalId, item)) sent++;
     }
+  }
+  return sent;
+}
+
+/** A new approval request reaches its approvers at once, instead of at the next pass; the pass never sends the same item twice. */
+export function notifyApprovers(store: Store, send: Sender | undefined, organizationId: string, workspaceId: string): number {
+  let sent = 0;
+  const db = store.workspaceDb(workspaceId, organizationId);
+  for (const item of pendingApprovalItems(store, organizationId, workspaceId)) {
+    for (const principalId of recipientsOf(store, db, organizationId, workspaceId, item)) if (notifyPerson(store, db, send, organizationId, principalId, item)) sent++;
   }
   return sent;
 }

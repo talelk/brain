@@ -763,8 +763,6 @@ export const enExtra = {
   "adm.signed-in.1b6c": "Signed in",
   "adm.expires.a710": "· expires",
   "adm.revoke-session.ca84": "Revoke session",
-  "adm.push-notifications-are-attention.355b": "Push notifications are attention hints for pending approvals. Decisions always happen here, after you sign in and confirm with your authenticator code.",
-  "adm.enable-notifications.da39": "Enable notifications",
   "adm.access-revoked.7d42": "Access revoked",
   "adm.has-access.c3ed": "Has access",
   "adm.viewer.dbad": "Viewer",

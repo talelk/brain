@@ -26,3 +26,8 @@ Email is now built, as an **optional** channel, replacing the "Email is not buil
 - **Body.** Same rule as the webhook: a generic sentence and one link. No title, no typed text, no token; the link keeps only the path and the ids `w`, `asset`, `result`. A decision still happens after sign-in and step-up.
 - **Rate limit.** At most 6 emails per person per hour (`BRAIN_NOTIFY_EMAIL_PER_HOUR`) and 300 per hour for the server, approvals included. A refused send is recorded.
 - **Delivery record.** `email_deliveries` (control.db): sent or failed with a plain reason (the server's short answer or "rate limited"), never the address or the message. The panel lists the latest ten.
+
+## Amendment 2026-11-15: push is per device and covers every attention item (spec #90, ticket #104)
+
+- **Per device.** Web push is switched on and off per browser: Settings > Security shows this device's state and one control to turn it off, which deletes the subscription (nothing is sent to it again). The first offer is on Needs you, where the first item needs a person; "Not now" is remembered on that device. A browser that blocked notifications is told so and not offered them.
+- **Every kind.** Every attention-item kind notifies, once per item: an approval its approvers at once (also when requested through `approval.request`, not only gates and proposed calls), a mission's items its starter and watchers under the per-mission window, and items outside a mission (a schedule that could not start, a step of unknown outcome with no mission) the workspace owner. A link opens where the item's row opens (`notification-links.ts`, held to the route table by a domain test).
