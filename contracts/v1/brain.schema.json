@@ -7034,6 +7034,14 @@
         },
         "parentId": {
           "$ref": "#/$defs/ConfigId"
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlanCandidate"
+          },
+          "minItems": 2,
+          "maxItems": 4
         }
       },
       "required": [
@@ -7291,6 +7299,9 @@
         },
         "subtasks": {
           "$ref": "#/$defs/WorkItemSubtasks"
+        },
+        "candidates": {
+          "$ref": "#/$defs/WorkItemCandidates"
         }
       },
       "required": [
@@ -11942,6 +11953,9 @@
         },
         {
           "$ref": "#/$defs/WorkItemSpendCapRaiseCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkItemCandidateKeepCommand"
         },
         {
           "$ref": "#/$defs/WorkItemDetailsSetCommand"
@@ -28091,6 +28105,186 @@
         "tokensUsed",
         "settledMicroUsd",
         "reservedMicroUsd"
+      ],
+      "additionalProperties": false
+    },
+    "PlanCandidate": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "memberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "workflowId": {
+          "$ref": "#/$defs/ConfigId"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "WorkItemCandidate": {
+      "type": "object",
+      "properties": {
+        "candidateId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "runId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "memberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "workflowId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "waiting",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "not-verified",
+            "pending"
+          ]
+        },
+        "outputId": {
+          "$ref": "#/$defs/Id"
+        },
+        "outputVersionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "settledMicroUsd": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reservedMicroUsd": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensUsed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proposed": {
+          "type": "boolean",
+          "const": true
+        },
+        "kept": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "candidateId",
+        "runId",
+        "label",
+        "state",
+        "verdict",
+        "settledMicroUsd",
+        "reservedMicroUsd",
+        "tokensUsed"
+      ],
+      "additionalProperties": false
+    },
+    "WorkItemCandidates": {
+      "type": "object",
+      "properties": {
+        "round": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkItemCandidate"
+          },
+          "minItems": 2,
+          "maxItems": 4
+        },
+        "keptRunId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "keptBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "keptAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "round",
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "WorkItemCandidateKeepCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workItem.candidate.keep"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            },
+            "runId": {
+              "$ref": "#/$defs/RunId"
+            }
+          },
+          "required": [
+            "workItemId",
+            "runId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
       ],
       "additionalProperties": false
     }

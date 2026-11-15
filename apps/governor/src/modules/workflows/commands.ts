@@ -9,7 +9,9 @@ export interface WorkflowCommandPorts {
   loadWorkflow(organizationId: string, workflowId: string): { workflow: Workflow; configDigest: string };
   /** Resolves the work item a managed session dispatches for. */
   sessionWorkItem(actor: ActorContext, workspaceId: string, sessionId: string): string;
-  linkExecution(actor: ActorContext, workspaceId: string, workItemId: string, runId: string): void;
+  linkExecution(actor: ActorContext, workspaceId: string, workItemId: string, runId: string, options?: { candidate?: { id: string; round: number } }): void;
+  /** The candidates to start for this work item (ADR 0064), after admission counted every one of them; undefined for an ordinary task. */
+  fanOut(actor: ActorContext, workspaceId: string, workItemId: string, replayedRunId?: string): { round: number; candidates: ReadonlyArray<{ id: string; workflowId?: string }> } | undefined;
   /** The job priority a run for this work item starts with (missions module): the first job exists before the run is linked. */
   workItemJobPriority(actor: ActorContext, workspaceId: string, workItemId: string): number;
   attachSessionRun(actor: ActorContext, workspaceId: string, sessionId: string, runId: string): void;
@@ -43,15 +45,32 @@ export function workflowCommands(store: Store, ports: WorkflowCommandPorts): Com
         const sessionWorkItemId = sessionId ? ports.sessionWorkItem(actor, workspaceId, sessionId) : undefined;
         if (sessionWorkItemId && p["workItemId"] && sessionWorkItemId !== String(p["workItemId"])) throw new BrainDomainError("FORBIDDEN", "session and dispatch work item differ");
         const workItemId = sessionWorkItemId ?? (p["workItemId"] ? String(p["workItemId"]) : "");
-        const { workflow, configDigest } = ports.loadWorkflow(actor.organizationId, workflowId);
         const priority = workItemId ? ports.workItemJobPriority(actor, workspaceId, workItemId) : undefined;
-        // startRun validates the input against the workflow's declared schema.
-        const { runId } = ports.engine.startRun({
-          organizationId: actor.organizationId, workspaceId, actorId: actor.actorId,
-          workflowId, workflow, configDigest,
-          runInput: (p["input"] ?? null) as JsonValue, executionKey: cmd.commandId, ...(priority !== undefined ? { priority } : {}),
-        });
-        if (workItemId) ports.linkExecution(actor, workspaceId, workItemId, runId);
+        // A task with candidates starts one run per candidate, together or not at all (ADR 0064); any other dispatch starts one run.
+        const fan = workItemId && !sessionId ? ports.fanOut(actor, workspaceId, workItemId, prior?.id) : undefined;
+        const starts = fan
+          ? fan.candidates.map((candidate, index) => ({ workflowId: candidate.workflowId ?? workflowId, key: index === 0 ? cmd.commandId : `${cmd.commandId}~${candidate.id}`, candidate: { id: candidate.id, round: fan.round } }))
+          : [{ workflowId, key: cmd.commandId, candidate: undefined }];
+        const loaded = starts.map((start) => ({ start, ...ports.loadWorkflow(actor.organizationId, start.workflowId) }));
+        const started: string[] = [];
+        let runId = "";
+        try {
+          for (const { start, workflow, configDigest } of loaded) {
+            // startRun validates the input against the workflow's declared schema.
+            const run = ports.engine.startRun({
+              organizationId: actor.organizationId, workspaceId, actorId: actor.actorId,
+              workflowId: start.workflowId, workflow, configDigest,
+              runInput: (p["input"] ?? null) as JsonValue, executionKey: start.key, ...(priority !== undefined ? { priority } : {}),
+            });
+            started.push(run.runId);
+            if (workItemId) ports.linkExecution(actor, workspaceId, workItemId, run.runId, start.candidate ? { candidate: start.candidate } : {});
+            runId ||= run.runId;
+          }
+        } catch (cause) {
+          // Candidates start together or not at all: one that cannot start (its way of working refuses the input) withdraws the others.
+          if (fan) for (const id of started) { ports.engine.cancelRun(actor.organizationId, workspaceId, id); ports.cancelJobs(id); }
+          throw cause;
+        }
         if (sessionId) ports.attachSessionRun(actor, workspaceId, sessionId, runId);
         // The receipt names the created aggregate: the run. The /runs/:id
         // route resolves a run id to the run's current job, so the dispatch

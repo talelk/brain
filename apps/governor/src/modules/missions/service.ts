@@ -29,6 +29,7 @@ import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, QUOTA_MAX_WAITS, REMEDY, classifyFail
 import { GENERAL_TASK_WORKFLOW } from "../workflows/index";
 import { modelRoutesUsable } from "../jobs/index";
 import { missionTimeline } from "./timeline";
+import { beginRound, candidateMember, candidateObserved, candidatesOf, candidatesView, isTerminalRun, roundLinks } from "./candidates";
 import { observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
 /** The optional narrowing of `workItems.list`: one mission, one team member (by member id), one priority, one tag. */
@@ -93,6 +94,7 @@ type WorkItemRow = {
   failed_attempts: number; parked: number; parked_diagnostic: string | null;
   required_tools_json: string; failure_class: FailureClass | null; token_cap: number | null; retry_after_ms: number | null;
   priority: WorkItemPriority; tags_json: string; due_at_ms: number | null; parent_id: string | null;
+  kept_run_id: string | null; kept_by: string | null; kept_at_ms: number | null;
   version: number; created_at_ms: number; updated_at_ms: number;
 };
 
@@ -240,9 +242,10 @@ export class MissionService {
       failedAttempts: row.failed_attempts, parked: row.parked === 1,
       ...(JSON.parse(row.required_tools_json) as string[]).length > 0 ? { requiredTools: JSON.parse(row.required_tools_json) as string[] } : {},
       ...(row.failure_class ? { failureClass: row.failure_class, remedy: REMEDY[row.failure_class] } : {}),
-      tokenCap: taskTokenCap(row), tokensUsed: taskTokens(this.store, this.store.workspaceDb(workspaceId, actor.organizationId), row.id),
+      tokenCap: this.capOf(this.store.workspaceDb(workspaceId, actor.organizationId), row), tokensUsed: taskTokens(this.store, this.store.workspaceDb(workspaceId, actor.organizationId), row.id),
       priority: row.priority, tags: JSON.parse(row.tags_json) as string[],
       ...this.subtaskFacts(this.store.workspaceDb(workspaceId, actor.organizationId), row),
+      ...this.candidateFacts(this.store.workspaceDb(workspaceId, actor.organizationId), workspaceId, row),
       ...(row.due_at_ms !== null ? { dueAt: iso(row.due_at_ms) } : {}),
       // A board flag derived on read, never stored: an open item past its due date. It raises no attention item and notifies nobody.
       ...(row.due_at_ms !== null && row.due_at_ms < this.store.now() && row.state !== "done" && row.state !== "abandoned" ? { overdue: true as const } : {}),
@@ -268,6 +271,7 @@ export class MissionService {
       case "mission.budget.set": return this.setBudget(actor, workspaceId, command.payload, command.expectedVersion);
       case "workspace.spendCap.set": return this.setSpendCap(actor, workspaceId, command.payload);
       case "workItem.spendCap.raise": return this.raiseTaskCap(actor, workspaceId, command.payload);
+      case "workItem.candidate.keep": return this.keepCandidate(actor, workspaceId, command.payload, command.expectedVersion);
       case "handoff.submit": return this.handoff(actor, workspaceId, command.payload);
       case "mission.verdict.record": return this.verdict(actor, workspaceId, command.payload);
       case "plan.propose": return this.proposePlan(actor, workspaceId, command.payload);
@@ -351,6 +355,13 @@ export class MissionService {
   }
 
   /** The subtasks still part of the work: an abandoned (replaced or dropped) one is history. */
+  /** The task's candidates side by side (ADR 0064); nothing for an ordinary task or one whose candidates have not started. */
+  private candidateFacts(db: ReturnType<Store["workspaceDb"]>, workspaceId: string, row: WorkItemRow): Pick<WorkItem, "candidates"> | Record<string, never> {
+    const policy = (db.prepare("SELECT policy_json FROM missions WHERE id=?").get(row.mission_id) as { policy_json: string } | undefined)?.policy_json;
+    const view = candidatesView(this.store, db, workspaceId, row, policy ? (JSON.parse(policy) as { preset?: string }).preset : undefined);
+    return view ? { candidates: view } : {};
+  }
+
   private liveChildren(db: ReturnType<Store["workspaceDb"]>, parentId: string): Array<{ id: string; title: string; state: WorkItemState }> {
     return db.prepare("SELECT id,title,state FROM work_items WHERE parent_id=? AND state!='abandoned' ORDER BY created_at_ms,id").all(parentId) as Array<{ id: string; title: string; state: WorkItemState }>;
   }
@@ -533,6 +544,14 @@ export class MissionService {
   private assertWayOfWorking(organizationId: string, workspaceId: string, tasks: readonly PlanTask[]): void {
     const defaults = wayOfWorking(this.store, workspaceId);
     for (const task of tasks) {
+      // A candidate's own way of working must exist and carry the tools the task needs (ADR 0064).
+      for (const candidate of task.candidates ?? []) {
+        if (!candidate.workflowId) continue;
+        const have = workflowAgentTools(this.store, organizationId, candidate.workflowId);
+        if (have === undefined) throw new BrainDomainError("INVALID_ARGUMENT", `candidate ${candidate.id} of task ${task.id} names way of working ${candidate.workflowId}, which is not in the active release`);
+        const lacking = effectiveTools(task, defaults).filter((tool) => !have.includes(tool));
+        if (lacking.length > 0) throw new BrainDomainError("INVALID_ARGUMENT", `candidate ${candidate.id} of task ${task.id} uses ${candidate.workflowId}, which lacks ${lacking.join(", ")}`);
+      }
       if (task.assignment?.kind === "agent") continue; // a team member's agent is checked by team eligibility
       const tools = effectiveTools(task, defaults);
       if (tools.length === 0) continue;
@@ -583,8 +602,8 @@ export class MissionService {
     const item = this.workItemRow(actor, workspaceId, String(payload["workItemId"]));
     const maxTokens = Number(payload["maxTokens"]);
     if (!Number.isSafeInteger(maxTokens) || maxTokens <= 0) throw new BrainDomainError("INVALID_ARGUMENT", "maxTokens must be a positive integer");
-    if (maxTokens <= taskTokenCap(item)) throw new BrainDomainError("INVALID_ARGUMENT", `the cap is ${taskTokenCap(item)} tokens; raise it above that`);
     const db = this.db(actor, workspaceId);
+    if (maxTokens <= this.capOf(db, item)) throw new BrainDomainError("INVALID_ARGUMENT", `the cap is ${this.capOf(db, item)} tokens; raise it above that`);
     this.store.inTx(db, () => {
       db.prepare("UPDATE work_items SET token_cap=?,version=version+1,updated_at_ms=? WHERE id=?").run(maxTokens, this.store.now(), item.id);
       this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.spendCapRaised", payload: { workItemId: item.id, maxTokens } });
@@ -594,6 +613,49 @@ export class MissionService {
       }
     });
     return item.id;
+  }
+
+  /**
+   * A task's token allowance across all its attempts. A task with candidates (ADR 0064) is allowed the default for each candidate unless a
+   * person raised it: the cap is for the task, so N candidates do not park it for doing what it was planned to do.
+   */
+  private capOf(db: ReturnType<Store["workspaceDb"]>, row: WorkItemRow): number {
+    return row.token_cap ?? taskTokenCap(row) * Math.max(1, candidatesOf(db, row.id).length);
+  }
+
+  /**
+   * One person keeps one candidate of a task in review (ADR 0064). The kept candidate's output version is the task's result and its own
+   * observed evidence is what Done needs; the other versions stay unverified as compared outputs and nothing is deleted. Only a person keeps,
+   * only from a succeeded candidate of the latest round, and a person may change their mind until the task is Done.
+   */
+  private keepCandidate(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person keeps a candidate");
+    const item = this.workItemRow(actor, workspaceId, String(payload["workItemId"]));
+    assertExpectedVersion(item.version, expectedVersion);
+    const db = this.db(actor, workspaceId);
+    const runId = String(payload["runId"]);
+    if (item.state !== "review") throw new BrainDomainError("CONFLICT", `${item.title} is ${item.state}: a candidate is kept once every candidate has finished and the task is in review`);
+    const link = roundLinks(db, item.id).find((entry) => entry.run_id === runId);
+    if (!link) throw new BrainDomainError("NOT_FOUND", "that run is not a candidate of this task's latest round");
+    if (link.run_state !== "succeeded" || !candidateObserved(this.store, db, item.id, runId)) throw new BrainDomainError("CONFLICT", "only a candidate that finished and observed what the task needs can be kept");
+    this.store.inTx(db, () => {
+      const chosen = candidatesOf(db, item.id).find((entry) => entry.id === link.candidate_id);
+      const label = [chosen?.memberId, chosen?.workflowId].filter(Boolean).join(" on ") || link.candidate_id;
+      db.prepare("UPDATE work_items SET kept_run_id=?,kept_by=?,kept_at_ms=?,next_action=?,version=version+1,updated_at_ms=? WHERE id=?")
+        .run(runId, actor.actorId, this.store.now(), `Kept ${label}: bind its verified evidence to finish`, this.store.now(), item.id);
+      this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.candidateKept", payload: { workItemId: item.id, runId, candidateId: link.candidate_id, by: actor.actorId } });
+    });
+    return item.id;
+  }
+
+  /**
+   * The candidates to start for a dispatch of this work item, or undefined for an ordinary task (ADR 0064). Admission counts every candidate
+   * before the first one starts; each run started is then linked with its candidate id and the round.
+   */
+  fanOut(actor: ActorContext, workspaceId: string, workItemId: string, replayedRunId?: string): { round: number; candidates: ReadonlyArray<{ id: string; workflowId?: string }> } | undefined {
+    const item = this.workItemRow(actor, workspaceId, workItemId);
+    const db = this.db(actor, workspaceId);
+    return this.store.inTx(db, () => beginRound(this.store, db, item, replayedRunId));
   }
 
   /** A task already Done on evidence takes no new subtask: its Done would no longer mean its children are (ADR 0057). */
@@ -612,6 +674,7 @@ export class MissionService {
 
   private sameTask(db: ReturnType<Store["workspaceDb"]>, prior: WorkItemRow, task: PlanTask, tools: readonly string[]): boolean {
     if (prior.title !== task.title || prior.workflow_id !== (task.workflowId ?? null)) return false;
+    if (JSON.stringify(candidatesOf(db, prior.id)) !== JSON.stringify(task.candidates ?? [])) return false;
     if (prior.required_tools_json !== JSON.stringify(tools)) return false;
     if (JSON.stringify(JSON.parse(prior.criteria_json)) !== JSON.stringify(task.criteria)) return false;
     if (JSON.stringify(prior.assignment_json ? JSON.parse(prior.assignment_json) : null) !== JSON.stringify(task.assignment ?? null)) return false;
@@ -688,8 +751,10 @@ export class MissionService {
   /** Done needs verified evidence; criteria supported only by model opinion also need a person (returns true when this person signs them off). */
   private assertEvidence(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow, digest: string | null, by: ActorContext): boolean {
     if (!digest) throw new BrainDomainError("EVIDENCE_MISSING", "Done requires verified evidence");
+    // A task with candidates is Done on the kept candidate's own observed evidence, never another candidate's (ADR 0022, ADR 0064).
+    if (candidatesOf(db, item.id).length > 0 && !item.kept_run_id) throw new BrainDomainError("EVIDENCE_MISSING", "Done needs one kept candidate: compare the candidates and keep one first");
     const needed = JSON.parse(item.required_tools_json) as string[];
-    if (needed.length > 0 && observedCalls(this.store, db, item.id, needed).succeeded === 0) {
+    if (needed.length > 0 && observedCalls(this.store, db, item.id, needed, item.kept_run_id ?? undefined).succeeded === 0) {
       throw new BrainDomainError("EVIDENCE_MISSING", `Done requires a successful recorded call of ${needed.join(" or ")}; none was recorded, so nothing was observed`);
     }
     const bundle = db.prepare("SELECT state,manifest_json,job_id FROM evidence_bundles WHERE digest=?").get(digest) as { state: string; manifest_json: string; job_id: string } | undefined;
@@ -709,7 +774,10 @@ export class MissionService {
 
   /** The bundle's job belongs to a run (or session job) linked to this work item through its execution links. */
   producedByLinkedExecution(db: ReturnType<Store["workspaceDb"]>, workItemId: string, jobId: string): boolean {
-    const links = db.prepare("SELECT run_id, job_id FROM execution_links WHERE work_item_id=?").all(workItemId) as Array<{ run_id: string; job_id: string | null }>;
+    const kept = (db.prepare("SELECT kept_run_id AS id FROM work_items WHERE id=?").get(workItemId) as { id: string | null } | undefined)?.id ?? "";
+    // Before a candidate is kept no candidate's evidence speaks for the task; after, only the kept candidate's does (ADR 0064).
+    if (!kept && candidatesOf(db, workItemId).length > 0) return false;
+    const links = (db.prepare("SELECT run_id, job_id FROM execution_links WHERE work_item_id=?").all(workItemId) as Array<{ run_id: string; job_id: string | null }>).filter((link) => !kept || link.run_id === kept);
     if (links.some((link) => link.job_id === jobId)) return true;
     const job = this.store.control.prepare("SELECT workflow_run_id FROM jobs WHERE id=?").get(jobId) as { workflow_run_id: string | null } | undefined;
     return job?.workflow_run_id != null && links.some((link) => link.run_id === job.workflow_run_id);
@@ -836,7 +904,7 @@ export class MissionService {
    */
   sessionBinding(organizationId: string, workspaceId: string, runId: string): { missionId: string; memberId: string | null; actingFor: string; workItemId?: string } | undefined {
     const db = this.store.workspaceDb(workspaceId, organizationId);
-    const task = db.prepare("SELECT l.mission_id AS missionId, l.work_item_id AS workItemId, w.assignment_json AS assignment FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? ORDER BY l.created_at_ms DESC LIMIT 1").get(runId) as { missionId: string; workItemId: string; assignment: string | null } | undefined;
+    const task = db.prepare("SELECT l.mission_id AS missionId, l.work_item_id AS workItemId, l.candidate_id AS candidateId, w.assignment_json AS assignment FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? ORDER BY l.created_at_ms DESC LIMIT 1").get(runId) as { missionId: string; workItemId: string; candidateId: string | null; assignment: string | null } | undefined;
     // A delegated child acts as the member it was given, on no task of its own: its tools must not default to its parent's task (ADR 0053).
     const delegated = task ? undefined : delegatedRunOf(db, runId);
     if (delegated) {
@@ -848,7 +916,7 @@ export class MissionService {
     if (!missionId) return undefined;
     const mission = db.prepare("SELECT owner_id AS owner, coordinator_member_id AS coordinator FROM missions WHERE id=?").get(missionId) as { owner: string; coordinator: string | null } | undefined;
     if (!mission) return undefined;
-    return { missionId, memberId: task ? memberOf(task.assignment) : mission.coordinator, actingFor: mission.owner, ...(task ? { workItemId: task.workItemId } : {}) };
+    return { missionId, memberId: task ? (task.candidateId ? candidateMember(db, task.workItemId, task.candidateId) : undefined) ?? memberOf(task.assignment) : mission.coordinator, actingFor: mission.owner, ...(task ? { workItemId: task.workItemId } : {}) };
   }
 
   isOpen(organizationId: string, workspaceId: string, missionId: string): boolean {
@@ -1281,8 +1349,39 @@ export class MissionService {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     this.store.inTx(db, () => {
       const items = db.prepare("SELECT w.* FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? AND w.state IN ('ready','in-progress','review')").all(runId) as WorkItemRow[];
-      for (const item of items) this.failAttempt(db, organizationId, item, runId, diagnostic);
+      for (const item of items) {
+        // A failed candidate does not fail the task while another candidate can still be kept (ADR 0064).
+        if (this.isCandidateRun(db, item.id, runId)) this.settleCandidates(db, organizationId, workspaceId, item, runId);
+        else this.failAttempt(db, organizationId, item, runId, diagnostic);
+      }
     });
+  }
+
+  private isCandidateRun(db: ReturnType<Store["workspaceDb"]>, workItemId: string, runId: string): boolean {
+    return db.prepare("SELECT 1 FROM execution_links WHERE work_item_id=? AND run_id=? AND candidate_id IS NOT NULL").get(workItemId, runId) !== undefined;
+  }
+
+  /**
+   * One candidate run ended (ADR 0064). A candidate that succeeded and observed what the task needs records its own output version at once.
+   * The task waits until every candidate of the round has ended, then moves to review for a person to compare and keep one; only when no
+   * candidate produced a result is it a failed attempt of the task, with the remedies of any failed attempt. Idempotent: every sweep may call it.
+   */
+  private settleCandidates(db: ReturnType<Store["workspaceDb"]>, organizationId: string, workspaceId: string, item: WorkItemRow, runId: string): void {
+    const now = this.store.now();
+    const links = roundLinks(db, item.id);
+    for (const link of links) if (isTerminalRun(link.run_state)) db.prepare("UPDATE execution_links SET finished_at_ms=? WHERE work_item_id=? AND run_id=? AND finished_at_ms IS NULL").run(now, item.id, link.run_id);
+    const mine = links.find((link) => link.run_id === runId);
+    if (mine?.run_state === "succeeded" && candidateObserved(this.store, db, item.id, runId)) {
+      try { recordTaskResult(this.store, db, item.id, runId, { organizationId, workspaceId }); } catch (cause) { if (!(cause instanceof BrainDomainError)) throw cause; /* a result that cannot be versioned never blocks the task */ }
+    }
+    if (links.length === 0 || links.some((link) => !isTerminalRun(link.run_state)) || item.state !== "in-progress") return;
+    const finished = links.filter((link) => link.run_state === "succeeded" && candidateObserved(this.store, db, item.id, link.run_id));
+    if (finished.length === 0) {
+      this.failAttempt(db, organizationId, item, runId, `None of the ${links.length} candidates produced a result`);
+      return;
+    }
+    transitionState(db, "workItem", item.id, "review", { set: { next_action: `${finished.length} of ${links.length} candidates finished: compare them and keep one`, updated_at_ms: now }, bumpVersion: true });
+    this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: "review" } });
   }
 
   /**
@@ -1319,7 +1418,7 @@ export class MissionService {
     }
     const tools = JSON.parse(item.required_tools_json) as string[];
     const used = taskTokens(this.store, db, item.id);
-    const cap = taskTokenCap(item);
+    const cap = this.capOf(db, item);
     const runWorkflow = (db.prepare("SELECT json_extract(workflow_json,'$.metadata.id') AS id FROM run_inputs WHERE run_id=?").get(runId) as { id: string | null } | undefined)?.id;
     const earlier = db.prepare("SELECT diagnostic FROM task_failures WHERE work_item_id=?").all(item.id) as Array<{ diagnostic: string }>;
     const failedChecks = this.failedCheckIds(db, runId);
@@ -1461,6 +1560,8 @@ export class MissionService {
       const items = db.prepare("SELECT w.* FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? AND w.state='in-progress'").all(runId) as WorkItemRow[];
       const autoStart = new Map((db.prepare("SELECT id FROM missions WHERE auto_start=1 AND state='active'").all() as Array<{ id: string }>).map((row) => [row.id, true]));
       for (const item of items) {
+        // A candidate (ADR 0064) answers for its own run: the task moves only when every candidate of the round has ended.
+        if (this.isCandidateRun(db, item.id, runId)) { this.settleCandidates(db, organizationId, workspaceId, item, runId); continue; }
         // ADR 0022: a run that finished without one successful call of the tools its task needs observed nothing; that is a failed attempt, not a result.
         const needed = JSON.parse(item.required_tools_json) as string[];
         if (needed.length > 0 && observedCalls(this.store, db, item.id, needed).succeeded === 0) {
@@ -1486,6 +1587,11 @@ export class MissionService {
     // Backlog work whose every live dependency is Done is ready, whatever moved last: a replan or a restart never leaves a task waiting on nothing.
     const waiting = db.prepare("SELECT DISTINCT w.mission_id AS id FROM work_items w JOIN missions m ON m.id=w.mission_id AND m.state='active' WHERE w.parked=0 AND w.state='backlog'").all() as Array<{ id: string }>;
     for (const entry of waiting) this.store.inTx(db, () => this.releaseReadyItems(db, entry.id, ["backlog"]));
+    // A candidate cancelled by hand ends no run with a callback: every sweep settles tasks whose candidates have all ended.
+    for (const item of db.prepare("SELECT DISTINCT w.* FROM work_items w JOIN execution_links l ON l.work_item_id=w.id AND l.candidate_id IS NOT NULL WHERE w.state='in-progress'").all() as WorkItemRow[]) {
+      const last = roundLinks(db, item.id).at(-1);
+      if (last) this.store.inTx(db, () => this.settleCandidates(db, organizationId, workspaceId, item, last.run_id));
+    }
     const rows = db.prepare(`SELECT w.*, l.run_id AS link_run FROM work_items w
       JOIN missions m ON m.id=w.mission_id AND m.state='active' AND m.auto_start=1
       JOIN execution_links l ON l.work_item_id=w.id JOIN workflow_runs r ON r.id=l.run_id AND r.state='succeeded'
@@ -1526,6 +1632,8 @@ export class MissionService {
    * unpassed check) leaves the item in review for a person.
    */
   private autoComplete(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow, runId: string, organizationId: string): void {
+    // A task with candidates is never completed by itself: a person keeps one, and Done needs that candidate's evidence (ADR 0064).
+    if (candidatesOf(db, item.id).length > 0) return;
     const bundles = db.prepare("SELECT digest, job_id FROM evidence_bundles WHERE state='verified' ORDER BY created_at_ms DESC").all() as Array<{ digest: string; job_id: string }>;
     const bundle = bundles.find((entry) => this.producedByLinkedExecution(db, item.id, entry.job_id));
     if (!bundle) return;
@@ -1567,9 +1675,9 @@ export class MissionService {
       // The spend cap holds at dispatch too: a task that has used its tokens across attempts stops here, parked as budget, never retried automatically.
       for (const candidate of db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state='ready' AND parked=0").all(mission.id) as WorkItemRow[]) {
         const used = taskTokens(this.store, db, candidate.id);
-        if (used >= taskTokenCap(candidate) && (db.prepare("SELECT 1 FROM execution_links WHERE work_item_id=? LIMIT 1").get(candidate.id))) {
+        if (used >= this.capOf(db, candidate) && (db.prepare("SELECT 1 FROM execution_links WHERE work_item_id=? LIMIT 1").get(candidate.id))) {
           this.store.inTx(db, () => {
-            transitionState(db, "workItem", candidate.id, "blocked", { set: { parked: 1, parked_diagnostic: `The task used ${used} of ${taskTokenCap(candidate)} tokens across its attempts`, blocked_reason: `Parked: the task used its token allowance (${used} of ${taskTokenCap(candidate)} tokens)`, next_action: "Raise this task's token cap, split it or drop it", failure_class: "budget", updated_at_ms: now }, bumpVersion: true });
+            transitionState(db, "workItem", candidate.id, "blocked", { set: { parked: 1, parked_diagnostic: `The task used ${used} of ${this.capOf(db, candidate)} tokens across its attempts`, blocked_reason: `Parked: the task used its token allowance (${used} of ${this.capOf(db, candidate)} tokens)`, next_action: "Raise this task's token cap, split it or drop it", failure_class: "budget", updated_at_ms: now }, bumpVersion: true });
             this.store.emit(db, { aggregateType: "workItem", aggregateId: candidate.id, eventType: "workItem.parked", payload: { workItemId: candidate.id, missionId: candidate.mission_id, state: "blocked", failureClass: "budget" } });
             this.recordLesson(db, candidate, "budget", "parked");
           });
@@ -1680,14 +1788,14 @@ export class MissionService {
     return going ? "A run for this task is already going, so it cannot also be resumed." : undefined;
   }
 
-  linkExecution(actor: ActorContext, workspaceId: string, workItemId: string, runId: string, options: { resumed?: boolean } = {}): void {
+  linkExecution(actor: ActorContext, workspaceId: string, workItemId: string, runId: string, options: { resumed?: boolean; candidate?: { id: string; round: number } } = {}): void {
     const item = this.workItemRow(actor, workspaceId, workItemId);
     const mission = this.missionRow(actor, workspaceId, item.mission_id);
     if (mission.state !== "active") throw new BrainDomainError("CONFLICT", `a ${mission.state} mission starts no new work sessions`);
     const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
       pinInputs(db, item.id, runId);
-      db.prepare("INSERT OR IGNORE INTO execution_links(mission_id,work_item_id,run_id,created_at_ms) VALUES (?,?,?,?)").run(item.mission_id, item.id, runId, this.store.now());
+      db.prepare("INSERT OR IGNORE INTO execution_links(mission_id,work_item_id,run_id,created_at_ms,candidate_id,candidate_round) VALUES (?,?,?,?,?,?)").run(item.mission_id, item.id, runId, this.store.now(), options.candidate?.id ?? null, options.candidate?.round ?? null);
       // A person resuming a stopped task releases it from the wait it was parked in; the run then starts it like any other.
       if (options.resumed && item.state === "blocked") {
         transitionState(db, "workItem", item.id, "ready", { set: { parked: 0, failed_attempts: 0, parked_diagnostic: null, blocked_reason: null, failure_class: null, next_action: "Resumed from a saved checkpoint", updated_at_ms: this.store.now() }, bumpVersion: true });

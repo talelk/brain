@@ -21,7 +21,7 @@ export const SESSION_ADMITTED: ReadonlySet<string> = new Set(Object.values(BRAIN
 /** Commands a session credential is refused, grouped by why. Everything not admitted must be named here. */
 export const SESSION_REFUSED = {
   /** Someone else's call: a person or the Governor moves, judges, accepts or confirms; a session reports and proposes. */
-  decides: ["workItem.transition", "mission.proposeCompletion", "decision.accept", "mission.verdict.record", "mission.close", "plan.confirm", "plan.reject", "mission.reuse.decide", "result.challenge", "delegation.review", "knowledge.review", "knowledge.approveVerified", "capability.review", "play.proposal.review", "approval.decision", "approval.request", "approval.revoke"],
+  decides: ["workItem.transition", "workItem.candidate.keep", "mission.proposeCompletion", "decision.accept", "mission.verdict.record", "mission.close", "plan.confirm", "plan.reject", "mission.reuse.decide", "result.challenge", "delegation.review", "knowledge.review", "knowledge.approveVerified", "capability.review", "play.proposal.review", "approval.decision", "approval.request", "approval.revoke"],
   /** What the mission is and how far it may go: owned by the person it runs for. */
   mission: ["mission.create", "mission.owner.transfer", "mission.pause", "mission.resume", "mission.policy.set", "mission.brief.edit", "mission.budget.set", "workItem.spendCap.raise", "workItem.details.set", "mission.seen", "mission.watch", "play.propose", "play.proposeFromMissions", "workspace.spendCap.set"],
   /** Work, sessions, documents and tools the Brain tools do not reach: the Governor starts and stops work, not the session. */

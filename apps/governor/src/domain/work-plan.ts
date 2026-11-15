@@ -10,6 +10,21 @@ export function assertPlanTasks(tasks: readonly PlanTask[]): readonly string[] {
     if (task.dependsOn.includes(task.id)) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} cannot depend on itself`);
     byId.set(task.id, task);
   }
+  // Best-of-N (ADR 0064): two to four candidates, each naming a team member or a way of working, no two alike.
+  for (const task of tasks) {
+    const candidates = task.candidates;
+    if (candidates === undefined) continue;
+    if (candidates.length < 2 || candidates.length > 4) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} needs two to four candidates`);
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      if (!candidate.memberId && !candidate.workflowId) throw new BrainDomainError("INVALID_ARGUMENT", `candidate ${candidate.id} of plan task ${task.id} names neither a team member nor a way of working`);
+      const key = `${candidate.memberId ?? ""}|${candidate.workflowId ?? ""}`;
+      if (seen.has(key)) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} has two candidates with the same member and way of working`);
+      seen.add(key);
+    }
+    if (new Set(candidates.map((candidate) => candidate.id)).size !== candidates.length) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} has duplicate candidate ids`);
+    if (task.parentId !== undefined || tasks.some((other) => other.parentId === task.id)) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} has candidates and so cannot be a subtask or have subtasks`);
+  }
   // A subtask names a task of the same plan, one level deep: a parent is never itself a subtask (ADR 0057).
   for (const task of tasks) {
     if (task.parentId === undefined) continue;

@@ -2,12 +2,12 @@ import type { ArtifactRef, MissionMessage, Output, OutputDetail, OutputInput, Ou
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
-import { putBytes } from "../artifacts/index";
+import { putBytes, registerArtifact } from "../artifacts/index";
 import { senderOf } from "../identity/index";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 type OutputRow = { id: string; mission_id: string; name: string; continues_output_id: string | null; created_at_ms: number };
-type VersionRow = { id: string; output_id: string; work_item_id: string; artifact_digest: string; state: "draft" | "final"; verified: number; created_at_ms: number };
+type VersionRow = { id: string; output_id: string; work_item_id: string; artifact_digest: string; state: "draft" | "final"; verified: number; created_at_ms: number; run_id: string | null };
 type MessageRow = { id: string; mission_id: string; recipient_kind: "mission" | "member"; recipient_member_id: string | null; work_item_id: string | null; sender_id: string; body: string; delivery: MissionMessage["delivery"]; correction_of: string | null; created_at_ms: number };
 
 /** The plan task a work item was materialized from. */
@@ -24,7 +24,7 @@ export function taskOf(db: Db, workItemId: string): { missionId: string; task: P
  * be declared by the producing plan task; a follow-up mission's output may
  * continue an earlier mission's output of the same workspace.
  */
-export function recordOutputVersion(store: Store, db: Db, input: { workItemId: string; name: string; artifactDigest: string; state: "draft" | "final"; continues?: { missionId: string; name: string } }): string {
+export function recordOutputVersion(store: Store, db: Db, input: { workItemId: string; name: string; artifactDigest: string; state: "draft" | "final"; runId?: string; continues?: { missionId: string; name: string } }): string {
   const { missionId, task } = taskOf(db, input.workItemId);
   // A task's own id is its implicit output name: the written result of every task is a versioned output without the planner naming it.
   if (!(task.outputs ?? []).includes(input.name) && input.name !== task.id) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} declares no output ${input.name}`);
@@ -37,17 +37,23 @@ export function recordOutputVersion(store: Store, db: Db, input: { workItemId: s
       output = { id: store.id("output"), mission_id: missionId, name: input.name, continues_output_id: continues?.id ?? null, created_at_ms: store.now() };
       db.prepare("INSERT INTO mission_outputs(id,mission_id,name,continues_output_id,created_at_ms) VALUES (?,?,?,?,?)").run(output.id, missionId, input.name, output.continues_output_id, output.created_at_ms);
     }
-    db.prepare("INSERT INTO output_versions(id,output_id,work_item_id,artifact_digest,state,created_at_ms) VALUES (?,?,?,?,?,?)").run(id, output.id, input.workItemId, input.artifactDigest, input.state, store.now());
+    db.prepare("INSERT INTO output_versions(id,output_id,work_item_id,artifact_digest,state,created_at_ms,run_id) VALUES (?,?,?,?,?,?,?)").run(id, output.id, input.workItemId, input.artifactDigest, input.state, store.now(), input.runId ?? null);
     store.emit(db, { aggregateType: "output", aggregateId: output.id, eventType: "output.versionRecorded", payload: { missionId, workItemId: input.workItemId } });
   });
   return id;
 }
 
-/** The written result of a work item: the deliverable of its latest succeeded run, with the immutable step output that holds it. */
-export function taskResult(db: Db, workItemId: string): { text: string; digest: string | null } | undefined {
+/**
+ * The written result of a work item: the deliverable of its latest succeeded run, with the immutable step output that holds it. A task with
+ * candidates answers for the run asked about, else for the kept candidate's run (ADR 0064); until one is kept no run speaks for the task.
+ */
+export function taskResult(db: Db, workItemId: string, runId?: string): { text: string; digest: string | null } | undefined {
+  const kept = runId ? undefined : (db.prepare("SELECT kept_run_id AS id FROM work_items WHERE id=?").get(workItemId) as { id: string | null } | undefined)?.id ?? undefined;
+  const only = runId ?? kept ?? "";
+  if (!only && db.prepare("SELECT 1 FROM execution_links WHERE work_item_id=? AND candidate_id IS NOT NULL LIMIT 1").get(workItemId)) return undefined;
   const rows = db.prepare(`SELECT o.output_json AS json, s.output_digest AS digest FROM execution_links l JOIN workflow_runs r ON r.id=l.run_id AND r.state='succeeded'
     JOIN step_outputs o ON o.run_id=r.id LEFT JOIN workflow_steps s ON s.run_id=o.run_id AND s.step_id=o.step_id
-    WHERE l.work_item_id=? ORDER BY l.created_at_ms DESC, o.rowid`).all(workItemId) as Array<{ json: string; digest: string | null }>;
+    WHERE l.work_item_id=? AND (?='' OR l.run_id=?) ORDER BY l.created_at_ms DESC, o.rowid`).all(workItemId, only, only) as Array<{ json: string; digest: string | null }>;
   for (const row of rows) {
     try {
       const parsed = JSON.parse(row.json) as { deliverable?: unknown };
@@ -61,19 +67,30 @@ export function taskResult(db: Db, workItemId: string): { text: string; digest: 
  * A finished run's written result becomes a version of the task's implicit output (named by the task id, so the name is the same in
  * every mission that repeats the plan). Idempotent: the same step output is recorded once. It stays unverified until the task is Done.
  */
-export function recordTaskResult(store: Store, db: Db, workItemId: string): string | undefined {
-  const result = taskResult(db, workItemId);
+export function recordTaskResult(store: Store, db: Db, workItemId: string, runId?: string, owner?: { organizationId: string; workspaceId: string }): string | undefined {
+  const result = taskResult(db, workItemId, runId);
   if (!result) return undefined;
   const { missionId, task } = taskOf(db, workItemId);
   // The version holds the deliverable text itself (readable by previews, reuse and shares), not the machine step output around it.
   const digest = putBytes(store, new TextEncoder().encode(result.text));
-  const known = db.prepare("SELECT 1 FROM output_versions v JOIN mission_outputs o ON o.id=v.output_id WHERE o.mission_id=? AND o.name=? AND v.work_item_id=? AND v.artifact_digest=?").get(missionId, task.id, workItemId, digest);
-  return known ? undefined : recordOutputVersion(store, db, { workItemId, name: task.id, artifactDigest: digest, state: "final" });
+  // A candidate's version is its own even when another candidate wrote the same words: it is known per run, not per digest (ADR 0064).
+  const known = db.prepare("SELECT 1 FROM output_versions v JOIN mission_outputs o ON o.id=v.output_id WHERE o.mission_id=? AND o.name=? AND v.work_item_id=? AND v.artifact_digest=? AND (?='' OR v.run_id=?)").get(missionId, task.id, workItemId, digest, runId ?? "", runId ?? "");
+  if (known) return undefined;
+  // A candidate's version is a registered artifact so the compare view and readers can open it beside the others (ADR 0064).
+  if (runId && owner) {
+    const job = store.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=? ORDER BY created_at_ms LIMIT 1").get(runId) as { id: string } | undefined;
+    registerArtifact(store, { artifactId: store.id("artifact"), organizationId: owner.organizationId, workspaceId: owner.workspaceId, digest, bytes: new TextEncoder().encode(result.text).length, mediaType: "text/markdown", classification: "internal", owner: { kind: "job", id: job?.id ?? runId } });
+  }
+  return recordOutputVersion(store, db, { workItemId, name: task.id, artifactDigest: digest, state: "final", ...(runId ? { runId } : {}) });
 }
 
-/** A work item reached Done on verified evidence: its final output versions are verified. */
+/**
+ * A work item reached Done on verified evidence: its final output versions are verified. A task with candidates verifies only the kept
+ * candidate's version; the others stay unverified, retained as compared outputs and never fed to other work (ADR 0064).
+ */
 export function verifyOutputs(db: Db, workItemId: string): void {
-  db.prepare("UPDATE output_versions SET verified=1 WHERE work_item_id=? AND state='final'").run(workItemId);
+  const kept = (db.prepare("SELECT kept_run_id AS id FROM work_items WHERE id=?").get(workItemId) as { id: string | null } | undefined)?.id ?? "";
+  db.prepare("UPDATE output_versions SET verified=1 WHERE work_item_id=? AND state='final' AND (?='' OR run_id=?)").run(workItemId, kept, kept);
 }
 
 /**

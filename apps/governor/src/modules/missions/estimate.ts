@@ -34,7 +34,8 @@ export function planEstimate(plan: PlanVersion, db: Db): PlanEstimate {
   const tasks = plan.tasks.map((task) => ({
     taskId: task.id, title: task.title,
     ...(task.estimatedMinutes !== undefined ? { estimatedMinutes: task.estimatedMinutes } : {}),
-    ...(task.maxMicroUsd !== undefined ? { maxMicroUsd: task.maxMicroUsd } : {}),
+    // Every candidate of a best-of-N task spends up to the task's ceiling (ADR 0064).
+    ...(task.maxMicroUsd !== undefined ? { maxMicroUsd: task.maxMicroUsd * (task.candidates?.length ?? 1) } : {}),
   }));
   const withMinutes = tasks.filter((task) => task.estimatedMinutes !== undefined);
   const withCost = tasks.filter((task) => task.maxMicroUsd !== undefined);

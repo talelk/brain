@@ -3,7 +3,7 @@ import type { MissionService } from "./service";
 
 /** Mission commands: missions, plan versions and work items. */
 export function missionCommands(missions: MissionService): CommandHandlers {
-  return handlersFor(["mission.create", "standingTeam.create", "standingTeam.update", "standingTeam.archive", "mission.pause", "mission.resume", "mission.proposeCompletion", "mission.close", "mission.brief.edit", "decision.accept", "mission.policy.set", "mission.message.send", "mission.question.ask", "mission.budget.set", "mission.owner.transfer", "workspace.spendCap.set", "workItem.spendCap.raise", "handoff.submit", "mission.verdict.record", "plan.propose", "plan.reject", "plan.confirm", "workItem.transition", "workItem.comment", "workItem.details.set"], {
+  return handlersFor(["mission.create", "standingTeam.create", "standingTeam.update", "standingTeam.archive", "mission.pause", "mission.resume", "mission.proposeCompletion", "mission.close", "mission.brief.edit", "decision.accept", "mission.policy.set", "mission.message.send", "mission.question.ask", "mission.budget.set", "mission.owner.transfer", "workspace.spendCap.set", "workItem.spendCap.raise", "workItem.candidate.keep", "handoff.submit", "mission.verdict.record", "plan.propose", "plan.reject", "plan.confirm", "workItem.transition", "workItem.comment", "workItem.details.set"], {
     kind: "workspace",
     handle: ({ actor, cmd }) => ({ resourceId: missions.apply(actor, cmd as Parameters<MissionService["apply"]>[1]) }),
   });

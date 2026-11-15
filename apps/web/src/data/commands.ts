@@ -15,7 +15,7 @@ export type CommandKind =
   | "runner.control"
   | "mission.create" | "mission.owner.transfer" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "mission.watch" | "mission.seen"
   | "mission.brief.edit" | "decision.accept" | "standingTeam.create" | "standingTeam.update" | "standingTeam.archive" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
-  | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise" | "workItem.details.set" | "pullRequest.refresh"
+  | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise" | "workItem.candidate.keep" | "workItem.details.set" | "pullRequest.refresh"
   | "workspace.wayOfWorking.set" | "workspace.modelRoutes.set" | "workspace.effects.set" | "workspace.queueLimit.set" | "workspace.autonomyCeiling.set" | "workspace.sessions.stopAll" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set"
   | "play.proposeFromMissions" | "knowledge.withdrawUnobserved"
   | "automation.upsert" | "automation.control"
@@ -44,6 +44,7 @@ export type PayloadFor<K extends CommandKind> =
     : K extends "mission.budget.set" ? { missionId: string; budget: MissionBudget }
     : K extends "workspace.spendCap.set" ? { dailyMicroUsd?: number; weeklyMicroUsd?: number }
     : K extends "workItem.spendCap.raise" ? { workItemId: string; maxTokens: number }
+    : K extends "workItem.candidate.keep" ? { workItemId: string; runId: string }
     : K extends "workItem.details.set" ? { workItemId: string; priority?: WorkItemPriority; tags?: string[]; dueAt?: string | null }
     : K extends "pullRequest.refresh" ? { pullRequestId: string }
     : K extends "workspace.wayOfWorking.set" ? { workflowId: string; requiredTools?: string[] }

@@ -800,6 +800,15 @@
       ]
     },
     {
+      "type": "workItem.candidate.keep",
+      "schema": "WorkItemCandidateKeepCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "workItem.details.set",
       "schema": "WorkItemDetailsSetCommand",
       "scope": "mission:write",
