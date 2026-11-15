@@ -10,6 +10,7 @@ import { assertExpectedVersion } from "../../domain/states";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { enqueueSessionControl } from "./controls";
+import { pauseView, requestSessionContinue, requestSessionPause } from "./pause";
 import { readVerified } from "../artifacts/index";
 import { readableSources, toolAvailability } from "../resources/index";
 import { buildContextPack, type BuiltPack, type PackItem, type PackSection } from "./context-pack";
@@ -145,6 +146,7 @@ export class SessionService {
       lastEventSequence: row.event_sequence, delegationDepth: row.delegation_depth,
       budget: JSON.parse(row.budget_json) as SessionBudget, scope: JSON.parse(row.scope_json) as SessionScope,
       worktreeId: row.worktree_id, ...(checkpoint ? { checkpoint } : {}), ...(row.resumed_from_json ? { resumedFrom: JSON.parse(row.resumed_from_json) as NonNullable<BrainSession["resumedFrom"]> } : {}), ...(activity ? { activity } : {}),
+      pause: pauseView(this.store, { state: row.state, attemptId: row.attempt_id, engineId: row.engine_id, engineFeatures: engineFeaturesOf(row.engine_features) }),
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }
@@ -373,6 +375,14 @@ export class SessionService {
   enqueueControl(actor: ActorContext, workspaceId: string, sessionId: string, kind: "session.steer" | "session.stop", payload: JsonValue): string {
     requireWorkspaceRead(this.store, actor, workspaceId);
     enqueueSessionControl(this.store, { organizationId: actor.organizationId, workspaceId, sessionId, kind, payload });
+    return sessionId;
+  }
+
+  /** Holds one running session at its next turn boundary, or lets it run again; the mission and the other members' sessions are untouched. */
+  pauseControl(actor: ActorContext, workspaceId: string, sessionId: string, kind: "session.pause" | "session.continue"): string {
+    requireWorkspaceRead(this.store, actor, workspaceId);
+    const input = { organizationId: actor.organizationId, workspaceId, sessionId };
+    if (kind === "session.pause") requestSessionPause(this.store, { ...input, actorId: actor.actorId }); else requestSessionContinue(this.store, input);
     return sessionId;
   }
 
@@ -680,8 +690,10 @@ export function recordAttemptProgress(store: Store, input: {
 
 /** Ends the session of a completed attempt: failed when the job failed, stopped otherwise. */
 export function endAttemptSession(store: Store, input: { organizationId: string; workspaceId: string; attemptId: string; failed: boolean }): void {
-  store.workspaceDb(input.workspaceId, input.organizationId)
-    .prepare("UPDATE sessions SET state=?, updated_at_ms=? WHERE attempt_id=?").run(input.failed ? "failed" : "stopped", store.now(), input.attemptId);
+  const db = store.workspaceDb(input.workspaceId, input.organizationId);
+  db.prepare("UPDATE sessions SET state=?, updated_at_ms=? WHERE attempt_id=?").run(input.failed ? "failed" : "stopped", store.now(), input.attemptId);
+  // A stop is delivered until the session has ended (controls.ts); once it has, nothing is left to deliver.
+  db.prepare("DELETE FROM session_controls WHERE session_id IN (SELECT id FROM sessions WHERE attempt_id=?)").run(input.attemptId);
 }
 
 /** The Governor, not the agent or runner, stamps what the work consumed and which brief it worked from. */

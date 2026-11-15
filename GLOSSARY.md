@@ -313,6 +313,16 @@ mission continues.
 _Avoid_: runner session, auth session, upload session (all different things that
 happen to share the word), chat
 
+**Paused session**:
+One running session a person holds at its next turn boundary (`session.pause`) and lets go
+on later (`session.continue`): the same session, with its fence, lease and runner slot
+kept. The mission and the other members' sessions do not change. Held time is not working
+time and does not run down the step's timeout; a session held longer than the hold limit
+(30 minutes) is stopped. Only engines that can stop at a turn boundary offer it. Not a
+paused mission (the whole mission, no new task starts) and not resume from checkpoint (a
+new session started from a stopped session's saved conversation).
+_Avoid_: suspend, freeze, resume (alone: ambiguous with resume from checkpoint)
+
 **Work session**:
 A session that serves a work item from a confirmed plan version. No work session runs
 before its plan version is confirmed.

@@ -1,0 +1,10 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_session.pause",
+  "commandType": "session.pause",
+  "idempotencyKey": "idem_session.pause",
+  "payload": {
+    "sessionId": "fixture"
+  },
+  "workspaceId": "fixture"
+}

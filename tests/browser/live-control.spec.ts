@@ -109,12 +109,12 @@ test("live: doing-now sentence, ETA band, Pause, Steer recorded in the brief, St
   expect(briefAt).toBeLessThanOrEqual(control[0]!.created_at_ms);
 
   // 4. Pause pauses the mission; Resume brings it back.
-  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await page.getByRole("button", { name: "Pause mission", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: /^Mission paused/ })).toBeVisible();
   expect((ws.prepare("SELECT state FROM missions WHERE id='mis-live'").get() as { state: string }).state).toBe("paused");
-  await expect(page.getByRole("button", { name: "Resume", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Resume", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Resume mission", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Resume mission", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Pause mission", exact: true })).toBeVisible();
   expect((ws.prepare("SELECT state FROM missions WHERE id='mis-live'").get() as { state: string }).state).toBe("active");
 
   // 5. The task row on the mission's Plan tab says the same in words, with the band.

@@ -130,11 +130,16 @@ const GENERIC: StatusMap = {
   offline: { theme: "red", label: "Offline" },
 };
 
+/** A session a person holds at a turn boundary (ADR 0055); every other session state keeps the shared maps. */
+const SESSION: StatusMap = {
+  paused: { theme: "amber", label: "Paused" }, pausing: { theme: "amber", label: "Pausing" },
+};
+
 const MAPS: Record<string, StatusMap> = {
   job: JOB, workItem: WORK_ITEM, approval: APPROVAL, runner: RUNNER, automation: AUTOMATION,
   occurrence: OCCURRENCE, evidence: EVIDENCE, plan: PLAN, ticket: TICKET,
   incident: INCIDENT_STATE, severity: SEVERITY, health: HEALTH, decision: DECISION,
-  knowledge: KNOWLEDGE, check: CHECK, priority: PRIORITY, connection: CONNECTION, placement: PLACEMENT,
+  knowledge: KNOWLEDGE, check: CHECK, priority: PRIORITY, connection: CONNECTION, placement: PLACEMENT, session: SESSION,
 };
 
 export type StatusKind = keyof typeof MAPS;

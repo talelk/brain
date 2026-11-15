@@ -67,7 +67,13 @@ export interface AgentExecutionInput {
    * Called once the engine session exists: live controls (steer) bind to this
    * handle. Steering is feature-gated on the adapter's probe features.
    */
-  onSession?: (handle: { sessionId: string; features: readonly string[]; steer: (messageId: string, message: string) => Promise<void> }) => void;
+  onSession?: (handle: {
+    sessionId: string; features: readonly string[]; steer: (messageId: string, message: string) => Promise<void>;
+    /** Holds the session at its next turn boundary; resolves once it is held. The execution deadline stops counting while it is held. */
+    pause: () => Promise<void>;
+    /** Lets a held session go on (or cancels a pause not yet reached) and starts the deadline counting again. */
+    continue: () => Promise<void>;
+  }) => void;
   emit: (kind: string, payload: unknown) => Promise<void>;
   signal: AbortSignal;
 }
@@ -108,7 +114,11 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
   const { engine } = input;
   const deadline = new AbortController();
   // A change an agent proposes is held by the Governor and made after the decision (ADR 0028): nothing here waits for a person.
-  const timer = setTimeout(() => deadline.abort(new Error("agent execution deadline exceeded")), Math.max(1, input.timeoutMs));
+  // The deadline is working time: a session a person holds at a turn boundary is not running down its allowance (ADR 0055).
+  let remainingMs = Math.max(1, input.timeoutMs);
+  let armedAt = Date.now();
+  let timer = setTimeout(() => deadline.abort(new Error("agent execution deadline exceeded")), remainingMs);
+  let deadlineHeld = false;
   const signal = AbortSignal.any([input.signal, deadline.signal]);
   const bounded = <T>(operation: Promise<T>): Promise<T> => {
     if (signal.aborted) return Promise.reject(signal.reason);
@@ -187,6 +197,18 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
       steer: (messageId, message) => {
         if (!engine.steer) return Promise.reject(Object.assign(new Error(`${engine.id} does not support steering`), { code: "UNSUPPORTED_CAPABILITY" }));
         return engine.steer(sessionId, messageId, message);
+      },
+      pause: async () => {
+        if (!engine.pause) throw Object.assign(new Error(`${engine.id} cannot stop at a turn boundary`), { code: "UNSUPPORTED_CAPABILITY" });
+        await engine.pause(sessionId);
+        if (!deadlineHeld) { deadlineHeld = true; clearTimeout(timer); remainingMs = Math.max(1, remainingMs - (Date.now() - armedAt)); }
+      },
+      continue: async () => {
+        await engine.continue?.(sessionId);
+        if (deadlineHeld) {
+          deadlineHeld = false; armedAt = Date.now();
+          timer = setTimeout(() => deadline.abort(new Error("agent execution deadline exceeded")), remainingMs);
+        }
       },
     });
     const events = engine.events(sessionId, 0, signal)[Symbol.asyncIterator]();

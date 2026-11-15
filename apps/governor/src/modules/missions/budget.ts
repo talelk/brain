@@ -1,6 +1,7 @@
 import type { BudgetUsage, MissionBudget } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { transitionState } from "../../domain/states";
+import { heldRanges } from "../sessions/index";
 import { capReached, missionUsage, tallyUsage } from "./usage";
 
 type Db = ReturnType<Store["workspaceDb"]>;
@@ -51,7 +52,14 @@ export function workingMs(store: Store, db: Db, missionId: string, now: number):
   for (const attempt of attempts) {
     const found = lookup.get(attempt.attempt_id) as { lease: number; released: number | null } | undefined;
     const end = Math.min(found?.released ?? now, found ? Math.max(found.lease, attempt.created_at_ms) : now, now);
-    intervals.push([attempt.created_at_ms, end]);
+    // A session a person held at a turn boundary keeps its slot but is not working (ADR 0055): its held ranges are cut out.
+    let from = attempt.created_at_ms;
+    for (const [heldFrom, heldTo] of heldRanges(store, attempt.attempt_id, now)) {
+      if (heldTo <= from || heldFrom >= end) continue;
+      if (heldFrom > from) intervals.push([from, heldFrom]);
+      from = Math.max(from, heldTo);
+    }
+    intervals.push([from, end]);
   }
   return unionMs(intervals);
 }

@@ -247,6 +247,20 @@ function SessionConsole(props: {
       session={detail()} canOperate={canOperate()} feedback={feedback()} steerRequest={steerRequest()}
       onRefresh={() => void session.refresh({ force: true })}
       recordsSteer={Boolean(facts().missionId)} missionState={facts().mission?.state}
+      onPauseSession={async () => {
+        try {
+          const result = await app.run("session.pause", { sessionId: props.sessionId });
+          setFeedback(result.accepted ? t("console.pause.done") : result.detail);
+        } catch (e) { setFeedback(e instanceof Error ? e.message : "Pausing the session was refused."); }
+        await session.refresh({ force: true });
+      }}
+      onContinueSession={async () => {
+        try {
+          const result = await app.run("session.continue", { sessionId: props.sessionId });
+          setFeedback(result.accepted ? t("console.continue.done") : result.detail);
+        } catch (e) { setFeedback(e instanceof Error ? e.message : "Continuing the session was refused."); }
+        await session.refresh({ force: true });
+      }}
       onPause={facts().missionId ? async () => {
         const mission = facts().mission;
         try {

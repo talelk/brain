@@ -14,6 +14,11 @@ export function sessionCommands(sessions: SessionService): CommandHandlers {
       kind: "self",
       handle: ({ actor, cmd, workspaceId }) => ({ outcome: "queued", resourceId: sessions.resume(actor, workspaceId, cmd.commandId, cmd.payload) }),
     },
+    // Pause and continue act on one session's attempt; they never touch the mission or any other session.
+    ...handlersFor(["session.pause", "session.continue"], {
+      kind: "workspace",
+      handle: ({ actor, cmd, workspaceId }) => ({ resourceId: sessions.pauseControl(actor, workspaceId, String(cmd.payload["sessionId"]), cmd.commandType as "session.pause" | "session.continue") }),
+    }),
     ...handlersFor(["session.steer", "session.stop"], {
       kind: "workspace",
       handle: ({ actor, cmd, workspaceId }) => ({

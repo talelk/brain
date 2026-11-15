@@ -1,6 +1,7 @@
 import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, runnerChallenge, runnerHello, type HeartbeatCommand } from "./protocol";
+import { stopOverlongPauses } from "../sessions/index";
 import { ackAttempt, attemptEvents, claim, completeAttempt, expireAttemptDeadlines, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, type ContextPackPort, type SessionCredential } from "./attempts";
 import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
 import { BrainDomainError } from "../../domain/errors";
@@ -182,6 +183,11 @@ export class JobProtocol {
     return expireAttemptDeadlines(this.store, {
       completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.ports.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
     });
+  }
+
+  /** Stops the sessions a person paused and left held longer than the hold limit (ADR 0055); idempotent. */
+  expirePausedSessions(): number {
+    return stopOverlongPauses(this.store);
   }
 
   /** Settles decided effect proposals, releases or cancels their held act jobs and resumes jobs whose changes are all settled (ADR 0028); idempotent. */

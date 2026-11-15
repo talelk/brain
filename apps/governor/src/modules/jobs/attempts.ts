@@ -4,7 +4,7 @@ import { releaseRecord, releaseToolAllowedHosts, releaseToolPins } from "../conf
 import { workspaceEgressHosts } from "../governance/index";
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
 import { putBytes, readVerified, registerArtifact } from "../artifacts/index";
-import { endAttemptSession, recordAttemptCheckpoint, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
+import { endAttemptSession, recordAttemptCheckpoint, recordPauseProgress, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
 import { ensureAgentPrincipal, issueSessionCredential, revokeSessionCredentials } from "../identity/index";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
@@ -477,6 +477,15 @@ export function attemptEvents(s: Store, runner: { runnerId: string; epoch: numbe
       const stored = s.control.prepare("INSERT OR IGNORE INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(attemptId, seq, JSON.stringify(ev));
       // Tool calls are counted when their event is first stored; a replayed batch inserts nothing and so counts nothing twice.
       if (stored.changes === 1) recordToolCall(s, row, attemptId, ev);
+      // The runner reports a held or released engine as a progress event; the Governor dates it on its own clock (ADR 0055).
+      if (stored.changes === 1 && (ev as { kind?: unknown }).kind === "progress") {
+        const phase = ((ev as { payload?: { phase?: unknown } }).payload)?.phase;
+        if (typeof phase === "string") {
+          const heldMs = recordPauseProgress(s, attemptId, phase);
+          // The step's timeout does not run while the engine is held (ADR 0055): its deadline moves by the held time.
+          if (heldMs > 0) s.control.prepare("UPDATE job_attempts SET deadline_ms=deadline_ms+? WHERE id=? AND deadline_ms IS NOT NULL").run(heldMs, attemptId);
+        }
+      }
       lastSeq = seq;
     }
     s.control.prepare("UPDATE job_attempts SET last_event_seq=? WHERE id=?").run(lastSeq, attemptId);
@@ -723,7 +732,8 @@ export function expireLeases(s: Store): number {
  */
 export function expireAttemptDeadlines(s: Store, deps: { completeStep: (organizationId: string, workspaceId: string, runId: string, stepId: string, output: JsonValue, ok: boolean) => void }): number {
   const due = s.control.prepare(`SELECT a.id AS attemptId, a.job_id AS jobId, j.organization_id AS organizationId, j.workspace_id AS workspaceId, j.workflow_run_id AS runId, j.step_id AS stepId
-    FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE a.state='running' AND a.deadline_ms IS NOT NULL AND a.deadline_ms<=? ORDER BY a.deadline_ms, a.id LIMIT 200`).all(s.now()) as Array<{ attemptId: string; jobId: string; organizationId: string; workspaceId: string; runId: string; stepId: string }>;
+    FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE a.state='running' AND a.deadline_ms IS NOT NULL AND a.deadline_ms<=?
+      AND NOT EXISTS (SELECT 1 FROM attempt_pauses p WHERE p.attempt_id=a.id AND p.paused_at_ms IS NOT NULL AND p.resumed_at_ms IS NULL) ORDER BY a.deadline_ms, a.id LIMIT 200`).all(s.now()) as Array<{ attemptId: string; jobId: string; organizationId: string; workspaceId: string; runId: string; stepId: string }>;
   let count = 0;
   const failures: Array<{ due: (typeof due)[number]; message: string }> = [];
   for (const item of due) {
