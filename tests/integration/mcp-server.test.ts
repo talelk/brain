@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../apps/governor/src/http/app";
 import { setupWorld } from "../helpers";
+import { confirmedMission, register, running, stageStarter } from "../support/machine-session";
 import { scaled } from "../support/timing";
 
 // An MCP client's view of Brain at the HTTP seam: initialize, tools/list, tools/call for a read and a write, as the signed-in person.
@@ -73,5 +74,41 @@ describe("MCP server", () => {
     app.brain.ensurePrincipal(w.org, "outsider-1", "human");
     const outsider = await rpc("tools/call", { name: "command.mission.create", arguments: { ...args, idempotencyKey: "mcp-5" } }, "outsider-1");
     expect(outsider.status === 200 ? outsider.body.result!.isError : true).toBe(true);
+  }, scaled(120_000));
+
+  it("a session credential over /mcp runs only its allowlisted commands and never an approval decision", async () => {
+    app = await createApp({ dataDir: mkdtempSync(join(tmpdir(), "brain-mcp-session-")), allowTestActor: true });
+    const w = setupWorld(app.brain);
+    stageStarter(w);
+    const runner = register(w, "runner-mcp");
+    const { missionId, workItemId } = await confirmedMission(w);
+    const offer = running(w, runner, "mcp");
+    const credential = w.brain.jobProtocol.sessionCredential(runner, offer.attemptId).credential;
+    let rpcId = 0;
+    const call = async (name: string, args: Record<string, unknown>) => {
+      const res = await app!.fetch(new Request("http://127.0.0.1:3000/mcp", {
+        method: "POST", headers: { "content-type": "application/json", accept: "application/json", authorization: `Bearer ${credential}` },
+        body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method: "tools/call", params: { name, arguments: args } }),
+      }));
+      expect(res.status).toBe(200);
+      const reply = (await res.json()) as Reply; expect(reply.error, name).toBeUndefined(); return reply.result!;
+    };
+    const refusedCommands: [string, Record<string, unknown>][] = [
+      ["command.mission.pause", { missionId }],
+      ["command.mission.close", { missionId }],
+      ["command.workspace.spendCap.set", { dailyMicroUsd: 1 }],
+      ["command.plan.confirm", { planVersionId: "none" }],
+      ["command.approval.request", {}],
+      ["command.approval.revoke", {}],
+    ];
+    for (const [name, payload] of refusedCommands) {
+      const result = await call(name, { workspaceId: w.workspaceId, idempotencyKey: `s-${name}`, payload });
+      expect(result.isError, name).toBe(true);
+    }
+    expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM approval_requests").get()).toEqual({ n: 0 });
+    // The one behind a Brain tool is admitted.
+    const allowed = await call("command.workItem.comment", { workspaceId: w.workspaceId, idempotencyKey: "s-note", payload: { workItemId, text: "From a session over MCP" } });
+    expect(allowed.isError).toBe(false);
+    expect(allowed.structuredContent).toMatchObject({ accepted: true });
   }, scaled(120_000));
 });
