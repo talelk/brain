@@ -236,7 +236,8 @@ _Avoid_: workflow state, workflow run state
 
 **Step**:
 A node declared in a workflow definition — dispatch, gate, evaluation, steer, merge or
-subgraph. When a run reaches it, a job executes it.
+subgraph. A step starts once every step it `needs` has succeeded, so steps with no need
+of each other run together up to the mission's member cap (ADR 0043); a job executes it.
 _Avoid_: job (when meaning a declared node), node, stage
 
 **Job**:

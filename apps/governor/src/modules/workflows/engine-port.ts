@@ -3,8 +3,9 @@ import type { JsonValue, Workflow } from "@brain/contracts";
 // The workflow engine port: Brain owns authorization, jobs, approvals,
 // permits and evidence; an engine owns only run/step progression against the
 // durable workflow_runs/workflow_steps/step_outputs tables. The Mastra engine
-// is its one adapter; what admitting each step kind does lives in
-// admission.ts, shared by Brain's synchronous scheduler and the Mastra steps.
+// is its one adapter; which steps run and what admitting each step kind does
+// live in admission.ts, the one scheduler: every step whose needs are met is
+// admitted together (ADR 0043).
 export interface WorkflowEnginePort {
   readonly engineId: string;
   startRun(input: {
@@ -17,6 +18,8 @@ export interface WorkflowEnginePort {
   wakeGate(organizationId: string, workspaceId: string, approvalId: string, approved: boolean): void;
   cancelRun(organizationId: string, workspaceId: string, runId: string): void;
   evidenceSubmitted(organizationId: string, workspaceId: string, runId: string): void;
+  /** Admits the ready steps of a run a crash left with nothing in flight; idempotent, so a step already admitted is never admitted twice. */
+  recoverRun(organizationId: string, workspaceId: string, runId: string): void;
 }
 
 export interface WorkflowHost {
@@ -34,6 +37,8 @@ export interface WorkflowHost {
     organizationId: string; workspaceId: string; runId: string; stepId: string;
     subject: JsonValue; expiresAtMs: number; requestedBy: string;
   }): string;
+  /** A run failed: the jobs of its other branches that no runner holds yet are withdrawn. */
+  cancelUnclaimedJobs(runId: string): void;
   loadWorkflow(organizationId: string, workflowId: string): { workflow: Workflow; configDigest: string };
   /** A run failed (a failed step or rejected verdict); work linked to it counts a failed attempt. */
   runFailed(input: { organizationId: string; workspaceId: string; runId: string; diagnostic: string }): void;
