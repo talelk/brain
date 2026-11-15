@@ -11462,6 +11462,9 @@
           "$ref": "#/$defs/WorkspaceEffectsSetCommand"
         },
         {
+          "$ref": "#/$defs/WorkspaceQueueLimitSetCommand"
+        },
+        {
           "$ref": "#/$defs/RunnerGroupSetCommand"
         },
         {
@@ -25394,6 +25397,51 @@
               "maxItems": 100
             }
           },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceQueueLimitSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workspace.queueLimit.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "maxQueued": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            }
+          },
+          "required": [
+            "maxQueued"
+          ],
           "additionalProperties": false
         }
       },

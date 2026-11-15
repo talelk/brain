@@ -3,6 +3,7 @@ import type { ActorContext, CommandEnvelope, CommandReceipt, JsonValue } from "@
 import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
 import { authorizeCommand, requireWorkspaceRead, type ResolvedActor } from "./authz";
+import { assertQueueAdmits } from "../modules/jobs/index";
 import { missionsOfCommand } from "../modules/missions/index";
 import type { Store } from "./store";
 
@@ -136,6 +137,8 @@ export class CommandFunnel {
     if (recovered) {
       result = recovered;
     } else {
+      // A retry of an applied command was answered above; a new start of work is refused while the workspace's queue is full (ADR 0040).
+      if (workspaceId) assertQueueAdmits(this.store, actor, cmd.commandType, workspaceId);
       this.recordPending(admitted);
       try {
         if (handler.kind === "workspace") {

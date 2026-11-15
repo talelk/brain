@@ -298,6 +298,12 @@ The egress proxy gives each sandbox a grant of exactly those hosts; none means n
 (ADR 0037). Not the per-tool `allowedHosts` of the fetch broker.
 _Avoid_: firewall, whitelist, network policy
 
+**Queue limit**:
+How many of a workspace's jobs may wait for a runner (default 100, set by an administrator).
+At the limit a person's new work is refused with the reason; work already admitted carries
+on (ADR 0040). Not mission budget admission or the spend cap.
+_Avoid_: rate limit, quota (quota is a model provider's limit)
+
 **Engine**:
 A model-execution harness a runner adapts, pinned for the duration of an attempt.
 _Avoid_: model (a model is what the engine drives), provider

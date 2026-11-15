@@ -15,18 +15,15 @@ services:
     stop_grace_period: 30s
     environment:
       NODE_ENV: production
+      PORT: '3000'
+      # Inside a container the Governor must listen on every interface for the published port to reach it.
+      BRAIN_BIND_HOST: 0.0.0.0
       BRAIN_DATA_DIR: /data
-      BRAIN_CONFIG_DIR: /releases
-      # Proposed Brain image contract: immutable assets and reviewed foundation manifest.
-      # T33/T48 implement these readers and copy the verified build outputs into the image.
       BRAIN_WEB_DIST_DIR: /app/web
-      BRAIN_UI_FOUNDATION_MANIFEST_FILE: /app/ui/ui-foundation.json
-      BRAIN_PUBLIC_URL: ${BRAIN_PUBLIC_URL:?https-origin-required}
-      BRAIN_AUTH_SECRET_FILE: /run/secrets/auth_secret
-    secrets: [auth_secret]
+      # The public origin people reach Brain at: sign-in cookies and every link in a notification use it.
+      BRAIN_BASE_URL: ${BRAIN_BASE_URL:?https-origin-required}
     volumes:
       - brain_state:/data
-      - ${BRAIN_RELEASE_DIR:?read-only-release-directory-required}:/releases:ro
     tmpfs: ['/tmp:size=128m,mode=1770,uid=10001,gid=10001']
     ports: ['127.0.0.1:3000:3000']
     networks: [control]
@@ -39,6 +36,3 @@ volumes:
   brain_state: {}
 networks:
   control: {}
-secrets:
-  auth_secret:
-    file: ${BRAIN_AUTH_SECRET_PATH:?host-secret-file-required}
