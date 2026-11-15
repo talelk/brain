@@ -14311,7 +14311,9 @@
                           "run",
                           "approval",
                           "session",
-                          "artifact"
+                          "artifact",
+                          "mission",
+                          "workItem"
                         ]
                       },
                       "title": {
@@ -14328,6 +14330,9 @@
                         "$ref": "#/$defs/Id"
                       },
                       "workspaceId": {
+                        "$ref": "#/$defs/Id"
+                      },
+                      "missionId": {
                         "$ref": "#/$defs/Id"
                       },
                       "updatedAt": {

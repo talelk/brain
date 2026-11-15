@@ -1124,6 +1124,7 @@ export class Brain {
         const results: Array<Record<string, JsonValue>> = [];
         for (const workspaceId of workspaces().slice(0, 25)) {
           results.push(
+            ...this.missions.searchTitles(actor, workspaceId, matches),
             ...searchJobs(s, actor.organizationId, workspaceId, matches),
             ...searchApprovals(s, actor.organizationId, workspaceId, matches),
             ...searchSessions(s, actor.organizationId, workspaceId, matches),
