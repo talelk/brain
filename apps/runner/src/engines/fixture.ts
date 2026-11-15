@@ -12,6 +12,40 @@ const TASK_MARK = "\n\n# Task\n";
  */
 export const fixtureGate: { hold?: (attemptId: string, signal: AbortSignal) => Promise<void> } = {};
 
+const isCoordinator = (instructions: string): boolean => instructions.includes("# Plan Coordinator");
+
+/**
+ * The fixture's coordinator, a stand-in for a model reading the Governor's coordinator pack (ADR 0045). A message to the mission may script
+ * its calls as `FIXTURE_CALL_TOOL {...}` lines, exactly as a task's situation does for a worker. Without a script it plans like a careful
+ * coordinator would, from the pack alone: it adds a source check after the last task, then a follow-up for the first task that was verified,
+ * and it proposes nothing while a proposal of its own still waits for a person.
+ */
+function coordinatorCalls(task: string): Array<{ id: string; input: Record<string, unknown> }> {
+  const at = task.indexOf(TASK_MARK);
+  const pack = at >= 0 ? task.slice(0, at) : "";
+  const scripted = [...pack.matchAll(/FIXTURE_CALL_TOOL (\{.*\})/gu)].map((match) => JSON.parse(match[1]!) as { id: string; input: Record<string, unknown> });
+  if (scripted.length > 0) return scripted;
+  if (pack.includes("## Plan proposals waiting for a person")) return [];
+  const line = /^Tasks: (\[.*\])$/mu.exec(pack);
+  if (!line) return [];
+  const tasks = JSON.parse(line[1]!) as Array<{ id: string; title: string; dependsOn: string[]; criterionIds?: string[]; assignment?: unknown }>;
+  const reasons = ((): string[] => { try { return (JSON.parse(task.slice(at + TASK_MARK.length)) as { reasons?: string[] }).reasons ?? []; } catch { return []; } })();
+  const worker = /^- ([a-z][a-z0-9.-]*): .*\(agent (?!plan-coordinator)[a-z0-9.-]+,/mu.exec(pack)?.[1];
+  const criteria = [...pack.matchAll(/^(c[1-9][0-9]*): /gmu)].map((match) => match[1]!);
+  if (!worker) return [];
+  const assignment = { kind: "agent", id: worker, role: "specialist" };
+  const propose = (summary: string, added: unknown) => [{ id: "mission.propose-plan", input: { summary, tasks: [...tasks, added] } }];
+  if (!tasks.some((entry) => entry.id === "check-sources")) {
+    const leaves = tasks.filter((entry) => !tasks.some((other) => other.dependsOn.includes(entry.id))).map((entry) => entry.id);
+    return propose("Check every claim against its source before the mission is signed off", { id: "check-sources", title: "Check each claim in the brief against its source", criteria: ["Every claim has a source or is marked as an assumption"], dependsOn: leaves, ...(criteria.includes("c2") ? { criterionIds: ["c2"] } : {}), assignment });
+  }
+  const verified = tasks.find((entry) => reasons.some((reason) => reason.startsWith("work-verified") && reason.endsWith(entry.title)));
+  if (verified && !tasks.some((entry) => entry.id === "follow-up")) {
+    return propose(`Follow up on what ${verified.id} found`, { id: "follow-up", title: "Resolve the open questions the finished work left", criteria: ["Each open question is answered or marked unresolved"], dependsOn: [verified.id], ...(criteria.includes("c3") ? { criterionIds: ["c3"] } : {}), assignment });
+  }
+  return [];
+}
+
 export class FixtureEngine implements EngineAdapter {
   readonly id = "fixture";
   private seq = 0;
@@ -79,13 +113,14 @@ export class FixtureEngine implements EngineAdapter {
             assumptions: ["The brief is complete"],
           };
         } else if (typeof input["situation"] === "string") response = { summary: `Fixture: ${input["situation"]}`, blockers: [], nextActions: ["Inspect diagnostic inputs"] };
+        if (isCoordinator(spec.instructions) && typeof input["missionId"] === "string") response = { summary: "Fixture coordinator: nothing to change." };
         if (typeof input["title"] === "string" && typeof input["body"] === "string") response = { summary: `Fixture: ${input["title"]}`, missingInformation: [], risk: "low", proposedReply: `Fixture draft: ${input["body"]}` };
       } catch { /* Plain-text engine conformance tasks use the default response. */ }
       // Test hook for the governed tool broker: a situation holding `FIXTURE_CALL_TOOL {"id":"documents.read","input":{...}}` makes the fixture
       // propose that tool exactly as a model would, wait for the broker's result and quote it in its deliverable.
       // A situation may hold several such lines: the fixture proposes them one after the other, each waiting for its own answer.
       let calls = 0;
-      for (const requested of this.requestedTools(spec.task)) {
+      for (const requested of this.requestedTools(spec.task, spec.instructions)) {
         const binding = this.toolBindings.find((candidate) => candidate.release.id === requested.id);
         if (!binding) continue;
         calls += 1;
@@ -94,6 +129,10 @@ export class FixtureEngine implements EngineAdapter {
         this.push("tool.proposed", { proposalId, tool: binding.release, input: requested.input, target: binding.target, inputDigest: sha256Digest(new TextEncoder().encode(JSON.stringify(requested.input))) } as never);
         const answered = await waited;
         this.push("tool.result", { proposalId, invocationId: answered.invocationId, receipt: answered.receipt });
+        if (isCoordinator(spec.instructions) && response && typeof (response as { summary?: unknown }).summary === "string") {
+          const report = response as { summary: string };
+          report.summary = `Fixture coordinator: called ${requested.id}; ${JSON.stringify(answered.output).slice(0, 600)}`;
+        }
         if (response && typeof response === "object" && typeof (response as { deliverable?: unknown }).deliverable === "string") {
           const report = response as { summary: string; deliverable: string };
           if (calls === 1) report.summary = `${report.summary} (used ${requested.id})`;
@@ -116,7 +155,8 @@ export class FixtureEngine implements EngineAdapter {
     return { sessionId: this.sessionId };
   }
 
-  private requestedTools(task: string): Array<{ id: string; input: Record<string, unknown> }> {
+  private requestedTools(task: string, instructions: string): Array<{ id: string; input: Record<string, unknown> }> {
+    if (isCoordinator(instructions)) return coordinatorCalls(task);
     try {
       // A resumed task carries a plain-words note of what became of its earlier proposals after the JSON brief (ADR 0028): the brief is what is parsed.
       const brief = task.split("\n\n# Changes you proposed earlier")[0]!;
