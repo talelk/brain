@@ -15421,7 +15421,8 @@
        "quality.breakdown",
        "practices.list",
        "standingTeams.list",
-       "chatIdentities.list"
+       "chatIdentities.list",
+       "autonomy.suggestions"
       ]
      },
      "workspaceId": {
@@ -15522,7 +15523,8 @@
        "quality.breakdown",
        "practices.list",
        "standingTeams.list",
-       "chatIdentities.list"
+       "chatIdentities.list",
+       "autonomy.suggestions"
       ]
      },
      "snapshot": {
@@ -19284,6 +19286,12 @@
      },
      {
       "$ref": "#/components/schemas/MissionPolicySetCommand"
+     },
+     {
+      "$ref": "#/components/schemas/AutonomySuggestionAcceptCommand"
+     },
+     {
+      "$ref": "#/components/schemas/AutonomySuggestionDismissCommand"
      },
      {
       "$ref": "#/components/schemas/MissionMessageSendCommand"
@@ -36706,6 +36714,451 @@
      "payload"
     ],
     "additionalProperties": false
+   },
+   "AutonomyFigure": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "label",
+     "unit",
+     "numerator",
+     "needed",
+     "met",
+     "definition"
+    ],
+    "properties": {
+     "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+     },
+     "label": {
+      "type": "string",
+      "maxLength": 128
+     },
+     "unit": {
+      "type": "string",
+      "enum": [
+       "count",
+       "ratio"
+      ]
+     },
+     "value": {
+      "type": "number"
+     },
+     "numerator": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "denominator": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "needed": {
+      "type": "string",
+      "maxLength": 128
+     },
+     "met": {
+      "type": "boolean"
+     },
+     "definition": {
+      "type": "string",
+      "maxLength": 1024
+     }
+    }
+   },
+   "AutonomySuggestion": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "suggestionId",
+     "kind",
+     "subjectId",
+     "subjectTitle",
+     "from",
+     "to",
+     "window",
+     "counted",
+     "figures",
+     "evidence",
+     "effectsNote"
+    ],
+    "properties": {
+     "suggestionId": {
+      "type": "string",
+      "maxLength": 400
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "play",
+       "mission",
+       "repeat"
+      ]
+     },
+     "subjectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+     },
+     "subjectTitle": {
+      "type": "string",
+      "maxLength": 300
+     },
+     "from": {
+      "type": "string",
+      "maxLength": 64
+     },
+     "to": {
+      "type": "string",
+      "maxLength": 64
+     },
+     "sourceMissionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+     },
+     "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "from",
+       "to",
+       "days"
+      ],
+      "properties": {
+       "from": {
+        "$ref": "#/components/schemas/Timestamp"
+       },
+       "to": {
+        "$ref": "#/components/schemas/Timestamp"
+       },
+       "days": {
+        "type": "integer",
+        "minimum": 1
+       }
+      }
+     },
+     "counted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "since",
+       "reason",
+       "windowOnly",
+       "definition"
+      ],
+      "properties": {
+       "since": {
+        "$ref": "#/components/schemas/Timestamp"
+       },
+       "reason": {
+        "type": "string",
+        "maxLength": 256
+       },
+       "definition": {
+        "type": "string",
+        "maxLength": 1024
+       },
+       "windowOnly": {
+        "type": "boolean"
+       }
+      }
+     },
+     "figures": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+       "$ref": "#/components/schemas/AutonomyFigure"
+      }
+     },
+     "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "missionIds",
+       "agentIds",
+       "evalCases",
+       "failureClasses"
+      ],
+      "properties": {
+       "missionIds": {
+        "type": "array",
+        "maxItems": 50,
+        "items": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 128
+        }
+       },
+       "agentIds": {
+        "type": "array",
+        "maxItems": 20,
+        "items": {
+         "$ref": "#/components/schemas/ConfigId"
+        }
+       },
+       "evalCases": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "failureClasses": {
+        "type": "array",
+        "maxItems": 5,
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "code",
+          "label",
+          "count"
+         ],
+         "properties": {
+          "code": {
+           "type": "string",
+           "maxLength": 64
+          },
+          "label": {
+           "type": "string",
+           "maxLength": 128
+          },
+          "count": {
+           "type": "integer",
+           "minimum": 0
+          }
+         }
+        }
+       }
+      }
+     },
+     "effectsNote": {
+      "type": "string",
+      "maxLength": 512
+     }
+    }
+   },
+   "AutonomyDecisionRecord": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "decisionId",
+     "kind",
+     "subjectId",
+     "decision",
+     "from",
+     "to",
+     "figures",
+     "counted",
+     "decidedBy",
+     "decidedAt"
+    ],
+    "properties": {
+     "decisionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "play",
+       "mission",
+       "repeat"
+      ]
+     },
+     "subjectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+     },
+     "decision": {
+      "type": "string",
+      "enum": [
+       "accepted",
+       "dismissed"
+      ]
+     },
+     "from": {
+      "type": "string",
+      "maxLength": 64
+     },
+     "to": {
+      "type": "string",
+      "maxLength": 64
+     },
+     "figures": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+       "$ref": "#/components/schemas/AutonomyFigure"
+      }
+     },
+     "counted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "since",
+       "reason",
+       "windowOnly",
+       "definition"
+      ],
+      "properties": {
+       "since": {
+        "$ref": "#/components/schemas/Timestamp"
+       },
+       "reason": {
+        "type": "string",
+        "maxLength": 256
+       },
+       "definition": {
+        "type": "string",
+        "maxLength": 1024
+       },
+       "windowOnly": {
+        "type": "boolean"
+       }
+      }
+     },
+     "decidedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+     },
+     "decidedAt": {
+      "$ref": "#/components/schemas/Timestamp"
+     }
+    }
+   },
+   "AutonomySuggestions": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "items",
+     "decisions"
+    ],
+    "properties": {
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/AutonomySuggestion"
+      }
+     },
+     "decisions": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/AutonomyDecisionRecord"
+      }
+     }
+    }
+   },
+   "AutonomySuggestionAcceptCommand": {
+    "type": "object",
+    "properties": {
+     "contractVersion": {
+      "type": "string",
+      "const": "brain.command/v1"
+     },
+     "commandId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "commandType": {
+      "type": "string",
+      "const": "autonomy.suggestion.accept"
+     },
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "idempotencyKey": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "kind",
+       "subjectId"
+      ],
+      "properties": {
+       "kind": {
+        "type": "string",
+        "enum": [
+         "play",
+         "mission",
+         "repeat"
+        ]
+       },
+       "subjectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+       }
+      }
+     }
+    },
+    "required": [
+     "contractVersion",
+     "commandId",
+     "commandType",
+     "workspaceId",
+     "idempotencyKey",
+     "payload"
+    ],
+    "additionalProperties": false
+   },
+   "AutonomySuggestionDismissCommand": {
+    "type": "object",
+    "properties": {
+     "contractVersion": {
+      "type": "string",
+      "const": "brain.command/v1"
+     },
+     "commandId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "commandType": {
+      "type": "string",
+      "const": "autonomy.suggestion.dismiss"
+     },
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "idempotencyKey": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "kind",
+       "subjectId"
+      ],
+      "properties": {
+       "kind": {
+        "type": "string",
+        "enum": [
+         "play",
+         "mission",
+         "repeat"
+        ]
+       },
+       "subjectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+       }
+      }
+     }
+    },
+    "required": [
+     "contractVersion",
+     "commandId",
+     "commandType",
+     "workspaceId",
+     "idempotencyKey",
+     "payload"
+    ],
+    "additionalProperties": false
    }
   }
  },
@@ -37336,6 +37789,24 @@
    ]
   },
   {
+   "type": "autonomy.suggestion.accept",
+   "schema": "AutonomySuggestionAcceptCommand",
+   "scope": "mission:write",
+   "authority": "workspace",
+   "actors": [
+    "human"
+   ]
+  },
+  {
+   "type": "autonomy.suggestion.dismiss",
+   "schema": "AutonomySuggestionDismissCommand",
+   "scope": "mission:write",
+   "authority": "workspace",
+   "actors": [
+    "human"
+   ]
+  },
+  {
    "type": "mission.message.send",
    "schema": "MissionMessageSendCommand",
    "scope": "mission:write",
@@ -37778,7 +38249,8 @@
   "chatIdentities.list",
   "quality.breakdown",
   "practices.list",
-  "standingTeams.list"
+  "standingTeams.list",
+  "autonomy.suggestions"
  ],
  "x-brain-roles": {
   "viewer": [

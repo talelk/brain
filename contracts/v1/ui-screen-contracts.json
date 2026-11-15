@@ -97,6 +97,7 @@
   {
    "route": "/missions/:missionId/:tab",
    "queries": [
+    "autonomy.suggestions",
     "usage.mission",
     "usage.workspace",
     "usage.series",
@@ -135,6 +136,8 @@
    ],
    "actions": [
     "mission.policy.set",
+    "autonomy.suggestion.accept",
+    "autonomy.suggestion.dismiss",
     "mission.owner.transfer",
     "mission.pause",
     "mission.resume",
@@ -306,6 +309,7 @@
   {
    "route": "/plays/:id",
    "queries": [
+    "autonomy.suggestions",
     "plays.list",
     "plays.get",
     "workflows.list",
@@ -318,9 +322,12 @@
     "workflow.dispatch",
     "configDraft.create",
     "automation.upsert",
-    "automation.control"
+    "automation.control",
+    "autonomy.suggestion.accept",
+    "autonomy.suggestion.dismiss"
    ],
    "content": [
+    "autonomy-suggestion",
     "brief",
     "team",
     "plan",
@@ -991,10 +998,15 @@
    "route": "/quality",
    "queries": [
     "quality.summary",
-    "quality.breakdown"
+    "quality.breakdown",
+    "autonomy.suggestions"
    ],
-   "actions": [],
+   "actions": [
+    "autonomy.suggestion.accept",
+    "autonomy.suggestion.dismiss"
+   ],
    "content": [
+    "autonomy-suggestion",
     "metric",
     "definition",
     "window",

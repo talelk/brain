@@ -183,6 +183,13 @@ operations (presets: supervised, standard, autonomous). It never covers effects,
 constraints, budget, started work or declaring a mission achieved.
 _Avoid_: autopilot, auto-approve (it never authorizes effects), autonomy level
 
+**Autonomy suggestion**:
+A deterministic offer, worked out on every read from a Play's, mission's or repeated plan's record since its last problem
+(at least 5 completed tasks, every judged result verified, nothing parked, sent back or failed), to raise the autonomy
+preset one step, never past the ceiling, or to confirm a repeated plan automatically (ADR 0074). A person accepts or
+dismisses it; acceptance records who and the figures. It is not an attention item, never notifies, and never covers effects.
+_Avoid_: recommendation, auto-upgrade, promotion
+
 **Autonomy ceiling**:
 The most autonomy any mission of a workspace may be given, one of the autonomy presets,
 set by an organization administrator with a fresh step-up. A mission can be set lower,
