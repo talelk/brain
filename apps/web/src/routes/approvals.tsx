@@ -21,6 +21,7 @@ import { DisclosureCard } from "../ui/components/primitives";
 import { QueueRow, WorkspaceSection } from "../ui/components/Domain";
 import { DecisionCard } from "../ui/components/DecisionCard";
 import { PullRequests } from "../ui/components/PullRequests";
+import { ApprovalContextBlock } from "../ui/components/ApprovalContext";
 import { t } from "../i18n";
 import { useApp } from "../ui/app-context";
 const workspaceLabel = (approval: ApprovalRequest) => approval.subject.workspaceId;
@@ -66,7 +67,8 @@ function Fact(props: { label: string; value: JSX.Element; wide?: boolean; class?
 }
 
 function EffectBounds(props: { approval: ApprovalRequest }): JSX.Element {
-  const entries = () => Object.entries(props.approval.subject.effectBounds ?? {});
+  // The files an approval would commit are shown as a diff beside it, so their JSON is not repeated here (the exact details keep it).
+  const entries = () => Object.entries(props.approval.subject.effectBounds ?? {}).filter(([key]) => !(key === "arguments" && props.approval.context?.change));
   return <section class="border-b border-outline-gray-1 py-3" aria-label={t("mp.declared-effect-bounds.68b7")}>
     <h3 class="text-base-medium text-ink-gray-9">{t("mp.declared-bounds.cfcd")}</h3>
     <p class="mt-1 text-interface text-ink-gray-6">{t("mp.only-these-limits-are-authorized.36a8")}</p>
@@ -151,16 +153,17 @@ export function ApprovalsScreen(props: {
             <Button size="sm" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={() => setSelected(undefined)}>{t("mp.back-to-approvals.8cd8")}</Button>
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2"><StatusBadge kind="approval" status={approval().state} /></div>
-              <h2 class="mt-2 break-words [overflow-wrap:anywhere] text-section text-ink-gray-9">{plainSentence(approval())}</h2>
+              <h2 class="mt-2 break-words [overflow-wrap:anywhere] text-section text-ink-gray-9">{effectSummary(approval()) ?? plainSentence(approval())}</h2>
               <div class="mt-1"><AskLine approval={approval()} asOf={props.asOf} /></div>
             </div>
-            <div class="flex min-w-0 flex-wrap items-center gap-2"><ApprovalReview active={props.active} requireTwoFactor={props.requireTwoFactor} approvalId={approval().approvalId}
+            <div class="flex min-w-0 flex-wrap items-center gap-2"><ApprovalReview active={props.active} requireTwoFactor={props.requireTwoFactor} approvalId={approval().approvalId} context={<ApprovalContextBlock approval={approval()} />}
               summary={dialogSummary(approval())} requestedBy={app.personName(approval().requestedBy)} expiresAt={approval().subject.expiresAt} asOf={props.asOf}
               targetLabel={`${effect().operation} on ${effect().target}`} exactContent={exactJson(approval())} subjectDigest={approval().subjectDigest} version={approval().version}
               fresh={props.state.canMutate && approval().state === "pending" && isFreshFromServer(approval().subject.expiresAt, props.state.asOf ?? props.asOf)}
               createIdempotencyKey={() => `web-${crypto.randomUUID()}`} verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />
               <Button variant="outline" iconRight="lucide-arrow-right" onClick={() => props.onOpen(approval().approvalId)}>{t("mp.full-review-history.88d6")}</Button></div>
             <p class="text-interface text-ink-gray-7">{t("mp.approving-authorizes-only-this-p.e094")}</p>
+            <ApprovalContextBlock approval={approval()} />
             <ApprovalFacts approval={approval()} asOf={props.asOf} />
             <EffectBounds approval={approval()} />
             <TechnicalDetails label={t("mp.exact-details.c992")}><DigestValue value={approval().subjectDigest} label={t("mp.subject-digest.0300")} /><pre class="brain-readable mt-3 max-w-full min-w-0 overflow-auto whitespace-pre-wrap break-all text-caption">{exactJson(approval())}</pre></TechnicalDetails>
@@ -203,9 +206,10 @@ function EffectDecisionCard(props: { approval: ApprovalRequest; asOf?: string; r
         <div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("approval.card.what")}</dt><dd class="m-0 mt-0.5 break-words [overflow-wrap:anywhere] text-interface font-medium text-ink-gray-9" data-approval-what>{plainSentence(props.approval)}</dd></div>
         <div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("approval.card.target")}</dt><dd class="m-0 mt-0.5 break-words [overflow-wrap:anywhere] text-interface font-medium text-ink-gray-9" data-approval-target>{effect().environment ? t("approval.card.targetIn", { target: effect().target, environment: effect().environment ?? "" }) : effect().target}</dd></div>
         <div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("approval.card.workspace")}</dt><dd class="m-0 mt-0.5 break-words text-interface text-ink-gray-9">{workspaceLabel(props.approval)}</dd></div>
-        <Show when={given().length > 0}><div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("approval.card.arguments")}</dt>
+        <Show when={given().length > 0 && !props.approval.context?.change}><div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("approval.card.arguments")}</dt>
           <dd class="m-0 mt-0.5"><ul class="m-0 flex list-none flex-col gap-1 p-0" data-approval-arguments><For each={given()}>{([key, value]) => <li class="min-w-0 break-words [overflow-wrap:anywhere] text-interface text-ink-gray-9"><span class="text-ink-gray-6">{key}:</span> {value}</li>}</For></ul></dd></div></Show>
       </dl>
+      <ApprovalContextBlock approval={props.approval} />
       <p class="m-0 text-caption text-ink-gray-6">{t("approval.card.once")}</p>
     </div>
   </DecisionCard>;
@@ -239,7 +243,7 @@ export function ApprovalDetailScreen(props: {
       emptyAction={<Button variant="outline" onClick={props.onBack}>{t("mp.back-to-approvals.8cd8")}</Button>} onRetry={props.onRefresh}>
       <PageStack>
         <Show when={approval()}>{(current) => <EffectDecisionCard approval={current()} asOf={props.asOf}
-          review={<ApprovalReview triggers="decision" requireTwoFactor={props.requireTwoFactor} active={props.active} approvalId={current().approvalId} targetLabel={`${effect().operation} on ${effect().target}`}
+          review={<ApprovalReview triggers="decision" requireTwoFactor={props.requireTwoFactor} active={props.active} approvalId={current().approvalId} context={<ApprovalContextBlock approval={current()} />} targetLabel={`${effect().operation} on ${effect().target}`}
             summary={dialogSummary(current())} requestedBy={app.personName(current().requestedBy)} expiresAt={current().subject.expiresAt} asOf={props.asOf}
             exactContent={exactJson(current())} subjectDigest={current().subjectDigest} version={current().version} fresh={fresh()}
             createIdempotencyKey={() => `web-${crypto.randomUUID()}`} verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />} />}</Show>

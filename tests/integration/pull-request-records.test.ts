@@ -1,53 +1,11 @@
-import { rmSync } from "node:fs";
 import type { PullRequest } from "@brain/contracts";
 import { afterEach, describe, expect, it } from "vitest";
-import { HostedPullRequestApi } from "../../apps/governor/src/modules/integrations/pull-request";
-import { effectsWorld, type EffectsWorld } from "../support/effects-world";
-import { createGitHttpBackend } from "../support/git-http-backend";
-import { command } from "../support/reuse";
+import type { EffectsWorld } from "../support/effects-world";
+import { PROPOSAL, TOKEN, missionWithTask, pullRequestWorld } from "../support/pull-request-world";
 import { scaled } from "../support/timing";
 
 const cleanup: Array<() => Promise<void> | void> = [];
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close(); });
-
-const TOKEN = "pr-record-secret-token-0123456789";
-const PROPOSAL = { id: "git.open-pr", input: { title: "Raise the demo-app memory limit", body: "The container was killed twice today.", branch: "brain/raise-demo-app-memory", files: [{ path: "docs/demo-app/limits.md", content: "memory: 768m\n" }] } };
-
-/**
- * A world whose workspace may open pull requests: a real Git remote, a connection set up as GitHub Enterprise through commands, and a
- * provider whose API is the only stubbed part (what it is asked and answers is what the provider's own API would see).
- */
-async function pullRequestWorld(): Promise<{ world: EffectsWorld; remote: Awaited<ReturnType<typeof createGitHttpBackend>>; connectionId: string; provider: { state: "open" | "closed"; merged: boolean; calls: string[] } }> {
-  const remote = await createGitHttpBackend();
-  cleanup.push(() => remote.cleanup());
-  const world = await effectsWorld();
-  cleanup.push(() => rmSync(world.root, { recursive: true, force: true }));
-  const provider = { state: "open" as "open" | "closed", merged: false, calls: [] as string[] };
-  const fetchImpl = (async (url: string, init: RequestInit) => {
-    provider.calls.push(`${init.method} ${url}`);
-    if (init.method === "GET") return new Response(JSON.stringify({ number: 7, state: provider.state, merged: provider.merged }), { status: 200 });
-    return new Response(JSON.stringify({ number: 7, html_url: "https://git.example.test/demo/pull/7" }), { status: 201 });
-  }) as unknown as typeof fetch;
-  world.w.brain.integrations.usePullRequestApi(new HostedPullRequestApi(fetchImpl));
-  const connect = async (commandType: string, key: string, payload: Record<string, unknown>, workspace = false) => (await world.w.brain.executeCommand(world.w.owner, {
-    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType, ...(workspace ? { workspaceId: world.w.workspaceId } : {}), idempotencyKey: key, payload,
-  } as never, key)).receipt;
-  const connectionId = (await connect("integration.connect", "prr-connect", { provider: "github-enterprise", name: "Demo repo", repositoryUrl: remote.remote, username: "brain-bot", token: TOKEN })).resourceId!;
-  await world.w.brain.integrations.verifyPending();
-  await connect("integration.bind", "prr-bind", { connectionId, workspaceId: world.w.workspaceId, kind: "project", repositoryKey: remote.remote, access: "write" }, true);
-  await world.w.brain.integrations.verifyPending();
-  return { world, remote, connectionId, provider };
-}
-
-/** A confirmed one-task mission; its work item is what a pull request is opened for. */
-async function missionWithTask(world: EffectsWorld): Promise<{ missionId: string; workItemId: string }> {
-  const missionId = (await world.command("mission.create", "prr-mission", { title: "Raise the memory limit", intent: "The demo app is killed for memory", successCriteria: ["a pull request is open"] })).resourceId!;
-  const planId = (await world.command("plan.propose", "prr-plan", { missionId, origin: "manual", tasks: [{ id: "a", title: "Open the pull request", criteria: ["the request is open"], dependsOn: [] }] })).resourceId!;
-  const mission = ((await world.w.brain.executeQuery(world.w.owner, { queryType: "missions.get", workspaceId: world.w.workspaceId, resourceId: missionId })) as unknown as { snapshot: { version: number } }).snapshot;
-  await command(world.w, world.w.owner, "plan.confirm", "prr-confirm", { planVersionId: planId }, mission.version);
-  const workItemId = (world.store.workspaceDb(world.w.workspaceId, world.w.org).prepare("SELECT id FROM work_items WHERE mission_id=?").get(missionId) as { id: string }).id;
-  return { missionId, workItemId };
-}
 
 const records = async (world: EffectsWorld, resourceId: string): Promise<PullRequest[]> =>
   ((await world.w.brain.executeQuery(world.w.owner, { queryType: "pullRequests.list", workspaceId: world.w.workspaceId, resourceId })) as unknown as { snapshot: { items: PullRequest[] } }).snapshot.items;
@@ -64,7 +22,7 @@ async function openFor(world: EffectsWorld, workItemId: string | undefined, key:
 
 describe("a pull request is a record on its work item (#121, ADR 0044)", () => {
   it("is kept once the approved call opened it: URL, provider, state when opened, the approval it came from; shown by work item and by approval, with no token", async () => {
-    const { world, remote, connectionId } = await pullRequestWorld();
+    const { world, remote, connectionId } = await pullRequestWorld(cleanup);
     const { missionId, workItemId } = await missionWithTask(world);
     expect(await records(world, workItemId)).toEqual([]);
 
@@ -100,7 +58,7 @@ describe("a pull request is a record on its work item (#121, ADR 0044)", () => {
   }, scaled(180_000));
 
   it("is written once per approval and never edited: a repeated write changes nothing and the stored rows refuse edits", async () => {
-    const { world } = await pullRequestWorld();
+    const { world } = await pullRequestWorld(cleanup);
     const { workItemId } = await missionWithTask(world);
     const approval = await openFor(world, workItemId, "prr-once");
     const before = await records(world, workItemId);
@@ -117,7 +75,7 @@ describe("a pull request is a record on its work item (#121, ADR 0044)", () => {
   }, scaled(180_000));
 
   it("a refresh asks the provider and adds an observation; the state when opened stays, and nothing is added to the history unless the state moved", async () => {
-    const { world, provider } = await pullRequestWorld();
+    const { world, provider } = await pullRequestWorld(cleanup);
     const { workItemId } = await missionWithTask(world);
     const approval = await openFor(world, workItemId, "prr-refresh");
     const [opened] = await records(world, workItemId);
@@ -150,7 +108,7 @@ describe("a pull request is a record on its work item (#121, ADR 0044)", () => {
   }, scaled(180_000));
 
   it("a pull request for a run that serves no work item is still kept, and found from its approval", async () => {
-    const { world } = await pullRequestWorld();
+    const { world } = await pullRequestWorld(cleanup);
     const approval = await openFor(world, undefined, "prr-standalone");
     const [record] = await records(world, approval.id);
     expect(record).toMatchObject({ approvalId: approval.id, state: "open", url: "https://git.example.test/demo/pull/7" });
@@ -159,7 +117,7 @@ describe("a pull request is a record on its work item (#121, ADR 0044)", () => {
   }, scaled(180_000));
 
   it("refuses a refresh it cannot answer, in plain words, and records nothing: an unknown request, a connection that no longer verifies", async () => {
-    const { world, remote, provider } = await pullRequestWorld();
+    const { world, remote, provider } = await pullRequestWorld(cleanup);
     const { workItemId } = await missionWithTask(world);
     await openFor(world, workItemId, "prr-refuse");
     const [opened] = await records(world, workItemId);

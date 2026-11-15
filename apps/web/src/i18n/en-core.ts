@@ -445,5 +445,16 @@ export const enCore = {
   "push.status.unsupported": "This browser cannot receive notifications. On a phone, install Brain to the home screen or use another browser.",
   "push.enable": "Turn on for this device",
   "push.error.disable": "Notifications could not be turned off.",
+  "approval.ctx.belongs": "Where this was asked",
+  "approval.ctx.mission": "Mission",
+  "approval.ctx.task": "Task",
+  "approval.ctx.run": "Run",
+  "approval.ctx.no-mission": "Not part of a mission",
+  "approval.ctx.change": "Files that would be committed",
+  "approval.ctx.file-lines": "Lines: {lines}",
+  "approval.ctx.change-note": "Each file is shown as its whole new content. If a file already exists at that path it is replaced. Brain does not read the repository before you decide.",
+  "approval.ctx.rollback": "Rollback: {action}",
+  "approval.ctx.rollback-note": "Brain shows this and does not run it.",
+  "approval.ctx.rollback-none": "No rollback declared",
   // @@END
 } as const satisfies Record<string, string>;

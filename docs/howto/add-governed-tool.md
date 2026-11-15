@@ -83,7 +83,7 @@ missing data.
 Refusals by the Governor are written to the audit trail as `tool.read.refused` (tool, attempt, reason). Calls appear
 as the usual `tool.proposed` / `tool.result` events with receipts and in the evidence bundle's tool releases.
 
-A Tool document may carry `description` (shown in the registry) and `allowedHosts` (network tools). To add a new
+A Tool document may carry `description` (shown in the registry), `allowedHosts` (network tools) and, for an effect tool, `compensatingAction` (one plain sentence naming what undoes it, shown on its approvals as "Rollback: ..."; Brain does not run it, and an approval says "No rollback declared" without one; ADR 0048). To add a new
 brokered tool, add its id to `GOVERNOR_BROKERED` / `RUNNER_BROKERED` (`apps/runner/src/tools/brokers.ts`) and, for the
 Governor kind, a branch in `apps/governor/src/modules/jobs/tool-reads.ts`.
 

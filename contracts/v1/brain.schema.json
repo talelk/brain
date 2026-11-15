@@ -1263,6 +1263,11 @@
               "minLength": 1,
               "maxLength": 400
             },
+            "compensatingAction": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400
+            },
             "allowedHosts": {
               "type": "array",
               "items": {
@@ -2085,6 +2090,9 @@
         },
         "nonce": {
           "$ref": "#/$defs/Id"
+        },
+        "origin": {
+          "$ref": "#/$defs/ApprovalOrigin"
         }
       },
       "required": [
@@ -2100,6 +2108,127 @@
         "effectBounds",
         "expiresAt",
         "nonce"
+      ],
+      "additionalProperties": false
+    },
+    "ApprovalOrigin": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "additionalProperties": false
+    },
+    "ProposedChange": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "lines": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "path",
+              "lines",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 20
+        },
+        "diff": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "files",
+        "diff"
+      ],
+      "additionalProperties": false
+    },
+    "ApprovalContext": {
+      "type": "object",
+      "properties": {
+        "mission": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "missionId",
+            "title"
+          ],
+          "additionalProperties": false
+        },
+        "workItem": {
+          "type": "object",
+          "properties": {
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "workItemId",
+            "title"
+          ],
+          "additionalProperties": false
+        },
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "change": {
+          "$ref": "#/$defs/ProposedChange"
+        },
+        "rollback": {
+          "type": "object",
+          "properties": {
+            "declared": {
+              "type": "boolean"
+            },
+            "action": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "declared"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "rollback"
       ],
       "additionalProperties": false
     },
@@ -2137,6 +2266,9 @@
         },
         "createdAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "context": {
+          "$ref": "#/$defs/ApprovalContext"
         }
       },
       "required": [

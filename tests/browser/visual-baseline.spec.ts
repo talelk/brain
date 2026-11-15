@@ -19,6 +19,7 @@ import { seedBrowserDemo } from "../support/browserDemo";
 import { sendTaskBack } from "../support/evalCases";
 import { command, interruptedSession } from "../support/interrupted-session";
 import { seedPullRequest } from "../support/pullRequestDemo";
+import { seedChangeApproval } from "../support/changeApprovalDemo";
 
 type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
 type Fixture = Parameters<typeof seedBrowserDemo>[1];
@@ -131,6 +132,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // A pull request an approved change opened, on its task and on its approval: made after the other screens but before the push ones (those stay last), because its approval and connection join earlier lists.
   { id: "mission-task-pull-request", route: (d) => `/missions/${d.seed.missionIds.active}/plan?item=${d.seed.workItems["review"]}`, heading: "Pull requests", prepare: seedPullRequestRecord, after: async (page) => { const section = page.getByTestId("pull-requests"); await expect(section.getByTestId("pull-request-state")).toHaveText("Open"); await section.scrollIntoViewIfNeeded(); } },
   { id: "approval-review-pull-request", route: () => `/approvals/${pullRequestRecord!.approvalId}`, heading: "Approval review", after: async (page) => { const section = page.getByTestId("pull-requests"); await expect(section.getByTestId("pull-request-state")).toHaveText("Open"); await section.scrollIntoViewIfNeeded(); } },
+  // An approval of a file change with its mission, task, run, diff and rollback (ticket #120): made here because its approval joins every later list.
+  { id: "approval-review-change", route: () => `/approvals/${changeApproval!.approvalId}`, heading: "Approval review", prepare: seedChangeApprovalRecord, after: async (page) => { await expect(page.locator("[data-approval-diff]")).toContainText("+memory: 768m"); await expect(page.locator("[data-approval-rollback=declared]")).toBeVisible(); } },
   // Resume from checkpoint (ticket #101), before the push screens (those stay last) because each screen adds a mission and a stopped task to the attention items: the failed session whose
   // runner is online, the one whose runner is gone, and the new session that says which checkpoint it started from.
   { id: "console-resume-offered", route: (d, g) => interruptedRoute(d, g, "runner-office", "vb-resume-offered"), heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByRole("button", { name: "Resume from checkpoint", exact: true })).toBeVisible(); } },
@@ -217,6 +220,12 @@ async function seedEvalCases(governor: Parameters<typeof seedBrowserDemo>[1], pa
 let pullRequestRecord: Awaited<ReturnType<typeof seedPullRequest>> | undefined;
 async function seedPullRequestRecord(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Demo): Promise<void> {
   pullRequestRecord = await seedPullRequest(governor.app.brain, demo.actor, demo.workspaceId, { runId: "demo-run-review", key: "vb-pr" });
+}
+
+/** The approval of a file change the screen above shows: its task is the seeded one in progress, so the screen names a mission, a task and a run. */
+let changeApproval: Awaited<ReturnType<typeof seedChangeApproval>> | undefined;
+async function seedChangeApprovalRecord(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Demo): Promise<void> {
+  changeApproval = await seedChangeApproval(governor.app.brain, demo.actor, demo.workspaceId, { runId: "demo-run-progress", key: "vb-change" });
 }
 
 test.afterEach(async () => { restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
