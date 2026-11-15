@@ -328,7 +328,7 @@ describe("model routes check results and take second attempts only, per workspac
     await set(w, "hm-on", [route]);
     const id = await planned(w, "hm", [task("a")]);
     const a = item(w, id, "a");
-    expect(forJob(w, "hm-1", "eval")).toEqual([{ ...route, tier: "hosted", role: "evaluator" }]);
+    expect(forJob(w, "hm-1", "eval")).toEqual([{ ...route, tier: "hosted", role: "evaluator", viaGateway: false }]);
     // Planning and non-agent kinds stay self-hosted; so does a first attempt.
     attempt(w, a.workItemId, "hm-1");
     expect(forJob(w, "hm-1", "dispatch")).toEqual([]);
@@ -471,7 +471,7 @@ describe("drain mode stops new attempts and resumes", () => {
     expect(w.brain.jobProtocol.claim(runner, "req-h2")).toMatchObject({ attemptId: expect.any(String) });
     // The routes travel in the pinned execution payload: a place, a model and a key reference, never a key.
     const payload = w.brain.store.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { payload_json: string };
-    expect(JSON.parse(payload.payload_json).modelRoutes).toEqual([{ ...acme, tier: "hosted", role: "second-attempt" }]);
+    expect(JSON.parse(payload.payload_json).modelRoutes).toEqual([{ ...acme, tier: "hosted", role: "second-attempt", viaGateway: false }]);
     expect(payload.payload_json).not.toMatch(/api[-_]?key|authorization|secret/iu);
   });
 });
