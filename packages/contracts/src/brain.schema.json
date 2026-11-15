@@ -7746,6 +7746,7 @@
             "contextPacks.reference",
             "evalCases.list",
             "library.summary",
+            "fleet.overview",
             "challenges.list",
             "playProposals.list",
             "tools.calls",
@@ -7834,6 +7835,7 @@
             "contextPacks.reference",
             "evalCases.list",
             "library.summary",
+            "fleet.overview",
             "challenges.list",
             "playProposals.list",
             "tools.calls",
@@ -25270,6 +25272,246 @@
         "workspaceId",
         "idempotencyKey",
         "payload"
+      ],
+      "additionalProperties": false
+    },
+    "FleetOverview": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missions": {
+          "type": "object",
+          "properties": {
+            "open": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "working": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "waiting": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "needsAttention": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "items": {
+              "type": "array",
+              "maxItems": 50,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "missionId": {
+                    "$ref": "#/$defs/Id"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "condition": {
+                    "type": "string",
+                    "enum": [
+                      "needs-attention",
+                      "working",
+                      "waiting"
+                    ]
+                  },
+                  "runningTasks": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "missionId",
+                  "title",
+                  "condition",
+                  "runningTasks"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "open",
+            "working",
+            "waiting",
+            "needsAttention",
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "activeMembers": {
+          "type": "object",
+          "properties": {
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "items": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "missionId": {
+                    "$ref": "#/$defs/Id"
+                  },
+                  "missionTitle": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "memberId": {
+                    "$ref": "#/$defs/Id"
+                  },
+                  "role": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "sessions": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "missionId",
+                  "missionTitle",
+                  "memberId",
+                  "role",
+                  "sessions"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "count",
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "runners": {
+          "type": "object",
+          "properties": {
+            "registered": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "online": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "slotsUsed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "slotsTotal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "detail": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "runnerId": {
+                    "$ref": "#/$defs/Id"
+                  },
+                  "group": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "status": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32
+                  },
+                  "slotsUsed": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "slotsTotal": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "runnerId",
+                  "group",
+                  "status",
+                  "slotsUsed",
+                  "slotsTotal"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "registered",
+            "online",
+            "slotsUsed",
+            "slotsTotal"
+          ],
+          "additionalProperties": false
+        },
+        "spend": {
+          "type": "object",
+          "properties": {
+            "todayMicroUsd": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "dailyCapMicroUsd": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "todayMicroUsd"
+          ],
+          "additionalProperties": false
+        },
+        "attentionOutsideMissions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "observedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "missions",
+        "activeMembers",
+        "runners",
+        "spend",
+        "attentionOutsideMissions",
+        "observedAt"
       ],
       "additionalProperties": false
     }
