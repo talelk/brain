@@ -12,7 +12,7 @@
     ]
   },
   "onDemand": {
-    "ceilingTokens": 175000,
+    "ceilingTokens": 188000,
     "paths": [
       "GLOSSARY.md",
       "docs/functional-spec.md",
