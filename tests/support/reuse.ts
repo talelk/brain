@@ -27,6 +27,8 @@ export interface AchievedOptions {
   autoPublish?: boolean;
   /** Close the mission the way a hands-off install does: the Governor itself proposes completion, records the verified verdict and closes it (no person acts). */
   handsOff?: boolean;
+  /** Saved documents (ids) associated with the mission before it closes: the sources its write-up rests on. */
+  documents?: string[];
   /** Reuse items (`mission:<id>`) the mission keeps before it is planned. */
   reuse?: string[];
   /** Whether a successful tool call backs the result (ADR 0022). Default true; false is the model's say-so alone, which is never written up. */
@@ -41,6 +43,7 @@ const DEFAULT_BODY = "The work was done in full and checked against every criter
 export async function achievedMission(w: TestWorld, key: string, options: AchievedOptions): Promise<string> {
   await command(w, w.owner, "library.settings.set", `${key}-setting`, { autoPublishKnowledge: options.autoPublish === true });
   const id = (await command(w, w.owner, "mission.create", `${key}-create`, { title: options.title, intent: options.intent, successCriteria: options.criteria ?? ["delivered"] })).resourceId ?? "";
+  for (const [index, documentId] of (options.documents ?? []).entries()) await command(w, w.owner, "document.associate", `${key}-doc-${index}`, { documentId, resource: { kind: "mission", id } });
   for (const [index, itemRef] of (options.reuse ?? []).entries()) await command(w, w.owner, "mission.reuse.decide", `${key}-reuse-${index}`, { missionId: id, itemRef, decision: "keep" });
   const task: PlanTask = { id: "only", title: `Do ${options.title}`, criteria: ["only-done"], dependsOn: [] };
   const planId = (await command(w, w.owner, "plan.propose", `${key}-plan`, { missionId: id, origin: "manual", tasks: [task] })).resourceId ?? "";

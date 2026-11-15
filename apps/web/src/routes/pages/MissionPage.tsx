@@ -1,6 +1,6 @@
 import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
 import type { JSX } from "solid-js";
-import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
+import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog, Dropdown, Select, TabButtons } from "@talelk/newui-molecules";
 import type { AttentionItem, BrainSession, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
@@ -15,19 +15,21 @@ import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
 import { MissionCriteria } from "../../ui/components/MissionCriteria";
 import { isStoppedForRetry } from "../../ui/work/work-model";
 import { SchedulesLink } from "../../ui/components/SchedulesPanel";
+import { MemberPanel } from "../../ui/components/MemberPanel";
 import { PlanCanvas } from "../../ui/components/PlanCanvas";
 import { eventWords, formatDateTime, formatUsd } from "../../ui/format";
 import { FlowStepper, type FlowStep } from "../../ui/viz/FlowStepper";
 import { Meter } from "../../ui/viz/Meter";
 import { StateBar } from "../../ui/viz/StateBar";
 import { t, type MessageKey } from "../../i18n";
-import { missionHref, type MissionTab } from "../../ui/mission-links";
+import { agentHref, memberHref, missionHref, type MissionTab } from "../../ui/mission-links";
 import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
 import { SessionTranscript } from "../../ui/console/SessionTranscript";
 import { readExecFilters, writeExecFilters } from "../../ui/exec/exec-filters";
 import { MissionOutputs } from "../../ui/outputs/MissionOutputs";
 import { MissionUsage, reportsNoCost } from "../../ui/usage/Usage";
 import { UsageBreakdown } from "../../ui/usage/UsageBreakdown";
+import { SpendHistory } from "../../ui/usage/SpendHistory";
 import { PlanEstimate } from "../../ui/usage/PlanEstimate";
 import { ReusedInBrief } from "../../ui/components/Reuse";
 import { MissionTimeline } from "../../ui/timeline/MissionTimeline";
@@ -150,6 +152,7 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
     </div>
     <MissionUsage mission={props.mission} taskTokenCap={props.items.reduce<number | undefined>((top, item) => (item.tokenCap === undefined ? top : Math.max(top ?? 0, item.tokenCap)), undefined)} onAct={props.onAct} busy={props.busy} />
     <UsageBreakdown mission={props.mission} />
+    <SpendHistory resource={`mission:${props.mission.missionId}`} testId="mission-spend-history" />
   </div>;
 }
 
@@ -449,6 +452,7 @@ function LiveTab(props: ActProps): JSX.Element {
         <span class="text-ink-gray-6">{running(entry.memberId) > 0 ? `${running(entry.memberId)} working` : `${sessionsOf(entry.memberId).length} sessions`}</span>
       </button>}</For>
     </fieldset>
+    <Show when={member()}><p class="m-0 text-caption"><A class="text-ink-blue-link underline focus-visible:focus-ring" href={memberHref(app.workspaceId(), props.mission.missionId, member())} data-testid="live-member-panel">{t("member.panel.open", { name: roleOfMember(member()) })}</A></p></Show>
     <ConsoleScreen workspaceId={app.workspaceId()} include={inScope} jobScope={{ missionId: props.mission.missionId, search: props.mission.title }} idle={idle()} requestedSession={typeof search.session === "string" ? search.session : undefined}
       filters={filters()} onFiltersChange={(patch) => setSearch({ ...writeExecFilters({ ...filters(), ...patch }) })}
       onSessionChange={(sessionId) => setSearch({ session: sessionId }, { replace: true })} />
@@ -513,16 +517,22 @@ function TeamTab(props: { mission: Mission }): JSX.Element {
     },
     isEmpty: (value) => !value?.team?.length,
   });
-  return <WorkspaceSection title={t("mp.mission-team.414d")} description={`Up to ${props.mission.budget.memberCap} members run at once; ${props.mission.usage.runningMembers} running now.`}>
+  const [search, setSearch] = useSearchParams();
+  const chosen = () => (typeof search.member === "string" ? search.member : "");
+  const chosenMember = () => plan.state().data?.team?.find((entry) => entry.memberId === chosen());
+  return <PageStack><WorkspaceSection title={t("mp.mission-team.414d")} description={`Up to ${props.mission.budget.memberCap} members run at once; ${props.mission.usage.runningMembers} running now.`}>
     <ScreenRegion state={plan.state()} onRetry={() => void plan.refresh({ force: true })} emptyTitle={t("mp.no-team-yet.6fb4")} emptyDescription={t("mp.a-plan-version-with-a-team-is-pr.fcae")}>
       <table class="w-full text-start text-interface"><thead><tr><th>{t("mp.member.6853")}</th><th>{t("mp.role.c3f1")}</th><th>{t("mp.agent.5ce2")}</th><th>{t("mp.engine.c1f6")}</th><th>{t("mp.tasks.090e")}</th></tr></thead>
         <tbody><For each={plan.state().data?.team ?? []}>{(member) => <tr>
-          <td>{member.memberId}<Show when={member.memberId === props.mission.coordinatorMemberId}> <span class="rounded-full bg-surface-blue-1 px-2 py-0.5 text-caption text-ink-blue-8" data-coordinator={member.memberId}>{t("mp.coordinator-badge.cd01")}</span></Show></td><td>{member.role}</td><td>{member.agentId}</td><td>{member.engine}</td>
+          <td><button type="button" class="cursor-pointer rounded-control text-start text-ink-blue-link underline focus-visible:focus-ring" aria-pressed={chosen() === member.memberId} aria-label={t("member.panel.open", { name: member.role })} data-testid="member-open" data-member={member.memberId} onClick={() => setSearch({ member: chosen() === member.memberId ? undefined : member.memberId })}>{member.memberId}</button><Show when={member.memberId === props.mission.coordinatorMemberId}> <span class="rounded-full bg-surface-blue-1 px-2 py-0.5 text-caption text-ink-blue-8" data-coordinator={member.memberId}>{t("mp.coordinator-badge.cd01")}</span></Show></td><td>{member.role}</td><td><A class="text-ink-blue-link underline focus-visible:focus-ring" href={agentHref(app.workspaceId(), member.agentId)} data-testid="team-agent-link">{member.agentId}</A></td><td>{member.engine}</td>
           <td>{(plan.state().data?.tasks ?? []).filter((task) => task.assignment?.kind === "agent" && task.assignment.id === member.memberId).map((task) => task.title).join(", ") || (member.memberId === props.mission.coordinatorMemberId ? t("mp.plans-the-mission.cd02") : "—")}</td>
         </tr>}</For></tbody></table>
       <Show when={props.mission.coordinatorMemberId}><p class="mt-3 text-caption text-ink-gray-6" data-coordinator-note>{t("mp.coordinator-note.cd03")}</p></Show>
+      <Show when={!chosenMember()}><p class="mt-3 text-caption text-ink-gray-6" data-testid="member-panel-hint">{t("member.panel.hint")}</p></Show>
     </ScreenRegion>
-  </WorkspaceSection>;
+  </WorkspaceSection>
+  <Show when={chosenMember()} keyed>{(member) => <MemberPanel mission={props.mission} member={member} onClose={() => setSearch({ member: undefined })} />}</Show>
+  </PageStack>;
 }
 
 /** Plan: a pending proposal (?proposal=) against the confirmed version, then the mission's work items (#37/#39/#43). */

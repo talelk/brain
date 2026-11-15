@@ -7,7 +7,7 @@ import type { QueryResponse } from "@brain/contracts";
 import { query } from "../../data/client";
 import { t } from "../../i18n";
 import { useApp } from "../app-context";
-import { missionHref, missionOfPath, workItemHref } from "../mission-links";
+import { agentHref, missionHref, missionOfPath, workItemHref } from "../mission-links";
 import { paletteActions } from "../palette-actions";
 
 type SearchItem = Extract<QueryResponse, { queryType: "search.global" }>["snapshot"]["items"][number];
@@ -43,7 +43,7 @@ export function GlobalSearchDialog(props: { open: boolean; onOpenChange: (open: 
     if (item.category === "approval") return `/approvals/${item.resourceId}`;
     if (item.category === "session") return `/sessions/${item.resourceId}`;
     if (item.category === "artifact") return `/outputs/${item.resourceId}`;
-    if (item.category === "agent") return `/studio/Agent?selected=${encodeURIComponent(item.resourceId)}`;
+    if (item.category === "agent") return item.workspaceId ? agentHref(item.workspaceId, item.resourceId) : `/studio/Agent?selected=${encodeURIComponent(item.resourceId)}`;
     if (item.category === "workflow") return `/plays/${encodeURIComponent(item.resourceId)}`;
     return "/";
   }

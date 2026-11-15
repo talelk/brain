@@ -1,4 +1,4 @@
-import type { SpendCapView, UsageBreakdown, UsageGroup, UsageSummary, UsageView } from "@brain/contracts";
+import type { SpendCapView, UsageBreakdown, UsageGroup, UsageSeries, UsageSummary, UsageView, VerifiedCostReport } from "@brain/contracts";
 import type { Store } from "../../application/store";
 
 type Db = ReturnType<Store["workspaceDb"]>;
@@ -48,7 +48,7 @@ export function tallyUsage(events: readonly UsageEvent[]): AttemptUsage {
 
 /** Every ledger row of the workspace: mission attempts, and interactive attempts outside any mission (mission_id NULL). */
 const SPEND_COLUMNS = "attempt_id, run_id, reserved_micro_usd, settled_micro_usd, reserved_tokens, input_tokens, output_tokens, cached_input_tokens, accounting, estimated, source, agent_id, member_id, engine_id, model_id, created_at_ms, settled_at_ms";
-const ALL_SPEND = `(SELECT mission_id, ${SPEND_COLUMNS} FROM mission_spend
+export const ALL_SPEND = `(SELECT mission_id, ${SPEND_COLUMNS} FROM mission_spend
   UNION ALL SELECT NULL AS mission_id, ${SPEND_COLUMNS} FROM workspace_spend)`;
 const MISSION_SPEND = "mission_spend";
 
@@ -101,6 +101,65 @@ export const agentUsage = (db: Db, agentId: string): { usage: UsageSummary; brea
 export const memberUsage = (db: Db, missionId: string, memberId: string): { usage: UsageSummary; breakdown: UsageBreakdown } => ({
   usage: summarize(db, MISSION_SPEND, "WHERE mission_id=? AND member_id=?", missionId, memberId), breakdown: breakdownOf(db, MISSION_SPEND, "WHERE mission_id=? AND member_id=?", [missionId, memberId], ["agent", "engine", "model"]),
 });
+
+export const SERIES_MAX_DAYS = 90;
+const iso = (ms: number): string => new Date(ms).toISOString();
+
+/**
+ * Daily spend of one scope, read from the same ledger rows as every total: a row counts on the UTC day its attempt settled, so the days of
+ * a window that reaches back to the first settlement add up to the scope's settled total, and a day with no spend is present as zero.
+ * Reserved (unsettled) amounts are not spend yet and are not in the series.
+ */
+export function spendSeries(db: Db, scope: "workspace" | "mission" | "agent", id: string, now: number, days: number): UsageSeries {
+  const [ledger, where, params]: [string, string, unknown[]] = scope === "workspace" ? [ALL_SPEND, "", []] : scope === "mission" ? [MISSION_SPEND, "AND mission_id=?", [id]] : [ALL_SPEND, "AND agent_id=?", [id]];
+  const today = Math.floor(now / DAY_MS);
+  const from = (today - (days - 1)) * DAY_MS;
+  const to = (today + 1) * DAY_MS - 1;
+  const rows = db.prepare(`SELECT settled_at_ms / ${DAY_MS} AS day, SUM(settled_micro_usd) AS microUsd, SUM(input_tokens+output_tokens+cached_input_tokens) AS tokens, COUNT(*) AS attempts
+    FROM ${ledger} WHERE settled_at_ms IS NOT NULL AND settled_at_ms >= ? AND settled_at_ms <= ? ${where} GROUP BY settled_at_ms / ${DAY_MS}`).all(from, to, ...params as never[]) as Array<{ day: number; microUsd: number; tokens: number; attempts: number }>;
+  const byDay = new Map(rows.map((row) => [row.day, row]));
+  const series = Array.from({ length: days }, (_, index) => {
+    const row = byDay.get(today - (days - 1) + index);
+    return { day: iso(from + index * DAY_MS).slice(0, 10), settledMicroUsd: row?.microUsd ?? 0, settledTokens: row?.tokens ?? 0, attempts: row?.attempts ?? 0 };
+  });
+  return {
+    scope, id, window: { from: iso(from), to: iso(to), days },
+    definition: "Settled model spend per UTC day, by the day each attempt settled, read from the usage ledger. Days with no spend show zero; spend still reserved for running work is not included.",
+    days: series, totalMicroUsd: series.reduce((sum, day) => sum + day.settledMicroUsd, 0), totalTokens: series.reduce((sum, day) => sum + day.settledTokens, 0),
+  };
+}
+
+/**
+ * Cost per verified task by agent and by Play over the trailing window, with the Quality summary's arithmetic: spend settled in the window divided by
+ * tasks that reached Done in the window. Nothing is estimated and no model computes anything.
+ */
+export function verifiedCost(db: Db, now: number, days: number): VerifiedCostReport {
+  const from = now - days * DAY_MS;
+  const done = db.prepare("SELECT DISTINCT e.aggregate_id AS id, w.mission_id AS missionId FROM events e JOIN work_items w ON w.id=e.aggregate_id WHERE e.event_type='workItem.transitioned' AND json_extract(e.payload_json,'$.state')='done' AND e.created_at_ms>=?").all(from) as Array<{ id: string; missionId: string | null }>;
+  const agentsOfTask = db.prepare(`SELECT DISTINCT s.agent_id AS agent FROM execution_links l JOIN ${ALL_SPEND} s ON s.run_id=l.run_id WHERE l.work_item_id=? AND s.agent_id IS NOT NULL AND s.source='attempt'`);
+  const playOf = db.prepare("SELECT play_id AS playId FROM missions WHERE id=?");
+  const verifiedByAgent = new Map<string, number>();
+  const verifiedByPlay = new Map<string, number>();
+  for (const task of done) {
+    for (const row of agentsOfTask.all(task.id) as Array<{ agent: string }>) verifiedByAgent.set(row.agent, (verifiedByAgent.get(row.agent) ?? 0) + 1);
+    if (task.missionId) {
+      const play = (playOf.get(task.missionId) as { playId: string | null } | undefined)?.playId ?? "";
+      verifiedByPlay.set(play, (verifiedByPlay.get(play) ?? 0) + 1);
+    }
+  }
+  const agentSpend = new Map((db.prepare(`SELECT agent_id AS id, SUM(settled_micro_usd) AS spend FROM ${ALL_SPEND} WHERE settled_at_ms >= ? AND agent_id IS NOT NULL AND source='attempt' GROUP BY agent_id`).all(from) as Array<{ id: string; spend: number }>).map((row) => [row.id, row.spend]));
+  const playSpend = new Map((db.prepare("SELECT COALESCE(m.play_id,'') AS id, SUM(s.settled_micro_usd) AS spend FROM mission_spend s JOIN missions m ON m.id=s.mission_id WHERE s.settled_at_ms >= ? AND s.source='attempt' GROUP BY COALESCE(m.play_id,'')").all(from) as Array<{ id: string; spend: number }>).map((row) => [row.id, row.spend]));
+  const rowsOf = (spend: Map<string, number>, verified: Map<string, number>) => [...new Set([...spend.keys(), ...verified.keys()])].map((key) => {
+    const spendMicroUsd = spend.get(key) ?? 0, verifiedTasks = verified.get(key) ?? 0;
+    return { ...(key !== "" ? { id: key } : {}), spendMicroUsd, verifiedTasks, ...(verifiedTasks ? { costPerVerifiedMicroUsd: Math.round(spendMicroUsd / verifiedTasks) } : {}) };
+  }).sort((a, b) => b.spendMicroUsd - a.spendMicroUsd || (a.id ?? "").localeCompare(b.id ?? ""));
+  return {
+    window: { from: iso(from), to: iso(now), days },
+    byAgentDefinition: "Settled spend of the agent's attempts in the window, divided by tasks that reached Done in the window and had at least one attempt by that agent. A task several agents worked on counts for each of them, so these counts overlap; the advisory judge's calls have no agent and are left out.",
+    byPlayDefinition: "Settled spend of the missions started from the Play in the window, divided by tasks of those missions that reached Done in the window. Missions not started from a Play are grouped together; runs outside any mission belong to no Play.",
+    byAgent: rowsOf(agentSpend, verifiedByAgent), byPlay: rowsOf(playSpend, verifiedByPlay),
+  };
+}
 
 /** Settled spend over the last 24 hours and 7 days plus every open reservation, against the workspace cap (#55). */
 export function spendCapOf(db: Db, now: number): SpendCapView {

@@ -7,13 +7,13 @@ import { iso } from "../../domain/clock";
 import { activeReleaseRecord } from "../configuration/index";
 import { readVerified } from "../artifacts/index";
 import { ftsOr, ftsTerms, looksLikeSecret } from "./memory";
-import { knowledgeExpired } from "./lifecycle";
+import { knowledgeExpired, markStaleKnowledge, staleOf } from "./lifecycle";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 type Kind = ReuseItem["kind"];
 
 interface IndexRow { item_ref: string; kind: Kind; mission_id: string | null; title: string; body: string; source_digest: string | null; verified_at_ms: number; rank?: number }
-interface Live { title: string; kind: Kind; summary: string; verifiedAtMs: number; provenance: ReuseItem["provenance"]; selfReviewed?: boolean; startFrom?: ReuseItem["startFrom"] }
+interface Live { title: string; kind: Kind; summary: string; verifiedAtMs: number; provenance: ReuseItem["provenance"]; selfReviewed?: boolean; startFrom?: ReuseItem["startFrom"]; stale?: ReuseItem["stale"] }
 
 const SUMMARY_CHARS = 600;
 const BODY_CHARS = 6000;
@@ -83,9 +83,10 @@ export class ReuseService {
   /** Published knowledge becomes reusable; called by the approve path. */
   indexKnowledge(organizationId: string, workspaceId: string, assetId: string): void {
     const db = this.store.workspaceDb(workspaceId, organizationId);
-    const asset = db.prepare("SELECT id, title, content, mission_id, state, provenance_json, updated_at_ms FROM knowledge_assets WHERE id=?").get(assetId) as
-      | { id: string; title: string; content: string; mission_id: string | null; state: string; provenance_json: string; updated_at_ms: number } | undefined;
-    if (!asset || asset.state !== "published") return;
+    const asset = db.prepare("SELECT id, title, content, mission_id, state, scope, provenance_json, updated_at_ms FROM knowledge_assets WHERE id=?").get(assetId) as
+      | { id: string; title: string; content: string; mission_id: string | null; state: string; scope: string; provenance_json: string; updated_at_ms: number } | undefined;
+    // Reuse offers an item to a new mission and its agents, so only workspace-wide knowledge is ever indexed (#135).
+    if (!asset || asset.state !== "published" || asset.scope !== "workspace") return;
     const verified = asset.mission_id ? this.verifiedBundle(db, asset.mission_id) : undefined;
     this.store.inTx(db, () => this.upsert(db, { ref: `knowledge:${assetId}`, kind: "knowledge", missionId: asset.mission_id, title: asset.title || "Knowledge", body: clip(asset.content, BODY_CHARS), sourceDigest: verified?.digest ?? null, verifiedAt: verified?.created_at_ms ?? asset.updated_at_ms }));
   }
@@ -163,13 +164,16 @@ export class ReuseService {
           provenance: { missionId: version.mission_id, ...(evidence.verdictDigest ? { verdictDigest: evidence.verdictDigest } : {}), evidenceDigests: [version.artifact_digest], source: "Verified output" } };
       }
       case "knowledge": {
-        const asset = db.prepare("SELECT state, mission_id, self_reviewed, provenance_json FROM knowledge_assets WHERE id=?").get(parsed.id) as { state: string; mission_id: string | null; self_reviewed: number; provenance_json: string } | undefined;
-        if (!asset || asset.state !== "published") return undefined;
+        markStaleKnowledge(db, this.store.now());
+        const asset = db.prepare("SELECT state, scope, mission_id, self_reviewed, provenance_json, stale_at_ms, stale_changes_json FROM knowledge_assets WHERE id=?").get(parsed.id) as { state: string; scope: string; mission_id: string | null; self_reviewed: number; provenance_json: string; stale_at_ms: number | null; stale_changes_json: string } | undefined;
+        // Checked on every read, so an asset narrowed after it was indexed leaves reuse at once.
+        if (!asset || asset.state !== "published" || asset.scope !== "workspace") return undefined;
         // Knowledge that nobody used for a whole period leaves reuse: it may be out of date.
         const life = db.prepare("SELECT id, created_at_ms, expires_at_ms FROM knowledge_assets WHERE id=?").get(parsed.id) as { id: string; created_at_ms: number; expires_at_ms: number | null };
         if (knowledgeExpired(db, life, this.store.now())) return undefined;
         const evidence = asset.mission_id ? this.evidenceOf(db, asset.mission_id) : { digests: [] as string[], verdictDigest: undefined };
-        return { kind: "knowledge", title: row.title, summary, verifiedAtMs: row.verified_at_ms, selfReviewed: asset.self_reviewed === 1,
+        const stale = staleOf(asset);
+        return { kind: "knowledge", title: row.title, summary, verifiedAtMs: row.verified_at_ms, selfReviewed: asset.self_reviewed === 1, ...(stale ? { stale } : {}),
           provenance: { ...(asset.mission_id ? { missionId: asset.mission_id } : {}), ...(evidence.verdictDigest ? { verdictDigest: evidence.verdictDigest } : {}), evidenceDigests: evidence.digests, source: "Published knowledge" } };
       }
       case "play": {
@@ -202,7 +206,7 @@ export class ReuseService {
 
   private toItem(db: Db, ref: string, live: Live, extra: Partial<ReuseItem> = {}): ReuseItem {
     return { itemRef: ref, kind: live.kind, title: live.title, summary: live.summary, lastVerifiedAt: iso(live.verifiedAtMs), usedCount: this.used(db, ref),
-      ...(live.selfReviewed ? { selfReviewed: true } : {}), provenance: live.provenance, ...(live.startFrom ? { startFrom: live.startFrom } : {}), ...extra };
+      ...(live.selfReviewed ? { selfReviewed: true } : {}), ...(live.stale ? { stale: live.stale } : {}), provenance: live.provenance, ...(live.startFrom ? { startFrom: live.startFrom } : {}), ...extra };
   }
 
   // ---- reads --------------------------------------------------------------

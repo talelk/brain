@@ -13,7 +13,8 @@ import { addStandingMembers, applyStandingTeam, listStandingTeams, referenceStan
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
 import { admit, admitChallenge, admitOutsideMission, budgetOf, DEFAULT_MISSION_BUDGET, hasHeadroom, limitChangeNote, minutesWord, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
 import { missionTaskTrust } from "./task-trust";
-import { agentUsage, capReached, memberUsage, missionBreakdown, missionUsage, outsideMissionsUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
+import { agentProfile, agentProfiles, asJson, memberProfile, splitMemberKey } from "./agent-profile";
+import { agentUsage, capReached, memberUsage, missionBreakdown, missionUsage, outsideMissionsUsage, runUsage, SERIES_MAX_DAYS, setSpendCap, spendCapOf, spendSeries, verifiedCost, taskUsage, workspaceUsage } from "./usage";
 import { planEstimate, planWallLimit } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listComments, recordComment } from "./comments";
@@ -1741,6 +1742,13 @@ export class MissionService {
       settleAll(this.store, db);
       return { scope: "mission", id: mission.id, usage: missionUsage(db, mission.id), breakdown: missionBreakdown(db, mission.id) } as unknown as JsonValue;
     }
+    if (queryType === "agents.profile") { settleAll(this.store, db); return asJson(resourceId ? agentProfile(this.store, db, resourceId) : { items: agentProfiles(this.store, db) }); }
+    if (queryType === "members.profile") {
+      const { missionId, memberId } = splitMemberKey(resourceId);
+      const mission = this.missionRow(actor, workspaceId, missionId);
+      settleAll(this.store, db);
+      return asJson(memberProfile(this.store, db, mission.id, memberId));
+    }
     if (queryType === "usage.agent") { settleAll(this.store, db); return { scope: "agent", id: String(resourceId), ...agentUsage(db, String(resourceId)) } as unknown as JsonValue; }
     if (queryType === "usage.member") {
       // One member of one mission: `<missionId>:<memberId>` (a member id is a plan's own label, a mission id never ends in one).
@@ -1749,6 +1757,18 @@ export class MissionService {
       settleAll(this.store, db);
       return { scope: "member", id: String(resourceId), ...memberUsage(db, mission.id, memberId) } as unknown as JsonValue;
     }
+    if (queryType === "usage.series") {
+      // `resourceId` is `<scope>:<id>` (`workspace`, `mission:<missionId>`, `agent:<agentId>`); `limit` is the number of days ending today.
+      const [scope = "", ...rest] = String(resourceId ?? "workspace").split(":");
+      const id = rest.join(":");
+      const days = Math.min(limit, SERIES_MAX_DAYS);
+      settleAll(this.store, db);
+      if (scope === "workspace") return spendSeries(db, "workspace", workspaceId, this.store.now(), days) as unknown as JsonValue;
+      if (scope === "mission") return spendSeries(db, "mission", this.missionRow(actor, workspaceId, id).id, this.store.now(), days) as unknown as JsonValue;
+      if (scope === "agent" && id) return spendSeries(db, "agent", id, this.store.now(), days) as unknown as JsonValue;
+      throw new BrainDomainError("INVALID_ARGUMENT", "usage.series needs workspace, mission:<id> or agent:<id>");
+    }
+    if (queryType === "usage.verifiedCost") { settleAll(this.store, db); return verifiedCost(db, this.store.now(), 30) as unknown as JsonValue; }
     if (queryType === "usage.workspace") { settleAll(this.store, db); return { scope: "workspace", id: workspaceId, usage: workspaceUsage(db), outsideMissions: outsideMissionsUsage(db), spendCap: spendCapOf(db, this.store.now()) } as unknown as JsonValue; }
     if (queryType === "plans.estimate") return planEstimate(this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))), db) as unknown as JsonValue;
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;

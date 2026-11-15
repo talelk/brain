@@ -1,6 +1,8 @@
 import { For, Show, createSignal } from "solid-js";
 import { t } from "../../i18n";
 import type { JSX } from "solid-js";
+import { A } from "@solidjs/router";
+import { agentHref, memberHref } from "../mission-links";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog } from "@talelk/newui-molecules";
 import type { BudgetUsage, Mission, UsageSummary, UsageView } from "@brain/contracts";
@@ -9,6 +11,7 @@ import { query } from "../../data/client";
 import { useApp } from "../app-context";
 import { count, formatTokens, formatUsd } from "../format";
 import { Meter } from "../viz/Meter";
+import { SpendHistory, VerifiedCost } from "./SpendHistory";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 type Figures = Pick<UsageSummary, "settledMicroUsd" | "reservedMicroUsd" | "settledTokens" | "reservedTokens" | "inputTokens" | "outputTokens" | "cachedInputTokens" | "estimated"> & { attempts?: number; openAttempts?: number };
@@ -20,7 +23,7 @@ export const figuresOfMission = (usage: BudgetUsage, runningMembers = usage.runn
 export const reportsNoCost = (usage: Pick<BudgetUsage, "settledMicroUsd" | "settledTokens">): boolean => usage.settledMicroUsd === 0 && usage.settledTokens > 0;
 
 /** Reads one usage scope from the Governor; the browser only formats what the ledger totals say. */
-export function useUsage(queryType: "usage.run" | "usage.task" | "usage.mission" | "usage.workspace", resourceId: () => string | undefined) {
+export function useUsage(queryType: "usage.run" | "usage.task" | "usage.mission" | "usage.workspace" | "usage.agent" | "usage.member", resourceId: () => string | undefined) {
   const app = useApp();
   return createScopedRead<UsageView>({
     scope: app.scope,
@@ -73,13 +76,15 @@ export function TaskUsage(props: { workItemId: string }): JSX.Element {
 }
 
 /** Who an attempt's usage belongs to, as far as the Governor and the runner said: nothing is shown for what was not reported. */
-const attributionOf = (row: { memberId?: string | undefined; agentId?: string | undefined; engine?: string | undefined; model?: string | undefined }): string[] => [
-  ...(row.memberId ? [t("usage.run.member", { name: row.memberId })] : []), ...(row.agentId ? [t("usage.run.agent", { name: row.agentId })] : []),
-  ...(row.engine ? [t("usage.run.engine", { name: row.engine })] : []), ...(row.model ? [t("usage.run.model", { name: row.model })] : []),
+const attributionOf = (row: { memberId?: string | undefined; agentId?: string | undefined; engine?: string | undefined; model?: string | undefined }, where: { workspaceId: string; missionId?: string | undefined }): Array<{ text: string; href?: string; testid?: string }> => [
+  ...(row.memberId ? [{ text: t("usage.run.member", { name: row.memberId }), ...(where.missionId ? { href: memberHref(where.workspaceId, where.missionId, row.memberId), testid: "run-member-link" } : {}) }] : []),
+  ...(row.agentId ? [{ text: t("usage.run.agent", { name: row.agentId }), href: agentHref(where.workspaceId, row.agentId), testid: "run-agent-link" }] : []),
+  ...(row.engine ? [{ text: t("usage.run.engine", { name: row.engine }) }] : []), ...(row.model ? [{ text: t("usage.run.model", { name: row.model }) }] : []),
 ];
 
-/** The run's attempts: totals plus what the attempt in flight has reported so far. */
-export function RunUsage(props: { runId: string }): JSX.Element {
+/** The run's attempts: totals plus what the attempt in flight has reported so far. The member and agent named on an attempt open their pages. */
+export function RunUsage(props: { runId: string; missionId?: string | undefined }): JSX.Element {
+  const app = useApp();
   const usage = useUsage("usage.run", () => props.runId);
   return <Show when={usage.state().data}>{(view) => <div class="flex min-w-0 flex-col gap-2" data-testid="run-usage">
     <UsageFigures label="Run" usage={view().usage} />
@@ -87,7 +92,7 @@ export function RunUsage(props: { runId: string }): JSX.Element {
       <ul class="flex flex-col gap-1 text-caption text-ink-gray-7" aria-label="Usage by attempt">
         <For each={view().attemptRows}>{(row, index) => <li data-testid="run-usage-attempt">
           Attempt {index() + 1}: {formatTokens(row.inputTokens + row.outputTokens + row.cachedInputTokens)} tokens · {formatUsd(row.microUsd)}{row.settled ? "" : " so far (still running)"}{row.estimated ? " · estimated" : ""}
-          <Show when={attributionOf(row).length > 0}><span class="text-ink-gray-6" data-testid="run-usage-who"> · {attributionOf(row).join(" · ")}</span></Show>
+          <Show when={attributionOf(row, { workspaceId: app.workspaceId(), missionId: props.missionId }).length > 0}><span class="text-ink-gray-6" data-testid="run-usage-who"> · <For each={attributionOf(row, { workspaceId: app.workspaceId(), missionId: props.missionId })}>{(part, position) => <>{position() > 0 ? " · " : ""}<Show when={part.href} fallback={part.text}><A class="text-ink-blue-link underline focus-visible:focus-ring" href={part.href!} data-testid={part.testid}>{part.text}</A></Show></>}</For></span></Show>
         </li>}</For>
       </ul>
     </Show>
@@ -135,6 +140,8 @@ export function WorkspaceUsage(props: { onChanged?: () => void }): JSX.Element {
       </Show>
       <Show when={cap().weeklyMicroUsd !== undefined}><Meter label="Weekly spend cap (last 7 days)" settled={cap().weeklySpentMicroUsd} reserved={0} limit={cap().weeklyMicroUsd ?? 0} format={formatUsd} /></Show>
     </div>}</Show>
+    <SpendHistory resource="workspace" testId="workspace-spend-history" />
+    <VerifiedCost />
     <Dialog.Root open={editing()} onOpenChange={(next) => { if (!next) setEditing(false); }}>
       <Dialog.Content size="md">
         <Dialog.Header><Dialog.Title>Workspace spend cap</Dialog.Title><Dialog.Description>When the dollars settled and reserved in the last 24 hours (or 7 days) reach the cap, new work pauses until you raise it, whether it belongs to a mission or not. Leave a field empty for no cap. Local models cost $0, so use a mission token ceiling to bound them.</Dialog.Description></Dialog.Header>

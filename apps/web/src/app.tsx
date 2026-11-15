@@ -36,6 +36,8 @@ const PAGE_LOADERS = {
   PlaysPage: () => import('./routes/pages/PlaysPage'),
   LibraryPage: () => import('./routes/pages/LibraryPage'),
   TeamsPage: () => import('./routes/pages/TeamsPage'),
+  AgentsPage: () => import('./routes/pages/AgentsPage'),
+  AgentPage: () => import('./routes/pages/AgentPage'),
   SchedulesPage: () => import('./routes/pages/SchedulesPage'),
   BoardPage: () => import('./routes/pages/BoardPage'),
   QualityPage: () => import('./routes/pages/QualityPage'),
@@ -99,7 +101,7 @@ const FALLBACK_ICON = "lucide-circle";
 /** The sidebar entries come from the screen contract in English; this maps each to its catalogue key. */
 const NAV_ITEM_KEYS: Readonly<Record<string, MessageKey>> = {
   "Today": "nav.item.today", "Missions": "nav.item.missions", "Approvals": "nav.item.approvals", "Live": "nav.item.live", "Board": "nav.item.board", "Schedules": "nav.item.schedules", "All results": "nav.item.all-results",
-  "Library": "nav.item.library", "Plays": "nav.item.plays", "Knowledge": "nav.item.knowledge", "Review inbox": "nav.item.review-inbox", "Support": "nav.item.support",
+  "Library": "nav.item.library", "Plays": "nav.item.plays", "Knowledge": "nav.item.knowledge", "Review inbox": "nav.item.review-inbox", "Agents": "nav.item.agents", "Support": "nav.item.support",
   "Incidents": "nav.item.incidents", "Studio": "nav.item.studio", "Logs": "nav.item.logs", "Runners": "nav.item.runners", "Workspaces": "nav.item.workspaces",
   "Setup": "nav.item.setup", "How work runs": "nav.item.work", "Security": "nav.item.security", "Quality": "nav.item.quality", "Eval cases": "nav.item.eval-cases", "Integrations": "nav.item.integrations", "Releases": "nav.item.releases",
   "People": "nav.item.people", "Invitations": "nav.item.invitations", "Access": "nav.item.access", "Authentication": "nav.item.authentication", "Health": "nav.item.health",
@@ -120,6 +122,8 @@ function Navigation(attentionCount: () => number): AppSidebarGroup[] {
   const active = (route: string) => {
     const [path = route, query] = route.split("?");
     if (path.startsWith("/studio/")) return location.pathname.startsWith("/studio/");
+    // An agent's page is a view of the Agents list.
+    if (path === "/w/:id/library/agents") return /^\/w\/[^/]+\/library\/agents(\/|$)/u.test(location.pathname);
     // A parameter-free area route (/approvals) also owns its children (/approvals/:id).
     if (!path.includes(":") && !query && location.pathname.startsWith(`${path}/`)) return true;
     if (!new RegExp(`^${path.replace(/:[A-Za-z0-9_]+/gu, "[^/]+")}$`).test(location.pathname)) return false;
@@ -306,6 +310,8 @@ export function App(): JSX.Element {
       <Route path="/missions/:missionId" component={page("MissionPage")} />
       <Route path="/w/:id/library" component={workspacePage("LibraryPage")} />
       <Route path="/w/:id/library/teams" component={workspacePage("TeamsPage")} />
+      <Route path="/w/:id/library/agents" component={workspacePage("AgentsPage")} />
+      <Route path="/w/:id/library/agents/:agentId" component={workspacePage("AgentPage")} />
       <Route path="/w/:id/plays" component={workspacePage("PlaysPage")} />
       <Route path="/w/:id/schedules" component={workspacePage("SchedulesPage")} />
       <Route path="/plays/:id" component={page("PlayPage")} />

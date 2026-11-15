@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NO_VIEWER } from "../../apps/governor/src/modules/knowledge/index";
 import { setupWorld } from "../helpers";
 
 describe("security authz", async () => {
@@ -24,17 +25,17 @@ describe("security authz", async () => {
     w.brain.memory.publish({ organizationId: w.org, workspaceId: w.workspaceId, sourceId: "src-1", text: "golden rollout notes" });
     const found = w.brain.memory.search(
       { contractVersion: "brain.memory/v1", queryId: "q1", scope: { organizationId: w.org, visibility: "workspace", workspaceId: w.workspaceId }, query: "golden", sourceTypes: ["wiki"], limit: 8, maxChars: 12000 },
-      { organizationId: w.org, workspaceId: w.workspaceId },
+      { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER,
     );
     expect(found.results.length).toBe(1);
     expect(() => w.brain.memory.search(
       { contractVersion: "brain.memory/v1", queryId: "q2", scope: { organizationId: "org-other", visibility: "workspace", workspaceId: w.workspaceId }, query: "golden", sourceTypes: ["wiki"], limit: 8, maxChars: 12000 },
-      { organizationId: w.org, workspaceId: w.workspaceId },
+      { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER,
     )).toThrow();
     w.brain.memory.revoke(w.org, w.workspaceId, "src-1");
     const after = w.brain.memory.search(
       { contractVersion: "brain.memory/v1", queryId: "q3", scope: { organizationId: w.org, visibility: "workspace", workspaceId: w.workspaceId }, query: "golden", sourceTypes: ["wiki"], limit: 8, maxChars: 12000 },
-      { organizationId: w.org, workspaceId: w.workspaceId },
+      { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER,
     );
     expect(after.results.length).toBe(0);
     w.brain.close();
