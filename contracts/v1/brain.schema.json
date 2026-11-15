@@ -22291,6 +22291,12 @@
             "$ref": "#/$defs/MissionBundleCheck"
           },
           "maxItems": 200
+        },
+        "independence": {
+          "type": "string",
+          "enum": [
+            "L3"
+          ]
         }
       },
       "required": [
@@ -22883,6 +22889,7 @@
             "needs-attention",
             "plan-proposal",
             "parked",
+            "sign-off",
             "verdict-ready",
             "routed",
             "result-ready",

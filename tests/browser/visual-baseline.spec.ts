@@ -15,7 +15,25 @@ import { test, expect } from "./fixtures";
 import { seedBrowserDemo } from "../support/browserDemo";
 import { sendTaskBack } from "../support/evalCases";
 
-const SCREENS: Array<{ id: string; route: (demo: Awaited<ReturnType<typeof seedBrowserDemo>>) => string; heading: string | RegExp; testid?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
+type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
+type Fixture = Parameters<typeof seedBrowserDemo>[1];
+
+/** A finished one-task mission with a submitted bundle, made when its screen is reached so no earlier screen changes. */
+async function signOffRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  const cmd = async (type: string, key: string, payload: Record<string, unknown>, expectedVersion?: number) => (await brain.executeCommand(demo.actor, {
+    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: type, workspaceId: demo.workspaceId, idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
+  } as never, key)).receipt;
+  const version = async (id: string) => ((await brain.executeQuery(demo.actor, { queryType: "missions.get", workspaceId: demo.workspaceId, resourceId: id })) as unknown as { snapshot: { version: number } }).snapshot.version;
+  const missionId = (await cmd("mission.create", "baseline-signoff-create", { title: "Compile the quarterly report", intent: "Compile the quarterly report", successCriteria: ["The report is complete"], autoStart: false })).resourceId ?? "";
+  const planId = (await cmd("plan.propose", "baseline-signoff-plan", { missionId, origin: "manual", tasks: [{ id: "compile", title: "Compile the figures", criteria: ["Figures compiled"], dependsOn: [] }] })).resourceId ?? "";
+  await cmd("plan.confirm", "baseline-signoff-confirm", { planVersionId: planId }, await version(missionId));
+  brain.store.workspaceDb(demo.workspaceId, demo.actor.organizationId).prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE mission_id=?").run(`sha256:${"9".repeat(64)}`, missionId);
+  await cmd("mission.proposeCompletion", "baseline-signoff-finish", { missionId }, await version(missionId));
+  return `/missions/${missionId}/outputs`;
+}
+
+const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
   { id: "mission-live", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication" },
@@ -32,8 +50,10 @@ const SCREENS: Array<{ id: string; route: (demo: Awaited<ReturnType<typeof seedB
   { id: "knowledge", route: () => "/w/operations/knowledge", heading: "Knowledge" },
   { id: "integrations", route: () => "/administration/integrations", heading: "Integrations" },
   { id: "integrations-connect", route: () => "/administration/integrations", heading: "Integrations", after: async (page) => { await page.getByRole("button", { name: "Connect remote", exact: true }).first().click(); await expect(page.getByRole("dialog").getByLabel(/^Git provider/)).toBeVisible(); } },
-  // Last, because the cases are recorded by sending tasks back, which adds missions the screens above would show.
+  // Eval cases come late, because the cases are recorded by sending tasks back, which adds missions the screens above would show.
   { id: "eval-cases", route: () => "/w/operations/quality/cases", heading: "Eval cases", prepare: seedEvalCases },
+  // Last of all: the sign-off mission adds an attention item every earlier screen would count in its bell.
+  { id: "mission-signoff", route: signOffRoute, heading: "Compile the quarterly report", waitFor: "mission-signoff" },
 ];
 
 async function seedEvalCases(governor: Parameters<typeof seedBrowserDemo>[1], page: Page): Promise<void> {
@@ -50,11 +70,16 @@ test("key screens match their visual baselines", async ({ page, governor }) => {
   const demo = await seedBrowserDemo(page, governor);
   for (const screen of SCREENS) {
     await screen.prepare?.(governor, page);
-    await page.goto(`${governor.url}${screen.route(demo)}`);
+    await page.goto(`${governor.url}${await screen.route(demo, governor)}`);
     const landmark = screen.testid
       ? page.getByTestId(screen.testid).getByRole("heading", { name: screen.heading })
       : page.getByRole("heading", { name: screen.heading }).first();
     await expect(landmark.first()).toBeVisible({ timeout: 20_000 });
+    // A screen with a named region is shot scrolled to it, so the region itself is what the baseline holds.
+    if (screen.waitFor) {
+      await expect(page.getByTestId(screen.waitFor)).toBeVisible({ timeout: 20_000 });
+      await page.getByTestId(screen.waitFor).evaluate((element) => element.scrollIntoView({ block: "center" }));
+    }
     await screen.after?.(page);
     await page.waitForTimeout(400);
     await expect(page).toHaveScreenshot(`${screen.id}.png`, { maxDiffPixelRatio: 0.02, animations: "disabled", caret: "hide" });

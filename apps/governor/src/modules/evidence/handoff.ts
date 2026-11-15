@@ -6,7 +6,7 @@ import { iso } from "../../domain/clock";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 type HandoffRow = { id: string; mission_id: string; work_item_id: string; version: number; notes_json: string; facts_json: string | null; submitted_by: string; superseded_by: string | null; created_at_ms: number };
-type BundleRow = { digest: string; mission_id: string; state: MissionEvidenceBundle["state"]; manifest_json: string; findings_json: string; created_at_ms: number };
+type BundleRow = { digest: string; mission_id: string; state: MissionEvidenceBundle["state"]; manifest_json: string; findings_json: string; verdict_independence: "L3" | null; created_at_ms: number };
 
 /** Member notes stay claims and stay small (issue #33). */
 const NOTES_CHAR_CAP = 6000;
@@ -101,12 +101,12 @@ export function assembleMissionBundle(store: Store, db: Db, missionId: string, b
   return { digest, complete };
 }
 
-/** A verdict on the mission's current bundle; only a submitted bundle can be judged, once. */
-export function recordMissionVerdict(store: Store, db: Db, input: { missionId: string; digest: string; outcome: "verified" | "rejected"; findings: readonly string[]; by: string }): void {
+/** A verdict on the mission's current bundle; only a submitted bundle can be judged, once. A person's verdict holds independence L3; the Governor's hands-off verdict claims none. */
+export function recordMissionVerdict(store: Store, db: Db, input: { missionId: string; digest: string; outcome: "verified" | "rejected"; findings: readonly string[]; by: string; independence?: "L3" }): void {
   const latest = latestBundleRow(db, input.missionId);
   if (!latest || latest.digest !== input.digest) throw new BrainDomainError("CONFLICT", "the verdict must judge the mission's current evidence bundle");
   if (latest.state !== "submitted") throw new BrainDomainError("CONFLICT", `a ${latest.state} mission evidence bundle takes no verdict`);
-  db.prepare("UPDATE mission_evidence_bundles SET state=?,findings_json=?,verdict_by=? WHERE digest=? AND state='submitted'").run(input.outcome, JSON.stringify(input.findings), input.by, input.digest);
+  db.prepare("UPDATE mission_evidence_bundles SET state=?,findings_json=?,verdict_by=?,verdict_independence=? WHERE digest=? AND state='submitted'").run(input.outcome, JSON.stringify(input.findings), input.by, input.independence ?? null, input.digest);
   store.emit(db, { aggregateType: "mission", aggregateId: input.missionId, eventType: "mission.verdictRecorded", payload: { missionId: input.missionId, digest: input.digest } });
 }
 
@@ -120,7 +120,7 @@ export function latestMissionBundle(db: Db, missionId: string): MissionEvidenceB
   const manifest = JSON.parse(row.manifest_json) as Omit<MissionEvidenceBundle, "digest" | "state" | "findings" | "createdAt">;
   const checks = (db.prepare("SELECT criterion_id, evaluator, outcome, evidence_digest, advisory FROM mission_bundle_checks WHERE bundle_digest=? ORDER BY criterion_id, evaluator").all(row.digest) as Array<{ criterion_id: string; evaluator: string; outcome: "passed" | "failed" | "incomplete"; evidence_digest: string; advisory: number }>)
     .map((check) => ({ criterionId: check.criterion_id, evaluator: check.evaluator, outcome: check.outcome, evidenceDigest: check.evidence_digest, advisory: check.advisory === 1 }));
-  return { ...manifest, digest: row.digest, state: row.state, findings: JSON.parse(row.findings_json) as string[], checks, createdAt: iso(row.created_at_ms) };
+  return { ...manifest, digest: row.digest, state: row.state, findings: JSON.parse(row.findings_json) as string[], checks, createdAt: iso(row.created_at_ms), ...(row.verdict_independence ? { independence: row.verdict_independence } : {}) };
 }
 
 /**

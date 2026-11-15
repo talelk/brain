@@ -795,16 +795,19 @@ export class MissionService {
     return submitHandoff(this.store, this.db(actor, workspaceId), { workItemId: item.id, submittedBy: actor.actorId, notes: payload["notes"] as HandoffNotes });
   }
 
-  /** An independent verdict on the mission's evidence bundle; a team agent can never record it. */
+  /**
+   * The verdict on the mission's evidence bundle. Through the command only a person records it (the registry admits no other actor), which is
+   * independence L3; the Governor's hands-off path calls this directly as a workflow actor and claims no independence. A rejection needs findings.
+   */
   private verdict(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
-    if (actor.kind === "agent") throw new BrainDomainError("FORBIDDEN", "a team member cannot judge its own mission");
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
     if (mission.state !== "verifying") throw new BrainDomainError("CONFLICT", "only a verifying mission takes a verdict");
     const db = this.db(actor, workspaceId);
     const outcome = String(payload["outcome"]) as "verified" | "rejected";
-    const findings = (payload["findings"] as string[] | undefined) ?? [];
+    const findings = ((payload["findings"] as string[] | undefined) ?? []).map((finding) => finding.trim()).filter((finding) => finding.length > 0);
+    if (outcome === "rejected" && findings.length === 0) throw new BrainDomainError("INVALID_ARGUMENT", "a rejected verdict needs findings: say what to fix");
     this.store.inTx(db, () => {
-      recordMissionVerdict(this.store, db, { missionId: mission.id, digest: String(payload["bundleDigest"]), outcome, findings, by: actor.actorId });
+      recordMissionVerdict(this.store, db, { missionId: mission.id, digest: String(payload["bundleDigest"]), outcome, findings, by: actor.actorId, ...(actor.kind === "human" ? { independence: "L3" as const } : {}) });
       // A rejected sign-off is a re-open: it becomes a regression case without anyone filing it (issue #64).
       if (outcome === "rejected") recordEvalCase(this.store, db, { workspaceId, source: `verdict:${String(payload["bundleDigest"])}`, kind: "rejected-verdict", missionId: mission.id, findings });
     });

@@ -1,9 +1,10 @@
 import type { Page } from "@playwright/test";
+import type { ActorContext } from "@brain/contracts";
 import type { Brain } from "../../apps/governor/src/application/brain";
 import { fixtureStarter } from "./starter";
 import { seedDemoWorkspace, type DemoSeed } from "./seedDemoWorkspace";
 
-export interface BrowserDemo { workspaceId: string; seed: DemoSeed; seededAtMs: number }
+export interface BrowserDemo { workspaceId: string; seed: DemoSeed; seededAtMs: number; actor: ActorContext }
 
 /**
  * A signed-in browser session over a realistically seeded "operations" workspace (missions in every
@@ -24,5 +25,5 @@ export async function seedBrowserDemo(page: Page, governor: { url: string; crede
   for (const role of ["operator", "approver"]) brain.store.control.prepare("INSERT INTO workspace_memberships(workspace_id,organization_id,principal_id,role,version,granted_by,granted_at_ms) VALUES ('operations',?,?,?,1,?,?)").run(actor.organizationId, actor.actorId, role, actor.actorId, brain.store.now());
   const seededAtMs = brain.store.now();
   const seed = await seedDemoWorkspace(brain, actor, "operations", { dispatch: { workflowId: "operations-triage", input: { situation: "Sign-in latency regression" } } });
-  return { workspaceId: "operations", seed, seededAtMs };
+  return { workspaceId: "operations", seed, seededAtMs, actor };
 }

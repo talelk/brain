@@ -133,7 +133,7 @@ CREATE TABLE mission_evidence_bundles (
   digest TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   state TEXT NOT NULL CHECK(state IN ('submitted','verified','rejected','incomplete')),
   manifest_json TEXT NOT NULL CHECK(json_valid(manifest_json)), findings_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(findings_json)),
-  verdict_by TEXT, created_at_ms INTEGER NOT NULL
+  verdict_by TEXT, verdict_independence TEXT DEFAULT NULL CHECK(verdict_independence IS NULL OR verdict_independence='L3'), created_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE mission_bundle_checks (
   bundle_digest TEXT NOT NULL REFERENCES mission_evidence_bundles(digest), criterion_id TEXT NOT NULL,

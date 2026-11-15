@@ -228,7 +228,7 @@ function VerdictBody(props: { item: AttentionItem; mission?: Mission; onChanged:
   return <DecisionCard kind={props.item.kind} tier={props.item.tier} title={props.item.title} why={whyOf(props.item)} error={row.error()}
     recommended={<Show when={app.canDispatch()}><Show when={!confirming()} fallback={
       <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-badge-check" disabled={row.busy() || !props.mission} loading={row.busy()} onClick={() => void close()}>{t("decision.verdict.confirmed")}</Button>}>
-      <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-badge-check" onClick={() => setConfirming(true)}>{t("decision.verdict.signOff")}</Button></Show></Show>}
+      <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-badge-check" onClick={() => setConfirming(true)}>{t("decision.verdict.close")}</Button></Show></Show>}
     alternatives={<><Show when={app.canDispatch() && confirming()}><Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>{t("decision.verdict.notYet")}</Button></Show>
       <DetailsLink item={props.item} label={t("decision.verdict.review")} /></>}>
     <Show when={!app.canDispatch()}><NoScope who="operator" /></Show>
