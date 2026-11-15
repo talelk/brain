@@ -2,20 +2,28 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, Select } from "@talelk/newui-molecules";
-import type { AgentCatalogEntry, Mission, PlanTask, StandingTeam, TeamMember, WorkItem } from "@brain/contracts";
+import type { AgentCatalogEntry, Mission, PlanTask, StandingTeam, TeamMember, WorkflowCatalogEntry, WorkItem } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { query } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
 import { standingTeamsRead } from "../../data/standing-teams";
-import { agentFits, assignedMember, copyStandingTeam, ineligibleSteps, memberIdFor, memberLabel, whyNotEligible, isStartedWork, type AgentFit } from "../work/plan-team";
+import { agentFits, assignedMember, candidateChoice, candidatesComplete, copyStandingTeam, ineligibleSteps, memberIdFor, memberLabel, whyNotEligible, isStartedWork, type AgentFit } from "../work/plan-team";
 import { titleize } from "../format";
 import { t } from "../../i18n";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
 /** What the plan editor reads besides the plan: the agents a member can be bound to, and which steps and members already have started work. */
-export function createPlanTeamData(mission: () => Mission): { agents: () => AgentFit[] | undefined; standingTeams: () => StandingTeam[] | undefined; startedSteps: () => ReadonlySet<string>; lockedMembers: () => ReadonlySet<string> } {
+export function createPlanTeamData(mission: () => Mission): { agents: () => AgentFit[] | undefined; ways: () => Array<{ id: string; title: string }> | undefined; standingTeams: () => StandingTeam[] | undefined; startedSteps: () => ReadonlySet<string>; lockedMembers: () => ReadonlySet<string> } {
   const app = useApp();
+  // The ways of working a best-of-N candidate may run on (ADR 0071).
+  const ways = createScopedRead<Array<{ id: string; title: string }>>({
+    scope: app.scope,
+    load: async (scope, signal) => {
+      const view = await query<Envelope<{ items: WorkflowCatalogEntry[] }>>({ queryType: "workflows.list", workspaceId: scope.workspaceId }, signal);
+      return { snapshot: view.snapshot.items.map((entry) => ({ id: entry.release.id, title: entry.definition.spec.presentation?.title ?? titleize(entry.release.id) })), asOf: view.asOf, sourceWatermark: view.sourceWatermark };
+    },
+  });
   const agents = createScopedRead<AgentFit[]>({
     scope: app.scope,
     load: async (scope, signal) => {
@@ -35,6 +43,7 @@ export function createPlanTeamData(mission: () => Mission): { agents: () => Agen
   const started = createMemo(() => items.state().data ?? []);
   return {
     agents: () => agents.state().data,
+    ways: () => ways.state().data,
     standingTeams: () => standing.state().data,
     startedSteps: createMemo(() => new Set(started().map((item) => item.planTaskId))),
     lockedMembers: createMemo(() => new Set(started().flatMap((item) => (item.assignment?.kind === "agent" ? [item.assignment.id] : [])))),
@@ -61,6 +70,33 @@ export function StepAssignment(props: { task: PlanTask; position: number; team: 
       onValueChange={(value) => props.onAssign(!value || value === NONE ? "" : value)} />
     <Show when={props.started}><p class="text-caption text-ink-gray-6" data-testid="plan-step-started">{t("plan.team.started")}</p></Show>
     <Show when={problem()}>{(reason) => <Alert theme="red" variant="outline" title={t("plan.team.cannot-take", { step: props.task.title })} description={reason()} />}</Show>
+  </div>;
+}
+
+/**
+ * Best of several (ADR 0071): a step may run as two to four candidates, each a team member or a way of working, no two alike. Each does the
+ * whole step on its own and is checked on its own, and a person keeps one. Started steps keep their candidates; a step with subtasks, or a
+ * subtask, has none.
+ */
+export function StepCandidates(props: { task: PlanTask; position: number; team: readonly TeamMember[]; ways: ReadonlyArray<{ id: string; title: string }> | undefined; started: boolean; nested: boolean; onCount: (count: number) => void; onChoose: (index: number, choice: string) => void }): JSX.Element {
+  const count = () => props.task.candidates?.length ?? 1;
+  const choices = () => [
+    ...props.team.map((member) => ({ value: `member:${member.memberId}`, label: t("plan.candidate-member", { name: memberLabel(member) }) })),
+    ...(props.ways ?? []).map((way) => ({ value: `workflow:${way.id}`, label: t("plan.candidate-way", { name: way.title }) })),
+  ];
+  const taken = (index: number) => new Set((props.task.candidates ?? []).filter((_, other) => other !== index).map((candidate) => candidateChoice(candidate)));
+  return <div class="flex flex-col gap-1.5" data-testid="plan-step-candidates">
+    <Select label={t("plan.candidates-count")} value={String(count())} disabled={props.started || props.nested}
+      options={[{ value: "1", label: t("plan.candidates-one") }, ...[2, 3, 4].map((n) => ({ value: String(n), label: t("plan.candidates-n", { n }) }))]}
+      onValueChange={(value) => props.onCount(Number(value ?? "1"))} />
+    <Show when={props.started}><p class="text-caption text-ink-gray-6">{t("plan.candidates-started")}</p></Show>
+    <Show when={props.nested}><p class="text-caption text-ink-gray-6">{t("plan.candidates-subtask")}</p></Show>
+    <Show when={props.task.candidates}>{(candidates) => <>
+      <p class="text-caption text-ink-gray-6">{t("plan.candidates-hint")}</p>
+      <For each={candidates()}>{(candidate, index) => <Select label={t("plan.candidate-runs-as", { n: index() + 1 })} placeholder={t("plan.candidate-pick")} value={candidateChoice(candidate) || null} disabled={props.started}
+        options={choices().map((option) => ({ ...option, disabled: taken(index()).has(option.value) }))} onValueChange={(value) => props.onChoose(index(), value ?? "")} />}</For>
+      <Show when={!candidatesComplete(props.task)}><p class="text-caption text-ink-amber-8" role="status">{t("plan.candidates-incomplete")}</p></Show>
+    </>}</Show>
   </div>;
 }
 

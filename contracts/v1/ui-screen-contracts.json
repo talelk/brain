@@ -148,6 +148,7 @@
     "decision.accept",
     "plan.confirm",
     "workItem.transition",
+    "workItem.candidate.keep",
     "workItem.comment",
     "workItem.details.set",
     "pullRequest.refresh",

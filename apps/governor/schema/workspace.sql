@@ -120,6 +120,7 @@ CREATE TABLE output_versions (
   id TEXT PRIMARY KEY, output_id TEXT NOT NULL REFERENCES mission_outputs(id), work_item_id TEXT NOT NULL,
   artifact_digest TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('draft','final')),
   verified INTEGER NOT NULL DEFAULT 0 CHECK(verified IN (0,1)), created_at_ms INTEGER NOT NULL,
+  run_id TEXT DEFAULT NULL,
   CHECK(verified = 0 OR state = 'final')
 ) STRICT;
 CREATE TABLE work_item_inputs (
@@ -202,6 +203,7 @@ CREATE TABLE work_items (
   priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high','urgent')),
   tags_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(tags_json)), due_at_ms INTEGER DEFAULT NULL,
   parent_id TEXT DEFAULT NULL REFERENCES work_items(id),
+  kept_run_id TEXT DEFAULT NULL, kept_by TEXT DEFAULT NULL, kept_at_ms INTEGER DEFAULT NULL,
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
   UNIQUE(plan_version_id,plan_task_id), CHECK(state != 'done' OR evidence_digest IS NOT NULL)
@@ -235,6 +237,8 @@ CREATE TABLE execution_links (
   mission_id TEXT NOT NULL REFERENCES missions(id),
   work_item_id TEXT NOT NULL REFERENCES work_items(id), run_id TEXT NOT NULL,
   job_id TEXT, attempt_id TEXT, session_id TEXT, created_at_ms INTEGER NOT NULL,
+  -- A best-of-N candidate (ADR 0071): the plan candidate this run is, the round of the fan-out it belongs to, and when it ended.
+  candidate_id TEXT DEFAULT NULL, candidate_round INTEGER DEFAULT NULL, finished_at_ms INTEGER DEFAULT NULL,
   PRIMARY KEY(work_item_id,run_id)
 ) STRICT;
 CREATE INDEX execution_links_run ON execution_links(run_id);

@@ -14220,6 +14220,14 @@
      },
      "parentId": {
       "$ref": "#/components/schemas/ConfigId"
+     },
+     "candidates": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/PlanCandidate"
+      },
+      "minItems": 2,
+      "maxItems": 4
      }
     },
     "required": [
@@ -14477,6 +14485,9 @@
      },
      "subtasks": {
       "$ref": "#/components/schemas/WorkItemSubtasks"
+     },
+     "candidates": {
+      "$ref": "#/components/schemas/WorkItemCandidates"
      }
     },
     "required": [
@@ -19134,6 +19145,9 @@
      },
      {
       "$ref": "#/components/schemas/WorkItemSpendCapRaiseCommand"
+     },
+     {
+      "$ref": "#/components/schemas/WorkItemCandidateKeepCommand"
      },
      {
       "$ref": "#/components/schemas/WorkItemDetailsSetCommand"
@@ -36304,6 +36318,186 @@
    "TraceId": {
     "type": "string",
     "pattern": "^[0-9a-f]{32}$"
+   },
+   "PlanCandidate": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "$ref": "#/components/schemas/ConfigId"
+     },
+     "memberId": {
+      "$ref": "#/components/schemas/ConfigId"
+     },
+     "workflowId": {
+      "$ref": "#/components/schemas/ConfigId"
+     }
+    },
+    "required": [
+     "id"
+    ],
+    "additionalProperties": false
+   },
+   "WorkItemCandidate": {
+    "type": "object",
+    "properties": {
+     "candidateId": {
+      "$ref": "#/components/schemas/ConfigId"
+     },
+     "runId": {
+      "$ref": "#/components/schemas/RunId"
+     },
+     "memberId": {
+      "$ref": "#/components/schemas/ConfigId"
+     },
+     "workflowId": {
+      "$ref": "#/components/schemas/ConfigId"
+     },
+     "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+     },
+     "state": {
+      "type": "string",
+      "enum": [
+       "waiting",
+       "running",
+       "succeeded",
+       "failed",
+       "cancelled"
+      ]
+     },
+     "verdict": {
+      "type": "string",
+      "enum": [
+       "verified",
+       "not-verified",
+       "pending"
+      ]
+     },
+     "outputId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "outputVersionId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "settledMicroUsd": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "reservedMicroUsd": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "tokensUsed": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "durationMs": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "proposed": {
+      "type": "boolean",
+      "const": true
+     },
+     "kept": {
+      "type": "boolean",
+      "const": true
+     }
+    },
+    "required": [
+     "candidateId",
+     "runId",
+     "label",
+     "state",
+     "verdict",
+     "settledMicroUsd",
+     "reservedMicroUsd",
+     "tokensUsed"
+    ],
+    "additionalProperties": false
+   },
+   "WorkItemCandidates": {
+    "type": "object",
+    "properties": {
+     "round": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/WorkItemCandidate"
+      },
+      "minItems": 2,
+      "maxItems": 4
+     },
+     "keptRunId": {
+      "$ref": "#/components/schemas/RunId"
+     },
+     "keptBy": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "keptAt": {
+      "$ref": "#/components/schemas/Timestamp"
+     }
+    },
+    "required": [
+     "round",
+     "items"
+    ],
+    "additionalProperties": false
+   },
+   "WorkItemCandidateKeepCommand": {
+    "type": "object",
+    "properties": {
+     "contractVersion": {
+      "type": "string",
+      "const": "brain.command/v1"
+     },
+     "commandId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "commandType": {
+      "type": "string",
+      "const": "workItem.candidate.keep"
+     },
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "idempotencyKey": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "expectedVersion": {
+      "$ref": "#/components/schemas/Counter"
+     },
+     "payload": {
+      "type": "object",
+      "properties": {
+       "workItemId": {
+        "$ref": "#/components/schemas/Id"
+       },
+       "runId": {
+        "$ref": "#/components/schemas/RunId"
+       }
+      },
+      "required": [
+       "workItemId",
+       "runId"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "required": [
+     "contractVersion",
+     "commandId",
+     "commandType",
+     "workspaceId",
+     "idempotencyKey",
+     "payload"
+    ],
+    "additionalProperties": false
    }
   }
  },
@@ -37127,6 +37321,15 @@
   {
    "type": "workItem.spendCap.raise",
    "schema": "WorkItemSpendCapRaiseCommand",
+   "scope": "mission:write",
+   "authority": "workspace",
+   "actors": [
+    "human"
+   ]
+  },
+  {
+   "type": "workItem.candidate.keep",
+   "schema": "WorkItemCandidateKeepCommand",
    "scope": "mission:write",
    "authority": "workspace",
    "actors": [

@@ -247,6 +247,33 @@ export function admitChallenge(store: Store, db: Db, missionId: string): { admit
 }
 
 /**
+ * Admission of a task's whole fan-out (ADR 0071): the mission's money, token and time limits and the workspace caps must cover every
+ * candidate before the first one starts, so a budget that fits one attempt never starts half of a best-of-N. Each candidate counts the
+ * larger of the mission's attempt reserve and the task's own cost ceiling. The member cap is not counted here: it holds at the claim
+ * (ADR 0043), so candidates beyond it wait for a free member like any attempt.
+ */
+export function admitFanOut(store: Store, db: Db, missionId: string, candidates: number, taskMicroUsd: number): { admitted: true } | { admitted: false; why: string } {
+  settleAll(store, db);
+  const row = db.prepare("SELECT * FROM missions WHERE id=?").get(missionId) as BudgetRow | undefined;
+  if (!row) return { admitted: true };
+  const now = store.now();
+  const usage = usageOf(store, db, row, now);
+  if (row.state !== "active") return { admitted: false, why: `the mission is ${row.state}, so no new work starts on it` };
+  const each = Math.max(row.attempt_reserve_micro_usd, taskMicroUsd);
+  const need = each * candidates;
+  const ceiling = row.budget_micro_usd === null ? null : row.budget_micro_usd - row.final_allowance_micro_usd;
+  if (ceiling !== null && usage.settledMicroUsd + usage.reservedMicroUsd + need > ceiling) {
+    return { admitted: false, why: `the budget does not cover ${candidates} candidates: ${dollarsWord(need)} needed, ${dollarsWord(Math.max(0, ceiling - usage.settledMicroUsd - usage.reservedMicroUsd))} left` };
+  }
+  if (row.budget_tokens !== null && usage.settledTokens + usage.reservedTokens + row.attempt_reserve_tokens * candidates > row.budget_tokens) {
+    return { admitted: false, why: `the token ceiling does not cover ${candidates} candidates` };
+  }
+  if (row.budget_wall_ms !== null && usage.activeMs >= row.budget_wall_ms) return { admitted: false, why: "the mission's time limit is reached" };
+  if (capReached(db, now, need)) return { admitted: false, why: `the workspace spend cap does not cover ${candidates} candidates` };
+  return { admitted: true };
+}
+
+/**
  * Admission of the advisory judge's next model call (#95, ADR 0023): the call is spend, so the mission's money limit and the workspace
  * caps stop it first. The mission is verifying, not active, and the judge is no work session: only money and the workspace caps apply.
  */

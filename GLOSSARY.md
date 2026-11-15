@@ -268,6 +268,19 @@ parent shows how many subtasks are done and what they cost together, and is Done
 own evidence and it has its own (ADR 0057). Not a delegated child session, which is a run of the mission.
 _Avoid_: child task, sub-item, child run
 
+**Candidate**:
+One of two to four ways a plan task is run together (`candidates` on the plan task), each naming a team member or a way
+of working. Each candidate is its own run of the task, judged by its own evaluator verdict, and records its own version of
+the task's output; the budget must cover all of them before any starts (ADR 0071). Not a subtask, and not the work
+item's assignee.
+_Avoid_: variant, fork, option, attempt (an attempt is one try of one job)
+
+**Kept candidate**:
+The one candidate a person keeps for a task in review. Its output version is the task's result and its own observed
+evidence is what Done needs; the other candidates' versions stay as unverified compared outputs. Brain may suggest the
+only verified candidate but never keeps one (ADR 0071).
+_Avoid_: winner, chosen, selected output
+
 **Affected branch**:
 The plan tasks a new plan version changes, plus everything downstream of them. Every
 other task must stay identical across the two versions.

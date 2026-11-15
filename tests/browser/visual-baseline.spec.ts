@@ -24,6 +24,7 @@ import { seedStaleKnowledge } from "../support/stale-knowledge";
 import { seedPullRequest } from "../support/pullRequestDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 import { seedQuestion } from "../support/question-demo";
+import { finishCandidates, seedCandidateMission, stageSingleStepWorkflows, steadyDurations } from "../support/candidates-world";
 import { seedAgentActivity } from "../support/agent-activity";
 import { delegationsOf, driveChildren, enrollChildRunners } from "../support/delegation-world";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
@@ -76,6 +77,23 @@ async function whyRoute(demo: Demo, governor: Fixture): Promise<string> {
   const scoped = { ...demo.actor, workspaceId: "why-baseline", scopes: scopesForPrincipal(brain.store, demo.actor.actorId, demo.actor.organizationId, "why-baseline") };
   const { jobId } = await seedWhyRun(governor as never, scoped, "why-baseline", "baseline-why");
   return `/runs/${jobId}?tab=placement&w=why-baseline`;
+}
+
+/** A task run as three candidates (#127), made when its screen is reached: two finished (one verified), one failed; the task is open in its mission. */
+async function candidatesRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  stageSingleStepWorkflows(brain, demo.actor);
+  const { missionId, workItemId } = await seedCandidateMission(brain, demo.actor, demo.workspaceId, { key: "vb-candidates", title: "Compare three briefs", autoStart: true });
+  await finishCandidates(brain, demo.actor, demo.workspaceId, workItemId);
+  steadyDurations(brain, demo.actor, demo.workspaceId, workItemId);
+  return `/missions/${missionId}/plan?item=${workItemId}`;
+}
+
+/** The same task before any candidate has started: its plan editor open on the step's candidates. */
+async function candidatePlanRoute(demo: Demo, governor: Fixture): Promise<string> {
+  stageSingleStepWorkflows(governor.app.brain, demo.actor);
+  const { missionId } = await seedCandidateMission(governor.app.brain, demo.actor, demo.workspaceId, { key: "vb-candidate-plan", title: "Compare three briefs, planned", autoStart: false });
+  return `/missions/${missionId}/plan`;
 }
 
 /** A mission with a confirmed two-member team, made when its screen is reached; the screen is its plan editor open on the team and the first step. */
@@ -269,6 +287,9 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "start-standing-team", route: () => "/w/operations/missions/new", heading: "New mission", prepare: seedStandingTeams, after: async (page) => { await page.getByRole("dialog").getByTestId("play-chips").getByRole("button").first().click(); await expect(page.getByTestId("start-standing-team")).toBeVisible(); } },
   // A session a person paused (ADR 0058): it adds a running session, so it comes after the screens that list sessions and before the push screens (those stay last).
   { id: "console-session-paused", route: pausedSessionRoute, heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("continue-session")).toBeVisible(); await expect(page.getByTestId("pause-note")).toBeVisible(); } },
+  // Best of several (#127): a task's candidates side by side, then the plan editor's candidates for a step. They add a mission and release, so they come after the screens that list missions and before the push screens.
+  { id: "mission-candidates", route: candidatesRoute, heading: "Write the one-page brief", after: async (page) => { const panel = page.getByTestId("work-candidates"); await expect(panel.getByTestId("work-candidate")).toHaveCount(3); await expect(panel).toContainText("Suggested"); await panel.scrollIntoViewIfNeeded(); } },
+  { id: "mission-plan-candidates", route: candidatePlanRoute, heading: "Compare three briefs, planned", after: async (page) => { await page.getByRole("button", { name: /^See the confirmed plan/ }).click(); await page.getByRole("button", { name: "Edit steps", exact: true }).first().click(); await expect(page.getByTestId("plan-step-candidates").first()).toContainText("Best of 3"); await page.getByTestId("plan-step-candidates").first().scrollIntoViewIfNeeded(); } },
   // Who can read what Brain learned (#135): the review inbox with a record for the workspace, one kept private with a request for the team and one the team reads. It adds knowledge, so it comes after every screen that counts it.
   { id: "knowledge-scopes", route: () => "/w/operations/knowledge/review", heading: "Review inbox", prepare: seedKnowledgeScopes, waitFor: "knowledge-inbox", after: async (page) => { await expect(page.getByTestId("knowledge-inbox")).toContainText("Readable by: Only its author"); } },
   // The run page's Why tab (ticket #144): it adds a mission, a run and a runner, so it comes after every screen that counts them and before the push screens (those stay last).
