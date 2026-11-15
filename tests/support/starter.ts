@@ -45,7 +45,7 @@ export function modelOpinionStarter() {
 
 /**
  * The fixture starter with delegation switched on for its task worker: it lists the `mission.delegate` tool and declares how many children
- * and how many levels it may have (ADR 0049). The shipped starter gives the tool to no agent, so a test that delegates opts in here.
+ * and how many levels it may have (ADR 0051). The shipped starter gives the tool to no agent, so a test that delegates opts in here.
  */
 export function delegatingStarter(limits: { maxChildren: number; maxDepth: number } = { maxChildren: 2, maxDepth: 3 }) {
   const bundle = fixtureStarter();

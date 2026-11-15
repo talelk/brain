@@ -3,7 +3,7 @@ import type { BrainSession, Delegation } from "@brain/contracts";
 import { delegatingStarter } from "../support/starter";
 import { closeWorlds, run, running, startedMission, type World } from "../support/machine-session";
 
-// Bounded delegation (T53, E106, ADR 0049). The parent is a person's view of a real running session (the first attempt of the mission's task);
+// Bounded delegation (T53, E106, ADR 0051). The parent is a person's view of a real running session (the first attempt of the mission's task);
 // a delegation of it is asked by a person naming that session, so scope, budget, worktree and depth are the Governor's, not the caller's.
 
 afterEach(closeWorlds);

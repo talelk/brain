@@ -44,7 +44,7 @@ import { beginGovernorRun, finishEffect, issueEffectPermit, requestEffect, start
 import { runGovernorEffect } from "./effect-broker";
 import { pullRequestCommands } from "./pull-requests";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
-import { MissionService, ShareService, missionCommands, recordPullRequest } from "../modules/missions/index";
+import { MissionService, ShareService, missionCommands, originOfRun, recordPullRequest } from "../modules/missions/index";
 import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
 import { DelegationRuns } from "./delegation-runs";
 import { Challenges } from "./challenges";
@@ -84,7 +84,7 @@ export class Brain {
   readonly evidence: EvidenceService;
   readonly commands: CommandFunnel;
   readonly autoStart: AutoStart;
-  /** Starts the runs of delegated child sessions (ADR 0049). */
+  /** Starts the runs of delegated child sessions (ADR 0051). */
   readonly delegationRuns: DelegationRuns;
   readonly challenges: Challenges;
   readonly bundleJudge: BundleJudge;
@@ -406,7 +406,7 @@ export class Brain {
 
   runFailed(input: { organizationId: string; workspaceId: string; runId: string; diagnostic: string }): void {
     this.missions.recordRunFailure(input.organizationId, input.workspaceId, input.runId, input.diagnostic);
-    // A delegated child's run is not its parent task's: its failure is told to the parent session instead (ADR 0049).
+    // A delegated child's run is not its parent task's: its failure is told to the parent session instead (ADR 0051).
     delegatedRunEnded(this.store, input.organizationId, input.workspaceId, input.runId, { ok: false, diagnostic: input.diagnostic });
   }
   cancelUnclaimedJobs(runId: string): void {
@@ -563,11 +563,15 @@ export class Brain {
 
   createApprovalForGate(input: { organizationId: string; workspaceId: string; runId: string; stepId: string; subject: JsonValue; expiresAtMs: number; requestedBy: string }): string {
     const s = this.store;
-    const digest = approvalSubjectDigest(input.subject);
+    // The run the gate waits in is stamped on the subject by the Governor, whatever the proposal said (ADR 0046).
+    const proposed = input.subject;
+    const subject = proposed !== null && typeof proposed === "object" && !Array.isArray(proposed)
+      ? { ...proposed, origin: originOfRun(s.workspaceDb(input.workspaceId, input.organizationId), input.runId) } as unknown as JsonValue : proposed;
+    const digest = approvalSubjectDigest(subject);
     const approvalId = s.id("apr");
     s.inTx(s.control, () => {
       s.control.prepare(`INSERT INTO approval_requests(id, organization_id, workspace_id, requested_by, subject_digest, subject_json, state, expires_at_ms, created_at_ms)
-        VALUES (?,?,?,?,?,?,'pending',?,?)`).run(approvalId, input.organizationId, input.workspaceId, input.requestedBy, digest, JSON.stringify(input.subject), input.expiresAtMs, s.now());
+        VALUES (?,?,?,?,?,?,'pending',?,?)`).run(approvalId, input.organizationId, input.workspaceId, input.requestedBy, digest, JSON.stringify(subject), input.expiresAtMs, s.now());
       s.control.prepare("INSERT INTO wake_intents(wake_event_id, workspace_id, workflow_run_id, wait_generation, state, next_attempt_at_ms) VALUES (?,?,?,1,'pending',?)")
         .run(`wake-${approvalId}`, input.workspaceId, input.runId, s.now());
       s.emit(s.control, { organizationId: input.organizationId, workspaceId: input.workspaceId, aggregateType: "approval", aggregateId: approvalId, eventType: "approval.requested", payload: { approvalId, subjectDigest: digest } });

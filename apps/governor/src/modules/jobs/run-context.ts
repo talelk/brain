@@ -36,7 +36,7 @@ export function runContext(db: Db, runId: string, jobState?: string): RunContext
 }
 
 /**
- * A delegated child's run (ADR 0049) belongs to its mission and parent task. Its plain failure is told to the parent session as a fact on
+ * A delegated child's run (ADR 0051) belongs to its mission and parent task. Its plain failure is told to the parent session as a fact on
  * its delegation, so it asks no person; a job stuck or of unknown outcome still does, as any job would.
  */
 function delegatedContext(db: Db, runId: string, jobState?: string): RunContext | undefined {

@@ -1263,6 +1263,11 @@
               "minLength": 1,
               "maxLength": 400
             },
+            "compensatingAction": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400
+            },
             "allowedHosts": {
               "type": "array",
               "items": {
@@ -2085,6 +2090,9 @@
         },
         "nonce": {
           "$ref": "#/$defs/Id"
+        },
+        "origin": {
+          "$ref": "#/$defs/ApprovalOrigin"
         }
       },
       "required": [
@@ -2100,6 +2108,127 @@
         "effectBounds",
         "expiresAt",
         "nonce"
+      ],
+      "additionalProperties": false
+    },
+    "ApprovalOrigin": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "additionalProperties": false
+    },
+    "ProposedChange": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "lines": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "path",
+              "lines",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 20
+        },
+        "diff": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "files",
+        "diff"
+      ],
+      "additionalProperties": false
+    },
+    "ApprovalContext": {
+      "type": "object",
+      "properties": {
+        "mission": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "missionId",
+            "title"
+          ],
+          "additionalProperties": false
+        },
+        "workItem": {
+          "type": "object",
+          "properties": {
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "workItemId",
+            "title"
+          ],
+          "additionalProperties": false
+        },
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "change": {
+          "$ref": "#/$defs/ProposedChange"
+        },
+        "rollback": {
+          "type": "object",
+          "properties": {
+            "declared": {
+              "type": "boolean"
+            },
+            "action": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "declared"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "rollback"
       ],
       "additionalProperties": false
     },
@@ -2137,6 +2266,9 @@
         },
         "createdAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "context": {
+          "$ref": "#/$defs/ApprovalContext"
         }
       },
       "required": [
@@ -6635,6 +6767,9 @@
         "activePlanVersionId": {
           "$ref": "#/$defs/Id"
         },
+        "pendingPlanVersionId": {
+          "$ref": "#/$defs/Id"
+        },
         "version": {
           "$ref": "#/$defs/Counter"
         },
@@ -6683,6 +6818,9 @@
           "maxItems": 20
         },
         "playId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "coordinatorMemberId": {
           "$ref": "#/$defs/ConfigId"
         },
         "watching": {
@@ -8151,6 +8289,9 @@
         "workItemId": {
           "$ref": "#/$defs/Id"
         },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
         "parentSessionId": {
           "$ref": "#/$defs/Id"
         },
@@ -8598,7 +8739,7 @@
     },
     "SessionDelegateInput": {
       "type": "object",
-      "description": "A bounded sub-task for a child session of the same mission (ADR 0049). A session delegates from itself (its own attempt's session) and names only the task; a person names the parent session. Budget and scope default to what the parent still has, and the child can only narrow them.",
+      "description": "A bounded sub-task for a child session of the same mission (ADR 0051). A session delegates from itself (its own attempt's session) and names only the task; a person names the parent session. Budget and scope default to what the parent still has, and the child can only narrow them.",
       "properties": {
         "missionId": {
           "$ref": "#/$defs/Id"
@@ -11584,6 +11725,9 @@
         },
         {
           "$ref": "#/$defs/MissionMessageSendCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionQuestionAskCommand"
         },
         {
           "$ref": "#/$defs/HandoffSubmitCommand"
@@ -22845,11 +22989,66 @@
             },
             "interrupt": {
               "type": "boolean"
+            },
+            "answersQuestionId": {
+              "$ref": "#/$defs/Id"
             }
           },
           "required": [
             "missionId",
             "recipient",
+            "body"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "MissionQuestionAskCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.question.ask"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "body": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "missionId",
             "body"
           ],
           "additionalProperties": false
@@ -23739,6 +23938,9 @@
         "missionId": {
           "$ref": "#/$defs/Id"
         },
+        "memberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
         "kind": {
           "type": "string",
           "enum": [
@@ -23747,6 +23949,7 @@
             "needs-attention",
             "plan-proposal",
             "parked",
+            "question",
             "sign-off",
             "verdict-ready",
             "routed",
@@ -25064,7 +25267,6 @@
         "contractVersion",
         "runId",
         "jobId",
-        "workItemId",
         "agentId",
         "budgetTokens",
         "estimatedTokens",
@@ -25085,6 +25287,9 @@
           "$ref": "#/$defs/Id"
         },
         "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
           "$ref": "#/$defs/Id"
         },
         "agentId": {

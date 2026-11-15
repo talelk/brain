@@ -8,7 +8,7 @@ import { enqueueSessionControl } from "./controls";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 
-/** How deep a delegation chain may go (ADR 0049): a task's own session is depth 0, its child 1, and a child of a child of a child 3. */
+/** How deep a delegation chain may go (ADR 0051): a task's own session is depth 0, its child 1, and a child of a child of a child 3. */
 export const MAX_DELEGATION_DEPTH = 3;
 /** How many children one session may have working at once (ADR 0003). An agent's own `maxChildren` can only lower it. */
 export const MAX_ACTIVE_CHILDREN = 4;
@@ -134,7 +134,7 @@ function resultOf(store: Store, db: Db, runId: string, childJob: string | null):
 
 /**
  * A delegated child's run ended (the engine calls this for every run; any other run is none of its business). A finished run hands its
- * result back to the parent's task as a handoff that is the child's own claim (ADR 0049); a failed one becomes a failure fact on the
+ * result back to the parent's task as a handoff that is the child's own claim (ADR 0051); a failed one becomes a failure fact on the
  * delegation. Idempotent: a delegation that already ended is left as it is.
  */
 export function delegatedRunEnded(store: Store, organizationId: string, workspaceId: string, runId: string, outcome: { ok: true } | { ok: false; diagnostic: string }): void {

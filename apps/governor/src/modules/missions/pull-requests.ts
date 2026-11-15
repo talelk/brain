@@ -2,6 +2,7 @@ import type { GitProvider, PullRequest, PullRequestObservation, PullRequestState
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
+import { runLink } from "./origin";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 type Row = {
@@ -24,13 +25,13 @@ export function recordPullRequest(store: Store, db: Db, input: {
 }): { pullRequestId: string; created: boolean } {
   const prior = db.prepare("SELECT id FROM pull_requests WHERE approval_id=?").get(input.approvalId) as { id: string } | undefined;
   if (prior) return { pullRequestId: prior.id, created: false };
-  const link = input.runId ? db.prepare("SELECT mission_id, work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(input.runId) as { mission_id: string; work_item_id: string } | undefined : undefined;
+  const link = input.runId ? runLink(db, input.runId) : {};
   const id = store.id("pr");
   const now = store.now();
   store.inTx(db, () => {
     db.prepare(`INSERT INTO pull_requests(id,approval_id,invocation_id,run_id,work_item_id,mission_id,connection_id,provider,repository_key,number,url,title,branch,base_branch,commit_oid,opened_at_ms)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .run(id, input.approvalId, input.invocationId, input.runId ?? null, link?.work_item_id ?? null, link?.mission_id ?? null, input.opened.connectionId, input.opened.provider, input.opened.repositoryKey, input.opened.number, input.opened.url, input.title.slice(0, 200), input.opened.branch, input.opened.base, input.opened.commit, now);
+      .run(id, input.approvalId, input.invocationId, input.runId ?? null, link.workItemId ?? null, link.missionId ?? null, input.opened.connectionId, input.opened.provider, input.opened.repositoryKey, input.opened.number, input.opened.url, input.title.slice(0, 200), input.opened.branch, input.opened.base, input.opened.commit, now);
     // Opening it is the first thing known about its state: the provider answered 201 for a request that is open.
     db.prepare("INSERT INTO pull_request_states(id,pull_request_id,state,source,observed_by,observed_at_ms) VALUES (?,?,'open','opened',NULL,?)").run(store.id("prs"), id, now);
   });

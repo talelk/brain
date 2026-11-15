@@ -14,6 +14,8 @@ cases = [
  ("support-draft", {**support, "sent": True}, False),
  ("support-draft", {**support, "risk": "unknown"}, False),
  ("support-draft", {"summary": "Missing required fields"}, False),
+ ("coordinator-session", {"summary": "Added a source check; confirmed inside the policy."}, True),
+ ("coordinator-session", {"summary": "Fine", "actions": ["close"]}, False),
 ]
 for kind, report, expected in cases:
  result = subprocess.run(["bash", script], input=json.dumps({"kind": kind, "report": report}), text=True, capture_output=True, check=True)

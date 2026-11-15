@@ -14,6 +14,8 @@ if kind == "support-draft" and isinstance(report, dict):
  structure = set(report) == {"summary", "missingInformation", "risk", "proposedReply"} and text(report["summary"]) and texts(report["missingInformation"]) and report["risk"] in ["low", "medium", "high"] and text(report["proposedReply"])
 if kind == "task-guide" and isinstance(report, dict):
  structure = set(report) == {"reply", "workflowId", "input", "questions"} and text(report["reply"]) and (report["workflowId"] is None or text(report["workflowId"])) and isinstance(report["input"], dict) and texts(report["questions"]) and len(report["questions"]) <= 3
+if kind == "coordinator-session" and isinstance(report, dict):
+ structure = set(report) == {"summary"} and text(report["summary"])
 if kind == "plan-guide" and isinstance(report, dict):
  def task(t):
   if not isinstance(t, dict) or not set(t) <= {"id", "title", "criteria", "dependsOn", "estimatedMinutes", "maxMicroUsd", "workflowId", "assignment", "criterionIds"}: return False

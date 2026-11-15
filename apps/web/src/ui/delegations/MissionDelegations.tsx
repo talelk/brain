@@ -91,7 +91,7 @@ function Card(props: { item: Delegation; onDecided: () => void }): JSX.Element {
 }
 
 /**
- * Delegated work (ADR 0049): the sub-tasks sessions of this mission handed to child sessions, how each child's own run stands, what it handed back and what it could
+ * Delegated work (ADR 0051): the sub-tasks sessions of this mission handed to child sessions, how each child's own run stands, what it handed back and what it could
  * not do, and the review a person who did not start the delegation decides. `?item=` narrows it to one task's delegations. Nothing here starts or stops a child.
  */
 export function MissionDelegations(props: { mission: Mission; onChanged?: () => void }): JSX.Element {

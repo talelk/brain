@@ -18,7 +18,7 @@ interface Ports {
 }
 
 /**
- * Starts the run of every delegated child that has none (ADR 0049). A delegation commits a child session and a pending run; this starts
+ * Starts the run of every delegated child that has none (ADR 0051). A delegation commits a child session and a pending run; this starts
  * the run through the workflow engine, so the child's job is created, admitted against the mission's member cap and budget, placed and
  * claimed like any task's. It runs after the delegating command commits, and on every maintenance pass: a crash between the two leaves
  * a pending row and the next pass starts it (the run's execution key is the delegation, so it can never start twice). The parent never

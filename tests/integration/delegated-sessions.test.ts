@@ -4,7 +4,7 @@ import { DIGEST_A } from "../helpers";
 import { delegatingStarter, fixtureStarter } from "../support/starter";
 import { bearer, closeWorlds, command, missionOf, run, running, startedMission, type Offer, type Runner, type World } from "../support/machine-session";
 
-// Delegated sessions run (ADR 0049): a child session of a running session is its own run of the same mission, admitted, placed and claimed
+// Delegated sessions run (ADR 0051): a child session of a running session is its own run of the same mission, admitted, placed and claimed
 // like any task's, and what it does reaches the parent's task as a handoff, never as a run of that task. Everything is reached through
 // commands, the runner protocol and queries; the one table read is the job queue, which is the claim's own answer.
 

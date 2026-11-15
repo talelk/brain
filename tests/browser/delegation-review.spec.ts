@@ -7,7 +7,7 @@ import { delegateFrom, delegationsOf, driveChildren, enrollChildRunners, registe
 import type { Brain } from "../../apps/governor/src/application/brain";
 
 /**
- * Delegated work, walked as a first-time user would (ADR 0049, spec #90 stories 36 to 38). A running session of a mission hands three
+ * Delegated work, walked as a first-time user would (ADR 0051, spec #90 stories 36 to 38). A running session of a mission hands three
  * sub-tasks to child sessions: one the fixture runners finish and an independent check verifies, one that fails, and one a person started
  * themselves. The person opens the mission, finds the delegated work from the task and from the tab, reads what each child handed back,
  * accepts one result and is told why they cannot decide the one they started.

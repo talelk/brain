@@ -124,7 +124,7 @@ CREATE TABLE work_item_inputs (
   work_item_id TEXT NOT NULL, run_id TEXT NOT NULL, output_version_id TEXT NOT NULL REFERENCES output_versions(id),
   artifact_digest TEXT NOT NULL, PRIMARY KEY(work_item_id, run_id, output_version_id)
 ) STRICT;
--- handoffs.delegation_id names the delegation a handoff reports back for (ADR 0049): the result of a child session, never the current handoff of the work item itself.
+-- handoffs.delegation_id names the delegation a handoff reports back for (ADR 0051): the result of a child session, never the current handoff of the work item itself.
 CREATE TABLE handoffs (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), work_item_id TEXT NOT NULL REFERENCES work_items(id),
   version INTEGER NOT NULL CHECK(version > 0), notes_json TEXT NOT NULL CHECK(json_valid(notes_json)),
@@ -153,14 +153,26 @@ CREATE TABLE mission_bundle_judgements (
   detail TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', tries INTEGER NOT NULL DEFAULT 0,
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
+-- A question a session asked a person (#109, ADR 0050). Written once and never edited: whether it is still open is derived from whether a person's
+-- answer (a mission message naming it) exists, never stored. attempt_id is the session's attempt, which the per-session cap counts against.
+CREATE TABLE mission_questions (
+  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), member_id TEXT NOT NULL, work_item_id TEXT, attempt_id TEXT NOT NULL,
+  asker_id TEXT NOT NULL, body TEXT NOT NULL, created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX mission_questions_mission ON mission_questions(mission_id, created_at_ms);
+CREATE INDEX mission_questions_attempt ON mission_questions(attempt_id);
+CREATE TRIGGER mission_questions_never_edited BEFORE UPDATE ON mission_questions BEGIN SELECT RAISE(ABORT, 'a question is never edited'); END;
+CREATE TRIGGER mission_questions_never_removed BEFORE DELETE ON mission_questions BEGIN SELECT RAISE(ABORT, 'a question is never removed'); END;
 CREATE TABLE mission_messages (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   recipient_kind TEXT NOT NULL CHECK(recipient_kind IN ('mission','member')), recipient_member_id TEXT,
   work_item_id TEXT, sender_id TEXT NOT NULL, body TEXT NOT NULL,
   delivery TEXT NOT NULL DEFAULT 'pending' CHECK(delivery IN ('pending','delivered-live','delivered-at-session-start','superseded')),
   correction_of TEXT REFERENCES mission_messages(id), created_at_ms INTEGER NOT NULL,
+  answers_question_id TEXT DEFAULT NULL REFERENCES mission_questions(id),
   CHECK((recipient_kind = 'member') = (recipient_member_id IS NOT NULL))
 ) STRICT;
+CREATE UNIQUE INDEX mission_messages_one_answer ON mission_messages(answers_question_id) WHERE answers_question_id IS NOT NULL;
 CREATE TABLE plan_versions (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   revision INTEGER NOT NULL CHECK(revision > 0), digest TEXT NOT NULL,
@@ -318,7 +330,8 @@ CREATE TABLE sessions (
   scope_json TEXT NOT NULL DEFAULT '{"allowedPaths":[],"prohibitedPaths":[],"allowedTools":[]}' CHECK(json_valid(scope_json)),
   worktree_id TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL DEFAULT '',
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
-  created_at_ms INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL DEFAULT 0
+  created_at_ms INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL DEFAULT 0,
+  mission_id TEXT DEFAULT NULL REFERENCES missions(id)
 ) STRICT;
 CREATE INDEX sessions_job ON sessions(job_id,updated_at_ms);
 CREATE INDEX sessions_work_item ON sessions(work_item_id,updated_at_ms,id);
@@ -330,7 +343,7 @@ CREATE TABLE delegations (
   reviewer_id TEXT, evidence_digest TEXT, created_at_ms INTEGER NOT NULL, reviewed_at_ms INTEGER
 ) STRICT;
 CREATE INDEX delegations_parent ON delegations(parent_session_id,state,id);
--- The own run of a delegated sub-task (ADR 0049): a run of the mission that is NOT a run of its work item, so it never moves the task.
+-- The own run of a delegated sub-task (ADR 0051): a run of the mission that is NOT a run of its work item, so it never moves the task.
 -- pending means no run yet: the pump starts it after the commit and again after a crash. The review state of the delegation stays in delegations.
 CREATE TABLE delegation_runs (
   delegation_id TEXT PRIMARY KEY REFERENCES delegations(id), mission_id TEXT NOT NULL REFERENCES missions(id),

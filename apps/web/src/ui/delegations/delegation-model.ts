@@ -1,7 +1,7 @@
 import type { Delegation } from "@brain/contracts";
 import type { MessageKey } from "../../i18n";
 
-/** How deep a delegation goes at most (ADR 0049); the Governor enforces it, the screen only says it. */
+/** How deep a delegation goes at most (ADR 0051); the Governor enforces it, the screen only says it. */
 export const MISSION_DEPTH_LIMIT = 3;
 
 export type DelegationStatus = "working" | "to-review" | "accepted" | "rejected" | "failed";

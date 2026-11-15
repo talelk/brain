@@ -75,7 +75,7 @@ export interface EvalCaseRow {
 /** Newest first; `total` counts every case even when `items` is the newest page of them. */
 export const evalCasesRead = (workspaceId: string, signal?: AbortSignal) => read<{ items: EvalCaseRow[]; total: number }>({ queryType: "evalCases.list", workspaceId, limit: 100 }, signal);
 
-/** The delegations of one mission (ADR 0049), newest first: each child session with how its own run stands and what a review decides on. */
+/** The delegations of one mission (ADR 0051), newest first: each child session with how its own run stands and what a review decides on. */
 export const delegationsRead = (workspaceId: string, missionId: string, signal?: AbortSignal) => read<{ items: Delegation[] }>({ queryType: "delegations.list", workspaceId, resourceId: missionId, limit: 100 }, signal);
 
 /** Which sign-in ways the sign-in page offers (public, no session needed). */

@@ -63,7 +63,9 @@ function parseTables(sql: string): DeclaredTable[] {
 }
 
 /** The top-level comma-separated parts of a CREATE TABLE body, in order. */
-function splitParts(body: string): string[] {
+function splitParts(declaration: string): string[] {
+  // Whole-line comments (a column's explanation sits above it) are not part of any column.
+  const body = declaration.replace(/^[ \t]*--[^\n]*\n/gmu, "");
   const parts: string[] = [];
   let depth = 0;
   let part = "";

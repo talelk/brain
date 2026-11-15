@@ -7,7 +7,7 @@ import { collectRelease } from "../../apps/cli/src/release";
 let world: TestWorld | undefined;
 afterEach(() => { world?.brain.close(); world = undefined; });
 
-const STARTER = ["checklist-runbook", "compare-options", "incident-triage", "research-and-write", "support-reply-draft", "weekly-status"];
+const STARTER = ["checklist-runbook", "compare-options", "incident-triage", "research-and-write", "research-with-coordinator", "support-reply-draft", "weekly-status"];
 
 async function run(w: TestWorld, commandType: string, key: string, payload: Record<string, unknown>): Promise<CommandReceipt> {
   return (await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType, workspaceId: w.workspaceId, idempotencyKey: key, payload } as never, key)).receipt;
@@ -25,7 +25,7 @@ function existingWorkspace(): TestWorld {
 }
 
 describe("starter Plays (row 49)", () => {
-  it("a fresh install gets six Plays with the starter release, each with a goal, criteria and a full budget", async () => {
+  it("a fresh install gets seven Plays with the starter release, each with a goal, criteria and a full budget", async () => {
     world = setupWorld();
     const w = world;
     const bundle = fixtureStarter();
@@ -43,28 +43,28 @@ describe("starter Plays (row 49)", () => {
       expect(detail.budget.maxWallClockMs).toBeLessThanOrEqual(4 * 3_600_000);
       expect(detail.plan.tasks.every((task) => task.criteria.length > 0)).toBe(true);
     }
-    expect(await summary(w)).toMatchObject({ plays: 6, starterPlays: { total: 6, installed: 6, installable: 0, blocked: [] } });
+    expect(await summary(w)).toMatchObject({ plays: 7, starterPlays: { total: 7, installed: 7, installable: 0, blocked: [] } });
   });
 
-  it("the raw starter release, with its real engines, compiles with all six Plays (first launch stages exactly this)", async () => {
+  it("the raw starter release, with its real engines, compiles with all seven Plays (first launch stages exactly this)", async () => {
     world = setupWorld();
     const w = world;
     const bundle = collectRelease("examples/v1/starter-release");
     w.brain.activateRelease(w.owner, w.brain.stageRelease(w.owner, bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas).digest);
     expect((await plays(w)).map((play) => play.playId).sort()).toEqual(STARTER);
-    expect(await summary(w)).toMatchObject({ starterPlays: { installed: 6, installable: 0 } });
+    expect(await summary(w)).toMatchObject({ starterPlays: { installed: 7, installable: 0 } });
   });
 
   it("Add starter Plays installs the missing ones on an existing workspace, once, and a mission starts from one", async () => {
     world = existingWorkspace();
     const w = world;
     expect(await plays(w)).toEqual([]);
-    expect(await summary(w)).toMatchObject({ plays: 0, starterPlays: { total: 6, installed: 0, installable: 6 } });
+    expect(await summary(w)).toMatchObject({ plays: 0, starterPlays: { total: 7, installed: 0, installable: 7 } });
     const before = w.brain.store.control.prepare("SELECT release_digest, version FROM active_config WHERE organization_id=?").get(w.org) as { release_digest: string; version: number };
 
     expect((await run(w, "plays.addStarter", "add-1", {})).accepted).toBe(true);
     expect((await plays(w)).map((play) => play.playId).sort()).toEqual(STARTER);
-    expect(await summary(w)).toMatchObject({ plays: 6, starterPlays: { installed: 6, installable: 0 } });
+    expect(await summary(w)).toMatchObject({ plays: 7, starterPlays: { installed: 7, installable: 0 } });
     const after = w.brain.store.control.prepare("SELECT release_digest, version FROM active_config WHERE organization_id=?").get(w.org) as { release_digest: string; version: number };
     expect(after.release_digest).not.toBe(before.release_digest);
 
@@ -88,7 +88,7 @@ describe("starter Plays (row 49)", () => {
     const documents = bundle.documents.filter((doc) => !doc.path.startsWith("config/plays/"));
     documents.push({ path: "config/plays/research-and-write.yaml", text: JSON.stringify(edited, null, 2) });
     w.brain.activateRelease(w.owner, w.brain.stageRelease(w.owner, documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas).digest);
-    expect(await summary(w)).toMatchObject({ starterPlays: { installed: 1, installable: 5 } });
+    expect(await summary(w)).toMatchObject({ starterPlays: { installed: 1, installable: 6 } });
     await run(w, "plays.addStarter", "keep-1", {});
     const list = await plays(w);
     expect(list.map((play) => play.playId).sort()).toEqual(STARTER);
@@ -100,8 +100,8 @@ describe("starter Plays (row 49)", () => {
     const w = world;
     const before = w.brain.store.control.prepare("SELECT release_digest FROM active_config WHERE organization_id=?").get(w.org);
     const status = (await summary(w)).starterPlays;
-    expect(status).toMatchObject({ total: 6, installed: 0, installable: 0 });
-    expect(status.blocked).toHaveLength(6);
+    expect(status).toMatchObject({ total: 7, installed: 0, installable: 0 });
+    expect(status.blocked).toHaveLength(7);
     expect(status.blocked[0]!.reason).toMatch(/task-worker is not in the active release/);
     expect((await run(w, "plays.addStarter", "none-1", {})).accepted).toBe(true);
     expect(w.brain.store.control.prepare("SELECT release_digest FROM active_config WHERE organization_id=?").get(w.org)).toEqual(before);

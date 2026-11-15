@@ -57,12 +57,13 @@ describe("notification links resolve to screens", () => {
 
   it("each kind of attention item opens where its row in Needs you opens", () => {
     const link = (kind: string, extra: Record<string, string> = {}) => links.attentionLink({ kind, workspaceId: "ws-1", missionId: "m-1", resourceId: "res-1", ...extra });
-    expect(ATTENTION_KINDS).toEqual(["approval", "budget-pause", "needs-attention", "plan-proposal", "parked", "sign-off", "verdict-ready", "routed", "result-ready", "schedule-failed", "outcome-unknown"]);
+    expect(ATTENTION_KINDS).toEqual(["approval", "budget-pause", "needs-attention", "plan-proposal", "parked", "question", "sign-off", "verdict-ready", "routed", "result-ready", "schedule-failed", "outcome-unknown"]);
     expect(link("approval")).toBe("/approvals/res-1");
     expect(link("plan-proposal")).toBe("/missions/m-1/plan?w=ws-1&proposal=res-1");
     expect([link("parked"), link("needs-attention"), link("outcome-unknown")]).toEqual(Array(3).fill("/missions/m-1/plan?w=ws-1"));
     expect([link("sign-off"), link("verdict-ready")]).toEqual(Array(2).fill("/missions/m-1/outputs?w=ws-1"));
     expect(link("routed")).toBe("/missions/m-1/live?w=ws-1");
+    expect(link("question")).toBe("/missions/m-1/live?w=ws-1&question=res-1");
     expect([link("budget-pause"), link("schedule-failed")]).toEqual(Array(2).fill("/missions/m-1/brief?w=ws-1"));
     expect(links.attentionLink({ kind: "outcome-unknown", workspaceId: "ws-1", resourceId: "job-1" })).toBe("/runs/job-1");
     expect(links.attentionLink({ kind: "schedule-failed", workspaceId: "ws-1", resourceId: "auto-1" })).toBe("/w/ws-1/schedules");

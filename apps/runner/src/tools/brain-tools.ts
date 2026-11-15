@@ -66,6 +66,10 @@ function payloadOf(toolId: string, input: Readonly<Record<string, unknown>>, gra
     case "mission.message-member":
       if (!grant.memberId) return "this session is not a team member's, so it has no one to message from";
       return { missionId: grant.missionId, recipient: { kind: "member", memberId: text("memberId") ?? "" }, body: text("body") ?? "" };
+    case "mission.ask": {
+      if (!grant.memberId) return "this session is not a team member's, so it has no one to ask from";
+      return defined({ missionId: grant.missionId, body: text("question") ?? "", workItemId: grant.workItemId });
+    }
     case "mission.submit-handoff": {
       if (!grant.workItemId) return "this session serves no task, so it has nothing to hand off";
       const { summary, decisions, openQuestions, nextAction, referencedOutputs } = input;
@@ -74,16 +78,19 @@ function payloadOf(toolId: string, input: Readonly<Record<string, unknown>>, gra
     case "mission.delegate":
       // The Governor takes the parent from the attempt's own session: the model names the sub-task, never a session.
       return defined({ missionId: grant.missionId, task: text("task") ?? "", memberId: text("memberId") });
-    default: {
+    case "mission.comment": {
       const workItemId = text("workItemId") ?? grant.workItemId;
       if (!workItemId) return "this session serves no task: name the work item to comment on";
       return defined({ workItemId, text: text("text") ?? "", correctionOf: text("correctionOf") });
     }
+    default:
+      return `${toolId} is not a Brain tool`;
   }
 }
 
 /** What the model is told about the result: the new thing's id and, for a plan, whether it was confirmed or waits for a person. */
 async function describe(toolId: string, resourceId: string | undefined, grant: SessionGrant, client: Client): Promise<JsonValue> {
+  if (toolId === "mission.ask") return { recorded: true, ...(resourceId ? { id: resourceId } : {}), outcome: "A person has been asked. Their answer reaches you as a message from a person, in this session if it can take it, otherwise in your next one. Do not ask again and do not wait for it: carry on with what you can do, and say in your answer what depends on it." };
   if (toolId !== "mission.propose-plan" || !resourceId) return { recorded: true, ...(resourceId ? { id: resourceId } : {}) };
   const read = await client.actAs(grant.credential, "/v1/query", { queryType: "plans.get", workspaceId: grant.workspaceId, resourceId });
   const state = read.status === 200 ? String((read.json as { snapshot?: { state?: string } }).snapshot?.state ?? "") : "";

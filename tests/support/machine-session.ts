@@ -75,14 +75,20 @@ export async function confirmedMission(w: World, options: { tasks?: PlanTask[]; 
   return { missionId, workItemId };
 }
 
-/** A world with its own Governor on a controllable clock, the starter staged, a confirmed mission and an enrolled runner. */
-export async function startedMission(options: Parameters<typeof confirmedMission>[1] & { starter?: ReturnType<typeof fixtureStarter> } = {}): Promise<{ w: World; missionId: string; runner: Runner; workItemId: string }> {
+/** A world with its own Governor on a controllable clock, the starter staged and an enrolled runner. */
+export function freshWorld(starter?: ReturnType<typeof fixtureStarter>): { w: World; runner: Runner } {
   const dir = mkdtempSync(join(tmpdir(), "brain-test-session-principal-"));
   dirs.push(dir);
   const w = setupWorld(new Brain({ dataDir: dir, allowTestActor: true, clock }));
   worlds.push(w);
-  stageStarter(w, options.starter);
-  return { w, ...(await confirmedMission(w, options)), runner: register(w, "runner-principal") };
+  stageStarter(w, starter);
+  return { w, runner: register(w, "runner-principal") };
+}
+
+/** A fresh world with a confirmed mission. */
+export async function startedMission(options: Parameters<typeof confirmedMission>[1] & { starter?: ReturnType<typeof fixtureStarter> } = {}): Promise<{ w: World; missionId: string; runner: Runner; workItemId: string }> {
+  const { w, runner } = freshWorld(options.starter);
+  return { w, ...(await confirmedMission(w, options)), runner };
 }
 
 /** The runner claims the next job and starts its attempt; the attempt is running and holds its lease. */

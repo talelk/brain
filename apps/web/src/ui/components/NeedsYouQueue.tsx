@@ -9,6 +9,7 @@ import { approvalQuery } from "../../data/governor";
 import { dialogSummary, effectParts, exactJson, plainSentence } from "../approval-text";
 import { attentionAction, attentionHref } from "./AttentionDrawer";
 import { ApprovalReview, ExpiryCountdown } from "./ApprovalReview";
+import { ApprovalContextBlock } from "./ApprovalContext";
 import { DecisionCard } from "./DecisionCard";
 import { SpendCapRaise, TaskFailure } from "./TaskFailure";
 import { createScopedRead } from "../../data/screens";
@@ -55,7 +56,7 @@ function ApprovalBody(props: { item: AttentionItem; onReviewOpen: (open: boolean
     recommended={<Show when={loaded()}>{(view) => {
       const approval = () => view().approval;
       const effect = () => effectParts(approval());
-      return <ApprovalReview active={app.canApprove()} requireTwoFactor={app.identity()?.requireTwoFactor} approvalId={approval().approvalId}
+      return <ApprovalReview active={app.canApprove()} requireTwoFactor={app.identity()?.requireTwoFactor} approvalId={approval().approvalId} context={<ApprovalContextBlock approval={approval()} />}
         summary={dialogSummary(approval())} requestedBy={app.personName(approval().requestedBy)} expiresAt={approval().subject.expiresAt} asOf={view().asOf}
         targetLabel={`${effect().operation} on ${effect().target}`} exactContent={exactJson(approval())} subjectDigest={approval().subjectDigest} version={approval().version}
         fresh={approval().state === "pending" && isFreshFromServer(approval().subject.expiresAt, view().asOf)}

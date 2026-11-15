@@ -22,7 +22,7 @@ export interface CompiledRelease {
   readonly evaluators: Readonly<Record<string, Evaluator>>;
   /** Skill documents by id, with the text a task that names one of their triggers adds to an agent's instructions. */
   readonly skills: Readonly<Record<string, CompiledSkill>>;
-  readonly tools: readonly { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; testEntrypoint?: string; testEntrypointDigest?: string; description?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[];
+  readonly tools: readonly { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; compensatingAction?: string; testEntrypoint?: string; testEntrypointDigest?: string; description?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[];
   readonly documents: readonly { kind: string; id: string; digest: string }[];
 }
 
@@ -277,7 +277,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
   const plays: Record<string, Play> = {};
   const skills: Record<string, CompiledSkill> = {};
   const entries: { kind: string; id: string; digest: string; bytes: number; path: string }[] = [];
-  const tools: { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; description?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[] = [];
+  const tools: { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; description?: string; compensatingAction?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[] = [];
   const seenIds = new Set<string>();
   const policies: { name: string; spec: Record<string, unknown> }[] = [];
   let brainConfigUi: Record<string, unknown> | undefined;
@@ -358,6 +358,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
       tools.push({ id, digest: docDigest, effectClass: effectClass as "read" | "write" | "privileged", inputSchemaRef, outputSchemaRef,
         allowedEnvironments: Array.isArray(spec?.["allowedEnvironments"]) ? (spec["allowedEnvironments"] as string[]) : [],
         ...(typeof spec?.["description"] === "string" ? { description: spec["description"] } : {}),
+        ...(typeof spec?.["compensatingAction"] === "string" ? { compensatingAction: spec["compensatingAction"] } : {}),
         ...(Array.isArray(spec?.["allowedHosts"]) ? { allowedHosts: spec["allowedHosts"] as string[] } : {}), ...(pin ?? {}) });
     }
     entries.push({ kind, id, digest: docDigest, bytes: Buffer.byteLength(text, "utf8"), path });

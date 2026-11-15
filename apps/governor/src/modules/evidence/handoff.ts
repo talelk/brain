@@ -46,7 +46,7 @@ function nextVersion(db: Db, workItemId: string): number {
 }
 
 /**
- * A delegated child's result as a handoff on the work item its parent serves (ADR 0049). It is a claim from the child's session: it
+ * A delegated child's result as a handoff on the work item its parent serves (ADR 0051). It is a claim from the child's session: it
  * never supersedes the member's own handoff, is never superseded by it, and no dependent, bundle or Done check reads it. Unlike a
  * member's handoff it is accepted after the item is done too: the child can finish after its parent, and the result is still reported.
  */
