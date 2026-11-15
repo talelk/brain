@@ -46,7 +46,7 @@ test("a reviewer finds delegated work from the task and the mission, reads each 
   // The session asks for three children through its own credential, as its Brain tool does; a person asks for a fourth, naming the session.
   const checked = (await delegateFrom(brain, session, WS, "d-check", { missionId, task: "Summarise the three cheapest vendors" })).resourceId!;
   const broken = (await delegateFrom(brain, session, WS, "d-broken", { missionId, task: "Read the supplier register" })).resourceId!;
-  const mine = (await brain.executeCommand(actor, { contractVersion: "brain.command/v1", commandId: "cmd-d-mine", commandType: "session.delegate", workspaceId: WS, idempotencyKey: "d-mine", payload: { parentSessionId: parentSession.sessionId, task: "Draft the supplier shortlist" } } as never, "d-mine")).receipt.resourceId!;
+  await brain.executeCommand(actor, { contractVersion: "brain.command/v1", commandId: "cmd-d-mine", commandType: "session.delegate", workspaceId: WS, idempotencyKey: "d-mine", payload: { parentSessionId: parentSession.sessionId, task: "Draft the supplier shortlist" } } as never, "d-mine");
   const byId = async (id: string) => (await delegationsOf(brain, actor, WS, missionId)).find((entry) => entry.delegationId === id)!;
   // The register cannot be read: that child's run fails before any runner takes it.
   brain.workflows.completeStep(actor.organizationId, WS, (await byId(broken)).run.runId!, "respond", { error: "The supplier register could not be reached" }, false);

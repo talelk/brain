@@ -40,7 +40,7 @@ describe("tool registry read (issue #84)", () => {
       expect(byId.get("knowledge.search")!.allowedAgents).toEqual(["sre-operator", "task-worker"]);
       expect(byId.get("task.validate")!.allowedAgents).toEqual([]);
       // The Brain tools (ADR 0042) are the task worker's alone and declared read: they change only Brain, as the session principal.
-      for (const id of ["mission.ask", "mission.comment", "mission.message-member", "mission.propose-plan", "mission.submit-handoff"]) expect(byId.get(id)).toEqual(expect.objectContaining({ allowedAgents: ["task-worker"], status: "trusted", effectClass: "read" }));
+      for (const id of ["mission.ask", "mission.comment", "mission.message-member", "mission.propose-plan", "mission.submit-handoff"]) expect(byId.get(id)).toEqual(expect.objectContaining({ allowedAgents: ["mission.message-member", "mission.propose-plan"].includes(id) ? ["plan-coordinator", "task-worker"] : ["task-worker"], status: "trusted", effectClass: "read" }));
       // Delegating (ADR 0051) is shipped but given to no agent: a release author lists it on an agent and raises that agent's limits to turn it on.
       expect(byId.get("mission.delegate")).toEqual(expect.objectContaining({ allowedAgents: [], status: "trusted", effectClass: "read" }));
       expect(byId.get("web.fetch")).toEqual(expect.objectContaining({ allowedHosts: expect.arrayContaining(["en.wikipedia.org"]), description: expect.stringContaining("plain GET") }));
