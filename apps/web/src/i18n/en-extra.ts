@@ -1297,5 +1297,13 @@ export const enExtra = {
   "adm.git-provider.hint": "Brain opens pull requests through this provider's API. It does not guess from the address.",
   "adm.git-provider.required": "Choose the provider of this Git host.",
   "adm.git-provider.first-step": "Choose Connect remote, pick the Git provider, then give the repository URL (and a token if it is private).",
+  "work.egress.title": "What sandboxed tools may reach",
+  "work.egress.description": "The hosts this workspace's sandboxed tools may contact, through Brain's egress proxy. Anything not listed is refused.",
+  "work.egress.hosts": "Allowed hosts",
+  "work.egress.hint": "One per line: a name or IPv4 address, optionally with :port. Without a port, 80 and 443 are allowed. No schemes, paths or wildcards.",
+  "work.egress.summary": "Reachable through the egress proxy: {hosts}.",
+  "work.egress.none": "No host is allowed: this workspace's tools run without a network.",
+  "work.egress.invalid": "Not a host the proxy can allow: {entries}.",
+  "work.egress.saved": "The allowed hosts were saved.",
   // @@END
 } as const satisfies Record<string, string>;
