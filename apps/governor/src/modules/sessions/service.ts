@@ -401,8 +401,9 @@ export class SessionService {
       { id: "handoff-facts", title: "Verified results of the tasks this one builds on", label: "fact", items: handoffs.map((handoff) => {
         const passed = handoff.facts ? handoff.facts.criteria.filter((entry) => entry.status === "passed").length : 0;
         const total = handoff.facts?.criteria.length ?? 0;
+        const unlinked = handoff.facts ? handoff.facts.criteria.filter((entry) => entry.status === "unlinked").length : 0;
         return fact(handoff.workItemId, handoff.facts
-          ? `- ${titleOf(handoff.workItemId)}: ${passed} of ${total} criteria passed; evidence ${handoff.facts.evidenceDigest}${handoff.facts.outputVersions.length > 0 ? `; outputs ${handoff.facts.outputVersions.join(", ")}` : ""}`
+          ? `- ${titleOf(handoff.workItemId)}: ${passed} of ${total} criteria passed; evidence ${handoff.facts.evidenceDigest}${handoff.facts.outputVersions.length > 0 ? `; outputs ${handoff.facts.outputVersions.join(", ")}` : ""}${unlinked > 0 ? `; ${unlinked} named by no check (the workflow's checks passed as a whole)` : ""}`
           : `- ${titleOf(handoff.workItemId)}: no verified facts recorded yet`);
       }) },
       { id: "handoff-notes", title: "Handoff notes from those tasks (written by the member)", label: "claim", items: handoffs.flatMap((handoff) => {
