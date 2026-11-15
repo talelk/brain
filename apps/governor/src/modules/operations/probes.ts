@@ -53,7 +53,7 @@ export function checkReplica(s: Store, config: ReplicaConfig | undefined): void 
   recordProbe(s, "replica", lag.status, lag.detail);
 }
 
-/** The last backup and the last restore test, as the host job recorded them (ADR 0038), recorded as the `backup` and `restore-test` probes. */
+/** The last backup and the last restore test, as the host job recorded them (ADR 0039), recorded as the `backup` and `restore-test` probes. */
 export function checkBackups(s: Store, env: NodeJS.ProcessEnv = process.env): void {
   const backup = backupStatus(s.now(), env);
   recordProbe(s, "backup", backup.status, backup.detail);

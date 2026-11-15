@@ -544,7 +544,7 @@ _Avoid_: support dump, debug export
 
 **Stale backup**:
 A backup whose recorded finish time is older than the limit (36 hours unless set), shown
-in Health as degraded. Health only reads what the host's backup job recorded (ADR 0038);
+in Health as degraded. Health only reads what the host's backup job recorded (ADR 0039);
 a backup nobody recorded is a warning, never a pass. The **restore test** is the host's
 monthly rehearsal restoring the newest backup into a scratch directory; Health shows its
 last result.

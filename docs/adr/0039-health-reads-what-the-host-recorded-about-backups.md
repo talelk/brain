@@ -1,4 +1,4 @@
-# 38. Health reads what the host recorded about backups
+# 39. Health reads what the host recorded about backups
 
 Status: accepted, 2026-11-15. Spec #90, stories 96 and 97.
 
