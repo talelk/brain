@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { buildMcpToolFiles, type McpRegistration } from "../apps/cli/src/mcp";
 
 /**
- * Registers tools of an external MCP server as governed Tool documents in a release directory (ADR 0062).
+ * Registers tools of an external MCP server as governed Tool documents in a release directory (ADR 0064).
  *
  *   pnpm exec tsx scripts/mcp-register.ts <release-dir> <server-id> <server-url> --class <tool>=read|write ... [--header Name=secret-name[:prefix]] [--max-output 16384]
  *

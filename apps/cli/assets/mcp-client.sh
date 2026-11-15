@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# The pinned client of one external MCP tool (ADR 0062). It runs only inside the launcher's sandbox, whose whole network is the egress
+# The pinned client of one external MCP tool (ADR 0064). It runs only inside the launcher's sandbox, whose whole network is the egress
 # proxy's grant for the one declared server host. Input on stdin: {"arguments": {...}, "mcp": {"url", "tool", "toolListDigest",
 # "headers", "maxOutputBytes", "mode"}}; the runner builds "mcp" from the pinned Tool document, never the model.
 # Exit 2: refused before the call was sent (nothing changed). Exit 3: the call was sent (its effect may be unknown).

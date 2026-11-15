@@ -58,7 +58,7 @@ export interface JobOffer {
   toolPins?: Record<string, string>;
   /** The hosts each tool of the job's release may reach, from the pinned tool definition. */
   toolAllowedHosts?: Record<string, string[]>;
-  /** External MCP tools of the pinned release: server, tool, tool-list digest, header references (ADR 0062). */
+  /** External MCP tools of the pinned release: server, tool, tool-list digest, header references (ADR 0064). */
   toolMcp?: Record<string, McpDeclaration>;
   /** The hosts this workspace lets a sandboxed tool reach through the egress proxy (ADR 0037); none means no network. */
   egressHosts?: string[];

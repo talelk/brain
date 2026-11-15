@@ -1,7 +1,7 @@
 import { BrainDomainError } from "../../domain/errors";
 
 /**
- * An external MCP tool is a Tool document with `spec.mcp` (ADR 0062). The block names one tool of one server, the digest of the server's
+ * An external MCP tool is a Tool document with `spec.mcp` (ADR 0064). The block names one tool of one server, the digest of the server's
  * tool list as it was when an admin registered it, and the headers the server needs by reference (secret names, never values). What is
  * declared here is all the runner may do: it reaches the server only through the launcher's sandbox and the egress proxy, for this host.
  */

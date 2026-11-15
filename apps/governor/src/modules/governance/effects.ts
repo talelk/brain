@@ -91,7 +91,7 @@ const POLICIES: Readonly<Record<string, Policy>> = {
 function isEffectTool(toolId: string): boolean { return toolId in POLICIES; }
 
 /**
- * An external MCP tool's policy (ADR 0062) comes from its pinned declaration, not from operator code per tool: the admin declared the
+ * An external MCP tool's policy (ADR 0064) comes from its pinned declaration, not from operator code per tool: the admin declared the
  * server host and the effect class, and the approval says exactly what will be sent. The arguments must satisfy the pinned input schema.
  */
 function mcpPolicy(mcp: { host: string; tool: string }, inputSchema: object | undefined): Policy {
@@ -149,7 +149,7 @@ interface AttemptContext {
   /** The agent whose allowlist backs the call: the step's own agent, or (for an act job) the agent that proposed it. */
   readonly agent: { id: string; digest: string };
   readonly effectClass: string;
-  /** The pinned declaration of an external MCP tool, with its pinned input schema (ADR 0062). */
+  /** The pinned declaration of an external MCP tool, with its pinned input schema (ADR 0064). */
   readonly mcp?: { host: string; tool: string; inputSchema: object | undefined };
   /** True for the attempt of a held act job (ADR 0028): the only attempt that may take a permit and run the call. */
   readonly isAct: boolean;

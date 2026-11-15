@@ -2,7 +2,7 @@ import type { JsonValue } from "@brain/contracts";
 import { readSecretFile, secretsDir } from "./secrets";
 
 /**
- * External MCP tools on the runner (ADR 0062). The runner never speaks to the MCP server: the pinned client script does, inside a launcher
+ * External MCP tools on the runner (ADR 0064). The runner never speaks to the MCP server: the pinned client script does, inside a launcher
  * sandbox whose only network is the egress proxy's grant for the one declared host. Here the runner only turns the release's declaration
  * into that sandbox's request and the script's stdin, resolving header secrets by reference.
  */

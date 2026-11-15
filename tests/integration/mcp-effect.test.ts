@@ -5,7 +5,7 @@ import { egressDouble, fakeMcpServer, listTools, mcpStarter, type FakeMcp } from
 import { scaled } from "../support/timing";
 
 /**
- * An external MCP effect tool (ADR 0062 on ADR 0024): the call is proposed, held, approved by a person for that exact call, and only then
+ * An external MCP effect tool (ADR 0064 on ADR 0024): the call is proposed, held, approved by a person for that exact call, and only then
  * made, once, by the pinned client in a sandbox granted only the server's host. Everything runs through the Governor, a real runner
  * supervisor and a real egress proxy; the MCP server is a local fake.
  */

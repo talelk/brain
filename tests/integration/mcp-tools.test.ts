@@ -11,7 +11,7 @@ import { mcpClientScript } from "../../apps/cli/src/mcp";
 import { setupWorld } from "../helpers";
 import { egressDouble, fakeMcpServer, listTools, mcpStarter, type FakeMcp } from "../support/mcp-world";
 
-// External MCP tools under governance (ADR 0062, ticket #137). The server is a local fake; the sandbox is a double that runs the pinned
+// External MCP tools under governance (ADR 0064, ticket #137). The server is a local fake; the sandbox is a double that runs the pinned
 // client script with the egress proxy (real, with a grant per sandbox) as its only network.
 const tmp = process.env["TMPDIR"] ?? "/tmp";
 const scriptBytes = new TextEncoder().encode(mcpClientScript());

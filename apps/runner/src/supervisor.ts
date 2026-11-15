@@ -420,7 +420,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           // Read tools that need data the sandboxed script cannot reach get it from a broker first; a refusal is a failed call with a
           // receipt, never a script run on missing data.
           const scriptInput = (base: Record<string, unknown>): Record<string, unknown> => { if (!OUTPUT_BROKERED.has(binding.release.id)) return base; const { content: _content, ...rest } = base; return rest; };
-          // An external MCP tool (ADR 0062) is called by its pinned client inside a sandbox granted only its server host; the runner itself never connects.
+          // An external MCP tool (ADR 0064) is called by its pinned client inside a sandbox granted only its server host; the runner itself never connects.
           const mcpDeclaration = (offer as { toolMcp?: Record<string, McpDeclaration> }).toolMcp?.[binding.release.id];
           const mcpPrepared = mcpDeclaration && !proposed ? prepareMcpCall(mcpDeclaration, offer.workspaceId, offer.egressHosts) : undefined;
           const brokered = proposed || mcpPrepared ? undefined : await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher, outputs, { session: brainSession, proposalId: proposal.proposalId });

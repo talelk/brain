@@ -344,7 +344,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     const docDigest = sha256Digest(new TextEncoder().encode(text));
     if (kind === "Tool") {
       const effectClass = String(spec?.["effectClass"] ?? "");
-      // An external MCP tool never gets an effect class by default or from the server's own hints: the admin declares it (ADR 0062).
+      // An external MCP tool never gets an effect class by default or from the server's own hints: the admin declares it (ADR 0064).
       if (spec?.["mcp"] !== undefined && !["read", "write", "privileged"].includes(effectClass)) throw new BrainDomainError("INVALID_CONTRACT", `${path}: an external MCP tool must declare its effect class (read or write); none is assumed`);
       const mcp = spec?.["mcp"] !== undefined ? compileMcpSpec(spec, path, effectClass) : undefined;
       if (mcp && spec?.["allowedHosts"] !== undefined && JSON.stringify(spec["allowedHosts"]) !== JSON.stringify([mcp.host])) throw new BrainDomainError("INVALID_CONTRACT", `${path}: an external MCP tool reaches only its server host ${mcp.host}; allowedHosts must be that host or absent`);

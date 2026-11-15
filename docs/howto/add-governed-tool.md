@@ -106,7 +106,7 @@ The pinned `run.sh` only shapes the broker's answer from `broker`, as for read t
 self-test (`POST /v1/config/tools/:id/selftest`). The owner sets what a call may touch (`workspace.effects.set`) and which runner group
 carries host tools (`runnerGroup.set`).
 
-## 4d. Tools of an external MCP server (ADR 0062)
+## 4d. Tools of an external MCP server (ADR 0064)
 
 An admin registers a server's tools instead of writing scripts:
 

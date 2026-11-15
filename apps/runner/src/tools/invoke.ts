@@ -73,7 +73,7 @@ export interface ToolExecution {
   /** The workspace's egress allowlist from the job offer: a read-class tool's sandbox reaches these hosts through the proxy and nothing else. */
   egressHosts?: readonly string[] | undefined;
   /**
-   * An external MCP tool (ADR 0062): the pinned client script runs in a sandbox whose network is the egress proxy's grant for this one
+   * An external MCP tool (ADR 0064): the pinned client script runs in a sandbox whose network is the egress proxy's grant for this one
    * host. The runner never connects to the server, so without a launcher the call fails closed whatever its class.
    */
   mcp?: McpCall | undefined;

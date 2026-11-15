@@ -27,7 +27,7 @@ export interface ActContext {
   readonly workspaceId: string;
   readonly configDigest: string;
   readonly toolPins: Record<string, string> | undefined;
-  /** External MCP tools of the pinned release and the workspace's egress hosts (ADR 0062). */
+  /** External MCP tools of the pinned release and the workspace's egress hosts (ADR 0064). */
   readonly toolMcp?: Record<string, McpDeclaration> | undefined;
   readonly egressHosts?: readonly string[] | undefined;
 }
@@ -84,7 +84,7 @@ export async function performHeldEffect(context: ActContext, payload: ActPayload
 const BEFORE_THE_CALL = /^tool exit 2\b|no longer current at the broker boundary|not pinned|runs only in the launcher|cannot be privileged/u;
 
 /**
- * An approved external MCP call (ADR 0062): the pinned client runs in the sandbox granted only the declared server host, with the call's
+ * An approved external MCP call (ADR 0064): the pinned client runs in the sandbox granted only the declared server host, with the call's
  * permit checked once more at the broker boundary. The script's own answer is already shaped and scrubbed, so there is no second step.
  */
 async function finishMcpEffect(context: ActContext, payload: ActPayload, call: EffectCall, gate: { token: string; invocationId: string }, mcp: NonNullable<Parameters<typeof executeToolPayload>[0]["mcp"]>): Promise<{ ok: boolean; output: JsonValue; receipt?: ArtifactRef }> {

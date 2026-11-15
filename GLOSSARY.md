@@ -448,7 +448,7 @@ _Avoid_: firewall, whitelist, network policy
 **External MCP tool**:
 A tool of a third-party MCP server, registered as a Tool document with `spec.mcp`: the admin declares its effect
 class (read or write, never inferred) and pins the digest of the server's tool list. The pinned client runs it in
-the sandbox with a grant for that one host; a changed tool list is refused until registered again (ADR 0062).
+the sandbox with a grant for that one host; a changed tool list is refused until registered again (ADR 0064).
 _Avoid_: MCP connector, plugin, MCP proxy
 
 **Queue limit**:

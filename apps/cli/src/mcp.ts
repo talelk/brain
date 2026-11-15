@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { strictSchemaProblem } from "@brain/contracts/validate";
 
 /**
- * Registering an external MCP server's tools as governed Tool documents (ADR 0062). The admin names the server, says which of its tools
+ * Registering an external MCP server's tools as governed Tool documents (ADR 0064). The admin names the server, says which of its tools
  * to register and declares each tool's effect class; nothing is inferred (a server's own hints such as readOnlyHint are not authority).
  * The tool list and its digest come from the pinned client script's own list mode, so one implementation computes the digest at
  * registration and at every call. The result is plain release files: review them, commit them, compile and activate like any Tool.

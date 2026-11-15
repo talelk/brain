@@ -1,4 +1,4 @@
-# 62. External MCP tools are governed tools that run in the sandbox
+# 64. External MCP tools are governed tools that run in the sandbox
 
 Date: 2026-11-15
 Status: Accepted (spec #90, #137)
