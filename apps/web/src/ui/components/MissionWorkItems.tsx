@@ -31,6 +31,7 @@ import { WorkRoadmap, type RoadmapNode } from "../work/WorkRoadmap";
 import { minutesText, tagsOf, workGraph, type BoardColumnId, type NextAction } from "../work/work-model";
 import { WorkItemDetails } from "./WorkItemDetails";
 import { Subtasks } from "../work/Subtasks";
+import { Candidates } from "../work/Candidates";
 import { PullRequests } from "./PullRequests";
 import { t } from "../../i18n";
 
@@ -70,6 +71,8 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
   const [cascade, setCascade] = createSignal(false);
   const [evidence, setEvidence] = createSignal("");
   const [conflict, setConflict] = createSignal("");
+  const [keeping, setKeeping] = createSignal(false);
+  const [keepError, setKeepError] = createSignal("");
   const missionId = () => props.mission.missionId;
   const items = createScopedRead<WorkItem[]>({
     scope: app.scope,
@@ -142,7 +145,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
   const critical = createMemo(() => new Set(graph().critical));
 
   const startHref = (item: WorkItem) => `/w/${app.workspaceId()}/plays?originKind=work-item&originId=${encodeURIComponent(item.workItemId)}`;
-  const open = (item: WorkItem, then?: "handoff") => { reset(); setConflict(""); setSelectedId(item.workItemId); if (then) setSheet(then); };
+  const open = (item: WorkItem, then?: "handoff") => { reset(); setConflict(""); setKeepError(""); setSelectedId(item.workItemId); if (then) setSheet(then); };
   const act = (item: WorkItem, action: NextAction) => {
     if (action.kind === "start") void navigate(startHref(item));
     else if (action.kind === "follow") void navigate(missionHref(app.workspaceId(), missionId(), "live"));
@@ -157,6 +160,19 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
     } catch (error) {
       setConflict(error instanceof Error ? error.message : "The move was refused");
     }
+    await items.refresh({ force: true });
+  }
+
+  /** A person keeps one candidate of a task in review (ADR 0064); the task stays in review until its kept candidate's evidence is bound. */
+  async function keepCandidate(item: WorkItem, runId: string): Promise<void> {
+    setKeeping(true); setKeepError("");
+    try {
+      const result = await app.run("workItem.candidate.keep", { workItemId: item.workItemId, runId }, { expectedVersion: item.version });
+      if (!result.accepted) setKeepError(result.detail ?? "The candidate could not be kept");
+    } catch (error) {
+      setKeepError(error instanceof Error ? error.message : "The candidate could not be kept");
+    }
+    setKeeping(false);
     await items.refresh({ force: true });
   }
 
@@ -231,6 +247,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
             <Show when={item.state === "ready" && item.failureClass === "quota"}><TaskFailure item={item} /></Show>
             <div class="border-y border-outline-gray-1 py-3"><h4 class="text-base-medium">{t("plan.next-action.d816")}</h4><p class="mt-1 text-interface text-ink-gray-7">{item.nextAction}</p><Show when={item.blockedReason}><Alert theme="amber" variant="outline" title={t("plan.blocked.9961")} description={item.blockedReason} /></Show></div>
             <Subtasks item={item} items={live()} onOpen={open} />
+            <Candidates item={item} canKeep={app.canDispatch()} busy={keeping()} error={keepError()} onKeep={(runId) => void keepCandidate(item, runId)} />
             <WorkItemDetails item={item} canEdit={app.canDispatch()} onSaved={async () => { await items.refresh({ force: true }); }} />
             <div><h4 class="text-base-medium">{t("plan.acceptance-criteria.133c")}</h4><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
             <Show when={item.evidenceDigest}><EvidenceList bundleDigest={item.evidenceDigest} /></Show>

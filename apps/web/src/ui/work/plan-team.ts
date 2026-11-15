@@ -1,4 +1,4 @@
-import type { AgentCatalogEntry, PlanAssignment, PlanTask, TeamMember, WorkItem } from "@brain/contracts";
+import type { AgentCatalogEntry, PlanAssignment, PlanCandidate, PlanTask, TeamMember, WorkItem } from "@brain/contracts";
 import { t } from "../../i18n";
 import { formatUsd } from "../format";
 
@@ -86,3 +86,26 @@ export function copyStandingTeam(team: readonly TeamMember[], standing: readonly
   }
   return { team: collisions.length ? [...team] : result, added: collisions.length ? [] : added, collisions };
 }
+
+/** What a candidate row of the editor stands for: a team member, a way of working, or nothing chosen yet. */
+export const candidateChoice = (candidate: PlanCandidate): string => (candidate.memberId ? `member:${candidate.memberId}` : candidate.workflowId ? `workflow:${candidate.workflowId}` : "");
+
+/** A step has N candidates (2 to 4), or none (ADR 0064). Growing keeps what was chosen; shrinking drops the last ones; one attempt removes the field. */
+export function withCandidateCount(task: PlanTask, count: number): PlanTask {
+  const { candidates, ...rest } = task;
+  if (count < 2) return rest;
+  return { ...rest, candidates: Array.from({ length: Math.min(4, count) }, (_, index) => candidates?.[index] ?? { id: `c${index + 1}` }) };
+}
+
+export function withCandidateChoice(task: PlanTask, position: number, choice: string): PlanTask {
+  if (!task.candidates) return task;
+  const [kind, ...rest] = choice.split(":");
+  const id = rest.join(":");
+  return { ...task, candidates: task.candidates.map((candidate, index) => index !== position ? candidate : { id: candidate.id, ...(kind === "member" && id ? { memberId: id } : {}), ...(kind === "workflow" && id ? { workflowId: id } : {}) }) };
+}
+
+/** Whether a step's candidates are all chosen and no two alike: the same rule the Governor applies. */
+export const candidatesComplete = (task: Pick<PlanTask, "candidates">): boolean => {
+  const choices = (task.candidates ?? []).map((candidate) => candidateChoice(candidate));
+  return choices.every(Boolean) && new Set(choices).size === choices.length;
+};

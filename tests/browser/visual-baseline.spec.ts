@@ -23,6 +23,7 @@ import { PAUSABLE_FEATURES, runnerReports, runningSession } from "../support/run
 import { seedPullRequest } from "../support/pullRequestDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 import { seedQuestion } from "../support/question-demo";
+import { finishCandidates, seedCandidateMission, stageSingleStepWorkflows, steadyDurations } from "../support/candidates-world";
 import { delegationsOf, driveChildren, enrollChildRunners } from "../support/delegation-world";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
 
@@ -63,6 +64,23 @@ async function pushDevice(page: Page, on: boolean): Promise<void> {
     const device = { endpoint: "http://127.0.0.1:9/push/baseline", toJSON: () => ({}), unsubscribe: async () => true };
     PushManager.prototype.getSubscription = async () => (subscribed ? (device as unknown as PushSubscription) : null);
   }, on);
+}
+
+/** A task run as three candidates (#127), made when its screen is reached: two finished (one verified), one failed; the task is open in its mission. */
+async function candidatesRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  stageSingleStepWorkflows(brain, demo.actor);
+  const { missionId, workItemId } = await seedCandidateMission(brain, demo.actor, demo.workspaceId, { key: "vb-candidates", title: "Compare three briefs", autoStart: true });
+  await finishCandidates(brain, demo.actor, demo.workspaceId, workItemId);
+  steadyDurations(brain, demo.actor, demo.workspaceId, workItemId);
+  return `/missions/${missionId}/plan?item=${workItemId}`;
+}
+
+/** The same task before any candidate has started: its plan editor open on the step's candidates. */
+async function candidatePlanRoute(demo: Demo, governor: Fixture): Promise<string> {
+  stageSingleStepWorkflows(governor.app.brain, demo.actor);
+  const { missionId } = await seedCandidateMission(governor.app.brain, demo.actor, demo.workspaceId, { key: "vb-candidate-plan", title: "Compare three briefs, planned", autoStart: false });
+  return `/missions/${missionId}/plan`;
 }
 
 /** A mission with a confirmed two-member team, made when its screen is reached; the screen is its plan editor open on the team and the first step. */
@@ -239,6 +257,9 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "start-standing-team", route: () => "/w/operations/missions/new", heading: "New mission", prepare: seedStandingTeams, after: async (page) => { await page.getByRole("dialog").getByTestId("play-chips").getByRole("button").first().click(); await expect(page.getByTestId("start-standing-team")).toBeVisible(); } },
   // A session a person paused (ADR 0058): it adds a running session, so it comes after the screens that list sessions and before the push screens (those stay last).
   { id: "console-session-paused", route: pausedSessionRoute, heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("continue-session")).toBeVisible(); await expect(page.getByTestId("pause-note")).toBeVisible(); } },
+  // Best of several (#127): a task's candidates side by side, then the plan editor's candidates for a step. They add a mission and release, so they come after the screens that list missions and before the push screens.
+  { id: "mission-candidates", route: candidatesRoute, heading: "Write the one-page brief", after: async (page) => { const panel = page.getByTestId("work-candidates"); await expect(panel.getByTestId("work-candidate")).toHaveCount(3); await expect(panel).toContainText("Suggested"); await panel.scrollIntoViewIfNeeded(); } },
+  { id: "mission-plan-candidates", route: candidatePlanRoute, heading: "Compare three briefs, planned", after: async (page) => { await page.getByRole("button", { name: /^See the confirmed plan/ }).click(); await page.getByRole("button", { name: "Edit steps", exact: true }).first().click(); await expect(page.getByTestId("plan-step-candidates").first()).toContainText("Best of 3"); await page.getByTestId("plan-step-candidates").first().scrollIntoViewIfNeeded(); } },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];
