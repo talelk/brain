@@ -549,6 +549,12 @@ CREATE TABLE workspace_effect_policy (
   egress_hosts_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(egress_hosts_json)),
   updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
+-- How many jobs of one workspace may wait for a runner before a person's new work is refused (ADR 0040). No row means the default.
+CREATE TABLE workspace_queue_limit (
+  workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL,
+  max_queued INTEGER NOT NULL CHECK(max_queued BETWEEN 1 AND 10000),
+  updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
 -- A runner group set aside for some workspaces (ADR 0024). A group with a row takes jobs of its listed workspaces only; host tools
 -- (host.*) run only on a group marked host_tools. A group with no row is open to every workspace and has no host tools.
 CREATE TABLE runner_groups (

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { ActorContext, CommandReceipt, Mission, PlanTask, PlanVersion } from "@brain/contracts";
-import { DIGEST_A, setupWorld, workView } from "../helpers";
-import { ownBundleJob } from "../support/evidence";
+import { setupWorld, workView } from "../helpers";
+import { finishTask } from "../support/finish-task";
 
 // ADR 0034: success criteria have stable ids, plan tasks name the ones they serve, and the mission read says where each one stands.
 type World = ReturnType<typeof setupWorld>;
@@ -30,21 +30,7 @@ async function confirm(w: World, id: string, key: string, tasks: PlanTask[], act
   await run(w, w.owner, "plan.confirm", `${key}-confirm`, { planVersionId: planId }, (await mission(w, id)).version);
   return planId;
 }
-/** A task is done the way a person finishes it: start, review, then Done on verified evidence of its own run. */
-async function finish(w: World, missionId: string, taskId: string, digestChar: string): Promise<void> {
-  const current = async () => (await workView(w)).items.find((entry) => entry.missionId === missionId && entry.planTaskId === taskId && entry.state !== "abandoned")!;
-  const digest = `sha256:${digestChar.repeat(64)}`;
-  await run(w, w.owner, "workItem.transition", `${missionId}-${taskId}-start`, { workItemId: (await current()).workItemId, state: "in-progress" }, (await current()).version);
-  await run(w, w.owner, "workItem.transition", `${missionId}-${taskId}-review`, { workItemId: (await current()).workItemId, state: "review" }, (await current()).version);
-  const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
-  const manifest = { contractVersion: "brain.evidence/v1", bundleId: `bundle-${digestChar}`, organizationId: w.org, workspaceId: w.workspaceId, workflowRunId: "run-seed", jobId: `job-${digestChar}`, attemptId: "att-seed", jobFence: 1, sourceRevision: "r", configDigest: DIGEST_A, workflowDigest: DIGEST_A, primitiveVersions: {}, toolReleases: [], artifacts: [], checks: [{ criterionId: `${taskId}-done`, checkId: `c-${taskId}`, status: "passed", oracleDigest: DIGEST_A, artifacts: [], detail: "seeded" }], approvalIds: [], effects: [], createdAt: new Date().toISOString() };
-  ws.prepare("INSERT INTO evidence_bundles(digest, bundle_id, job_id, attempt_id, state, manifest_json, created_at_ms) VALUES (?,?,?,?, 'verified', ?,?)").run(digest, manifest.bundleId, manifest.jobId, "att-seed", JSON.stringify(manifest), w.brain.store.now());
-  ws.prepare("INSERT INTO verification_verdicts(id, bundle_digest, evaluator_attempt_id, evaluator_digest, outcome, manifest_json, created_at_ms) VALUES (?,?,?,?, 'verified', ?,?)").run(`verdict-${digestChar}`, digest, "eval-seed", DIGEST_A, JSON.stringify({ checks: [], acceptedBy: "owner-1" }), w.brain.store.now());
-  ownBundleJob(ws, (await current()).workItemId, manifest.jobId, w.brain.store.now());
-  await run(w, agent(w), "handoff.submit", `${missionId}-${taskId}-handoff`, { workItemId: (await current()).workItemId, notes: { summary: `${taskId} finished` } });
-  const done = await run(w, w.owner, "workItem.transition", `${missionId}-${taskId}-done`, { workItemId: (await current()).workItemId, state: "done", evidenceDigest: digest }, (await current()).version);
-  expect(done.accepted).toBe(true);
-}
+const finish = (w: World, missionId: string, taskId: string, digestChar: string): Promise<void> => finishTask(w, missionId, taskId, digestChar);
 
 describe("success criteria with stable ids (ADR 0034)", () => {
   it("gives each criterion an id by position and keeps it across brief versions and plan versions", async () => {

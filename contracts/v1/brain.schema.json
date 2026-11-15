@@ -11462,6 +11462,9 @@
           "$ref": "#/$defs/WorkspaceEffectsSetCommand"
         },
         {
+          "$ref": "#/$defs/WorkspaceQueueLimitSetCommand"
+        },
+        {
           "$ref": "#/$defs/RunnerGroupSetCommand"
         },
         {
@@ -22689,7 +22692,8 @@
                 "enum": [
                   "passed",
                   "failed",
-                  "missing"
+                  "missing",
+                  "unlinked"
                 ]
               }
             },
@@ -22808,6 +22812,13 @@
           },
           "maxItems": 500
         },
+        "coverage": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CriterionCoverage"
+          },
+          "maxItems": 100
+        },
         "complete": {
           "type": "boolean"
         },
@@ -22852,6 +22863,7 @@
         "briefVersion",
         "items",
         "outputVersions",
+        "coverage",
         "complete",
         "state",
         "createdAt"
@@ -23765,6 +23777,97 @@
         "outcome",
         "evaluator",
         "evidenceDigest",
+        "advisory"
+      ],
+      "additionalProperties": false
+    },
+    "CriterionCheck": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "incomplete"
+          ]
+        },
+        "evidenceDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [
+        "name",
+        "outcome",
+        "evidenceDigest"
+      ],
+      "additionalProperties": false
+    },
+    "CriterionCoverage": {
+      "type": "object",
+      "properties": {
+        "criterionId": {
+          "$ref": "#/$defs/CriterionId"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "workItems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "workItemId": {
+                "$ref": "#/$defs/Id"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "state": {
+                "$ref": "#/$defs/WorkItemState"
+              }
+            },
+            "required": [
+              "workItemId",
+              "title",
+              "state"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CriterionCheck"
+          },
+          "maxItems": 200
+        },
+        "advisory": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CriterionCheck"
+          },
+          "maxItems": 200
+        }
+      },
+      "required": [
+        "criterionId",
+        "text",
+        "workItems",
+        "checks",
         "advisory"
       ],
       "additionalProperties": false
@@ -25394,6 +25497,51 @@
               "maxItems": 100
             }
           },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceQueueLimitSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workspace.queueLimit.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "maxQueued": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            }
+          },
+          "required": [
+            "maxQueued"
+          ],
           "additionalProperties": false
         }
       },

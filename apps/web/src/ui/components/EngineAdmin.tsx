@@ -207,6 +207,24 @@ function Drain(props: { settings: EngineSettings; reload: () => Promise<unknown>
   </WorkspaceSection>;
 }
 
+/** How many tasks of this workspace may wait for a runner before new work is refused with a reason (ADR 0040). */
+function QueueLimit(props: { settings: EngineSettings; reload: () => Promise<unknown> }): JSX.Element {
+  const app = useApp();
+  const limit = () => props.settings.queueLimit;
+  const [typed, setTyped] = createSignal<string | undefined>();
+  const saver = createSaver(async () => { setTyped(undefined); await props.reload(); });
+  const value = () => Number.parseInt(typed() ?? String(limit().maxQueued), 10);
+  return <WorkspaceSection title={t("work.queue.title")} description={t("work.queue.description")}>
+    <div class="flex min-w-0 flex-col gap-3" data-work-queue={limit().queued >= limit().maxQueued ? "full" : "open"}>
+      <p class="m-0 break-words text-interface text-ink-gray-8" data-work-queue-current>{t("work.queue.current", { queued: limit().queued, max: limit().maxQueued })}{limit().isDefault ? ` ${t("work.queue.default")}` : ""}</p>
+      <TextInput label={t("work.queue.max")} description={t("work.queue.hint")} type="number" min={1} max={10000} inputmode="numeric" value={typed() ?? String(limit().maxQueued)} onInput={(event) => setTyped(event.currentTarget.value)} />
+      <div><Button variant="solid" theme="blue" size="sm" loading={saver.busy()} disabled={saver.busy() || !app.canAdminister() || !(value() >= 1 && value() <= 10000)}
+        onClick={() => void saver.save(() => app.run("workspace.queueLimit.set", { maxQueued: value() }), t("work.queue.saved"))}>{t("work.save")}</Button></div>
+      <Outcome result={saver.result()} />
+    </div>
+  </WorkspaceSection>;
+}
+
 /** What Brain learned from failures, kept for a while and given to the planner. */
 function Lessons(props: { items: Lesson[] }): JSX.Element {
   return <WorkspaceSection title={t("work.lessons.title")} description={t("work.lessons.description")}>
@@ -267,7 +285,7 @@ export function WorkSettings(): JSX.Element {
     <ScreenRegion state={groups.state()} onRetry={() => void groups.refresh({ force: true })} emptyTitle={t("work.groups.title")} emptyDescription={t("work.groups.none")}>
       <Show when={groups.state().data}>{(data) => <RunnerGroups groups={data()} workspaces={workspaces.state().data ?? []} reload={reload} />}</Show>
     </ScreenRegion>
-    <Show when={settings.state().data}>{(data) => <Drain settings={data()} reload={reload} />}</Show>
+    <Show when={settings.state().data}>{(data) => <><QueueLimit settings={data()} reload={reload} /><Drain settings={data()} reload={reload} /></>}</Show>
     <Withdraw />
     <ScreenRegion state={lessons.state()} onRetry={() => void lessons.refresh({ force: true })} emptyTitle={t("work.lessons.title")} emptyDescription={t("work.lessons.empty")}>
       <Lessons items={lessons.state().data ?? []} />

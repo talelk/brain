@@ -20,7 +20,8 @@ One outcome a mission must reach, with a stable id (`c1`, `c2`: by position at c
 never renumbered or reused) that plan versions and brief versions keep. Covered when at
 least one confirmed plan task serves it and every serving task is done; a criterion no
 task serves is shown as such, not as unfinished. Not a plan task's own acceptance
-criteria, which say when that task is done.
+criteria, which say when that task is done. A check covers it only by naming its id; one
+no check names is "not linked to a check" on the sign-off view, however many checks passed.
 _Avoid_: goal, objective, acceptance test
 
 **Mission state**:
@@ -301,6 +302,12 @@ The egress proxy gives each sandbox a grant of exactly those hosts; none means n
 (ADR 0037). Not the per-tool `allowedHosts` of the fetch broker.
 _Avoid_: firewall, whitelist, network policy
 
+**Queue limit**:
+How many of a workspace's jobs may wait for a runner (default 100, set by an administrator).
+At the limit a person's new work is refused with the reason; work already admitted carries
+on (ADR 0040). Not mission budget admission or the spend cap.
+_Avoid_: rate limit, quota (quota is a model provider's limit)
+
 **Engine**:
 A model-execution harness a runner adapts, pinned for the duration of an attempt.
 _Avoid_: model (a model is what the engine drives), provider
@@ -547,7 +554,7 @@ _Avoid_: support dump, debug export
 
 **Stale backup**:
 A backup whose recorded finish time is older than the limit (36 hours unless set), shown
-in Health as degraded. Health only reads what the host's backup job recorded (ADR 0038);
+in Health as degraded. Health only reads what the host's backup job recorded (ADR 0039);
 a backup nobody recorded is a warning, never a pass. The **restore test** is the host's
 monthly rehearsal restoring the newest backup into a scratch directory; Health shows its
 last result.

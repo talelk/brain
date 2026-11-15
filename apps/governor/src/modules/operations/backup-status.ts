@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import type { ProbeStatus } from "./probes";
 
 /**
- * What Health says about backups (ADR 0038). The Governor never runs or schedules a backup: the host job (deploy/demo/backup) records when
+ * What Health says about backups (ADR 0039). The Governor never runs or schedules a backup: the host job (deploy/demo/backup) records when
  * a backup finished in `BRAIN_BACKUP_STAMP_FILE` and the outcome of its monthly restore rehearsal in `BRAIN_RESTORE_TEST_FILE`. Here those
  * two records are only read, and what they say is never improved on: no record is a warning, not a pass.
  */
