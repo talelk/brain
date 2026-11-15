@@ -304,6 +304,28 @@
    "area": "administration"
   },
   {
+   "route": "/w/:id/board",
+   "queries": [
+    "missions.list",
+    "workItems.list",
+    "sessions.list"
+   ],
+   "actions": [
+    "workItem.transition"
+   ],
+   "content": [
+    "board",
+    "filters",
+    "work items"
+   ],
+   "owner": "T64",
+   "navigationGroup": "board",
+   "icon": "lucide-square-kanban",
+   "task": "See and move the work of every mission in one place, filtered by mission, team member, priority and tag",
+   "title": "Board",
+   "area": "missions"
+  },
+  {
    "route": "/w/:id/live",
    "queries": [
     "sessions.list",
@@ -1019,6 +1041,11 @@
     "label": "Missions",
     "route": "/w/:id/missions",
     "icon": "lucide-target"
+   },
+   {
+    "label": "Board",
+    "route": "/w/:id/board",
+    "icon": "lucide-square-kanban"
    },
    {
     "label": "Approvals",

@@ -29,6 +29,9 @@ import { hostedConfig, hostedUsable } from "../jobs/index";
 import { missionTimeline } from "./timeline";
 import { observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
+/** The optional narrowing of `workItems.list`: one mission, one team member (by member id), one priority, one tag. */
+interface WorkItemFilter { missionId?: string; memberId?: string; priority?: string; tag?: string }
+
 export interface MissionCommand {
   readonly commandType: string;
   readonly workspaceId?: string;
@@ -1501,7 +1504,7 @@ export class MissionService {
     });
   }
 
-  query(actor: ActorContext, queryType: string, workspaceId: string, resourceId?: string, limit = 100): JsonValue {
+  query(actor: ActorContext, queryType: string, workspaceId: string, resourceId?: string, limit = 100, filter: WorkItemFilter = {}): JsonValue {
     const db = this.db(actor, workspaceId);
     if (queryType === "missions.list") {
       const rows = db.prepare("SELECT * FROM missions ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as MissionRow[];
@@ -1545,7 +1548,12 @@ export class MissionService {
     if (queryType === "plans.estimate") return planEstimate(this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))), db) as unknown as JsonValue;
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "workItems.list") {
-      const rows = db.prepare("SELECT * FROM work_items WHERE state!='abandoned' ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as WorkItemRow[];
+      // Every filter narrows in SQL before the page limit, so the board of a busy workspace never loses older matching work behind newer work.
+      const { missionId = null, memberId = null, priority = null, tag = null } = filter;
+      const rows = db.prepare(`SELECT * FROM work_items WHERE state!='abandoned'
+        AND (? IS NULL OR mission_id=?) AND (? IS NULL OR json_extract(assignment_json,'$.id')=?) AND (? IS NULL OR priority=?)
+        AND (? IS NULL OR EXISTS (SELECT 1 FROM json_each(tags_json) WHERE value=?)) ORDER BY updated_at_ms DESC,id LIMIT ?`)
+        .all(missionId, missionId, memberId, memberId, priority, priority, tag, tag, limit) as WorkItemRow[];
       return { items: rows.map((row) => this.workItem(actor, workspaceId, row)) } as unknown as JsonValue;
     }
     if (queryType === "lessons.list") return { items: this.lessons(db, limit) } as unknown as JsonValue;
