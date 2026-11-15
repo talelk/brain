@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createResource, createSignal, For, Match, on, Show, Switch, untrack } from "solid-js";
 import type { JSX } from "solid-js";
-import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
+import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { Alert, Select, TabButtons } from "@talelk/newui-molecules";
 import type { BrainSession, Handoff, Mission, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
@@ -12,6 +12,7 @@ import { createScopedRead } from "../../data/screens";
 import { ScreenRegion } from "../screen-region";
 import { PageStack } from "./PageLayout";
 import { WorkItemTasks } from "./WorkItemTasks";
+import { WorkItemComments } from "./WorkItemComments";
 import { EvidenceBundleSelector } from "./ArtifactSelectors";
 import { EvidenceList } from "./EvidenceList";
 import { StatusBadge } from "./StatusBadge";
@@ -56,12 +57,13 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
   const navigate = useNavigate();
   const [search, setSearch] = useSearchParams();
   const view = (): View => (VIEWS.some((entry) => entry.value === search.view) ? search.view as View : "timeline");
-  const [sheet, setSheet] = createSignal<"" | "move" | "comment" | "handoff">("");
-  const [selectedId, setSelectedId] = createSignal("");
+  const [sheet, setSheet] = createSignal<"" | "move" | "handoff">("");
+  // The open task is part of the address (?item=), so a task can be linked to and a reload keeps it open.
+  const selectedId = (): string => (typeof search.item === "string" ? search.item : "");
+  const setSelectedId = (id: string): void => { setSearch({ item: id || undefined }); };
   const [move, setMove] = createSignal("");
   const [reason, setReason] = createSignal("");
   const [evidence, setEvidence] = createSignal("");
-  const [comment, setComment] = createSignal("");
   const [conflict, setConflict] = createSignal("");
   const missionId = () => props.mission.missionId;
   const items = createScopedRead<WorkItem[]>({
@@ -91,10 +93,11 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
     },
   });
   // Only a different mission clears the open task; a fresh read of the same mission (new object, same id) must not close what a person is working on.
-  createEffect(on(createMemo(missionId), () => { setSelectedId(""); void items.refresh({ force: true }); }));
+  createEffect(on(createMemo(missionId), () => { void items.refresh({ force: true }); }));
+  createEffect(on(createMemo(missionId), () => setSelectedId(""), { defer: true }));
   const live = createMemo(() => (items.state().data ?? []).filter((item) => item.state !== "abandoned"));
   const selected = () => items.state().data?.find((item) => item.workItemId === selectedId());
-  const reset = () => { setMove(""); setReason(""); setEvidence(""); setComment(""); };
+  const reset = () => { setMove(""); setReason(""); setEvidence(""); };
 
   const taskOf = (item: WorkItem) => plan.state().data?.tasks.find((task) => task.id === item.planTaskId);
   const estimateOf = (item: WorkItem) => taskOf(item)?.estimatedMinutes;
@@ -161,12 +164,6 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
     return refused;
   }
 
-  async function addComment(item: WorkItem): Promise<void> {
-    if (!comment().trim()) return;
-    await app.run("workItem.comment", { workItemId: item.workItemId, text: comment().trim() });
-    setComment(""); setSheet("");
-  }
-
   const card = (item: WorkItem, showState: boolean) => <WorkCard item={item} items={live()} owner={ownerOf(item)} estimateMinutes={estimateOf(item)}
     handoffRequired={handoffRequired(item)} canDispatch={app.canDispatch()} critical={critical().has(item.workItemId) && item.state !== "done"} showState={showState}
     onOpen={() => open(item)} onAction={(action) => act(item, action)} />;
@@ -220,10 +217,10 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
               <Button variant="solid" theme="blue" iconLeft="lucide-send" onClick={() => setSheet("handoff")}>{t("plan.hand-off-to-the-next-tasks.33d2")}</Button>
             </Alert></Show>
             <WorkItemTasks origin={{ kind: "work-item", id: item.workItemId }} />
+            <WorkItemComments item={item} />
             <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3">
               <Show when={item.state === "ready" && app.canDispatch()}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={() => void navigate(startHref(item))}>{t("plan.start-this-task.375b")}</Button></Show>
               <Button variant="outline" iconLeft="lucide-arrow-right-left" onClick={() => { reset(); setSheet("move"); }}>{t("plan.move-work-item.7e73")}</Button>
-              <Button variant="outline" iconLeft="lucide-message-square" onClick={() => { setComment(""); setSheet("comment"); }}>{t("plan.add-comment.7d37")}</Button>
             </div>
             <FormSheet open={sheet() === "move"} onClose={() => setSheet("")} title={`Update ${item.title}`} description={t("plan.done-requires-independently-veri.f78b")}
               submit={t("plan.move-work-item.7e73")} icon="lucide-arrow-right-left" error={conflict()} errorTitle={t("plan.this-work-changed-your-intended.38ce")} disabled={!move() || doneBlocked() || (move() === "blocked" && !reason().trim())} onSubmit={() => { if (move() && !doneBlocked()) return transition(item); }}>
@@ -234,9 +231,6 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
               <Show when={move() === "done" && !verified()}><Alert theme="amber" variant="outline" title={t("plan.verified-evidence-is-required.f5b1")} description={t("plan.choose-an-independently-verified.2099")} /></Show>
             </FormSheet>
             <HandoffSheet item={item} open={sheet() === "handoff"} onClose={() => setSheet("")} onSubmitted={async () => { setSheet(""); await handoff.refresh(); await items.refresh({ force: true }); }} />
-            <FormSheet open={sheet() === "comment"} onClose={() => setSheet("")} title={t("plan.add-a-comment.3e18")} centered description={t("plan.comments-are-recorded-on-the-wor.5f59")} submit={t("plan.add-comment.7d37")} icon="lucide-message-square" disabled={!comment().trim()} onSubmit={() => addComment(item)}>
-              <Textarea label={t("plan.comment.153d")} required value={comment()} onInput={(event) => setComment(event.currentTarget.value)} />
-            </FormSheet>
           </PageStack>;
         }}
       </Show>

@@ -833,6 +833,7 @@
     "missionBundles.latest",
     "handoffs.forWorkItem",
     "missionMessages.list",
+    "workItemComments.list",
     "missionOutputs.list",
     "missionOutputs.get",
     "plans.get",
