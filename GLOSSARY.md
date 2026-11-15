@@ -239,6 +239,12 @@ coordinator). It is steered into a live session when the engine allows, otherwis
 delivered when the recipient's next session starts. It never authorizes anything.
 _Avoid_: chat, prompt, instruction (it is not a brief edit or an approval)
 
+**Comment**:
+A note on a work item, shown as its thread with corrections beside what they correct. A person's
+comment is also sent as a Mission message to the team member serving the item (to the mission when
+none does); a session's own comment is only in the thread. A comment never authorizes anything.
+_Avoid_: note, annotation
+
 **Checkpoint**:
 Durable state recorded by an attempt — a checkpoint commit on its branch, progress,
 consumed and produced outputs, and in-flight effects — from which a later attempt can

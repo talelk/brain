@@ -7451,6 +7451,9 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 8000
+            },
+            "correctionOf": {
+              "$ref": "#/$defs/Id"
             }
           },
           "required": [
@@ -7692,6 +7695,7 @@
             "missionBundles.latest",
             "handoffs.forWorkItem",
             "missionMessages.list",
+            "workItemComments.list",
             "missionOutputs.list",
             "missionOutputs.get",
             "plans.get",
@@ -7779,6 +7783,7 @@
             "missionBundles.latest",
             "handoffs.forWorkItem",
             "missionMessages.list",
+            "workItemComments.list",
             "missionOutputs.list",
             "missionOutputs.get",
             "plans.get",
@@ -21995,6 +22000,75 @@
         "senderId",
         "body",
         "delivery",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "WorkItemComment": {
+      "type": "object",
+      "properties": {
+        "commentId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "authorId": {
+          "$ref": "#/$defs/Id"
+        },
+        "authorKind": {
+          "type": "string",
+          "enum": [
+            "human",
+            "agent"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "correctionOf": {
+          "$ref": "#/$defs/Id"
+        },
+        "delivery": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "delivered-live",
+            "delivered-at-session-start",
+            "superseded"
+          ]
+        },
+        "recipient": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "mission",
+                "member"
+              ]
+            },
+            "memberId": {
+              "$ref": "#/$defs/ConfigId"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "commentId",
+        "workItemId",
+        "authorId",
+        "authorKind",
+        "text",
         "createdAt"
       ],
       "additionalProperties": false

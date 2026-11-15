@@ -244,8 +244,10 @@ CREATE TABLE planning_requests (
 CREATE TABLE work_item_comments (
   id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL REFERENCES work_items(id),
   actor_id TEXT NOT NULL, body TEXT NOT NULL, correction_of TEXT REFERENCES work_item_comments(id),
+  message_id TEXT REFERENCES mission_messages(id) DEFAULT NULL,
   created_at_ms INTEGER NOT NULL
 ) STRICT;
+CREATE INDEX work_item_comments_thread ON work_item_comments(work_item_id, created_at_ms, id);
 CREATE TABLE workflow_runs (
   id TEXT PRIMARY KEY, execution_key TEXT NOT NULL UNIQUE, config_digest TEXT NOT NULL,
   workflow_digest TEXT NOT NULL, adapter_digest TEXT NOT NULL, engine_run_id TEXT NOT NULL UNIQUE,

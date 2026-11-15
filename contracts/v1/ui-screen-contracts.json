@@ -101,6 +101,7 @@
     "missions.brief",
     "missions.sinceLastVisit",
     "missionMessages.list",
+    "workItemComments.list",
     "missionOutputs.list",
     "plans.get",
     "workItems.list",
