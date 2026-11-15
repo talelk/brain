@@ -3,6 +3,7 @@ import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { putBytes } from "../artifacts/index";
+import { senderOf } from "../identity/index";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 type OutputRow = { id: string; mission_id: string; name: string; continues_output_id: string | null; created_at_ms: number };
@@ -151,11 +152,11 @@ export function sendMessage(store: Store, db: Db, input: { missionId: string; se
   return id;
 }
 
-export function listMessages(db: Db, missionId: string, limit: number): MissionMessage[] {
+export function listMessages(store: Store, db: Db, missionId: string, limit: number): MissionMessage[] {
   return (db.prepare("SELECT * FROM mission_messages WHERE mission_id=? ORDER BY created_at_ms DESC, id DESC LIMIT ?").all(missionId, limit) as MessageRow[]).map((row) => ({
     messageId: row.id, missionId: row.mission_id,
     recipient: { kind: row.recipient_kind, ...(row.recipient_member_id ? { memberId: row.recipient_member_id } : {}) },
-    ...(row.work_item_id ? { workItemId: row.work_item_id } : {}), senderId: row.sender_id, body: row.body, delivery: row.delivery,
+    ...(row.work_item_id ? { workItemId: row.work_item_id } : {}), senderId: row.sender_id, ...senderOf(store, row.sender_id), body: row.body, delivery: row.delivery,
     ...(row.correction_of ? { correctionOf: row.correction_of } : {}), createdAt: iso(row.created_at_ms),
   }));
 }

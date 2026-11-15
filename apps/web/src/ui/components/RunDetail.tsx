@@ -22,6 +22,7 @@ import { ReasonDialog } from "./ReasonDialog";
 import { DetailAside, WorkspaceSection } from "./Domain";
 import { RunUsage } from "../usage/Usage";
 import { ContextReceived } from "./ContextReceived";
+import { RunToolCalls } from "./RunToolCalls";
 import { t, type MessageKey } from "../../i18n";
 
 /** The plain sentence and the one next step for a failure code the Governor recorded (the interface words each code). */
@@ -38,8 +39,8 @@ const failureNext = (code: string): string => t(`run.fail.${code}.next` as Messa
 /** The server resolves the producing session onto the snapshot (brain.ts); the generated type catches up with the contracts regeneration. */
 export type RunJobSnapshot = JobSnapshot & { readonly sessionId?: string };
 
-const TABS = [
-  { value: "summary", label: "Summary" }, { value: "attempts", label: "Attempts" },
+const TABS = (): Array<{ value: string; label: string }> => [
+  { value: "summary", label: "Summary" }, { value: "attempts", label: "Attempts" }, { value: "tool-calls", label: t("run.tab.toolCalls") },
   { value: "context", label: "Context received" }, { value: "evidence", label: "Evidence" }, { value: "placement", label: "Placement" },
 ];
 
@@ -102,7 +103,7 @@ export function RunDetail(props: {
   onReconcile: (reason: string) => Promise<void>;
 }): JSX.Element {
   const requested = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("tab");
-  const [tab, setTab] = createSignal(TABS.some((option) => option.value === requested) ? requested! : "summary");
+  const [tab, setTab] = createSignal(TABS().some((option) => option.value === requested) ? requested! : "summary");
   const [reasonOpen, setReasonOpen] = createSignal<false | "cancel" | "reconcile">(false);
   const [reason, setReason] = createSignal("");
   const [busy, setBusy] = createSignal(false);
@@ -177,7 +178,7 @@ export function RunDetail(props: {
         </Show>
         <div class="brain-run-layout">
           <div class="flex min-w-0 flex-col gap-4">
-            <TabButtons label="Run inspector" options={TABS} value={tab()} onValueChange={setTab} />
+            <TabButtons label="Run inspector" wrap options={TABS()} value={tab()} onValueChange={setTab} />
             <Show when={tab() === "summary"}><div class="flex min-w-0 flex-col gap-4">
               <WorkspaceSection title="What is happening" description="The latest authoritative condition, not a model's claim of completion.">
                 <PlainSummary icon="lucide-activity">{runSentence(state() ?? "", job()?.attempts.at(-1), job()?.attempts.length ?? 0, job()?.queueReasons ?? [])}</PlainSummary>
@@ -209,6 +210,7 @@ export function RunDetail(props: {
                 };
               })} /></Show>
             </WorkspaceSection></Show>
+            <Show when={tab() === "tool-calls" && job()?.workflowRunId}>{(runId) => <RunToolCalls runId={runId()} {...(job()?.context ? { mission: { missionId: job()!.context!.missionId, workspaceId: job()!.workspaceId } } : {})} />}</Show>
             <Show when={tab() === "context"}><ContextReceived runId={job()?.workflowRunId} /></Show>
             <Show when={tab() === "evidence"}><WorkspaceSection title="Independent evidence" description="Verification is accepted only from the independent evaluator authority."><EvidenceList bundleDigest={job()?.evidenceDigest} workspaceId={job()?.workspaceId} /></WorkspaceSection></Show>
             <Show when={tab() === "placement"}><WorkspaceSection title="Placement explanation" description="Why this run can or cannot be assigned to a runner."><PlacementPanel explanation={props.explanation} /></WorkspaceSection></Show>

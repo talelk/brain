@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "recorded": {
+      "type": "boolean"
+    },
+    "note": {
+      "type": "string"
+    },
+    "planVersionId": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "outcome": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "recorded",
+    "planVersionId",
+    "state",
+    "outcome"
+  ],
+  "additionalProperties": false
+}

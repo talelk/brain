@@ -25,6 +25,7 @@ import { iso } from "../../domain/clock";
 import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, QUOTA_MAX_WAITS, REMEDY, classifyFailure, lessonText, quotaWaitMs, waitWords, type FailureClass } from "../../domain/failure";
 import { GENERAL_TASK_WORKFLOW } from "../workflows/index";
 import { hostedConfig, hostedUsable } from "../jobs/index";
+import { missionTimeline } from "./timeline";
 import { observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
 export interface MissionCommand {
@@ -98,6 +99,9 @@ export interface MissionDeliveryPort {
 
 /** The blocked reason of a task stopped because its agent was interrupted too often; the interface offers Try again for it. */
 export const PARKED_INTERRUPTED_REASON = "Stopped: waiting for you to try again";
+
+/** Undelivered messages one team member's session may have waiting (ADR 0042). */
+const MAX_PENDING_TEAMMATE_MESSAGES = 5;
 
 export class MissionService {
   constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort, private readonly coordinatorPort?: CoordinatorPort, private readonly capitalization?: { requestMissionRun(organizationId: string, workspaceId: string, missionId: string): string }, private readonly runs?: RunPriorityPort) {}
@@ -299,7 +303,9 @@ export class MissionService {
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
     assertNotClosed(mission);
     const tasks = payload["tasks"] as unknown as PlanTask[];
-    const team = (payload["team"] as TeamMember[] | undefined) ?? [];
+    // A session that does not name a team keeps the confirmed one: it cannot see the team, and leaving it out must not dissolve it.
+    const named = payload["team"] as TeamMember[] | undefined;
+    const team = named ?? (actor.kind === "agent" && mission.active_plan_version_id ? JSON.parse(this.planRow(actor, workspaceId, mission.active_plan_version_id).team_json) as TeamMember[] : []);
     assertPlanTasks(tasks);
     assertServedCriteria(tasks, new Set(parseCriteria(mission.success_criteria_json).map((criterion) => criterion.id)));
     assertTeamEligible(team, tasks, this.agentCapabilities(actor.organizationId));
@@ -701,10 +707,10 @@ export class MissionService {
    * condition holds; otherwise it stays a proposal and the reason is recorded for Needs you. Both outcomes are events on the plan, which is
    * the workspace audit trail.
    */
-  private settleOccurrence(actor: ActorContext, input: { organizationId: string; workspaceId: string; startedBy: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean }, db: ReturnType<Store["workspaceDb"]>, missionId: string, proposed: RepeatPlan): void {
+  private settleOccurrence(actor: ActorContext, input: { organizationId: string; workspaceId: string; startedBy: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean; subjects?: readonly { kind: "ticket" | "incident" }[] }, db: ReturnType<Store["workspaceDb"]>, missionId: string, proposed: RepeatPlan): void {
     const plan = db.prepare("SELECT id, digest FROM plan_versions WHERE mission_id=? AND state='proposed' ORDER BY revision DESC LIMIT 1").get(missionId) as { id: string; digest: string } | undefined;
     if (!plan) return;
-    const schedule: RepeatSchedule = { automationId: input.automationId ?? "unknown", createdBy: input.startedBy, ...(input.sourceMissionId ? { sourceMissionId: input.sourceMissionId } : {}), autoConfirm: input.autoConfirm !== false };
+    const schedule: RepeatSchedule = { automationId: input.automationId ?? "unknown", createdBy: input.startedBy, ...(input.sourceMissionId ? { sourceMissionId: input.sourceMissionId } : {}), ...(input.subjects?.[0] ? { subjectKind: input.subjects[0].kind } : {}), autoConfirm: input.autoConfirm !== false };
     const verdict = repeatGate(this.store, db, { organizationId: input.organizationId, workspaceId: input.workspaceId, schedule, missionId, proposed });
     const base = { missionId, planVersionId: plan.id, digest: plan.digest, actorId: `schedule:${schedule.automationId}`, automationId: schedule.automationId, createdBy: schedule.createdBy };
     if (verdict.ok) {
@@ -719,15 +725,15 @@ export class MissionService {
    * The mission, team member and owner a run's work belongs to, which is what the machine principal of its sessions is bound to (ADR 0032).
    * A coordinator run belongs to the coordinator member. Work outside any mission has no principal.
    */
-  sessionBinding(organizationId: string, workspaceId: string, runId: string): { missionId: string; memberId: string | null; actingFor: string } | undefined {
+  sessionBinding(organizationId: string, workspaceId: string, runId: string): { missionId: string; memberId: string | null; actingFor: string; workItemId?: string } | undefined {
     const db = this.store.workspaceDb(workspaceId, organizationId);
-    const task = db.prepare("SELECT l.mission_id AS missionId, w.assignment_json AS assignment FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? ORDER BY l.created_at_ms DESC LIMIT 1").get(runId) as { missionId: string; assignment: string | null } | undefined;
+    const task = db.prepare("SELECT l.mission_id AS missionId, l.work_item_id AS workItemId, w.assignment_json AS assignment FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? ORDER BY l.created_at_ms DESC LIMIT 1").get(runId) as { missionId: string; workItemId: string; assignment: string | null } | undefined;
     const coordinating = task ? undefined : db.prepare("SELECT mission_id AS missionId FROM mission_runs WHERE run_id=? AND purpose='coordinator'").get(runId) as { missionId: string } | undefined;
     const missionId = task?.missionId ?? coordinating?.missionId;
     if (!missionId) return undefined;
     const mission = db.prepare("SELECT owner_id AS owner, coordinator_member_id AS coordinator FROM missions WHERE id=?").get(missionId) as { owner: string; coordinator: string | null } | undefined;
     if (!mission) return undefined;
-    return { missionId, memberId: task ? memberOf(task.assignment) : mission.coordinator, actingFor: mission.owner };
+    return { missionId, memberId: task ? memberOf(task.assignment) : mission.coordinator, actingFor: mission.owner, ...(task ? { workItemId: task.workItemId } : {}) };
   }
 
   isOpen(organizationId: string, workspaceId: string, missionId: string): boolean {
@@ -803,9 +809,9 @@ export class MissionService {
   }
 
   private message(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
-    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "mission messages come from humans");
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
     assertNotClosed(mission);
+    if (actor.kind !== "human") this.assertTeammateMessage(actor, workspaceId, mission.id, payload);
     const team = mission.active_plan_version_id ? (JSON.parse(this.planRow(actor, workspaceId, mission.active_plan_version_id).team_json) as TeamMember[]).map((member) => member.memberId) : [];
     const messageId = sendMessage(this.store, this.db(actor, workspaceId), {
       missionId: mission.id, senderId: actor.actorId, recipient: payload["recipient"] as { kind: "mission" | "member"; memberId?: string },
@@ -816,6 +822,21 @@ export class MissionService {
     // A message to the mission itself (no work item) wakes its coordinator (#38).
     if ((payload["recipient"] as { kind?: string } | undefined)?.kind === "mission" && !payload["workItemId"]) wake(this.store, this.db(actor, workspaceId), mission.id, "message", String(payload["body"]).slice(0, 200));
     return messageId;
+  }
+
+  /**
+   * A team member's session may tell another member something (ADR 0042). It names the member (never the mission, so it cannot wake the
+   * coordinator in a loop), never itself, never interrupts a running session, and at most MAX_PENDING_TEAMMATE_MESSAGES of its messages wait
+   * undelivered. The message is a claim like any other: it authorizes nothing.
+   */
+  private assertTeammateMessage(actor: ActorContext, workspaceId: string, missionId: string, payload: Readonly<Record<string, unknown>>): void {
+    if (actor.kind !== "agent" || !actor.memberId) throw new BrainDomainError("FORBIDDEN", "only a person or a team member's session sends a mission message");
+    const recipient = payload["recipient"] as { kind?: string; memberId?: string } | undefined;
+    if (recipient?.kind !== "member" || !recipient.memberId) throw new BrainDomainError("FORBIDDEN", "a session messages a team member by name, not the mission");
+    if (recipient.memberId === actor.memberId) throw new BrainDomainError("INVALID_ARGUMENT", "a session does not message its own team member");
+    if (payload["interrupt"] === true) throw new BrainDomainError("FORBIDDEN", "only a person interrupts a running session");
+    const waiting = this.db(actor, workspaceId).prepare("SELECT COUNT(*) AS n FROM mission_messages WHERE mission_id=? AND sender_id=? AND delivery='pending'").get(missionId, actor.actorId) as { n: number };
+    if (waiting.n >= MAX_PENDING_TEAMMATE_MESSAGES && !payload["correctionOf"]) throw new BrainDomainError("CONFLICT", `${waiting.n} of your messages have not reached their member yet; wait for them to be read before sending more`);
   }
 
   /** Mission lifecycle per issue #19: humans pause, resume and close; completion is proposed, never declared. */
@@ -1443,7 +1464,8 @@ export class MissionService {
     if (queryType === "missionOutputs.get") return outputDetail(db, String(resourceId)) as unknown as JsonValue;
     if (queryType === "missionOutputs.list") return { items: listOutputs(db, this.missionRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
     if (queryType === "workItemComments.list") return { items: listComments(this.store, db, actor.organizationId, this.workItemRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
-    if (queryType === "missionMessages.list") return { items: listMessages(db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
+    if (queryType === "missionMessages.list") return { items: listMessages(this.store, db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
+    if (queryType === "missions.timeline") return missionTimeline(this.store, db, actor.organizationId, workspaceId, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) as unknown as JsonValue;
     if (queryType === "handoffs.forWorkItem") return { items: dependencyHandoffs(db, this.workItemRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
     if (queryType === "missionBundles.latest") return (latestMissionBundle(db, this.missionRow(actor, workspaceId, String(resourceId)).id, hostedUsable(hostedConfig(this.store, workspaceId))) ?? null) as unknown as JsonValue;
     if (queryType === "missions.forSubject") {

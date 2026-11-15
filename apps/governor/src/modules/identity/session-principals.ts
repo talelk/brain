@@ -44,6 +44,13 @@ export function agentBinding(store: Store, principalId: string): AgentBinding | 
   return row && { principalId: row.principal_id, organizationId: row.organization_id, workspaceId: row.workspace_id, missionId: row.mission_id, memberId: row.member_id, actingFor: row.acting_for };
 }
 
+/** Who wrote a mission message, as a person reads it: a person, a team member's session (named by its member) or the Governor itself. */
+export function senderOf(store: Store, senderId: string): { senderKind: "human" | "agent" | "system"; senderMemberId?: string } {
+  if (senderId === "governor") return { senderKind: "system" };
+  const binding = agentBinding(store, senderId);
+  return binding ? { senderKind: "agent", ...(binding.memberId ? { senderMemberId: binding.memberId } : {}) } : { senderKind: "human" };
+}
+
 /** The actor of work the Governor starts for a team member (auto-start, coordinator wakes): the member's principal, not the mission owner. */
 export function dispatchActor(store: Store, input: { organizationId: string; workspaceId: string; missionId: string; memberId: string | null; actingFor: string }): ActorContext {
   const binding = ensureAgentPrincipal(store, input);

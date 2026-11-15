@@ -4,7 +4,8 @@ import {
 } from "../../apps/web/src/ui/approval-controller";
 import { framesAfter } from "../../apps/web/src/ui/logs/frames";
 import { dateFromDueAt, dragTargets, dueAtFromDate, nextActionOf, priorityRank, tagsOf, workGraph } from "../../apps/web/src/ui/work/work-model";
-import type { WorkItem } from "@brain/contracts";
+import type { MissionTimelineEntry, WorkItem } from "@brain/contracts";
+import { filterTimeline, kindOf, kindsPresent, sourceLink, toolCallsLink } from "../../apps/web/src/ui/timeline/timeline-model";
 import { shareStructure } from "../../apps/web/src/data/share";
 import { EventSpool } from "../../apps/runner/src/spool";
 
@@ -141,5 +142,41 @@ describe("web and runner unit mechanisms", () => {
     expect(changed.items[1]).not.toBe(before.items[1]);
     expect(shareStructure(before.items, before.items.slice(0, 1))).toEqual([before.items[0]]);
     expect(shareStructure(undefined, 3)).toBe(3);
+  });
+
+  it("the mission timeline filters by kind and member and links each entry to its own source", () => {
+    const entry = (kind: MissionTimelineEntry["kind"], event: string, source: MissionTimelineEntry["source"], extra: Partial<MissionTimelineEntry> = {}): MissionTimelineEntry => ({ entryId: `${kind}:${event}`, at: "2026-11-15T10:00:00.000Z", kind, event, source, ...extra });
+    const items = [
+      entry("plan", "plan.confirmed", { kind: "plan", id: "plan-1" }),
+      entry("message", "message.sent", { kind: "message", id: "msg-1" }, { memberId: "writer" }),
+      entry("run", "run.started", { kind: "run", id: "run-1", jobId: "job-1" }, { memberId: "writer", toolCalls: 2 }),
+      entry("run", "run.started", { kind: "run", id: "run-2" }, { memberId: "editor" }),
+      entry("verdict", "verdict.task", { kind: "run", id: "run-1", jobId: "job-1" }, { memberId: "writer" }),
+      entry("approval", "approval.requested", { kind: "approval", id: "apr-1" }),
+      entry("decision", "decision.accepted", { kind: "decision", id: "dec-1" }),
+      entry("output", "output.recorded", { kind: "output", id: "out-1" }),
+      entry("verdict", "verdict.mission", { kind: "mission", id: "mission-1" }),
+    ];
+    expect(filterTimeline(items, { kind: "", member: "" })).toEqual(items);
+    expect(filterTimeline(items, { kind: "run", member: "" }).map((item) => item.source.id)).toEqual(["run-1", "run-2"]);
+    expect(filterTimeline(items, { kind: "", member: "writer" }).map((item) => item.entryId)).toEqual(["message:message.sent", "run:run.started", "verdict:verdict.task"]);
+    expect(filterTimeline(items, { kind: "run", member: "writer" })).toHaveLength(1);
+    expect(filterTimeline(items, { kind: "plan", member: "writer" })).toEqual([]);
+    expect(kindsPresent(items)).toEqual(["plan", "decision", "message", "run", "approval", "verdict", "output"]);
+    expect(kindOf("run")).toBe("run");
+    expect(kindOf("nonsense")).toBe("");
+    const where = { workspaceId: "ws-1", missionId: "mission-1" };
+    expect(items.map((item) => sourceLink(item, where))).toEqual([
+      { href: "/missions/mission-1/plan?w=ws-1", label: "plan" },
+      { href: "/missions/mission-1/live?w=ws-1", label: "message" },
+      { href: "/runs/job-1", label: "run" },
+      { href: "/w/ws-1/logs?run=run-2", label: "logs" },
+      { href: "/runs/job-1?tab=evidence", label: "evidence" },
+      { href: "/approvals/apr-1", label: "approval" },
+      { href: "/missions/mission-1/brief?w=ws-1&decision=dec-1", label: "decision" },
+      { href: "/outputs/out-1", label: "output" },
+      { href: "/missions/mission-1/outputs?w=ws-1", label: "mission" },
+    ]);
+    expect(items.map((item) => toolCallsLink(item))).toEqual([undefined, undefined, "/runs/job-1?tab=tool-calls", undefined, undefined, undefined, undefined, undefined, undefined]);
   });
 });
