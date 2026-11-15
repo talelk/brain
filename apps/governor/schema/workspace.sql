@@ -126,11 +126,13 @@ CREATE TABLE work_item_inputs (
   work_item_id TEXT NOT NULL, run_id TEXT NOT NULL, output_version_id TEXT NOT NULL REFERENCES output_versions(id),
   artifact_digest TEXT NOT NULL, PRIMARY KEY(work_item_id, run_id, output_version_id)
 ) STRICT;
+-- handoffs.delegation_id names the delegation a handoff reports back for (ADR 0053): the result of a child session, never the current handoff of the work item itself.
 CREATE TABLE handoffs (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), work_item_id TEXT NOT NULL REFERENCES work_items(id),
   version INTEGER NOT NULL CHECK(version > 0), notes_json TEXT NOT NULL CHECK(json_valid(notes_json)),
   facts_json TEXT CHECK(facts_json IS NULL OR json_valid(facts_json)), submitted_by TEXT NOT NULL,
   superseded_by TEXT REFERENCES handoffs(id), created_at_ms INTEGER NOT NULL,
+  delegation_id TEXT DEFAULT NULL,
   UNIQUE(work_item_id, version)
 ) STRICT;
 CREATE TABLE mission_evidence_bundles (
@@ -343,6 +345,17 @@ CREATE TABLE delegations (
   reviewer_id TEXT, evidence_digest TEXT, created_at_ms INTEGER NOT NULL, reviewed_at_ms INTEGER
 ) STRICT;
 CREATE INDEX delegations_parent ON delegations(parent_session_id,state,id);
+-- The own run of a delegated sub-task (ADR 0053): a run of the mission that is NOT a run of its work item, so it never moves the task.
+-- pending means no run yet: the pump starts it after the commit and again after a crash. The review state of the delegation stays in delegations.
+CREATE TABLE delegation_runs (
+  delegation_id TEXT PRIMARY KEY REFERENCES delegations(id), mission_id TEXT NOT NULL REFERENCES missions(id),
+  member_id TEXT DEFAULT NULL, delegating_principal TEXT NOT NULL, situation TEXT NOT NULL,
+  run_id TEXT DEFAULT NULL, state TEXT NOT NULL CHECK(state IN ('pending','running','succeeded','failed')),
+  result_handoff_id TEXT DEFAULT NULL REFERENCES handoffs(id), failure_reason TEXT DEFAULT NULL,
+  created_at_ms INTEGER NOT NULL, finished_at_ms INTEGER DEFAULT NULL
+) STRICT;
+CREATE UNIQUE INDEX delegation_runs_run ON delegation_runs(run_id) WHERE run_id IS NOT NULL;
+CREATE INDEX delegation_runs_state ON delegation_runs(state, created_at_ms);
 CREATE TABLE documents (
   id TEXT PRIMARY KEY, title TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('active','revoked')),

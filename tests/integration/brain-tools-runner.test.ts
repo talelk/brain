@@ -44,9 +44,9 @@ async function boot<T>(body: (context: { w: World; app: Awaited<ReturnType<typeo
 const query = async <T>(w: World, queryType: string, resourceId?: string): Promise<T> => ((await w.brain.executeQuery(w.owner, { queryType, workspaceId: w.workspaceId, ...(resourceId ? { resourceId } : {}) } as never)) as unknown as { snapshot: T }).snapshot;
 
 describe("the Brain tools table", () => {
-  it("maps five tools to five commands that only add notes, messages, handoffs, questions and plan proposals", () => {
+  it("maps six tools to six commands that only add notes, messages, handoffs, questions, plan proposals and delegated sub-tasks", () => {
     expect(BRAIN_TOOL_COMMANDS).toEqual({
-      "mission.propose-plan": "plan.propose", "mission.message-member": "mission.message.send", "mission.submit-handoff": "handoff.submit", "mission.comment": "workItem.comment", "mission.ask": "mission.question.ask",
+      "mission.propose-plan": "plan.propose", "mission.message-member": "mission.message.send", "mission.submit-handoff": "handoff.submit", "mission.comment": "workItem.comment", "mission.ask": "mission.question.ask", "mission.delegate": "session.delegate",
     });
     expect([...BRAIN_BROKERED].sort()).toEqual(Object.keys(BRAIN_TOOL_COMMANDS).sort());
     // Nothing that judges, closes, approves or confirms can be reached through a tool.

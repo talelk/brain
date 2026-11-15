@@ -4,7 +4,7 @@ import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atom
 import { Alert, RadioGroup, Select } from "@talelk/newui-molecules";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
-import { workspaceChoices, effectSettingsRead, engineSettingsRead, lessonsRead, runnerGroupsRead, type EffectSettings, type EngineSettings, type Lesson, type RunnerGroupRow } from "../../data/engine";
+import { workspaceChoices, effectSettingsRead, engineSettingsRead, lessonsRead, runnerGroupsRead, type CostTier, type EffectSettings, type EngineSettings, type Lesson, type ModelRouteRow, type RunnerGroupRow } from "../../data/engine";
 import { DateText, ScreenRegion } from "../screen-region";
 import { PageStack } from "./PageLayout";
 import { WorkspaceSection } from "./Domain";
@@ -35,8 +35,6 @@ function Outcome(props: { result?: { ok: boolean; text: string } | undefined }):
   return <Show when={props.result}>{(result) => <p role={result().ok ? "status" : "alert"} class={`m-0 text-interface ${result().ok ? "text-ink-green-8" : "text-ink-red-8"}`}>{result().text}</p>}</Show>;
 }
 
-/** A field only goes to the Governor when it has text: an empty vendor, model or address is "not chosen", not an empty choice. */
-const given = <K extends string>(key: K, value: string): Partial<Record<K, string>> => (value.trim() ? ({ [key]: value.trim() } as Record<K, string>) : {});
 /** Dollars per million tokens as typed, to the whole micro-dollars the command carries; nothing when it is empty or not a number. */
 const microPrice = (usd: string): number | undefined => { const value = usd.trim() === "" ? Number.NaN : Number(usd); return Number.isFinite(value) && value > 0 ? Math.round(value * 1_000_000) : undefined; };
 const usdPrice = (micro: number): string => (micro > 0 ? String(micro / 1_000_000) : "");
@@ -72,40 +70,96 @@ function WayOfWorking(props: { settings: EngineSettings; reload: () => Promise<u
   </WorkspaceSection>;
 }
 
-const HOSTED_STATUS: Readonly<Record<EngineSettings["hostedModel"]["status"], MessageKey>> = { off: "work.hosted.status.off", up: "work.hosted.status.up", down: "work.hosted.status.down", unknown: "work.hosted.status.unknown" };
+const ROUTE_STATUS: Readonly<Record<ModelRouteRow["status"], MessageKey>> = { off: "work.hosted.status.off", up: "work.hosted.status.up", down: "work.hosted.status.down", unknown: "work.hosted.status.unknown", quota: "work.routes.status.quota" };
+const COST_TIERS: readonly CostTier[] = ["low", "standard", "premium"];
+const TIER_LABEL: Readonly<Record<CostTier, MessageKey>> = { low: "work.routes.tier.low", standard: "work.routes.tier.standard", premium: "work.routes.tier.premium" };
 
-/** A hosted model for checks and second attempts. Off unless an owner turns it on; the API key lives on the runner host and is never typed here. */
-function HostedModel(props: { settings: EngineSettings; reload: () => Promise<unknown> }): JSX.Element {
+/** One route as typed: prices stay text until saved, so a half-typed number is not rewritten under the cursor. */
+interface RouteDraft { routeId: string; enabled: boolean; vendor: string; keyRef: string; model: string; baseUrl: string; costTier: CostTier; priceIn: string; priceOut: string }
+const draftOf = (route: ModelRouteRow): RouteDraft => ({ routeId: route.routeId, enabled: route.enabled, vendor: route.vendor, keyRef: route.keyRef, model: route.model, baseUrl: route.baseUrl, costTier: route.costTier, priceIn: usdPrice(route.inputMicroUsdPerMTok), priceOut: usdPrice(route.outputMicroUsdPerMTok) });
+const newDraft = (existing: readonly RouteDraft[]): RouteDraft => {
+  let n = existing.length + 1;
+  while (existing.some((route) => route.routeId === `route-${n}`)) n++;
+  return { routeId: `route-${n}`, enabled: false, vendor: "", keyRef: "", model: "", baseUrl: "", costTier: "standard", priceIn: "", priceOut: "" };
+};
+
+const SLUG = /^[a-z][a-z0-9-]{0,31}$/u;
+const httpsAddress = (raw: string): boolean => { try { const url = new URL(raw); return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash; } catch { return false; } };
+/** The first thing wrong with the routes as typed, in plain words, so a person is never shown a schema error; the Governor checks the same again. */
+function routeProblem(routes: readonly RouteDraft[]): string | undefined {
+  for (const [index, route] of routes.entries()) {
+    const n = String(index + 1);
+    if (!SLUG.test(route.routeId.trim())) return t("work.routes.problem.name", { n });
+    if (routes.some((other, at) => at < index && other.routeId.trim() === route.routeId.trim())) return t("work.routes.problem.duplicate", { n });
+    if (!SLUG.test(route.keyRef.trim()) || /^(?:sk|pk|key|token|secret|bearer)-|[0-9]{8,}/iu.test(route.keyRef.trim())) return t("work.routes.problem.key", { n });
+    if (!httpsAddress(route.baseUrl.trim())) return t("work.routes.problem.address", { n });
+    if (!route.vendor.trim() || !route.model.trim()) return t("work.routes.problem.model", { n });
+    if (microPrice(route.priceIn) === undefined || microPrice(route.priceOut) === undefined) return t("work.routes.problem.prices", { n });
+  }
+  return undefined;
+}
+
+/**
+ * The workspace's model routes, in the order they are tried (ADR 0055). A check, a second attempt or the model judge uses the first route that
+ * is on and not out of quota; a quota refusal moves on to the next. Off unless an owner turns a route on; the API key lives on the runner and
+ * Governor hosts and is only named here by reference.
+ */
+function ModelRoutes(props: { settings: EngineSettings; reload: () => Promise<unknown> }): JSX.Element {
   const app = useApp();
-  const hosted = () => props.settings.hostedModel;
-  const [enabled, setEnabled] = createSignal<boolean | undefined>();
-  const [vendor, setVendor] = createSignal<string | undefined>();
-  const [model, setModel] = createSignal<string | undefined>();
-  const [baseUrl, setBaseUrl] = createSignal<string | undefined>();
-  const [priceIn, setPriceIn] = createSignal<string | undefined>();
-  const [priceOut, setPriceOut] = createSignal<string | undefined>();
-  const saver = createSaver(async () => { setEnabled(undefined); setVendor(undefined); setModel(undefined); setBaseUrl(undefined); setPriceIn(undefined); setPriceOut(undefined); await props.reload(); });
-  const inputPrice = () => microPrice(priceIn() ?? usdPrice(hosted().inputMicroUsdPerMTok));
-  const outputPrice = () => microPrice(priceOut() ?? usdPrice(hosted().outputMicroUsdPerMTok));
-  const on = () => enabled() ?? hosted().enabled;
-  return <WorkspaceSection title={t("work.hosted.title")} description={t("work.hosted.description")}>
+  const [edited, setEdited] = createSignal<RouteDraft[] | undefined>();
+  const saved = () => props.settings.modelRoutes;
+  const list = (): RouteDraft[] => edited() ?? saved().map(draftOf);
+  const [problem, setProblem] = createSignal<string | undefined>();
+  const change = (next: RouteDraft[]): void => { setEdited(next); setProblem(undefined); };
+  const patch = (index: number, fields: Partial<RouteDraft>): void => change(list().map((route, at) => (at === index ? { ...route, ...fields } : route)));
+  const move = (index: number, by: -1 | 1): void => { const next = [...list()]; const [route] = next.splice(index, 1); next.splice(index + by, 0, route!); change(next); };
+  const statusOf = (routeId: string): ModelRouteRow | undefined => saved().find((route) => route.routeId === routeId);
+  const saver = createSaver(async () => { setEdited(undefined); await props.reload(); });
+  const payload = () => list().map((route) => ({ routeId: route.routeId.trim(), enabled: route.enabled, vendor: route.vendor.trim(), keyRef: route.keyRef.trim(), model: route.model.trim(), baseUrl: route.baseUrl.trim(), costTier: route.costTier,
+    inputMicroUsdPerMTok: microPrice(route.priceIn) ?? 0, outputMicroUsdPerMTok: microPrice(route.priceOut) ?? 0 }));
+  return <WorkspaceSection title={t("work.routes.title")} description={t("work.routes.description")}>
     <div class="flex min-w-0 flex-col gap-3" data-work-hosted>
-      <p class="m-0 flex flex-wrap items-center gap-2 text-interface text-ink-gray-8"><span>{t("work.hosted.status")}</span>
-        <Badge variant="outline" theme={hosted().status === "up" ? "green" : hosted().status === "down" ? "red" : "gray"} label={t(HOSTED_STATUS[hosted().status])} /></p>
-      <Checkbox checked={on()} onCheckedChange={(checked) => setEnabled(checked === true)} label={t("work.hosted.enable")} />
       <p class="m-0 text-caption text-ink-gray-6">{t("work.hosted.roles")}</p>
-      <div class="grid min-w-0 gap-3 sm:grid-cols-2">
-        <TextInput label={t("work.hosted.vendor")} value={vendor() ?? hosted().vendor} onInput={(event) => setVendor(event.currentTarget.value)} />
-        <TextInput label={t("work.hosted.model")} value={model() ?? hosted().model} onInput={(event) => setModel(event.currentTarget.value)} />
-      </div>
-      <TextInput label={t("work.hosted.address")} description={t("work.hosted.addressHint")} value={baseUrl() ?? hosted().baseUrl} placeholder="https://" onInput={(event) => setBaseUrl(event.currentTarget.value)} />
-      <div class="grid min-w-0 gap-3 sm:grid-cols-2">
-        <TextInput label={t("work.hosted.priceIn")} type="number" min={0} step="any" inputmode="decimal" value={priceIn() ?? usdPrice(hosted().inputMicroUsdPerMTok)} onInput={(event) => setPriceIn(event.currentTarget.value)} />
-        <TextInput label={t("work.hosted.priceOut")} type="number" min={0} step="any" inputmode="decimal" value={priceOut() ?? usdPrice(hosted().outputMicroUsdPerMTok)} onInput={(event) => setPriceOut(event.currentTarget.value)} />
-      </div>
+      <Show when={list().length > 0} fallback={<p class="m-0 text-interface text-ink-gray-7" data-work-routes-empty>{t("work.routes.none")}</p>}>
+        <ol class="m-0 flex min-w-0 list-none flex-col gap-3 p-0">
+          <For each={list()}>{(route, index) => {
+            const label = (key: MessageKey): string => t("work.routes.label", { label: t(key), n: String(index() + 1) });
+            const status = (): ModelRouteRow["status"] => statusOf(route.routeId)?.status ?? "off";
+            return <li class="flex min-w-0 flex-col gap-3 rounded-md border border-outline-gray-2 p-3" data-work-route={String(index() + 1)}>
+              <div class="flex min-w-0 flex-wrap items-center gap-2">
+                <span class="text-interface font-medium text-ink-gray-9">{t("work.routes.position", { position: String(index() + 1), name: route.routeId })}</span>
+                <Badge variant="outline" theme={status() === "up" ? "green" : status() === "down" || status() === "quota" ? "red" : "gray"} label={t(ROUTE_STATUS[status()])} />
+                <Show when={statusOf(route.routeId)?.quotaUntil}>{(until) => <span class="text-caption text-ink-gray-6">{t("work.routes.quotaUntil", { time: new Date(until()).toLocaleTimeString() })}</span>}</Show>
+              </div>
+              <Checkbox checked={route.enabled} onCheckedChange={(checked) => patch(index(), { enabled: checked === true })} label={label("work.routes.enable")} />
+              <div class="grid min-w-0 gap-3 sm:grid-cols-2">
+                <TextInput label={label("work.routes.name")} description={t("work.routes.nameHint")} value={route.routeId} onInput={(event) => patch(index(), { routeId: event.currentTarget.value })} />
+                <TextInput label={label("work.hosted.vendor")} value={route.vendor} onInput={(event) => patch(index(), { vendor: event.currentTarget.value })} />
+                <TextInput label={label("work.hosted.model")} value={route.model} onInput={(event) => patch(index(), { model: event.currentTarget.value })} />
+                <TextInput label={label("work.routes.keyRef")} description={t("work.routes.keyRefHint")} value={route.keyRef} onInput={(event) => patch(index(), { keyRef: event.currentTarget.value })} />
+              </div>
+              <TextInput label={label("work.hosted.address")} description={t("work.hosted.addressHint")} value={route.baseUrl} placeholder="https://" onInput={(event) => patch(index(), { baseUrl: event.currentTarget.value })} />
+              <div class="grid min-w-0 gap-3 sm:grid-cols-3">
+                <Select label={label("work.routes.tier")} value={route.costTier} onValueChange={(value) => patch(index(), { costTier: (value ?? "standard") as CostTier })} options={COST_TIERS.map((tier) => ({ value: tier, label: t(TIER_LABEL[tier]) }))} />
+                <TextInput label={label("work.hosted.priceIn")} type="number" min={0} step="any" inputmode="decimal" value={route.priceIn} onInput={(event) => patch(index(), { priceIn: event.currentTarget.value })} />
+                <TextInput label={label("work.hosted.priceOut")} type="number" min={0} step="any" inputmode="decimal" value={route.priceOut} onInput={(event) => patch(index(), { priceOut: event.currentTarget.value })} />
+              </div>
+              <div class="flex min-w-0 flex-wrap gap-2">
+                <Button variant="subtle" theme="gray" size="sm" disabled={index() === 0} aria-label={label("work.routes.up")} onClick={() => move(index(), -1)}>{t("work.routes.up")}</Button>
+                <Button variant="subtle" theme="gray" size="sm" disabled={index() === list().length - 1} aria-label={label("work.routes.down")} onClick={() => move(index(), 1)}>{t("work.routes.down")}</Button>
+                <Button variant="subtle" theme="red" size="sm" aria-label={label("work.routes.remove")} onClick={() => change(list().filter((_, at) => at !== index()))}>{t("work.routes.remove")}</Button>
+              </div>
+            </li>;
+          }}</For>
+        </ol>
+      </Show>
       <p class="m-0 text-caption text-ink-gray-6">{t("work.hosted.priceHint")}</p>
-      <div><Button variant="solid" theme="blue" size="sm" loading={saver.busy()} disabled={saver.busy() || !app.canAdminister()}
-        onClick={() => void saver.save(() => app.run("workspace.hostedModel.set", { enabled: on(), ...given("vendor", vendor() ?? hosted().vendor), ...given("model", model() ?? hosted().model), ...given("baseUrl", baseUrl() ?? hosted().baseUrl), ...(inputPrice() ? { inputMicroUsdPerMTok: inputPrice()! } : {}), ...(outputPrice() ? { outputMicroUsdPerMTok: outputPrice()! } : {}) }), t("work.hosted.saved"))}>{t("work.save")}</Button></div>
+      <div class="flex min-w-0 flex-wrap gap-2">
+        <Button variant="subtle" theme="gray" size="sm" disabled={list().length >= 8 || !app.canAdminister()} onClick={() => change([...list(), newDraft(list())])}>{t("work.routes.add")}</Button>
+        <Button variant="solid" theme="blue" size="sm" loading={saver.busy()} disabled={saver.busy() || !app.canAdminister()}
+          onClick={() => { const wrong = routeProblem(list()); setProblem(wrong); if (!wrong) void saver.save(() => app.run("workspace.modelRoutes.set", { routes: payload() }), t("work.routes.saved")); }}>{t("work.save")}</Button>
+      </div>
+      <Show when={problem()}>{(text) => <p role="alert" class="m-0 text-interface text-ink-red-8" data-work-routes-problem>{text()}</p>}</Show>
       <Outcome result={saver.result()} />
     </div>
   </WorkspaceSection>;
@@ -341,7 +395,7 @@ export function WorkSettings(): JSX.Element {
     <ScreenRegion state={settings.state()} onRetry={() => void settings.refresh({ force: true })} emptyTitle={t("work.empty.title")} emptyDescription={t("work.empty.description")}>
       <Show when={settings.state().data}>{(data) => <>
         <WayOfWorking settings={data()} reload={reload} />
-        <HostedModel settings={data()} reload={reload} />
+        <ModelRoutes settings={data()} reload={reload} />
         <AutonomyCeiling settings={data()} reload={reload} />
       </>}</Show>
     </ScreenRegion>

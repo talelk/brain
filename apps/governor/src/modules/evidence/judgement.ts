@@ -62,8 +62,8 @@ export function finishJudgement(store: Store, db: Db, digest: string, missionId:
 }
 
 /** The criterion ids the judge already gave an opinion on for this bundle (a resumed request does not ask, or charge, again). */
-export function judgedCriteria(db: Db, digest: string, evaluator: string): Set<string> {
-  return new Set((db.prepare("SELECT criterion_id FROM mission_bundle_checks WHERE bundle_digest=? AND evaluator=?").all(digest, evaluator) as Array<{ criterion_id: string }>).map((row) => row.criterion_id));
+export function judgedCriteria(db: Db, digest: string): Set<string> {
+  return new Set((db.prepare("SELECT criterion_id FROM mission_bundle_checks WHERE bundle_digest=? AND evaluator LIKE 'judge:%'").all(digest) as Array<{ criterion_id: string }>).map((row) => row.criterion_id));
 }
 
 /**
@@ -90,7 +90,7 @@ export function criterionMaterial(db: Db, criterion: { criterionId: string; work
   for (const workItemId of criterion.workItemIds) {
     const item = db.prepare("SELECT title, state FROM work_items WHERE id=?").get(workItemId) as { title: string; state: string } | undefined;
     if (!item) continue;
-    const handoff = db.prepare("SELECT notes_json FROM handoffs WHERE work_item_id=? AND superseded_by IS NULL").get(workItemId) as { notes_json: string } | undefined;
+    const handoff = db.prepare("SELECT notes_json FROM handoffs WHERE work_item_id=? AND superseded_by IS NULL AND delegation_id IS NULL").get(workItemId) as { notes_json: string } | undefined;
     const notes = handoff ? JSON.parse(handoff.notes_json) as HandoffNotes : undefined;
     const result = resultOf(workItemId)?.trim();
     const lines = [

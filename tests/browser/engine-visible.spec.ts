@@ -90,7 +90,7 @@ test("Quality names failures by cause and breaks the figures down by practice an
   expect(errors).toEqual([]);
 });
 
-test("How work runs: way of working, hosted model (off), tool allow-list, runner groups, pausing new work and lessons", async ({ page, governor }) => {
+test("How work runs: way of working, model routes, tool allow-list, runner groups, pausing new work and lessons", async ({ page, governor }) => {
   test.setTimeout(180_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -112,33 +112,57 @@ test("How work runs: way of working, hosted model (off), tool allow-list, runner
   await expect(way.getByRole("status")).toHaveText("The way of working was saved.");
   await expect(page.locator("[data-work-way-current]")).toContainText("Now:");
 
-  // Hosted model: off by default; cannot be switched on without its vendor, model and address.
+  // Model routes: none by default; a route is walked through from the first click and cannot be saved half-described.
   const hosted = page.locator("[data-work-hosted]");
-  await expect(hosted).toContainText("Off");
-  await hosted.getByRole("checkbox", { name: "Use a hosted model for this workspace" }).check();
+  await expect(hosted.locator("[data-work-routes-empty]")).toContainText("No model routes yet");
+  await hosted.getByRole("button", { name: "Add a route", exact: true }).click();
+  const first = hosted.locator("[data-work-route='1']");
+  await expect(first).toContainText("Not checked yet".replace("Not checked yet", "Off"));
+  await first.getByRole("checkbox", { name: "Use this route (route 1)" }).check();
   await hosted.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(hosted.getByRole("alert")).toContainText("Choose the vendor, the model and its address");
+  // A key is only ever named by reference: the form says so, and the first thing missing is that name.
+  await expect(hosted.getByRole("alert")).toContainText("name its API key by a short reference");
+  await first.getByLabel("API key reference (route 1)").fill("acme-main");
+  await hosted.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(hosted.getByRole("alert")).toContainText("address as an https URL");
+  await first.getByLabel("Address (route 1)").fill("https://models.acme.example/v1");
+  await hosted.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(hosted.getByRole("alert")).toContainText("choose the vendor and the model");
+  await first.getByLabel("Vendor (route 1)").fill("Acme");
+  await first.getByLabel("Model (route 1)").fill("acme-large");
   // Both token prices are asked for next to the model: without them its spend could not count against any dollar cap.
-  await expect(hosted.getByLabel("Input price (USD per million tokens)")).toBeVisible();
-  await hosted.getByLabel("Vendor", { exact: true }).fill("Acme");
-  await hosted.getByLabel("Model", { exact: true }).fill("acme-large");
-  await hosted.getByLabel("Address", { exact: true }).fill("https://models.acme.example/v1");
   await hosted.getByRole("button", { name: "Save", exact: true }).click();
   await expect(hosted.getByRole("alert")).toContainText("input and output token prices");
-  await hosted.getByLabel("Input price (USD per million tokens)").fill("0.15");
+  await first.getByLabel("Input price (USD per million tokens) (route 1)").fill("0.15");
+  await first.getByLabel("Output price (USD per million tokens) (route 1)").fill("0.6");
+  await first.getByLabel("Route name (route 1)").fill("acme");
   await hosted.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(hosted.getByRole("alert")).toContainText("input and output token prices");
-  await hosted.getByLabel("Output price (USD per million tokens)").fill("0.6");
+  await expect(hosted.getByRole("status")).toHaveText("The model routes were saved.");
+  await expect(first).toContainText("Not checked yet");
+  await expect(first.getByLabel("Input price (USD per million tokens) (route 1)")).toHaveValue("0.15");
+  // A second route, moved to the front: the order is the order they are tried.
+  await hosted.getByRole("button", { name: "Add a route", exact: true }).click();
+  const second = hosted.locator("[data-work-route='2']");
+  await second.getByLabel("Route name (route 2)").fill("backup");
+  await second.getByLabel("API key reference (route 2)").fill("backup-key");
+  await second.getByLabel("Vendor (route 2)").fill("Other");
+  await second.getByLabel("Model (route 2)").fill("other-small");
+  await second.getByLabel("Address (route 2)").fill("https://models.other.example/v1");
+  await second.getByLabel("Input price (USD per million tokens) (route 2)").fill("0.05");
+  await second.getByLabel("Output price (USD per million tokens) (route 2)").fill("0.2");
+  await second.getByRole("checkbox", { name: "Use this route (route 2)" }).check();
+  await second.getByRole("button", { name: "Move up (route 2)" }).click();
+  await expect(hosted.locator("[data-work-route='1']")).toContainText("1. backup");
   await hosted.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(hosted.getByRole("status")).toHaveText("The hosted model setting was saved.");
-  await expect(hosted).toContainText("Not checked yet");
-  await expect(hosted.getByLabel("Input price (USD per million tokens)")).toHaveValue("0.15");
-  await expect(hosted.getByLabel("Output price (USD per million tokens)")).toHaveValue("0.6");
-  expect(brain.store.control.prepare("SELECT enabled AS e, input_micro_usd_per_mtok AS i, output_micro_usd_per_mtok AS o FROM workspace_hosted_model WHERE workspace_id=?").get(demo.workspaceId)).toEqual({ e: 1, i: 150_000, o: 600_000 });
-  await hosted.getByRole("checkbox", { name: "Use a hosted model for this workspace" }).uncheck();
+  await expect(hosted.getByRole("status")).toHaveText("The model routes were saved.");
+  expect(brain.store.control.prepare("SELECT route_id AS id, position AS p, enabled AS e, key_ref AS k, input_micro_usd_per_mtok AS i, output_micro_usd_per_mtok AS o FROM workspace_model_routes WHERE workspace_id=? ORDER BY position").all(demo.workspaceId))
+    .toEqual([{ id: "backup", p: 0, e: 1, k: "backup-key", i: 50_000, o: 200_000 }, { id: "acme", p: 1, e: 1, k: "acme-main", i: 150_000, o: 600_000 }]);
+  // Removing both leaves the workspace self-hosted again.
+  await hosted.getByRole("button", { name: "Remove (route 1)" }).click();
+  await hosted.getByRole("button", { name: "Remove (route 1)" }).click();
   await hosted.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(hosted.getByRole("status")).toHaveText("The hosted model setting was saved.");
-  await expect(hosted).toContainText("Off");
+  await expect(hosted.getByRole("status")).toHaveText("The model routes were saved.");
+  await expect(hosted.locator("[data-work-routes-empty]")).toBeVisible();
 
   // What tools may touch.
   const effects = page.locator("[data-work-effects]");

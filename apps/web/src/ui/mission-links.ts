@@ -1,5 +1,5 @@
 /** The mission views (#43). Each tab of a mission lives at its own address. */
-export type MissionTab = "live" | "team" | "plan" | "brief" | "timeline" | "outputs";
+export type MissionTab = "live" | "team" | "plan" | "brief" | "timeline" | "delegations" | "outputs";
 
 /**
  * A mission's address. `?w=` names the mission's workspace so a link from the

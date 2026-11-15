@@ -2,7 +2,7 @@ import { criteriaText } from "../../domain/criteria";
 import { domainDigest } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import type { ActorContext, ArtifactRef, BrainSession, ContextManifest, ContextPackView, Checkpoint, CheckpointInput, Delegation, JsonValue, MissionBrief, MissionMessage, SessionBudget, SessionContext, SessionScope } from "@brain/contracts";
-import { dependencyHandoffs } from "../evidence/index";
+import { delegatedHandoffs, dependencyHandoffs } from "../evidence/index";
 import { senderOf } from "../identity/index";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
@@ -13,6 +13,7 @@ import { enqueueSessionControl } from "./controls";
 import { readVerified } from "../artifacts/index";
 import { readableSources, toolAvailability } from "../resources/index";
 import { buildContextPack, type BuiltPack, type PackItem, type PackSection } from "./context-pack";
+import { MAX_ACTIVE_CHILDREN, MAX_DELEGATION_DEPTH, delegatedRunOf, pinnedAgentOfJob, type PinnedAgent } from "./delegation";
 import { coordinatorSections } from "./coordinator-pack";
 
 /** What a steered session reads: a teammate's message says who wrote it, so it is never mistaken for the person's own instruction. */
@@ -49,6 +50,11 @@ type DelegationRow = {
   id: string; parent_session_id: string; child_session_id: string; work_item_id: string;
   state: Delegation["state"]; reviewer_id: string | null; evidence_digest: string | null;
   created_at_ms: number; reviewed_at_ms: number | null;
+};
+
+type DelegationRunRow = {
+  delegation_id: string; mission_id: string; member_id: string | null; delegating_principal: string; situation: string; run_id: string | null;
+  state: "pending" | "running" | "succeeded" | "failed"; result_handoff_id: string | null; failure_reason: string | null;
 };
 
 type MessageRow = { id: string; mission_id: string; recipient_kind: "mission" | "member"; recipient_member_id: string | null; work_item_id: string | null; sender_id: string; body: string; delivery: MissionMessage["delivery"]; correction_of: string | null; answers_question_id: string | null; created_at_ms: number };
@@ -149,16 +155,56 @@ export class SessionService {
     };
   }
 
-  private delegation(workspaceId: string, row: DelegationRow): Delegation {
-    const child = this.store.workspaceDb(workspaceId, this.organizationForWorkspace(workspaceId)).prepare("SELECT * FROM sessions WHERE id=?").get(row.child_session_id) as SessionRow;
+  /**
+   * The delegation as a person (or a session) reads it: the child's own run and what it handed back or why it failed, the evidence a
+   * review decides on, and, for `viewer`, whether the review can be decided now and the plain reason when it cannot.
+   */
+  private delegation(workspaceId: string, row: DelegationRow, viewer?: ActorContext): Delegation {
+    const organizationId = this.organizationForWorkspace(workspaceId);
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const child = db.prepare("SELECT * FROM sessions WHERE id=?").get(row.child_session_id) as SessionRow;
+    const parent = db.prepare("SELECT * FROM sessions WHERE id=?").get(row.parent_session_id) as SessionRow;
+    const run = db.prepare("SELECT * FROM delegation_runs WHERE delegation_id=?").get(row.id) as DelegationRunRow;
+    const item = db.prepare("SELECT title FROM work_items WHERE id=?").get(row.work_item_id) as { title: string };
+    const handoff = run.result_handoff_id ? db.prepare("SELECT notes_json FROM handoffs WHERE id=?").get(run.result_handoff_id) as { notes_json: string } | undefined : undefined;
+    const evidence = child.job_id ? this.childEvidence(db, child.job_id) : undefined;
     return {
-      delegationId: row.id, workspaceId, parentSessionId: row.parent_session_id, childSessionId: row.child_session_id,
-      workItemId: row.work_item_id, agentId: child.agent_id, task: child.task, depth: child.delegation_depth,
+      delegationId: row.id, workspaceId, missionId: run.mission_id, parentSessionId: row.parent_session_id, childSessionId: row.child_session_id,
+      workItemId: row.work_item_id, workItemTitle: item.title, agentId: child.agent_id, ...(run.member_id ? { memberId: run.member_id } : {}), delegatedBy: run.delegating_principal,
+      task: child.task, depth: child.delegation_depth,
       budget: JSON.parse(child.budget_json) as SessionBudget, scope: JSON.parse(child.scope_json) as SessionScope,
       worktreeId: child.worktree_id, state: row.state,
+      run: {
+        state: run.state, ...(run.run_id ? { runId: run.run_id } : {}), ...(run.result_handoff_id ? { handoffId: run.result_handoff_id } : {}),
+        ...(handoff ? { result: (JSON.parse(handoff.notes_json) as { summary: string }).summary.slice(0, 4000) } : {}), ...(run.failure_reason ? { failure: run.failure_reason } : {}),
+      },
+      ...(evidence ? { evidence } : {}), review: this.reviewability(row, run, parent, child, evidence, viewer),
       ...(row.reviewer_id ? { reviewerId: row.reviewer_id } : {}), ...(row.evidence_digest ? { evidenceDigest: row.evidence_digest } : {}),
       createdAt: iso(row.created_at_ms), ...(row.reviewed_at_ms ? { reviewedAt: iso(row.reviewed_at_ms) } : {}),
     };
+  }
+
+  /** The child's newest evidence bundle and what an independent evaluator said of it: the thing a delegation review decides on. */
+  private childEvidence(db: ReturnType<Store["workspaceDb"]>, jobId: string): NonNullable<Delegation["evidence"]> | undefined {
+    const bundle = db.prepare("SELECT digest, state FROM evidence_bundles WHERE job_id=? ORDER BY created_at_ms DESC, digest LIMIT 1").get(jobId) as { digest: string; state: string } | undefined;
+    if (!bundle) return undefined;
+    const verdict = db.prepare("SELECT outcome FROM verification_verdicts WHERE bundle_digest=? ORDER BY created_at_ms DESC LIMIT 1").get(bundle.digest) as { outcome: "verified" | "rejected" | "incomplete" } | undefined;
+    return { digest: bundle.digest, bundleState: bundle.state, ...(verdict ? { verdict: verdict.outcome } : {}) };
+  }
+
+  /** Whether `viewer` may decide this review now, in plain words when not: a team member never reviews, and nobody reviews what they started. */
+  private reviewability(row: DelegationRow, run: DelegationRunRow, parent: SessionRow, child: SessionRow, evidence: Delegation["evidence"], viewer?: ActorContext): NonNullable<Delegation["review"]> {
+    const no = (reason: string) => ({ possible: false, reason });
+    if (row.state !== "active") return no(`This review is already ${row.state}.`);
+    if (run.state === "failed") return no("The delegated work failed, so there is no result to accept; the parent session was told.");
+    if (run.state !== "succeeded") return no("The child session has not finished yet.");
+    if (!child.job_id || !child.attempt_id || !evidence) return no("The child session produced no evidence to decide on.");
+    if (viewer) {
+      if (viewer.kind !== "human") return no("Only a person decides a delegation review: a team member never reviews its own delegation or anyone else's.");
+      if (!viewer.scopes.includes("session:steer")) return no("Deciding a delegation review needs operator access to this workspace.");
+      if ([run.delegating_principal, parent.created_by, child.created_by].includes(viewer.actorId)) return no("You started this delegation, so another person has to review it.");
+    }
+    return { possible: true };
   }
 
   private organizationForWorkspace(workspaceId: string): string {
@@ -285,16 +331,54 @@ export class SessionService {
     return session.id;
   }
 
+  /**
+   * The session a delegation starts from. A session delegates only from itself, whatever id it names (ADR 0053); a person names the parent.
+   * The Governor's own service principal has no session and delegates nothing.
+   */
+  private delegatingSession(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): SessionRow {
+    const named = typeof payload["parentSessionId"] === "string" ? payload["parentSessionId"] : undefined;
+    if (actor.kind === "agent") {
+      if (actor.attemptId === undefined) throw new BrainDomainError("FORBIDDEN", "only a running session delegates");
+      const own = this.db(actor, workspaceId).prepare("SELECT * FROM sessions WHERE attempt_id=?").get(actor.attemptId) as SessionRow | undefined;
+      if (!own) throw new BrainDomainError("CONFLICT", "this attempt has no session to delegate from");
+      if (named && named !== own.id) throw new BrainDomainError("FORBIDDEN", "a session delegates only from itself");
+      return own;
+    }
+    if (!named) throw new BrainDomainError("INVALID_ARGUMENT", "name the parent session to delegate from");
+    return this.row(actor, workspaceId, named);
+  }
+
+  private pinnedAgentOf(actor: ActorContext, row: SessionRow): PinnedAgent | undefined {
+    return row.job_id ? pinnedAgentOfJob(this.store, actor.organizationId, row.job_id) : undefined;
+  }
+
   private delegate(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
-    const parent = this.row(actor, workspaceId, String(payload["parentSessionId"]));
+    const db = this.db(actor, workspaceId);
+    const parent = this.delegatingSession(actor, workspaceId, payload);
     if (!ACTIVE_SESSION_STATES.has(parent.state)) throw new BrainDomainError("CONFLICT", "delegation requires an active parent session");
-    if (parent.delegation_depth >= 3) throw new BrainDomainError("FORBIDDEN", "maximum delegation depth is three");
-    const agentId = String(payload["agentId"]);
-    if (agentId === parent.agent_id) throw new BrainDomainError("FORBIDDEN", "cross-agent delegation requires a different child agent");
+    const item = parent.work_item_id ? db.prepare("SELECT id, mission_id, assignment_json FROM work_items WHERE id=?").get(parent.work_item_id) as { id: string; mission_id: string; assignment_json: string | null } | undefined : undefined;
+    if (!item) throw new BrainDomainError("CONFLICT", "this session serves no task of a mission, so a child has nothing to be part of");
+    const mission = db.prepare("SELECT state, active_plan_version_id FROM missions WHERE id=?").get(item.mission_id) as { state: string; active_plan_version_id: string | null };
+    if (mission.state === "closed") throw new BrainDomainError("CONFLICT", "the mission is closed, so nothing new starts in it");
+    // What the agent declares bounds its sessions: its own maxChildren for each session, its maxDepth for the whole tree below the task's session.
+    const own = this.pinnedAgentOf(actor, parent);
+    const root = parent.root_session_id && parent.root_session_id !== parent.id ? this.row(actor, workspaceId, parent.root_session_id) : parent;
+    const rootAgent = root === parent ? own : this.pinnedAgentOf(actor, root);
+    const depth = parent.delegation_depth + 1;
+    if (depth > MAX_DELEGATION_DEPTH) {
+      throw new BrainDomainError("FORBIDDEN", `Maximum delegation depth is ${MAX_DELEGATION_DEPTH}: this session is already ${parent.delegation_depth} levels below its task's own session, so it must do this sub-task itself instead of delegating it further.`);
+    }
+    if ((own && own.maxChildren < 1) || (rootAgent && depth > rootAgent.maxDepth)) {
+      const agent = own && own.maxChildren < 1 ? own : rootAgent!;
+      throw new BrainDomainError("FORBIDDEN", `Agent ${agent.id} is not set up to delegate this far (it declares ${agent.maxChildren} children and ${agent.maxDepth} levels deep): do the sub-task yourself, or ask a person to raise those limits in the agent's definition.`);
+    }
+    const member = this.delegateMember(db, item, mission.active_plan_version_id, payload["memberId"]);
+    const limit = Math.min(MAX_ACTIVE_CHILDREN, own?.maxChildren ?? MAX_ACTIVE_CHILDREN);
+    const working = (db.prepare("SELECT COUNT(*) AS n FROM delegations d JOIN delegation_runs r ON r.delegation_id=d.id WHERE d.parent_session_id=? AND r.state IN ('pending','running')").get(parent.id) as { n: number }).n;
+    if (working >= limit) throw new BrainDomainError("CONFLICT", `This session already has ${working} child sessions working, the most it may have at once (${limit}). Wait for one to finish.`);
     const parentBudget = JSON.parse(parent.budget_json) as SessionBudget;
     const parentScope = JSON.parse(parent.scope_json) as SessionScope;
-    const childBudget = budgetOf(payload);
-    const childScope = scopeOf(payload);
+    const childScope = payload["scope"] ? scopeOf(payload) : parentScope;
     assertSubset(childScope.allowedPaths, parentScope.allowedPaths, "allowed paths");
     assertSubset(childScope.allowedTools, parentScope.allowedTools, "allowed tools");
     const scope: SessionScope = {
@@ -302,34 +386,47 @@ export class SessionService {
       allowedTools: childScope.allowedTools,
       prohibitedPaths: [...new Set([...parentScope.prohibitedPaths, ...childScope.prohibitedPaths])],
     };
-    const worktreeId = String(payload["worktreeId"]);
     const childId = this.store.id("ses");
     const delegationId = this.store.id("del");
-    const db = this.db(actor, workspaceId);
+    const task = String(payload["task"]);
+    const worktreeId = typeof payload["worktreeId"] === "string" ? payload["worktreeId"] : `wt-${childId}`;
     this.store.inTx(db, () => {
-      const siblings = db.prepare(`SELECT s.budget_json FROM delegations d JOIN sessions s ON s.id=d.child_session_id
-        WHERE d.parent_session_id=? AND d.state IN ('active','accepted')`).all(parent.id) as Array<{ budget_json: string }>;
+      const siblings = db.prepare(`SELECT s.budget_json FROM delegations d JOIN sessions s ON s.id=d.child_session_id JOIN delegation_runs r ON r.delegation_id=d.id
+        WHERE d.parent_session_id=? AND d.state IN ('active','accepted') AND r.state!='failed'`).all(parent.id) as Array<{ budget_json: string }>;
       const reserved = siblings.reduce((total, sibling) => {
         const value = JSON.parse(sibling.budget_json) as SessionBudget;
         return { maxTokens: total.maxTokens + value.maxTokens, maxMicroUsd: total.maxMicroUsd + value.maxMicroUsd, maxTurns: total.maxTurns + value.maxTurns };
       }, { maxTokens: 0, maxMicroUsd: 0, maxTurns: 0 });
-      assertBudgetWithin(childBudget, {
-        maxTokens: parentBudget.maxTokens - reserved.maxTokens,
-        maxMicroUsd: parentBudget.maxMicroUsd - reserved.maxMicroUsd,
-        maxTurns: parentBudget.maxTurns - reserved.maxTurns,
-      });
+      const available: SessionBudget = { maxTokens: parentBudget.maxTokens - reserved.maxTokens, maxMicroUsd: parentBudget.maxMicroUsd - reserved.maxMicroUsd, maxTurns: parentBudget.maxTurns - reserved.maxTurns };
+      // Without a stated budget the child takes half of what the parent still has, so a session cannot spend all of it on its first child.
+      const childBudget: SessionBudget = payload["budget"] ? budgetOf(payload) : { maxTokens: Math.max(1, Math.floor(available.maxTokens / 2)), maxMicroUsd: Math.floor(available.maxMicroUsd / 2), maxTurns: Math.max(1, Math.floor(available.maxTurns / 2)) };
+      assertBudgetWithin(childBudget, available);
       this.assertWorktreeAvailable(db, worktreeId, parent.root_session_id ?? parent.id);
       const now = this.store.now();
       db.prepare(`INSERT INTO sessions(id,mode,work_item_id,parent_session_id,root_session_id,agent_id,task,engine_id,adapter_digest,state,delegation_depth,budget_json,scope_json,worktree_id,created_by,created_at_ms,updated_at_ms)
         VALUES (?,'managed',?,?,?,?,?,? ,?,'waiting',?,?,?,?,?,?,?)`).run(
-        childId, parent.work_item_id, parent.id, parent.root_session_id ?? parent.id, agentId, String(payload["task"]), String(payload["engineId"]), ZERO_DIGEST,
-        parent.delegation_depth + 1, JSON.stringify(childBudget), JSON.stringify(scope), worktreeId, actor.actorId, now, now,
+        childId, parent.work_item_id, parent.id, parent.root_session_id ?? parent.id, member.agentId, task, "unbound", ZERO_DIGEST,
+        depth, JSON.stringify(childBudget), JSON.stringify(scope), worktreeId, actor.actorId, now, now,
       );
       db.prepare("INSERT INTO delegations(id,parent_session_id,child_session_id,work_item_id,state,created_at_ms) VALUES (?,?,?,?,'active',?)")
         .run(delegationId, parent.id, childId, parent.work_item_id, now);
+      // The child's own run is started after this commit by the delegation pump, and again after a restart if the Governor stopped in between.
+      db.prepare("INSERT INTO delegation_runs(delegation_id,mission_id,member_id,delegating_principal,situation,state,created_at_ms) VALUES (?,?,?,?,?,'pending',?)")
+        .run(delegationId, item.mission_id, member.memberId, actor.actorId, task, now);
       this.store.emit(db, { aggregateType: "session", aggregateId: parent.id, eventType: "session.delegated", payload: { delegationId, parentSessionId: parent.id, childSessionId: childId, workItemId: parent.work_item_id } });
     });
     return delegationId;
+  }
+
+  /** The team member the child works as: the one named (it must be on the mission's team) or the member of the delegating task. */
+  private delegateMember(db: ReturnType<Store["workspaceDb"]>, item: { assignment_json: string | null }, planVersionId: string | null, named: unknown): { memberId: string | null; agentId: string } {
+    const assigned = item.assignment_json ? (JSON.parse(item.assignment_json) as { id?: string }).id ?? null : null;
+    const team = planVersionId ? (JSON.parse((db.prepare("SELECT team_json FROM plan_versions WHERE id=?").get(planVersionId) as { team_json: string } | undefined)?.team_json ?? "[]") as Array<{ memberId: string; agentId: string }>) : [];
+    const memberId = typeof named === "string" ? named : assigned;
+    if (typeof named === "string" && named !== assigned && !team.some((entry) => entry.memberId === named)) {
+      throw new BrainDomainError("INVALID_ARGUMENT", `${named} is not a member of this mission's team: a child session is a team member's session`);
+    }
+    return { memberId, agentId: team.find((entry) => entry.memberId === memberId)?.agentId ?? memberId ?? "delegate" };
   }
 
   private assertWorktreeAvailable(db: ReturnType<Store["workspaceDb"]>, worktreeId: string, rootSessionId: string): void {
@@ -343,16 +440,21 @@ export class SessionService {
     if (delegation.state !== "active") throw new BrainDomainError("CONFLICT", "delegation review is already final");
     const parent = this.row(actor, workspaceId, delegation.parent_session_id);
     const child = this.row(actor, workspaceId, delegation.child_session_id);
-    if (actor.actorId === parent.created_by || actor.actorId === child.agent_id) throw new BrainDomainError("FORBIDDEN", "delegation review requires an independent reviewer");
+    const db = this.db(actor, workspaceId);
+    const run = db.prepare("SELECT * FROM delegation_runs WHERE delegation_id=?").get(delegation.id) as DelegationRunRow;
+    // Only a person reviews (the registry admits no agent), and never one who started the delegation: a member must not review its own.
+    if ([run.delegating_principal, parent.created_by, child.created_by].includes(actor.actorId) || actor.actorId === child.agent_id) throw new BrainDomainError("FORBIDDEN", "delegation review requires an independent reviewer");
+    if (run.state === "failed") throw new BrainDomainError("CONFLICT", "the delegated work failed, so there is no result to accept or reject");
+    if (run.state !== "succeeded") throw new BrainDomainError("CONFLICT", "the child session has not finished, so there is nothing to review yet");
     if (!child.job_id || !child.attempt_id) throw new BrainDomainError("EVIDENCE_MISSING", "child session has no executed attempt to review");
     const evidenceDigest = String(payload["evidenceDigest"]);
     const decision = String(payload["decision"]);
-    const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
       const bundle = db.prepare("SELECT state,job_id FROM evidence_bundles WHERE digest=?").get(evidenceDigest) as { state: string; job_id: string } | undefined;
       if (!bundle || bundle.job_id !== child.job_id || (decision === "accepted" && bundle.state !== "verified")) throw new BrainDomainError("EVIDENCE_MISSING", "review evidence must belong to the child job and have the required verified state");
       const verdict = db.prepare("SELECT evaluator_attempt_id,outcome FROM verification_verdicts WHERE bundle_digest=? ORDER BY created_at_ms DESC LIMIT 1").get(evidenceDigest) as { evaluator_attempt_id: string; outcome: string } | undefined;
-      if (!verdict || verdict.evaluator_attempt_id === child.attempt_id || (decision === "accepted" && verdict.outcome !== "verified") || (decision === "rejected" && verdict.outcome === "verified")) {
+      // Accepting rests on an independent evaluator's verified verdict; a person may always reject, but never on the child's own evaluation.
+      if (verdict?.evaluator_attempt_id === child.attempt_id || (decision === "accepted" && (!verdict || verdict.outcome !== "verified"))) {
         throw new BrainDomainError("EVIDENCE_MISSING", "review requires an independent evaluator verdict matching the decision");
       }
       const now = this.store.now();
@@ -363,7 +465,6 @@ export class SessionService {
     });
     return delegation.id;
   }
-
 
   /**
    * Records a steer/stop control for a live session; the runner applies it on
@@ -423,6 +524,7 @@ export class SessionService {
     const db = this.db(actor, workspaceId);
     const checkpoint = this.checkpoint(session);
     if (!session.work_item_id) return { sessionId, dependencyHandoffs: [], inputs: [], messages: [], ...(checkpoint ? { checkpoint } : {}) };
+    const delegations = (db.prepare("SELECT * FROM delegations WHERE work_item_id=? ORDER BY created_at_ms, id").all(session.work_item_id) as DelegationRow[]).map((row) => this.delegation(workspaceId, row, actor));
     const item = db.prepare("SELECT mission_id, assignment_json FROM work_items WHERE id=?").get(session.work_item_id) as { mission_id: string; assignment_json: string | null };
     const member = item.assignment_json ? (JSON.parse(item.assignment_json) as { id?: string }).id ?? "" : "";
     const inputs = (db.prepare("SELECT output_version_id AS outputVersionId, artifact_digest AS artifactDigest FROM work_item_inputs WHERE work_item_id=? GROUP BY output_version_id ORDER BY output_version_id").all(session.work_item_id) as Array<{ outputVersionId: string; artifactDigest: string }>);
@@ -437,6 +539,7 @@ export class SessionService {
       sessionId, missionId: item.mission_id, workItemId: session.work_item_id,
       ...(this.missions ? { brief: this.missions.brief(actor, workspaceId, item.mission_id) } : {}),
       dependencyHandoffs: dependencyHandoffs(db, session.work_item_id), inputs, messages, ...(checkpoint ? { checkpoint } : {}),
+      ...(delegations.length > 0 ? { delegations, delegatedHandoffs: delegatedHandoffs(db, session.work_item_id) } : {}),
     };
   }
 
@@ -450,7 +553,9 @@ export class SessionService {
    */
   contextPackForRun(organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number; taskText?: string; tools?: ReadonlyArray<{ id: string; allowedHosts?: readonly string[] }> }): (BuiltPack & { unavailableTools: ReadonlyArray<{ id: string; reason: string }> }) | undefined {
     const db = this.store.workspaceDb(workspaceId, organizationId);
-    const link = db.prepare("SELECT work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(input.runId) as { work_item_id: string } | undefined;
+    // A delegated child's run belongs to its parent's task but is not a run of it: it works on the sub-task it was given, not on the task's own brief.
+    const delegated = delegatedRunOf(db, input.runId);
+    const link = delegated ? { work_item_id: delegated.workItemId } : db.prepare("SELECT work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(input.runId) as { work_item_id: string } | undefined;
     if (!link) {
       // A coordinator's wake serves no work item: its pack is the mission as a planner needs it (ADR 0048).
       const coordinating = db.prepare("SELECT mission_id FROM mission_runs WHERE run_id=? AND purpose='coordinator'").get(input.runId) as { mission_id: string } | undefined;
@@ -470,26 +575,28 @@ export class SessionService {
     const criteria = JSON.parse(item.criteria_json) as string[];
     const missionCriteria = criteriaText(mission.success_criteria_json);
     const decisions = (db.prepare("SELECT id, statement FROM accepted_decisions WHERE mission_id=? AND superseded_by IS NULL ORDER BY introduced_version, id").all(item.mission_id) as Array<{ id: string; statement: string }>);
-    const handoffs = dependencyHandoffs(db, item.id);
+    const handoffs = delegated ? [] : dependencyHandoffs(db, item.id);
     const titleOf = (workItemId: string): string => (db.prepare("SELECT title FROM work_items WHERE id=?").get(workItemId) as { title: string } | undefined)?.title ?? workItemId;
-    const inputs = db.prepare("SELECT output_version_id AS outputVersionId, artifact_digest AS artifactDigest FROM work_item_inputs WHERE work_item_id=? AND run_id=? ORDER BY output_version_id").all(item.id, input.runId) as Array<{ outputVersionId: string; artifactDigest: string }>;
-    const member = item.assignment_json ? (JSON.parse(item.assignment_json) as { id?: string }).id ?? "" : "";
+    const inputs = delegated ? [] : db.prepare("SELECT output_version_id AS outputVersionId, artifact_digest AS artifactDigest FROM work_item_inputs WHERE work_item_id=? AND run_id=? ORDER BY output_version_id").all(item.id, input.runId) as Array<{ outputVersionId: string; artifactDigest: string }>;
+    const member = delegated ? delegated.memberId ?? "" : item.assignment_json ? (JSON.parse(item.assignment_json) as { id?: string }).id ?? "" : "";
     const where = `mission_id=? AND (work_item_id=? OR (recipient_kind='member' AND recipient_member_id=? AND work_item_id IS NULL))`;
-    db.prepare(`UPDATE mission_messages SET delivery='delivered-at-session-start' WHERE delivery='pending' AND ${where}`).run(item.mission_id, item.id, member);
+    // A child reads what was said to its member, never what was said to the parent's task.
+    if (!delegated) db.prepare(`UPDATE mission_messages SET delivery='delivered-at-session-start' WHERE delivery='pending' AND ${where}`).run(item.mission_id, item.id, member);
     // A person's work-item comment arrives as a message; the pack says which ones are comments (their own text, written by a person, never a command).
-    const messages = (db.prepare(`SELECT id, body, sender_id, answers_question_id, EXISTS(SELECT 1 FROM work_item_comments WHERE message_id=mission_messages.id) AS comment FROM mission_messages
+    const messages = delegated ? [] : (db.prepare(`SELECT id, body, sender_id, answers_question_id, EXISTS(SELECT 1 FROM work_item_comments WHERE message_id=mission_messages.id) AS comment FROM mission_messages
       WHERE delivery IN ('delivered-at-session-start','delivered-live') AND ${where} ORDER BY created_at_ms DESC, id DESC LIMIT 20`).all(item.mission_id, item.id, member) as Array<{ id: string; body: string; sender_id: string; answers_question_id: string | null; comment: number }>).reverse();
-    const session = db.prepare("SELECT checkpoint_json FROM sessions WHERE work_item_id=? AND checkpoint_json IS NOT NULL ORDER BY updated_at_ms DESC, id DESC LIMIT 1").get(item.id) as { checkpoint_json: string } | undefined;
+    const session = delegated ? undefined : db.prepare("SELECT checkpoint_json FROM sessions WHERE work_item_id=? AND checkpoint_json IS NOT NULL ORDER BY updated_at_ms DESC, id DESC LIMIT 1").get(item.id) as { checkpoint_json: string } | undefined;
     const checkpoint = session ? JSON.parse(session.checkpoint_json) as Checkpoint : undefined;
-    const failure = this.lastFailure(db, item.id, input.runId) ?? item.parked_diagnostic ?? undefined;
+    const failure = delegated ? undefined : this.lastFailure(db, item.id, input.runId) ?? item.parked_diagnostic ?? undefined;
+    const sentOut = delegated ? [] : (db.prepare("SELECT * FROM delegations WHERE work_item_id=? ORDER BY created_at_ms, id").all(item.id) as DelegationRow[]).map((row) => this.delegation(workspaceId, row));
 
     const sections: PackSection[] = [
       { id: "brief", title: "Mission brief and this task's criteria", label: "fact", items: [
         fact("goal", `Goal: ${brief?.intent ?? mission.intent}`),
         ...(constraints.length > 0 ? [fact("constraints", `Constraints:\n${bullets(constraints)}`)] : []),
         ...(missionCriteria.length > 0 ? [fact("mission-criteria", `Mission success criteria:\n${lines(missionCriteria)}`)] : []),
-        fact("task", `This task: ${item.title}`),
-        ...(criteria.length > 0 ? [fact("criteria", `This task's acceptance criteria:\n${lines(criteria)}`)] : []),
+        fact("task", delegated ? `Your sub-task (delegated from the task "${item.title}"): ${delegated.situation}` : `This task: ${item.title}`),
+        ...(criteria.length > 0 && !delegated ? [fact("criteria", `This task's acceptance criteria:\n${lines(criteria)}`)] : []),
       ] },
       { id: "decisions", title: "Accepted decisions", label: "fact", items: decisions.map((row) => fact(row.id, `- ${row.statement}`)) },
       { id: "handoff-facts", title: "Verified results of the tasks this one builds on", label: "fact", items: handoffs.map((handoff) => {
@@ -523,6 +630,12 @@ export class SessionService {
         ...(checkpoint.completedCriteria.length > 0 ? [fact("completed", `Criteria already completed: ${checkpoint.completedCriteria.join(", ")}`)] : []),
       ] : [] },
       { id: "last-failure", title: "The previous attempt failed", label: "fact", items: failure ? [fact("error", failure)] : [] },
+      { id: "delegated", title: "Work this task handed to child sessions", label: "claim", items: sentOut.flatMap((entry) => {
+        // A child's result is its own claim until a person accepts it; a failure is a fact the Governor recorded.
+        const state = entry.run.state === "succeeded" ? `finished${entry.state === "accepted" ? " and accepted" : entry.state === "rejected" ? " but rejected by a reviewer" : ", not yet reviewed"}: ${entry.run.result ?? "no result written"}`
+          : entry.run.state === "failed" ? `FAILED, no result: ${entry.run.failure ?? "no reason recorded"}` : "still working";
+        return [prose(entry.delegationId, `- ${entry.task.slice(0, 200)} (delegation ${entry.delegationId}) ${state}`, entry.run.state === "failed" ? "A delegated sub-task that failed" : "A delegated sub-task and what came back")];
+      }) },
     ];
     // Which of the agent's read tools are worth offering for this task, and what they can read. documents.read stays on when the pack itself
     // holds a shortened text it can open by reference, even in a workspace with no saved documents.
@@ -612,8 +725,10 @@ export class SessionService {
     }
     if (queryType === "session.get") return this.view(workspaceId, this.row(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "delegations.list") {
-      const rows = db.prepare("SELECT * FROM delegations ORDER BY created_at_ms DESC,id LIMIT ?").all(limit) as DelegationRow[];
-      return { items: rows.map((row) => this.delegation(workspaceId, row)) } as unknown as JsonValue;
+      const rows = (resourceId
+        ? db.prepare("SELECT d.* FROM delegations d JOIN delegation_runs r ON r.delegation_id=d.id WHERE r.mission_id=? ORDER BY d.created_at_ms DESC,d.id LIMIT ?").all(resourceId, limit)
+        : db.prepare("SELECT * FROM delegations ORDER BY created_at_ms DESC,id LIMIT ?").all(limit)) as DelegationRow[];
+      return { items: rows.map((row) => this.delegation(workspaceId, row, actor)) } as unknown as JsonValue;
     }
     if (queryType === "sessions.context") return this.context(actor, workspaceId, String(resourceId)) as unknown as JsonValue;
     if (queryType === "contextPacks.forRun") return this.contextPacks(actor, workspaceId, String(resourceId)) as unknown as JsonValue;
@@ -637,11 +752,15 @@ export function recordAttemptSession(store: Store, input: {
   const link = input.runId
     ? db.prepare("SELECT session_id FROM execution_links WHERE run_id=? AND session_id IS NOT NULL ORDER BY created_at_ms DESC LIMIT 1").get(input.runId) as { session_id: string } | undefined
     : undefined;
-  const sessionId = link?.session_id;
+  // A delegated child's run has no task link: its first attempt binds the child session, and any later attempt of the run (its check) is a session of its own.
+  const child = !link && input.runId ? db.prepare("SELECT d.child_session_id AS id FROM delegation_runs r JOIN delegations d ON d.id=r.delegation_id JOIN sessions s ON s.id=d.child_session_id WHERE r.run_id=? AND s.job_id IS NULL AND s.state IN ('waiting','starting')").get(input.runId) as { id: string } | undefined : undefined;
+  const agent = pinnedAgentOfJob(store, input.organizationId, input.jobId);
+  const sessionId = link?.session_id ?? child?.id;
   if (sessionId) {
-    const updated = db.prepare(`UPDATE sessions SET job_id=?,attempt_id=?,engine_id=?,adapter_digest=?,engine_features=?,state='running',version=version+1,updated_at_ms=?
+    // The agent the run actually uses is what the session records, whoever it was created for.
+    const updated = db.prepare(`UPDATE sessions SET job_id=?,attempt_id=?,engine_id=?,adapter_digest=?,engine_features=?,state='running',agent_id=COALESCE(?,agent_id),version=version+1,updated_at_ms=?
       WHERE id=? AND mode='managed' AND job_id IS NULL AND state IN ('waiting','starting')`)
-      .run(input.jobId, input.attemptId, input.engineId, input.adapterDigest, features, now, sessionId);
+      .run(input.jobId, input.attemptId, input.engineId, input.adapterDigest, features, agent?.id ?? null, now, sessionId);
     if (updated.changes !== 1) throw new BrainDomainError("CONFLICT", "managed session cannot bind this attempt");
     db.prepare("UPDATE execution_links SET job_id=?,attempt_id=? WHERE session_id=?").run(input.jobId, input.attemptId, sessionId);
     return;
@@ -651,12 +770,13 @@ export function recordAttemptSession(store: Store, input: {
   const served = input.runId
     ? db.prepare("SELECT wi.id AS id, wi.title AS title FROM execution_links el JOIN work_items wi ON wi.id=el.work_item_id WHERE el.run_id=? ORDER BY el.created_at_ms DESC LIMIT 1").get(input.runId) as { id: string; title: string } | undefined
     : undefined;
-  // The session names the agent definition the Governor chose for the attempt: the one its reservation was stamped with (ADR 0051), never anything the model says.
-  const agentId = (db.prepare("SELECT agent_id FROM (SELECT attempt_id, agent_id FROM mission_spend UNION ALL SELECT attempt_id, agent_id FROM workspace_spend) WHERE attempt_id=?").get(input.attemptId) as { agent_id: string | null } | undefined)?.agent_id ?? "";
-  db.prepare(`INSERT INTO sessions(id,job_id,attempt_id,work_item_id,mode,agent_id,task,engine_id,adapter_digest,engine_features,state,root_session_id,worktree_id,created_by,created_at_ms,updated_at_ms)
-    VALUES (?,?,?,?,'native',?,?, ?,?,?,'running',?,?,?, ?,?)
-    ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id,agent_id=COALESCE(NULLIF(excluded.agent_id,''),sessions.agent_id),work_item_id=COALESCE(sessions.work_item_id,excluded.work_item_id),engine_id=excluded.engine_id,adapter_digest=excluded.adapter_digest,engine_features=excluded.engine_features,state='running',updated_at_ms=excluded.updated_at_ms`)
-    .run(id, input.jobId, input.attemptId, served?.id ?? null, agentId, served?.title ?? `job ${input.jobId}`, input.engineId, input.adapterDigest, features, id, `read-only:${input.workspaceId}`, "runner", now, now);
+  // What the agent declares is what its session may hand to children: its budget and its tools (ADR 0053); no agent, no authority to hand out.
+  const budget = JSON.stringify(agent ? { maxTokens: agent.maxTokens, maxMicroUsd: agent.maxMicroUsd, maxTurns: agent.maxTurns } : { maxTokens: 100000, maxMicroUsd: 0, maxTurns: 10 });
+  const scope = JSON.stringify({ allowedPaths: [], prohibitedPaths: [], allowedTools: [...new Set(agent?.tools ?? [])].slice(0, 64) });
+  db.prepare(`INSERT INTO sessions(id,job_id,attempt_id,work_item_id,mode,agent_id,task,engine_id,adapter_digest,engine_features,state,root_session_id,worktree_id,budget_json,scope_json,created_by,created_at_ms,updated_at_ms)
+    VALUES (?,?,?,?,'native',?,?, ?,?,?,'running',?,?,?,?,?, ?,?)
+    ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id,work_item_id=COALESCE(sessions.work_item_id,excluded.work_item_id),engine_id=excluded.engine_id,adapter_digest=excluded.adapter_digest,engine_features=excluded.engine_features,state='running',updated_at_ms=excluded.updated_at_ms`)
+    .run(id, input.jobId, input.attemptId, served?.id ?? null, agent?.id ?? "", served?.title ?? `job ${input.jobId}`, input.engineId, input.adapterDigest, features, id, `read-only:${input.workspaceId}`, budget, scope, "runner", now, now);
   // A coordinator's wake serves no work item: its session is bound to the mission it plans (a mission-level session).
   if (!served && input.runId) db.prepare("UPDATE sessions SET mission_id=(SELECT mission_id FROM mission_runs WHERE run_id=?), task='Coordinator session' WHERE id=? AND work_item_id IS NULL AND EXISTS (SELECT 1 FROM mission_runs WHERE run_id=?)").run(input.runId, id, input.runId);
 }

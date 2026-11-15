@@ -80,13 +80,13 @@ describe("mission admission (T19)", () => {
 
   it("a mission dollar cap binds hosted spend: tokens x the saved prices settle as dollars and stop the next attempt", async () => {
     const w = setupWorld();
-    await run(w, "workspace.hostedModel.set", "hosted-on", { enabled: true, vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1", inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 });
+    await run(w, "workspace.modelRoutes.set", "hosted-on", { routes: [{ routeId: "acme", enabled: true, vendor: "Acme", keyRef: "acme-main", model: "acme-large", baseUrl: "https://models.acme.example/v1", costTier: "standard", inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 }] });
     // $0.10 for the mission; both tasks are on their second attempt after a model slip, which the hosted model takes.
     const id = await missionWithJobs(w, "h", { maxMicroUsd: 100_000, memberCap: 1, attemptReserveMicroUsd: 0 }, ["a", "b"]);
     w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE work_items SET failed_attempts=1, failure_class='model-slip' WHERE mission_id=?").run(id);
     const runner = seedRunner(w, "runner-hosted");
     const first = w.brain.jobProtocol.claim(runner, "req-h-1") as unknown as Offer;
-    const route = JSON.parse((w.brain.store.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(first.jobId) as { payload_json: string }).payload_json).modelRoute as { inputMicroUsdPerMTok: number; outputMicroUsdPerMTok: number };
+    const route = JSON.parse((w.brain.store.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(first.jobId) as { payload_json: string }).payload_json).modelRoutes[0] as { inputMicroUsdPerMTok: number; outputMicroUsdPerMTok: number };
     expect(route).toMatchObject({ tier: "hosted", role: "second-attempt", inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 });
     // The runner prices what the model used with the route it was handed: 20,000 in x $3/M + 3,000 out x $15/M = $0.105.
     const inputTokens = 20_000, outputTokens = 3_000;

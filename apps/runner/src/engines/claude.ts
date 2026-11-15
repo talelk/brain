@@ -1,9 +1,9 @@
 import { readFileSync, statSync } from "node:fs";
-import { sha256Digest } from "@brain/contracts";
+import { resolveModelKey, sha256Digest } from "@brain/contracts";
 import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
 import { engineFailureDetail } from "./failure-detail";
-import type { HostedRoute } from "./pi";
+import { missingKeyMessage, type HostedRoute } from "./pi";
 import { hostedMicroUsd } from "./pricing";
 import { overCostCap } from "./limits";
 import { installedVersion } from "./package-version";
@@ -119,7 +119,7 @@ export class ClaudeEngine implements EngineAdapter {
   private toolSeq = 0;
   /**
    * `route` is the hosted model the Governor chose for this one attempt (ADR 0023). It names a place and a model, never a key: the key is
-   * this runner's own BRAIN_HOSTED_MODEL_API_KEY. A routed engine never writes process.env (other slots run at the same time), it hands the
+   * this runner's own BRAIN_MODEL_KEY_<reference> (ADR 0055). A routed engine never writes process.env (other slots run at the same time), it hands the
    * SDK a private environment for this attempt alone.
    */
   constructor(private readonly toolBindings: readonly EngineToolBinding[] = [], private readonly route?: HostedRoute) {}
@@ -130,8 +130,8 @@ export class ClaudeEngine implements EngineAdapter {
   /** The environment of the SDK process for this attempt. Without a route it is the runner's own (set up by ensureEnv); with one it points at the hosted model only. */
   private attemptEnv(): NodeJS.ProcessEnv {
     if (!this.route) return { ...process.env };
-    const key = process.env["BRAIN_HOSTED_MODEL_API_KEY"];
-    if (!key) throw new Error("The hosted model needs its API key on this runner (BRAIN_HOSTED_MODEL_API_KEY); the attempt was not sent anywhere");
+    const key = resolveModelKey(this.route.keyRef);
+    if (!key) throw new Error(missingKeyMessage(this.route.keyRef));
     let parsed: URL;
     try { parsed = new URL(this.route.baseUrl); } catch { throw new Error("the hosted model address is not a valid URL"); }
     if (parsed.protocol !== "https:" && !isLocalAnthropicHost(parsed.hostname)) throw new Error("the hosted model must be reached over https");

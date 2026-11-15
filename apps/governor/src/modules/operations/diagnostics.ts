@@ -36,7 +36,7 @@ function recentErrors(s: Store, organizationId: string, workspaceId: string): Re
   const out: RecentError[] = [];
   for (const probe of readProbes(s)) {
     if (probe.status !== "degraded" && probe.status !== "unavailable") continue;
-    if (probe.id.startsWith("hosted:") && probe.id !== `hosted:${workspaceId}`) continue;
+    if (probe.id.startsWith("hosted:") && !probe.id.startsWith(`hosted:${workspaceId}/`)) continue;
     out.push({ at: probe.checkedAt, source: "health-check", code: probe.id, status: probe.status, detail: sentence(probe.detail) });
   }
   const tasks = s.workspaceDb(workspaceId, organizationId)
@@ -82,7 +82,7 @@ export function diagnosticsBundle(s: Store, actor: ActorContext, workspaceId: st
     },
     configDigest: readiness.configDigest, ready: readiness.ready, smokeVerified: readiness.smokeVerified, memoryMode: readiness.memoryMode,
     checks: readiness.checks.map((check) => ({ id: check.id, status: check.status, ...(check.action ? { action: check.action } : {}), detail: sentence(check.detail) })),
-    services: readProbes(s).filter((probe) => !probe.id.startsWith("hosted:") || probe.id === `hosted:${workspaceId}`).map((probe) => ({ id: probe.id, status: probe.status, checkedAt: probe.checkedAt, detail: sentence(probe.detail) })),
+    services: readProbes(s).filter((probe) => !probe.id.startsWith("hosted:") || probe.id.startsWith(`hosted:${workspaceId}/`)).map((probe) => ({ id: probe.id, status: probe.status, checkedAt: probe.checkedAt, detail: sentence(probe.detail) })),
     runners: runnerInventory(s, actor),
     backups: { backup: backupStatus(now, env), restoreTest: restoreTestStatus(now, env), replica: { status: lag.status, detail: sentence(lag.detail), lagSeconds: lag.lagSeconds } },
     recentErrors: recentErrors(s, actor.organizationId, workspaceId),

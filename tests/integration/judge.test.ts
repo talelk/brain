@@ -17,13 +17,13 @@ import { scaled } from "../support/timing";
 // verdict or changes the bundle, never blocks sign-off, writes nothing without a model reply, and its calls are mission spend under the caps.
 // Everything below reaches state through commands and queries; the model is a fake behind the Governor's fetch port.
 let world: TestWorld | undefined;
-const keyBefore = process.env["BRAIN_HOSTED_MODEL_API_KEY"];
+const keyBefore = process.env["BRAIN_MODEL_KEY_ACME_JUDGE"];
 afterEach(() => {
   world?.brain.close(); world = undefined;
-  if (keyBefore === undefined) delete process.env["BRAIN_HOSTED_MODEL_API_KEY"]; else process.env["BRAIN_HOSTED_MODEL_API_KEY"] = keyBefore;
+  if (keyBefore === undefined) delete process.env["BRAIN_MODEL_KEY_ACME_JUDGE"]; else process.env["BRAIN_MODEL_KEY_ACME_JUDGE"] = keyBefore;
 });
 
-const HOSTED = { enabled: true, vendor: "Acme", model: "acme-judge", baseUrl: "https://judge.acme.example/v1", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 };
+const HOSTED = { routeId: "judge", enabled: true, vendor: "Acme", keyRef: "acme-judge", costTier: "standard", model: "acme-judge", baseUrl: "https://judge.acme.example/v1", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 };
 const USAGE = { prompt_tokens: 1000, completion_tokens: 100 };
 /** 1000 x 150000 + 100 x 600000 micro-USD per million tokens, rounded up. */
 const CALL_COST = 210;
@@ -75,7 +75,7 @@ async function submit(w: TestWorld, id: string, key: string): Promise<MissionEvi
 }
 const useHostedModel = async (w: TestWorld, model: FakeModel, config: Record<string, unknown> = HOSTED): Promise<void> => {
   w.brain.modelFetch = model.fetch;
-  expect((await command(w, w.owner, "workspace.hostedModel.set", `hosted-${w.brain.store.now()}-${model.calls.length}`, config)).accepted).toBe(true);
+  expect((await command(w, w.owner, "workspace.modelRoutes.set", `hosted-${w.brain.store.now()}-${model.calls.length}`, { routes: [config] })).accepted).toBe(true);
 };
 const judgeChecks = (bundle: MissionEvidenceBundle) => (bundle.checks ?? []).filter((check) => check.evaluator.startsWith("judge:"));
 
@@ -99,7 +99,7 @@ describe("the advisory judge on a submitted mission bundle (#95)", () => {
   it("writes an advisory check per readable criterion with its transcript, never a verdict, and charges the mission", async () => {
     world = setupWorld();
     const w = world;
-    process.env["BRAIN_HOSTED_MODEL_API_KEY"] = "sk-test-key";
+    process.env["BRAIN_MODEL_KEY_ACME_JUDGE"] = "sk-test-key";
     const model = fakeModel((prompt) => (prompt.includes("recommendation") ? answer("fail", "no recommendation is stated") : answer("pass", "twelve facts are listed")));
     await useHostedModel(w, model);
     const id = await finishedMission(w, "judged");
@@ -222,6 +222,33 @@ describe("the advisory judge on a submitted mission bundle (#95)", () => {
     await w.brain.bundleJudge.sweep();
     expect(await latestBundle(w, id)).toMatchObject({ judge: { state: "done" } });
     expect(judgeChecks(await latestBundle(w, id))).toHaveLength(2);
+  }, scaled(60_000));
+
+  it("moves to the next model route when one answers 429, prices each call with the route that answered, and does not ask the refused route again", async () => {
+    world = setupWorld();
+    const w = world;
+    process.env["BRAIN_MODEL_KEY_ACME_SECOND"] = "second-key";
+    const calls: Array<{ url: string; authorization: string | null }> = [];
+    w.brain.modelFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/models")) return new Response("{}", { status: 200 });
+      calls.push({ url, authorization: new Headers(init?.headers).get("authorization") });
+      return url.startsWith("https://judge.acme.example") ? new Response("slow down", { status: 429, headers: { "retry-after": "30" } }) : answer("pass", "ok");
+    }) as typeof fetch;
+    const second = { ...HOSTED, routeId: "second", keyRef: "acme-second", model: "acme-second", baseUrl: "https://second.acme.example/v1", inputMicroUsdPerMTok: 300_000, outputMicroUsdPerMTok: 1_200_000 };
+    expect((await command(w, w.owner, "workspace.modelRoutes.set", "two-routes", { routes: [HOSTED, second] })).accepted).toBe(true);
+    const id = await finishedMission(w, "failover");
+    const bundle = await submit(w, id, "failover-finish");
+    // The first route was asked once (its 429 left it out of line); the second answered both criteria with its own key.
+    expect(calls.filter((call) => call.url.startsWith("https://judge.acme.example"))).toHaveLength(1);
+    expect(calls.filter((call) => call.url.startsWith("https://second.acme.example")).map((call) => call.authorization)).toEqual(["Bearer second-key", "Bearer second-key"]);
+    expect(bundle).toMatchObject({ judge: { state: "done" } });
+    expect(judgeChecks(bundle).map((check) => check.evaluator)).toEqual(["judge:acme-second", "judge:acme-second"]);
+    // 1000 x 300000 + 100 x 1200000 micro-USD per million tokens = 420 per call, the answering route's prices.
+    expect((await missionUsage(w, id)).settledMicroUsd).toBe(2 * 420);
+    const settings = ((await w.brain.executeQuery(w.owner, { queryType: "engineSettings.get", workspaceId: w.workspaceId })) as unknown as { snapshot: { modelRoutes: Array<{ routeId: string; status: string }> } }).snapshot.modelRoutes;
+    expect(settings.map((entry) => [entry.routeId, entry.status])).toEqual([["judge", "quota"], ["second", "unknown"]]);
+    delete process.env["BRAIN_MODEL_KEY_ACME_SECOND"];
   }, scaled(60_000));
 
   it("an unreadable reply is an inconclusive opinion, never a pass", async () => {

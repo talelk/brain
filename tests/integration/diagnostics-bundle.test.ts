@@ -197,7 +197,7 @@ describe("planted secrets never reach the bundle", () => {
     const dir = temp();
     writeFileSync(join(dir, "metrics-token"), `${planted.metricsToken}\n`, { mode: 0o600 });
     const secretEnv = {
-      BRAIN_HOSTED_MODEL_API_KEY: planted.hostedKey, BRAIN_TENCENTDB_API_KEY: planted.memoryKey, BRAIN_AUTH_SECRET: planted.authSecret,
+      BRAIN_MODEL_KEY_ACME_MAIN: planted.hostedKey, BRAIN_TENCENTDB_API_KEY: planted.memoryKey, BRAIN_AUTH_SECRET: planted.authSecret,
       BRAIN_NOTIFY_SMTP_URL: `smtp://notifier:${planted.smtpPassword}@mail.invalid:587`, BRAIN_METRICS_TOKEN_FILE: join(dir, "metrics-token"),
     };
     await withEnv(secretEnv, async () => {

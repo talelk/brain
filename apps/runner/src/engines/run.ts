@@ -4,6 +4,7 @@ import { decodeModelJson } from "./json-reply";
 export { decodeModelJson, repairJsonStrings } from "./json-reply";
 import { FixtureEngine } from "./fixture";
 import { PiEngine, type HostedRoute } from "./pi";
+import { quotaRetryAfterMs, QUOTA_TEXT } from "./failure-detail";
 import { ClaudeEngine } from "./claude";
 import { AcpEngine } from "./acp";
 import { OpenCodeEngine } from "./opencode";
@@ -239,7 +240,9 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
   const saved: { checkpoint?: Checkpoint } = {};
   if (sessionId && checkpointable && !result.ok) await cleanup(async () => { saved.checkpoint = await engine.checkpoint(sessionId); });
   // An endpoint that reports no usage must not leave the meter empty: charge a flagged estimate of 4 bytes per token.
-  if (sessionId && !tokensReported) {
+  // A refusal for quota never reached the model: it spent nothing, so no estimate is charged for it.
+  const refusedForQuota = engineError && QUOTA_TEXT.test(engineDetail);
+  if (sessionId && !tokensReported && !refusedForQuota) {
     const estimate = estimatedUsage(input.attemptId, sessionId, instructionsBytes.length + taskBytes.length, new TextEncoder().encode(outputText).length);
     await Promise.resolve(input.emit("engine", estimate as unknown as JsonValue)).catch(() => undefined);
   }
@@ -329,4 +332,56 @@ export async function runAgentExecution(input: AgentExecutionInput): Promise<Age
   // A correction that breaks the contract in more places than the first reply did is no improvement.
   if (violations.length > 0 && input.outputCheck && input.outputCheck(second.output).length > violations.length) return first$;
   return second;
+}
+
+/** How one route went for an attempt: the Governor records the served one and leaves a route that refused for quota out of later offers. */
+export interface RouteReport { readonly routeId: string; readonly outcome: "served" | "quota" | "failed"; readonly retryAfterMs?: number }
+
+export interface RouteCandidate { readonly route: HostedRoute; readonly engine: EngineAdapter }
+
+const errorOf = (output: JsonValue): string => { const error = output !== null && typeof output === "object" && !Array.isArray(output) ? (output as { readonly error?: JsonValue }).error : undefined; return typeof error === "string" ? error : ""; };
+
+/**
+ * Runs the agent step on the routes the Governor offered, in order (ADR 0055). A route that refuses for quota (or that this runner has no key
+ * for) is left behind at once and the next one takes the step: never a blind retry on the same route. What failed routes spent is carried into the
+ * usage the next one reports, so the attempt's total still counts everything. The first route that answers decides the attempt; when every route
+ * refuses, the last refusal ends it and the Governor waits out the provider's retry-after.
+ */
+export async function runAgentOnRoutes(input: Omit<AgentExecutionInput, "engine" | "modelId">, candidates: readonly RouteCandidate[]): Promise<AgentExecutionResult & { routes: RouteReport[] }> {
+  const routes: RouteReport[] = [];
+  let carried: UsageTotals | undefined;
+  let last: AgentExecutionResult | undefined;
+  for (const [index, candidate] of candidates.entries()) {
+    let finalTotal: UsageTotals | undefined;
+    const earlier = carried;
+    const result = await runAgentExecution({
+      ...input, engine: candidate.engine, modelId: candidate.route.model,
+      emit: async (kind, payload) => {
+        const event = payload as { kind?: string; payload?: Record<string, unknown> };
+        if (kind === "engine" && event.kind === "usage" && event.payload?.["accounting"] === "final-total") {
+          finalTotal = totalsOf(event.payload);
+          if (earlier) {
+            await input.emit(kind, { ...event, payload: { ...event.payload, usageId: `${String(event.payload["usageId"] ?? "usage")}-route-${index}`,
+              inputTokens: earlier.inputTokens + finalTotal.inputTokens, outputTokens: earlier.outputTokens + finalTotal.outputTokens,
+              cachedInputTokens: earlier.cachedInputTokens + finalTotal.cachedInputTokens, microUsd: earlier.microUsd + finalTotal.microUsd,
+              estimated: earlier.estimated || finalTotal.estimated } });
+            return;
+          }
+        }
+        await input.emit(kind, payload);
+      },
+    });
+    last = result;
+    const error = result.ok ? "" : errorOf(result.output);
+    const refused = !result.ok && QUOTA_TEXT.test(error);
+    const keyMissing = !result.ok && /needs its API key on this runner/u.test(error);
+    if (result.ok || input.signal.aborted || !(refused || keyMissing) || index === candidates.length - 1) {
+      routes.push({ routeId: candidate.route.routeId, outcome: result.ok ? "served" : refused ? "quota" : "failed", ...(refused && quotaRetryAfterMs(error) !== undefined ? { retryAfterMs: quotaRetryAfterMs(error)! } : {}) });
+      return { ...result, routes };
+    }
+    routes.push({ routeId: candidate.route.routeId, outcome: refused ? "quota" : "failed", ...(refused && quotaRetryAfterMs(error) !== undefined ? { retryAfterMs: quotaRetryAfterMs(error)! } : {}) });
+    const spent = finalTotal ?? { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0, estimated: false };
+    carried = earlier ? { inputTokens: earlier.inputTokens + spent.inputTokens, outputTokens: earlier.outputTokens + spent.outputTokens, cachedInputTokens: earlier.cachedInputTokens + spent.cachedInputTokens, microUsd: earlier.microUsd + spent.microUsd, estimated: earlier.estimated || spent.estimated } : spent;
+  }
+  return { ...(last ?? { ok: false, output: { error: "no model route could take this step" }, outputText: "" }), routes };
 }

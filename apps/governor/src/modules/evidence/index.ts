@@ -4,6 +4,6 @@ export { acceptAttemptArtifact } from "./artifacts";
 export { authorEvidenceFor, toolReleasesForPayload } from "./author-claims";
 export { artifactHistory, diffArtifacts, listArtifacts, readArtifactBytes, searchArtifacts } from "./read";
 export { needsSignOff, trustForBundle } from "./trust";
-export { assembleMissionBundle, type ServedCriterion, dependencyHandoffs, finalizeHandoff, latestMissionBundle, recordMissionVerdict, submitHandoff, workflowCovers } from "./handoff";
+export { assembleMissionBundle, type ServedCriterion, dependencyHandoffs, finalizeHandoff, latestMissionBundle, recordMissionVerdict, submitDelegatedHandoff, submitHandoff, delegatedHandoffs, workflowCovers } from "./handoff";
 export { claimJudgement, criterionMaterial, finishJudgement, judgeWorkList, judgedCriteria, recordBundleCheck, type Judgement } from "./judgement";
 export { latestBundleRow } from "./handoff";

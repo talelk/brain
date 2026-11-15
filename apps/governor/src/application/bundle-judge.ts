@@ -1,9 +1,9 @@
-import { sha256Digest } from "@brain/contracts";
+import { resolveModelKey, sha256Digest } from "@brain/contracts";
 import type { Store } from "./store";
 import { BrainDomainError } from "../domain/errors";
 import { putBytes, recordWorkspaceArtifact } from "../modules/artifacts/index";
 import { claimJudgement, criterionMaterial, finishJudgement, judgeWorkList, judgedCriteria, latestBundleRow, recordBundleCheck, type Judgement } from "../modules/evidence/index";
-import { hostedConfig, hostedUsable, type HostedConfig } from "../modules/jobs/index";
+import { eligibleRoutes, markRouteQuota, modelRoutesUsable, recordRouteUses, type ModelRoute } from "../modules/jobs/index";
 import { judgeAdmitted, recordJudgeSpend, taskResult } from "../modules/missions/index";
 import { JUDGE_PROMPT_VERSION, JudgeUnavailable, judgeCostMicroUsd, runJudge } from "../modules/packs/index";
 
@@ -48,20 +48,19 @@ export class BundleJudge {
   private async pass(organizationId: string, workspaceId: string): Promise<void> {
     const { store } = this.ports;
     const db = store.workspaceDb(workspaceId, organizationId);
-    const config = hostedConfig(store, workspaceId);
-    const usable = hostedUsable(config);
-    // The hosted model is down (ADR 0023): the judge waits for it, leaving requests pending; the verdict never waits.
-    const down = usable && store.control.prepare("SELECT 1 FROM service_probes WHERE id=? AND status='unavailable'").get(`hosted:${workspaceId}`) !== undefined;
+    const usable = modelRoutesUsable(store, workspaceId);
     for (const request of judgeWorkList(store, db, this.inFlight, usable)) {
       if (!usable) { finishJudgement(store, db, request.bundleDigest, request.missionId, { state: "not-run", reason: "hosted-off" }); continue; }
-      if (down) continue;
-      if (!claimJudgement(store, db, request.bundleDigest, request.missionId, config.model)) continue;
+      // Every route is down or out of quota (ADR 0023, ADR 0055): the judge waits for one, leaving requests pending; the verdict never waits.
+      const routes = eligibleRoutes(store, workspaceId, "judge").routes;
+      if (routes.length === 0) continue;
+      if (!claimJudgement(store, db, request.bundleDigest, request.missionId, routes[0]!.model)) continue;
       this.inFlight.add(request.bundleDigest);
-      try { await this.judge(workspaceId, db, config, request); } finally { this.inFlight.delete(request.bundleDigest); }
+      try { await this.judge(workspaceId, db, request); } finally { this.inFlight.delete(request.bundleDigest); }
     }
   }
 
-  private async judge(workspaceId: string, db: Db, config: HostedConfig, request: Judgement): Promise<void> {
+  private async judge(workspaceId: string, db: Db, request: Judgement): Promise<void> {
     const { store } = this.ports;
     const { bundleDigest, missionId } = request;
     const finish = (end: Parameters<typeof finishJudgement>[4]) => finishJudgement(store, db, bundleDigest, missionId, end);
@@ -73,25 +72,41 @@ export class BundleJudge {
       return text ? [{ entry, text }] : [];
     });
     if (readable.length === 0) { finish({ state: "not-run", reason: "no-evidence" }); return; }
-    const evaluator = `judge:${config.model}`;
-    const have = judgedCriteria(db, bundleDigest, evaluator);
+    const have = judgedCriteria(db, bundleDigest);
     let judged = have.size;
-    const apiKey = process.env["BRAIN_HOSTED_MODEL_API_KEY"];
     for (const { entry, text } of readable) {
       if (have.has(entry.criterionId)) continue;
       if (!judgeAdmitted(store, db, missionId)) { finish(judged > 0 ? { state: "done", reason: "budget" } : { state: "not-run", reason: "budget" }); return; }
-      let verdict;
-      try {
-        verdict = await runJudge({ criterionText: entry.text, evidenceText: text }, { baseUrl: config.baseUrl, model: config.model, ...(apiKey ? { apiKey } : {}), fetchImpl: this.ports.modelFetch() });
-      } catch (error) {
-        finish({ state: "unavailable", reason: "model-unavailable", detail: error instanceof JudgeUnavailable ? error.message : "the hosted model could not be asked", failed: true });
+      // The routes in order, each criterion starting again from the first one that is not out of quota: a 429 moves on to the next route, never a blind retry on the same one.
+      let verdict: Awaited<ReturnType<typeof runJudge>> | undefined;
+      let served: ModelRoute | undefined;
+      let failure: JudgeUnavailable | undefined;
+      const tried: Array<{ routeId: string; model: string; outcome: "served" | "quota" | "failed" }> = [];
+      for (const route of eligibleRoutes(store, workspaceId, "judge").routes) {
+        try {
+          verdict = await runJudge({ criterionText: entry.text, evidenceText: text }, { baseUrl: route.baseUrl, model: route.model, ...(resolveModelKey(route.keyRef) ? { apiKey: resolveModelKey(route.keyRef)! } : {}), fetchImpl: this.ports.modelFetch() });
+          served = route; tried.push({ routeId: route.routeId, model: route.model, outcome: "served" });
+          break;
+        } catch (error) {
+          if (!(error instanceof JudgeUnavailable)) { failure = new JudgeUnavailable("the hosted model could not be asked"); break; }
+          failure = error;
+          if (!error.quota) { tried.push({ routeId: route.routeId, model: route.model, outcome: "failed" }); break; }
+          tried.push({ routeId: route.routeId, model: route.model, outcome: "quota" });
+          markRouteQuota(store, workspaceId, route.routeId, error.retryAfterMs, "the provider refused for quota or rate");
+        }
+      }
+      if (!verdict || !served) {
+        recordRouteUses(store, `judge:${bundleDigest}:${entry.criterionId}`, workspaceId, tried);
+        finish({ state: "unavailable", reason: "model-unavailable", detail: failure?.message ?? "no model route could be asked", failed: true });
         return;
       }
+      recordRouteUses(store, `judge:${bundleDigest}:${entry.criterionId}`, workspaceId, tried);
+      const evaluator = `judge:${served.model}`;
       // Nothing below waits: the bundle is checked and the opinion written in one step, so a verdict recorded meanwhile leaves no late opinion on it.
       const tokens = verdict.usage ?? { inputTokens: Math.ceil((text.length + entry.text.length + 400) / 4), outputTokens: Math.ceil(verdict.raw.length / 4) };
-      recordJudgeSpend(store, db, { missionId, attemptId: `judge:${bundleDigest}:${entry.criterionId}`, runId: `judge:${bundleDigest}`, model: config.model, microUsd: judgeCostMicroUsd(config, tokens), ...tokens, estimated: verdict.usage === undefined });
+      recordJudgeSpend(store, db, { missionId, attemptId: `judge:${bundleDigest}:${entry.criterionId}`, runId: `judge:${bundleDigest}`, model: served.model, microUsd: judgeCostMicroUsd(served, tokens), ...tokens, estimated: verdict.usage === undefined });
       const transcript = Buffer.from(JSON.stringify({
-        promptVersion: JUDGE_PROMPT_VERSION, model: config.model, criterionId: entry.criterionId, criterionText: entry.text, evidence: text,
+        promptVersion: JUDGE_PROMPT_VERSION, model: served.model, routeId: served.routeId, criterionId: entry.criterionId, criterionText: entry.text, evidence: text,
         outcome: verdict.outcome, rationale: verdict.rationale, raw: verdict.raw.slice(0, 4096),
       }), "utf8");
       const digest = putBytes(store, transcript);
