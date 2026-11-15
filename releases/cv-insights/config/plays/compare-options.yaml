@@ -7,6 +7,7 @@
   },
   "spec": {
     "title": "Compare options and recommend one",
+    "practice": "data",
     "description": "List the options, compare them on the criteria that matter, and recommend one with the reasons and the risks. Read-only.",
     "intent": "Compare the options named in the brief on the criteria that matter and recommend one, with the reasons and the main risks.",
     "successCriteria": [
@@ -35,6 +36,9 @@
             "The comparison criteria are stated and justified"
           ],
           "dependsOn": [],
+          "criterionIds": [
+            "c1"
+          ],
           "assignment": {
             "kind": "agent",
             "id": "worker",
@@ -52,6 +56,10 @@
           ],
           "dependsOn": [
             "options"
+          ],
+          "criterionIds": [
+            "c2",
+            "c3"
           ],
           "assignment": {
             "kind": "agent",

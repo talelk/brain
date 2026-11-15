@@ -41,7 +41,7 @@ export function proposedChange(toolId: string, args: JsonValue | undefined): Pro
 }
 
 /**
- * What is read beside an approval, never bound by it (ADR 0046): the mission and task it was asked for (current titles), the change as a
+ * What is read beside an approval, never bound by it (ADR 0048): the mission and task it was asked for (current titles), the change as a
  * diff, and the rollback the pinned Tool document declares. The digest covers the subject only, so none of this can change it.
  */
 export function approvalContext(s: Store, organizationId: string, workspaceId: string, subject: ActionSubject, releases: Map<string, ReleaseTools> = new Map()): ApprovalContext {

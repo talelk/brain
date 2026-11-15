@@ -124,6 +124,7 @@ CREATE TABLE runner_capabilities (
   observed_at_ms INTEGER NOT NULL, expires_at_ms INTEGER NOT NULL,
   PRIMARY KEY(runner_id, capability), CHECK(expires_at_ms > observed_at_ms)
 ) STRICT;
+-- jobs.step_failures: attempts that failed on their own account (not platform interruptions), what a step's retry count is measured against.
 CREATE TABLE jobs (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
   execution_key TEXT NOT NULL, workflow_run_id TEXT NOT NULL, step_id TEXT NOT NULL,
@@ -136,6 +137,7 @@ CREATE TABLE jobs (
   attempt_counter INTEGER NOT NULL DEFAULT 0 CHECK(attempt_counter >= 0),
   job_fence INTEGER NOT NULL DEFAULT 0 CHECK(job_fence >= 0),
   auto_retries INTEGER NOT NULL DEFAULT 0 CHECK(auto_retries >= 0),
+  step_failures INTEGER NOT NULL DEFAULT 0 CHECK(step_failures >= 0),
   UNIQUE(organization_id, execution_key),
   FOREIGN KEY(workspace_id, organization_id) REFERENCES workspaces(id, organization_id),
   FOREIGN KEY(organization_id, config_digest) REFERENCES config_releases(organization_id, digest)
@@ -147,6 +149,7 @@ CREATE INDEX jobs_scope_state ON jobs(organization_id, workspace_id, state);
 CREATE INDEX jobs_scope_created ON jobs(organization_id, workspace_id, created_at_ms DESC, id DESC);
 -- A run's jobs (job.get by run id, the run's engine events): without it each lookup scans every job of the organization.
 CREATE INDEX jobs_run ON jobs(organization_id, workflow_run_id, created_at_ms);
+-- job_attempts.deadline_ms: when the step's timeoutSeconds ends the attempt, set as it starts running; NULL when the step declares no timeout.
 CREATE TABLE job_attempts (
   id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES jobs(id),
   runner_id TEXT NOT NULL REFERENCES runners(id), runner_epoch INTEGER NOT NULL CHECK(runner_epoch > 0),
@@ -158,11 +161,13 @@ CREATE TABLE job_attempts (
   receipt_digest TEXT, cleanup_confirmed INTEGER NOT NULL DEFAULT 0 CHECK(cleanup_confirmed IN (0,1)),
   interruption TEXT DEFAULT NULL CHECK(interruption IS NULL OR interruption IN ('platform')),
   failure_reason TEXT DEFAULT NULL,
+  deadline_ms INTEGER DEFAULT NULL,
   UNIQUE(job_id, attempt_no), UNIQUE(job_id, job_fence)
 ) STRICT;
 CREATE UNIQUE INDEX one_active_attempt ON job_attempts(job_id)
 WHERE state IN ('offered','running','uploading','cancelling','verifying','outcome_unknown');
 CREATE INDEX attempts_expiry ON job_attempts(state, lease_expires_at_ms);
+CREATE INDEX attempts_deadline ON job_attempts(state, deadline_ms);
 CREATE TABLE runner_claim_requests (
   runner_id TEXT NOT NULL REFERENCES runners(id), runner_epoch INTEGER NOT NULL CHECK(runner_epoch > 0),
   request_id TEXT NOT NULL, attempt_id TEXT REFERENCES job_attempts(id),
@@ -363,6 +368,15 @@ CREATE TABLE step_up_evidence (
   method TEXT NOT NULL CHECK(method IN ('session','totp')), expires_at_ms INTEGER NOT NULL,
   decision_id TEXT UNIQUE REFERENCES approval_decisions(id), revoked_at_ms INTEGER,
   auth_session_id TEXT NOT NULL, auth_user_id TEXT NOT NULL, factor_digest TEXT, auth_generation INTEGER NOT NULL
+) STRICT;
+-- A fresh authentication for one administrative command (ADR 0047), bound to the person's session, the command, its workspace and the digest of its exact
+-- payload. Verifying it makes it evidence; the one command it names spends it.
+CREATE TABLE command_step_ups (
+  id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, auth_session_digest TEXT NOT NULL,
+  command_type TEXT NOT NULL, workspace_id TEXT NOT NULL, subject_digest TEXT NOT NULL,
+  expires_at_ms INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 5),
+  verified_at_ms INTEGER, method TEXT CHECK(method IS NULL OR method IN ('session','totp')),
+  auth_session_id TEXT NOT NULL, auth_user_id TEXT NOT NULL, factor_digest TEXT, auth_generation INTEGER NOT NULL, consumed_at_ms INTEGER, revoked_at_ms INTEGER
 ) STRICT;
 CREATE TABLE permit_credentials (
   permit_id TEXT PRIMARY KEY REFERENCES effect_permits(id), token_digest TEXT NOT NULL UNIQUE,

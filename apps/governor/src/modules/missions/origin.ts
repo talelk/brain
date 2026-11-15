@@ -7,7 +7,7 @@ type Link = { mission_id: string; work_item_id: string };
 const latestLink = (db: Db, runId: string): Link | undefined =>
   db.prepare("SELECT mission_id, work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(runId) as Link | undefined;
 
-/** The mission and work item a run serves (empty for a run that serves none), as the references an approval binds (ADR 0046). */
+/** The mission and work item a run serves (empty for a run that serves none), as the references an approval binds (ADR 0048). */
 export function runLink(db: Db, runId: string): { missionId?: string; workItemId?: string } {
   const link = latestLink(db, runId);
   return link ? { missionId: link.mission_id, workItemId: link.work_item_id } : {};

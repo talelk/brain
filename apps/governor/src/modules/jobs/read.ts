@@ -49,12 +49,12 @@ export interface JobSnapshotView {
 }
 
 /**
- * True while an interrupted read-only step waits to be started again: queued for its restart, or left outcome unknown during the
+ * True while an interrupted read-only step waits to be started again (queued for its restart, or queued for the retry its step declares), or left outcome unknown during the
  * short cooldown before the automatic retry. The run itself still reads "running", which is wrong for that moment.
  */
 function isRestarting(store: Store, row: Record<string, unknown>): boolean {
   const state = String(row["state"]);
-  if (state === "queued") return row["queue_reason"] === "RESTARTED_AFTER_INTERRUPTION";
+  if (state === "queued") return row["queue_reason"] === "RESTARTED_AFTER_INTERRUPTION" || row["queue_reason"] === "RETRYING_STEP";
   if (state !== "outcome_unknown") return false;
   const attempt = store.control.prepare("SELECT id FROM job_attempts WHERE job_id=? AND job_fence=? ORDER BY attempt_no DESC LIMIT 1").get(String(row["id"]), Number(row["job_fence"])) as { id: string } | undefined;
   return attempt !== undefined && isReadOnlyReasoningJob(store, String(row["id"]), attempt.id);

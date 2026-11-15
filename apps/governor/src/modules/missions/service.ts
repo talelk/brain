@@ -38,7 +38,7 @@ export interface MissionCommand {
 
 type MissionRow = {
   id: string; title: string; intent: string; success_criteria_json: string; owner_id: string;
-  active_plan_version_id: string | null; state: Mission["state"]; pause_reason: "human" | "budget" | null;
+  active_plan_version_id: string | null; state: Mission["state"]; pause_reason: "human" | "budget" | null; stop_note: string | null;
   outcome: MissionOutcome | null; brief_version: number; policy_json: string; parking_threshold: number; auto_start: number;
   budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number; attempt_reserve_micro_usd: number; final_allowance_micro_usd: number; budget_tokens: number | null; attempt_reserve_tokens: number;
   coordinator_member_id: string | null; coordinator_workflow: string | null; play_id: string | null;
@@ -163,7 +163,7 @@ export class MissionService {
       missionId: row.id, workspaceId, title: row.title, intent: row.intent, ...(row.play_id ? { playId: row.play_id } : {}),
       successCriteria: this.coverage(db, row), ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
-      state: row.state, ...(row.pause_reason ? { pauseReason: row.pause_reason } : {}), ...(row.outcome ? { outcome: row.outcome } : {}),
+      state: row.state, ...(row.stop_note ? { pauseReason: "stopped" as const, pauseNote: row.stop_note } : row.pause_reason ? { pauseReason: row.pause_reason } : {}), ...(row.outcome ? { outcome: row.outcome } : {}),
       briefVersion: row.brief_version, autonomyPolicy: JSON.parse(row.policy_json) as AutonomyPolicy, parkingThreshold: row.parking_threshold, autoStart: row.auto_start === 1,
       ...(row.wall_extended === 1 ? { timeExtendedByBrain: true } : {}),
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
@@ -840,6 +840,31 @@ export class MissionService {
     if (waiting.n >= MAX_PENDING_TEAMMATE_MESSAGES && !payload["correctionOf"]) throw new BrainDomainError("CONFLICT", `${waiting.n} of your messages have not reached their member yet; wait for them to be read before sending more`);
   }
 
+  /**
+   * An administrator stopped every session of the workspace (ADR 0047). Every active mission pauses and says why, so nothing starts again until a
+   * person resumes it, and the tasks the stopped runs carried return to ready with the reason as their next action: stopped, never failed or abandoned.
+   */
+  stopWork(organizationId: string, workspaceId: string, input: { reason: string; runIds: readonly string[] }): { missions: Array<{ missionId: string; title: string }>; tasks: number } {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    return this.store.inTx(db, () => {
+      const now = this.store.now();
+      const missions = (db.prepare("SELECT id, title FROM missions WHERE state='active' ORDER BY created_at_ms, id").all() as Array<{ id: string; title: string }>);
+      for (const mission of missions) {
+        transitionState(db, "mission", mission.id, "paused", { set: { pause_reason: "human", stop_note: input.reason, updated_at_ms: now }, bumpVersion: true });
+        this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.stateChanged", payload: { missionId: mission.id, missionState: "paused" } });
+      }
+      let tasks = 0;
+      for (const runId of input.runIds) {
+        for (const item of db.prepare("SELECT w.id, w.mission_id FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? AND w.state='in-progress'").all(runId) as Array<{ id: string; mission_id: string }>) {
+          transitionState(db, "workItem", item.id, "ready", { set: { next_action: "Stopped by an administrator: resume the mission to carry on", updated_at_ms: now }, bumpVersion: true });
+          this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: "ready" } });
+          tasks++;
+        }
+      }
+      return { missions: missions.map((mission) => ({ missionId: mission.id, title: mission.title })), tasks };
+    });
+  }
+
   /** Mission lifecycle per issue #19: humans pause, resume and close; completion is proposed, never declared. */
   private changeState(actor: ActorContext, workspaceId: string, type: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
@@ -847,7 +872,7 @@ export class MissionService {
     assertNotClosed(mission);
     const db = this.db(actor, workspaceId);
     const now = this.store.now();
-    let next: Mission["state"]; const set: Record<string, unknown> = { updated_at_ms: now, pause_reason: null };
+    let next: Mission["state"]; const set: Record<string, unknown> = { updated_at_ms: now, pause_reason: null, stop_note: null };
     if (type === "mission.pause") { next = "paused"; set["pause_reason"] = "human"; }
     else if (type === "mission.resume") {
       if (mission.pause_reason === "budget" && !hasHeadroom(this.store, this.db(actor, workspaceId), mission.id)) throw new BrainDomainError("CONFLICT", "raise the limit that was reached (the mission budget, its token ceiling or the workspace spend cap) before resuming a budget pause");
@@ -867,6 +892,8 @@ export class MissionService {
       }
       this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.stateChanged", payload: { missionId: mission.id, missionState: next } });
     });
+    // A coordinator starts its mission's tasks itself, so lifting an administrator's stop wakes it; without one auto-start runs the ready tasks.
+    if (type === "mission.resume" && mission.stop_note) wake(this.store, db, mission.id, "mission-resumed", "an administrator's stop was lifted");
     if (next === "closed") this.capitalization?.requestMissionRun(actor.organizationId, workspaceId, mission.id);
     if (next === "verifying") {
       const bundle = this.store.inTx(db, () => assembleMissionBundle(this.store, db, mission.id, mission.brief_version, this.servedCriteria(db, mission)));

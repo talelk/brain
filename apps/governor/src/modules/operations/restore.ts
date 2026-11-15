@@ -46,7 +46,7 @@ export function quarantineRestoredAuthority(s: Store, auth: Pick<BrainAuth, "rev
       }
     }
     auth.revokeAllSessions();
-    for (const table of ["machine_sessions", "runner_sessions", "runner_identity_credentials", "delegated_grants", "step_up_evidence", "permit_credentials"]) {
+    for (const table of ["machine_sessions", "runner_sessions", "runner_identity_credentials", "delegated_grants", "step_up_evidence", "command_step_ups", "permit_credentials"]) {
       s.control.prepare(`UPDATE ${table} SET revoked_at_ms=? WHERE revoked_at_ms IS NULL`).run(now);
     }
     s.control.prepare("UPDATE enrollment_tokens SET consumed_at_ms=? WHERE consumed_at_ms IS NULL").run(now);

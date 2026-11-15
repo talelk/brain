@@ -171,6 +171,16 @@
       "method": "GET",
       "path": "/v1/auth/sso/start",
       "purpose": "starts the company directory sign-in (authorization code with PKCE) and redirects to the directory; 404 when single sign-on is off"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/step-up/commands",
+      "purpose": "a fresh step-up challenge for one administrative command (autonomy ceiling, stop all sessions), bound to the command's exact payload"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/step-up/commands/verify",
+      "purpose": "verifies the challenge of an administrative command; its evidence is spent by that one command"
     }
   ]
 }

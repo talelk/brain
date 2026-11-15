@@ -46,7 +46,7 @@ export function governanceCommands(store: Store, ports: GovernanceCommandPorts):
         if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         const subject = cmd.payload["subject"] as unknown as ActionSubject;
         if (subject.organizationId !== actor.organizationId || subject.workspaceId !== workspaceId) throw new BrainDomainError("FORBIDDEN", "subject scope mismatch");
-        // The origin is bound with the subject, so a caller cannot name a run, task or mission the Governor's own links do not support (ADR 0046).
+        // The origin is bound with the subject, so a caller cannot name a run, task or mission the Governor's own links do not support (ADR 0048).
         const mismatch = subject.origin ? originProblem(s.workspaceDb(workspaceId, actor.organizationId), subject.origin) : undefined;
         if (mismatch) throw new BrainDomainError("INVALID_ARGUMENT", mismatch);
         const digest = approvalSubjectDigest(subject as unknown as JsonValue);

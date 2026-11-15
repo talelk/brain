@@ -739,6 +739,8 @@
     "workspace.wayOfWorking.set",
     "workspace.hostedModel.set",
     "workspace.effects.set",
+    "workspace.autonomyCeiling.set",
+    "workspace.sessions.stopAll",
     "platform.drain.set",
     "runnerGroup.set",
     "identity.oidc.set",

@@ -5,7 +5,7 @@ import { capReached, missionUsage, tallyUsage } from "./usage";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 type BudgetRow = {
-  id: string; state: string; budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number;
+  id: string; state: string; stop_note: string | null; budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number;
   attempt_reserve_micro_usd: number; final_allowance_micro_usd: number;
   budget_tokens: number | null; attempt_reserve_tokens: number; budget_wall_explicit: number; wall_extended: number; policy_json: string;
 };
@@ -112,7 +112,7 @@ export function admit(store: Store, db: Db, missionId: string, coordinator = fal
   const usage = usageOf(store, db, row, now);
   const running = usage.runningMembers;
   // A coordinator may still run while paused for budget, to write the final checkpoint and handoff.
-  if (row.state !== "active" && !(coordinator && row.state === "paused")) return { admitted: false, reason: "mission paused", running };
+  if (row.state !== "active" && !(coordinator && row.state === "paused" && row.stop_note === null)) return { admitted: false, reason: "mission paused", running };
   if (running >= row.member_cap) return { admitted: false, reason: "member cap", running };
   const reserve = row.attempt_reserve_micro_usd;
   // Ordinary work leaves the final allowance untouched; only the coordinator may spend it (#36).

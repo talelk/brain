@@ -7,6 +7,7 @@
   },
   "spec": {
     "title": "Triage an incident",
+    "practice": "operations",
     "description": "Assess an operational incident, say what is known and unknown, and propose safe next checks and who to involve. Nothing is executed.",
     "intent": "Assess the incident in the brief: what is known and unknown, the likely causes, and the safe next checks and people to involve.",
     "successCriteria": [
@@ -35,6 +36,10 @@
             "Likely causes are ranked with the evidence for each"
           ],
           "dependsOn": [],
+          "criterionIds": [
+            "c1",
+            "c2"
+          ],
           "assignment": {
             "kind": "agent",
             "id": "worker",
@@ -51,6 +56,9 @@
           ],
           "dependsOn": [
             "assess"
+          ],
+          "criterionIds": [
+            "c3"
           ],
           "assignment": {
             "kind": "agent",

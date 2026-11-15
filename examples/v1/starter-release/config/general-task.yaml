@@ -67,7 +67,7 @@
           }
         },
         "outputSchemaRef": "schemas/task-validation-output.json",
-        "timeoutSeconds": 30,
+        "timeoutSeconds": 300,
         "evaluator": {
           "id": "task-validator",
           "digest": "sha256:2e1c5115766a4272e13c597569a58f52f732bed8e9f55d6c34659b9b4ee6507c"

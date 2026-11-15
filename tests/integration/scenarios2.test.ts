@@ -297,7 +297,7 @@ function insertJob(w: World, input: { id: string; workspaceId: string; priority:
   const relDigest = w.brain.activeRelease(w.org)!.digest;
   s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, priority, created_at_ms, ready_at_ms, deadline_ms)
     VALUES (?,?,?,?,?, 'echo', 'queued', ?, ?, ?, 'read', 'WAITING_FOR_RUNNER', ?, ?, ?, ?)`)
-    .run(input.id, w.org, input.workspaceId, `key-${input.id}`, `run-${input.id}`, relDigest, JSON.stringify(placement), DIGEST_A, input.priority, now, now, now + 3600000);
+    .run(input.id, w.org, input.workspaceId, `key-${input.id}`, `run-${input.id}`, relDigest, JSON.stringify(placement), DIGEST_A, input.priority, now, s.now(), now + 3600000);
   s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(input.id, "dispatch", "{}");
 }
 

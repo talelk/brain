@@ -138,7 +138,48 @@ export function compileWorkflowGraph(workflow: Workflow, label: string): readonl
       throw new BrainDomainError("INVALID_CONTRACT", `${label}: merge step ${id} has no dominating gate`);
     }
   }
+  assertStepDeclarations(steps, order, label);
   return order;
+}
+
+/** Kinds that never become a job: a retry or a timeout declared on them would be read by nothing. */
+const JOBLESS_KINDS = new Set(["gate", "steer", "subgraph"]);
+
+/**
+ * What a step declares beyond its needs (ADR 0046): a `when` condition reads the output of an earlier step of its own chain
+ * (a transitive need, so that output is final when the condition is read), and `retry` and `timeoutSeconds` belong to
+ * steps that run as a job. `order` is the topological order, so every need is visited before its dependents.
+ */
+function assertStepDeclarations(steps: Workflow["spec"]["jobs"], order: readonly string[], label: string): void {
+  const ancestors = new Map<string, Set<string>>();
+  for (const id of order) {
+    const step = steps[id] as Workflow["spec"]["jobs"][string] & { when?: unknown; retry?: unknown; timeoutSeconds?: unknown };
+    const own = new Set<string>();
+    for (const need of step.needs) { own.add(need); for (const up of ancestors.get(need) ?? []) own.add(up); }
+    ancestors.set(id, own);
+    if (step.when !== undefined) {
+      const check = validate("StepCondition", step.when);
+      if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", `${label}: step ${id} has an invalid when condition: ${check.errors.join("; ")}`);
+      const { step: source } = step.when as { step: string };
+      if (!(source in steps)) throw new BrainDomainError("INVALID_CONTRACT", `${label}: step ${id} has a when condition on unknown step ${source}`);
+      if (!own.has(source)) throw new BrainDomainError("INVALID_CONTRACT", `${label}: step ${id} has a when condition on ${source}, which it does not need (directly or through another step)`);
+      if (step.kind === "eval") throw new BrainDomainError("INVALID_CONTRACT", `${label}: evaluation step ${id} cannot have a when condition: it judges the evidence of its needs`);
+    }
+    if (JOBLESS_KINDS.has(step.kind) && (step.retry !== undefined || step.timeoutSeconds !== undefined)) {
+      throw new BrainDomainError("INVALID_CONTRACT", `${label}: ${step.kind} step ${id} runs no job, so it cannot declare retry or timeoutSeconds`);
+    }
+    if (step.timeoutSeconds !== undefined && (!Number.isInteger(step.timeoutSeconds) || (step.timeoutSeconds as number) < 1 || (step.timeoutSeconds as number) > 86400)) {
+      throw new BrainDomainError("INVALID_CONTRACT", `${label}: step ${id} timeoutSeconds must be a whole number of seconds from 1 to 86400`);
+    }
+    if (step.retry !== undefined) {
+      const check = validate("RetryPolicy", step.retry);
+      if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", `${label}: step ${id} has an invalid retry policy: ${check.errors.join("; ")}`);
+      const retry = step.retry as { classes: readonly string[]; initialDelayMs: number; maxDelayMs: number };
+      if (retry.initialDelayMs > retry.maxDelayMs) throw new BrainDomainError("INVALID_CONTRACT", `${label}: step ${id} retry initialDelayMs exceeds maxDelayMs`);
+      const effect = step.kind === "dispatch" ? (step as { effectClass: string }).effectClass : "read";
+      if (effect !== "read" && retry.classes.includes("transient-read")) throw new BrainDomainError("INVALID_CONTRACT", `${label}: step ${id} changes something outside Brain, so its retry cannot name the transient-read class`);
+    }
+  }
 }
 
 const MAX_SUBGRAPH_DEPTH = 4;

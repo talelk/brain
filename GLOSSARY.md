@@ -137,6 +137,19 @@ operations (presets: supervised, standard, autonomous). It never covers effects,
 constraints, budget, started work or declaring a mission achieved.
 _Avoid_: autopilot, auto-approve (it never authorizes effects), autonomy level
 
+**Autonomy ceiling**:
+The most autonomy any mission of a workspace may be given, one of the autonomy presets,
+set by an organization administrator with a fresh step-up. A mission can be set lower,
+never higher; it applies to missions created or changed after it is set.
+_Avoid_: autonomy limit, cap
+
+**Stop all sessions**:
+A workspace administrator's emergency stop: every running attempt is fenced and ended, its
+permits and session credentials revoked, and every active mission paused with the reason
+(a stopped mission). Tasks return to ready; an effect already started is left for a person
+to check. The workspace stays active. Not workspace suspend.
+_Avoid_: kill switch, suspend, quarantine (that is a runner)
+
 **Mission budget**:
 The hard ceiling on a mission's spend, wall-clock time and concurrent team members.
 Spend counts settled cost plus open reservations; wall-clock time excludes paused time;
@@ -238,6 +251,10 @@ _Avoid_: workflow state, workflow run state
 A node declared in a workflow definition — dispatch, gate, evaluation, steer, merge or
 subgraph. A step starts once every step it `needs` has succeeded, so steps with no need
 of each other run together up to the mission's member cap (ADR 0043); a job executes it.
+A step may declare a `when` condition (a pointer that exists or equals a value in an earlier
+step's output): false, it is skipped, not failed, and so is every step that needs it, and
+the run still succeeds (ADR 0046). A declared `retry` offers a failed attempt again as a new
+attempt of the same job; `timeoutSeconds` ends an attempt that runs past it.
 _Avoid_: job (when meaning a declared node), node, stage
 
 **Job**:
@@ -433,7 +450,9 @@ resource, and key reuse with a changed payload conflicts.
 _Avoid_: deduplication id, request id
 
 **Step-up**:
-A fresh authentication challenge required to exercise a high-consequence authority.
+A fresh authentication challenge required to exercise a high-consequence authority: an
+approval decision, or an administrative command (the autonomy ceiling, stop all sessions),
+bound to that exact change and spent once.
 _Avoid_: 2FA (2FA is the enrollment; step-up is the challenge), MFA
 
 ### Verification

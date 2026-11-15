@@ -1,5 +1,6 @@
 import type { ActorContext, JsonValue } from "@brain/contracts";
 import { BrainDomainError } from "../domain/errors";
+import { ceilingPreset } from "../domain/mission-policy";
 import { activeReleaseRecord } from "../modules/configuration/index";
 import { drainStatus, hostedConfig, queueLimitOf, setDraining, setQueueLimit } from "../modules/jobs/index";
 import { wayOfWorking, workflowAgentTools } from "../modules/missions/index";
@@ -163,7 +164,34 @@ export function engineSettings(store: Store, actor: ActorContext, workspaceId: s
     hostedModel: { enabled: hosted.enabled, vendor: hosted.vendor, model: hosted.model, baseUrl: hosted.baseUrl, inputMicroUsdPerMTok: hosted.inputMicroUsdPerMTok, outputMicroUsdPerMTok: hosted.outputMicroUsdPerMTok, status: !hosted.enabled ? "off" : probe ? (probe.status === "unavailable" ? "down" : "up") : "unknown", roles: ["evaluator", "second-attempt"] },
     drain: drainStatus(store),
     queueLimit: queueLimitOf(store, workspaceId),
+    autonomyCeiling: autonomyCeilingOf(store, workspaceId),
+    liveWork: liveWorkOf(store, actor.organizationId, workspaceId),
   } as unknown as JsonValue;
+}
+
+/** The workspace's autonomy ceiling as a preset; no ceiling set means every plan operation is allowed. */
+function autonomyCeilingOf(store: Store, workspaceId: string): { preset: "supervised" | "standard" | "autonomous"; isDefault: boolean } {
+  const row = store.control.prepare("SELECT autonomy_ceiling_json FROM workspaces WHERE id=?").get(workspaceId) as { autonomy_ceiling_json: string | null } | undefined;
+  return { preset: ceilingPreset(row?.autonomy_ceiling_json ? JSON.parse(row.autonomy_ceiling_json) as string[] : null), isDefault: !row?.autonomy_ceiling_json };
+}
+
+const MAX_NAMED_MISSIONS = 20;
+
+/** What "stop all sessions" would stop right now, so the confirmation can name it: running sessions by mission, the missions that would pause, and waiting work. */
+function liveWorkOf(store: Store, organizationId: string, workspaceId: string): { sessions: number; standalone: number; waiting: number; missions: Array<{ missionId: string; title: string; sessions: number }>; moreMissions: number } {
+  const db = store.workspaceDb(workspaceId, organizationId);
+  const attempts = store.control.prepare(`SELECT j.workflow_run_id AS run_id FROM job_attempts a JOIN jobs j ON j.id=a.job_id
+    WHERE j.organization_id=? AND j.workspace_id=? AND a.state IN ('offered','running','uploading','cancelling')`).all(organizationId, workspaceId) as Array<{ run_id: string }>;
+  const waiting = (store.control.prepare("SELECT COUNT(*) AS n FROM jobs WHERE organization_id=? AND workspace_id=? AND state IN ('queued','blocked')").get(organizationId, workspaceId) as { n: number }).n;
+  const sessionsOf = new Map<string, number>();
+  let standalone = 0;
+  for (const attempt of attempts) {
+    const mission = db.prepare("SELECT w.mission_id AS id FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? LIMIT 1").get(attempt.run_id) as { id: string } | undefined;
+    if (mission) sessionsOf.set(mission.id, (sessionsOf.get(mission.id) ?? 0) + 1); else standalone++;
+  }
+  const active = db.prepare("SELECT id, title FROM missions WHERE state='active' ORDER BY created_at_ms, id").all() as Array<{ id: string; title: string }>;
+  const missions = active.map((mission) => ({ missionId: mission.id, title: mission.title, sessions: sessionsOf.get(mission.id) ?? 0 })).sort((a, b) => b.sessions - a.sessions);
+  return { sessions: attempts.length, standalone, waiting, missions: missions.slice(0, MAX_NAMED_MISSIONS), moreMissions: Math.max(0, missions.length - MAX_NAMED_MISSIONS) };
 }
 
 /** effects.get: what this workspace's effect tools may touch, how long an approval waits and which hosts its sandboxed tools may reach. */

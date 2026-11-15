@@ -18,7 +18,7 @@ import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandl
 import { activateRelease, activeReleaseAssets, activeReleaseRecord, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
 import { MastraWorkflowEngine, readRun, setRunPriority, workflowCommands, type WorkflowEnginePort } from "../modules/workflows/index";
 import { knowledgeCommands, knowledgeExpired, LOCAL_ONLY_SOURCE_TYPES, MemoryStore, ReuseService, TencentDbClient } from "../modules/knowledge/index";
-import { admitApprovalDecision, governanceCommands, StepUpService } from "../modules/governance/index";
+import { admitApprovalDecision, governanceCommands, STEP_UP_COMMANDS, StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
 import { localRunnerSettingsCurrent, quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
 import { EvidenceService, recordBundleCheck } from "../modules/evidence/index";
@@ -209,7 +209,10 @@ export class Brain {
           markKnowledgePublished: (org, ws, sourceId) => this.capitalization.markKnowledgePublished(org, ws, sourceId),
           markKnowledgeRevoked: (org, ws, sourceId) => this.capitalization.markKnowledgeRevoked(org, ws, sourceId),
         }),
-        workspaceAdminCommands(this.store, this.auth, this.jobProtocol),
+        workspaceAdminCommands(this.store, this.auth, this.jobProtocol, {
+          cancelRun: (organizationId, workspaceId, runId) => this.workflows.cancelRun(organizationId, workspaceId, runId),
+          stopWork: (organizationId, workspaceId, input) => this.missions.stopWork(organizationId, workspaceId, input),
+        }),
         engineSettingsCommands(this.store),
         ssoCommands(this.store),
         organizationCommandHandlers(this.store, this.auth),
@@ -572,9 +575,11 @@ export class Brain {
    * access logs), not to the command envelope, so it is not part of the
    * durable receipt.
    */
-  executeCommand(actor: ActorContext, raw: unknown, _correlationId: string, headers?: Headers): Promise<{ receipt: CommandReceipt; status: number }> {
-    return this.commands.execute(actor, raw, headers ? { headers } : {}).then(async (outcome) => {
-      const cmd = raw as { commandType?: string; workspaceId?: string };
+  async executeCommand(actor: ActorContext, raw: unknown, _correlationId: string, headers?: Headers): Promise<{ receipt: CommandReceipt; status: number }> {
+    const cmd = raw as { commandType?: string; workspaceId?: string };
+    // An administrative command that needs a fresh step-up runs against the person's own verified session (ADR 0047).
+    const identity = headers && STEP_UP_COMMANDS.has(String(cmd.commandType)) ? await this.resolveActor(headers, cmd.workspaceId) : undefined;
+    return this.commands.execute(actor, raw, { ...(headers ? { headers } : {}), ...(identity ? { identity } : {}) }).then(async (outcome) => {
       // Work may have become ready: react to the event now (ADR 0004). The receipt is already durable.
       if (outcome.receipt.accepted && cmd.workspaceId && AUTO_START_TRIGGERS.has(String(cmd.commandType))) {
         try { await this.autoStart.sweep(actor.organizationId, cmd.workspaceId); } catch { /* the maintenance pass retries */ }

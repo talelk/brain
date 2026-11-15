@@ -10,6 +10,7 @@
  */
 export { JobProtocol, type JobProtocolPorts } from "./job-protocol";
 export type { CreateJobInput } from "./lifecycle";
+export type { StoppedWork } from "./stop-all";
 export { quarantineJobsForRestore } from "./lifecycle";
 export { issueEnrollment } from "./protocol";
 export { assertAttemptLive, loadAttempt, runnerView } from "./attempts";

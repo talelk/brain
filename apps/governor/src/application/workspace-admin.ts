@@ -1,3 +1,4 @@
+import type { JsonValue } from "@brain/contracts";
 import type { CommandHandlers } from "./command-funnel";
 import { handlersFor } from "./command-funnel";
 import type { Store } from "./store";
@@ -5,13 +6,21 @@ import { activeReleaseRecord } from "../modules/configuration/index";
 import { BrainDomainError } from "../domain/errors";
 import { assertExpectedVersion } from "../domain/states";
 import type { BrainAuth } from "../modules/identity/index";
-import type { JobProtocol } from "../modules/jobs/index";
+import type { JobProtocol, StoppedWork } from "../modules/jobs/index";
+import { spendCommandStepUp } from "../modules/governance/index";
+import { AUTONOMY_PRESETS } from "../domain/mission-policy";
+
+/** What stopping a workspace's sessions needs from the rest of the Governor: the engine ends the runs, the missions pause (ADR 0047). */
+export interface StopAllHost {
+  cancelRun(organizationId: string, workspaceId: string, runId: string): void;
+  stopWork(organizationId: string, workspaceId: string, input: { reason: string; runIds: readonly string[] }): { missions: Array<{ missionId: string; title: string }>; tasks: number };
+}
 
 /**
  * Workspace administration commands: memberships and the workspace lifecycle.
  * All of them change control.db authority, so they commit with the receipt.
  */
-export function workspaceAdminCommands(store: Store, auth: BrainAuth, jobs: Pick<JobProtocol, "workspaceJobLoad">): CommandHandlers {
+export function workspaceAdminCommands(store: Store, auth: BrainAuth, jobs: Pick<JobProtocol, "workspaceJobLoad" | "stopAll">, host: StopAllHost): CommandHandlers {
   const s = store;
   return {
     ...handlersFor(["member.grant", "member.revoke"], {
@@ -60,17 +69,41 @@ export function workspaceAdminCommands(store: Store, auth: BrainAuth, jobs: Pick
     },
     "workspace.autonomyCeiling.set": {
       kind: "control",
-      handle: ({ actor, cmd, workspaceId }) => {
-        // Only organization administrators bound what any mission's coordinator may do (#35).
+      handle: ({ actor, cmd, workspaceId, identity }) => {
+        // Only organization administrators bound what any mission's coordinator may do (#35), and only with a fresh step-up (ADR 0047).
         if (actor.kind !== "human" || !actor.scopes.includes("config:activate")) throw new BrainDomainError("FORBIDDEN", "the autonomy ceiling is set by organization administration");
         const p = cmd.payload;
         if (!workspaceId || String(p["workspaceId"]) !== workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspace scope mismatch");
         const workspace = s.control.prepare("SELECT version FROM workspaces WHERE id=? AND organization_id=?").get(workspaceId, actor.organizationId) as { version: number } | undefined;
         if (!workspace) throw new BrainDomainError("NOT_FOUND", "workspace not found");
         assertExpectedVersion(workspace.version, cmd.expectedVersion);
-        const operations = [...new Set(p["operations"] as string[])].sort();
+        spendCommandStepUp(s, auth, { actor, identity }, { commandType: cmd.commandType, workspaceId, payload: p as unknown as JsonValue });
+        const preset = String(p["preset"]) as keyof typeof AUTONOMY_PRESETS;
+        const operations = [...AUTONOMY_PRESETS[preset]].sort();
         s.control.prepare("UPDATE workspaces SET autonomy_ceiling_json=?,version=version+1 WHERE id=? AND organization_id=? AND version=?").run(JSON.stringify(operations), workspaceId, actor.organizationId, workspace.version);
-        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.updated", payload: { workspaceId } });
+        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.autonomyCeilingSet", payload: { workspaceId, actorId: actor.actorId, preset, message: `Set the autonomy ceiling to ${preset}` } });
+        return { resourceId: workspaceId };
+      },
+    },
+    "workspace.sessions.stopAll": {
+      kind: "control",
+      handle: ({ actor, cmd, workspaceId, identity }) => {
+        const p = cmd.payload;
+        if (!workspaceId || String(p["workspaceId"]) !== workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspace scope mismatch");
+        const reason = String(p["reason"] ?? "").trim();
+        if (!reason) throw new BrainDomainError("INVALID_ARGUMENT", "stopping all sessions requires a reason");
+        if (!s.control.prepare("SELECT 1 FROM workspaces WHERE id=? AND organization_id=?").get(workspaceId, actor.organizationId)) throw new BrainDomainError("NOT_FOUND", "workspace not found");
+        spendCommandStepUp(s, auth, { actor, identity }, { commandType: cmd.commandType, workspaceId, payload: p as unknown as JsonValue });
+        // The fence and the permits go first, then the engine ends the runs, then the missions pause with the reason: nothing starts in between.
+        const stopped: StoppedWork = jobs.stopAll({ organizationId: actor.organizationId, workspaceId });
+        for (const runId of stopped.runIds) host.cancelRun(actor.organizationId, workspaceId, runId);
+        const held = host.stopWork(actor.organizationId, workspaceId, { reason, runIds: stopped.runIds });
+        const unknown = stopped.attempts.filter((attempt) => attempt.outcome === "unknown").length;
+        const sessions = stopped.attempts.length;
+        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.sessionsStopped", payload: {
+          workspaceId, actorId: actor.actorId, reason, sessions, unknownOutcomes: unknown, cancelledJobs: stopped.waitingJobs, pausedMissions: held.missions.length,
+          message: `Stopped all sessions: ${sessions} running ${sessions === 1 ? "session" : "sessions"} ended, ${held.missions.length} ${held.missions.length === 1 ? "mission" : "missions"} paused. Reason: ${reason}`,
+        } });
         return { resourceId: workspaceId };
       },
     },

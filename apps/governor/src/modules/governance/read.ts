@@ -15,7 +15,7 @@ export interface ApprovalView {
   requestedBy: string;
   createdAt: string;
   expiresAt: string;
-  /** Read beside the subject, never bound by it: the mission and task, the change as a diff and the rollback (ADR 0046). */
+  /** Read beside the subject, never bound by it: the mission and task, the change as a diff and the rollback (ADR 0048). */
   context: ApprovalContext;
 }
 
