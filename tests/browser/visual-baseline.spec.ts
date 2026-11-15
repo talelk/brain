@@ -15,7 +15,7 @@ import { test, expect } from "./fixtures";
 import { seedBrowserDemo } from "../support/browserDemo";
 import { sendTaskBack } from "../support/evalCases";
 
-const SCREENS: Array<{ id: string; route: (demo: Awaited<ReturnType<typeof seedBrowserDemo>>) => string; heading: string | RegExp; testid?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
+const SCREENS: Array<{ id: string; route: (demo: Awaited<ReturnType<typeof seedBrowserDemo>>) => string; heading: string | RegExp; testid?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Awaited<ReturnType<typeof seedBrowserDemo>>) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
   { id: "mission-live", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication" },
@@ -32,9 +32,21 @@ const SCREENS: Array<{ id: string; route: (demo: Awaited<ReturnType<typeof seedB
   { id: "knowledge", route: () => "/w/operations/knowledge", heading: "Knowledge" },
   { id: "integrations", route: () => "/administration/integrations", heading: "Integrations" },
   { id: "integrations-connect", route: () => "/administration/integrations", heading: "Integrations", after: async (page) => { await page.getByRole("button", { name: "Connect remote", exact: true }).first().click(); await expect(page.getByRole("dialog").getByLabel(/^Git provider/)).toBeVisible(); } },
+  { id: "mission-task-comments", route: (d) => `/missions/${d.seed.missionIds.active}/plan?item=${d.seed.workItems["in-progress"]}`, heading: "Comments", prepare: seedTaskComments, after: async (page) => { await page.getByRole("heading", { name: "Comments", level: 4 }).evaluate((element) => element.scrollIntoView({ block: "start" })); } },
   // Last, because the cases are recorded by sending tasks back, which adds missions the screens above would show.
   { id: "eval-cases", route: () => "/w/operations/quality/cases", heading: "Eval cases", prepare: seedEvalCases },
 ];
+
+/** A person's comment on a task and the correction of it, through the same command the screen sends. */
+async function seedTaskComments(governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Awaited<ReturnType<typeof seedBrowserDemo>>): Promise<void> {
+  const brain = governor.app.brain;
+  const cookie = (await page.context().cookies()).map((entry) => `${entry.name}=${entry.value}`).join("; ");
+  const actor = (await brain.resolveActor(new Headers({ cookie }), "operations")).actor;
+  const workItemId = demo.seed.workItems["in-progress"];
+  const comment = async (key: string, payload: Record<string, unknown>): Promise<string> => (await brain.executeCommand(actor, { contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workItem.comment", workspaceId: "operations", idempotencyKey: key, payload: { workItemId, ...payload } } as never, key)).receipt.resourceId ?? "";
+  const first = await comment("vb-comment-1", { text: "Use the existing sessions table, not a new one." });
+  await comment("vb-comment-2", { text: "Use the existing sessions table and keep its index; do not add a new one.", correctionOf: first });
+}
 
 async function seedEvalCases(governor: Parameters<typeof seedBrowserDemo>[1], page: Page): Promise<void> {
   const brain = governor.app.brain;
@@ -49,7 +61,7 @@ test("key screens match their visual baselines", async ({ page, governor }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const demo = await seedBrowserDemo(page, governor);
   for (const screen of SCREENS) {
-    await screen.prepare?.(governor, page);
+    await screen.prepare?.(governor, page, demo);
     await page.goto(`${governor.url}${screen.route(demo)}`);
     const landmark = screen.testid
       ? page.getByTestId(screen.testid).getByRole("heading", { name: screen.heading })
