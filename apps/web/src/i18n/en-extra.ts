@@ -1292,5 +1292,6 @@ export const enExtra = {
   "evalcases.list.title_other": "{n} cases",
   "quality.evalcases.link": "Results sent back from review or rejected at sign-off are kept as eval cases you can replay by hand before a release.",
   "quality.evalcases.open": "Open eval cases",
+  "health.activity.by-agent": "By an agent working for {name}",
   // @@END
 } as const satisfies Record<string, string>;

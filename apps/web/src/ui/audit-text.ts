@@ -15,6 +15,7 @@ const SENTENCES: Record<string, (what: string | undefined) => string> = {
   "mission.briefChanged": (what) => `The brief of mission${quoted(what)} changed`,
   "job.queued": (what) => `A task was queued${what ? `: ${what}` : ""}`,
   "job.updated": (what) => `A task made progress${what ? `: ${what}` : ""}`,
+  "session.acted": () => "An agent made a change to its mission",
   "session.delegated": () => "A session was handed to another agent",
   "session.checkpointed": () => "A session saved its progress",
   "handoff.submitted": () => "A task handed over its result",

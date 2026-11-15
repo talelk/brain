@@ -515,6 +515,12 @@ session it acted through)
 The principal performing a command, together with the session and scope it acts through.
 _Avoid_: caller
 
+**Session principal**:
+The machine principal (kind agent) of one team member of a mission, bound to its workspace
+and mission and recorded as acting for the mission owner (ADR 0032). A running attempt holds
+a credential for it that ends with the attempt or when its fence moves.
+_Avoid_: bot, service account, agent user
+
 ### Surfaces
 
 Four places, named by where you look, never by what something is: **Today**, **Missions**,

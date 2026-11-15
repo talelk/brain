@@ -1,7 +1,7 @@
 import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, runnerChallenge, runnerHello, type HeartbeatCommand } from "./protocol";
-import { ackAttempt, attemptEvents, claim, completeAttempt, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, type ContextPackPort } from "./attempts";
+import { ackAttempt, attemptEvents, claim, completeAttempt, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, type ContextPackPort } from "./attempts";
 import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
 import { BrainDomainError } from "../../domain/errors";
 import { sweepStuckJobs } from "./watchdog";
@@ -44,6 +44,8 @@ export interface JobProtocolPorts {
   missionOpen?(organizationId: string, workspaceId: string, missionId: string): boolean;
   /** Records the admitted attempt's reservation against its mission. */
   missionReserve?(organizationId: string, workspaceId: string, input: { missionId?: string; runId: string; attemptId: string; microUsd: number }): void;
+  /** The mission, team member and owner a run's work belongs to (ADR 0032); none for work outside any mission. */
+  sessionBinding?(organizationId: string, workspaceId: string, runId: string): { missionId: string; memberId: string | null; actingFor: string } | undefined;
   /** Where governed read tools get their data (documents, CSV artifacts, knowledge). */
   toolReads?: ToolReadPorts;
   /** The context pack of an agent step's work item, built at the step's first offer. */
@@ -121,6 +123,14 @@ export class JobProtocol {
   toolRead(runner: RunnerIdentity, attemptId: string, request: ToolReadRequest): JsonValue {
     if (!this.ports.toolReads) throw new BrainDomainError("UNSUPPORTED_CAPABILITY", "governed read tools are not available");
     return brokerToolRead(this.store, this.ports.toolReads, runner, attemptId, request);
+  }
+
+  /**
+   * The credential a running agent attempt acts with (ADR 0032): the machine principal of its team member, acting for the mission owner.
+   * It is valid only while this attempt runs under its current fence; asking again replaces it. Only the runner holding the attempt may ask.
+   */
+  sessionCredential(runner: RunnerIdentity, attemptId: string): { principalId: string; credential: string; expiresAt: string } {
+    return sessionCredential(this.store, this.ports.sessionBinding, runner, attemptId);
   }
 
   executionArtifact(runner: RunnerIdentity, attemptId: string): Uint8Array {

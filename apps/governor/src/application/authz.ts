@@ -1,9 +1,8 @@
-import { randomBytes } from "node:crypto";
 import type { ActorContext } from "@brain/contracts";
 import { commandDef, roleScopes } from "@brain/contracts";
 import { BrainDomainError } from "../domain/errors";
 import type { Store } from "./store";
-import type { BrainAuth, VerifiedSession } from "../modules/identity/index";
+import { actorOf, agentBinding, resolveSessionCredential, type BrainAuth, type VerifiedSession } from "../modules/identity/index";
 
 export interface ResolvedActor {
   readonly actor: ActorContext;
@@ -12,22 +11,20 @@ export interface ResolvedActor {
   readonly humanSession: VerifiedSession | null;
 }
 
-interface SessionRow {
-  principal_id: string; organization_id: string; expires_at_ms: number; revoked_at_ms: number | null;
-}
-
-export function issueMachineSession(store: Store, principalId: string, organizationId: string, ttlMs = 3600_000): string {
-  const principal = store.control.prepare("SELECT kind, disabled_at_ms FROM principals WHERE id=? AND organization_id=?").get(principalId, organizationId) as { kind: string; disabled_at_ms: number | null } | undefined;
-  if (!principal || principal.disabled_at_ms !== null || !["agent", "workflow", "kiosk"].includes(principal.kind)) throw new BrainDomainError("FORBIDDEN", "machine credentials require an enabled machine principal");
-  if (!Number.isSafeInteger(ttlMs) || ttlMs <= 0 || ttlMs > 3600_000) throw new BrainDomainError("INVALID_ARGUMENT", "machine session lifetime exceeds one hour");
-  const token = randomBytes(32).toString("base64url");
-  const digest = store.tokenDigest("machine-session", token);
-  store.control.prepare("INSERT INTO machine_sessions(token_digest, principal_id, organization_id, expires_at_ms, created_at_ms) VALUES (?,?,?,?,?)")
-    .run(digest, principalId, organizationId, store.now() + ttlMs, store.now());
-  return token;
+/**
+ * What a machine principal may do: the `agent-session` role of the matrix, in its own workspace only, and never more than the person it acts
+ * for may do there now (the matrix's intersected delegated capability). A principal whose owner lost access to the workspace holds nothing.
+ */
+function agentScopes(store: Store, binding: NonNullable<ReturnType<typeof agentBinding>>, workspaceId: string | undefined): string[] {
+  if (workspaceId !== binding.workspaceId) return [];
+  const owner = new Set(scopesForPrincipal(store, binding.actingFor, binding.organizationId, workspaceId));
+  if (!owner.has("workspace:read")) return [];
+  return roleScopes("agent-session").filter((scope) => owner.has(scope)).sort();
 }
 
 export function scopesForPrincipal(store: Store, principalId: string, organizationId: string, workspaceId?: string): string[] {
+  const bound = agentBinding(store, principalId);
+  if (bound) return agentScopes(store, bound, workspaceId);
   const scopes = new Set<string>();
   const orgRows = store.control.prepare(
     "SELECT role FROM organization_authorizations WHERE organization_id=? AND principal_id=? AND revoked_at_ms IS NULL",
@@ -43,6 +40,9 @@ export function scopesForPrincipal(store: Store, principalId: string, organizati
 }
 
 export function hasWorkspaceMembership(store: Store, principalId: string, organizationId: string, workspaceId: string): boolean {
+  // A machine principal has no membership of its own: it reaches its one workspace while the person it acts for still can.
+  const bound = agentBinding(store, principalId);
+  if (bound) return bound.organizationId === organizationId && bound.workspaceId === workspaceId && hasWorkspaceMembership(store, bound.actingFor, organizationId, workspaceId);
   const row = store.control.prepare(
     "SELECT 1 AS ok FROM workspace_memberships WHERE workspace_id=? AND organization_id=? AND principal_id=? AND revoked_at_ms IS NULL LIMIT 1",
   ).get(workspaceId, organizationId, principalId);
@@ -62,14 +62,14 @@ export async function resolveActor(store: Store, auth: BrainAuth, headers: Heade
   const token = /^Bearer /iu.test(authorization) ? authorization.slice(7).trim() : "";
   if (authorization && !token) throw new BrainDomainError("UNAUTHENTICATED", "invalid credential scheme");
   const digest = token ? store.tokenDigest("machine-session", token) : "";
-  const machine = token ? store.control.prepare("SELECT principal_id,organization_id,expires_at_ms,revoked_at_ms FROM machine_sessions WHERE token_digest=?").get(digest) as SessionRow | undefined : undefined;
+  // A session credential: valid only while the attempt it was minted for still holds its fence (ADR 0032).
+  const session = token ? resolveSessionCredential(store, digest) : undefined;
   let principalId: string;
   let organizationId: string;
   let sessionDigest: string;
   let humanSession: VerifiedSession | null = null;
-  if (machine) {
-    if (machine.revoked_at_ms !== null || machine.expires_at_ms <= store.now()) throw new BrainDomainError("UNAUTHENTICATED", "machine credential revoked or expired");
-    principalId = machine.principal_id; organizationId = machine.organization_id; sessionDigest = digest;
+  if (session) {
+    principalId = session.binding.principalId; organizationId = session.binding.organizationId; sessionDigest = digest;
   } else {
     // Invalid explicit bearer credentials must never fall back to an ambient cookie.
     const credentials = new Headers(headers);
@@ -86,9 +86,13 @@ export async function resolveActor(store: Store, auth: BrainAuth, headers: Heade
     sessionDigest = store.tokenDigest("auth-session", humanSession.sessionId);
   }
   const principal = store.control.prepare("SELECT kind, disabled_at_ms FROM principals WHERE id=? AND organization_id=?").get(principalId, organizationId) as { kind: ActorContext["kind"]; disabled_at_ms: number | null } | undefined;
-  if (!principal || principal.disabled_at_ms !== null || (humanSession ? principal.kind !== "human" : !["agent", "workflow", "kiosk"].includes(principal.kind))) throw new BrainDomainError("UNAUTHENTICATED", "principal disabled or credential class mismatch");
+  if (!principal || principal.disabled_at_ms !== null || principal.kind !== (humanSession ? "human" : "agent")) throw new BrainDomainError("UNAUTHENTICATED", "principal disabled or credential class mismatch");
   const org = store.control.prepare("SELECT revocation_generation FROM organizations WHERE id=?").get(organizationId) as { revocation_generation: number } | undefined;
   if (!org) throw new BrainDomainError("UNAUTHENTICATED", "organization missing");
+  if (session) {
+    const { binding } = session;
+    return { principalId, sessionDigest, humanSession, actor: actorOf(binding, scopesForPrincipal(store, principalId, organizationId, binding.workspaceId), "machine-credential", { attemptId: session.attemptId, runId: session.runId, authGeneration: org.revocation_generation }) };
+  }
   return { principalId, sessionDigest, humanSession, actor: { kind: principal.kind, actorId: principalId, organizationId, ...(workspaceId ? { workspaceId } : {}), scopes: scopesForPrincipal(store, principalId, organizationId, workspaceId), authMethod: humanSession ? "session" : "machine-credential", authGeneration: org.revocation_generation } };
 }
 

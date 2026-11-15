@@ -119,9 +119,12 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
       let actorId = "system";
       let message: string | undefined;
       let subject: string | undefined;
+      let actingFor: string | undefined;
       try {
         const payload = JSON.parse(String(r["payload_json"])) as Record<string, unknown>;
         actorId = String(payload["actorId"] ?? payload["actorRef"] ?? payload["requestedBy"] ?? "system");
+        // A machine principal's entry names the person it acted for, so the trail never reads as that person's own action.
+        if (typeof payload["actingFor"] === "string" && payload["actingFor"]) actingFor = payload["actingFor"];
         // Where the writer already put a plain sentence in the event (a declined tool request does), the page shows that sentence.
         if (typeof payload["message"] === "string" && payload["message"].trim()) message = payload["message"].trim().slice(0, 500);
         const type = String(r["event_type"]);
@@ -131,7 +134,7 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
           if (verb) message = `Task${subject ? ` "${subject}"` : ""} ${verb}`;
         }
       } catch { /* payload is digest-bound; actor stays system */ }
-      return { id: String(r["event_id"]), cursor: Number(r["cursor"]), actorId, action: String(r["event_type"]), resourceId: String(r["aggregate_id"]), occurredAt: iso(Number(r["created_at_ms"])), payloadDigest: String(r["payload_digest"]), ...(message ? { message } : {}), ...(subject ? { subject } : {}) };
+      return { id: String(r["event_id"]), cursor: Number(r["cursor"]), actorId, action: String(r["event_type"]), resourceId: String(r["aggregate_id"]), occurredAt: iso(Number(r["created_at_ms"])), payloadDigest: String(r["payload_digest"]), ...(message ? { message } : {}), ...(subject ? { subject } : {}), ...(actingFor ? { actingFor } : {}) };
     }) } as unknown as JsonValue;
   }
   const table = LIST_TABLES[queryType];

@@ -4,3 +4,4 @@ export { missionObserved, wayOfWorking, workflowAgentTools } from "./outcomes";
 export { bridge } from "./read";
 export { missionCommands } from "./commands";
 export { ShareService } from "./shares";
+export { missionsOfCommand } from "./command-mission";

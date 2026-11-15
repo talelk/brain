@@ -3,6 +3,7 @@ import type { ActorContext, CommandEnvelope, CommandReceipt, JsonValue } from "@
 import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
 import { authorizeCommand, requireWorkspaceRead, type ResolvedActor } from "./authz";
+import { missionsOfCommand } from "../modules/missions/index";
 import type { Store } from "./store";
 
 /**
@@ -108,6 +109,7 @@ export class CommandFunnel {
     if (commandDef(cmd.commandType)) authorizeCommand(actor, cmd.commandType);
     const workspaceId = cmd.workspaceId;
     if (workspaceId) requireWorkspaceRead(this.store, actor, workspaceId);
+    if (actor.missionId) this.assertWithinMission(actor, cmd);
     if (handler.kind === "workspace" && !workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
     const requestJson = JSON.stringify(cmd);
     const admitted: Admitted = { cmd, handler, requestJson, requestDigest: domainDigest("brain:command:v1", cmd as unknown as JsonValue), ...(workspaceId ? { workspaceId } : {}) };
@@ -154,6 +156,12 @@ export class CommandFunnel {
     }
     const receipt = this.store.inTx(this.store.control, () => this.commit(actor, admitted, result));
     return this.finish(receipt);
+  }
+
+  /** A machine principal is bound to one workspace and mission (ADR 0032): its command must name nothing else, and must name its mission. */
+  private assertWithinMission(actor: ActorContext, cmd: Command): void {
+    const missions = cmd.workspaceId && cmd.workspaceId === actor.workspaceId ? missionsOfCommand(this.store, actor.organizationId, cmd.workspaceId, cmd.payload) : [];
+    if (missions.length === 0 || missions.some((mission) => mission !== actor.missionId)) throw new BrainDomainError("FORBIDDEN", "a session may only act on its own mission");
   }
 
   private finish(receipt: CommandReceipt): CommandOutcome {
@@ -204,6 +212,14 @@ export class CommandFunnel {
       .run(a.cmd.commandId, a.workspaceId ?? null, a.requestJson, this.store.now());
     this.store.control.prepare("INSERT INTO command_idempotency(organization_id, actor_id, command_type, idempotency_key, request_digest, command_id, receipt_json, created_at_ms) VALUES (?,?,?,?,?,?,?,?)")
       .run(actor.organizationId, actor.actorId, a.cmd.commandType, a.cmd.idempotencyKey, a.requestDigest, a.cmd.commandId, JSON.stringify(receipt), this.store.now());
+    // What a session did is on the record under its own principal and the person it acted for, in the audit trail and Logs (ADR 0032).
+    if (actor.attemptId) {
+      this.store.emit(this.store.control, {
+        organizationId: actor.organizationId, ...(a.workspaceId ? { workspaceId: a.workspaceId } : {}), aggregateType: "session", aggregateId: actor.attemptId, eventType: "session.acted",
+        payload: { actorId: actor.actorId, actingFor: actor.delegatedBy ?? "", missionId: actor.missionId ?? "", ...(actor.memberId ? { memberId: actor.memberId } : {}), attemptId: actor.attemptId, commandType: a.cmd.commandType, commandId: a.cmd.commandId },
+        destinations: a.workspaceId ? [`workspace:${a.workspaceId}`] : [],
+      });
+    }
     return receipt;
   }
 }

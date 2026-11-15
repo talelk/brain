@@ -1694,5 +1694,6 @@ export const fr: Catalog = {
   "evalcases.list.title_other": "{n} cas",
   "quality.evalcases.link": "Les résultats renvoyés en revue ou rejetés à la validation sont conservés comme cas d'évaluation à rejouer à la main avant une version.",
   "quality.evalcases.open": "Ouvrir les cas d'évaluation",
+  "health.activity.by-agent": "Par un agent travaillant pour {name}",
   // @@END
 };

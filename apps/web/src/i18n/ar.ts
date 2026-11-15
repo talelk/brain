@@ -1756,5 +1756,6 @@ export const ar: Catalog = {
   "evalcases.list.title_many": "{n} حالة",
   "quality.evalcases.link": "تُحفظ النتائج المُعادة من المراجعة أو المرفوضة عند الاعتماد كحالات تقييم يمكنك إعادة تشغيلها يدويًا قبل أي إصدار.",
   "quality.evalcases.open": "فتح حالات التقييم",
+  "health.activity.by-agent": "بواسطة وكيل يعمل لصالح {name}",
   // @@END
 };

@@ -365,6 +365,15 @@
         },
         "runId": {
           "$ref": "#/$defs/RunId"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "memberId": {
+          "$ref": "#/$defs/Id"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -18200,6 +18209,9 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 200
+        },
+        "actingFor": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [
