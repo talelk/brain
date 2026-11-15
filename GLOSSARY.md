@@ -79,6 +79,20 @@ A user's deterministic digest of a mission's notable events since they last saw 
 What counts as seen is per user and per mission, whatever the device.
 _Avoid_: recap, briefing, catch-up, AI summary
 
+**Mission timeline**:
+One chronological list of what happened on a mission: plan versions, accepted decisions,
+messages, runs, approvals, effects, checks and results, filterable by kind and team
+member, each entry linking to its source record. The Governor composes it on every read
+from existing records; nothing is stored. It lives under the mission's Timeline view and
+is neither the plan's dependency Timeline (work items over time) nor the Since-last-visit
+summary (a digest of what changed since you looked).
+_Avoid_: activity feed, audit log, history (an audit entry is a different record)
+
+**Tool calls tab**:
+The run page's list of every tool call that run made, in order, with its outcome, the
+approval it proposed (if any) and a plain-words diagnosis of a failure.
+_Avoid_: tool log, call history
+
 **Mission shape**:
 Whether a mission is interactive or long-running, derived from whether it has a
 coordinator or a confirmed plan version. A mission changes shape without changing state.

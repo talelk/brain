@@ -157,6 +157,9 @@ Open a run from Today activity, the Activity list, an item page, or global searc
 - **Summary**: structured step outputs, schema-validated.
 - **Timeline**: engine events, including governed tool-call events (`tool.proposed`,
   permit checks, receipts).
+- **Tool calls**: every tool call the run made, in order, with its outcome, the approval
+  it proposed and a plain-words diagnosis of a failure. The mission's Timeline links each
+  run to this tab.
 - **Evidence**: the independent validation verdict and artifact links. A model
   response alone never means success.
 

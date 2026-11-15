@@ -38,7 +38,9 @@ A mission has tabs: **Live** (what is running now: the team's sessions, what eac
 is doing and its transcript by turn), **Team**, **Plan** (the proposed or confirmed plan,
 then its work as a dependency Timeline with the critical path, a Board you can drag
 plain moves on, or a List, with progress, time and budget), **Brief** (goal and
-settings), **Logs** and **Outputs**. A banner
+settings), **Timeline** (one list, oldest first, of plan versions, decisions, messages,
+runs, approvals, changes, checks and results, filtered by kind or team member, each entry
+opening its source) and **Outputs**. A banner
 suggests the one next step, such as preparing a plan, starting ready tasks, following
 running work or reviewing outputs. You can pause, resume, message, propose completion
 and close from here.

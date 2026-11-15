@@ -18,7 +18,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/w/:id/today` | today | Say what you want done, then act on what needs you | intent, play, reuse, attention, mission |
 | `/w/:id/missions` | missions | Act on what needs you, then open a mission | attention, tier, mission, state, spend |
 | `/w/:id/missions/new` | missions | Start a mission from a play or a description | play, intent, criteria, constraints, autonomy, budget |
-| `/missions/:missionId/:tab` | missions | Follow and steer one mission | live, team, plan, brief, logs, outputs |
+| `/missions/:missionId/:tab` | missions | Follow and steer one mission | live, team, plan, brief, timeline, outputs |
 | `/w/:id/library` | library | See everything Brain can reuse in one place: documents, knowledge, Plays and tools, and what is waiting for review | counts, review, documents, plays, tools |
 | `/w/:id/plays` | plays | Start a mission from a play, run a single task, or describe the work | play, task, describe, origin, review |
 | `/plays/:id` | plays | Review a play or single task, its schedules and history, then start it | brief, team, plan, inputs, schedules, history |
@@ -31,7 +31,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/outputs/:id/compare` | outputs | Compare two versions of an output with their provenance | diff, provenance |
 | `/approvals` | missions | Review exact proposed effects and recover submitted decisions | action, workspace, target, expiry, evidence |
 | `/approvals/:id` | missions | Review exact proposed effects and recover submitted decisions | exactContent, precondition, subjectDigest, history |
-| `/runs/:id` | live | Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs | state, attempts, blocker, evidence, context |
+| `/runs/:id` | live | Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs | state, attempts, tool-calls, blocker, evidence, context |
 | `/runners` | live | Inspect a run, its attempts, events and evidence | group, trust, health, capacity, freshness |
 | `/runners/:id` | live | Inspect a run, its attempts, events and evidence | capabilities, attempts, reservations |
 | `/sessions/:id` | live | Open one session in the Live console: active and historical are state, not layout | console, task, usage, context |

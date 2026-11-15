@@ -57,6 +57,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "integrations", route: () => "/administration/integrations", heading: "Integrations" },
   { id: "integrations-connect", route: () => "/administration/integrations", heading: "Integrations", after: async (page) => { await page.getByRole("button", { name: "Connect remote", exact: true }).first().click(); await expect(page.getByRole("dialog").getByLabel(/^Git provider/)).toBeVisible(); } },
   { id: "mission-task-comments", route: (d) => `/missions/${d.seed.missionIds.active}/plan?item=${d.seed.workItems["in-progress"]}`, heading: "Comments", prepare: seedTaskComments, after: async (page) => { await page.getByRole("heading", { name: "Comments", level: 4 }).evaluate((element) => element.scrollIntoView({ block: "start" })); } },
+  { id: "mission-timeline", route: (d) => `/missions/${d.seed.missionIds.active}/timeline`, heading: "Stabilize authentication", prepare: seedTimelineEntries, after: async (page) => { const timeline = page.getByTestId("mission-timeline"); await expect(timeline).toBeVisible(); await timeline.evaluate((element) => element.scrollIntoView({ block: "start" })); } },
+  { id: "run-tool-calls", route: (d) => `/runs/${d.seed.run!.jobId}?tab=tool-calls`, heading: "Run inspector", prepare: seedRunToolCalls, waitFor: "run-tool-calls" },
   // Eval cases come late, because the cases are recorded by sending tasks back, which adds missions the screens above would show.
   { id: "eval-cases", route: () => "/w/operations/quality/cases", heading: "Eval cases", prepare: seedEvalCases },
   // Last of all: the sign-off mission adds an attention item every earlier screen would count in its bell.
@@ -94,6 +96,29 @@ async function seedTaskComments(governor: Parameters<typeof seedBrowserDemo>[1],
   const comment = async (key: string, payload: Record<string, unknown>): Promise<string> => (await brain.executeCommand(actor, { contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workItem.comment", workspaceId: "operations", idempotencyKey: key, payload: { workItemId, ...payload } } as never, key)).receipt.resourceId ?? "";
   const first = await comment("vb-comment-1", { text: "Use the existing sessions table, not a new one." });
   await comment("vb-comment-2", { text: "Use the existing sessions table and keep its index; do not add a new one.", correctionOf: first });
+}
+
+/** A decision and a message on the active mission, through the commands the screens send, so its timeline has more than plans and runs. */
+async function seedTimelineEntries(governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Awaited<ReturnType<typeof seedBrowserDemo>>): Promise<void> {
+  const brain = governor.app.brain;
+  const cookie = (await page.context().cookies()).map((entry) => `${entry.name}=${entry.value}`).join("; ");
+  const actor = (await brain.resolveActor(new Headers({ cookie }), "operations")).actor;
+  const send = async (key: string, commandType: string, payload: Record<string, unknown>): Promise<void> => {
+    await brain.executeCommand(actor, { contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType, workspaceId: "operations", idempotencyKey: key, payload } as never, key);
+  };
+  const missionId = demo.seed.missionIds.active;
+  const brief = (await brain.executeQuery(actor, { queryType: "missions.brief", workspaceId: "operations", resourceId: missionId })) as unknown as { snapshot: { version: number } };
+  await send("vb-timeline-decision", "decision.accept", { missionId, baseVersion: brief.snapshot.version, statement: "Check the session cookie before anything else", source: { kind: "human" } });
+  await send("vb-timeline-message", "mission.message.send", { missionId, recipient: { kind: "mission" }, body: "Start with the login redirect." });
+}
+
+/** Two calls of the seeded run, recorded the way the Governor records a runner's tool events (the seeded run has no runner behind it). */
+async function seedRunToolCalls(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Awaited<ReturnType<typeof seedBrowserDemo>>): Promise<void> {
+  const run = demo.seed.run!;
+  const insert = governor.app.brain.store.control.prepare("INSERT INTO tool_calls(attempt_id, proposal_id, organization_id, workspace_id, run_id, tool_id, proposed_at, failed, finished_at, failure_message) VALUES (?,?,?,?,?,?,?,?,?,?)");
+  const at = (offsetMs: number) => new Date(demo.seededAtMs + offsetMs).toISOString();
+  insert.run("attempt-demo", "demo-call-1", demo.actor.organizationId, "operations", run.runId, "documents.read", at(1_000), 0, at(1_400), null);
+  insert.run("attempt-demo", "demo-call-2", demo.actor.organizationId, "operations", run.runId, "web.fetch", at(2_000), 1, at(2_300), "host example.com is not on this tool's allowlist");
 }
 
 async function seedEvalCases(governor: Parameters<typeof seedBrowserDemo>[1], page: Page): Promise<void> {
