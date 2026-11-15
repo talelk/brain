@@ -30,6 +30,9 @@ approval). Nothing here weakens any of them.
   accepted preset is the default its next mission takes (clipped to the ceiling like any); a repeated plan's
   switch is revised like any schedule edit. No step-up: `mission.policy.set`, which these commands only apply
   within the ceiling, has none.
+- **Accepting a repeated plan is a schedule edit**, so it also needs `workflow:dispatch`, the scope of
+  `automation.upsert` (checked in the handler); it flips only the confirm-automatically switch. The next run
+  still passes every condition of ADR 0017 before the schedule confirms its plan.
 - **Decisions are immutable** (`autonomy_decisions`, triggers refuse edits and deletes): who, when, from and to,
   and the figures with their definitions at that moment. A dismissal restarts the counted period, so the
   suggestion returns only after 5 new completed tasks of clean record; an acceptance does the same for the next

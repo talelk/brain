@@ -65,6 +65,8 @@ export class AutonomySuggestionService {
       const kind = String(payload["kind"]);
       const subjectId = String(payload["subjectId"]);
       if (!KINDS.has(kind) || !subjectId) throw new BrainDomainError("INVALID_ARGUMENT", "a suggestion is named by its kind and subject");
+      // Turning a schedule's switch on is a schedule edit: it takes the schedule's own scope, not only the right to change missions.
+      if (kind === "repeat" && !actor.scopes.includes("workflow:dispatch")) throw new BrainDomainError("FORBIDDEN", "only a person who may edit schedules can change when a schedule confirms its plan");
       const ctx = this.context(actor, workspaceId);
       const suggestion = currentSuggestions(ctx, { kind, subjectId })[0];
       if (!suggestion) throw new BrainDomainError("CONFLICT", "this suggestion no longer holds: the record changed, a person already decided on it, or the workspace ceiling does not allow it");

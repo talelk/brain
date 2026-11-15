@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { AttentionItem, AutonomySuggestion } from "@brain/contracts";
 import { AUTONOMY_PRESETS } from "../../apps/governor/src/domain/mission-policy";
 import { workView } from "../helpers";
-import { autonomyWorld, closeAutonomyWorlds, finishTasks, judgeRejected, missionOf, missionWithTasks, read, run, sendBack, suggestionFor, suggestions, tasksOf, type AutonomyWorld } from "../support/autonomy-world";
+import { achievedMission, askingSchedule, autonomyWorld, closeAutonomyWorlds, finishTasks, fire, judgeRejected, missionOf, missionWithTasks, read, run, sendBack, suggestionFor, suggestions, tasksOf, type AutonomyWorld } from "../support/autonomy-world";
 
 // Autonomy suggestions earned from a track record (#158, ADR 0066) at the Governor seam. State is reached through commands and queries; the only
 // seeded rows are the verdicts a real evaluator run would leave (as finishTask does). A suggestion is worked out on every read, so a regression
@@ -213,32 +213,41 @@ describe("autonomy suggestions: a Play and a repeated plan", () => {
 
   it("suggests turning on automatic confirmation of a repeated plan only for a verified, read-only, standard-or-higher mission; the schedule's gate still decides each run", async () => {
     const ctx = autonomyWorld();
-    const source = await missionWithTasks(ctx, "weekly", 5);
-    await finishTasks(ctx, source, tasksOf(1, 5));
-    await run(ctx, "mission.proposeCompletion", "weekly-propose", { missionId: source }, (await missionOf(ctx, source)).version);
-    const bundle = await read<{ digest: string }>(ctx, "missionBundles.latest", source);
-    await run(ctx, "mission.verdict.record", "weekly-verdict", { missionId: source, bundleDigest: bundle.digest, outcome: "verified" });
-    await run(ctx, "mission.close", "weekly-close", { missionId: source, outcome: "achieved" }, (await missionOf(ctx, source)).version);
-
-    const automationId = (await run(ctx, "automation.upsert", "weekly-schedule", { title: "Repeat: Weekly", target: { kind: "workflow", id: "general-task" }, trigger: { kind: "cron", cron: "0 8 * * *", timezone: "UTC" }, overlap: "queue-one", input: { situation: "Write the weekly report", sourceMissionId: source, autoConfirm: false } })).resourceId ?? "";
-    // The switch is on already by default: only a person who turned it off is offered it back.
+    const source = await achievedMission(ctx, "weekly", 5, { workflowId: "general-read" });
+    const automationId = await askingSchedule(ctx, "weekly", source);
+    // The switch is on by default: only a person who turned it off is offered it back.
     const found = await suggestionFor(ctx, "repeat", automationId);
     expect(found).toMatchObject({ kind: "repeat", from: "ask each time", to: "confirm automatically", sourceMissionId: source });
     expect(found?.effectsNote).toMatch(/never approves an effect/u);
 
+    // Before the person accepts, the schedule asks: the run's plan waits.
+    const held = await fire(ctx, automationId, "weekly-before");
+    const planState = (missionId: string) => (ctx.w.brain.store.workspaceDb(ctx.w.workspaceId, ctx.w.org).prepare("SELECT state FROM plan_versions WHERE mission_id=? ORDER BY revision DESC").get(missionId) as { state: string }).state;
+    expect(planState(held)).toBe("proposed");
+
+    // Accepting needs the schedule's own scope as well: a person who cannot edit schedules cannot flip its switch.
+    const noSchedules = { ...ctx.w.owner, scopes: ctx.w.owner.scopes.filter((scope) => scope !== "workflow:dispatch") };
+    await expect(ctx.w.brain.executeCommand(noSchedules, { contractVersion: "brain.command/v1", commandId: "cmd-no-sched", commandType: "autonomy.suggestion.accept", workspaceId: ctx.w.workspaceId, idempotencyKey: "no-sched", payload: { kind: "repeat", subjectId: automationId } } as never, "no-sched")).rejects.toThrow(/schedule|workflow:dispatch/u);
+    expect(await suggestionFor(ctx, "repeat", automationId)).toBeDefined();
+
     expect((await decide(ctx, "accept", "weekly-accept", { kind: "repeat", subjectId: automationId })).accepted).toBe(true);
     const automation = ctx.w.brain.store.workspaceDb(ctx.w.workspaceId, ctx.w.org).prepare("SELECT input_json FROM automations WHERE id=?").get(automationId) as { input_json: string };
-    expect(JSON.parse(automation.input_json)).toMatchObject({ autoConfirm: true, sourceMissionId: source, situation: "Write the weekly report" });
+    expect(JSON.parse(automation.input_json)).toMatchObject({ autoConfirm: true, sourceMissionId: source, situation: "Repeat weekly" });
     expect(await suggestionFor(ctx, "repeat", automationId)).toBeUndefined();
     expect((await suggestions(ctx, `repeat:${automationId}`)).decisions[0]).toMatchObject({ decision: "accepted", decidedBy: "owner-1", to: "confirm automatically" });
+
+    // The gate of ADR 0017 still judges every occurrence: this identical, verified, read-only plan is now confirmed by the schedule.
+    const next = await fire(ctx, automationId, "weekly-after");
+    expect(planState(next)).toBe("confirmed");
+    const events = ctx.w.brain.store.workspaceDb(ctx.w.workspaceId, ctx.w.org).prepare("SELECT event_type FROM events WHERE event_type IN ('plan.confirmedBySchedule','plan.heldBySchedule') ORDER BY cursor").all() as Array<{ event_type: string }>;
+    expect(events.map((event) => event.event_type)).toEqual(["plan.heldBySchedule", "plan.confirmedBySchedule"]);
   });
 });
 
 describe("autonomy suggestions never touch effects", () => {
-  it("leaves effect settings, approvals and the plan operations of a preset untouched, and offers no auto-confirmation for a plan with an effectful step", async () => {
+  it("leaves effect settings, approvals and the plan operations of a preset untouched when accepted", async () => {
     const ctx = autonomyWorld();
     const control = ctx.w.brain.store.control;
-    const ws = ctx.w.brain.store.workspaceDb(ctx.w.workspaceId, ctx.w.org);
     const count = (table: string) => (control.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
     const snapshot = () => JSON.stringify({
       approvals: [count("approval_requests"), count("approval_decisions"), count("approval_consumptions")],
@@ -249,17 +258,17 @@ describe("autonomy suggestions never touch effects", () => {
     const before = snapshot();
     expect((await decide(ctx, "accept", "fx-accept", { kind: "mission", subjectId: id })).accepted).toBe(true);
     expect(snapshot()).toBe(before);
-    // The presets are lists of plan operations: none of them is an effect, a budget change or a sign-off.
+    // The presets are lists of plan operations: none is an effect, a budget change, a sign-off or an intent change.
     for (const operations of Object.values(AUTONOMY_PRESETS)) expect(operations.join(" ")).not.toMatch(/effect|approve|budget|close|verdict|intent|constraint/u);
+  });
 
-    // A repeated plan whose task runs a workflow missing from the release counts as unsafe, like an effectful one: no suggestion.
-    const gated = await missionWithTasks(ctx, "gated", 5);
-    const planId = (ws.prepare("SELECT id FROM plan_versions WHERE mission_id=?").get(gated) as { id: string }).id;
-    ws.prepare("UPDATE plan_versions SET tasks_json=? WHERE id=?").run(JSON.stringify((JSON.parse((ws.prepare("SELECT tasks_json FROM plan_versions WHERE id=?").get(planId) as { tasks_json: string }).tasks_json) as Array<Record<string, unknown>>).map((task) => ({ ...task, workflowId: "ghost-workflow" }))), planId);
-    await finishTasks(ctx, gated, tasksOf(1, 5));
-    ws.prepare("INSERT INTO mission_evidence_bundles(digest,mission_id,state,manifest_json,findings_json,created_at_ms) VALUES (?,?,'verified','{}','[]',?)").run(`sha256:${"7".repeat(64)}`, gated, ctx.clock.now);
-    ws.prepare("UPDATE missions SET state='closed', outcome='achieved' WHERE id=?").run(gated);
-    const automationId = (await run(ctx, "automation.upsert", "gated-schedule", { title: "Repeat: gated", target: { kind: "workflow", id: "general-task" }, trigger: { kind: "cron", cron: "0 8 * * *", timezone: "UTC" }, overlap: "queue-one", input: { situation: "x", sourceMissionId: gated, autoConfirm: false } })).resourceId ?? "";
-    expect(await suggestionFor(ctx, "repeat", automationId)).toBeUndefined();
+  it("offers no automatic confirmation for a repeated plan with a step that waits for an approval, and still offers it for the same plan that only reads", async () => {
+    const ctx = autonomyWorld();
+    const writes = await achievedMission(ctx, "writes", 5, { workflowId: "general-gated" });
+    const writesSchedule = await askingSchedule(ctx, "writes", writes);
+    expect(await suggestionFor(ctx, "repeat", writesSchedule)).toBeUndefined();
+    const reads = await achievedMission(ctx, "reads", 5, { workflowId: "general-read" });
+    const readsSchedule = await askingSchedule(ctx, "reads", reads);
+    expect(await suggestionFor(ctx, "repeat", readsSchedule)).toBeDefined();
   });
 });

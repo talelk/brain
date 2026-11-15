@@ -26,6 +26,8 @@ const SENTENCES: Record<string, (what: string | undefined) => string> = {
   "document.associated": () => "A document was linked to a mission",
   "automation.created": () => "A schedule was created",
   "automation.revised": () => "A schedule was changed",
+  "autonomy.suggestionAccepted": () => "An autonomy suggestion was accepted",
+  "autonomy.suggestionDismissed": () => "An autonomy suggestion was dismissed",
   "automation.run_now": () => "A schedule was run by hand",
   "knowledge.extracted": () => "Knowledge was saved from a finished mission",
   "workspace.updated": () => "The workspace settings changed",

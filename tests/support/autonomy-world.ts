@@ -29,6 +29,16 @@ export function autonomyWorld(): AutonomyWorld {
   const w = setupWorld(new Brain({ dataDir: dir, allowTestActor: true, clock: { nowMs: () => clock.now, monotonicMs: () => clock.now } }));
   worlds.push({ w, dir });
   const bundle = fixtureStarter();
+  // Two ways of working beside the general task: one that only reads, and one that also waits for an approval (a step that always needs a person).
+  const general = bundle.documents.find((doc) => doc.path.endsWith("general-task.yaml"))!;
+  for (const id of ["general-read", "general-gated"]) {
+    const flow = JSON.parse(general.text);
+    flow.metadata.id = id;
+    delete flow.spec.jobs["validate"];
+    if (id === "general-gated") flow.spec.jobs["ask"] = { kind: "gate", needs: ["respond"], input: {}, proposalFrom: { source: "literal", value: 1 } };
+    flow.spec.outputs["passed"] = { source: "literal", value: true };
+    bundle.documents.push({ path: `config/${id}.yaml`, text: JSON.stringify(flow, null, 2) + "\n" });
+  }
   w.brain.activateRelease(w.owner, w.brain.stageRelease(w.owner, bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas).digest);
   return { w, clock, tick: (ms = 1000) => { clock.now += ms; }, digests: { next: 0 } };
 }
@@ -75,9 +85,9 @@ export const suggestionFor = async (ctx: AutonomyWorld, kind: string, subjectId:
   (await suggestions(ctx, `${kind}:${subjectId}`)).items[0];
 
 /** A mission with `count` independent one-task plan entries (t1, t2, ...), confirmed and not auto-started. */
-export async function missionWithTasks(ctx: AutonomyWorld, key: string, count: number, options: { autonomy?: string; title?: string } = {}): Promise<string> {
+export async function missionWithTasks(ctx: AutonomyWorld, key: string, count: number, options: { autonomy?: string; title?: string; workflowId?: string } = {}): Promise<string> {
   const id = (await run(ctx, "mission.create", `${key}-create`, { title: options.title ?? `Mission ${key}`, intent: `Deliver ${key}`, successCriteria: ["delivered"], autoStart: false, ...(options.autonomy ? { autonomy: options.autonomy } : {}) })).resourceId ?? "";
-  const tasks: PlanTask[] = Array.from({ length: count }, (_unused, index) => ({ id: `t${index + 1}`, title: `Task ${index + 1} of ${key}`, criteria: [`t${index + 1} is done`], dependsOn: [] }));
+  const tasks: PlanTask[] = Array.from({ length: count }, (_unused, index) => ({ id: `t${index + 1}`, title: `Task ${index + 1} of ${key}`, criteria: [`t${index + 1} is done`], dependsOn: [], ...(options.workflowId ? { workflowId: options.workflowId } : {}) }));
   const planId = (await run(ctx, "plan.propose", `${key}-plan`, { missionId: id, origin: "manual", tasks })).resourceId ?? "";
   await run(ctx, "plan.confirm", `${key}-confirm`, { planVersionId: planId }, (await missionOf(ctx, id)).version);
   return id;
@@ -92,6 +102,34 @@ export async function finishTasks(ctx: AutonomyWorld, missionId: string, taskIds
   ctx.tick();
 }
 export const tasksOf = (from: number, to: number): string[] => Array.from({ length: to - from + 1 }, (_unused, index) => `t${from + index}`);
+
+/** A mission whose tasks all finished, whose result a person signed off as verified and which is closed as achieved: what "Repeat this" is offered on. */
+export async function achievedMission(ctx: AutonomyWorld, key: string, count: number, options: { workflowId?: string } = {}): Promise<string> {
+  const id = await missionWithTasks(ctx, key, count, options);
+  await finishTasks(ctx, id, tasksOf(1, count));
+  await run(ctx, "mission.proposeCompletion", `${key}-propose`, { missionId: id }, (await missionOf(ctx, id)).version);
+  const bundle = await read<{ digest: string }>(ctx, "missionBundles.latest", id);
+  await run(ctx, "mission.verdict.record", `${key}-verdict`, { missionId: id, bundleDigest: bundle.digest, outcome: "verified" });
+  await run(ctx, "mission.close", `${key}-close`, { missionId: id, outcome: "achieved" }, (await missionOf(ctx, id)).version);
+  return id;
+}
+
+/** A schedule that repeats a mission and asks the person each time. Returns its id. */
+export async function askingSchedule(ctx: AutonomyWorld, key: string, sourceMissionId: string): Promise<string> {
+  return (await run(ctx, "automation.upsert", `${key}-schedule`, { title: `Repeat: ${key}`, target: { kind: "workflow", id: "general-task" }, trigger: { kind: "cron", cron: "0 8 * * *", timezone: "UTC" }, overlap: "queue-one", input: { situation: `Repeat ${key}`, sourceMissionId, autoConfirm: false } })).resourceId ?? "";
+}
+
+/** Runs the schedule now and returns the mission its newest occurrence started. */
+export async function fire(ctx: AutonomyWorld, automationId: string, key: string): Promise<string> {
+  await run(ctx, "automation.control", `${key}-run`, { automationId, action: "runNow" });
+  const items = (ctx.w.brain.jobProtocol.automations.query(ctx.w.owner, "automations.occurrences", ctx.w.workspaceId, automationId) as unknown as { items: Array<{ state: string; dispatchRef?: string; detail?: string }> }).items;
+  const started = items.filter((entry) => entry.state === "dispatched" && entry.dispatchRef).map((entry) => entry.dispatchRef!);
+  const latest = started.find((id) => !fired.has(id));
+  if (!latest) throw new Error(`the schedule started no new mission: ${JSON.stringify(items)}`);
+  fired.add(latest);
+  return latest;
+}
+const fired = new Set<string>();
 
 /** Sends a started task back from review with a finding, the way a reviewer does: that saves an eval case (ADR 0010). */
 export async function sendBack(ctx: AutonomyWorld, missionId: string, taskId: string, finding: string): Promise<void> {
