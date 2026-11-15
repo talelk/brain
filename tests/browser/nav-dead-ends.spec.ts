@@ -60,9 +60,12 @@ test("a platform alert's link opens the Health tab", async ({ page, governor }) 
   try {
     await setUp(page, governor);
     const brain = governor.app.brain;
-    const cookies = await page.context().cookies();
-    const actor = (await brain.resolveActor(new Headers({ cookie: cookies.map((c) => `${c.name}=${c.value}`).join("; ") }))).actor;
-    brain.setNotificationPreferences(actor, { webhook: true, push: false });
+
+    // The owner asks, in their own settings, to be sent a link on the team webhook.
+    await page.goto(`${governor.url}/settings?tab=security`);
+    const prefs = page.getByTestId("notification-preferences");
+    await prefs.getByRole("checkbox", { name: /Also send a link to the team webhook/ }).check();
+    await expect(prefs.getByText("Saved.")).toBeVisible();
 
     // The model endpoint stops answering: the owner is alerted on the channels they switched on.
     process.env["BRAIN_LOCAL_MODEL_URL"] = "http://model.invalid/v1";

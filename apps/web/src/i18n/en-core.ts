@@ -14,6 +14,7 @@ export const enCore = {
   "nav.item.today": "Today",
   "nav.item.missions": "Missions",
   "nav.item.approvals": "Approvals",
+  "nav.item.live": "Live",
   "nav.item.schedules": "Schedules",
   "nav.item.all-results": "All results",
   "nav.item.library": "Library",

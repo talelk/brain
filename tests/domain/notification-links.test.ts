@@ -55,6 +55,13 @@ describe("notification links resolve to screens", () => {
     expect(settingsTabs.has("health")).toBe(true);
   });
 
+  it("the service worker's fallback links are routes too (the app uses path routing, not hash routing)", () => {
+    const worker = readFileSync(join(ROOT, "apps/web/public/sw.js"), "utf8");
+    const fallbacks = [...worker.matchAll(/(?:url: |\?\? )"([^"]+)"/gu)].map((match) => match[1] ?? "");
+    expect(fallbacks.length, "the service worker declares its default links").toBeGreaterThanOrEqual(2);
+    for (const url of fallbacks) expect(ROUTES.some((route) => matches(route.route, new URL(url, "http://brain.invalid").pathname)), `${url} matches no route`).toBe(true);
+  });
+
   it("no notification code builds a link outside the builders", () => {
     const dirs = [join(ROOT, "apps/governor/src/application"), join(ROOT, "apps/governor/src/modules/operations")];
     const stray: string[] = [];

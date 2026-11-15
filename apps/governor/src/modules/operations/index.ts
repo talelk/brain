@@ -11,6 +11,6 @@ export { replicaConfig, replicateOnce, restoreFromReplica } from "./replica";
 export { channelsFor, notifyAttention, notificationsFor, sendDigests, watchCommands, type Sender } from "./attention-notify";
 export { composeMessage, smtpTarget, sendMail, validAddress } from "./smtp";
 export { absoluteLink, emailContent, safeMailLink, sendEmail, preferencesView, sendWebhook, setPreferences as setNotificationPreferences, webhookBody, webhookTarget } from "./channels";
-export { approvalLink, attentionLink, digestLink, platformAlertLink, securitySettingsLink } from "./notification-links";
+export { approvalLink, platformAlertLink, securitySettingsLink } from "./notification-links";
 export { handleInbound } from "./inbound";
 export { connectorsFromEnv, type Connectors } from "./connectors";
