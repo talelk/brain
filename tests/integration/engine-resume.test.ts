@@ -9,7 +9,7 @@ import { PiEngine } from "../../apps/runner/src/engines/pi";
 import { FixtureEngine } from "../../apps/runner/src/engines/fixture";
 import { runAgentExecution } from "../../apps/runner/src/engines/run";
 
-// ADR 0063 (builds on 0045): a Pi attempt that did not finish hands its conversation to the runner, which uploads it to the Governor; a later
+// ADR 0068 (builds on 0045): a Pi attempt that did not finish hands its conversation to the runner, which uploads it to the Governor; a later
 // attempt on any runner downloads it, and the engine verifies it before it starts. Driven through the real Pi engine and the runner's own
 // execution path against a fake model endpoint that records every request it was sent. The Governor's side of the exchange is in
 // session-resume.test.ts.
@@ -79,7 +79,7 @@ async function checkpointed(attemptId: string): Promise<{ checkpoint: Checkpoint
 
 const texts = (asked: Asked): string[] => asked.messages.map((message) => typeof message.content === "string" ? message.content : JSON.stringify(message.content));
 
-describe("an engine that can resume continues a conversation downloaded from the Governor (ADR 0063)", () => {
+describe("an engine that can resume continues a conversation downloaded from the Governor (ADR 0068)", () => {
   it("starts a new session from the downloaded bytes on a runner that never held the conversation: the model is asked with the earlier exchange, then the new task", async () => {
     const model = await fakeModel({ text: "STORED", finish: "stop" });
     process.env["BRAIN_PI_AGENT_DIR"] = runnerDir();

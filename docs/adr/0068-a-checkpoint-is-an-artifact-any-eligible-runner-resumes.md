@@ -1,4 +1,4 @@
-# 63. A checkpoint is an artifact any eligible runner resumes
+# 68. A checkpoint is an artifact any eligible runner resumes
 
 Status: accepted, 2026-11-15. Supersedes points 1, 2 and 4 of ADR 0045 and the first limit it lists; the rest of 0045 stands (the engine starts from the checkpoint and never reopens it, a resume takes a stopped task over). Builds on ADR 0006 and ADR 0030.
 

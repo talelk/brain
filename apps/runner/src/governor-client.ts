@@ -209,7 +209,7 @@ export class GovernorClient {
   }
 
   /**
-   * The saved conversation a resumed attempt continues, downloaded from the Governor (ADR 0063) and checked against the reference the offer
+   * The saved conversation a resumed attempt continues, downloaded from the Governor (ADR 0068) and checked against the reference the offer
    * pinned: a copy with another digest or size is refused, so a resume never starts from bytes nobody vouched for.
    */
   async resumeCheckpoint(attemptId: string, expected: { digest: string; bytes: number }): Promise<Uint8Array> {

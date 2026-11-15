@@ -54,7 +54,7 @@ export interface EngineAdapter {
   cancel(sessionId: string, reason: string): Promise<{ terminationConfirmed: boolean }>;
   checkpoint(sessionId: string): Promise<Checkpoint>;
   /**
-   * The bytes of the saved conversation a checkpoint just taken names, so the runner can upload them to the Governor (ADR 0063). Offered only
+   * The bytes of the saved conversation a checkpoint just taken names, so the runner can upload them to the Governor (ADR 0068). Offered only
    * by engines whose checkpoint is a warm-start artifact; an engine without it leaves no checkpoint a runner could share.
    */
   readCheckpoint?(state: ArtifactRef): Promise<Uint8Array>;

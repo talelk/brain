@@ -53,7 +53,7 @@ describe("pi checkpoint/resume (T24)", () => {
     const bytes = await first.readCheckpoint(diff);
     await first.dispose();
 
-    // Bytes that differ from the reference must be refused before any session state changes (they come from the Governor, ADR 0063).
+    // Bytes that differ from the reference must be refused before any session state changes (they come from the Governor, ADR 0068).
     await expect(new PiEngine().stageCheckpoint({ ...diff, digest: `sha256:${"f".repeat(64)}` }, bytes)).rejects.toThrow();
     await expect(new PiEngine().start({ ...spec(), resumeFrom: diff }, new AbortController().signal)).rejects.toThrow();
     const second = new PiEngine();

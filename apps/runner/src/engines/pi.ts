@@ -402,7 +402,7 @@ export class PiEngine implements EngineAdapter {
     const digest = sha256Digest(bytes);
     return {
       contractVersion: "brain.checkpoint/v2", attemptId: this.spec.attemptId, sourceRevision: this.spec.sourceRevision,
-      // The Pi transcript is an engine warm-start artifact, not the source diff (#29). The runner uploads it to the Governor (ADR 0063), which
+      // The Pi transcript is an engine warm-start artifact, not the source diff (#29). The runner uploads it to the Governor (ADR 0068), which
       // names the artifact; this id is only a placeholder until it does.
       engineState: { artifactId: `pi-checkpoint-${digest.slice(7, 23)}`, digest, bytes: bytes.length, mediaType: "application/x-ndjson", classification: "internal" },
       completedCriteria: [], failures: [], worktreeId: this.spec.worktreeId, eventSequence: this.seq,

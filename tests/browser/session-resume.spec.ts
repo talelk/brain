@@ -7,7 +7,7 @@ import { command, enrolledRunner, interruptedSession } from "../support/interrup
 import { fixtureStarter } from "../support/starter";
 
 /**
- * "Resume from checkpoint" as a first-time user meets it (ADR 0063). An agent's attempt stopped before it finished and its runner uploaded the
+ * "Resume from checkpoint" as a first-time user meets it (ADR 0068). An agent's attempt stopped before it finished and its runner uploaded the
  * checkpoint to the Governor. Where any eligible runner is there (even if the one that took it is gone) the console offers the resume and it
  * starts a new session from the checkpoint, which says what it started from; where no runner could take it the console says so in plain
  * words and leaves the fresh start. The attempt, its failure and its checkpoint come through the runner protocol, as a real runner would send them.

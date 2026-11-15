@@ -362,7 +362,7 @@ export function readExecutionArtifact(s: Store, runner: { runnerId: string; epoc
 }
 
 /**
- * The saved conversation a resumed attempt continues (ADR 0063): the bytes of the checkpoint artifact its own job names, served to the runner
+ * The saved conversation a resumed attempt continues (ADR 0068): the bytes of the checkpoint artifact its own job names, served to the runner
  * that holds the attempt and to no one else. The runner names nothing, so it cannot ask for another job's or workspace's artifact.
  */
 export function readResumeCheckpoint(s: Store, runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): Uint8Array {
@@ -631,7 +631,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     if (cleanup === 1) releaseReservation(s, attemptId);
     settleRouteReport(s, { attemptId, jobId, workspaceId, report: body["modelRoutes"] });
     endAttemptSession(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, failed: attemptFailed });
-    // An engine that can resume saved its conversation and the runner uploaded it before completing; the session records the checkpoint (ADR 0063).
+    // An engine that can resume saved its conversation and the runner uploaded it before completing; the session records the checkpoint (ADR 0068).
     if (body["checkpoint"] !== undefined) recordAttemptCheckpoint(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, checkpoint: body["checkpoint"] });
     revokeSessionCredentials(s, attemptId);
     for (const keyRow of s.control.prepare("SELECT resource_key FROM resource_leases WHERE attempt_id=?").all(attemptId) as Array<{ resource_key: string }>) {

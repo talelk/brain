@@ -391,7 +391,7 @@ export function searchJobs(
 }
 
 /**
- * Whether any runner could continue a saved conversation now (ADR 0063): the placement the resumed step would get (the source step's, narrowed
+ * Whether any runner could continue a saved conversation now (ADR 0068): the placement the resumed step would get (the source step's, narrowed
  * to the session's engine and asking that engine to offer resume, and pinned to no runner) judged by the same rules the claim applies. Capacity
  * is not judged, since a busy runner frees up. The answer is a plain sentence a person can act on when none could.
  */

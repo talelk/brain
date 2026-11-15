@@ -255,7 +255,7 @@ export class SessionService {
   }
 
   /**
-   * Whether a session can be resumed from its checkpoint, and why not when it cannot. The checkpoint is an artifact of the Governor (ADR 0063),
+   * Whether a session can be resumed from its checkpoint, and why not when it cannot. The checkpoint is an artifact of the Governor (ADR 0068),
    * so resuming needs it still stored and some eligible runner that offers the engine's resume; it names no runner. Nothing is said when there
    * is nothing to resume (no checkpoint, or the session is still working).
    */
@@ -832,7 +832,7 @@ function stampedCheckpoint(db: ReturnType<Store["workspaceDb"]>, session: Sessio
 
 /**
  * Keeps the checkpoint a runner took when an attempt ended on the attempt's session. The engine's saved conversation is an artifact the runner
- * uploaded to the Governor before it completed (ADR 0063), so the checkpoint outlives the runner. The session keeps the state its attempt ended
+ * uploaded to the Governor before it completed (ADR 0068), so the checkpoint outlives the runner. The session keeps the state its attempt ended
  * in. A checkpoint that does not belong to the attempt, saved no engine state or names bytes this attempt did not upload is ignored: it never
  * makes the attempt's own completion fail.
  */
@@ -841,7 +841,7 @@ export function recordAttemptCheckpoint(store: Store, input: { organizationId: s
   const reported = input.checkpoint as CheckpointInput;
   if (reported.attemptId !== input.attemptId || !reported.engineState) return;
   // The saved conversation is the Governor's own copy: the artifact this attempt uploaded, with the very digest and size the runner reports
-  // (ADR 0063). A reference to anything else, another attempt's or another workspace's bytes included, saves no checkpoint at all.
+  // (ADR 0068). A reference to anything else, another attempt's or another workspace's bytes included, saves no checkpoint at all.
   const state = reported.engineState;
   const stored = store.control.prepare("SELECT digest, workspace_id, owner_kind, owner_id FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(state.artifactId, input.organizationId) as { digest: string; workspace_id: string; owner_kind: string; owner_id: string } | undefined;
   if (!stored || stored.digest !== state.digest || stored.workspace_id !== input.workspaceId || stored.owner_kind !== "attempt" || stored.owner_id !== input.attemptId) return;

@@ -2123,6 +2123,33 @@
    ]
   },
   {
+   "method": "GET",
+   "path": "/runner/v1/attempts/{id}/checkpoint",
+   "summary": "the runner claiming a resumed attempt downloads the saved conversation its job names: the bytes of the checkpoint artifact, checked against the reference in the signed offer (ADR 0068)",
+   "auth": [
+    "runnerSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/octet-stream": {
+       "schema": {
+        "type": "string",
+        "format": "binary"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
    "method": "POST",
    "path": "/runner/v1/attempts/{id}/tool-read",
    "summary": "runner asks for the data a governed read tool needs (documents, CSV artifacts, knowledge); the Governor rechecks the live attempt, the agent's tool allowlist and workspace scope, and audits refusals",

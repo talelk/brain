@@ -385,7 +385,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           });
         }
       }, 500);
-      // A resumed attempt continues a conversation the Governor holds, not one on this runner's disk (ADR 0063): download and verify it first.
+      // A resumed attempt continues a conversation the Governor holds, not one on this runner's disk (ADR 0068): download and verify it first.
       let resumeBytes: Uint8Array | undefined;
       let resumeRefusal: string | undefined;
       if (payload.resume) {
@@ -458,7 +458,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
         : candidates.length > 0 ? await runAgentOnRoutes(agentInput, candidates) : await runAgentExecution({ ...agentInput, engine, modelId: process.env["BRAIN_LOCAL_MODEL_ID"] });
       routeReport = (agentResult as { routes?: RouteReport[] }).routes ?? [];
       // The conversation an unfinished attempt saved goes to the Governor as an artifact of this attempt, before the attempt completes, so any
-      // eligible runner can resume it later (ADR 0063). It is never an event and never evidence. A conversation that cannot be uploaded (too
+      // eligible runner can resume it later (ADR 0068). It is never an event and never evidence. A conversation that cannot be uploaded (too
       // large, or the lease is gone) leaves no checkpoint rather than one nobody can use.
       const taken = (agentResult as { checkpoint?: Checkpoint }).checkpoint;
       const takenBytes = (agentResult as { checkpointBytes?: Uint8Array }).checkpointBytes;

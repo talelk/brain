@@ -2,7 +2,7 @@ import type { ArtifactRef, JsonValue, Workflow } from "@brain/contracts";
 
 /**
  * A run started by resuming a session: the one step that continues the engine state a checkpoint saved. Only that step's job carries it
- * (the claiming runner downloads it from the Governor, ADR 0063); every step of the run is placed by its own rules.
+ * (the claiming runner downloads it from the Governor, ADR 0068); every step of the run is placed by its own rules.
  */
 export interface RunResume {
   readonly stepId: string;

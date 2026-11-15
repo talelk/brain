@@ -10,7 +10,7 @@ import { advertisedCapabilities } from "../../apps/runner/src/engines/isolation"
 import { DIGEST_A, setupWorld } from "../helpers";
 import { advance, clock, closeWorlds, confirmedMission, run, stageStarter, task, type Offer, type Runner, type World } from "../support/machine-session";
 
-// ADR 0063 (builds on 0045): a session's checkpoint is an artifact of the Governor, so a new session resumes it in a new run whose continuing
+// ADR 0068 (builds on 0045): a session's checkpoint is an artifact of the Governor, so a new session resumes it in a new run whose continuing
 // step any eligible runner may claim and then download. The control is offered only when it can work. State is reached through commands and the
 // runner protocol, never through table writes (the one exception tampers with stored bytes, which no command can do).
 
@@ -96,7 +96,7 @@ async function interrupted(options: { checkpoint?: boolean | "no-state" | "forge
   return { w, a, b, sessionId: ended!.sessionId, offer, workItemId };
 }
 
-describe("resuming a session from its checkpoint (ADR 0063)", () => {
+describe("resuming a session from its checkpoint (ADR 0068)", () => {
   it("resumes on a runner other than the one that took the checkpoint, once the holder is gone", async () => {
     const { w, a, b, sessionId, offer } = await interrupted();
     const before = await sessionOf(w, sessionId);

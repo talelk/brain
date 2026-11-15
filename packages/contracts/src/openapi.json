@@ -4661,6 +4661,80 @@
     }
    }
   },
+  "/runner/v1/attempts/{id}/checkpoint": {
+   "get": {
+    "operationId": "get_runner_v1_attempts_id_checkpoint",
+    "summary": "the runner claiming a resumed attempt downloads the saved conversation its job names: the bytes of the checkpoint artifact, checked against the reference in the signed offer (ADR 0068)",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/octet-stream": {
+        "schema": {
+         "type": "string",
+         "format": "binary"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Invalid request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Not signed in",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Not allowed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/runner/v1/attempts/{id}/tool-read": {
    "post": {
     "operationId": "post_runner_v1_attempts_id_tool_read",
@@ -15347,22 +15421,18 @@
      },
      "resumedFrom": {
       "type": "object",
-      "description": "The checkpoint a resumed session started from, and the runner that held it.",
+      "description": "The checkpoint a resumed session started from.",
       "properties": {
        "sessionId": {
         "$ref": "#/components/schemas/Id"
        },
        "checkpointDigest": {
         "$ref": "#/components/schemas/Digest"
-       },
-       "runnerId": {
-        "$ref": "#/components/schemas/Id"
        }
       },
       "required": [
        "sessionId",
-       "checkpointDigest",
-       "runnerId"
+       "checkpointDigest"
       ],
       "additionalProperties": false
      },
@@ -15626,7 +15696,7 @@
    },
    "SessionResumeInput": {
     "type": "object",
-    "description": "Resumes a session from the checkpoint it saved: a new session starts on the runner that holds the checkpoint. Nothing else is chosen by the caller; the source session fixes the work item, the workflow and its input.",
+    "description": "Resumes a session from the checkpoint it saved: a new session starts from the checkpoint artifact on any eligible runner. Nothing else is chosen by the caller; the source session fixes the work item, the workflow and its input.",
     "properties": {
      "sessionId": {
       "$ref": "#/components/schemas/Id"
@@ -19607,13 +19677,10 @@
      },
      "resume": {
       "type": "object",
-      "description": "Whether the session can be resumed from its checkpoint. `possible` is true only when the engine can resume, the checkpoint is held by a runner that is online and the work still wants it; `reason` says plainly why not when a checkpoint exists but cannot be used, and is absent when there is nothing to resume.",
+      "description": "Whether the session can be resumed from its checkpoint. `possible` is true only when the checkpoint artifact is still stored, some eligible runner offers the engine's resume and the work still wants it; `reason` says plainly why not when a checkpoint exists but cannot be used, and is absent when there is nothing to resume.",
       "properties": {
        "possible": {
         "type": "boolean"
-       },
-       "runnerId": {
-        "$ref": "#/components/schemas/Id"
        },
        "reason": {
         "type": "string",
@@ -19773,22 +19840,18 @@
      },
      "resumedFrom": {
       "type": "object",
-      "description": "The checkpoint a resumed session started from, and the runner that held it.",
+      "description": "The checkpoint a resumed session started from.",
       "properties": {
        "sessionId": {
         "$ref": "#/components/schemas/Id"
        },
        "checkpointDigest": {
         "$ref": "#/components/schemas/Digest"
-       },
-       "runnerId": {
-        "$ref": "#/components/schemas/Id"
        }
       },
       "required": [
        "sessionId",
-       "checkpointDigest",
-       "runnerId"
+       "checkpointDigest"
       ],
       "additionalProperties": false
      },

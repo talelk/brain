@@ -6,7 +6,7 @@ import { advertisedCapabilities } from "../../apps/runner/src/engines/isolation"
 import { observation, registerRunner } from "./runnerHello";
 
 /**
- * An agent's attempt that stopped before it finished and left a checkpoint with the Governor (ADR 0063), reached the way a real one is:
+ * An agent's attempt that stopped before it finished and left a checkpoint with the Governor (ADR 0068), reached the way a real one is:
  * through commands and the runner protocol (enroll, claim, ack, upload the saved conversation, complete with the checkpoint), never through
  * table writes.
  */

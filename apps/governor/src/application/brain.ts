@@ -428,7 +428,7 @@ export class Brain {
     // The finished item frees a member slot: the next ready task may start.
     void this.autoStart.sweep(input.organizationId, input.workspaceId).catch(() => undefined);
   }
-  /** Why a checkpoint artifact cannot be served now (ADR 0063): it is not registered for the organization, or its stored bytes are gone or changed. */
+  /** Why a checkpoint artifact cannot be served now (ADR 0068): it is not registered for the organization, or its stored bytes are gone or changed. */
   private checkpointBlocker(organizationId: string, state: ArtifactRef): string | undefined {
     const stored = this.store.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(state.artifactId, organizationId) as { digest: string } | undefined;
     const lost = "The saved conversation is no longer stored, so the checkpoint cannot be continued.";
@@ -438,7 +438,7 @@ export class Brain {
   }
 
   /**
-   * Resume (ADR 0063): a new run of the source run's workflow and input whose continuing step carries the saved engine state and is claimed by
+   * Resume (ADR 0068): a new run of the source run's workflow and input whose continuing step carries the saved engine state and is claimed by
    * any eligible runner, linked to the task. A run that cannot be linked is cancelled, never left queued for a runner.
    */
   private startResumedRun(actor: ActorContext, workspaceId: string, input: { sourceRunId: string; stepId: string; workItemId: string; executionKey: string; resume: { engineId: string; engineState: ArtifactRef; fromSessionId: string } }): string {
