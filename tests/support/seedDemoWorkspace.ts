@@ -97,7 +97,8 @@ export async function seedDemoWorkspace(brain: Brain, actor: ActorContext, works
   ws.prepare("INSERT INTO observations(id,connector_id,target_key,incident_id,observation_digest,source_event_id,observed_at_ms,expires_at_ms) VALUES ('observation-demo','monitoring','sso-production','incident-demo',?,'demo-observation',?,?)").run(DIGEST, now, now + 3600_000);
   const runnerId = "runner-demo";
   brain.store.control.prepare("INSERT INTO runners(id,organization_id,group_id,identity_key_digest,admin_state,health,config_digest,session_epoch,last_heartbeat_ms,cpu_capacity,memory_capacity,disk_capacity,slot_capacity) VALUES (?,?,'agents','key','enabled','healthy',?,1,?,4000,8192,20480,4)").run(runnerId, actor.organizationId, DIGEST, now);
-  for (const capability of ["os:linux", "engine:fixture", "tool:bash"]) brain.store.control.prepare("INSERT INTO runner_capabilities(runner_id,capability,verified,source,observed_at_ms,expires_at_ms) VALUES (?,?,1,'fixture',?,?)").run(runnerId, capability, now, now + 3600_000);
+  for (const capability of ["os:linux", "engine:fixture", "tool:bash"]) brain.store.control.prepare("INSERT INTO runner_capabilities(runner_id,capability,verified,source,observed_at_ms,expires_at_ms) VALUES (?,?,1,'runner-probe',?,?)").run(runnerId, capability, now - 60_000, now + 3600_000);
+  brain.store.control.prepare("UPDATE runners SET engines_json=? WHERE id=?").run(JSON.stringify([{ id: "fixture", version: "2.1.0", adapterDigest: `sha256:${"c".repeat(64)}`, features: ["sessions", "steer"] }]), runnerId);
 
   const seed: DemoSeed = { missionIds: { active, paused, closed }, planVersionId, workItems, approvalId, ticketId: "ticket-demo", incidentId: "incident-demo", runnerId, documentId };
   if (options.dispatch) {
