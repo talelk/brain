@@ -132,7 +132,7 @@ _Avoid_: ADR, note, assumption (an assumption in a handoff is not yet accepted)
 
 **Autonomy policy**:
 The bounds within which a mission's coordinator may change unstarted work, assign tasks
-and request team members without confirmation: an explicit list of permitted plan
+and add or remove team members without confirmation: an explicit list of permitted plan
 operations (presets: supervised, standard, autonomous). It never covers effects, intent,
 constraints, budget, started work or declaring a mission achieved.
 _Avoid_: autopilot, auto-approve (it never authorizes effects), autonomy level
@@ -249,7 +249,8 @@ _Avoid_: workflow state, workflow run state
 
 **Step**:
 A node declared in a workflow definition — dispatch, gate, evaluation, steer, merge or
-subgraph. When a run reaches it, a job executes it.
+subgraph. A step starts once every step it `needs` has succeeded, so steps with no need
+of each other run together up to the mission's member cap (ADR 0043); a job executes it.
 _Avoid_: job (when meaning a declared node), node, stage
 
 **Job**:
@@ -279,7 +280,8 @@ release (a workspace has a default); the engine calls it a workflow.
 _Avoid_: recipe, template
 
 **Hosted model**:
-A workspace's optional vendor model for independent checks and second attempts only. It is
+A workspace's optional vendor model for independent checks, second attempts and the advisory
+judge only. It is
 always priced: input and output token prices (micro-USD per million tokens) travel with the
 route, and an attempt on it costs its tokens times those prices, so mission and workspace
 dollar caps bind it. The self-hosted model costs no dollars.
@@ -491,6 +493,14 @@ An independent evaluator's judgement of an evidence bundle: verified, rejected o
 incomplete, with the checks it ran and the independence level it held.
 _Avoid_: validation verdict, score, outcome
 
+**Advisory judge**:
+The hosted model's opinion on each success criterion of a submitted mission evidence bundle,
+written as an advisory check with its transcript as evidence. It never records a verdict,
+changes a bundle or links a criterion, never blocks sign-off, writes nothing without a model
+reply, and its calls are mission spend under the caps. Without a hosted model the view says
+no judge ran.
+_Avoid_: AI verdict, auto-verify
+
 **Independent evaluator**:
 A separate process, trust domain or human that judges evidence. An LLM judge cannot
 establish success.
@@ -602,6 +612,12 @@ Gitea), chosen when the connection is set up. It decides which API opens a pull 
 never inferred from the address, and any other provider is refused.
 _Avoid_: Git host (the host is only the address), vendor
 
+**Pull request record**:
+The pull request an approved change opened, kept once on its work item and its approval: the
+address, the Git provider, and the state it had when opened. Never edited; where the request
+stands later is a new observation, read from the provider only when a person refreshes it.
+_Avoid_: PR status (a record has a history of states, not one mutable status)
+
 **Diagnostics bundle**:
 The redacted file an administrator downloads from Health for support: versions, runner
 inventory as the runners reported it, readiness, backup status and recent errors (as codes
@@ -648,8 +664,14 @@ _Avoid_: agent API, MCP tool (that is another channel)
 **Session principal**:
 The machine principal (kind agent) of one team member of a mission, bound to its workspace
 and mission and recorded as acting for the mission owner (ADR 0032). A running attempt holds
-a credential for it that ends with the attempt or when its fence moves.
+a credential for it that ends with the attempt or when its fence moves. The credential runs
+only the **session command allowlist**.
 _Avoid_: bot, service account, agent user
+
+**Session command allowlist**:
+The commands a session credential may run: only those behind the Brain tools, not whatever its role's
+scopes admit (ADR 0032). The rest are refused; a test requires every command to be classified.
+_Avoid_: session scope, agent permissions
 
 ### Surfaces
 

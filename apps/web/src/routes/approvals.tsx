@@ -20,6 +20,7 @@ import { ReasonDialog } from "../ui/components/ReasonDialog";
 import { DisclosureCard } from "../ui/components/primitives";
 import { QueueRow, WorkspaceSection } from "../ui/components/Domain";
 import { DecisionCard } from "../ui/components/DecisionCard";
+import { PullRequests } from "../ui/components/PullRequests";
 import { t } from "../i18n";
 import { useApp } from "../ui/app-context";
 const workspaceLabel = (approval: ApprovalRequest) => approval.subject.workspaceId;
@@ -255,6 +256,7 @@ export function ApprovalDetailScreen(props: {
             <EffectBounds approval={approval()!} />
           </div>
           <div class="brain-detail-stack lg:col-start-1">
+            <Show when={approval()}>{(current) => <PullRequests resourceId={current().approvalId} workspaceId={current().subject.workspaceId} kind="approval" canRefresh={app.canDispatch() && current().subject.workspaceId === app.scope().workspaceId} />}</Show>
             <WorkspaceSection title={t("mp.decision-history.6286")} description={t("mp.the-audit-trail-remains-distinct.c088")}>
               <Show when={props.history.length} fallback={<p class="text-interface text-ink-gray-7">{t("mp.no-prior-decisions-recorded-for.bc04")}</p>}>
                 <ol class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1"><For each={props.history}>{(entry) => <li class="grid min-w-0 gap-1 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline sm:gap-4">

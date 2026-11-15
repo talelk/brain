@@ -1,7 +1,7 @@
 import { Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, Textarea } from "@talelk/newui-atoms";
-import type { Mission, MissionEvidenceBundle } from "@brain/contracts";
+import type { Mission, MissionEvidenceBundle, MissionJudge } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -16,6 +16,28 @@ type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 /** One finding per line, as the command takes them: trimmed, none empty, at most 50 of 2000 characters. */
 function findingsOf(text: string): string[] {
   return text.split("\n").map((line) => line.trim().slice(0, 2000)).filter((line) => line.length > 0).slice(0, 50);
+}
+
+const NOT_RUN = { "hosted-off": "signoff.judge.hostedOff", budget: "signoff.judge.budget", "no-evidence": "signoff.judge.noEvidence", "too-late": "signoff.judge.tooLate" } as const;
+
+/**
+ * What the advisory judge did for this bundle (#95): one neutral line, never a badge a pass could be mistaken for. When no judge ran, or it
+ * could not be reached, it says so plainly; sign-off never waits for it.
+ */
+function JudgeNote(props: { judge: MissionJudge }): JSX.Element {
+  const ran = () => props.judge.state === "done" || props.judge.state === "running" || props.judge.state === "pending";
+  const text = (): string => {
+    const judge = props.judge;
+    if (judge.state === "pending") return t("signoff.judge.pending");
+    if (judge.state === "running") return t("signoff.judge.running");
+    if (judge.state === "unavailable") return t("signoff.judge.unavailable");
+    if (judge.state === "done") return t(judge.reason === "budget" ? "signoff.judge.doneBudget" : "signoff.judge.done", { model: judge.model ?? "" });
+    const reason = judge.reason === "budget" || judge.reason === "no-evidence" || judge.reason === "too-late" ? judge.reason : "hosted-off";
+    return t(NOT_RUN[reason]);
+  };
+  return <p class="m-0 flex min-w-0 items-start gap-2 text-caption text-ink-gray-7" data-testid="signoff-judge" data-judge={props.judge.state} data-reason={props.judge.reason ?? ""}>
+    <span class={`${ran() ? "lucide-bot" : "lucide-circle-slash"} mt-0.5 size-4 shrink-0`} aria-hidden="true" />{text()}
+  </p>;
 }
 
 /**
@@ -75,7 +97,8 @@ export function MissionSignOff(props: { mission: Mission; onChanged: () => void 
         <Show when={current()}>{(entry) => <p class="m-0 text-interface text-ink-gray-7" data-testid="signoff-facts">
           {tn("signoff.facts.tasks", entry().items.length)} · {tn("signoff.facts.outputs", entry().outputVersions.length)} · {t("signoff.facts.brief", { version: entry().briefVersion })}
         </p>}</Show>
-        <Show when={current()}>{(entry) => <CriterionCoverage coverage={entry().coverage} />}</Show>
+        <Show when={current()}>{(entry) => <CriterionCoverage coverage={entry().coverage} judge={entry().judge} />}</Show>
+        <Show when={current()}>{(entry) => <JudgeNote judge={entry().judge} />}</Show>
         <Show when={signedOff()}>
           <p class="m-0 flex items-center gap-2 text-interface text-ink-gray-9" data-testid="signoff-done"><span class="lucide-badge-check size-4 shrink-0 text-ink-green-8" aria-hidden="true" />{t("signoff.done")}</p>
         </Show>

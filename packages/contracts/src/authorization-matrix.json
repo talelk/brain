@@ -90,8 +90,7 @@
     "agent-session": {
       "scopes": [
         "workspace:read",
-        "mission:write",
-        "workflow:dispatch"
+        "mission:write"
       ],
       "grantScope": "mission-session"
     }
@@ -665,6 +664,11 @@
       "redactPrivilegedDetails": false
     },
     "workItemComments.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "pullRequests.list": {
       "scope": "workspace:read",
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false

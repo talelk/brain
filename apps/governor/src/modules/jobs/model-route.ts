@@ -30,10 +30,15 @@ export function hostedConfig(s: Store, workspaceId: string): HostedConfig {
     : { enabled: false, vendor: "", model: "", baseUrl: "", inputMicroUsdPerMTok: 0, outputMicroUsdPerMTok: 0 };
 }
 
+/** Whether the workspace's hosted model is switched on, described and priced: only then does any role use it. */
+export function hostedUsable(config: HostedConfig): boolean {
+  return config.enabled && !!config.model && !!config.baseUrl && config.inputMicroUsdPerMTok >= 1 && config.outputMicroUsdPerMTok >= 1;
+}
+
 /** The route for one job, or nothing (self-hosted). `kind` is the job payload kind: `eval` is the check, `dispatch` an agent step. */
 export function modelRouteFor(s: Store, organizationId: string, workspaceId: string, runId: string, kind: string): ModelRoute | undefined {
   const config = hostedConfig(s, workspaceId);
-  if (!config.enabled || !config.model || !config.baseUrl || config.inputMicroUsdPerMTok < 1 || config.outputMicroUsdPerMTok < 1) return undefined;
+  if (!hostedUsable(config)) return undefined;
   const route = (role: ModelRoute["role"]): ModelRoute => ({
     tier: "hosted", role, vendor: config.vendor, model: config.model, baseUrl: config.baseUrl,
     inputMicroUsdPerMTok: config.inputMicroUsdPerMTok, outputMicroUsdPerMTok: config.outputMicroUsdPerMTok,

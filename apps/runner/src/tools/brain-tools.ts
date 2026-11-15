@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { JsonValue } from "@brain/contracts";
+import { BRAIN_TOOL_COMMANDS, type JsonValue } from "@brain/contracts";
 import type { GovernorClient, SessionGrant } from "../governor-client";
 import type { BrokerResult } from "./brokers";
 
@@ -8,15 +8,9 @@ import type { BrokerResult } from "./brokers";
  * Brain command run as the attempt's own machine principal (ADR 0032). The tool names no command type and no id it cannot know: the mission,
  * the member and the task this attempt serves come from the Governor with the credential. What the call may do is decided by the Governor's
  * authorization matrix and the principal's own-mission scope, never here; a refusal comes back as a failed tool call with its plain reason.
- * The credential stays in this module: it is not part of any tool input, brokered data, event or artifact.
+ * The credential stays in this module: it is not part of any tool input, brokered data, event or artifact. The tool-to-command table is
+ * shared with the Governor (`BRAIN_TOOL_COMMANDS`), whose session allowlist is exactly its commands.
  */
-export const BRAIN_TOOL_COMMANDS = {
-  "mission.propose-plan": "plan.propose",
-  "mission.message-member": "mission.message.send",
-  "mission.submit-handoff": "handoff.submit",
-  "mission.comment": "workItem.comment",
-} as const;
-
 export const BRAIN_BROKERED: ReadonlySet<string> = new Set(Object.keys(BRAIN_TOOL_COMMANDS));
 
 type Client = Pick<GovernorClient, "sessionCredential" | "actAs">;

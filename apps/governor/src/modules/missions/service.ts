@@ -16,6 +16,7 @@ import { capReached, missionUsage, outsideMissionsUsage, runUsage, setSpendCap, 
 import { planEstimate, planWallLimit } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listComments, recordComment } from "./comments";
+import { listPullRequests } from "./pull-requests";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, recordTaskResult, sendMessage, taskOf, taskResult, verifyOutputs } from "./outputs";
 import { readVerified } from "../artifacts/index";
 import { assembleMissionBundle, type ServedCriterion, dependencyHandoffs, finalizeHandoff, latestMissionBundle, needsSignOff, recordMissionVerdict, submitHandoff, trustForBundle, workflowCovers } from "../evidence/index";
@@ -24,6 +25,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, QUOTA_MAX_WAITS, REMEDY, classifyFailure, lessonText, quotaWaitMs, waitWords, type FailureClass } from "../../domain/failure";
 import { GENERAL_TASK_WORKFLOW } from "../workflows/index";
+import { hostedConfig, hostedUsable } from "../jobs/index";
 import { missionTimeline } from "./timeline";
 import { observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
@@ -1489,11 +1491,15 @@ export class MissionService {
     if (queryType === "evalCases.list") return listEvalCases(db, limit) as unknown as JsonValue;
     if (queryType === "missionOutputs.get") return outputDetail(db, String(resourceId)) as unknown as JsonValue;
     if (queryType === "missionOutputs.list") return { items: listOutputs(db, this.missionRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
+    if (queryType === "pullRequests.list") {
+      if (!resourceId) throw new BrainDomainError("INVALID_ARGUMENT", "a work item or an approval is required");
+      return { items: listPullRequests(db, resourceId) } as unknown as JsonValue;
+    }
     if (queryType === "workItemComments.list") return { items: listComments(this.store, db, actor.organizationId, this.workItemRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "missionMessages.list") return { items: listMessages(this.store, db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "missions.timeline") return missionTimeline(this.store, db, actor.organizationId, workspaceId, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) as unknown as JsonValue;
     if (queryType === "handoffs.forWorkItem") return { items: dependencyHandoffs(db, this.workItemRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
-    if (queryType === "missionBundles.latest") return (latestMissionBundle(db, this.missionRow(actor, workspaceId, String(resourceId)).id) ?? null) as unknown as JsonValue;
+    if (queryType === "missionBundles.latest") return (latestMissionBundle(db, this.missionRow(actor, workspaceId, String(resourceId)).id, hostedUsable(hostedConfig(this.store, workspaceId))) ?? null) as unknown as JsonValue;
     if (queryType === "missions.forSubject") {
       const rows = db.prepare("SELECT m.* FROM mission_subjects s JOIN missions m ON m.id=s.mission_id WHERE s.subject_id=? ORDER BY m.created_at_ms DESC LIMIT ?").all(String(resourceId), limit) as MissionRow[];
       return { items: rows.map((row) => this.mission(workspaceId, row)) } as unknown as JsonValue;

@@ -5,7 +5,7 @@ import { BrainDomainError } from "./errors";
 export const AUTONOMY_PRESETS: Readonly<Record<AutonomyPreset, readonly PlanOperation[]>> = {
   supervised: ["conflictTask.create"],
   standard: ["task.add", "task.change", "task.remove", "task.reassign", "member.addExistingRole", "decision.accept", "conflictTask.create"],
-  autonomous: ["task.add", "task.change", "task.remove", "task.reassign", "member.addExistingRole", "member.addNewRole", "decision.accept", "conflictTask.create", "backlog.drop"],
+  autonomous: ["task.add", "task.change", "task.remove", "task.reassign", "member.addExistingRole", "member.addNewRole", "member.remove", "decision.accept", "conflictTask.create", "backlog.drop"],
 };
 
 export function policyFor(preset: AutonomyPreset, version: number): AutonomyPolicy {
@@ -140,7 +140,7 @@ export function assertMembersBound(confirmed: readonly TeamMember[], proposed: r
   }
 }
 
-/** Team growth a coordinator needs the policy to permit: more of a known role, or a new role. */
+/** Team changes a coordinator needs the policy to permit: more of a known role, a new role, or taking an idle member off (a member with started work cannot go: its task would change hands). */
 export function teamOperations(confirmed: readonly TeamMember[], proposed: readonly TeamMember[]): readonly PlanOperation[] {
   const known = new Set(confirmed.map((member) => member.memberId));
   const roles = new Set(confirmed.map((member) => member.role));
@@ -149,5 +149,7 @@ export function teamOperations(confirmed: readonly TeamMember[], proposed: reado
     if (known.has(member.memberId)) continue;
     operations.add(roles.has(member.role) ? "member.addExistingRole" : "member.addNewRole");
   }
+  const kept = new Set(proposed.map((member) => member.memberId));
+  if (confirmed.some((member) => !kept.has(member.memberId))) operations.add("member.remove");
   return [...operations].sort();
 }

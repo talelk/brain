@@ -67,9 +67,13 @@ describe("mission plan diff and autonomy policy (T51, E113/E114)", () => {
     expect(() => assertMembersBound(team, [{ ...team[0]!, role: "Platform engineer" }, team[1]!], [])).not.toThrow();
   });
 
-  it("team growth is an existing-role or new-role operation", () => {
+  it("team changes are adding an existing role, adding a new role or removing a member", () => {
     expect(teamOperations(team, [...team, { memberId: "backend-2", role: "Backend engineer", agentId: "builder", engine: "pi" }])).toEqual(["member.addExistingRole"]);
     expect(teamOperations(team, [...team, { memberId: "designer", role: "Designer", agentId: "reader", engine: "pi" }])).toEqual(["member.addNewRole"]);
-    expect(teamOperations(team, team.slice(0, 1))).toEqual([]);
+    expect(teamOperations(team, team.slice(0, 1))).toEqual(["member.remove"]);
+    expect(teamOperations(team, team)).toEqual([]);
+    expect(teamOperations(team, [team[0]!, { memberId: "designer", role: "Designer", agentId: "reader", engine: "pi" }])).toEqual(["member.addNewRole", "member.remove"]);
+    expect(AUTONOMY_PRESETS.standard).not.toContain("member.remove");
+    expect(AUTONOMY_PRESETS.autonomous).toContain("member.remove");
   });
 });

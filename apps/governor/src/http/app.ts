@@ -1016,6 +1016,8 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     void brain.autoStart.sweepAll().catch(() => undefined);
     // #50: requested challenges start their reviewer run and finished ones are collected.
     void brain.challenges.sweep().catch(() => undefined);
+    // #95: a submitted mission bundle is judged (advisory), and a judge request a restart or an outage left is resumed.
+    void brain.bundleJudge.sweep().catch(() => undefined);
     // T65: attention items notify the mission's starter and watchers.
     try { brain.notifyAttention(); } catch { /* notification is best-effort; the inbox is the record */ }
     try { brain.notifyDigests(); } catch { /* the summary is best-effort too */ }
