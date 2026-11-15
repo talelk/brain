@@ -706,10 +706,10 @@ export class MissionService {
    * condition holds; otherwise it stays a proposal and the reason is recorded for Needs you. Both outcomes are events on the plan, which is
    * the workspace audit trail.
    */
-  private settleOccurrence(actor: ActorContext, input: { organizationId: string; workspaceId: string; startedBy: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean }, db: ReturnType<Store["workspaceDb"]>, missionId: string, proposed: RepeatPlan): void {
+  private settleOccurrence(actor: ActorContext, input: { organizationId: string; workspaceId: string; startedBy: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean; subjects?: readonly { kind: "ticket" | "incident" }[] }, db: ReturnType<Store["workspaceDb"]>, missionId: string, proposed: RepeatPlan): void {
     const plan = db.prepare("SELECT id, digest FROM plan_versions WHERE mission_id=? AND state='proposed' ORDER BY revision DESC LIMIT 1").get(missionId) as { id: string; digest: string } | undefined;
     if (!plan) return;
-    const schedule: RepeatSchedule = { automationId: input.automationId ?? "unknown", createdBy: input.startedBy, ...(input.sourceMissionId ? { sourceMissionId: input.sourceMissionId } : {}), autoConfirm: input.autoConfirm !== false };
+    const schedule: RepeatSchedule = { automationId: input.automationId ?? "unknown", createdBy: input.startedBy, ...(input.sourceMissionId ? { sourceMissionId: input.sourceMissionId } : {}), ...(input.subjects?.[0] ? { subjectKind: input.subjects[0].kind } : {}), autoConfirm: input.autoConfirm !== false };
     const verdict = repeatGate(this.store, db, { organizationId: input.organizationId, workspaceId: input.workspaceId, schedule, missionId, proposed });
     const base = { missionId, planVersionId: plan.id, digest: plan.digest, actorId: `schedule:${schedule.automationId}`, automationId: schedule.automationId, createdBy: schedule.createdBy };
     if (verdict.ok) {

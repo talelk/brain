@@ -88,6 +88,15 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "mission-task-comments", route: (d) => `/missions/${d.seed.missionIds.active}/plan?item=${d.seed.workItems["in-progress"]}`, heading: "Comments", prepare: seedTaskComments, after: async (page) => { await page.getByRole("heading", { name: "Comments", level: 4 }).evaluate((element) => element.scrollIntoView({ block: "start" })); } },
   { id: "mission-timeline", route: (d) => `/missions/${d.seed.missionIds.active}/timeline`, heading: "Stabilize authentication", prepare: seedTimelineEntries, after: async (page) => { const timeline = page.getByTestId("mission-timeline"); await expect(timeline).toBeVisible(); await timeline.evaluate((element) => element.scrollIntoView({ block: "start" })); } },
   { id: "run-tool-calls", route: (d) => `/runs/${d.seed.run!.jobId}?tab=tool-calls`, heading: "Run inspector", prepare: seedRunToolCalls, waitFor: "run-tool-calls" },
+  // A ticket trigger on the Schedules screen: its card, then the editor with the subject choice and the plan explanation (ticket #122).
+  { id: "schedules-subject-trigger", route: () => "/w/operations/schedules", heading: "Schedules", prepare: seedSubjectTrigger, after: async (page) => { await expect(page.locator("article").filter({ hasText: "Draft a reply to every new ticket" }).getByTestId("subject-plan-summary")).toBeVisible(); } },
+  { id: "schedules-subject-editor", route: () => "/w/operations/schedules", heading: "Schedules", after: async (page) => {
+    await page.getByRole("button", { name: "New schedule", exact: true }).click();
+    const sheet = page.getByRole("dialog");
+    await sheet.getByLabel("Trigger", { exact: true }).click();
+    await page.getByRole("option", { name: "When a new ticket or incident arrives", exact: true }).click();
+    await expect(sheet.getByTestId("subject-plan")).toBeVisible();
+  } },
   // Eval cases come late, because the cases are recorded by sending tasks back, which adds missions the screens above would show.
   { id: "eval-cases", route: () => "/w/operations/quality/cases", heading: "Eval cases", prepare: seedEvalCases },
   // The plan editor open on a confirmed plan's team: its mission adds a work item only the screens after it could list.
@@ -153,6 +162,14 @@ async function seedRunToolCalls(governor: Parameters<typeof seedBrowserDemo>[1],
   const at = (offsetMs: number) => new Date(demo.seededAtMs + offsetMs).toISOString();
   insert.run("attempt-demo", "demo-call-1", demo.actor.organizationId, "operations", run.runId, "documents.read", at(1_000), 0, at(1_400), null);
   insert.run("attempt-demo", "demo-call-2", demo.actor.organizationId, "operations", run.runId, "web.fetch", at(2_000), 1, at(2_300), "host example.com is not on this tool's allowlist");
+}
+
+/** A ticket trigger, made through the command the Schedules screen sends. */
+async function seedSubjectTrigger(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Demo): Promise<void> {
+  await governor.app.brain.executeCommand(demo.actor, {
+    contractVersion: "brain.command/v1", commandId: "cmd-vb-subject-trigger", commandType: "automation.upsert", workspaceId: demo.workspaceId, idempotencyKey: "vb-subject-trigger",
+    payload: { title: "Draft a reply to every new ticket", target: { kind: "play", id: "support-reply-draft" }, trigger: { kind: "subject", subjectKind: "ticket" } },
+  } as never, "vb-subject-trigger");
 }
 
 async function seedEvalCases(governor: Parameters<typeof seedBrowserDemo>[1], page: Page): Promise<void> {
