@@ -6,6 +6,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { attentionItems } from "../stream/index";
 import { preferencesOf, webhookTarget } from "./channels";
+import { attentionLink, digestLink } from "./notification-links";
 import { smtpTarget } from "./smtp";
 
 /** One notification per mission per recipient in this window; approvals notify immediately elsewhere (#40). */
@@ -55,7 +56,7 @@ export function notifyAttention(store: Store, send: Sender | undefined): number 
         const channels: Channels = held ? { push: false, webhook: false, email: false } : allowed;
         const pushed = Boolean(send) && (channels.push || channels.webhook || channels.email);
         db.prepare("INSERT INTO attention_notifications(principal_id,item_id,mission_id,title,pushed,sent_at_ms) VALUES (?,?,?,?,?,?)").run(principalId, item.id, item.missionId, item.title, pushed ? 1 : 0, store.now());
-        const url = item.kind === "result-ready" && item.knowledgeAssetId ? `/w/${item.workspaceId}/knowledge/review?asset=${item.knowledgeAssetId}` : item.kind === "result-ready" ? `/missions/${item.missionId}/outputs?w=${item.workspaceId}${item.resourceId === item.missionId ? "" : `&result=${item.resourceId}`}` : item.kind === "sign-off" ? `/missions/${item.missionId}/outputs?w=${item.workspaceId}` : `/missions/${item.missionId}/live?w=${item.workspaceId}`;
+        const url = attentionLink({ kind: item.kind, workspaceId: item.workspaceId, missionId: item.missionId, ...(item.resourceId !== undefined ? { resourceId: item.resourceId } : {}), ...(item.knowledgeAssetId ? { knowledgeAssetId: item.knowledgeAssetId } : {}) });
         if (send && pushed) void send(ws.organization_id, principalId, { title: item.title, body: item.detail ?? (item.kind === "result-ready" ? "A result is ready." : "A mission needs you."), url, kind: item.kind }, channels).catch(() => undefined);
         sent++;
       }
@@ -90,7 +91,7 @@ export function sendDigests(store: Store, send: Sender): number {
     }
     if (count === 0 || !firstWorkspace) continue;
     store.control.prepare("UPDATE notification_preferences SET digest_last_ms=? WHERE organization_id=? AND principal_id=?").run(now, row.organization_id, row.principal_id);
-    void send(row.organization_id, row.principal_id, { title: "Results are ready", body: `${count} ${count === 1 ? "result is" : "results are"} ready.`, url: `/w/${firstWorkspace}/today`, kind: "digest", count }, channels).catch(() => undefined);
+    void send(row.organization_id, row.principal_id, { title: "Results are ready", body: `${count} ${count === 1 ? "result is" : "results are"} ready.`, url: digestLink(firstWorkspace), kind: "digest", count }, channels).catch(() => undefined);
     sent++;
   }
   return sent;

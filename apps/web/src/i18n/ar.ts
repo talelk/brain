@@ -1795,5 +1795,6 @@ export const ar: Catalog = {
   "work.egress.none": "لا يوجد مضيف مسموح به: تعمل أدوات هذه المساحة دون شبكة.",
   "work.egress.invalid": "ليس مضيفًا يمكن للوكيل السماح به: {entries}.",
   "work.egress.saved": "تم حفظ المضيفات المسموح بها.",
+  "nav.item.live": "مباشر",
   // @@END
 };

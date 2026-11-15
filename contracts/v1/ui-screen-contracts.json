@@ -1013,6 +1013,11 @@
     "icon": "lucide-shield-check"
    },
    {
+    "label": "Live",
+    "route": "/w/:id/live",
+    "icon": "lucide-radio"
+   },
+   {
     "label": "Schedules",
     "route": "/w/:id/schedules",
     "icon": "lucide-calendar-clock"

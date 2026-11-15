@@ -1729,5 +1729,6 @@ export const fr: Catalog = {
   "work.egress.none": "Aucun hôte n'est autorisé : les outils de cet espace de travail s'exécutent sans réseau.",
   "work.egress.invalid": "Pas un hôte que le proxy peut autoriser : {entries}.",
   "work.egress.saved": "Les hôtes autorisés ont été enregistrés.",
+  "nav.item.live": "En direct",
   // @@END
 };
