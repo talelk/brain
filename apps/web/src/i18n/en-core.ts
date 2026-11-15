@@ -22,6 +22,7 @@ export const enCore = {
   "nav.item.plays": "Plays",
   "nav.item.knowledge": "Knowledge",
   "nav.item.review-inbox": "Review inbox",
+  "nav.item.agents": "Agents",
   "nav.item.support": "Support",
   "nav.item.incidents": "Incidents",
   "nav.item.studio": "Studio",

@@ -1671,7 +1671,6 @@ export const enExtra = {
   "board.capped": "Showing the {count} most recently changed tasks. Narrow the board with a filter to see older work.",
   "board.counts": "{shown} of {total} tasks",
   "board.in-mission": "In mission {title}",
-  "nav.item.agents": "Agents",
   "library.tab.agents": "Agents",
   "agents.title": "Agents",
   "agents.description": "Every agent definition in the active release and what it is doing now. Status is worked out from its sessions each time you look; nothing stores it.",
