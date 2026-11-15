@@ -5,7 +5,7 @@ export { loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscripti
 export { operationalReadiness } from "./readiness";
 export { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, localRunnerSettingsCurrent } from "./local-runtime";
 export { liveStatus, platformHealth, workspaceContext } from "./read";
-export { alertBadProbes, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, readProbes, recordProbe } from "./probes";
+export { alertBadProbes, checkBackups, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, readProbes, recordProbe } from "./probes";
 export { metricsAuthorized, metricsToken, renderMetrics } from "./metrics";
 export { replicaConfig, replicateOnce, restoreFromReplica } from "./replica";
 export { channelsFor, notifyAttention, notificationsFor, sendDigests, watchCommands, type Sender } from "./attention-notify";
@@ -13,3 +13,4 @@ export { composeMessage, smtpTarget, sendMail, validAddress } from "./smtp";
 export { absoluteLink, emailContent, safeMailLink, sendEmail, preferencesView, sendWebhook, setPreferences as setNotificationPreferences, webhookBody, webhookTarget } from "./channels";
 export { handleInbound } from "./inbound";
 export { connectorsFromEnv, type Connectors } from "./connectors";
+export { diagnosticsBundle } from "./diagnostics";
