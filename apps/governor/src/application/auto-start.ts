@@ -4,6 +4,7 @@ import { BrainDomainError } from "../domain/errors";
 import type { MissionService } from "../modules/missions/index";
 import { workflowAgentTools } from "../modules/missions/index";
 import { isDraining } from "../modules/jobs/index";
+import { dispatchActor } from "../modules/identity/index";
 import { GENERAL_TASK_WORKFLOW, workItemSituation } from "../modules/workflows/index";
 import type { Store } from "./store";
 
@@ -78,9 +79,10 @@ export class AutoStart {
     if (plan.length === 0) return;
     const catalog = this.ports.catalog(organizationId);
     for (const mission of plan) {
-      const actor: ActorContext = { kind: "workflow", actorId: mission.ownerId, organizationId, workspaceId, scopes: ["workflow:dispatch"], authMethod: "service-credential", authGeneration: 1 };
       let slots = mission.slots;
       for (const item of mission.items) {
+        // The Governor starts the task as the machine principal of the member it is assigned to (ADR 0032), acting for the owner, never as the owner.
+        const actor: ActorContext = dispatchActor(this.ports.store, { organizationId, workspaceId, missionId: mission.missionId, memberId: item.memberId, actingFor: mission.ownerId });
         const note = (text: string) => missions.noteStartBlocker(organizationId, workspaceId, item.workItemId, text);
         // The task's own workflow first; when it is missing or cannot take the task's situation, the general task workflow
         // (then the mission's own most used one) runs it, so nobody has to pick one.

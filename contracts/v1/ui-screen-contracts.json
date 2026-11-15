@@ -864,6 +864,26 @@
    "title": "Quality"
   },
   {
+   "route": "/w/:id/quality/cases",
+   "queries": [
+    "evalCases.list"
+   ],
+   "actions": [],
+   "content": [
+    "case",
+    "source",
+    "mission",
+    "findings",
+    "replay"
+   ],
+   "owner": "T34",
+   "navigationGroup": "administration",
+   "area": "administration",
+   "icon": "lucide-clipboard-list",
+   "task": "Review the results sent back or rejected, and replay each by hand before a release",
+   "title": "Eval cases"
+  },
+  {
    "route": "/administration/integrations",
    "queries": [
     "integrations.list",
@@ -1053,6 +1073,14 @@
     "organizationOnly": true,
     "icon": "lucide-gauge",
     "scope": "instance"
+   },
+   {
+    "label": "Eval cases",
+    "route": "/w/:id/quality/cases",
+    "adminOnly": true,
+    "organizationOnly": true,
+    "icon": "lucide-clipboard-list",
+    "scope": "workspace"
    },
    {
     "label": "Integrations",

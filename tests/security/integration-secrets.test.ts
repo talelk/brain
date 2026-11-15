@@ -25,7 +25,7 @@ describe("Git protocol credential and authorization boundaries (T55, E108)", () 
     const app = await createApp({ dataDir: dir, allowTestActor: true });
     cleanup.push(async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
     const w = setupWorld(app.brain);
-    const id = (await run(w, "integration.connect", "secret-connect", { name: "Secret remote", repositoryUrl: fixture.remote, username: "private-user", token: "highly-secret-token" })).resourceId!;
+    const id = (await run(w, "integration.connect", "secret-connect", { provider: "gitea", name: "Secret remote", repositoryUrl: fixture.remote, username: "private-user", token: "highly-secret-token" })).resourceId!;
     const stored = w.brain.store.control.prepare("SELECT encrypted_credentials FROM git_connections WHERE id=?").get(id) as { encrypted_credentials: string };
     expect(stored.encrypted_credentials).not.toContain("highly-secret-token");
     expect(stored.encrypted_credentials).not.toContain("private-user");
@@ -41,10 +41,10 @@ describe("Git protocol credential and authorization boundaries (T55, E108)", () 
     const app = await createApp({ dataDir: dir, allowTestActor: true });
     cleanup.push(async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
     const w = setupWorld(app.brain);
-    const id = (await run(w, "integration.connect", "scope-connect", { name: "Scoped remote", repositoryUrl: fixture.remote })).resourceId!;
+    const id = (await run(w, "integration.connect", "scope-connect", { provider: "gitea", name: "Scoped remote", repositoryUrl: fixture.remote })).resourceId!;
     await expect(Promise.resolve().then(async () => await run(w, "integration.bind", "bind-before-verify", { connectionId: id, workspaceId: w.workspaceId, kind: "configuration", repositoryKey: fixture.remote, access: "write" }, true))).rejects.toThrow(/before binding/i);
     const noScopes = { ...w.owner, scopes: ["workspace:read"] };
-    await expect(Promise.resolve().then(async () => await run(w, "integration.connect", "no-scope-connect", { name: "Denied", repositoryUrl: fixture.remote }, false, noScopes))).rejects.toThrow(/missing scope/i);
+    await expect(Promise.resolve().then(async () => await run(w, "integration.connect", "no-scope-connect", { provider: "gitea", name: "Denied", repositoryUrl: fixture.remote }, false, noScopes))).rejects.toThrow(/missing scope/i);
     const outsider = { ...w.owner, organizationId: "org-other" };
     await expect(Promise.resolve().then(() => w.brain.executeQuery(outsider, { queryType: "integrations.repositories", resourceId: id }))).rejects.toThrow(/not found/i);
   });
@@ -54,7 +54,7 @@ describe("Git protocol credential and authorization boundaries (T55, E108)", () 
     const app = await createApp({ dataDir: dir, allowTestActor: true });
     cleanup.push(async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
     const w = setupWorld(app.brain);
-    await expect(Promise.resolve().then(async () => await run(w, "integration.connect", "credential-url", { name: "Unsafe", repositoryUrl: "https://user:password@example.test/repo.git" }))).rejects.toThrow(/cannot contain credentials/i);
-    await expect(Promise.resolve().then(async () => await run(w, "integration.connect", "unsafe-local", { name: "Unsafe local", repositoryUrl: "/tmp/repo/../secret.git" }))).rejects.toThrow(/absolute HTTP|requires HTTPS/i);
+    await expect(Promise.resolve().then(async () => await run(w, "integration.connect", "credential-url", { provider: "gitea", name: "Unsafe", repositoryUrl: "https://user:password@example.test/repo.git" }))).rejects.toThrow(/cannot contain credentials/i);
+    await expect(Promise.resolve().then(async () => await run(w, "integration.connect", "unsafe-local", { provider: "gitea", name: "Unsafe local", repositoryUrl: "/tmp/repo/../secret.git" }))).rejects.toThrow(/absolute HTTP|requires HTTPS/i);
   });
 });

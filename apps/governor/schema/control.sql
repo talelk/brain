@@ -24,7 +24,7 @@ CREATE TABLE workspaces (
 ) STRICT;
 CREATE TABLE git_connections (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
-  name TEXT NOT NULL, provider TEXT NOT NULL CHECK(provider IN ('git')),
+  name TEXT NOT NULL, provider TEXT NOT NULL CHECK(provider IN ('github','github-enterprise','gitlab','gitea')),
   base_url TEXT NOT NULL, encrypted_credentials TEXT NOT NULL,
   status TEXT NOT NULL CHECK(status IN ('pending','verified','failed')), detail TEXT,
   repositories_json TEXT NOT NULL CHECK(json_valid(repositories_json)),
@@ -278,12 +278,22 @@ CREATE TABLE principals (
   auth_subject_id TEXT NOT NULL, disabled_at_ms INTEGER,
   UNIQUE(organization_id,kind,auth_subject_id), UNIQUE(id,organization_id)
 ) STRICT;
+-- A session credential (ADR 0032): minted for one running attempt and valid only while that attempt holds its fence.
 CREATE TABLE machine_sessions (
   token_digest TEXT PRIMARY KEY, principal_id TEXT NOT NULL, organization_id TEXT NOT NULL,
   expires_at_ms INTEGER NOT NULL, revoked_at_ms INTEGER, created_at_ms INTEGER NOT NULL,
+  attempt_id TEXT DEFAULT NULL, job_fence INTEGER DEFAULT NULL,
   FOREIGN KEY(principal_id,organization_id) REFERENCES principals(id,organization_id)
 ) STRICT;
 CREATE INDEX machine_sessions_expiry ON machine_sessions(expires_at_ms);
+CREATE INDEX machine_sessions_attempt ON machine_sessions(attempt_id);
+-- The machine principal of a mission team member (ADR 0032): bound to one workspace and mission, acting for the mission owner.
+CREATE TABLE agent_principals (
+  principal_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, mission_id TEXT NOT NULL,
+  member_id TEXT, acting_for TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  FOREIGN KEY(principal_id,organization_id) REFERENCES principals(id,organization_id),
+  FOREIGN KEY(workspace_id,organization_id) REFERENCES workspaces(id,organization_id)
+) STRICT;
 CREATE TABLE setup_intent (
   singleton INTEGER PRIMARY KEY CHECK(singleton=1), organization_id TEXT NOT NULL,
   email TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('pending','ready'))

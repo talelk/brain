@@ -35,7 +35,7 @@ describe("configuration Studio publication pipeline (T56, E109)", () => {
     expect(detail.snapshot.revisions[0]!.documents[0]!.text).toContain("spec:\n  jobs:");
     expect(detail.snapshot.impact.changedDefinitions.length).toBeGreaterThan(0);
 
-    const connectionId = (await run(w, "integration.connect", "studio-connect", { name: "Studio remote", repositoryUrl: remote.remote })).resourceId!;
+    const connectionId = (await run(w, "integration.connect", "studio-connect", { provider: "gitea", name: "Studio remote", repositoryUrl: remote.remote })).resourceId!;
     expect(await w.brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });
     const bindingId = (await run(w, "integration.bind", "studio-bind", { connectionId, workspaceId: w.workspaceId, kind: "configuration", repositoryKey: remote.remote, access: "write" })).resourceId!;
     expect(await w.brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });

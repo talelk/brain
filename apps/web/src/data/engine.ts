@@ -63,6 +63,14 @@ export interface QualityBreakdown {
 }
 export const qualityBreakdownRead = (signal?: AbortSignal) => read<QualityBreakdown>({ queryType: "quality.breakdown" }, signal);
 
+/** One saved regression case (`brain.eval-case/v1`, ADR 0010): the stored plan, the reviewer's findings and the pinned deliverable digests. */
+export interface EvalCaseRow {
+  format: "brain.eval-case/v1"; caseId: string; kind: "rejected-verdict" | "task-sent-back"; workspaceId: string; missionId: string; missionTitle: string; intent: string;
+  successCriteria: string[]; tasks: { id: string; title: string; criteria: string[] }[]; findings: string[]; deliverableDigests: string[]; recordedAt: string;
+}
+/** Newest first; `total` counts every case even when `items` is the newest page of them. */
+export const evalCasesRead = (workspaceId: string, signal?: AbortSignal) => read<{ items: EvalCaseRow[]; total: number }>({ queryType: "evalCases.list", workspaceId, limit: 100 }, signal);
+
 /** Which sign-in ways the sign-in page offers (public, no session needed). */
 export interface AuthProviders { password: boolean; sso: { providerId: string; label: string; startPath: string } | null }
 export const authProvidersRead = (signal?: AbortSignal) => governor<AuthProviders>("/v1/auth/providers", undefined, signal);

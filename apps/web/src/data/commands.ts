@@ -1,6 +1,6 @@
 import { runCommand } from "../data/governor";
 import type { OidcRole } from "./engine";
-import type { CommandReceipt, MissionBudget, OrganizationAdminCommand, PlanTask, WorkItemState } from "@brain/contracts";
+import type { CommandReceipt, GitProvider, MissionBudget, OrganizationAdminCommand, PlanTask, WorkItemState } from "@brain/contracts";
 
 /**
  * Explicit Brain commands, one per declared command type.
@@ -95,7 +95,7 @@ export type PayloadFor<K extends CommandKind> =
                                                   : K extends "document.revise" ? { documentId: string; title: string; fileName: string; mediaType: string; bytesBase64: string }
                                                     : K extends "document.associate" ? { documentId: string; resource: { kind: "workItem" | "mission" | "session" | "run"; id: string } }
                                                       : K extends "document.delete" ? { documentId: string; reason: string }
-                                                        : K extends "integration.connect" ? { name: string; repositoryUrl: string; username?: string; token?: string }
+                                                        : K extends "integration.connect" ? { name: string; provider: GitProvider; repositoryUrl: string; username?: string; token?: string }
                                                           : K extends "integration.verify" ? { connectionId: string }
                                                             : K extends "integration.bind" ? { connectionId: string; workspaceId: string; kind: "configuration" | "project"; repositoryKey: string; access: "read" | "write" }
                                                               : K extends "configDraft.create" ? { title: string; kind?: string; bindingId?: string; documents?: Array<{ path: string; text: string }>; assets?: Array<{ path: string; text: string }>; sourceDefinition?: { kind: "Agent" | "Workflow" | "RunnerGroup" | "Policy" | "Tool"; id: string; mode: "edit" | "duplicate" } }

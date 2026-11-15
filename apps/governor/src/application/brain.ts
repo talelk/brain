@@ -146,6 +146,7 @@ export class Brain {
         startMission: (input) => this.missions.startFromPlay(input),
         startDescribedMission: (input) => this.missions.startFromDescription(input),
         missionOpen: (organizationId, workspaceId, missionId) => this.missions.isOpen(organizationId, workspaceId, missionId),
+        sessionBinding: (organizationId, workspaceId, runId) => this.missions.sessionBinding(organizationId, workspaceId, runId),
       });
       this.capitalization = new CapitalizationService(this.store, { memory: this.memory, reuse: this.reuse });
       this.evidence = new EvidenceService(this.store, {

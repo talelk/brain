@@ -2,7 +2,7 @@ import { createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, Select, EmptyState } from "@talelk/newui-molecules";
-import type { GitConnection, GitProposal, IntegrationRepository, RepositoryBinding } from "@brain/contracts";
+import type { GitConnection, GitProposal, GitProvider, IntegrationRepository, RepositoryBinding } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -14,6 +14,12 @@ import { IconTile } from "../../ui/components/primitives";import { WorkspaceSect
 import { StatGrid } from "@talelk/newui-organisms";
 import { GitGuideChecklist } from "../../ui/components/GitGuide";
 import { t } from "../../i18n";
+/** The Git providers Brain can open pull requests with; the owner picks one per connection, it is never worked out from the address. */
+const PROVIDER_OPTIONS: ReadonlyArray<{ value: GitProvider; label: string }> = [
+  { value: "github", label: "GitHub" }, { value: "github-enterprise", label: "GitHub Enterprise" }, { value: "gitlab", label: "GitLab" }, { value: "gitea", label: "Gitea" },
+];
+const providerLabel = (provider: GitProvider): string => PROVIDER_OPTIONS.find((option) => option.value === provider)?.label ?? provider;
+
 interface IntegrationView {
   connections: GitConnection[];
   bindings: RepositoryBinding[];
@@ -23,6 +29,7 @@ interface IntegrationView {
 export default function IntegrationsPage(): JSX.Element {
   const app = useApp();
   const [name, setName] = createSignal("");
+  const [provider, setProvider] = createSignal<GitProvider | "">("");
   const [repositoryUrl, setRepositoryUrl] = createSignal("");
   const [username, setUsername] = createSignal("");
   const [token, setToken] = createSignal("");
@@ -62,12 +69,13 @@ export default function IntegrationsPage(): JSX.Element {
 
   async function connect(): Promise<void> {
     setAttempted(true);
-    if (busy() || !name().trim() || !repositoryUrl().trim()) return;
+    const chosen = provider();
+    if (busy() || !name().trim() || !chosen || !repositoryUrl().trim()) return;
     setBusy(true); setError("");
     try {
-      const created = await app.run("integration.connect", { name: name().trim(), repositoryUrl: repositoryUrl().trim(), ...(username().trim() ? { username: username().trim() } : {}), ...(token() ? { token: token() } : {}) });
+      const created = await app.run("integration.connect", { name: name().trim(), provider: chosen, repositoryUrl: repositoryUrl().trim(), ...(username().trim() ? { username: username().trim() } : {}), ...(token() ? { token: token() } : {}) });
       if (!created.accepted || !created.resourceId) throw new Error(created.detail);
-      setToken(""); setAttempted(false); setConnectOpen(false);
+      setToken(""); setProvider(""); setAttempted(false); setConnectOpen(false);
       await refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Connection failed"); }
     finally { setBusy(false); }
@@ -104,7 +112,7 @@ export default function IntegrationsPage(): JSX.Element {
         <IconTile icon="lucide-plug" tone="gray" />
         <h2 class="text-base-medium">{t("adm.no-repository-is-connected.5698")}</h2>
         <p class="brain-readable max-w-xl text-interface text-ink-gray-7">{t("adm.brain-works-without-this-connect.fa97")}</p>
-        <ol class="max-w-xl list-decimal ps-5 text-start text-interface text-ink-gray-7"><li>Choose Connect remote and give the repository URL (and a token if it is private).</li><li>{t("adm.verify-it-brain-checks-the-real.6da6")}</li><li>{t("adm.bind-a-repository-to-a-workspace.f5e6")}</li></ol>
+        <ol class="max-w-xl list-decimal ps-5 text-start text-interface text-ink-gray-7"><li>{t("adm.git-provider.first-step")}</li><li>{t("adm.verify-it-brain-checks-the-real.6da6")}</li><li>{t("adm.bind-a-repository-to-a-workspace.f5e6")}</li></ol>
         <Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setConnectOpen(true); }}>{t("adm.connect-a-repository.5b95")}</Button>
       </div></Show>
       <Show when={!firstUse()}><StatGrid compact stats={[
@@ -120,7 +128,7 @@ export default function IntegrationsPage(): JSX.Element {
             <div class="brain-queue"><For each={integrations.state().data?.connections}>{(connection) => <article class="flex gap-3 border-b border-outline-gray-1 py-3">
               <IconTile icon="lucide-git-branch" tone={connection.status === "verified" ? "green" : connection.status === "failed" ? "red" : "amber"} />
               <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><h3 class="break-words text-base-medium">{connection.name}</h3><p class="mt-1 break-all text-caption text-ink-gray-6">{connection.repositoryUrl}</p></div><StatusBadge kind="connection" status={connection.status} /></div>
+              <div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><h3 class="break-words text-base-medium">{connection.name}</h3><p class="mt-1 break-all text-caption text-ink-gray-6" data-git-provider={connection.provider}>{providerLabel(connection.provider)} · {connection.repositoryUrl}</p></div><StatusBadge kind="connection" status={connection.status} /></div>
               <dl class="mt-2 grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 text-interface"><div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("adm.last-checked.ada1")}</dt><dd class="mt-1"><Show when={connection.lastVerifiedAt} fallback="Not verified"><DateText value={connection.lastVerifiedAt} /></Show></dd></div><div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("adm.authorized-scope.f42a")}</dt><dd class="mt-1 break-words">Remote credentials encrypted; never returned to browser</dd></div></dl>
               <Show when={connection.detail}><div class="mt-3"><Alert theme="red" variant="outline" title={t("adm.connection-check-failed.c5ce")} description={connection.detail} /></div></Show>
               <div class="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy()} onClick={() => void verify(connection.connectionId)}>{t("adm.verify-remote.de48")}</Button><Button size="sm" variant="ghost" onClick={() => { setSelectedConnection(connection.connectionId); setRepositoryKey(""); void repositories.refresh({ force: true }); }}>{t("adm.bind-repository.c836")}</Button></div>
@@ -140,7 +148,10 @@ export default function IntegrationsPage(): JSX.Element {
         <TechnicalDetails label={t("adm.git-ref-proposals.4e17")}><Show when={integrations.state().data?.proposals.length} fallback={<p>{t("adm.no-ref-change-proposals-yet.f15e")}</p>}><ul class="flex flex-col gap-2"><For each={integrations.state().data?.proposals}>{(proposal) => <li class="min-w-0 break-words text-caption"><strong>{proposal.kind} proposal</strong> · <span class="break-all">{proposal.sourceEventId}</span><p class="break-all text-ink-gray-6">{proposal.digest}</p></li>}</For></ul></Show></TechnicalDetails></Show>
       <FormSheet open={connectOpen()} onClose={() => setConnectOpen(false)} title={t("adm.connect-a-git-remote.a2d4")} centered description={t("adm.one-connection-per-remote-reposi.c69b")}
         submit={t("adm.connect-remote.d2cb")} icon="lucide-plus" busy={busy()} onSubmit={connect} error={error()} errorTitle={t("adm.connection-failed.202c")}>
-        <TextInput label={t("adm.connection-name.5584")} value={name()} onInput={(event) => setName(event.currentTarget.value)} required error={attempted() && !name().trim() ? "Name this connection." : undefined} placeholder={t("adm.configuration-repository.6521")} /><TextInput label={t("adm.remote-repository-url.9cc9")} value={repositoryUrl()} onInput={(event) => setRepositoryUrl(event.currentTarget.value)} required error={attempted() && !repositoryUrl().trim() ? "Enter the remote repository URL." : undefined} placeholder="https://git.example.test/team/brain.git" /><TextInput label={t("adm.http-username-optional.3a74")} value={username()} onInput={(event) => setUsername(event.currentTarget.value)} /><TextInput label={t("adm.http-token-optional.d8b0")} type="password" value={token()} onInput={(event) => setToken(event.currentTarget.value)} />
+        <TextInput label={t("adm.connection-name.5584")} value={name()} onInput={(event) => setName(event.currentTarget.value)} required error={attempted() && !name().trim() ? "Name this connection." : undefined} placeholder={t("adm.configuration-repository.6521")} />
+        <Select label={t("adm.git-provider.label")} value={provider() || null} options={[...PROVIDER_OPTIONS]} placeholder={t("adm.git-provider.choose")} required description={t("adm.git-provider.hint")}
+          error={attempted() && !provider() ? t("adm.git-provider.required") : false} onValueChange={(value) => setProvider((value ?? "") as GitProvider | "")} />
+        <TextInput label={t("adm.remote-repository-url.9cc9")} value={repositoryUrl()} onInput={(event) => setRepositoryUrl(event.currentTarget.value)} required error={attempted() && !repositoryUrl().trim() ? "Enter the remote repository URL." : undefined} placeholder="https://git.example.test/team/brain.git" /><TextInput label={t("adm.http-username-optional.3a74")} value={username()} onInput={(event) => setUsername(event.currentTarget.value)} /><TextInput label={t("adm.http-token-optional.d8b0")} type="password" value={token()} onInput={(event) => setToken(event.currentTarget.value)} />
         <Alert theme="blue" variant="outline" title={t("adm.credential-boundary.3275")} description={t("adm.the-token-is-used-only-for-the-s.2188")} />
       </FormSheet>
       </div>

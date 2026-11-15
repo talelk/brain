@@ -10,8 +10,10 @@
  * differ (seeded timestamps and ids vary per run); they run on the seeded workspace from
  * tests/support/browserDemo.ts.
  */
+import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { seedBrowserDemo } from "../support/browserDemo";
+import { sendTaskBack } from "../support/evalCases";
 
 type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
 type Fixture = Parameters<typeof seedBrowserDemo>[1];
@@ -31,7 +33,7 @@ async function signOffRoute(demo: Demo, governor: Fixture): Promise<string> {
   return `/missions/${missionId}/outputs`;
 }
 
-const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string }> = [
+const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
   { id: "mission-live", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication" },
@@ -45,14 +47,28 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "settings-setup", route: () => "/settings?tab=setup", heading: "Setup" },
   { id: "settings-work", route: () => "/settings?tab=work", heading: "How work runs" },
   { id: "knowledge", route: () => "/w/operations/knowledge", heading: "Knowledge" },
+  { id: "integrations", route: () => "/administration/integrations", heading: "Integrations" },
+  { id: "integrations-connect", route: () => "/administration/integrations", heading: "Integrations", after: async (page) => { await page.getByRole("button", { name: "Connect remote", exact: true }).first().click(); await expect(page.getByRole("dialog").getByLabel(/^Git provider/)).toBeVisible(); } },
+  // Eval cases come late, because the cases are recorded by sending tasks back, which adds missions the screens above would show.
+  { id: "eval-cases", route: () => "/w/operations/quality/cases", heading: "Eval cases", prepare: seedEvalCases },
+  // Last of all: the sign-off mission adds an attention item every earlier screen would count in its bell.
   { id: "mission-signoff", route: signOffRoute, heading: "Compile the quarterly report", waitFor: "mission-signoff" },
 ];
+
+async function seedEvalCases(governor: Parameters<typeof seedBrowserDemo>[1], page: Page): Promise<void> {
+  const brain = governor.app.brain;
+  const cookie = (await page.context().cookies()).map((entry) => `${entry.name}=${entry.value}`).join("; ");
+  const actor = (await brain.resolveActor(new Headers({ cookie }), "operations")).actor;
+  await sendTaskBack(brain, actor, "operations", { key: "vb1", title: "Quarterly churn report", finding: "Cause two had no cited source" });
+  await sendTaskBack(brain, actor, "operations", { key: "vb2", title: "Refund summary", finding: "The refund total does not add up" });
+}
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(300_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const demo = await seedBrowserDemo(page, governor);
   for (const screen of SCREENS) {
+    await screen.prepare?.(governor, page);
     await page.goto(`${governor.url}${await screen.route(demo, governor)}`);
     const landmark = screen.testid
       ? page.getByTestId(screen.testid).getByRole("heading", { name: screen.heading })
@@ -63,6 +79,7 @@ test("key screens match their visual baselines", async ({ page, governor }) => {
       await expect(page.getByTestId(screen.waitFor)).toBeVisible({ timeout: 20_000 });
       await page.getByTestId(screen.waitFor).evaluate((element) => element.scrollIntoView({ block: "center" }));
     }
+    await screen.after?.(page);
     await page.waitForTimeout(400);
     await expect(page).toHaveScreenshot(`${screen.id}.png`, { maxDiffPixelRatio: 0.02, animations: "disabled", caret: "hide" });
   }
