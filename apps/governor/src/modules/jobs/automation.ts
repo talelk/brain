@@ -234,6 +234,22 @@ export class AutomationService {
     return existing.id;
   }
 
+  /**
+   * A person's acceptance of an autonomy suggestion (#158): the schedule's switch "Confirm the plan automatically each time" goes on. Nothing else
+   * about it changes, and every occurrence still has to pass ADR 0017's conditions (no effectful step among them) to be confirmed.
+   */
+  allowAutoConfirm(actor: ActorContext, workspaceId: string, automationId: string): void {
+    const existing = this.row(actor, workspaceId, automationId);
+    if (existing.state === "retired") throw new BrainDomainError("CONFLICT", "retired automations cannot be revised");
+    const input = (() => { try { return existing.input_json ? JSON.parse(existing.input_json) as Record<string, unknown> : {}; } catch { return {}; } })();
+    const db = this.db(actor, workspaceId);
+    const now = this.store.now();
+    this.store.inTx(db, () => {
+      db.prepare("UPDATE automations SET input_json=?,revision=revision+1,revision_created_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?").run(JSON.stringify({ ...input, autoConfirm: true }), now, now, existing.id, existing.version);
+      this.store.emit(db, { aggregateType: "automation", aggregateId: existing.id, eventType: "automation.revised", payload: { automationId: existing.id, revision: existing.revision + 1 } });
+    });
+  }
+
   private control(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
     const automation = this.row(actor, workspaceId, String(payload["automationId"]));
     assertExpectedVersion(automation.version, expectedVersion);

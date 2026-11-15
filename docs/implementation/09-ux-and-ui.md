@@ -24,7 +24,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/w/:id/library/agents/:agentId` | library | Read one agent: purpose, tools and limits, status from its sessions, recent runs, verified rate, failure classes and cost | definition, status, runs, verified-rate, failure-classes, cost |
 | `/w/:id/plays` | plays | Start a mission from a play, run a single task, or describe the work | play, task, describe, origin, review |
 | `/w/:id/library/teams` | library | Name the teams you reuse: roles bound to agents and engines that plans and Plays can start from | teams, members, coordinator |
-| `/plays/:id` | plays | Review a play or single task, its schedules and history, then start it | brief, team, plan, inputs, schedules, history |
+| `/plays/:id` | plays | Review a play or single task, its schedules and history, then start it | autonomy-suggestion, brief, team, plan, inputs, schedules, history |
 | `/w/:id/schedules` | schedules | Manage every schedule in one place: what it starts, when it fires next, which host runs it | schedules, history, execution host |
 | `/administration/workspaces` | administration | Manage workspaces | workspace, state, counts |
 | `/w/:id/board` | board | See and move the work of every mission in one place, filtered by mission, team member, priority and tag | board, filters, work items |
@@ -50,7 +50,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/tv/:play` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/studio/:kind` | knowledge | Create and validate a capability without editing YAML | definitions, drafts, validation, dependencies |
 | `/studio/:kind/:draftId` | knowledge | Edit, test, review and publish an immutable definition | editor, diagnostics, diff, tests, publication |
-| `/quality` | administration | See whether Brain is getting better | metric, definition, window, failure, breakdown |
+| `/quality` | administration | See whether Brain is getting better | autonomy-suggestion, metric, definition, window, failure, breakdown |
 | `/w/:id/quality/cases` | administration | Review the results sent back or rejected, and replay each by hand before a release | case, source, mission, findings, replay |
 | `/administration/integrations` | administration | Connect Git providers and bind repositories to workspaces | providers, organizations, repositories, permissions, webhooks, status |
 | `/shared/:token` | outputs | Read one shared result without signing in: read-only, expiring, revocable (ADR 0013) | result |

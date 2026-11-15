@@ -8,3 +8,4 @@ export { ShareService } from "./shares";
 export { missionsOfCommand } from "./command-mission";
 export { recordPullRequest, observePullRequest, pullRequestRef } from "./pull-requests";
 export { originOfRun, originProblem, describeOrigin } from "./origin";
+export { acceptedPlayPreset, currentSuggestions, listDecisions, recordDecision, type SuggestionContext } from "./autonomy-suggestions";

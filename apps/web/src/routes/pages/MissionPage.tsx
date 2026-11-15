@@ -36,6 +36,7 @@ import { MissionTimeline } from "../../ui/timeline/MissionTimeline";
 import { MissionDelegations, createDelegations } from "../../ui/delegations/MissionDelegations";
 import { delegationStatus } from "../../ui/delegations/delegation-model";
 import { ATTENTION_CHANGED } from "../../ui/attention";
+import { AutonomySuggestions } from "../../ui/components/AutonomySuggestions";
 
 const TAB_KEYS: Readonly<Record<MissionTab, MessageKey>> = {
   live: "mission.tab.live", team: "mission.tab.team", plan: "mission.tab.plan", brief: "mission.tab.brief", timeline: "mission.tab.timeline", delegations: "mission.tab.delegations", outputs: "mission.tab.outputs",
@@ -258,6 +259,7 @@ export default function MissionPage(): JSX.Element {
       <ScreenRegion state={mission.state()} onRetry={() => void mission.refresh({ force: true })} emptyTitle={t("mp.mission-not-found.843a")} emptyDescription={t("mp.it-may-belong-to-another-workspa.da49")}>
         <Show when={current()}>{(m) => <>
           <Show when={!m().autoStart && m().state !== "closed"}><Alert theme="blue" variant="outline" title={t("mp.tasks-start-when-you-start-them.0485")} description={t("mp.this-mission-asks-before-each-ta.7c4e")} /></Show>
+          <AutonomySuggestions resourceId={`about:${m().missionId}`} />
           <MissionSnapshot mission={m()} items={items.state().data ?? []} tab={tab()} onAct={act} busy={busy()} />
           <Dialog.Root open={ending()} onOpenChange={(open) => { if (!open) setEnding(false); }}>
             <Dialog.Content size="md">

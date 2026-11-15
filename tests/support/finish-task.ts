@@ -14,7 +14,7 @@ export interface SeededCheck { readonly criterionId: string; readonly checkId: s
 export async function finishTask(w: TestWorld, missionId: string, taskId: string, digestChar: string, checks?: readonly SeededCheck[], summary?: string): Promise<void> {
   const current = async () => (await workView(w)).items.find((entry) => entry.missionId === missionId && entry.planTaskId === taskId && entry.state !== "abandoned")!;
   const agent: ActorContext = { ...w.owner, kind: "agent" };
-  const digest = `sha256:${digestChar.repeat(64)}`;
+  const digest = `sha256:${digestChar.repeat(64 / digestChar.length)}`; // one hex digit, or two, four... (a divisor of 64) repeated
   if ((await current()).state !== "in-progress") await command(w, w.owner, "workItem.transition", `${missionId}-${taskId}-start`, { workItemId: (await current()).workItemId, state: "in-progress" }, (await current()).version);
   await command(w, w.owner, "workItem.transition", `${missionId}-${taskId}-review`, { workItemId: (await current()).workItemId, state: "review" }, (await current()).version);
   const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);

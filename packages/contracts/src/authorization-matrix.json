@@ -892,6 +892,11 @@
       "scope": "workspace:read",
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
+    },
+    "autonomy.suggestions": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
     }
   },
   "commandRecoveryRule": {

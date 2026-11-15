@@ -46,12 +46,13 @@ import { beginGovernorRun, finishEffect, issueEffectPermit, requestEffect, start
 import { runGovernorEffect } from "./effect-broker";
 import { pullRequestCommands } from "./pull-requests";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
-import { MissionService, ShareService, missionCommands, originOfRun, recordPullRequest } from "../modules/missions/index";
+import { MissionService, ShareService, missionCommands, originOfRun, recordPullRequest, acceptedPlayPreset } from "../modules/missions/index";
 import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
 import { DelegationRuns } from "./delegation-runs";
 import { Challenges } from "./challenges";
 import { BundleJudge } from "./bundle-judge";
 import { PlayProposals } from "./play-proposals";
+import { AutonomySuggestionService } from "./autonomy-suggestions";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualityBreakdown, qualitySummary } from "../modules/stream/index";
 import { connectorsFromEnv, handleInbound, smtpTarget, type Connectors } from "../modules/operations/index";
@@ -93,6 +94,7 @@ export class Brain {
   /** The network port for model calls the Governor makes itself (the advisory judge, the probes). Tests and the browser fixture replace it with a fake model. */
   modelFetch: typeof fetch = fetch;
   readonly playProposals: PlayProposals;
+  readonly autonomySuggestions: AutonomySuggestionService;
   readonly starterPlays: StarterPlays;
   readonly shares: ShareService;
 
@@ -186,11 +188,20 @@ export class Brain {
         existingPlayIds: (organizationId) => Object.keys(activeReleaseRecord(this.store, organizationId)?.release.plays ?? {}),
         releasePlays: (organizationId) => Object.entries(activeReleaseRecord(this.store, organizationId)?.release.plays ?? {}).map(([id, play]) => ({ id, ...(play.spec.practice ? { practice: play.spec.practice } : {}) })),
       });
+      this.autonomySuggestions = new AutonomySuggestionService({
+        store: this.store,
+        plays: (organizationId) => Object.fromEntries(Object.entries(activeReleaseRecord(this.store, organizationId)?.release.plays ?? {}).map(([id, play]) => [id, { title: play.spec.title, ...(play.spec.autonomy ? { autonomy: play.spec.autonomy } : {}) }])),
+        workflows: (organizationId) => activeReleaseRecord(this.store, organizationId)?.release.workflows ?? {},
+        ceiling: (workspaceId) => this.missions.workspaceCeilingPreset(workspaceId),
+        setMissionPreset: (actor, workspaceId, missionId, preset) => this.missions.setPreset(actor, workspaceId, missionId, preset),
+        allowAutoConfirm: (actor, workspaceId, automationId) => this.jobProtocol.automations.allowAutoConfirm(actor, workspaceId, automationId),
+      });
       this.starterPlays = new StarterPlays(this.store);
       this.commands = new CommandFunnel(this.store, [
         missionCommands(this.missions),
         this.challenges.commands(),
         this.playProposals.commands(),
+        this.autonomySuggestions.commands(),
         this.starterPlays.commands(),
         attentionCommands(this.store),
         watchCommands(this.store),
@@ -1091,10 +1102,15 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
         const active = activeReleaseRecord(s, actor.organizationId);
-        const views = Object.entries(active?.release.plays ?? {}).map(([playId, play]) => ({
-          playId, releaseDigest: active!.digest, title: play.spec.title, ...(play.spec.description ? { description: play.spec.description } : {}),
-          team: play.spec.team, taskCount: play.spec.plan.tasks.length, ...(play.spec.autonomy ? { autonomy: play.spec.autonomy } : {}),
-        }));
+        const playsDb = s.workspaceDb(q.workspaceId, actor.organizationId);
+        const views = Object.entries(active?.release.plays ?? {}).map(([playId, play]) => {
+          // The preset a person accepted for this Play (#158) is what its next mission takes, ahead of the release's own.
+          const autonomy = acceptedPlayPreset(playsDb, playId) ?? play.spec.autonomy;
+          return {
+            playId, releaseDigest: active!.digest, title: play.spec.title, ...(play.spec.description ? { description: play.spec.description } : {}),
+            team: play.spec.team, taskCount: play.spec.plan.tasks.length, ...(autonomy ? { autonomy } : {}),
+          };
+        });
         if (q.queryType === "plays.list") return this.envelope(q.queryType, { items: views } as unknown as JsonValue);
         const view = views.find((entry) => entry.playId === q.resourceId);
         if (!view) throw new BrainDomainError("NOT_FOUND", "play not found in the active release");
@@ -1158,6 +1174,10 @@ export class Brain {
       case "practices.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.playProposals.practices(actor, q.workspaceId) as JsonValue);
+      }
+      case "autonomy.suggestions": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.autonomySuggestions.query(actor, q.workspaceId, q.resourceId, limit) as unknown as JsonValue);
       }
       case "playProposals.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");

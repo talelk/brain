@@ -645,3 +645,14 @@ CREATE TABLE standing_teams (
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0), created_by TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
+-- Autonomy suggestions (#158, ADR 0066): a suggestion is worked out on every read from existing records and never stored. Only a person's decision is:
+-- accepted (who, when and the figures at that time) or dismissed. Rows are never edited or removed; the latest accepted Play row is that Play's default preset.
+CREATE TABLE autonomy_decisions (
+  id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('play','mission','repeat')), subject_id TEXT NOT NULL,
+  decision TEXT NOT NULL CHECK(decision IN ('accepted','dismissed')),
+  from_value TEXT NOT NULL, to_value TEXT NOT NULL, figures_json TEXT NOT NULL CHECK(json_valid(figures_json)),
+  decided_by TEXT NOT NULL, decided_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX autonomy_decisions_subject ON autonomy_decisions(kind, subject_id, decided_at_ms);
+CREATE TRIGGER autonomy_decisions_never_edited BEFORE UPDATE ON autonomy_decisions BEGIN SELECT RAISE(ABORT, 'an autonomy decision is never edited'); END;
+CREATE TRIGGER autonomy_decisions_never_removed BEFORE DELETE ON autonomy_decisions BEGIN SELECT RAISE(ABORT, 'an autonomy decision is never removed'); END;

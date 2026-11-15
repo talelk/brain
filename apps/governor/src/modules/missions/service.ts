@@ -6,7 +6,8 @@ import { assertExpectedVersion, assertTransition, transitionState } from "../../
 import { assertPlanTasks } from "../../domain/work-plan";
 import { JOB_PRIORITY, normalizeTags } from "../../domain/work-priority";
 import { assertServedCriteria, criteriaFromText, criteriaCoverage, parseCriteria } from "../../domain/criteria";
-import { AUTONOMY_PRESETS, assertMembersBound, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
+import { AUTONOMY_PRESETS, assertMembersBound, assertTeamEligible, beyondPolicy, ceilingPreset, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
+import { acceptedPlayPreset } from "./autonomy-suggestions";
 import { activeReleaseRecord } from "../configuration/index";
 import { repeatGate, type RepeatPlan, type RepeatSchedule } from "./repeat";
 import { addStandingMembers, applyStandingTeam, listStandingTeams, referenceStandingTeam, standingTeamCounts } from "./standing-teams";
@@ -293,7 +294,7 @@ export class MissionService {
     if (!successCriteria || successCriteria.length === 0) throw new BrainDomainError("INVALID_ARGUMENT", "a mission needs success criteria");
     const constraints = (payload["constraints"] as string[] | undefined) ?? play?.spec.constraints ?? [];
     assertBriefSize(intent, constraints, []);
-    const preset = (payload["autonomy"] as AutonomyPreset | undefined) ?? play?.spec.autonomy ?? "standard";
+    const preset = (payload["autonomy"] as AutonomyPreset | undefined) ?? (play ? acceptedPlayPreset(db, String(payload["playId"])) : undefined) ?? play?.spec.autonomy ?? "standard";
     const policy = withinCeiling(policyFor(preset, 1), this.ceiling(workspaceId));
     const standing = payload["standingTeamId"] ? this.startTeam(actor, workspaceId, String(payload["standingTeamId"]), play) : undefined;
     this.store.inTx(db, () => {
@@ -361,6 +362,17 @@ export class MissionService {
     const row = this.store.control.prepare("SELECT autonomy_ceiling_json FROM workspaces WHERE id=?").get(workspaceId) as { autonomy_ceiling_json: string | null } | undefined;
     // No ceiling set means the workspace allows every plan operation.
     return row?.autonomy_ceiling_json ? JSON.parse(row.autonomy_ceiling_json) as PlanOperation[] : [...AUTONOMY_PRESETS.autonomous];
+  }
+
+  /** The highest preset the workspace's autonomy ceiling allows (autonomous when none is set). */
+  workspaceCeilingPreset(workspaceId: string): AutonomyPreset {
+    const row = this.store.control.prepare("SELECT autonomy_ceiling_json FROM workspaces WHERE id=?").get(workspaceId) as { autonomy_ceiling_json: string | null } | undefined;
+    return ceilingPreset(row?.autonomy_ceiling_json ? JSON.parse(row.autonomy_ceiling_json) as string[] : null);
+  }
+
+  /** A person's acceptance of an autonomy suggestion for one mission: the ordinary policy change, ceiling and all (#158). */
+  setPreset(actor: ActorContext, workspaceId: string, missionId: string, preset: AutonomyPreset): void {
+    this.setPolicy(actor, workspaceId, { missionId, preset });
   }
 
   private proposePlan(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {

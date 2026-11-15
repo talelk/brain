@@ -25,6 +25,7 @@ import { seedPullRequest } from "../support/pullRequestDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 import { seedQuestion } from "../support/question-demo";
 import { seedAgentActivity } from "../support/agent-activity";
+import { autonomyContext, cleanMission, cleanPlayMissions } from "../support/autonomy-world";
 import { delegationsOf, driveChildren, enrollChildRunners } from "../support/delegation-world";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
 
@@ -162,6 +163,16 @@ async function pausedSessionRoute(demo: Demo, governor: Fixture): Promise<string
   return `/w/operations/live?session=${running.sessionId}`;
 }
 
+/** Missions and a Play with a clean record (#158): each earned one step, so their pages, Quality and the Play page show a suggestion. Made once, when the first of those screens is reached. */
+let autonomyRecords: { missionId: string } | undefined;
+async function seedAutonomyRecords(governor: Fixture, _page: Page, demo: Demo): Promise<void> {
+  if (autonomyRecords) return;
+  const ctx = autonomyContext(governor.app.brain, demo.actor.organizationId, demo.actor, demo.workspaceId);
+  const missionId = await cleanMission(ctx, "vb-autonomy", 5, { autonomy: "supervised", title: "Weekly vendor review" });
+  await cleanPlayMissions(ctx, "vb-autonomy-play", "checklist-runbook", 5);
+  autonomyRecords = { missionId };
+}
+
 /** The agent-activity mission, made once when the first agent screen is reached. */
 let agentActivity: Awaited<ReturnType<typeof seedAgentActivity>> | undefined;
 
@@ -254,6 +265,10 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "console-session-paused", route: pausedSessionRoute, heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("continue-session")).toBeVisible(); await expect(page.getByTestId("pause-note")).toBeVisible(); } },
   // Who can read what Brain learned (#135): the review inbox with a record for the workspace, one kept private with a request for the team and one the team reads. It adds knowledge, so it comes after every screen that counts it.
   { id: "knowledge-scopes", route: () => "/w/operations/knowledge/review", heading: "Review inbox", prepare: seedKnowledgeScopes, waitFor: "knowledge-inbox", after: async (page) => { await expect(page.getByTestId("knowledge-inbox")).toContainText("Readable by: Only its author"); } },
+  // Autonomy suggestions (#158): a mission, a Play and the Quality page each show what a clean record earned, with its figures and definitions. They add finished missions, so they come after every screen that counts them and before the push screens.
+  { id: "mission-autonomy-suggestion", route: () => `/missions/${autonomyRecords!.missionId}/live`, heading: "Weekly vendor review", prepare: seedAutonomyRecords, after: async (page) => { const card = page.getByTestId("autonomy-suggestion"); await expect(card).toHaveCount(1); await expect(card.getByTestId("autonomy-figure")).toHaveCount(5); await card.evaluate((element) => element.scrollIntoView({ block: "start" })); } },
+  { id: "play-autonomy-suggestion", route: () => "/plays/checklist-runbook", heading: "Write a checklist or runbook", prepare: seedAutonomyRecords, after: async (page) => { const card = page.getByTestId("autonomy-suggestion"); await expect(card).toHaveCount(1); await card.evaluate((element) => element.scrollIntoView({ block: "start" })); } },
+  { id: "quality-autonomy-suggestion", route: () => "/quality", heading: "Quality", prepare: seedAutonomyRecords, after: async (page) => { await expect(page.getByTestId("autonomy-suggestion")).toHaveCount(2); await page.getByTestId("autonomy-suggestions").evaluate((element) => element.scrollIntoView({ block: "start" })); } },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];
@@ -405,13 +420,13 @@ async function seedChangeApprovalRecord(governor: Parameters<typeof seedBrowserD
   changeApproval = await seedChangeApproval(governor.app.brain, demo.actor, demo.workspaceId, { runId: "demo-run-progress", key: "vb-change" });
 }
 
-test.afterEach(async () => { standingTeamsSeeded = false; questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
+test.afterEach(async () => { standingTeamsSeeded = false; autonomyRecords = undefined; questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(900_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const demo = await seedBrowserDemo(page, governor);
-  for (const screen of SCREENS.filter((entry) => !process.env["VB_ONLY"] || entry.id === process.env["VB_ONLY"])) {
+  for (const screen of SCREENS.filter((entry) => !process.env["VB_ONLY"] || process.env["VB_ONLY"].split(",").includes(entry.id))) {
     await screen.prepare?.(governor, page, demo);
     await page.goto(`${governor.url}${await screen.route(demo, governor)}`);
     const landmark = screen.testid
