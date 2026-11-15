@@ -403,6 +403,13 @@ CREATE TABLE verification_verdicts (
   finalized_at_ms INTEGER,
   UNIQUE(bundle_digest,evaluator_attempt_id)
 ) STRICT;
+-- An independence-L3 evaluation waits for a person (ADR 0069): one row per eval step, written once with the step's pinned assignment and
+-- the attesters its workflow declared. It is open while its first bundle has no verdict; the verdict itself is the record of who attested.
+CREATE TABLE evaluation_attestations (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES workflow_runs(id), step_id TEXT NOT NULL,
+  assignment_json TEXT NOT NULL CHECK(json_valid(assignment_json)), attesters_json TEXT NOT NULL CHECK(json_valid(attesters_json)),
+  created_at_ms INTEGER NOT NULL, UNIQUE(run_id, step_id)
+) STRICT;
 CREATE TABLE connector_cursors (
   connector_id TEXT PRIMARY KEY, cursor_json TEXT NOT NULL CHECK(json_valid(cursor_json)),
   source_watermark TEXT, version INTEGER NOT NULL CHECK(version > 0), updated_at_ms INTEGER NOT NULL

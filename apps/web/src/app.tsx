@@ -24,6 +24,7 @@ import { PRIMARY_NAVIGATION, AREA_NAVIGATION, ICONS, ROUTES } from "./routes/ind
 
 const PAGE_LOADERS = {
   LivePage: () => import('./routes/pages/LivePage'),
+  AttestationPage: () => import('./routes/pages/AttestationPage'),
   LogsPage: () => import('./routes/pages/LogsPage'),
   OutputsPage: () => import('./routes/pages/OutputsPage'),
   OutputPage: () => import('./routes/pages/OutputPage'),
@@ -325,6 +326,7 @@ export function App(): JSX.Element {
       <Route path="/w/:id/knowledge/review" component={workspacePage("KnowledgeReviewPage")} />
       <Route path="/approvals" component={page("ApprovalsPage")} />
       <Route path="/approvals/:id" component={page("ApprovalDetailPage")} />
+      <Route path="/attestations/:id" component={page("AttestationPage")} />
       <Route path="/runs/:id" component={page("JobDetailPage")} />
       <Route path="/runners" component={page("RunnersPage")} />
       <Route path="/runners/:id" component={page("RunnersDetailPage")} />

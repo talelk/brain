@@ -23,7 +23,7 @@ import { knowledgeCommands, knowledgeExpired, LOCAL_ONLY_SOURCE_TYPES, MemorySto
 import { admitApprovalDecision, governanceCommands, STEP_UP_COMMANDS, StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
 import { localRunnerSettingsCurrent, quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
-import { EvidenceService, recordBundleCheck } from "../modules/evidence/index";
+import { EvidenceService, attestationView, evidenceCommands, recordBundleCheck } from "../modules/evidence/index";
 import { readReleaseAgentInstructions, readReleaseToolScript } from "../modules/configuration/index";
 import { acceptAttemptArtifact } from "../modules/evidence/index";
 import {
@@ -198,6 +198,7 @@ export class Brain {
         this.playProposals.commands(),
         this.starterPlays.commands(),
         attentionCommands(this.store),
+        evidenceCommands(this.evidence, { verified: (organizationId, workspaceId, digest) => this.capitalization.captureVerifiedBundle(organizationId, workspaceId, digest) }),
         watchCommands(this.store),
         sessionCommands(this.sessions),
         documentCommands(this.documents),
@@ -1195,6 +1196,10 @@ export class Brain {
       }
       case "ticket.get": case "incident.get":
         return this.envelope(q.queryType, getPack(s, actor, q.queryType, q.workspaceId, String(q.resourceId ?? "")));
+      case "attestations.get": {
+        requireRead();
+        return this.envelope(q.queryType, attestationView(s, actor, String(q.workspaceId), String(q.resourceId ?? "")));
+      }
       case "evidence.get": {
         requireRead();
         return this.envelope(q.queryType, getPack(s, actor, q.queryType, q.workspaceId, String(q.resourceId ?? "")));

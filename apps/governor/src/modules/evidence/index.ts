@@ -1,4 +1,6 @@
 export { EvidenceService, pinnedEvaluator } from "./service";
+export { evidenceCommands } from "./commands";
+export { attestationView, openAttestations, requestAttestation } from "./attestation";
 export { unifiedHunks } from "./diff";
 export { acceptAttemptArtifact } from "./artifacts";
 export { authorEvidenceFor, toolReleasesForPayload } from "./author-claims";

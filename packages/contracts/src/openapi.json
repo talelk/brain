@@ -7586,6 +7586,29 @@
        "L2",
        "L3"
       ]
+     },
+     "attesters": {
+      "type": "object",
+      "description": "Who may attest an independence-L3 evaluation: a workspace role, named people, or either. Absent means any workspace member who may do mission work. Never the people who started or own the work.",
+      "properties": {
+       "role": {
+        "type": "string",
+        "enum": [
+         "operator",
+         "workspace-lead"
+        ]
+       },
+       "people": {
+        "type": "array",
+        "items": {
+         "$ref": "#/components/schemas/Id"
+        },
+        "minItems": 1,
+        "maxItems": 50,
+        "uniqueItems": true
+       }
+      },
+      "additionalProperties": false
      }
     },
     "required": [
@@ -14951,6 +14974,7 @@
        "missions.get",
        "missions.brief",
        "missionBundles.latest",
+       "attestations.get",
        "handoffs.forWorkItem",
        "missionMessages.list",
        "workItemComments.list",
@@ -18886,6 +18910,9 @@
      },
      {
       "$ref": "#/components/schemas/MissionQuestionAskCommand"
+     },
+     {
+      "$ref": "#/components/schemas/EvaluationAttestCommand"
      },
      {
       "$ref": "#/components/schemas/HandoffSubmitCommand"
@@ -30374,6 +30401,269 @@
     ],
     "additionalProperties": false
    },
+   "EvaluationAttestCommand": {
+    "type": "object",
+    "properties": {
+     "contractVersion": {
+      "type": "string",
+      "const": "brain.command/v1"
+     },
+     "commandId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "commandType": {
+      "type": "string",
+      "const": "evaluation.attest"
+     },
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "idempotencyKey": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "payload": {
+      "type": "object",
+      "properties": {
+       "attestationId": {
+        "$ref": "#/components/schemas/Id"
+       },
+       "bundleDigests": {
+        "type": "array",
+        "items": {
+         "$ref": "#/components/schemas/Digest"
+        },
+        "minItems": 1,
+        "maxItems": 100,
+        "uniqueItems": true
+       },
+       "outcome": {
+        "type": "string",
+        "enum": [
+         "verified",
+         "rejected",
+         "incomplete"
+        ]
+       },
+       "checks": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "checkId": {
+           "$ref": "#/components/schemas/ConfigId"
+          },
+          "status": {
+           "type": "string",
+           "enum": [
+            "passed",
+            "failed",
+            "missing",
+            "inconclusive"
+           ]
+          },
+          "detail": {
+           "type": "string",
+           "minLength": 0,
+           "maxLength": 2048
+          }
+         },
+         "required": [
+          "checkId",
+          "status",
+          "detail"
+         ],
+         "additionalProperties": false
+        },
+        "minItems": 1,
+        "maxItems": 100
+       }
+      },
+      "required": [
+       "attestationId",
+       "bundleDigests",
+       "outcome",
+       "checks"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "required": [
+     "contractVersion",
+     "commandId",
+     "commandType",
+     "workspaceId",
+     "idempotencyKey",
+     "payload"
+    ],
+    "additionalProperties": false
+   },
+   "EvaluationAttestation": {
+    "description": "One request for a person to attest an independence-L3 evaluation: what was submitted, who may answer, and the verdict once recorded.",
+    "type": "object",
+    "properties": {
+     "attestationId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "runId": {
+      "$ref": "#/components/schemas/RunId"
+     },
+     "stepId": {
+      "$ref": "#/components/schemas/ConfigId"
+     },
+     "missionId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "workItemId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+     },
+     "state": {
+      "type": "string",
+      "enum": [
+       "open",
+       "attested",
+       "closed"
+      ]
+     },
+     "requestedAt": {
+      "$ref": "#/components/schemas/Timestamp"
+     },
+     "independence": {
+      "type": "string",
+      "const": "L3"
+     },
+     "attesters": {
+      "type": "object",
+      "properties": {
+       "role": {
+        "type": "string",
+        "enum": [
+         "operator",
+         "workspace-lead"
+        ]
+       },
+       "people": {
+        "type": "array",
+        "items": {
+         "$ref": "#/components/schemas/Id"
+        },
+        "maxItems": 50
+       }
+      },
+      "additionalProperties": false
+     },
+     "requiredChecks": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "checkId": {
+         "$ref": "#/components/schemas/ConfigId"
+        },
+        "criterionId": {
+         "$ref": "#/components/schemas/ConfigId"
+        },
+        "claimed": {
+         "type": "object",
+         "properties": {
+          "status": {
+           "type": "string",
+           "enum": [
+            "passed",
+            "failed",
+            "missing",
+            "inconclusive"
+           ]
+          },
+          "detail": {
+           "type": "string",
+           "maxLength": 2048
+          }
+         },
+         "required": [
+          "status",
+          "detail"
+         ],
+         "additionalProperties": false
+        }
+       },
+       "required": [
+        "checkId",
+        "criterionId"
+       ],
+       "additionalProperties": false
+      },
+      "maxItems": 100
+     },
+     "bundleDigests": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/Digest"
+      },
+      "minItems": 1,
+      "maxItems": 100
+     },
+     "canAttest": {
+      "type": "boolean"
+     },
+     "cannotAttestReason": {
+      "type": "string",
+      "maxLength": 512
+     },
+     "verdict": {
+      "type": "object",
+      "properties": {
+       "outcome": {
+        "type": "string",
+        "enum": [
+         "verified",
+         "rejected",
+         "incomplete"
+        ]
+       },
+       "attestedBy": {
+        "$ref": "#/components/schemas/Id"
+       },
+       "attestedAt": {
+        "$ref": "#/components/schemas/Timestamp"
+       },
+       "independence": {
+        "type": "string",
+        "const": "L3"
+       }
+      },
+      "required": [
+       "outcome",
+       "attestedBy",
+       "attestedAt",
+       "independence"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "required": [
+     "attestationId",
+     "workspaceId",
+     "runId",
+     "stepId",
+     "title",
+     "state",
+     "requestedAt",
+     "independence",
+     "attesters",
+     "requiredChecks",
+     "bundleDigests",
+     "canAttest"
+    ],
+    "additionalProperties": false
+   },
    "HandoffNotes": {
     "type": "object",
     "properties": {
@@ -31310,6 +31600,7 @@
        "plan-proposal",
        "parked",
        "question",
+       "attestation",
        "sign-off",
        "verdict-ready",
        "routed",
@@ -36498,6 +36789,15 @@
    ]
   },
   {
+   "type": "evaluation.attest",
+   "schema": "EvaluationAttestCommand",
+   "scope": "mission:write",
+   "authority": "workspace",
+   "actors": [
+    "human"
+   ]
+  },
+  {
    "type": "handoff.submit",
    "schema": "HandoffSubmitCommand",
    "scope": "mission:write",
@@ -36828,6 +37128,7 @@
   "missions.get",
   "missions.brief",
   "missionBundles.latest",
+  "attestations.get",
   "handoffs.forWorkItem",
   "missionMessages.list",
   "workItemComments.list",

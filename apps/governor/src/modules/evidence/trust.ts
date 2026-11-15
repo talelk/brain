@@ -11,6 +11,8 @@ export interface TrustInput {
   readonly independence: "L1" | "L2" | "L3";
   /** The person who signed off criteria that rest on model opinion alone, when one did. */
   readonly signedOffBy?: string;
+  /** The person who was the evaluator of an independence-L3 verdict: what they passed rests on a human's attestation, whatever tool the release names. */
+  readonly attestedBy?: string;
 }
 
 /**
@@ -24,7 +26,7 @@ export interface TrustInput {
 export function deriveTrust(input: TrustInput): TrustRead {
   const rows = input.checks.map((check) => {
     const passed = check.status === "passed";
-    const basis: TrustRead["rows"][number]["basis"] = !passed ? "none" : input.evaluatorBasis === "deterministic" ? "deterministic" : input.signedOffBy ? "human" : "model";
+    const basis: TrustRead["rows"][number]["basis"] = !passed ? "none" : input.attestedBy ? "human" : input.evaluatorBasis === "deterministic" ? "deterministic" : input.signedOffBy ? "human" : "model";
     return { criterionId: check.criterionId, checkId: check.checkId, status: check.status, basis, independence: input.independence };
   });
   const count = (basis: TrustRead["rows"][number]["basis"]) => rows.filter((row) => row.basis === basis).length;
@@ -37,7 +39,7 @@ export function deriveTrust(input: TrustInput): TrustRead {
   const sentence = `${deterministic} of ${plural(rows.length)} checked by tests, files or hashes; ${human} by human sign-off; ${model} by model opinion`;
   const tail = model > 0 ? `. A model's opinion alone does not make this Done: a person must sign off`
     : unmet > 0 ? `. ${unmet} not met` : "";
-  return { rows, total: rows.length, deterministic, human, model, unverified, ...(input.signedOffBy ? { signedOffBy: input.signedOffBy } : {}), text: `${sentence}${tail}.` };
+  return { rows, total: rows.length, deterministic, human, model, unverified, ...(input.signedOffBy ?? input.attestedBy ? { signedOffBy: (input.signedOffBy ?? input.attestedBy)! } : {}), text: `${sentence}${tail}.` };
 }
 
 /** True when Done needs a person: some passed criterion is supported by model opinion only. */
@@ -61,6 +63,6 @@ export function trustForBundle(store: Store, organizationId: string, db: Db, bun
   try { evaluatorBasis = pinnedEvaluator(store, organizationId, configDigest, verdict.evaluatorRelease).spec.basis ?? "deterministic"; } catch { evaluatorBasis = "deterministic"; }
   const signed = db.prepare(`SELECT json_extract(payload_json,'$.signedOffBy') AS by FROM events WHERE event_type='workItem.transitioned'
     AND json_extract(payload_json,'$.state')='done' AND json_extract(payload_json,'$.evidenceDigest')=? AND json_extract(payload_json,'$.signedOffBy') IS NOT NULL ORDER BY cursor DESC LIMIT 1`).get(bundleDigest) as { by: string } | undefined;
-  return deriveTrust({ checks: verdict.checks ?? [], evaluatorBasis, independence: verdict.independence, ...(signed ? { signedOffBy: signed.by } : {}) });
+  return deriveTrust({ checks: verdict.checks ?? [], evaluatorBasis, independence: verdict.independence, ...(verdict.independence === "L3" ? { attestedBy: verdict.acceptedBy } : {}), ...(signed ? { signedOffBy: signed.by } : {}) });
 }
 

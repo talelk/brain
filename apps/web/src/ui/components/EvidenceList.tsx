@@ -77,8 +77,8 @@ export function EvidenceList(props: { bundleDigest?: string; workspaceId?: strin
             <Alert
               theme={statusHeaderTheme("evidence", current()!.outcome)}
               variant="outline"
-              title={`Independent verdict: ${current()!.outcome}`}
-              description={`Evaluator attempt ${current()!.evaluatorAttemptId} · independence ${current()!.independence} · ${current()!.checks.filter((c) => c.status === "passed").length}/${current()!.checks.length} checks passed`}
+              title={`${current()!.independence === "L3" ? "Independent human verdict" : "Independent verdict"}: ${current()!.outcome}`}
+              description={`${current()!.independence === "L3" ? `Attested by ${current()!.acceptedBy}` : `Evaluator attempt ${current()!.evaluatorAttemptId}`} · independence ${current()!.independence}${current()!.independence === "L3" ? " (a person)" : ""} · ${current()!.checks.filter((c) => c.status === "passed").length}/${current()!.checks.length} checks passed`}
             />
             <For each={current()!.checks}>
               {(check) => (

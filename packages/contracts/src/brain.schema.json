@@ -693,6 +693,29 @@
             "L2",
             "L3"
           ]
+        },
+        "attesters": {
+          "type": "object",
+          "description": "Who may attest an independence-L3 evaluation: a workspace role, named people, or either. Absent means any workspace member who may do mission work. Never the people who started or own the work.",
+          "properties": {
+            "role": {
+              "type": "string",
+              "enum": [
+                "operator",
+                "workspace-lead"
+              ]
+            },
+            "people": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Id"
+              },
+              "minItems": 1,
+              "maxItems": 50,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
         }
       },
       "required": [
@@ -8058,6 +8081,7 @@
             "missions.get",
             "missions.brief",
             "missionBundles.latest",
+            "attestations.get",
             "handoffs.forWorkItem",
             "missionMessages.list",
             "workItemComments.list",
@@ -11993,6 +12017,9 @@
         },
         {
           "$ref": "#/$defs/MissionQuestionAskCommand"
+        },
+        {
+          "$ref": "#/$defs/EvaluationAttestCommand"
         },
         {
           "$ref": "#/$defs/HandoffSubmitCommand"
@@ -23481,6 +23508,269 @@
       ],
       "additionalProperties": false
     },
+    "EvaluationAttestCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "evaluation.attest"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "attestationId": {
+              "$ref": "#/$defs/Id"
+            },
+            "bundleDigests": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Digest"
+              },
+              "minItems": 1,
+              "maxItems": 100,
+              "uniqueItems": true
+            },
+            "outcome": {
+              "type": "string",
+              "enum": [
+                "verified",
+                "rejected",
+                "incomplete"
+              ]
+            },
+            "checks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "checkId": {
+                    "$ref": "#/$defs/ConfigId"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "passed",
+                      "failed",
+                      "missing",
+                      "inconclusive"
+                    ]
+                  },
+                  "detail": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 2048
+                  }
+                },
+                "required": [
+                  "checkId",
+                  "status",
+                  "detail"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 100
+            }
+          },
+          "required": [
+            "attestationId",
+            "bundleDigests",
+            "outcome",
+            "checks"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "EvaluationAttestation": {
+      "description": "One request for a person to attest an independence-L3 evaluation: what was submitted, who may answer, and the verdict once recorded.",
+      "type": "object",
+      "properties": {
+        "attestationId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "runId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "stepId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "open",
+            "attested",
+            "closed"
+          ]
+        },
+        "requestedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "independence": {
+          "type": "string",
+          "const": "L3"
+        },
+        "attesters": {
+          "type": "object",
+          "properties": {
+            "role": {
+              "type": "string",
+              "enum": [
+                "operator",
+                "workspace-lead"
+              ]
+            },
+            "people": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Id"
+              },
+              "maxItems": 50
+            }
+          },
+          "additionalProperties": false
+        },
+        "requiredChecks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "checkId": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "criterionId": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "claimed": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "passed",
+                      "failed",
+                      "missing",
+                      "inconclusive"
+                    ]
+                  },
+                  "detail": {
+                    "type": "string",
+                    "maxLength": 2048
+                  }
+                },
+                "required": [
+                  "status",
+                  "detail"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "checkId",
+              "criterionId"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "bundleDigests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Digest"
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "canAttest": {
+          "type": "boolean"
+        },
+        "cannotAttestReason": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "verdict": {
+          "type": "object",
+          "properties": {
+            "outcome": {
+              "type": "string",
+              "enum": [
+                "verified",
+                "rejected",
+                "incomplete"
+              ]
+            },
+            "attestedBy": {
+              "$ref": "#/$defs/Id"
+            },
+            "attestedAt": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "independence": {
+              "type": "string",
+              "const": "L3"
+            }
+          },
+          "required": [
+            "outcome",
+            "attestedBy",
+            "attestedAt",
+            "independence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "attestationId",
+        "workspaceId",
+        "runId",
+        "stepId",
+        "title",
+        "state",
+        "requestedAt",
+        "independence",
+        "attesters",
+        "requiredChecks",
+        "bundleDigests",
+        "canAttest"
+      ],
+      "additionalProperties": false
+    },
     "HandoffNotes": {
       "type": "object",
       "properties": {
@@ -24417,6 +24707,7 @@
             "plan-proposal",
             "parked",
             "question",
+            "attestation",
             "sign-off",
             "verdict-ready",
             "routed",

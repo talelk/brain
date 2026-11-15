@@ -646,6 +646,15 @@
       ]
     },
     {
+      "type": "evaluation.attest",
+      "schema": "EvaluationAttestCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "handoff.submit",
       "schema": "HandoffSubmitCommand",
       "scope": "mission:write",
@@ -976,6 +985,7 @@
     "missions.get",
     "missions.brief",
     "missionBundles.latest",
+    "attestations.get",
     "handoffs.forWorkItem",
     "missionMessages.list",
     "workItemComments.list",
@@ -1639,6 +1649,18 @@
       "type": "mission.questionAsked",
       "envelope": "EventEnvelope",
       "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "evaluation.attestationRequested",
+      "envelope": "EventEnvelope",
+      "payloadContract": "EvidenceEventPayload",
+      "durable": true
+    },
+    {
+      "type": "evaluation.attested",
+      "envelope": "EventEnvelope",
+      "payloadContract": "EvidenceEventPayload",
       "durable": true
     },
     {

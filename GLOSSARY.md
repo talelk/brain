@@ -653,6 +653,13 @@ How separated the evaluator is from the work it judges: L1 separate process or a
 L2 separate runner trust domain, L3 independent human or external.
 _Avoid_: autonomy, objectivity
 
+**Attestation**:
+A person's verdict on the evidence of an eval step of independence L3, recorded as the step's
+evaluator with a status and a note for every pinned check. It is asked for by an attestation
+request (a blocking Needs you item) and can be given by anyone allowed to attest except the people
+who started or own the work (ADR 0069).
+_Avoid_: sign-off (that closes a mission), approval (that gates an effect)
+
 ### Memory
 
 **Knowledge asset**:

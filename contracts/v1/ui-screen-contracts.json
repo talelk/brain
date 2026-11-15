@@ -571,6 +571,27 @@
    "title": "Approval review"
   },
   {
+   "route": "/attestations/:id",
+   "queries": [
+    "attestations.get",
+    "evidence.get"
+   ],
+   "actions": [
+    "evaluation.attest"
+   ],
+   "content": [
+    "evidence",
+    "checks",
+    "independence",
+    "verdict"
+   ],
+   "owner": "T35",
+   "navigationGroup": "missions",
+   "icon": "lucide-clipboard-check",
+   "task": "Review submitted evidence and attest it as the independent human evaluator",
+   "title": "Attest evidence"
+  },
+  {
    "route": "/runs/:id",
    "queries": [
     "usage.run",
