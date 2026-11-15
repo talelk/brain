@@ -7,6 +7,7 @@ import type { ArtifactRef, EngineInfo, EvaluationAssignment, JsonValue, ReleaseR
 import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
 import { brokerRead } from "./tools/broker-read";
+import { BrainSession } from "./tools/brain-tools";
 import { OUTPUT_BROKERED } from "./tools/brokers";
 import { RunOutputDir } from "./tools/run-output";
 import { proposeEffect, type Proposal } from "./tools/effects";
@@ -286,6 +287,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     // Files an agent writes with files.write live in this attempt's own folder until the attempt ends well (run-output.ts); removed in every case.
     const outputs = new RunOutputDir(cfg.stateDir, offer.attemptId);
     const nestedToolReleases: ReleaseRef[] = [];
+    // The credential this attempt's Brain tools act with is asked for on the first such call and lives only here (ADR 0041).
+    const brainSession = new BrainSession(client, offer.attemptId);
     // What approved effect calls did, for the evidence bundle: each effect with its reconciled receipt, and the approvals it consumed.
     const nestedEffects: Array<{ invocationId: string; targetId: string; operation: string; outcome: "applied" | "absent" | "unknown"; receiptArtifact: ArtifactRef }> = [];
     const nestedApprovalIds: string[] = [];
@@ -383,7 +386,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           // Read tools that need data the sandboxed script cannot reach get it from a broker first; a refusal is a failed call with a
           // receipt, never a script run on missing data.
           const scriptInput = (base: Record<string, unknown>): Record<string, unknown> => { if (!OUTPUT_BROKERED.has(binding.release.id)) return base; const { content: _content, ...rest } = base; return rest; };
-          const brokered = proposed ? undefined : await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher, outputs);
+          const brokered = proposed ? undefined : await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher, outputs, { session: brainSession, proposalId: proposal.proposalId });
           const executed: { ok: boolean; output: JsonValue } = proposed
             ? proposed.ok ? { ok: true, output: proposed.output as unknown as JsonValue } : { ok: false, output: { error: proposed.error } as JsonValue }
             : brokered && !brokered.ok ? { ok: false as const, output: { error: brokered.error } as JsonValue } : await executeToolPayload({

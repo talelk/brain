@@ -93,6 +93,17 @@ export interface UploadedArtifact {
   bytes: number;
 }
 
+/** What the Governor hands a runner to act as one session: the credential (never logged, never shown to a model) and the ids it acts on. */
+export interface SessionGrant {
+  principalId: string;
+  credential: string;
+  expiresAt: string;
+  workspaceId: string;
+  missionId: string;
+  memberId?: string;
+  workItemId?: string;
+}
+
 export class GovernorClient {
   private token: string | undefined;
 
@@ -243,6 +254,25 @@ export class GovernorClient {
     const res = await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/tool-read`, request);
     if (res.status !== 200) throw new GovernorProtocolError("tool read", res.status, res.json);
     return (res.json as { data: unknown }).data;
+  }
+
+  // --- Brain tools (ADR 0041) -------------------------------------------
+
+  /** The credential this running attempt acts with as its team member's machine principal, and the ids it acts on. Asking again replaces it. */
+  async sessionCredential(attemptId: string): Promise<SessionGrant> {
+    return this.expect("session credential", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/session-credential`, {}), 200);
+  }
+
+  /**
+   * One call to the Governor's public command or query endpoint as a session principal: the bearer is the attempt's credential, never this
+   * runner's own token, so the Governor's authorization decides exactly as it does for any actor and nothing here is a shortcut.
+   */
+  async actAs(credential: string, path: "/v1/commands" | "/v1/query", body: unknown): Promise<{ status: number; json: unknown }> {
+    const res = await (this.cfg.transport ?? fetch)(`${this.cfg.governorUrl.replace(/\/$/, "")}${path}`, {
+      method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${credential}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(30_000),
+    });
+    const text = await res.text();
+    return { status: res.status, json: text ? (JSON.parse(text) as unknown) : null };
   }
 
   // --- effect tools (ADR 0024) -------------------------------------------

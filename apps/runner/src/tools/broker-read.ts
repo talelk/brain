@@ -3,14 +3,17 @@ import { GovernorProtocolError, type GovernorClient } from "../governor-client";
 import type { LauncherClient } from "../launcher-client";
 import { GOVERNOR_BROKERED, LAUNCHER_BROKERED, OUTPUT_BROKERED, plainFetchError, RUNNER_BROKERED, webFetch, type BrokerResult } from "./brokers";
 import type { RunOutputDir } from "./run-output";
+import { BRAIN_BROKERED, type BrainSession } from "./brain-tools";
 
 /**
  * Resolves the data a brokered read tool needs: the Governor answers documents, CSV artifacts and knowledge (rechecking scope and the
  * agent's allowlist, auditing refusals); web pages are fetched here under the pinned host allowlist. Tools with no broker return
  * undefined and run as before.
  */
-export async function brokerRead(binding: EngineToolBinding, input: Readonly<Record<string, unknown>>, attemptId: string, client: Pick<GovernorClient, "toolRead">, launcher?: Pick<LauncherClient, "hostCommand">, outputs?: Pick<RunOutputDir, "write">): Promise<BrokerResult | undefined> {
+export async function brokerRead(binding: EngineToolBinding, input: Readonly<Record<string, unknown>>, attemptId: string, client: Pick<GovernorClient, "toolRead">, launcher?: Pick<LauncherClient, "hostCommand">, outputs?: Pick<RunOutputDir, "write">, brain?: { session: BrainSession; proposalId: string }): Promise<BrokerResult | undefined> {
   const id = binding.release.id;
+  // A Brain tool is one Brain command run as the attempt's own principal (ADR 0041). Outside a mission session (a direct tool step, a tool test) there is none to act as.
+  if (BRAIN_BROKERED.has(id)) return brain ? brain.session.call(id, input, brain.proposalId) : { ok: false, error: "Brain tools work only inside a mission session; this call is not one" };
   if (OUTPUT_BROKERED.has(id)) return outputs ? outputs.write(input) : { ok: false, error: "this attempt has no output folder" };
   if (LAUNCHER_BROKERED.has(id)) return hostExec(input, launcher);
   if (RUNNER_BROKERED.has(id)) {
