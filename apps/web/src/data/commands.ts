@@ -23,7 +23,7 @@ export type CommandKind =
   | "integration.connect" | "integration.verify" | "integration.bind"
   | "configDraft.create" | "configDraft.update" | "configDraft.validate" | "configDraft.test" | "configDraft.publish"
   | "member.grant" | "member.revoke" | "config.activate" | "memory.publish" | "memory.revoke"
-  | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "knowledge.review" | "knowledge.approveVerified" | "library.settings.set" | "plays.addStarter" | "mission.reuse.decide" | "result.challenge" | "play.propose" | "play.proposal.review" | "approval.revoke" | "workspace.update" | "workspace.control" | "workspace.export" | "workspace.import"
+  | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "knowledge.review" | "knowledge.scope.request" | "knowledge.scope.set" | "knowledge.approveVerified" | "library.settings.set" | "plays.addStarter" | "mission.reuse.decide" | "result.challenge" | "play.propose" | "play.proposal.review" | "approval.revoke" | "workspace.update" | "workspace.control" | "workspace.export" | "workspace.import"
   | OrganizationAdminCommand["commandType"];
 
 export interface CommandContext {
@@ -70,7 +70,9 @@ export type PayloadFor<K extends CommandKind> =
       : K extends "plan.reject" ? { planVersionId: string; reason: string }
       : K extends "knowledge.approveVerified" | "plays.addStarter" | "knowledge.withdrawUnobserved" ? Record<string, never>
       : K extends "library.settings.set" ? { autoPublishKnowledge: boolean }
-      : K extends "knowledge.review" ? { assetId: string; decision: "approve" | "reject"; reason: string }
+      : K extends "knowledge.review" ? { assetId: string; decision: "approve" | "reject"; reason: string; scope?: "private" | "team" | "workspace" }
+      : K extends "knowledge.scope.request" ? { assetId: string; scope: "team" | "workspace" }
+      : K extends "knowledge.scope.set" ? { assetId: string; scope: "private" | "team" | "workspace"; reason: string }
       : K extends "mission.reuse.decide" ? { missionId: string; itemRef: string; decision: "keep" | "drop" }
       : K extends "result.challenge" ? { workItemId: string }
       : K extends "play.propose" ? { missionId: string }

@@ -124,6 +124,16 @@ describe("published knowledge reaches agents and the planner (#96)", () => {
     expect((await l.agentSearch("quarterly churn report causes")).hits).toEqual([]);
   });
 
+  it("team and private memory is never returned to the agent search of a run outside that team, even for the person's own work", async () => {
+    const l = await world();
+    const base = { organizationId: l.w.org, workspaceId: l.w.workspaceId, sourceType: "knowledge" as const, status: "reviewed" as const };
+    l.w.brain.memory.publish({ ...base, sourceId: "kb-team", text: "Quarterly churn report causes, for the team of another mission only.", visibility: "team", teamId: "mission-elsewhere" });
+    l.w.brain.memory.publish({ ...base, sourceId: "kb-private", text: "Quarterly churn report causes, my private notes.", visibility: "private", ownerId: "owner-1" });
+    expect((await l.agentSearch("quarterly churn report causes")).hits).toEqual([]);
+    l.w.brain.memory.publish({ ...base, sourceId: "kb-shared", text: "Quarterly churn report causes, for everyone in the workspace." });
+    expect((await l.agentSearch("quarterly churn report causes")).hits.map((hit) => hit.sourceId)).toEqual(["kb-shared"]);
+  });
+
   it("reusing knowledge is a claim: a mission whose only successful call was a knowledge search is not written up as observed", async () => {
     const l = await world();
     await achievedMission(l.w, "lean", { title: "Reused churn answer", intent: "Answer the churn question from stored knowledge", criteria: ["answered"], autoPublish: true, observedTool: "knowledge.search" });

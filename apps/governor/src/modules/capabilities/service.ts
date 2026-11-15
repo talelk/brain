@@ -9,7 +9,7 @@ import { requireWorkspaceRead, scopesForPrincipal } from "../../application/auth
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { iso } from "../../domain/clock";
-import { KNOWLEDGE_TTL_MS, knowledgeExpired, knowledgeLife, looksLikeSecret, type MemoryStore, type ReuseService } from "../knowledge/index";
+import { KNOWLEDGE_TTL_MS, knowledgeExpired, knowledgeLife, looksLikeSecret, personViewer, SCOPE_RANK, viewerFor, type MemoryStore, type ReuseService, type ScopeKind } from "../knowledge/index";
 import { putBytes } from "../artifacts/index";
 import { readableSources, toolAvailability } from "../resources/index";
 import { buildWriteup, goalKey } from "./writeup";
@@ -53,6 +53,7 @@ type AssetRow = {
   title: string; mission_id: string | null; producer_id: string | null; provenance_json: string;
   reviewed_by: string | null; self_reviewed: number; reviewed_at_ms: number | null; rejection_reason: string | null; content_digest: string | null;
   superseded_by: string | null; auto_published: number; expires_at_ms: number | null;
+  scope: ScopeKind; scope_requested: "team" | "workspace" | null;
   created_at_ms: number; updated_at_ms: number;
 };
 type CandidateRow = {
@@ -108,6 +109,8 @@ export class CapitalizationService {
       case "tool.propose": return this.propose(actor, workspaceId, command.payload);
       case "tool.publish": return this.publish(actor, workspaceId, command.payload);
       case "knowledge.review": return this.reviewKnowledge(actor, workspaceId, command.payload);
+      case "knowledge.scope.request": return this.requestScope(actor, workspaceId, command.payload);
+      case "knowledge.scope.set": return this.setScope(actor, workspaceId, command.payload);
       case "knowledge.approveVerified": return this.approveVerified(actor, workspaceId);
       case "knowledge.withdrawUnobserved": return this.withdrawUnobserved(actor, workspaceId);
       case "library.settings.set": return this.setLibrarySettings(actor, workspaceId, command.payload);
@@ -401,9 +404,9 @@ export class CapitalizationService {
     return release.id;
   }
 
-  markKnowledgePublished(organizationId: string, workspaceId: string, sourceId: string): void {
+  markKnowledgePublished(organizationId: string, workspaceId: string, sourceId: string, scope: ScopeKind = "workspace"): void {
     const db = this.store.workspaceDb(workspaceId, organizationId);
-    db.prepare("UPDATE knowledge_assets SET state='published',updated_at_ms=? WHERE id=? AND state IN ('extracted','reviewed')").run(this.store.now(), sourceId);
+    db.prepare("UPDATE knowledge_assets SET state='published',scope=?,updated_at_ms=? WHERE id=? AND state IN ('extracted','reviewed')").run(scope, this.store.now(), sourceId);
     this.ports.reuse.indexKnowledge(organizationId, workspaceId, sourceId);
   }
 
@@ -437,16 +440,95 @@ export class CapitalizationService {
     if (asset.state === "published") return assetId;
     if (asset.state !== "extracted") throw new BrainDomainError("CONFLICT", `a ${asset.state} knowledge asset cannot be approved`);
     if (asset.superseded_by) throw new BrainDomainError("CONFLICT", "a newer write-up of the same goal replaced this one");
-    const self = asset.producer_id === actor.actorId;
+    // The person approving chooses who may read it (default: the whole workspace). Private memory is the author's alone, so no second
+    // person reviews it; a team or workspace-wide asset is reviewed under ADR 0007.
+    const scope = String(payload["scope"] ?? "workspace") as ScopeKind;
+    if (!(scope in SCOPE_RANK)) throw new BrainDomainError("INVALID_ARGUMENT", "scope is private, team or workspace");
+    this.requireScopeTarget(asset, scope);
+    const self = scope !== "private" && asset.producer_id === actor.actorId;
     if (self && this.otherReviewers(actor.organizationId, workspaceId, actor.actorId).length > 0) {
       throw new BrainDomainError("FORBIDDEN", "another reviewer in this workspace must approve knowledge you produced");
     }
-    this.publishAsset(actor.organizationId, workspaceId, asset, actor.actorId, self, false);
+    this.publishAsset(actor.organizationId, workspaceId, asset, actor.actorId, self, false, scope);
+    return assetId;
+  }
+
+  /** A team asset needs the mission whose team may read it, a private one the author who may; without them the scope cannot be given. */
+  private requireScopeTarget(asset: AssetRow, scope: ScopeKind): void {
+    if (scope === "team" && !asset.mission_id) throw new BrainDomainError("INVALID_ARGUMENT", "only knowledge from a mission has a team to share it with");
+    if (scope === "private" && !asset.producer_id) throw new BrainDomainError("INVALID_ARGUMENT", "this knowledge has no author to keep it private for");
+  }
+
+  /** The memory-store target of one asset at one scope. */
+  private memoryTarget(asset: AssetRow, scope: ScopeKind): { visibility: ScopeKind; teamId?: string; ownerId?: string } {
+    return { visibility: scope, ...(scope === "team" && asset.mission_id ? { teamId: asset.mission_id } : {}), ...(scope === "private" && asset.producer_id ? { ownerId: asset.producer_id } : {}) };
+  }
+
+  /** Can this person read the asset as things stand: their scope, or a pending request for review when they hold the review scope. */
+  private canSee(actor: ActorContext, workspaceId: string, asset: Pick<AssetRow, "scope" | "scope_requested" | "mission_id" | "producer_id">): boolean {
+    if (asset.scope === "workspace") return true;
+    if (asset.scope_requested && actor.scopes.includes("memory:publish")) return true;
+    const viewer = personViewer(this.store, actor.organizationId, workspaceId, actor.actorId);
+    return asset.scope === "team" ? Boolean(asset.mission_id && viewer.teamIds.includes(asset.mission_id)) : asset.producer_id === actor.actorId;
+  }
+
+  /**
+   * The author asks for a wider scope (private to team, team or private to the workspace). Asking changes nothing anyone can read; it
+   * puts the asset in front of the reviewers, who see it for this one purpose.
+   */
+  private requestScope(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person asks for a wider scope");
+    const db = this.store.workspaceDb(workspaceId, actor.organizationId);
+    const assetId = String(payload["assetId"]);
+    const target = String(payload["scope"]) as ScopeKind;
+    const asset = db.prepare("SELECT * FROM knowledge_assets WHERE id=?").get(assetId) as AssetRow | undefined;
+    if (!asset || asset.state !== "published" || !this.canSee(actor, workspaceId, asset)) throw new BrainDomainError("NOT_FOUND", "knowledge asset not found");
+    if (asset.producer_id !== actor.actorId) throw new BrainDomainError("FORBIDDEN", "only the author asks for a wider scope");
+    if (target !== "team" && target !== "workspace") throw new BrainDomainError("INVALID_ARGUMENT", "scope is team or workspace");
+    if (SCOPE_RANK[target] <= SCOPE_RANK[asset.scope]) throw new BrainDomainError("INVALID_ARGUMENT", "that is not wider than the scope it has");
+    this.requireScopeTarget(asset, target);
+    db.prepare("UPDATE knowledge_assets SET scope_requested=?,updated_at_ms=? WHERE id=?").run(target, this.store.now(), assetId);
+    return assetId;
+  }
+
+  /**
+   * Changes who may read a published asset. Narrowing is immediate. Widening is a review (ADR 0061): the author has asked for exactly this
+   * scope, and a different person with the review scope decides; the author decides their own only when nobody else could (ADR 0007), and
+   * the asset is then marked self-reviewed. Nothing else widens a published asset: republishing it is refused.
+   */
+  private setScope(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person decides who reads knowledge");
+    const db = this.store.workspaceDb(workspaceId, actor.organizationId);
+    const assetId = String(payload["assetId"]);
+    const target = String(payload["scope"]) as ScopeKind;
+    if (!(target in SCOPE_RANK)) throw new BrainDomainError("INVALID_ARGUMENT", "scope is private, team or workspace");
+    const asset = db.prepare("SELECT * FROM knowledge_assets WHERE id=?").get(assetId) as AssetRow | undefined;
+    if (!asset || asset.state !== "published" || !this.canSee(actor, workspaceId, asset)) throw new BrainDomainError("NOT_FOUND", "knowledge asset not found");
+    if (target === asset.scope) return assetId;
+    this.requireScopeTarget(asset, target);
+    const widening = SCOPE_RANK[target] > SCOPE_RANK[asset.scope];
+    let selfReviewed: boolean | undefined;
+    if (widening) {
+      if (asset.scope_requested !== target) throw new BrainDomainError("FORBIDDEN", "a wider scope needs the author's request and a review");
+      const self = asset.producer_id === actor.actorId;
+      if (self && this.otherReviewers(actor.organizationId, workspaceId, actor.actorId).length > 0) {
+        throw new BrainDomainError("FORBIDDEN", "another reviewer in this workspace must approve a wider scope for knowledge you produced");
+      }
+      selfReviewed = self ? true : undefined;
+    }
+    this.ports.memory.setScope(actor.organizationId, workspaceId, assetId, this.memoryTarget(asset, target), selfReviewed);
+    const now = this.store.now();
+    this.store.inTx(db, () => {
+      db.prepare("UPDATE knowledge_assets SET scope=?,scope_requested=NULL,reviewed_by=CASE WHEN ? THEN ? ELSE reviewed_by END,reviewed_at_ms=CASE WHEN ? THEN ? ELSE reviewed_at_ms END,self_reviewed=CASE WHEN ? THEN 1 ELSE self_reviewed END,updated_at_ms=? WHERE id=?")
+        .run(target, widening ? 1 : 0, actor.actorId, widening ? 1 : 0, now, selfReviewed ? 1 : 0, now, assetId);
+    });
+    if (target === "workspace") this.ports.reuse.indexKnowledge(actor.organizationId, workspaceId, assetId);
+    else this.ports.reuse.unindex(actor.organizationId, workspaceId, `knowledge:${assetId}`);
     return assetId;
   }
 
   /** Publication itself, shared by a person's approval and the automatic path: secret scan, content artifact, memory publication, asset state, reuse index. */
-  private publishAsset(organizationId: string, workspaceId: string, asset: AssetRow, reviewerId: string, selfReviewed: boolean, auto: boolean): void {
+  private publishAsset(organizationId: string, workspaceId: string, asset: AssetRow, reviewerId: string, selfReviewed: boolean, auto: boolean, scope: ScopeKind = "workspace"): void {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     if (asset.mission_id && !missionObserved(this.store, db, asset.mission_id)) {
       throw new BrainDomainError("EVIDENCE_MISSING", "this write-up rests on no observed evidence (no successful tool call backs it), so it is not published");
@@ -455,11 +537,11 @@ export class CapitalizationService {
       throw new BrainDomainError("INVALID_ARGUMENT", "this knowledge appears to contain a secret; it was not published");
     }
     const digest = putBytes(this.store, new TextEncoder().encode(asset.content));
-    this.ports.memory.publish({ organizationId, workspaceId, sourceId: asset.id, text: asset.content, sourceType: "knowledge", status: "reviewed", title: asset.title, selfReviewed });
+    this.ports.memory.publish({ organizationId, workspaceId, sourceId: asset.id, text: asset.content, sourceType: "knowledge", status: "reviewed", title: asset.title, selfReviewed, ...this.memoryTarget(asset, scope) });
     const now = this.store.now();
     this.store.inTx(db, () => {
-      db.prepare("UPDATE knowledge_assets SET state='published',reviewed_by=?,self_reviewed=?,auto_published=?,reviewed_at_ms=?,content_digest=?,rejection_reason=NULL,updated_at_ms=? WHERE id=? AND state='extracted'")
-        .run(reviewerId, selfReviewed ? 1 : 0, auto ? 1 : 0, now, digest, now, asset.id);
+      db.prepare("UPDATE knowledge_assets SET state='published',scope=?,reviewed_by=?,self_reviewed=?,auto_published=?,reviewed_at_ms=?,content_digest=?,rejection_reason=NULL,updated_at_ms=? WHERE id=? AND state='extracted'")
+        .run(scope, reviewerId, selfReviewed ? 1 : 0, auto ? 1 : 0, now, digest, now, asset.id);
     });
     this.ports.reuse.indexKnowledge(organizationId, workspaceId, asset.id);
   }
@@ -756,18 +838,20 @@ export class CapitalizationService {
     if (queryType === "library.summary") {
       const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
       const writeups = count(`SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='extracted' AND operation_id IN ('mission-knowledge','saved-document') AND superseded_by IS NULL AND (rejection_reason IS NULL OR rejection_reason LIKE '${NEEDS_PERSON_NOTE}%')`);
+      // A wider scope an author asked for waits on a reviewer just as a write-up does; what is published at a narrower scope is not counted as the workspace's knowledge.
+      const scopeRequests = count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE scope_requested IS NOT NULL AND state='published'");
       const tools = count("SELECT COUNT(*) AS n FROM tool_candidates WHERE state='quarantined'");
       const plays = count("SELECT COUNT(*) AS n FROM play_proposals WHERE state='proposed'");
       return {
         // What truly needs a person: write-ups waiting for a reviewer (including ones set aside for a secret), tool and Play proposals.
         // What Brain published itself is counted apart (publishedAutomatically) and never waits here.
-        awaitingReview: writeups + tools + plays,
-        needsPerson: { writeups, tools, plays },
-        publishedAutomatically: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='published' AND auto_published=1"),
-        publishedKnowledge: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='published'"),
+        awaitingReview: writeups + scopeRequests + tools + plays,
+        needsPerson: { writeups, scopeRequests, tools, plays },
+        publishedAutomatically: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='published' AND scope='workspace' AND auto_published=1"),
+        publishedKnowledge: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='published' AND scope='workspace'"),
         // What Brain learned lately, for the quiet line on Today: mission write-ups published in the last seven days, and how many of those it published itself.
-        learnedThisWeek: count(`SELECT COUNT(*) AS n FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='published' AND reviewed_at_ms>=${this.store.now() - 7 * 86_400_000}`),
-        learnedAutomatically: count(`SELECT COUNT(*) AS n FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='published' AND auto_published=1 AND reviewed_at_ms>=${this.store.now() - 7 * 86_400_000}`),
+        learnedThisWeek: count(`SELECT COUNT(*) AS n FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='published' AND scope='workspace' AND reviewed_at_ms>=${this.store.now() - 7 * 86_400_000}`),
+        learnedAutomatically: count(`SELECT COUNT(*) AS n FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='published' AND scope='workspace' AND auto_published=1 AND reviewed_at_ms>=${this.store.now() - 7 * 86_400_000}`),
         autoPublishKnowledge: this.autoPublishOn(db),
         documents: count("SELECT COUNT(*) AS n FROM documents WHERE state='active'"),
         tools: this.activeTools(actor.organizationId, workspaceId).length,
@@ -777,7 +861,13 @@ export class CapitalizationService {
     if (queryType === "tools.calls") return this.toolCalls(actor.organizationId, workspaceId, String(resourceId ?? ""), Math.min(limit, 100)) as unknown as JsonValue;
     if (queryType === "tools.list") return { items: this.activeTools(actor.organizationId, workspaceId).slice(0, limit) } as unknown as JsonValue;
     if (queryType === "knowledgeAssets.list") {
-      const rows = db.prepare("SELECT * FROM knowledge_assets ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as AssetRow[];
+      // Scope is enforced here too: a person lists the workspace's knowledge, their mission teams' and their own private notes; a pending
+      // request for a wider scope also reaches the people who review it. A session lists only its own mission's team.
+      const viewer = actor.kind === "human" ? personViewer(this.store, actor.organizationId, workspaceId, actor.actorId) : viewerFor(this.store, actor, workspaceId);
+      const teams = viewer.teamIds.slice(0, 500);
+      const reviewer = actor.kind === "human" && actor.scopes.includes("memory:publish") ? 1 : 0;
+      const rows = db.prepare(`SELECT * FROM knowledge_assets WHERE scope='workspace' OR (scope='team' AND mission_id IN (${teams.map(() => "?").join(",") || "NULL"}))
+        OR (scope='private' AND producer_id IS NOT NULL AND producer_id=?) OR (scope_requested IS NOT NULL AND ?=1) ORDER BY updated_at_ms DESC,id LIMIT ?`).all(...teams, viewer.ownerId ?? "", reviewer, limit) as AssetRow[];
       return { items: rows.map((row) => this.asset(workspaceId, db, row)) } as unknown as JsonValue;
     }
     if (queryType === "capabilityCandidates.list" || queryType === "toolCandidates.list") {
@@ -808,6 +898,7 @@ export class CapitalizationService {
       ...(row.reviewed_at_ms ? { reviewedAt: iso(row.reviewed_at_ms) } : {}), ...(row.self_reviewed ? { selfReviewed: true } : {}),
       ...(row.rejection_reason ? { rejectionReason: row.rejection_reason } : {}), ...(row.auto_published ? { autoPublished: true } : {}), ...(row.superseded_by ? { supersededBy: row.superseded_by } : {}), ...(row.content_digest ? { contentDigest: row.content_digest } : {}),
       ...(row.state === "published" || row.state === "extracted" ? (() => { const life = knowledgeLife(db, row); return { expiresAt: iso(life.expiresAtMs), helpedCount: life.helpedCount }; })() : {}),
+      scope: row.scope, ...(row.scope_requested ? { scopeRequested: row.scope_requested } : {}),
       createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }

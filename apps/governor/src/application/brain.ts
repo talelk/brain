@@ -19,7 +19,7 @@ import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
 import { activateRelease, activeReleaseAssets, activeReleaseRecord, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
 import { MastraWorkflowEngine, readRun, setRunPriority, workflowCommands, type WorkflowEnginePort } from "../modules/workflows/index";
-import { knowledgeCommands, knowledgeExpired, LOCAL_ONLY_SOURCE_TYPES, MemoryStore, ReuseService, TencentDbClient } from "../modules/knowledge/index";
+import { knowledgeCommands, knowledgeExpired, LOCAL_ONLY_SOURCE_TYPES, MemoryStore, missionViewer, NO_VIEWER, ReuseService, TencentDbClient, viewerFor, visibleTo, type MemoryViewer } from "../modules/knowledge/index";
 import { admitApprovalDecision, governanceCommands, STEP_UP_COMMANDS, StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
 import { localRunnerSettingsCurrent, quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
@@ -151,7 +151,7 @@ export class Brain {
           },
           // The unified search (memory.search); scope is the mission's workspace, fixed by the caller, never taken from the agent.
           knowledgeSearch: (organizationId, workspaceId, scope, input) => {
-            const hits = this.storedClaims(organizationId, workspaceId, input.query, input.limit, 1500);
+            const hits = this.storedClaims(organizationId, workspaceId, input.query, input.limit, 1500, missionViewer(scope.missionId));
             return { query: input.query, ...(scope.missionId ? { missionId: scope.missionId } : {}), results: hits.map((hit) => ({
               sourceId: hit.sourceId, content: hit.content, updatedAt: hit.updatedAt, status: hit.status, provenance: hit.provenance,
               ...(hit.sourceType ? { sourceType: hit.sourceType } : {}), ...(hit.title ? { title: hit.title } : {}), ...(hit.selfReviewed ? { selfReviewed: true } : {}),
@@ -211,7 +211,7 @@ export class Brain {
           cancelJobs: (runId) => this.jobProtocol.cancelForRun(runId),
         }),
         knowledgeCommands(this.store, this.memory, this.reuse, {
-          markKnowledgePublished: (org, ws, sourceId) => this.capitalization.markKnowledgePublished(org, ws, sourceId),
+          markKnowledgePublished: (org, ws, sourceId, scope) => this.capitalization.markKnowledgePublished(org, ws, sourceId, scope),
           markKnowledgeRevoked: (org, ws, sourceId) => this.capitalization.markKnowledgeRevoked(org, ws, sourceId),
         }),
         workspaceAdminCommands(this.store, this.auth, this.jobProtocol, {
@@ -952,8 +952,8 @@ export class Brain {
    * left out even when the sweep has not withdrawn it yet. Knowledge hits carry their provenance: the asset, its mission and the
    * mission's verified evidence. Every hit is a claim from earlier work, never evidence of the work now under way.
    */
-  private storedClaims(organizationId: string, workspaceId: string, query: string, limit: number, maxChars: number): Array<MemoryResult & { missionId?: string }> {
-    const found = this.memory.search({ contractVersion: "brain.memory/v1", queryId: this.store.id("kq"), scope: { organizationId, visibility: "workspace", workspaceId }, query, sourceTypes: ["chat", "skill", "wiki", "codegraph", "knowledge"], limit, maxChars }, { organizationId, workspaceId });
+  private storedClaims(organizationId: string, workspaceId: string, query: string, limit: number, maxChars: number, viewer: MemoryViewer): Array<MemoryResult & { missionId?: string }> {
+    const found = this.memory.search({ contractVersion: "brain.memory/v1", queryId: this.store.id("kq"), scope: { organizationId, visibility: "workspace", workspaceId }, query, sourceTypes: ["chat", "skill", "wiki", "codegraph", "knowledge"], limit, maxChars }, { organizationId, workspaceId }, viewer);
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const now = this.store.now();
     const live: Array<MemoryResult & { missionId?: string }> = [];
@@ -970,7 +970,8 @@ export class Brain {
 
   /** Related stored knowledge for a plan draft, in the actor's organization and the given workspace (the caller has checked workspace read access). */
   knowledgeHits(actor: ActorContext, workspaceId: string, query: string, limit: number): Array<{ sourceId: string; content: string; status?: string; title?: string; missionId?: string }> {
-    return this.storedClaims(actor.organizationId, workspaceId, query, limit, 600)
+    // The plan draft is read by the whole workspace and its agents: it sees workspace-wide knowledge only, never one person's private memory or another team's.
+    return this.storedClaims(actor.organizationId, workspaceId, query, limit, 600, NO_VIEWER)
       .map((hit) => ({ sourceId: hit.sourceId, content: hit.content, ...(hit.status ? { status: hit.status } : {}), ...(hit.title ? { title: hit.title } : {}), ...(hit.missionId ? { missionId: hit.missionId } : {}) }));
   }
 
@@ -1120,7 +1121,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
         const mq = (raw as { memoryQuery: import("@brain/contracts").MemoryQuery }).memoryQuery;
-        const found = this.memory.search(mq, { organizationId: actor.organizationId, workspaceId: q.workspaceId });
+        const found = this.memory.search(mq, { organizationId: actor.organizationId, workspaceId: q.workspaceId }, viewerFor(s, actor, q.workspaceId));
         return this.envelope(q.queryType, found as unknown as JsonValue);
       }
       case "search.global": {
@@ -1351,17 +1352,18 @@ export class Brain {
   async searchMemoryAsync(actor: ActorContext, workspaceId: string, mq: import("@brain/contracts").MemoryQuery): Promise<import("@brain/contracts").JsonValue> {
     requireWorkspaceRead(this.store, actor, workspaceId);
     const client = TencentDbClient.fromEnv();
+    const viewer = viewerFor(this.store, actor, workspaceId);
     if (client) {
       // Saved documents and approved knowledge are always local; only remote-capable source types go to TencentDB.
       const remoteTypes = mq.sourceTypes.filter((type) => !LOCAL_ONLY_SOURCE_TYPES.includes(type));
       const localTypes = mq.sourceTypes.filter((type) => LOCAL_ONLY_SOURCE_TYPES.includes(type));
-      const local = localTypes.length > 0 ? this.memory.search({ ...mq, sourceTypes: localTypes as typeof mq.sourceTypes }, { organizationId: actor.organizationId, workspaceId }).results : [];
+      const local = localTypes.length > 0 ? this.memory.search({ ...mq, sourceTypes: localTypes as typeof mq.sourceTypes }, { organizationId: actor.organizationId, workspaceId }, viewer).results : [];
       let remote: import("@brain/contracts").MemoryResult[] = [];
       if (remoteTypes.length > 0) {
         try {
           const results = await client.search({ ...mq, sourceTypes: remoteTypes as typeof mq.sourceTypes }, actor.actorId);
-          // Brain re-checks tenant separation after vendor filtering.
-          remote = results.filter((r) => r.scope.organizationId === actor.organizationId);
+          // Brain re-checks tenant and memory-scope separation after vendor filtering.
+          remote = results.filter((r) => r.scope.organizationId === actor.organizationId && visibleTo(viewer, r.scope, workspaceId));
         } catch {
           throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "TencentDB memory search failed; the managed runtime does not fall back to local memory", { retryable: true });
         }
@@ -1369,6 +1371,6 @@ export class Brain {
       return this.envelope("memory.search", { results: [...remote, ...local].slice(0, mq.limit), degraded: false, store: "remote", storeLabel: "TencentDB" } as unknown as import("@brain/contracts").JsonValue);
     }
     // No remote service is configured: the local store is the memory, not a degraded fallback.
-    return this.envelope("memory.search", this.memory.search(mq, { organizationId: actor.organizationId, workspaceId }) as unknown as import("@brain/contracts").JsonValue);
+    return this.envelope("memory.search", this.memory.search(mq, { organizationId: actor.organizationId, workspaceId }, viewer) as unknown as import("@brain/contracts").JsonValue);
   }
 }

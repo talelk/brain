@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { NO_VIEWER } from "../../apps/governor/src/modules/knowledge/index";
 import type { MemoryQuery } from "@brain/contracts";
 import { setupWorld, type TestWorld } from "../helpers";
 
@@ -25,19 +26,19 @@ describe("memory ACL and scope mapping (T38)", () => {
     brain.memory.publish({ organizationId: w.org, workspaceId: "ws-other", sourceId: "doc-2", text: "rollout secret of another workspace" });
     brain.memory.publish({ organizationId: "org-elsewhere", workspaceId: null, sourceId: "doc-3", text: "rollout of another tenant" });
 
-    const mine = brain.memory.search(query(), { organizationId: w.org, workspaceId: w.workspaceId });
+    const mine = brain.memory.search(query(), { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER);
     expect(mine.results.map((r) => r.sourceId)).toEqual(["doc-1"]);
     expect(mine.results[0]?.provenance).toEqual(["doc-1"]);
-    expect(() => brain.memory.search(query({ scope: { organizationId: "org-elsewhere", visibility: "workspace", workspaceId: w.workspaceId } }), { organizationId: w.org, workspaceId: w.workspaceId })).toThrow(/not found/i);
+    expect(() => brain.memory.search(query({ scope: { organizationId: "org-elsewhere", visibility: "workspace", workspaceId: w.workspaceId } }), { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER)).toThrow(/not found/i);
   });
 
   it("revocation is effective at read time (current ACL, not publish-time)", () => {
     const w = setupWorld(); world = w;
     const brain = w.brain;
     brain.memory.publish({ organizationId: w.org, workspaceId: w.workspaceId, sourceId: "doc-revoked", text: "rollout to be revoked" });
-    expect(brain.memory.search(query(), { organizationId: w.org, workspaceId: w.workspaceId }).results).toHaveLength(1);
+    expect(brain.memory.search(query(), { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER).results).toHaveLength(1);
     brain.memory.revoke(w.org, w.workspaceId, "doc-revoked");
-    expect(brain.memory.search(query(), { organizationId: w.org, workspaceId: w.workspaceId }).results).toEqual([]);
+    expect(brain.memory.search(query(), { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER).results).toEqual([]);
   });
 
   it("secret-shaped content is refused across spellings, including unlisted variants", () => {
@@ -65,7 +66,7 @@ describe("memory ACL and scope mapping (T38)", () => {
     for (let i = 0; i < 12; i++) {
       brain.memory.publish({ organizationId: w.org, workspaceId: w.workspaceId, sourceId: `doc-${i}`, text: `rollout note ${i} ${"z".repeat(200)}` });
     }
-    const found = brain.memory.search(query({ limit: 50, maxChars: 40 }), { organizationId: w.org, workspaceId: w.workspaceId });
+    const found = brain.memory.search(query({ limit: 50, maxChars: 40 }), { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER);
     expect(found.results.length).toBeLessThanOrEqual(8);
     for (const r of found.results) expect(r.content.length).toBeLessThanOrEqual(40);
   });

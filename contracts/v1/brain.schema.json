@@ -11987,6 +11987,12 @@
         },
         {
           "$ref": "#/$defs/ChatIdentityRemoveCommand"
+        },
+        {
+          "$ref": "#/$defs/KnowledgeScopeRequestCommand"
+        },
+        {
+          "$ref": "#/$defs/KnowledgeScopeSetCommand"
         }
       ]
     },
@@ -20517,6 +20523,21 @@
         },
         "expiresAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "private",
+            "team",
+            "workspace"
+          ]
+        },
+        "scopeRequested": {
+          "type": "string",
+          "enum": [
+            "team",
+            "workspace"
+          ]
         }
       },
       "required": [
@@ -20530,7 +20551,8 @@
         "sourceCount",
         "provenance",
         "createdAt",
-        "updatedAt"
+        "updatedAt",
+        "scope"
       ],
       "additionalProperties": false
     },
@@ -25783,6 +25805,14 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 512
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "private",
+                "team",
+                "workspace"
+              ]
             }
           },
           "required": [
@@ -28542,6 +28572,121 @@
           "required": [
             "provider",
             "chatUserId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "KnowledgeScopeRequestCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "knowledge.scope.request"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "assetId": {
+              "$ref": "#/$defs/Id"
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "team",
+                "workspace"
+              ]
+            }
+          },
+          "required": [
+            "assetId",
+            "scope"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "KnowledgeScopeSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "knowledge.scope.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "assetId": {
+              "$ref": "#/$defs/Id"
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "private",
+                "team",
+                "workspace"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "assetId",
+            "scope",
+            "reason"
           ],
           "additionalProperties": false
         }

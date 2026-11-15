@@ -549,7 +549,10 @@ CREATE TABLE memory_assets (
  source_type TEXT NOT NULL DEFAULT 'wiki' CHECK(source_type IN ('chat','skill','wiki','codegraph','knowledge')),
  status TEXT NOT NULL DEFAULT 'unverified' CHECK(status IN ('reviewed','unverified')),
  title TEXT NOT NULL DEFAULT '', self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1)),
- revoked INTEGER NOT NULL DEFAULT 0, created_at_ms INTEGER NOT NULL
+ revoked INTEGER NOT NULL DEFAULT 0, created_at_ms INTEGER NOT NULL,
+ -- Memory scope (#135): who may read the asset. A team asset names the mission whose team may read it, a private asset the one author.
+ visibility TEXT NOT NULL DEFAULT 'workspace' CHECK(visibility IN ('global-approved','team','workspace','private')),
+ team_id TEXT DEFAULT NULL, owner_id TEXT DEFAULT NULL
 ) STRICT;
 CREATE UNIQUE INDEX memory_assets_source ON memory_assets(organization_id, COALESCE(workspace_id,''), source_id) WHERE revoked=0;
 CREATE VIRTUAL TABLE memory_fts USING fts5(asset_id UNINDEXED,title,body,tokenize='unicode61 remove_diacritics 2');

@@ -1,5 +1,6 @@
-import type { MemoryQuery, MemoryResult } from "@brain/contracts";
+import type { MemoryQuery, MemoryResult, MemoryScope } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
+import type { MemoryViewer } from "./scope";
 import type { Store } from "../../application/store";
 
 // Secret classification is by meaning, not by one spelling: any credential-
@@ -42,6 +43,7 @@ export const ftsOr = (terms: readonly string[]): string => terms.map((term) => `
 
 type AssetRow = {
   id: string; organization_id: string; workspace_id: string | null; source_id: string; body: string;
+  visibility: MemoryScope["visibility"]; team_id: string | null; owner_id: string | null;
   source_type: string; status: "reviewed" | "unverified"; title: string; self_reviewed: number; created_at_ms: number; rank: number;
 };
 
@@ -50,8 +52,17 @@ export const LOCAL_ONLY_SOURCE_TYPES: readonly string[] = ["knowledge", "documen
 
 export interface MemoryPublishInput {
   organizationId: string; workspaceId: string | null; sourceId: string; text: string;
+  /** Who may read it; omitted means the workspace (or every workspace when `workspaceId` is null). A team asset also names its mission, a private one its author. */
+  visibility?: MemoryScope["visibility"]; teamId?: string; ownerId?: string;
   sourceType?: "chat" | "skill" | "wiki" | "codegraph" | "knowledge";
   status?: "reviewed" | "unverified"; title?: string; selfReviewed?: boolean;
+}
+
+function scopeOfRow(a: AssetRow): MemoryScope {
+  if (a.visibility === "team" && a.team_id) return { organizationId: a.organization_id, visibility: "team", teamId: a.team_id };
+  if (a.visibility === "private" && a.workspace_id && a.owner_id) return { organizationId: a.organization_id, visibility: "private", workspaceId: a.workspace_id, ownerId: a.owner_id };
+  if (a.workspace_id) return { organizationId: a.organization_id, visibility: "workspace", workspaceId: a.workspace_id };
+  return { organizationId: a.organization_id, visibility: "global-approved" };
 }
 
 // Local scoped memory store (#75): one SQLite FTS5 index in control.db over published
@@ -64,18 +75,44 @@ export class MemoryStore {
     if (looksLikeSecret(input.text) || looksLikeSecret(input.title ?? "")) {
       throw new BrainDomainError("INVALID_ARGUMENT", "memory content appears to contain a secret; scrub before publication");
     }
+    const visibility = input.visibility ?? (input.workspaceId ? "workspace" : "global-approved");
+    if ((visibility === "global-approved") !== (input.workspaceId === null)) throw new BrainDomainError("INVALID_ARGUMENT", "only global memory has no workspace");
+    if (visibility === "team" && !input.teamId) throw new BrainDomainError("INVALID_ARGUMENT", "team memory names its team");
+    if (visibility === "private" && !input.ownerId) throw new BrainDomainError("INVALID_ARGUMENT", "private memory names its author");
+    const teamId = visibility === "team" ? input.teamId ?? null : null;
+    const ownerId = visibility === "private" ? input.ownerId ?? null : null;
     const c = this.store.control;
-    // Idempotent per source: a crash between this write and the caller's follow-up write is safe to retry.
-    const existing = c.prepare("SELECT id FROM memory_assets WHERE organization_id=? AND COALESCE(workspace_id,'')=? AND source_id=? AND revoked=0").get(input.organizationId, input.workspaceId ?? "", input.sourceId) as { id: string } | undefined;
-    if (existing) return existing.id;
+    // Idempotent per source: a crash between this write and the caller's follow-up write is safe to retry. A source is one asset in every
+    // scope, so publishing it again at another scope is refused: publication never widens (or moves) what exists; promotion is a review (setScope).
+    const existing = c.prepare("SELECT id, visibility, workspace_id, team_id, owner_id FROM memory_assets WHERE organization_id=? AND source_id=? AND revoked=0").get(input.organizationId, input.sourceId) as
+      | { id: string; visibility: string; workspace_id: string | null; team_id: string | null; owner_id: string | null } | undefined;
+    if (existing) {
+      if (existing.visibility !== visibility || existing.workspace_id !== input.workspaceId || existing.team_id !== teamId || existing.owner_id !== ownerId) {
+        throw new BrainDomainError("CONFLICT", "this memory is already published at another scope; a wider scope needs a review of its own");
+      }
+      return existing.id;
+    }
     const id = this.store.id("mem");
     const title = input.title ?? "";
     this.store.inTx(c, () => {
-      c.prepare("INSERT INTO memory_assets(id, organization_id, workspace_id, source_id, body, acl_generation, source_type, status, title, self_reviewed, created_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-        .run(id, input.organizationId, input.workspaceId, input.sourceId, input.text, 1, input.sourceType ?? "wiki", input.status ?? "unverified", title, input.selfReviewed ? 1 : 0, this.store.now());
+      c.prepare("INSERT INTO memory_assets(id, organization_id, workspace_id, source_id, body, acl_generation, source_type, status, title, self_reviewed, created_at_ms, visibility, team_id, owner_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .run(id, input.organizationId, input.workspaceId, input.sourceId, input.text, 1, input.sourceType ?? "wiki", input.status ?? "unverified", title, input.selfReviewed ? 1 : 0, this.store.now(), visibility, teamId, ownerId);
       c.prepare("INSERT INTO memory_fts(asset_id,title,body) VALUES (?,?,?)").run(id, title, input.text);
     });
     return id;
+  }
+
+  /**
+   * Moves one published asset of a workspace to another scope in place. The caller has decided it may (a review for a wider scope);
+   * team and private rows keep their workspace. Returns false when the asset is not published here.
+   */
+  setScope(organizationId: string, workspaceId: string, sourceId: string, target: { visibility: "workspace" | "team" | "private"; teamId?: string; ownerId?: string }, selfReviewed?: boolean): boolean {
+    const c = this.store.control;
+    const row = c.prepare("SELECT id FROM memory_assets WHERE organization_id=? AND workspace_id=? AND source_id=? AND revoked=0").get(organizationId, workspaceId, sourceId) as { id: string } | undefined;
+    if (!row) return false;
+    c.prepare("UPDATE memory_assets SET visibility=?, team_id=?, owner_id=?, self_reviewed=COALESCE(?, self_reviewed) WHERE id=?")
+      .run(target.visibility, target.visibility === "team" ? target.teamId ?? null : null, target.visibility === "private" ? target.ownerId ?? null : null, selfReviewed === undefined ? null : selfReviewed ? 1 : 0, row.id);
+    return true;
   }
 
   revoke(organizationId: string, workspaceId: string, sourceId: string): void {
@@ -87,7 +124,7 @@ export class MemoryStore {
     });
   }
 
-  search(query: MemoryQuery, scope: { organizationId: string; workspaceId?: string }): { results: MemoryResult[]; degraded: boolean; store: "local"; storeLabel: string; reason?: string } {
+  search(query: MemoryQuery, scope: { organizationId: string; workspaceId: string }, viewer: MemoryViewer): { results: MemoryResult[]; degraded: boolean; store: "local"; storeLabel: string; reason?: string } {
     if (query.scope.organizationId !== scope.organizationId) {
       throw new BrainDomainError("NOT_FOUND", "memory scope not found");
     }
@@ -99,16 +136,20 @@ export class MemoryStore {
     if (terms.length > 0) {
       const assetTypes = ["chat", "skill", "wiki", "codegraph", "knowledge"].filter((type) => types.has(type));
       if (assetTypes.length > 0) {
+        // Scope is enforced here on every read: global memory, then in this workspace what is workspace-wide, what belongs to a team the viewer
+        // is on, and what the viewer authored. Nothing else matches, whatever the query's own claimed scope says.
+        const teams = viewer.teamIds.slice(0, 500);
         const rows = this.store.control.prepare(`SELECT a.*, bm25(memory_fts, 1.0, 3.0, 1.0) AS rank FROM memory_fts f JOIN memory_assets a ON a.id=f.asset_id
-          WHERE memory_fts MATCH ? AND a.revoked=0 AND a.organization_id=? AND (a.workspace_id IS NULL OR ? IS NULL OR a.workspace_id=?)
+          WHERE memory_fts MATCH ? AND a.revoked=0 AND a.organization_id=?
+            AND (a.visibility='global-approved' OR (a.workspace_id=? AND (a.visibility='workspace'
+              OR (a.visibility='team' AND a.team_id IN (${teams.map(() => "?").join(",") || "NULL"}))
+              OR (a.visibility='private' AND a.owner_id IS NOT NULL AND a.owner_id=?))))
             AND a.source_type IN (${assetTypes.map(() => "?").join(",")})
-          ORDER BY rank, a.created_at_ms DESC LIMIT ?`).all(ftsOr(terms), scope.organizationId, scope.workspaceId ?? null, scope.workspaceId ?? null, ...assetTypes, limit) as AssetRow[];
+          ORDER BY rank, a.created_at_ms DESC LIMIT ?`).all(ftsOr(terms), scope.organizationId, scope.workspaceId, ...teams, viewer.ownerId ?? "", ...assetTypes, limit) as AssetRow[];
         for (const a of rows) {
           ranked.push({ rank: a.rank, at: a.created_at_ms, result: {
             sourceId: a.source_id,
-            scope: a.workspace_id
-              ? { organizationId: a.organization_id, visibility: "workspace" as const, workspaceId: a.workspace_id }
-              : { organizationId: a.organization_id, visibility: "global-approved" as const },
+            scope: scopeOfRow(a),
             sourceVersion: "local-1", updatedAt: new Date(a.created_at_ms).toISOString(), classification: "internal" as const,
             content: a.body.slice(0, maxChars), provenance: [a.source_id], status: a.status,
             ...(a.title ? { title: a.title } : {}), sourceType: a.source_type as NonNullable<MemoryResult["sourceType"]>,
@@ -139,7 +180,7 @@ export class MemoryStore {
   }
 
   exportScope(organizationId: string, workspaceId: string): { completeness: "complete" | "partial"; missing: string[]; count: number } {
-    const count = (this.store.control.prepare("SELECT COUNT(*) AS n FROM memory_assets WHERE organization_id=? AND (workspace_id=? OR workspace_id IS NULL)").get(organizationId, workspaceId) as { n: number }).n;
+    const count = (this.store.control.prepare("SELECT COUNT(*) AS n FROM memory_assets WHERE organization_id=? AND revoked=0 AND visibility IN ('global-approved','workspace') AND (workspace_id=? OR workspace_id IS NULL)").get(organizationId, workspaceId) as { n: number }).n;
     // TencentDB Wiki/CodeGraph are not exported by the local store: honest partial.
     return { completeness: "partial", missing: ["tencentdb-wiki", "tencentdb-codegraph"], count };
   }

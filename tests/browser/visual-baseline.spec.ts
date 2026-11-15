@@ -249,6 +249,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "start-standing-team", route: () => "/w/operations/missions/new", heading: "New mission", prepare: seedStandingTeams, after: async (page) => { await page.getByRole("dialog").getByTestId("play-chips").getByRole("button").first().click(); await expect(page.getByTestId("start-standing-team")).toBeVisible(); } },
   // A session a person paused (ADR 0058): it adds a running session, so it comes after the screens that list sessions and before the push screens (those stay last).
   { id: "console-session-paused", route: pausedSessionRoute, heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("continue-session")).toBeVisible(); await expect(page.getByTestId("pause-note")).toBeVisible(); } },
+  // Who can read what Brain learned (#135): the review inbox with a record for the workspace, one kept private with a request for the team and one the team reads. It adds knowledge, so it comes after every screen that counts it.
+  { id: "knowledge-scopes", route: () => "/w/operations/knowledge/review", heading: "Review inbox", prepare: seedKnowledgeScopes, waitFor: "knowledge-inbox", after: async (page) => { await expect(page.getByTestId("knowledge-inbox")).toContainText("Readable by: Only its author"); } },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];
@@ -362,6 +364,22 @@ async function seedEvalCases(governor: Parameters<typeof seedBrowserDemo>[1], pa
   const actor = (await brain.resolveActor(new Headers({ cookie }), "operations")).actor;
   await sendTaskBack(brain, actor, "operations", { key: "vb1", title: "Quarterly churn report", finding: "Cause two had no cited source" });
   await sendTaskBack(brain, actor, "operations", { key: "vb2", title: "Refund summary", finding: "The refund total does not add up" });
+}
+
+/** Three published write-ups at three scopes, made when their screen is reached: the producer is the demo owner, so the card offers them the author's choices. */
+async function seedKnowledgeScopes(governor: Fixture, _page: Page, demo: Demo): Promise<void> {
+  const db = governor.app.brain.store.workspaceDb(demo.workspaceId, demo.actor.organizationId);
+  const at = Date.now() - 3 * 86_400_000;
+  const insert = db.prepare(`INSERT INTO knowledge_assets(id,signature,operation_id,state,classification,content,source_count,title,mission_id,producer_id,provenance_json,reviewed_by,reviewed_at_ms,scope,scope_requested,created_at_ms,updated_at_ms)
+    VALUES (?,?,'mission-knowledge','published','internal',?,1,?,?,?,'[]',?,?,?,?,?,?)`);
+  const rows: Array<[string, string, string, "private" | "team" | "workspace", "team" | "workspace" | null]> = [
+    ["vb-scope-workspace", "Vendor onboarding checklist", "Every vendor is checked against the approved list before the first purchase order.", "workspace", null],
+    ["vb-scope-private", "Draft pricing notes", "Early notes on how the pricing options compare; not ready for anyone else yet.", "private", "team"],
+    ["vb-scope-team", "Rollout runbook", "The staged rollout order the team settled on, with the rollback step for each stage.", "team", null],
+  ];
+  for (const [index, [id, title, content, scope, requested]] of rows.entries()) {
+    insert.run(id, "sha256:" + String(index + 1).repeat(64), content, title, demo.seed.missionIds.closed, demo.actor.actorId, demo.actor.actorId, at, scope, requested, at + index, at + index);
+  }
 }
 
 /** The pull request record the last two screens show; the remote it was opened on is closed after the test. */

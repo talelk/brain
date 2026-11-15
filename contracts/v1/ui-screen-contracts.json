@@ -802,6 +802,8 @@
     "capability.review",
     "tool.publish",
     "knowledge.review",
+    "knowledge.scope.request",
+    "knowledge.scope.set",
     "memory.revoke",
     "play.proposal.review",
     "knowledge.approveVerified",
