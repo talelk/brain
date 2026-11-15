@@ -6646,6 +6646,45 @@
           },
           "minItems": 0,
           "maxItems": 1000
+        },
+        "choices": {
+          "type": "array",
+          "description": "Why the Governor chose this run's way of working, team member and model routes, as recorded when each choice was made (ADR 0065); empty when no such choice was made.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "way-of-working",
+                  "team-member",
+                  "model-route"
+                ]
+              },
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "facts": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/JsonValue"
+                }
+              },
+              "recordedAt": {
+                "$ref": "#/$defs/Timestamp"
+              }
+            },
+            "required": [
+              "kind",
+              "code",
+              "facts",
+              "recordedAt"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "maxItems": 200
         }
       },
       "required": [
@@ -6654,7 +6693,8 @@
         "evaluatedAt",
         "primaryReason",
         "reasons",
-        "runners"
+        "runners",
+        "choices"
       ],
       "additionalProperties": false
     },

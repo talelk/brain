@@ -102,8 +102,9 @@ export interface AgentCapabilities {
  * to it must need no tool the definition lacks nor more spend than its cap.
  * Role names are labels and decide nothing.
  */
-export function assertTeamEligible(team: readonly TeamMember[], tasks: readonly PlanTask[], agents: Readonly<Record<string, AgentCapabilities>>): void {
+export function assertTeamEligible(team: readonly TeamMember[], tasks: readonly PlanTask[], agents: Readonly<Record<string, AgentCapabilities>>): TeamChoiceFacts[] {
   const members = new Map<string, TeamMember>();
+  const chosen: TeamChoiceFacts[] = [];
   for (const member of team) {
     if (members.has(member.memberId)) throw new BrainDomainError("INVALID_ARGUMENT", `duplicate team member ${member.memberId}`);
     const agent = agents[member.agentId];
@@ -111,7 +112,9 @@ export function assertTeamEligible(team: readonly TeamMember[], tasks: readonly 
     if (!agent.engines.includes(member.engine)) throw new BrainDomainError("INVALID_ARGUMENT", `agent ${member.agentId} does not run on engine ${member.engine}`);
     members.set(member.memberId, member);
   }
-  if (team.length === 0) return;
+  if (team.length === 0) return chosen;
+  const accepts = (agent: AgentCapabilities, task: PlanTask): boolean =>
+    (task.requiredTools ?? []).every((tool) => agent.tools.includes(tool)) && !(task.maxMicroUsd !== undefined && agent.maxMicroUsd > 0 && task.maxMicroUsd > agent.maxMicroUsd);
   for (const task of tasks) {
     if (task.assignment?.kind !== "agent") continue;
     const member = members.get(task.assignment.id);
@@ -120,7 +123,22 @@ export function assertTeamEligible(team: readonly TeamMember[], tasks: readonly 
     const missing = (task.requiredTools ?? []).filter((tool) => !agent.tools.includes(tool));
     if (missing.length > 0) throw new BrainDomainError("INVALID_ARGUMENT", `${member.memberId} is not eligible for ${task.id}: missing tools ${missing.join(", ")}`);
     if (task.maxMicroUsd !== undefined && agent.maxMicroUsd > 0 && task.maxMicroUsd > agent.maxMicroUsd) throw new BrainDomainError("INVALID_ARGUMENT", `${member.memberId} is not eligible for ${task.id}: its spend cap is below the task's`);
+    chosen.push({
+      taskId: task.id, memberId: member.memberId, role: member.role, agentId: member.agentId, engine: member.engine,
+      requiredTools: [...(task.requiredTools ?? [])],
+      ...(task.maxMicroUsd !== undefined ? { taskMaxMicroUsd: task.maxMicroUsd } : {}), agentMaxMicroUsd: agent.maxMicroUsd,
+      // The other members the same check would have accepted: the facts a person needs to see this was one choice among several.
+      alsoEligible: team.filter((other) => other.memberId !== member.memberId && agents[other.agentId] && accepts(agents[other.agentId] as AgentCapabilities, task)).map((other) => other.memberId),
+    });
   }
+  return chosen;
+}
+
+/** The facts the eligibility check judged for one task assigned to a team member: recorded as the reason the member was chosen. */
+export interface TeamChoiceFacts {
+  readonly taskId: string; readonly memberId: string; readonly role: string; readonly agentId: string; readonly engine: string;
+  readonly requiredTools: readonly string[]; readonly taskMaxMicroUsd?: number; readonly agentMaxMicroUsd: number;
+  readonly alsoEligible: readonly string[];
 }
 
 /**

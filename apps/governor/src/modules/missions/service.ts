@@ -28,7 +28,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, QUOTA_MAX_WAITS, REMEDY, classifyFailure, lessonText, quotaWaitMs, waitWords, type FailureClass } from "../../domain/failure";
 import { GENERAL_TASK_WORKFLOW } from "../workflows/index";
-import { modelRoutesUsable } from "../jobs/index";
+import { modelRoutesUsable, recordChoice } from "../jobs/index";
 import { missionTimeline } from "./timeline";
 import { observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
@@ -454,11 +454,12 @@ export class MissionService {
     assertServedCriteria(tasks, new Set(parseCriteria(mission.success_criteria_json).map((criterion) => criterion.id)));
     const team = JSON.parse(plan.team_json) as TeamMember[];
     // The release may have changed since the version was proposed: eligibility holds at confirmation too.
-    assertTeamEligible(team, tasks, this.agentCapabilities(actor.organizationId));
+    const eligibility = assertTeamEligible(team, tasks, this.agentCapabilities(actor.organizationId));
     this.assertWayOfWorking(actor.organizationId, workspaceId, tasks);
     this.gate(actor, workspaceId, mission, tasks, team);
     const db = this.db(actor, workspaceId);
     const defaults = wayOfWorking(this.store, workspaceId);
+    const created = new Map<string, string>();
     this.store.inTx(db, () => {
       const priorActive = mission.active_plan_version_id;
       if (priorActive) transitionState(db, "planVersion", priorActive, "superseded");
@@ -480,6 +481,7 @@ export class MissionService {
         }
         const id = this.store.id("work");
         selected.set(task.id, id);
+        created.set(task.id, id);
         const state: WorkItemState = task.dependsOn.length === 0 ? "ready" : "backlog";
         // Failed attempts follow the plan task across members: reassignment never resets the parking count.
         const carried = prior && prior.state !== "done" ? prior.failed_attempts : 0;
@@ -524,6 +526,12 @@ export class MissionService {
       this.store.emit(db, { aggregateType: "plan", aggregateId: plan.id, eventType: "plan.confirmed", payload: { missionId: mission.id, planVersionId: plan.id, digest: plan.digest } });
       if (!withinPolicy) wake(this.store, db, mission.id, "plan-resolved", `plan revision ${plan.revision} confirmed`);
     });
+    // The member a task was given to is chosen by this eligibility check: the facts it judged are written now, for the work item this confirmation made.
+    // A task kept from an earlier version keeps the reason written then (it is the same assignment).
+    for (const facts of eligibility) {
+      const workItemId = created.get(facts.taskId);
+      if (workItemId) recordChoice(this.store, { organizationId: actor.organizationId, workspaceId }, { kind: "work-item", id: workItemId }, { kind: "team-member", code: "member-eligible", facts: { ...facts } as unknown as Record<string, JsonValue> });
+    }
     return plan.id;
   }
 
