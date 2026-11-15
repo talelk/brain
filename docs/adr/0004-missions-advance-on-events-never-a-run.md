@@ -33,5 +33,5 @@ Inputs are never invented: the input is what the Start form pre-fills from the
 card, and a task with no workflow or input its workflow rejects stays `ready` with
 the next action "Needs input before it can start". The member cap bounds
 in-progress work and a spent budget holds new starts; both leave a visible next
-action and resolve on the next event. Missions with a play coordinator keep using
-the coordinator.
+action and resolve on the next event. A play coordinator only plans: the Governor starts a
+coordinated mission's work too (ADR 0048).
