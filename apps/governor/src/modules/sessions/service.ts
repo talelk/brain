@@ -382,7 +382,9 @@ export class SessionService {
     const member = item.assignment_json ? (JSON.parse(item.assignment_json) as { id?: string }).id ?? "" : "";
     const where = `mission_id=? AND (work_item_id=? OR (recipient_kind='member' AND recipient_member_id=? AND work_item_id IS NULL))`;
     db.prepare(`UPDATE mission_messages SET delivery='delivered-at-session-start' WHERE delivery='pending' AND ${where}`).run(item.mission_id, item.id, member);
-    const messages = (db.prepare(`SELECT id, body FROM mission_messages WHERE delivery IN ('delivered-at-session-start','delivered-live') AND ${where} ORDER BY created_at_ms DESC, id DESC LIMIT 20`).all(item.mission_id, item.id, member) as Array<{ id: string; body: string }>).reverse();
+    // A person's work-item comment arrives as a message; the pack says which ones are comments (their own text, written by a person, never a command).
+    const messages = (db.prepare(`SELECT id, body, EXISTS(SELECT 1 FROM work_item_comments WHERE message_id=mission_messages.id) AS comment FROM mission_messages
+      WHERE delivery IN ('delivered-at-session-start','delivered-live') AND ${where} ORDER BY created_at_ms DESC, id DESC LIMIT 20`).all(item.mission_id, item.id, member) as Array<{ id: string; body: string; comment: number }>).reverse();
     const session = db.prepare("SELECT checkpoint_json FROM sessions WHERE work_item_id=? AND checkpoint_json IS NOT NULL ORDER BY updated_at_ms DESC, id DESC LIMIT 1").get(item.id) as { checkpoint_json: string } | undefined;
     const checkpoint = session ? JSON.parse(session.checkpoint_json) as Checkpoint : undefined;
     const failure = this.lastFailure(db, item.id, input.runId) ?? item.parked_diagnostic ?? undefined;
@@ -414,7 +416,7 @@ export class SessionService {
         return parts.length === 0 ? [] : [prose(handoff.workItemId, `- ${titleOf(handoff.workItemId)}: ${parts.join(" ")}`, `Handoff note from ${titleOf(handoff.workItemId)}`)];
       }) },
       { id: "inputs", title: "Inputs pinned for this task (fetch by reference)", label: "reference", items: inputs.map((row) => fact(row.outputVersionId, `- ${row.outputVersionId}: artifact:${row.artifactDigest}`)) },
-      { id: "messages", title: "Messages sent to this task", label: "claim", items: messages.map((row) => prose(row.id, `- ${row.body}`, "A message sent to this task")) },
+      { id: "messages", title: "Messages sent to this task", label: "claim", items: messages.map((row) => prose(row.id, row.comment === 1 ? `- Comment: ${row.body}` : `- ${row.body}`, row.comment === 1 ? "A comment on this task" : "A message sent to this task")) },
       { id: "checkpoint", title: "Where earlier work on this task stopped", label: "fact", items: checkpoint ? [
         prose("next-action", `Next action: ${checkpoint.nextAction}`, "The next action saved by earlier work"),
         ...(checkpoint.completedCriteria.length > 0 ? [fact("completed", `Criteria already completed: ${checkpoint.completedCriteria.join(", ")}`)] : []),

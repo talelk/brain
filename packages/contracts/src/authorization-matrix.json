@@ -664,6 +664,11 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
+    "workItemComments.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
     "handoffs.forWorkItem": {
       "scope": "workspace:read",
       "scopeMode": "workspace",
