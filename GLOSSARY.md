@@ -400,6 +400,17 @@ A Governor-issued authorization required immediately before a write or privilege
 effect executes.
 _Avoid_: approval (a permit is machine-validated, an approval is human), grant
 
+**Approval origin**:
+The run, work item and mission an approval was asked for, bound in its subject by the
+Governor and never claimed by the caller. Titles, the diff and the rollback are read
+beside it and are not part of the digest.
+_Avoid_: context (that is the read-time part), owner
+
+**Compensating action**:
+What a Tool document declares undoes its effect, in plain words. Shown on the approval
+as the rollback; Brain never runs it.
+_Avoid_: undo, revert button
+
 **Decision**:
 A first-class auditable business judgement — go, no, not-now, need-more-data. It is not
 an effect authorization.

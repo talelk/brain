@@ -21,6 +21,7 @@
     "owner": "team_operations",
     "license": "LicenseRef-Internal",
     "description": "Opens ONE pull request in the workspace's bound project repository: a new branch with the proposed files, then the request. Each call stops until the owner approves exactly that call. The Git credentials stay in the Governor.",
+    "compensatingAction": "Close the pull request and delete its branch.",
     "entrypoint": "run.sh",
     "testEntrypoint": "test.sh"
   }
