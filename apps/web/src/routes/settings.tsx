@@ -176,11 +176,38 @@ function ReleaseContents(props: { documents: { id: string; kind: string }[] }): 
   return <dl class="mt-2 grid gap-3 sm:grid-cols-2"><For each={groups()}>{(group) => <div class="min-w-0"><dt class="text-interface font-medium text-ink-gray-9">{group.label} ({group.ids.length})</dt><dd class="break-words text-caption text-ink-gray-7">{group.ids.join(", ")}</dd></div>}</For></dl>;
 }
 
+type StoredPolicy = {
+  layers: string[]; provenance: Record<string, string>;
+  effective: { allowedOperations: string[] | null; deniedOperations: string[]; maxRuntimeSeconds: number | null; minimumIsolation: string; separationOfDuties: boolean; productionHumanApproval: string };
+};
+
+/** The policy a release carries (ADR 0064): what each rule is now, and the layer that set it. */
+function ReleasePolicy(props: { policy: StoredPolicy | null | undefined }): JSX.Element {
+  const rows = (policy: StoredPolicy): Array<{ id: string; label: string; value: string; layer: string | undefined }> => {
+    const effective = policy.effective;
+    return [
+      { id: "allowed", label: t("release.policy.allowed"), value: effective.allowedOperations === null ? t("release.policy.allowedAny") : effective.allowedOperations.length ? effective.allowedOperations.join(", ") : t("release.policy.allowedNone"), layer: policy.provenance["allowedOperations"] },
+      { id: "denied", label: t("release.policy.denied"), value: effective.deniedOperations.length ? effective.deniedOperations.join(", ") : t("release.policy.deniedNone"), layer: policy.provenance["deniedOperations"] },
+      { id: "runtime", label: t("release.policy.runtime"), value: effective.maxRuntimeSeconds === null ? t("release.policy.runtimeNone") : t("release.policy.runtimeSeconds", { seconds: effective.maxRuntimeSeconds }), layer: policy.provenance["maxRuntimeSeconds"] },
+      { id: "isolation", label: t("release.policy.isolation"), value: effective.minimumIsolation, layer: policy.provenance["minimumIsolation"] },
+      { id: "production", label: t("release.policy.production"), value: t("release.policy.productionValue"), layer: policy.provenance["productionHumanApproval"] },
+      { id: "duties", label: t("release.policy.duties"), value: effective.separationOfDuties ? t("release.policy.dutiesOn") : t("release.policy.dutiesOff"), layer: policy.provenance["separationOfDuties"] },
+    ];
+  };
+  return <div class="border-y border-outline-gray-1 py-3" data-release-policy>
+    <h3 class="text-base-medium">{t("release.policy.title")}</h3>
+    <Show when={props.policy} fallback={<p class="mt-2 text-interface text-ink-gray-7">{t("release.policy.none")}</p>}>{(policy) => <>
+      <p class="mt-2 break-words text-caption text-ink-gray-7">{t("release.policy.layers")}: {policy().layers.join(" → ")}</p>
+      <dl class="mt-2 grid gap-3 sm:grid-cols-2"><For each={rows(policy())}>{(row) => <div class="min-w-0" data-policy-rule={row.id}><dt class="text-interface font-medium text-ink-gray-9">{row.label}</dt><dd class="break-words text-caption text-ink-gray-7">{row.value}{row.layer ? <span class="block text-ink-gray-6">{t("release.policy.setBy", { layer: row.layer })}</span> : null}</dd></div>}</For></dl>
+    </>}</Show>
+  </div>;
+}
+
 function InspectRelease(props: { activeConfigDigest?: string; onActivate: (digest: string, expectedActiveDigest: string | null) => Promise<void> }) {
   type ReleaseSummary = { digest: string; sourceRevision: string; createdAt: string; active: boolean; agents: number; workflows: number; assets: number };
   const [digest, setDigest] = createSignal("");
   const [releases, setReleases] = createSignal<ReleaseSummary[]>([]);
-  const [inspection, setInspection] = createSignal<{ digest: string; expectedActiveDigest: string | null; manifest: { documents?: { id: string; kind: string; path: string }[] } }>();
+  const [inspection, setInspection] = createSignal<{ digest: string; expectedActiveDigest: string | null; manifest: { documents?: { id: string; kind: string; path: string }[]; effectivePolicy?: StoredPolicy | null } }>();
   const [error, setError] = createSignal<{ text: string; tone: "error" | "success" }>(); const [busy, setBusy] = createSignal(false);
   async function loadReleases() {
     try { const result = await governor<{ items: ReleaseSummary[] }>("/v1/config/releases"); setReleases(result.items); if (!digest() && result.items[0]) setDigest(result.items[0].digest); }
@@ -204,7 +231,7 @@ function InspectRelease(props: { activeConfigDigest?: string; onActivate: (diges
     <div class="grid gap-2 border-y border-outline-gray-1 py-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end"><Select label={t("adm.release.d41f")} value={digest() || null} options={releases().map((release) => ({ value: release.digest, label: `${formatDateTime(release.createdAt)} · ${release.workflows} workflows, ${release.agents} agents${release.active ? " (active)" : ""}`, description: `Build ${release.digest.replace(/^sha256:/u, "").slice(0, 8)}` }))} onValueChange={(value) => { setDigest(value ?? ""); setInspection(undefined); }} /><Button size="sm" variant="outline" class="justify-self-start" onClick={() => void loadReleases()}>{t("adm.refresh.56e3")}</Button><Button variant="outline" class="justify-self-start" onClick={() => void inspect()} disabled={!digest() || busy()} loading={busy()}>{t("adm.see-what-is-inside.ead7")}</Button></div>
     <Show when={current()}>{(release) => <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-interface text-ink-gray-7"><span class="min-w-0 break-all" title={release().sourceRevision}>Source version {release().sourceRevision.replace(/^sha256:/u, "").slice(0, 12)}</span><span>{release().assets} supporting files</span><Freshness value={release().createdAt} label={t("adm.compiled.1487")} /></div>}</Show>
     <Show when={!releases().length && !error()}><EmptyState size="sm" icon="lucide-package" title={t("adm.no-releases-compiled-yet.392c")} description={t("adm.compile-the-starter-directory-wi.6d93")} /></Show>
-    <Show when={inspection()} keyed>{(release) => <PageStack><div class="border-y border-outline-gray-1 py-3"><h3 class="text-base-medium">{t("adm.what-this-release-contains.0f70")}</h3><ReleaseContents documents={release.manifest.documents ?? []} /></div><TechnicalDetails label={t("adm.technical-details-manifest-and-d.71b7")}><p class="break-all">{release.digest}</p><pre class="brain-readable mt-3 max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-all text-caption">{JSON.stringify(release.manifest, null, 2)}</pre></TechnicalDetails><Alert theme="amber" variant="outline" title={t("adm.activating-changes-what-new-work.0cd4")} description={t("adm.new-missions-and-tasks-will-use.d2a1")} /><Button variant="solid" theme="blue" iconLeft="lucide-check" class="self-start" disabled={busy()} onClick={async () => { setBusy(true); setError(undefined); try { await props.onActivate(release.digest, release.expectedActiveDigest); setInspection(undefined); setError({ text: t("adm.this-release-is-now-active-new-w.b902"), tone: "success" }); await loadReleases(); } catch (reason) { setError({ text: reason instanceof Error ? reason.message : "Activation failed. Press Refresh, check which release is active, and try again.", tone: "error" }); } finally { setBusy(false); } }}>{t("adm.activate-this-release.d2b6")}</Button></PageStack>}</Show>
+    <Show when={inspection()} keyed>{(release) => <PageStack><div class="border-y border-outline-gray-1 py-3"><h3 class="text-base-medium">{t("adm.what-this-release-contains.0f70")}</h3><ReleaseContents documents={release.manifest.documents ?? []} /></div><ReleasePolicy policy={release.manifest.effectivePolicy} /><TechnicalDetails label={t("adm.technical-details-manifest-and-d.71b7")}><p class="break-all">{release.digest}</p><pre class="brain-readable mt-3 max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-all text-caption">{JSON.stringify(release.manifest, null, 2)}</pre></TechnicalDetails><Alert theme="amber" variant="outline" title={t("adm.activating-changes-what-new-work.0cd4")} description={t("adm.new-missions-and-tasks-will-use.d2a1")} /><Button variant="solid" theme="blue" iconLeft="lucide-check" class="self-start" disabled={busy()} onClick={async () => { setBusy(true); setError(undefined); try { await props.onActivate(release.digest, release.expectedActiveDigest); setInspection(undefined); setError({ text: t("adm.this-release-is-now-active-new-w.b902"), tone: "success" }); await loadReleases(); } catch (reason) { setError({ text: reason instanceof Error ? reason.message : "Activation failed. Press Refresh, check which release is active, and try again.", tone: "error" }); } finally { setBusy(false); } }}>{t("adm.activate-this-release.d2b6")}</Button></PageStack>}</Show>
     <ActionFeedback tone={error()?.tone} message={error()?.text} title={error()?.tone === "success" ? "Release active" : undefined} />
     <TechnicalDetails label={t("adm.compile-a-new-release.b8b5")}><p>{t("adm.run-this-on-the-server-then-refr.208d")}</p><code class="mt-2 block break-all">brain config compile examples/v1/starter-release</code></TechnicalDetails>
   </PageStack>;

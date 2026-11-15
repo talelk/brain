@@ -17,7 +17,7 @@ const tmp = process.env["TMPDIR"] ?? "/tmp";
  * (its restart appends to a counter file, so "ran once" is observable) and a sandbox double that runs the pinned script locally. Read
  * the counter with `restarts()`.
  */
-export async function effectsWorld(options: { containers?: string[]; runnerGroup?: string } = {}) {
+export async function effectsWorld(options: { containers?: string[]; runnerGroup?: string; bundle?: ReturnType<typeof fixtureStarter> } = {}) {
   const root = mkdtempSync(join(tmp, "brain-effects-"));
   const counter = join(root, "restarts.log");
   writeFileSync(counter, "");
@@ -45,7 +45,7 @@ export async function effectsWorld(options: { containers?: string[]; runnerGroup
 
   const app = await createApp({ dataDir: join(root, "data"), allowTestActor: true });
   const w = setupWorld(app.brain);
-  const bundle = fixtureStarter();
+  const bundle = options.bundle ?? fixtureStarter();
   const release = w.brain.stageRelease(w.owner, bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas);
   w.brain.activateRelease(w.owner, release.digest);
   const command = async (commandType: string, key: string, payload: Record<string, unknown>, workspaceId = w.workspaceId): Promise<CommandReceipt> => (await w.brain.executeCommand(w.owner, {

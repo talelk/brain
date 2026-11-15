@@ -2,7 +2,7 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { cpus, freemem } from "node:os";
 import { join } from "node:path";
-import { domainDigest, isKeyReference, sha256Digest } from "@brain/contracts";
+import { domainDigest, isKeyReference, isolationSatisfies, sha256Digest } from "@brain/contracts";
 import type { ArtifactRef, Checkpoint, EngineInfo, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
 import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
@@ -330,7 +330,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       // The engine must be configured here and provide the isolation this step's placement requires (ADR 0035): an engine that cannot is never used,
       // even when the runner also has one that can.
       const required = offer.placement?.isolation ?? "none stated";
-      const engineConfigured = asset.agent.spec.engine.anyOf.find((id) => configured.includes(id) && engineIsolation(id) === required);
+      const engineConfigured = asset.agent.spec.engine.anyOf.find((id) => configured.includes(id) && isolationSatisfies(engineIsolation(id), required));
       // Tools the Governor found to have nothing to read for this task (no documents, no CSV files) are not offered to the model at all:
       // each call it would waste is a model round trip. The pinned allowlist above still bounds what could ever run.
       const withheld = new Set((payload.contextPack?.unavailableTools ?? []).map((tool) => tool.id));

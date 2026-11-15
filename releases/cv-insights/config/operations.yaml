@@ -10,7 +10,7 @@
     "displayName": "Operations",
     "typeRef": {
       "id": "operations-type",
-      "digest": "sha256:e6d19c80e35801c1800f24a4eb8da95784328ae4632e6020708a47ddb6605cce"
+      "digest": "sha256:500a2035e891474bc0fd2d01c53d0aed3738ebdf440f3a595839a651775dc8d0"
     },
     "repositories": [],
     "runnerGroups": [

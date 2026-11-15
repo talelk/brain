@@ -1,6 +1,7 @@
 import type { RetryPolicy } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { quotaLike } from "../../domain/failure";
+import { allowedRuntime } from "../configuration/index";
 import { transitionState } from "../../domain/states";
 
 /**
@@ -10,15 +11,19 @@ import { transitionState } from "../../domain/states";
 
 export interface StepPolicy {
   readonly retry: RetryPolicy | undefined;
+  /** The time one attempt may run: the step's `timeoutSeconds`, never more than the release policy's `maxRuntimeSeconds` (ADR 0064). */
   readonly timeoutSeconds: number | undefined;
+  /** The policy layer that cut the time down, when the policy's cap is what applies. */
+  readonly cappedBy: string | undefined;
   readonly effectClass: string;
 }
 
 /** The policy the job's step declared, read from the payload pinned when the job was created. A held change (act job) declares none. */
 export function stepPolicy(s: Store, jobId: string): StepPolicy {
-  const row = s.control.prepare("SELECT j.effect_class AS effectClass, p.payload_json AS payload FROM jobs j LEFT JOIN job_payloads p ON p.job_id=j.id WHERE j.id=?").get(jobId) as { effectClass: string; payload: string | null } | undefined;
+  const row = s.control.prepare("SELECT j.effect_class AS effectClass, j.organization_id AS organizationId, j.config_digest AS configDigest, p.payload_json AS payload FROM jobs j LEFT JOIN job_payloads p ON p.job_id=j.id WHERE j.id=?").get(jobId) as { effectClass: string; organizationId: string; configDigest: string; payload: string | null } | undefined;
   const step = row?.payload ? (JSON.parse(row.payload) as { step?: { retry?: RetryPolicy; timeoutSeconds?: number } }).step : undefined;
-  return { retry: step?.retry, timeoutSeconds: step?.timeoutSeconds, effectClass: row?.effectClass ?? "read" };
+  const allowed = row ? allowedRuntime(s, row.organizationId, row.configDigest, step?.timeoutSeconds) : undefined;
+  return { retry: step?.retry, timeoutSeconds: allowed?.seconds, cappedBy: allowed?.capped?.layer, effectClass: row?.effectClass ?? "read" };
 }
 
 /** Whether the attempt took an effect permit or a resource lease: after that, the world may already have changed. */
@@ -39,7 +44,7 @@ function jobTouchedTarget(s: Store, jobId: string): boolean {
   return row.n > 0;
 }
 
-/** Sets the attempt's deadline when it starts running, from the step's `timeoutSeconds`; a step declaring none has no deadline. */
+/** Sets the attempt's deadline when it starts running, from the step's `timeoutSeconds` cut down to the policy's cap; with neither there is no deadline. */
 export function stampAttemptDeadline(s: Store, jobId: string, attemptId: string): void {
   const { timeoutSeconds } = stepPolicy(s, jobId);
   if (timeoutSeconds !== undefined) s.control.prepare("UPDATE job_attempts SET deadline_ms=? WHERE id=?").run(s.now() + timeoutSeconds * 1000, attemptId);

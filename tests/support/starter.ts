@@ -62,3 +62,34 @@ export function delegatingStarter(limits: { maxChildren: number; maxDepth: numbe
   return bundle;
 }
 
+/**
+ * The fixture starter with the edits the test makes to named documents (found by path suffix), and every document that names an edited one
+ * re-pinned to its new text, to a fixed point (tool -> agent -> workflow, policy -> type -> workspace).
+ */
+export function editedStarter(edits: Record<string, (value: Record<string, unknown>) => void>) {
+  const bundle = fixtureStarter();
+  const moved = new Map<string, string>();
+  const sum = (text: string): string => sha256Digest(new TextEncoder().encode(text));
+  for (const [suffix, change] of Object.entries(edits)) {
+    const doc = bundle.documents.find((candidate) => candidate.path.endsWith(suffix))!;
+    const prior = sum(doc.text);
+    const value = JSON.parse(doc.text) as Record<string, unknown>;
+    change(value);
+    doc.text = JSON.stringify(value, null, 2) + "\n";
+    moved.set(prior, sum(doc.text));
+  }
+  for (let round = 0; round < 8; round++) {
+    let changed = false;
+    for (const doc of bundle.documents) {
+      let text = doc.text;
+      for (const [from, to] of moved) text = text.replaceAll(from, to);
+      if (text === doc.text) continue;
+      moved.set(sum(doc.text), sum(text));
+      doc.text = text;
+      changed = true;
+    }
+    if (!changed) break;
+  }
+  return bundle;
+}
+

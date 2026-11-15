@@ -16,13 +16,13 @@ describe("policy floor (T12)", () => {
   it("layers may only restrict: allowlists intersect, denies union, caps take the minimum", () => {
     const r = mergePolicyFloor([
       { name: "org", spec: base },
-      { name: "ws", spec: { allowedOperations: ["fixture.echo", "http.fetch"], deniedOperations: ["http.fetch"], maxMicroUsd: 1000, maxRuntimeSeconds: 9999, minimumIsolation: "microvm" } },
+      { name: "ws", spec: { allowedOperations: ["fixture.echo", "http.fetch"], deniedOperations: ["http.fetch"], maxMicroUsd: 1000, maxRuntimeSeconds: 9999, minimumIsolation: "dedicated-vm" } },
     ]);
     expect(r.effective.allowedOperations).toEqual(["fixture.echo"]);
     expect(r.effective.deniedOperations).toEqual(["http.fetch", "shell.exec"]);
     expect(r.effective.maxMicroUsd).toBe(1000);
     expect(r.effective.maxRuntimeSeconds).toBe(600);
-    expect(r.effective.minimumIsolation).toBe("microvm");
+    expect(r.effective.minimumIsolation).toBe("dedicated-vm");
     expect(r.effective.defaultEffect).toBe("deny");
     expect(r.effective.separationOfDuties).toBe(true);
     expect(r.provenance["maxMicroUsd"]).toBe("ws");

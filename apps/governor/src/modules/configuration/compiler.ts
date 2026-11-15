@@ -7,7 +7,7 @@ import { assertTeamEligible } from "../../domain/mission-policy";
 import { payloadValidator, validate } from "@brain/contracts/validate";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
-import { mergePolicyFloor, type PolicySpec } from "./policy-floor";
+import { mergePolicyFloor, storedPolicy, type PolicySpec } from "./policy-floor";
 import { compileSkill, MAX_AGENT_SKILL_BYTES, type CompiledSkill } from "./skills";
 
 export interface SourceDoc { readonly path: string; readonly text: string }
@@ -417,11 +417,12 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
       throw new BrainDomainError("INVALID_CONTRACT", "task-guide must remain a tool-free read-only conversation helper with independent read validation");
     }
   }
-  // Multiple Policy documents are floor layers in document order; a later
-  // layer may only restrict. Broadening/null-disable rejects the release.
-  if (policies.length > 1) {
-    mergePolicyFloor(policies.map((p) => ({ name: p.name, spec: p.spec as unknown as PolicySpec })));
-  }
+  // Policy documents are floor layers in document order; a later layer may only restrict, and broadening or a null-disable rejects the
+  // release. The merge is kept: it is the release's effective policy, in the manifest and so under the release digest (ADR 0064).
+  // A release with no Policy document has none; nothing is invented for it.
+  const effectivePolicy: JsonValue = policies.length > 0
+    ? storedPolicy(mergePolicyFloor(policies.map((p) => ({ name: p.name, spec: p.spec as unknown as PolicySpec }))))
+    : null;
   const agentViews = Object.values(agents).map((agent) => {
     const instruction = instructions.find((candidate) => candidate.agentId === agent.metadata.id)!;
     const bytes = new TextEncoder().encode(instruction.text);
@@ -475,6 +476,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     })),
     primitiveVersions,
     tools: tools as unknown as JsonValue,
+    effectivePolicy,
   };
   const digest = domainDigest("brain:config-release:v1", manifest);
   return { digest, manifest, workflows, agents, evaluators, plays, skills, tools, schemas: schemaMap, documents: entries };

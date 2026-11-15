@@ -1,6 +1,6 @@
-import type { ArtifactRef, JsonValue, Placement } from "@brain/contracts";
+import { stricterIsolation, type ArtifactRef, type JsonValue, type Placement } from "@brain/contracts";
 import type { Store } from "../../application/store";
-import { releaseRecord } from "../configuration/index";
+import { policyForRelease, releaseRecord, type PolicyRefusal } from "../configuration/index";
 import { BrainDomainError } from "../../domain/errors";
 import { bulkTransition, transitionState } from "../../domain/states";
 import { releaseReservation } from "./attempts";
@@ -23,6 +23,8 @@ export interface CreateJobInput {
   resume?: { engineId: string; engineState: ArtifactRef; fromSessionId: string } | undefined;
   /** The priority of the work the run serves, 0 low .. 3 urgent: the claim sorts on it within a workspace (ADR 0041). */
   priority: number;
+  /** Set when the release policy refuses the step (ADR 0064): the job is recorded as failed, with the layer and field named, and no runner ever sees it. */
+  refusal?: PolicyRefusal | undefined;
 }
 
 export type ReconciliationOutcome = "applied" | "absent" | "conflicting" | "unknown";
@@ -42,6 +44,15 @@ function agentPlacement(s: Store, input: CreateJobInput): string {
   if (!anyOf.length) throw new BrainDomainError("INVALID_CONTRACT", input.resume ? `the agent no longer runs on ${input.resume.engineId}, so its saved state cannot be resumed` : "agent and workflow engine requirements do not intersect");
   const features = [...agent.spec.engine.features, ...(placement.engine?.features ?? []), ...(input.resume ? ["resume"] : [])];
   return JSON.stringify({ ...placement, engine: { anyOf, features: [...new Set(features)] } });
+}
+
+/** The step's isolation raised to the release policy's minimum, so a runner or engine that states less is never offered the job (ordered, ADR 0064). */
+function withPolicyIsolation(s: Store, input: CreateJobInput, placementJson: string): string {
+  const policy = policyForRelease(s, input.organizationId, input.configDigest);
+  const placement = JSON.parse(placementJson) as Placement;
+  if (!policy || !placement.isolation) return placementJson;
+  const isolation = stricterIsolation(placement.isolation, policy.effective.minimumIsolation);
+  return isolation === placement.isolation ? placementJson : JSON.stringify({ ...placement, isolation });
 }
 
 /** An agent step carries its output schema so the runner can tell the model exactly which violations to fix before the Governor rejects the reply. */
@@ -68,11 +79,15 @@ export function createJobForStep(s: Store, input: CreateJobInput): string {
     const jobId = s.id("job");
     let placementJson = agentPlacement(s, input);
     if (input.runnerId) placementJson = JSON.stringify({ ...(JSON.parse(placementJson) as Placement), runnerId: input.runnerId });
+    placementJson = withPolicyIsolation(s, input, placementJson);
+    // A refused step is still a job, so its run page can say why; it starts failed, and no queue, claim or runner can reach it.
+    const state = input.refusal ? "failed" : "queued";
     s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, priority, created_at_ms, ready_at_ms, deadline_ms)
-      VALUES (?,?,?,?,?,?,'queued',?,?,?,?,'WAITING_FOR_RUNNER',?,?,?,?)`)
-      .run(jobId, input.organizationId, input.workspaceId, input.executionKey, input.runId, input.stepId, input.configDigest, placementJson, input.executionDigest, input.effectClass, input.priority, s.now(), s.now(), s.now() + 7 * 24 * 3600_000);
-    s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(jobId, input.kind, JSON.stringify(withResume(input, withOutputSchema(s, input))));
-    s.emit(s.control, { organizationId: input.organizationId, workspaceId: input.workspaceId, aggregateType: "job", aggregateId: jobId, eventType: "job.queued", payload: { jobId, runId: input.runId, stepId: input.stepId }, destinations: [`workspace:${input.workspaceId}`] });
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(jobId, input.organizationId, input.workspaceId, input.executionKey, input.runId, input.stepId, state, input.configDigest, placementJson, input.executionDigest, input.effectClass, input.refusal ? "POLICY_REFUSED" : "WAITING_FOR_RUNNER", input.priority, s.now(), s.now(), s.now() + 7 * 24 * 3600_000);
+    const payload = withResume(input, withOutputSchema(s, input));
+    s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(jobId, input.kind, JSON.stringify(input.refusal ? { ...(payload as Record<string, JsonValue>), refusal: { ...input.refusal } } : payload));
+    s.emit(s.control, { organizationId: input.organizationId, workspaceId: input.workspaceId, aggregateType: "job", aggregateId: jobId, eventType: input.refusal ? "job.refused" : "job.queued", payload: { jobId, runId: input.runId, stepId: input.stepId, ...(input.refusal ? { layer: input.refusal.layer, field: input.refusal.field } : {}) }, destinations: [`workspace:${input.workspaceId}`] });
     return jobId;
   });
 }

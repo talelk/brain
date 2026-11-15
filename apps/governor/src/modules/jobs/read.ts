@@ -45,6 +45,8 @@ export interface JobSnapshotView {
   /** The one rule shared with Today's Needs-you queue: an unresolved stuck or failed run. */
   needsYou: boolean;
   origin?: JsonValue;
+  /** Set when the release policy refused this step before any runner could take it: the layer and field behind the refusal (ADR 0064). */
+  policyRefusal?: { layer: string; field: string; message: string };
   runOutputs: JsonValue;
   engineEvents: JsonValue[];
   evidenceDigest?: string;
@@ -63,6 +65,13 @@ function isRestarting(store: Store, row: Record<string, unknown>): boolean {
   return attempt !== undefined && isReadOnlyReasoningJob(store, String(row["id"]), attempt.id);
 }
 
+/** The refusal recorded with a job the release policy refused at admission, if this is one. */
+function policyRefusalOf(store: Store, jobId: string): { layer: string; field: string; message: string } | undefined {
+  const row = store.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { payload_json: string } | undefined;
+  const refusal = row ? (JSON.parse(row.payload_json) as { refusal?: { layer: string; field: string; message: string } }).refusal : undefined;
+  return refusal ? { layer: refusal.layer, field: refusal.field, message: refusal.message } : undefined;
+}
+
 /**
  * Server-resolved session binding: the inspector links to the live console
  * without guessing session ids from attempt ids.
@@ -79,6 +88,7 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
   const events = store.control.prepare("SELECT e.event_json FROM attempt_events e JOIN job_attempts a ON a.id=e.attempt_id JOIN jobs j ON j.id=a.job_id WHERE j.organization_id=? AND j.workflow_run_id=? AND json_extract(e.event_json,'$.kind')='engine' ORDER BY j.created_at_ms DESC,e.seq DESC LIMIT 200").all(String(row["organization_id"]), runId) as { event_json: string }[];
   const bundle = ws.prepare("SELECT digest FROM evidence_bundles WHERE json_extract(manifest_json,'$.workflowRunId')=? ORDER BY created_at_ms DESC LIMIT 1").get(runId) as { digest: string } | undefined;
   const context = runContext(ws, runId, String(row["state"]));
+  const refusal = policyRefusalOf(store, String(row["id"]));
   const restarting = isRestarting(store, row);
   const view: JobSnapshotView = {
     jobId: String(row["id"]),
@@ -106,6 +116,7 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
     ...(context ? { context } : {}),
     ...(workflow ? { workflowTitle: workflow.title ?? workflow.id.replaceAll("-", " ") } : {}),
     ...(origin ? { origin: JSON.parse(origin.origin_json) as JsonValue } : {}),
+    ...(refusal ? { policyRefusal: refusal } : {}),
     runOutputs: Object.fromEntries(outputs.map((entry) => [entry.step_id, JSON.parse(entry.output_json)])) as JsonValue,
     engineEvents: events.reverse().map((entry) => {
       const payload = (JSON.parse(entry.event_json) as { payload: JsonValue }).payload as { kind?: string; artifact?: { artifactId: string; digest: string } };

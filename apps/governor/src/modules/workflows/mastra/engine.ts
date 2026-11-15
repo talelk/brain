@@ -193,7 +193,16 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     const run = this.admissionRun(organizationId, workspaceId, runId);
     if (TERMINAL_RUN_STATES.includes(run.state)) return;
     admitReadySteps(s, this.admission, run);
-    const refreshed = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ state: string }>;
+    const refreshed = ws.prepare("SELECT step_id, state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ step_id: string; state: string }>;
+    // A step that failed while it was being admitted (the release policy refused it, ADR 0064) ends the run now, as any failed step does.
+    const refused = refreshed.find((r) => r.state === "failed");
+    if (refused) {
+      if (transitionState(ws, "run", runId, "failed", { bumpVersion: true })) {
+        this.stopRun(organizationId, workspaceId, runId);
+        this.host.runFailed({ organizationId, workspaceId, runId, diagnostic: `Step ${refused.step_id} failed` });
+      }
+      return;
+    }
     if (refreshed.length > 0 && refreshed.every((r) => r.state === "succeeded" || r.state === "skipped")) {
       // A step is skipped in a run that has not failed only because its `when` condition was false or a need was skipped (ADR 0046): a branch not taken, not a shortfall.
       transitionState(ws, "run", runId, "succeeded", { bumpVersion: true });
@@ -207,7 +216,8 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     this.store.assertWorkspaceActive(workspaceId, organizationId);
     const run = this.admissionRun(organizationId, workspaceId, runId);
     if (TERMINAL_RUN_STATES.includes(run.state)) return;
-    admitEvaluations(this.store, this.host, run);
+    // An evaluation the release policy refuses fails its step like any failed step, and the run with it (ADR 0064).
+    for (const refused of admitEvaluations(this.store, this.host, run)) this.completeStep(organizationId, workspaceId, runId, refused.stepId, refused.output, false);
   }
 
   recoverRun(organizationId: string, workspaceId: string, runId: string): void {

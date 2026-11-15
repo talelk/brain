@@ -483,6 +483,18 @@ A Governor-issued authorization required immediately before a write or privilege
 effect executes.
 _Avoid_: approval (a permit is machine-validated, an approval is human), grant
 
+**Effective policy**:
+The restrictive merge of a release's Policy documents (allow-lists intersect, deny-lists
+union, caps take the minimum), stored in the release under its digest with the layer that
+decided each field. It refuses work at admission and constrains who may approve; a layer
+may only tighten it.
+_Avoid_: policy floor result, merged config, settings
+
+**Policy layer**:
+One Policy document of a release, merged in document order. A refusal names the layer and
+the field that caused it.
+_Avoid_: override, scope
+
 **Approval origin**:
 The run, work item and mission an approval was asked for, bound in its subject by the
 Governor and never claimed by the caller. Titles, the diff and the rollback are read

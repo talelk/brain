@@ -5,7 +5,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { NORMAL_JOB_PRIORITY } from "../../domain/work-priority";
 import type { Db } from "../../infrastructure/persistence/open";
-import { compileWorkflowGraph, pointerGet, resolveBinding } from "../configuration/index";
+import { compileWorkflowGraph, pointerGet, resolveBinding, stepAdmissionRefusal, type PolicyRefusal } from "../configuration/index";
 import { pinnedEvaluator } from "../evidence/index";
 import type { RunResume, WorkflowEnginePort, WorkflowHost } from "./engine-port";
 
@@ -46,6 +46,11 @@ export interface AdmissionPorts {
 export type AdmissionState = "waiting" | "succeeded" | "failed" | "skipped";
 
 const SETTLED: Record<string, AdmissionState> = { waiting: "waiting", running: "waiting", succeeded: "succeeded", failed: "failed", skipped: "skipped" };
+
+/** What a step records when the release policy refuses it: the sentence (the run page and the mission read it as the error) and the layer and field behind it. */
+export function policyRefusalOutput(refusal: PolicyRefusal): JsonValue {
+  return { error: `${refusal.message}. The step was not started.`, code: "POLICY_REFUSED", policy: { layer: refusal.layer, field: refusal.field } };
+}
 
 /** The runner this run was pinned to at dispatch. */
 function runnerPin(ws: Db, runId: string): string | undefined {
@@ -175,13 +180,24 @@ export function admitStep(store: Store, ports: AdmissionPorts, run: AdmissionRun
   const effectClass = step.kind === "dispatch" && "effectClass" in step ? String((step as { effectClass: string }).effectClass) : "read";
   const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound } as unknown as JsonValue);
   const resume = step.kind === "dispatch" ? resumeFor(ws, runId, stepId) : undefined;
+  // The release's policy decides before any runner could: a step whose operation it denies, or leaves out of its allow-list, is recorded
+  // as a refused job (so its run page can say why) and fails here, naming the layer and field (ADR 0064).
+  const refusal = stepAdmissionRefusal(s, organizationId, run.configDigest, step as unknown as Parameters<typeof stepAdmissionRefusal>[3]);
   const jobId = ports.host.createJobForStep({
     organizationId, workspaceId, runId, stepId,
     executionKey: `${runId}:${stepId}`, configDigest: run.configDigest, runnerId: resume?.runnerId ?? runnerPin(ws, runId), resume,
     placementJson: JSON.stringify(placement ?? {}),
     executionDigest, effectClass, kind: step.kind, priority: runPriority(ws, runId),
     payload: { step: step as unknown as JsonValue, input: bound as unknown as JsonValue },
+    ...(refusal ? { refusal } : {}),
   });
+  if (refusal) {
+    const output = policyRefusalOutput(refusal);
+    ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(runId, stepId, JSON.stringify(output));
+    ws.prepare("UPDATE workflow_steps SET state='failed', job_id=? WHERE run_id=? AND step_id=?").run(jobId, runId, stepId);
+    outputs[stepId] = output;
+    return "failed";
+  }
   ws.prepare("UPDATE workflow_steps SET state='running', job_id=? WHERE run_id=? AND step_id=?").run(jobId, runId, stepId);
   return "waiting";
 }
@@ -214,8 +230,9 @@ function steer(host: WorkflowHost, run: AdmissionRun, step: Workflow["spec"]["jo
  * alone. Each pending eval step whose needs all have submitted evidence gets
  * one evaluator job pinned to those bundles.
  */
-export function admitEvaluations(store: Store, host: WorkflowHost, run: AdmissionRun): void {
+export function admitEvaluations(store: Store, host: WorkflowHost, run: AdmissionRun): Array<{ stepId: string; output: JsonValue }> {
   const s = store;
+  const refused: Array<{ stepId: string; output: JsonValue }> = [];
   const { organizationId, workspaceId, runId, configDigest } = run;
   const ws = s.workspaceDb(workspaceId, organizationId);
   const outputs: Record<string, JsonValue> = {};
@@ -250,10 +267,19 @@ export function admitEvaluations(store: Store, host: WorkflowHost, run: Admissio
     const evaluation: EvaluationAssignment = { bundleDigests: digests, evaluatorRelease: step.evaluator, requiredChecks: evaluator.spec.requiredChecks, criteria, independence };
     const bound = resolveBinding(step.input as unknown as Record<string, unknown>, run.input, outputs);
     const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound, evaluation } as unknown as JsonValue);
+    const refusal = stepAdmissionRefusal(s, organizationId, configDigest, step as unknown as Parameters<typeof stepAdmissionRefusal>[3]);
     const jobId = host.createJobForStep({
       organizationId, workspaceId, runId, stepId, executionKey: `${runId}:${stepId}`, configDigest, runnerId: runnerPin(ws, runId),
       placementJson: JSON.stringify(step.runsOn), executionDigest, effectClass: "read", kind: "eval", priority: runPriority(ws, runId), payload: { step: step as unknown as JsonValue, input: bound, evaluation: evaluation as unknown as JsonValue },
+      ...(refusal ? { refusal } : {}),
     });
+    if (refusal) {
+      const output = policyRefusalOutput(refusal);
+      ws.prepare("UPDATE workflow_steps SET job_id=? WHERE run_id=? AND step_id=? AND state='pending'").run(jobId, runId, stepId);
+      refused.push({ stepId, output });
+      continue;
+    }
     ws.prepare("UPDATE workflow_steps SET state='running',job_id=? WHERE run_id=? AND step_id=? AND state='pending'").run(jobId, runId, stepId);
   }
+  return refused;
 }

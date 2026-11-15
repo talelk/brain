@@ -5,7 +5,7 @@ import { iso } from "../../domain/clock";
 import { transitionState } from "../../domain/states";
 import type { Store } from "../../application/store";
 import type { BrainAuth } from "../identity/index";
-import { releaseRecord } from "../configuration/index";
+import { operationAdmissionRefusal, releaseRecord } from "../configuration/index";
 import { assertAttemptLive, createActJob, effectResultFor, loadAttempt } from "../jobs/index";
 import { originOfRun } from "../missions/index";
 import { issuePermit, validatePermit } from "./permits";
@@ -219,6 +219,9 @@ export function requestEffect(s: Store, ports: EffectPorts, runner: Runner, atte
       const group = (s.control.prepare("SELECT group_id FROM runners WHERE id=?").get(runner.runnerId) as { group_id: string }).group_id;
       if (!runnerGroupAllowsHostTools(s, context.organizationId, group, context.workspaceId)) throw new BrainDomainError("FORBIDDEN", `host tools run only on the runner group the owner set aside for this workspace; this runner is in the group "${group}"`);
     }
+    // The release's own policy comes first and names its layer: a denied operation, or one its allow-list leaves out, is never proposed (ADR 0064).
+    const refusal = operationAdmissionRefusal(s, context.organizationId, context.configDigest, tool.id);
+    if (refusal) throw new BrainDomainError("FORBIDDEN", refusal.message);
     policy.check(input, effectAllowList(s, context.workspaceId));
     const missing = ports.unavailable(tool.id, { organizationId: context.organizationId, workspaceId: context.workspaceId });
     if (missing) throw new BrainDomainError("FORBIDDEN", missing);
@@ -244,7 +247,8 @@ export function requestEffect(s: Store, ports: EffectPorts, runner: Runner, atte
     origin: originOfRun(s.workspaceDb(context.workspaceId, context.organizationId), String((s.control.prepare("SELECT workflow_run_id FROM jobs WHERE id=?").get(parentJobId) as { workflow_run_id: string }).workflow_run_id)),
   };
   s.inTx(s.control, () => {
-    // The requester is the platform, never the person who started the mission: the owner may decide their own mission's call from a phone.
+    // The requester is the platform, never the person who started the mission. Whether the owner may decide their own mission's call is the
+    // release policy's separationOfDuties (ADR 0064): where a layer requires it, the owner and the person who started the run may not.
     s.control.prepare(`INSERT INTO approval_requests(id, organization_id, workspace_id, requested_by, subject_digest, subject_json, state, expires_at_ms, created_at_ms)
       VALUES (?,?,?,?,?,?,'pending',?,?)`).run(approvalId, context.organizationId, context.workspaceId, "system:effect-call", approvalDigest(subject), JSON.stringify(subject), expiresAtMs, s.now());
     // The held act job: blocked (no runner can claim it) until the approval is decided, with the parent's placement, so it runs in the group
