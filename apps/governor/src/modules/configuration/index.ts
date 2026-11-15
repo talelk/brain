@@ -1,7 +1,7 @@
 export * from "./compiler";
 export * from "./policy-floor";
 export * from "./loader";
-export { readReleaseAgentInstructions, readReleaseToolScript, releaseToolAllowedHosts, releaseToolPins } from "./tools";
+export { readReleaseAgentInstructions, readReleaseToolScript, releaseToolAllowedHosts, releaseToolMcp, releaseToolPins } from "./tools";
 export { ConfigurationDraftService, releaseAssets } from "./drafts";
 export { activeRelease, assertCurrentManifestShape, configExplain, releaseDefinitions, searchReleaseDocuments, uiFoundationFromRelease } from "./read";
 export { activateRelease } from "./activation";

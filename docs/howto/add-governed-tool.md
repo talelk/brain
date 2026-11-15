@@ -106,6 +106,22 @@ The pinned `run.sh` only shapes the broker's answer from `broker`, as for read t
 self-test (`POST /v1/config/tools/:id/selftest`). The owner sets what a call may touch (`workspace.effects.set`) and which runner group
 carries host tools (`runnerGroup.set`).
 
+## 4d. Tools of an external MCP server (ADR 0064)
+
+An admin registers a server's tools instead of writing scripts:
+
+```bash
+pnpm mcp:register <release-dir> notes https://mcp.example.com/mcp --class search=read --class create_note=write \
+  --header Authorization=notes-token:"Bearer "     # the secret's NAME; its value lives in the runner's secret store
+```
+
+It lists the server's tools with the pinned client, writes one Tool document per named tool (`spec.mcp`: url, tool, `toolListDigest`,
+header references), its input schema, and the shared client script as `tools/<id>/run.sh`. Every tool needs a declared class (`read` or
+`write`); none is inferred. Then allowlist the tool in an Agent as in step 3, add the server host to the workspace's egress hosts
+(`workspace.effects.set`), put the header secret at `<BRAIN_SECRETS_DIR>/<workspace>/<name>` (mode 0600) and compile. The call runs only in
+the launcher's sandbox with that one host; a read result is cut to `maxOutputBytes`; a `write` call is held for approval like any effect.
+If the server's tool list changes, every call is refused until you register again and activate the new release.
+
 ## 5. Verify
 
 ```bash

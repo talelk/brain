@@ -22,5 +22,6 @@ export { unknownJobsForWorkspace } from "./unknown";
 export { runContext } from "./run-context";
 export { drainStatus, isDraining, setDraining } from "./drain";
 export { attemptRouteUses, eligibleRoutes, markRouteQuota, modelRoutesFor, modelRoutesOf, modelRoutesUsable, recordRouteUses, routeCooldownUntil, routeProbeId, routeUsable, type ModelRoute } from "./model-route";
+export { recordChoice } from "./choice-reasons";
 export { createActJob, effectResultFor } from "./effect-hold";
 export { assertQueueAdmits, queueLimitOf, setQueueLimit } from "./queue-limit";

@@ -147,7 +147,7 @@ def main():
                 for scheme in op.get('security',[]):assert set(scheme)<=set(api['components']['securitySchemes'])
                 def walk(n):
                     if isinstance(n,dict):
-                        if '$ref'in n:assert n['$ref'].startswith('./brain.schema.json#/$defs/') and n['$ref'].split('/')[-1] in definitions
+                        if '$ref'in n:assert n['$ref'].startswith('#/components/schemas/') and n['$ref'].split('/')[-1] in definitions
                         for v in n.values():walk(v)
                     elif isinstance(n,list):
                         for v in n:walk(v)

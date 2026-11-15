@@ -50,7 +50,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     result = render()
     mirrors = [ROOT / 'packages/contracts/src/brain.generated.ts'] if (ROOT / 'packages/contracts/src').is_dir() else []
-    assets = ['brain.schema.json', 'registry.json', 'state-machines.json', 'authorization-matrix.json', 'ports.ts']
+    assets = ['brain.schema.json', 'registry.json', 'state-machines.json', 'authorization-matrix.json', 'ports.ts', 'openapi.json']
     if args.check:
         for target in [OUTPUT] + mirrors:
             if not target.exists() or target.read_text() != result:

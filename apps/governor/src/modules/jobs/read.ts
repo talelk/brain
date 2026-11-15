@@ -8,6 +8,7 @@ import type { QuerySnapshot } from "../../application/query";
 import { failureCode, type FailureCode } from "../../domain/failure-reason";
 import { isReadOnlyReasoningJob, runnerView } from "./attempts";
 import { attemptRouteUses } from "./model-route";
+import { choicesFor, type ChoiceReason, type ChoiceSubject } from "./choice-reasons";
 import { jobNeedsYou, runContext, type RunContext } from "./run-context";
 
 export interface JobAttemptView {
@@ -246,6 +247,21 @@ export interface JobExplainView {
   primaryReason: string;
   reasons: readonly string[];
   runners: RunnerPlacementVerdict[];
+  /** The reasons recorded when the Governor chose this run's way of working, team member and model routes (ADR 0065), oldest first; none when no such choice was made. */
+  choices: ChoiceReason[];
+}
+
+/** The subjects whose recorded reasons explain a run: its start command, the task it works for, the job and each of the job's attempts. */
+function choiceSubjects(store: Store, row: Record<string, unknown>): Array<{ kind: ChoiceSubject; id: string }> {
+  const subjects: Array<{ kind: ChoiceSubject; id: string }> = [{ kind: "job", id: String(row["id"]) }];
+  for (const attempt of store.control.prepare("SELECT id FROM job_attempts WHERE job_id=?").all(String(row["id"])) as Array<{ id: string }>) subjects.push({ kind: "attempt", id: attempt.id });
+  try {
+    const db = store.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
+    const run = db.prepare("SELECT execution_key FROM workflow_runs WHERE id=?").get(String(row["workflow_run_id"])) as { execution_key: string } | undefined;
+    if (run) subjects.push({ kind: "command", id: run.execution_key });
+    for (const link of db.prepare("SELECT work_item_id FROM execution_links WHERE run_id=?").all(String(row["workflow_run_id"])) as Array<{ work_item_id: string }>) subjects.push({ kind: "work-item", id: link.work_item_id });
+  } catch { /* a job without a run has only its own reasons */ }
+  return subjects;
 }
 
 /**
@@ -270,6 +286,8 @@ export function explainJob(store: Store, actor: ActorContext, resourceId: string
   return {
     jobId: String(row["id"]), jobVersion: Number(row["version"]), evaluatedAt: store.nowIso(),
     primaryReason: primary, reasons: [primary], runners,
+    // Read as written when each choice was made: nothing here is recomputed from the fleet, the routes or the team as they are now.
+    choices: choicesFor(store, choiceSubjects(store, row)),
   };
 }
 

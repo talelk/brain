@@ -6,6 +6,7 @@ import { sha256Digest } from "@brain/contracts";
 import type { RunnerConfig } from "../supervisor";
 import type { LauncherClient } from "../launcher-client";
 import { resolveSecretRefs, scrubSecrets } from "./secrets";
+import type { McpCall } from "./mcp";
 
 const TOOL_SCRIPTS: Record<string, string> = {
   "fixture.echo": "fixture.echo/run.sh",
@@ -71,6 +72,11 @@ export interface ToolExecution {
   toolCacheDir?: string | undefined;
   /** The workspace's egress allowlist from the job offer: a read-class tool's sandbox reaches these hosts through the proxy and nothing else. */
   egressHosts?: readonly string[] | undefined;
+  /**
+   * An external MCP tool (ADR 0064): the pinned client script runs in a sandbox whose network is the egress proxy's grant for this one
+   * host. The runner never connects to the server, so without a launcher the call fails closed whatever its class.
+   */
+  mcp?: McpCall | undefined;
   /** Tool-broker boundary: re-validate the permit immediately before exec. */
   validatePermit?: ((token: string, invocationId: string) => Promise<boolean>) | undefined;
 }
@@ -116,6 +122,10 @@ export async function executeToolPayload(
     }
   }
   const effectClass = typeof step["effectClass"] === "string" ? String(step["effectClass"]) : "read";
+  const mcp = tool.mcp;
+  if (mcp && !launcher) return { ok: false, output: { error: "an external MCP tool runs only in the launcher's sandbox; this runner has none, so the call was refused" } as unknown as JsonValue };
+  if (mcp && effectClass === "privileged") return { ok: false, output: { error: "an external MCP tool cannot be privileged: a privileged sandbox has no network" } as unknown as JsonValue };
+  if (mcp && !tool.toolPins?.[(step["uses"] as { release?: { id?: string } } | undefined)?.release?.id ?? ""]) return { ok: false, output: { error: "the external MCP tool's client script is not pinned in the job's release; execution refused" } as unknown as JsonValue };
   if (effectClass !== "read" && !launcher) {
     // Fail closed: an effect-class tool never runs as unsandboxed host bash.
     return { ok: false, output: { error: "effect-class tool requires the constrained launcher (BRAIN_LAUNCHER_SOCKET); execution refused" } as unknown as JsonValue };
@@ -176,7 +186,9 @@ export async function executeToolPayload(
     sandboxToolsDir = cacheDir;
   }
   if (!existsSync(script)) return { ok: false, output: { error: `tool script missing ${rel}` } as unknown as JsonValue };
-  const stdin = JSON.stringify(toolInput);
+  const stdin = JSON.stringify(mcp ? { arguments: toolInput, mcp: mcp.stdinKey } : toolInput);
+  const scrubValues = [...secrets.resolved.values, ...(mcp?.secretValues ?? [])];
+  const outputLimit = mcp ? mcp.maxOutputBytes + 4096 : 1024 * 1024;
   if (Buffer.byteLength(stdin, "utf8") > 64 * 1024) return { ok: false, output: { error: "tool input too large" } as unknown as JsonValue };
   // Sandbox path: the launcher executes the pinned script inside an ephemeral
   // read-only container with the tools root mounted read-only at /tools.
@@ -192,13 +204,13 @@ export async function executeToolPayload(
     }
     const profile = effectClass === "privileged" ? "privileged-tool" as const : offer.execution.kind === "eval" ? "evaluator" as const : "agent" as const;
     try {
-      const { sandboxId } = await launcher.createSandbox({ profile, requestId: `exec-${offer.execution.kind}-${Math.random().toString(36).slice(2, 10)}`, toolsDir: sandboxToolsDir ?? toolsRoot(cfg), ...(profile !== "privileged-tool" && egressHosts.length > 0 ? { network: "internal" as const, egressHosts } : { network: "none" as const }), ...(cfg.dataMounts?.get(toolId) ? { dataMounts: cfg.dataMounts.get(toolId)! } : {}) });
+      const { sandboxId } = await launcher.createSandbox({ profile, requestId: `exec-${offer.execution.kind}-${Math.random().toString(36).slice(2, 10)}`, toolsDir: sandboxToolsDir ?? toolsRoot(cfg), ...(mcp ? { network: "internal" as const, egressHosts: [mcp.host] } : profile !== "privileged-tool" && egressHosts.length > 0 ? { network: "internal" as const, egressHosts } : { network: "none" as const }), ...(cfg.dataMounts?.get(toolId) ? { dataMounts: cfg.dataMounts.get(toolId)! } : {}) });
       try {
         const inContainer = sandboxToolsDir ? join("/tools", "run.sh") : join("/tools", rel);
         const result = await launcher.exec(sandboxId, inContainer, stdin, 60_000);
-        if (result.exitCode !== 0) return { ok: false, output: { error: failedToolMessage(result.exitCode, result.stdout, secrets.resolved.values), stderr: scrubSecrets(result.stderr, secrets.resolved.values).slice(0, 2000) } as unknown as JsonValue };
-        const stdout = scrubSecrets(result.stdout, secrets.resolved.values);
-        if (Buffer.byteLength(stdout, "utf8") > 1024 * 1024) return { ok: false, output: { error: "tool output too large" } as unknown as JsonValue };
+        if (result.exitCode !== 0) return { ok: false, output: { error: failedToolMessage(result.exitCode, result.stdout, scrubValues), stderr: scrubSecrets(result.stderr, scrubValues).slice(0, 2000) } as unknown as JsonValue };
+        const stdout = scrubSecrets(result.stdout, scrubValues);
+        if (Buffer.byteLength(stdout, "utf8") > outputLimit) return { ok: false, output: { error: "tool output too large" } as unknown as JsonValue };
         return { ok: true, output: JSON.parse(stdout) as JsonValue };
       } finally {
         await launcher.stop(sandboxId).catch(() => undefined);
