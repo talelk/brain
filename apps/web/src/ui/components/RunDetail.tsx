@@ -11,6 +11,7 @@ import { CorrelationLink } from "../exec/CorrelationLink";
 import { WorkItemLink } from "../exec/WorkItemLink";
 import { EvidenceList } from "./EvidenceList";
 import { PlacementPanel } from "./PlacementPanel";
+import { ChoiceReasons } from "./ChoiceReasons";
 import { formatDateTime, queueReasonLabel, runTitle } from "../format";
 import { DigestValue } from "./DigestValue";
 import { StatusBadge, statusHeaderTheme, statusLabel } from "./StatusBadge";
@@ -41,7 +42,7 @@ export type RunJobSnapshot = JobSnapshot & { readonly sessionId?: string };
 
 const TABS = (): Array<{ value: string; label: string }> => [
   { value: "summary", label: "Summary" }, { value: "attempts", label: "Attempts" }, { value: "tool-calls", label: t("run.tab.toolCalls") },
-  { value: "context", label: "Context received" }, { value: "evidence", label: "Evidence" }, { value: "placement", label: "Placement" },
+  { value: "context", label: "Context received" }, { value: "evidence", label: "Evidence" }, { value: "placement", label: t("why.tab") },
 ];
 
 type AttemptTheme = "green" | "red" | "blue" | "amber";
@@ -213,7 +214,12 @@ export function RunDetail(props: {
             <Show when={tab() === "tool-calls" && job()?.workflowRunId}>{(runId) => <RunToolCalls runId={runId()} {...(job()?.context ? { mission: { missionId: job()!.context!.missionId, workspaceId: job()!.workspaceId } } : {})} />}</Show>
             <Show when={tab() === "context"}><ContextReceived runId={job()?.workflowRunId} /></Show>
             <Show when={tab() === "evidence"}><WorkspaceSection title="Independent evidence" description="Verification is accepted only from the independent evaluator authority."><EvidenceList bundleDigest={job()?.evidenceDigest} workspaceId={job()?.workspaceId} /></WorkspaceSection></Show>
-            <Show when={tab() === "placement"}><WorkspaceSection title="Placement explanation" description="Why this run can or cannot be assigned to a runner."><PlacementPanel explanation={props.explanation} /></WorkspaceSection></Show>
+            <Show when={tab() === "placement"}><WorkspaceSection title={t("why.title")} description={t("why.description")}>
+              <div class="flex flex-col gap-6">
+                <section class="flex flex-col gap-field-gap" aria-labelledby="why-choices-heading"><h3 id="why-choices-heading" class="m-0 text-base font-medium text-ink-gray-9">{t("why.choices.heading")}</h3><ChoiceReasons choices={props.explanation?.choices} /></section>
+                <section class="flex flex-col gap-field-gap" aria-labelledby="why-placement-heading"><h3 id="why-placement-heading" class="m-0 text-base font-medium text-ink-gray-9">{t("why.placement.heading")}</h3><PlacementPanel explanation={props.explanation} /></section>
+              </div>
+            </WorkspaceSection></Show>
           </div>
           <DetailAside title="Run context" description="Placement and provenance beside the result." sticky>
             <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-caption lg:grid-cols-1">
@@ -225,7 +231,7 @@ export function RunDetail(props: {
               <RunFact label="Session" value={<Show when={job()?.sessionId} fallback={<span>Not bound</span>}><CorrelationLink target={{ kind: "session", sessionId: job()!.sessionId! }} label={job()!.sessionId!} icon="lucide-square-terminal" /></Show>} />
               <RunFact label="Cost / budget" value="Not supplied by this read model" />
             </dl>
-            <TechnicalDetails label="Technical references"><p class="break-all">Run {job()?.workflowRunId ?? props.jobId} · step {job()?.jobId} · version {job()?.version} · configuration {job()?.configDigest}</p></TechnicalDetails>
+            <TechnicalDetails label="Technical references"><p class="break-all">Run {job()?.workflowRunId ?? props.jobId} · step {job()?.jobId} · version {job()?.version} · configuration {job()?.configDigest}</p><Show when={job()?.context?.traceId}>{(trace) => <p class="mt-2 break-all">Mission trace id <DigestValue value={trace()} label="Trace id" short={false} /></p>}</Show></TechnicalDetails>
           </DetailAside>
         </div>
       </div>

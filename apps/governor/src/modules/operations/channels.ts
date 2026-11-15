@@ -80,7 +80,8 @@ export interface WebhookBody {
 export function webhookBody(input: { kind: string; link: string; count?: number }): WebhookBody {
   const text = input.kind === "digest" ? `Brain: ${input.count ?? 0} results are ready. Open ${input.link}`
     : input.kind === "result-ready" ? `Brain: a result is ready. Open ${input.link}`
-      : input.kind === "approval" ? `Brain: an approval is waiting for you. Open ${input.link}` : `Brain: something needs you. Open ${input.link}`;
+      : input.kind === "approval" ? `Brain: an approval is waiting for you. Open ${input.link}`
+        : input.kind === "platform" ? `Brain: a platform check needs attention. Open ${input.link}` : `Brain: something needs you. Open ${input.link}`;
   return { type: "brain.notification", kind: input.kind, text, link: input.link, ...(input.count !== undefined ? { count: input.count } : {}) };
 }
 
@@ -115,8 +116,8 @@ export function safeMailLink(path: string, baseUrl = process.env["BRAIN_BASE_URL
 /** The whole mail: a generic sentence and a link. Nothing a person typed, no title, no token, no secret (same rule as the webhook). */
 export function emailContent(input: { kind: string; link: string; count?: number }): { subject: string; text: string } {
   if (input.kind === "test") return { subject: "Brain: test email", text: `This is a test email from Brain. If you can read it, email notifications reach you.\n\nYou asked for it under Settings > Security > Where Brain reaches you.\n` };
-  const subject = input.kind === "digest" ? "Brain: results are ready" : input.kind === "result-ready" ? "Brain: a result is ready" : input.kind === "approval" ? "Brain: an approval is waiting for you" : "Brain: something needs you";
-  const lead = input.kind === "digest" ? `${input.count ?? 0} ${input.count === 1 ? "result is" : "results are"} ready.` : input.kind === "result-ready" ? "A result is ready." : input.kind === "approval" ? "An approval is waiting for you." : "Something needs you.";
+  const subject = input.kind === "digest" ? "Brain: results are ready" : input.kind === "result-ready" ? "Brain: a result is ready" : input.kind === "approval" ? "Brain: an approval is waiting for you" : input.kind === "platform" ? "Brain: a platform check needs attention" : "Brain: something needs you";
+  const lead = input.kind === "digest" ? `${input.count ?? 0} ${input.count === 1 ? "result is" : "results are"} ready.` : input.kind === "result-ready" ? "A result is ready." : input.kind === "approval" ? "An approval is waiting for you." : input.kind === "platform" ? "A platform check (disk, backup, model or replica) turned bad. Health shows which." : "Something needs you.";
   return { subject, text: `${lead}\n\nOpen it in Brain: ${input.link}\n\nYou will be asked to sign in first${input.kind === "approval" ? " and to confirm the approval again" : ""}. You receive this because you switched email on under Settings > Security > Where Brain reaches you.\n` };
 }
 

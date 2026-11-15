@@ -5,6 +5,7 @@ import { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, oper
 import type { RuntimeConfig } from "../runtime-config";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { gzipSync } from "node:zlib";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
@@ -189,6 +190,16 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   app.get("/v1/setup/status", (c) => {
     const initialized = !!brain.store.control.prepare("SELECT 1 FROM organizations LIMIT 1").get();
     return c.json({ initialized, setupRequired: !initialized && !existsSync(join(dataDir, "RESTORED-SUSPENDED.json")) });
+  });
+
+  // The generated OpenAPI document (scripts/generate_openapi.py): read metadata, so it needs a signed-in credential like the rest of /v1.
+  let openapiText: string | undefined;
+  app.get("/v1/openapi.json", async (c) => {
+    try {
+      await actorFor(c);
+      openapiText ??= readFileSync(createRequire(import.meta.url).resolve("@brain/contracts/openapi.json"), "utf8");
+      return c.body(openapiText, 200, { "content-type": "application/json", "cache-control": "no-store" });
+    } catch (e) { return fail(c as never, e); }
   });
 
   app.get("/v1/identity", async (c) => {

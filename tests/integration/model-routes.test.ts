@@ -151,6 +151,56 @@ describe("a quota refusal moves work to the next route and is recorded per attem
     expect((await settings(w))[0]).toMatchObject({ routeId: "a", status: "unknown" });
   });
 
+  const explained = async (w: TestWorld, jobId: string) => ((await w.brain.executeQuery(w.owner, { queryType: "job.explain", workspaceId: w.workspaceId, resourceId: jobId } as never)) as unknown as
+    { snapshot: { choices: Array<{ kind: string; code: string; facts: Record<string, unknown> }> } }).snapshot.choices.filter((choice) => choice.kind === "model-route");
+
+  it("records at the first offer which route a job was handed first and which routes were left out, and keeps it when the routes change", async () => {
+    const w = world({ costTier: "standard" });
+    await set(w, "r-1", [route("off", { enabled: false }), route("big", { costTier: "premium" }), route("a"), route("b")]);
+    // a is out of quota (a previous attempt reported it), so it is left out of this job's offer.
+    const earlier = await secondAttempt(w, "r1a");
+    finish(w, earlier.runner, "req-r1a", [{ routeId: "a", outcome: "quota", retryAfterMs: 90_000 }, { routeId: "b", outcome: "served" }], "succeeded");
+    // Before any offer there is nothing to read: the reason is written when the job is offered, not on the first look.
+    const job = await secondAttempt(w, "r1b");
+    expect(await explained(w, job.jobId)).toEqual([]);
+    const attemptId = finish(w, job.runner, "req-r1b", [{ routeId: "b", outcome: "served" }], "succeeded");
+    const [first, served] = await explained(w, job.jobId);
+    expect(first).toMatchObject({ code: "first-route", facts: { role: "second-attempt", routeId: "b", model: "model-b", costTier: "standard", position: 4, fallbacks: [] } });
+    expect(first!.facts["skipped"]).toEqual(expect.arrayContaining([
+      { routeId: "off", why: "off" }, { routeId: "big", why: "above-cost-tier" }, expect.objectContaining({ routeId: "a", why: "cooling", until: expect.any(String) }),
+    ]));
+    expect(served).toMatchObject({ code: "served", facts: { servedBy: "b", tried: [{ routeId: "b", outcome: "served" }] } });
+    // The owner reorders and switches routes afterwards: what was recorded then is still what the run says.
+    const before = JSON.stringify(await explained(w, job.jobId));
+    await set(w, "r-2", [route("big", { costTier: "standard" }), route("a"), route("b", { enabled: false })]);
+    expect(JSON.stringify(await explained(w, job.jobId))).toBe(before);
+    expect(attemptRouteUses(w.brain.store, attemptId)).toHaveLength(1);
+  });
+
+  it("records a failover as one reason naming the route that answered and the one passed, and a job that must wait records why once", async () => {
+    const w = world();
+    await set(w, "h-1", [route("a"), route("b")]);
+    const job = await secondAttempt(w, "r2a");
+    finish(w, job.runner, "req-r2a", [{ routeId: "a", outcome: "quota", retryAfterMs: 60_000 }, { routeId: "b", outcome: "served" }], "succeeded");
+    expect((await explained(w, job.jobId)).map((choice) => choice.code)).toEqual(["first-route", "served-after-failover"]);
+    // Both routes are out of quota now: the next job waits, and says so (once, however many sweeps look at it).
+    const next = await secondAttempt(w, "r2b");
+    finish(w, next.runner, "req-r2b-x", [{ routeId: "b", outcome: "quota", retryAfterMs: 60_000 }], "failed");
+    const waiting = await secondAttempt(w, "r2c");
+    expect(w.brain.jobProtocol.claim(waiting.runner, "req-r2c")).toBeNull();
+    expect(w.brain.jobProtocol.claim(waiting.runner, "req-r2c-again")).toBeNull();
+    const held = await explained(w, waiting.jobId);
+    expect(held).toHaveLength(1);
+    expect(held[0]).toMatchObject({ code: "held", facts: { role: "second-attempt", skipped: [expect.objectContaining({ routeId: "a", why: "cooling" }), expect.objectContaining({ routeId: "b", why: "cooling" })] } });
+  });
+
+  it("leaves no route reason on a job that ran self-hosted", async () => {
+    const w = world();
+    const job = await secondAttempt(w, "r3");
+    w.brain.jobProtocol.claim(job.runner, "req-r3");
+    expect(await explained(w, job.jobId)).toEqual([]);
+  });
+
   it("holds the work while every route is out of quota, and offers it with the route again once the wait is over", async () => {
     const w = world();
     await set(w, "h-1", [route("a")]);

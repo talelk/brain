@@ -1,0 +1,21 @@
+# 64. External MCP tools are governed tools that run in the sandbox
+
+Date: 2026-11-15
+Status: Accepted (spec #90, #137)
+
+An admin wants an agent to use tools a third-party MCP server offers. Today that is impossible on purpose: engines start with no MCP servers and a model never reaches a host except through an operator-declared, sandboxed tool (ADR 0021); every change outside Brain stops for a person and carries one permit per call (ADR 0024). This keeps both: an external tool is a governed Tool, not a bridge.
+
+**Decision.**
+1. **A Tool document with `spec.mcp`.** One document per server tool: `url`, the server's `tool` name, `toolListDigest`, optional `headers` (by secret reference) and `maxOutputBytes` (default 16 KiB, at most 64 KiB). `effectClass` is the admin's declaration and has no default; a server's own hints (`readOnlyHint`) are not authority. A document without a class, or with a class that is not `read` or `write`, is refused at compile. `privileged` is refused too: a privileged sandbox never has a network (ADR 0037).
+2. **A pinned digest of the tool list.** At registration (`scripts/mcp-register.ts`) the pinned client script lists the server's tools in its own list mode and the digest of the canonical list (name, description, input schema, sorted) is written into every document. The same script computes the digest at every call and refuses when it differs or the tool is gone, before sending anything. A server that changes its tools, or a description a model reads, is refused until a person registers it again and activates a new release. One implementation computes the digest, so there is no cross-language canonicalization to drift.
+3. **The call runs in the launcher's sandbox.** The runner never connects to the server. It gives the sandbox the egress proxy's grant for the declared host and nothing else (not the workspace's whole list), and runs the pinned client with `{arguments, mcp}` on stdin, where `mcp` is built from the pinned document, never from the model. The host must also be on the workspace's egress hosts (the owner vouches for hosts, ADR 0037). Without a launcher the call fails closed. The client refuses redirects and any server-to-client request (sampling, roots, elicitation); resources and prompts are never passed on. Brain does not proxy MCP to models.
+4. **Calls are validated and bounded.** The agent's input is checked against the pinned input schema (which must compile under the runner's strict validator, checked at compile) in the runner and again by the Governor when an effect is proposed. A read result is cut to `maxOutputBytes` in the client and refused by the runner above that plus a small envelope.
+5. **Secrets by reference.** A header names a runner secret (`{secretRef, prefix}`); the runner reads it from the workspace's secret store, hands it to the sandbox on stdin only, and scrubs it from output, errors and stderr. It is never in the document, the proposal or an event. Model- or workflow-supplied `secretRefs` stay refused.
+6. **Effect tools use the ADR 0024 path unchanged.** A `write` call is proposed and held; the approval's subject names the host, the tool and the arguments; one permit per call is taken by the held job, checked again at the broker boundary, and the call is made once. The policy of an MCP effect tool is derived from its pinned declaration (resource `mcp:<host>:<tool>`), since the admin's registration is its operator decision. A failure before the request was sent (drift, refused host) records the call as absent; one after it as unknown.
+7. **Agents only.** A direct workflow step cannot call an external MCP tool.
+
+## Limits (be honest)
+- The egress proxy matches the name the client sends (ADR 0037). A declared name that resolves somewhere else is the admin's vouching.
+- Tool output is data the model reads: an honest tool list does not make an honest tool. The digest pins what a tool says it is, not what it returns; output is bounded and scrubbed, not sanitized.
+- `privileged` MCP tools do not exist; a server action that deserves it needs a launcher-side command (ADR 0021).
+- The runner's sandbox for a `write` MCP call is the agent profile with a network, because the privileged profile cannot have one; the permit and the approval, not the profile, gate it.

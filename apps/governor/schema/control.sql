@@ -524,6 +524,18 @@ CREATE TABLE attempt_model_routes (
   outcome TEXT NOT NULL CHECK(outcome IN ('served','quota','failed')), recorded_at_ms INTEGER NOT NULL,
   PRIMARY KEY(attempt_id, position)
 ) STRICT;
+-- Why the Governor chose what it chose (ADR 0065): one small row per choice, written at the moment it was made with every fact it judged by, never
+-- rewritten and never rebuilt from later state. `kind` is the choice (way-of-working | team-member | model-route); `subject_kind`/`subject_id` is what the
+-- choice was for (a dispatch command, a work item, a job or an attempt); `code` says what happened and `facts_json` holds the facts as they were then.
+CREATE TABLE choice_reasons (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK(kind IN ('way-of-working','team-member','model-route')),
+  subject_kind TEXT NOT NULL CHECK(subject_kind IN ('command','work-item','job','attempt')), subject_id TEXT NOT NULL,
+  code TEXT NOT NULL, facts_json TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(facts_json)), recorded_at_ms INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(subject_kind, subject_id, kind, code)
+) STRICT;
+CREATE INDEX choice_reasons_subject ON choice_reasons(subject_kind, subject_id);
+CREATE TRIGGER choice_reasons_immutable BEFORE UPDATE ON choice_reasons BEGIN SELECT RAISE(ABORT, 'a recorded reason is never rewritten'); END;
 -- Latest result of each periodic check (model endpoint, hosted model per workspace, disk): Health reads these rows; a check that goes bad is also alerted once.
 CREATE TABLE service_probes (
   id TEXT PRIMARY KEY, status TEXT NOT NULL CHECK(status IN ('healthy','degraded','unavailable','disabled')), detail TEXT NOT NULL DEFAULT '',
