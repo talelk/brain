@@ -7,7 +7,7 @@ import { createApp } from "../../apps/governor/src/http/app";
 import { fixtureGate } from "../../apps/runner/src/engines/fixture";
 import { enrollAndHello, newRunnerControls, runOnce, type RunnerConfig } from "../../apps/runner/src/supervisor";
 import { setupWorld } from "../helpers";
-import { parallelTriage, TRIAGE_OUTPUT } from "../support/parallel-workflow";
+import { parallelTriage, settled, TRIAGE_OUTPUT } from "../support/parallel-workflow";
 import { fixtureStarter } from "../support/starter";
 import { scaled } from "../support/timing";
 
@@ -99,11 +99,11 @@ describe("a mission's run with parallel steps", () => {
     finish(runId, "left");
     expect(jobs(runId).some((job) => job.step === "join")).toBe(false);
     finish(runId, "right");
-    await world.brain.workflows.settle();
+    await settled(world.brain);
     expect(jobs(runId).filter((job) => job.step === "join")).toEqual([{ step: "join", state: "queued", reason: "WAITING_FOR_RUNNER" }]);
     expect(await runState(runId)).toBe("running");
     finish(runId, "join");
-    await world.brain.workflows.settle();
+    await settled(world.brain);
     expect(await runState(runId)).toBe("succeeded");
     expect(jobs(runId)).toHaveLength(4);
   }, scaled(60_000));
@@ -116,14 +116,14 @@ describe("a mission's run with parallel steps", () => {
     const claimed = jobs(runId).find((job) => job.state === "verifying")!.step;
 
     finish(runId, claimed, false);
-    await world.brain.workflows.settle();
+    await settled(world.brain);
     expect(await runState(runId)).toBe("failed");
     expect(jobs(runId).filter((job) => job.step !== claimed).map((job) => job.state)).toEqual(["cancelled", "cancelled"]);
     // Nothing is left for a runner to take, and a late completion of another branch moves nothing.
     expect(await runOnce(cfg, () => session.token, session.epoch, controls)).toBe(false);
     const other = jobs(runId).find((job) => job.step !== claimed)!.step;
     finish(runId, other);
-    await world.brain.workflows.settle();
+    await settled(world.brain);
     expect(await runState(runId)).toBe("failed");
     expect(jobs(runId).some((job) => job.step === "join")).toBe(false);
   }, scaled(60_000));

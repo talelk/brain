@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Brain } from "../../apps/governor/src/application/brain";
 import { setupWorld } from "../helpers";
-import { parallelTriage, TRIAGE_OUTPUT } from "../support/parallel-workflow";
+import { parallelTriage, settled, TRIAGE_OUTPUT } from "../support/parallel-workflow";
 import { fixtureStarter } from "../support/starter";
 import { scaled } from "../support/timing";
 
@@ -40,7 +40,7 @@ describe("a Governor killed during a run with parallel steps", () => {
     finish(w.brain, w, runId, "right");
     finish(w.brain, w, runId, "left");
     // Killed: the process ends while the engine is idle (a dead process runs nothing more) and a new one opens the same data directory.
-    await w.brain.workflows.settle();
+    await settled(w.brain);
     w.brain.close();
     open.splice(0, 1);
     const restarted = await reopen(w);
@@ -49,14 +49,14 @@ describe("a Governor killed during a run with parallel steps", () => {
 
     // A completion already on record is immutable; repeating it changes nothing.
     finish(restarted, w, runId, "left");
-    await restarted.workflows.settle();
+    await settled(restarted);
     expect(jobsOf(restarted, runId).filter((job) => job.step === "join")).toEqual([]);
 
     finish(restarted, w, runId, "third");
-    await restarted.workflows.settle();
+    await settled(restarted);
     expect(jobsOf(restarted, runId).filter((job) => job.step === "join")).toEqual([{ step: "join", state: "queued" }]);
     finish(restarted, w, runId, "join");
-    await restarted.workflows.settle();
+    await settled(restarted);
     expect(runStateOf(restarted, w, runId)).toBe("succeeded");
     expect(jobsOf(restarted, runId).map((job) => job.step)).toEqual(["join", "left", "right", "third"]);
   }, scaled(60_000));
@@ -72,17 +72,17 @@ describe("a Governor killed during a run with parallel steps", () => {
     expect(() => finish(w.brain, w, runId, "third")).toThrow(/killed while admitting/);
     create.mockRestore();
     expect(jobsOf(w.brain, runId).filter((job) => job.step === "join")).toEqual([]);
-    await w.brain.workflows.settle();
+    await settled(w.brain);
     w.brain.close();
     open.splice(0, 1);
 
     const restarted = await reopen(w);
     restarted.projectOutbox();
     restarted.projectOutbox();
-    await restarted.workflows.settle();
+    await settled(restarted);
     expect(jobsOf(restarted, runId).filter((job) => job.step === "join")).toEqual([{ step: "join", state: "queued" }]);
     finish(restarted, w, runId, "join");
-    await restarted.workflows.settle();
+    await settled(restarted);
     expect(runStateOf(restarted, w, runId)).toBe("succeeded");
   }, scaled(60_000));
 });

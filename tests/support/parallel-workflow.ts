@@ -1,4 +1,9 @@
 import type { JsonValue } from "@brain/contracts";
+import type { Brain } from "../../apps/governor/src/application/brain";
+import type { MastraWorkflowEngine } from "../../apps/governor/src/modules/workflows/index";
+
+/** Resolves when the Governor's workflow engine has no work in flight. */
+export const settled = (brain: Brain): Promise<void> => (brain.workflows as MastraWorkflowEngine).settle();
 
 /**
  * The starter's one-agent triage workflow, widened into three independent steps (`left`, `right`, `third`) and a

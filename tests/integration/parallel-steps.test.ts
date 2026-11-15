@@ -19,9 +19,10 @@ const readJob = (needs: string[]) => ({ kind: "dispatch", needs, input: {}, effe
 const gateJob = (needs: string[]) => ({ kind: "gate", needs, input: {}, proposalFrom: "x", expiresAfterSeconds: 3600 });
 
 interface FakeHost extends WorkflowHost { jobs: string[]; approvals: string[]; failures: string[]; cancelled: string[]; failNextJobFor?: string }
+interface FakeStore { jobs: string[]; approvals: string[]; failures: string[]; cancelled: string[]; failNextJobFor?: string; createJobForStep(input: { stepId: string }): string; createApprovalForGate(input: { stepId: string }): string; runFailed(input: { runId: string }): void; runSucceeded(): void; cancelUnclaimedJobs(runId: string): void }
 function fakeHost(): FakeHost {
-  const host = {
-    jobs: [] as string[], approvals: [] as string[], failures: [] as string[], cancelled: [] as string[],
+  const host: FakeStore = {
+    jobs: [], approvals: [], failures: [], cancelled: [],
     createJobForStep(input: { stepId: string }) {
       if (host.failNextJobFor === input.stepId) { delete host.failNextJobFor; throw new Error("the Governor stopped while admitting"); }
       host.jobs.push(input.stepId);
