@@ -2,18 +2,19 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, Select } from "@talelk/newui-molecules";
-import type { AgentCatalogEntry, Mission, PlanTask, TeamMember, WorkItem } from "@brain/contracts";
+import type { AgentCatalogEntry, Mission, PlanTask, StandingTeam, TeamMember, WorkItem } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { query } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
-import { agentFits, assignedMember, ineligibleSteps, memberIdFor, memberLabel, whyNotEligible, isStartedWork, type AgentFit } from "../work/plan-team";
+import { standingTeamsRead } from "../../data/standing-teams";
+import { agentFits, assignedMember, copyStandingTeam, ineligibleSteps, memberIdFor, memberLabel, whyNotEligible, isStartedWork, type AgentFit } from "../work/plan-team";
 import { titleize } from "../format";
 import { t } from "../../i18n";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
 /** What the plan editor reads besides the plan: the agents a member can be bound to, and which steps and members already have started work. */
-export function createPlanTeamData(mission: () => Mission): { agents: () => AgentFit[] | undefined; startedSteps: () => ReadonlySet<string>; lockedMembers: () => ReadonlySet<string> } {
+export function createPlanTeamData(mission: () => Mission): { agents: () => AgentFit[] | undefined; standingTeams: () => StandingTeam[] | undefined; startedSteps: () => ReadonlySet<string>; lockedMembers: () => ReadonlySet<string> } {
   const app = useApp();
   const agents = createScopedRead<AgentFit[]>({
     scope: app.scope,
@@ -22,6 +23,7 @@ export function createPlanTeamData(mission: () => Mission): { agents: () => Agen
       return { snapshot: agentFits(view.snapshot.items), asOf: view.asOf, sourceWatermark: view.sourceWatermark };
     },
   });
+  const standing = createScopedRead<StandingTeam[]>({ scope: app.scope, load: async (scope, signal) => standingTeamsRead(scope.workspaceId, signal) });
   const items = createScopedRead<WorkItem[]>({
     scope: app.scope,
     resource: () => mission().missionId,
@@ -33,6 +35,7 @@ export function createPlanTeamData(mission: () => Mission): { agents: () => Agen
   const started = createMemo(() => items.state().data ?? []);
   return {
     agents: () => agents.state().data,
+    standingTeams: () => standing.state().data,
     startedSteps: createMemo(() => new Set(started().map((item) => item.planTaskId))),
     lockedMembers: createMemo(() => new Set(started().flatMap((item) => (item.assignment?.kind === "agent" ? [item.assignment.id] : [])))),
   };
@@ -62,7 +65,9 @@ export function StepAssignment(props: { task: PlanTask; position: number; team: 
 }
 
 /** The mission team in the editor: members can be added and dropped, never rebound, and a member serving a step or started work stays. */
-export function TeamSection(props: { team: readonly TeamMember[]; tasks: readonly PlanTask[]; agents: readonly AgentFit[] | undefined; locked: ReadonlySet<string>; onChange: (team: TeamMember[]) => void }): JSX.Element {
+export function TeamSection(props: { team: readonly TeamMember[]; tasks: readonly PlanTask[]; agents: readonly AgentFit[] | undefined; locked: ReadonlySet<string>; onChange: (team: TeamMember[]) => void;
+  /** The standing teams a person may copy members from; omitted where a team is not being copied into (the standing team form itself). */
+  standing?: readonly StandingTeam[] | undefined; title?: string; description?: string; empty?: string }): JSX.Element {
   const [role, setRole] = createSignal("");
   const [agentId, setAgentId] = createSignal("");
   const [engine, setEngine] = createSignal("");
@@ -76,9 +81,10 @@ export function TeamSection(props: { team: readonly TeamMember[]; tasks: readonl
     props.onChange([...props.team, { memberId: memberIdFor(role(), props.team.map((member) => member.memberId)), role: role().trim(), agentId: chosen.agentId, engine: engineValue() }]);
     setRole("");
   };
-  return <section class="flex flex-col gap-3 border-b border-outline-gray-1 pb-4" aria-label={t("plan.team.title")} data-testid="plan-team">
-    <div class="flex flex-col gap-0.5"><h3 class="text-base-medium text-ink-gray-9">{t("plan.team.title")}</h3><p class="text-caption text-ink-gray-6">{t("plan.team.description")}</p></div>
-    <Show when={props.team.length} fallback={<p class="text-interface text-ink-gray-7">{t("plan.team.empty")}</p>}>
+  return <section class="flex flex-col gap-3 border-b border-outline-gray-1 pb-4" aria-label={props.title ?? t("plan.team.title")} data-testid="plan-team">
+    <div class="flex flex-col gap-0.5"><h3 class="text-base-medium text-ink-gray-9">{props.title ?? t("plan.team.title")}</h3><p class="text-caption text-ink-gray-6">{props.description ?? t("plan.team.description")}</p></div>
+    <Show when={props.standing}>{(teams) => <UseStandingTeam teams={teams()} team={props.team} onChange={props.onChange} />}</Show>
+    <Show when={props.team.length} fallback={<p class="text-interface text-ink-gray-7">{props.empty ?? t("plan.team.empty")}</p>}>
       <ul class="flex flex-col gap-2">
         <For each={props.team}>{(member) => <li class="flex flex-wrap items-center gap-2 rounded-control border border-outline-gray-1 px-3 py-2" data-testid="plan-team-member" data-member-id={member.memberId}>
           <span class="lucide-bot size-4 shrink-0 text-ink-gray-6" aria-hidden="true" />
@@ -98,4 +104,43 @@ export function TeamSection(props: { team: readonly TeamMember[]; tasks: readonl
       </div>
     </Show>
   </section>;
+}
+
+/**
+ * "Use a standing team" (ADR 0056): the picked team's members are copied into the team being edited, now. The standing team is not linked:
+ * editing or archiving it later changes only plans that copy from it afterwards. A member id already on the team with another agent or
+ * engine is a collision, named before anything is added.
+ */
+function UseStandingTeam(props: { teams: readonly StandingTeam[]; team: readonly TeamMember[]; onChange: (team: TeamMember[]) => void }): JSX.Element {
+  const [picked, setPicked] = createSignal("");
+  const [done, setDone] = createSignal("");
+  const [clash, setClash] = createSignal("");
+  const active = () => props.teams.filter((entry) => entry.state === "active");
+  const apply = () => {
+    const chosen = active().find((entry) => entry.standingTeamId === picked());
+    if (!chosen) return;
+    const result = copyStandingTeam(props.team, chosen.members);
+    setDone("");
+    const first = result.collisions[0];
+    if (first) {
+      setClash(t("plan.standing.conflict", { member: first.member.memberId, existing: `${titleize(first.existing.agentId)} on ${first.existing.engine}`, team: chosen.name, wanted: `${titleize(first.member.agentId)} on ${first.member.engine}` }));
+      return;
+    }
+    setClash("");
+    props.onChange(result.team);
+    setDone(t("plan.standing.added", { n: result.added.length, team: chosen.name }));
+  };
+  return <div class="flex flex-col gap-2 rounded-control border border-outline-gray-1 p-3" data-testid="plan-standing-team">
+    <h4 class="text-interface font-medium text-ink-gray-9">{t("plan.standing.title")}</h4>
+    <Show when={active().length} fallback={<p class="text-caption text-ink-gray-6">{t("plan.standing.none-available")}</p>}>
+      <div class="flex flex-wrap items-end gap-3">
+        <div class="min-w-0 flex-1 basis-56"><Select label={t("plan.standing.pick")} value={picked() || null} onValueChange={(value) => { setPicked(value ?? ""); setDone(""); setClash(""); }}
+          options={active().map((entry) => ({ value: entry.standingTeamId, label: entry.name, description: t("teams.members", { n: entry.members.length }) }))} /></div>
+        <Button variant="outline" iconLeft="lucide-users-round" disabled={!picked()} onClick={apply}>{t("plan.standing.add")}</Button>
+      </div>
+    </Show>
+    <p class="text-caption text-ink-gray-6" data-testid="plan-standing-note">{t("plan.standing.note")}</p>
+    <Show when={done()}><p class="text-interface text-ink-gray-8" role="status" data-testid="plan-standing-done">{done()}</p></Show>
+    <Show when={clash()}><Alert theme="red" variant="outline" title={t("plan.standing.conflict-title")} description={clash()} /></Show>
+  </div>;
 }

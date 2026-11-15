@@ -480,5 +480,10 @@ export const enCore = {
   "mission.tab.timeline": "Timeline",
   "mission.tab.outputs": "Results",
   "palette.searching": "Searching...",
+  "start.team.label": "Standing team",
+  "start.team.own": "The Play's own team",
+  "start.team.hint": "Its members are copied into this mission's plan. Editing the team later does not change this mission.",
+  "start.team.with-coordinator": "{n} members, with a coordinator",
+  "teams.members": "{n} members",
   // @@END
 } as const satisfies Record<string, string>;

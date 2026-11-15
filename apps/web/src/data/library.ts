@@ -12,6 +12,8 @@ export interface LibrarySummary {
   publishedKnowledge: number;
   documents: number;
   plays: number;
+  /** Active standing teams (ADR 0056). */
+  teams: number;
   tools: number;
   /** Write-ups published in the last seven days, and how many of those Brain published itself. */
   learnedThisWeek: number;

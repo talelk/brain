@@ -6,7 +6,7 @@ import { createScopedRead } from "../../data/screens";
 import { t } from "../../i18n";
 import { librarySummary, type LibrarySummary } from "../../data/library";
 
-export type LibraryTab = "overview" | "plays" | "find" | "documents" | "tools" | "review";
+export type LibraryTab = "overview" | "plays" | "teams" | "find" | "documents" | "tools" | "review";
 
 /**
  * The Library's places (ADR 0014): everything Brain can reuse, side by side. Overview shows the counts; Plays,
@@ -27,13 +27,14 @@ export function LibraryTabs(props: { value: LibraryTab; trailing?: JSX.Element }
   };
   const go = (value: string) => {
     const base = `/w/${app.workspaceId()}`;
-    const target = value === "overview" ? `${base}/library` : value === "plays" ? `${base}/plays` : value === "review" ? `${base}/knowledge/review` : value === "find" ? `${base}/knowledge` : `${base}/knowledge?tab=${value}`;
+    const target = value === "overview" ? `${base}/library` : value === "plays" ? `${base}/plays` : value === "teams" ? `${base}/library/teams` : value === "review" ? `${base}/knowledge/review` : value === "find" ? `${base}/knowledge` : `${base}/knowledge?tab=${value}`;
     void navigate(target);
   };
   return <div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
     <div class="min-w-0 max-w-full overflow-x-auto" data-testid="library-tab-strip"><div class="w-max min-w-full [&_[role=radio]]:shrink-0 [&_[role=radio]]:whitespace-nowrap"><TabButtons label={t("library.tab.label")} value={props.value} onValueChange={go} options={[
       { value: "overview", label: t("library.tab.overview") },
       { value: "plays", label: `${t("library.tab.plays")}${count((data) => data.plays)}` },
+      { value: "teams", label: `${t("library.tab.teams")}${count((data) => data.teams)}` },
       { value: "find", label: t("library.tab.knowledge") },
       { value: "documents", label: `${t("library.tab.documents")}${count((data) => data.documents)}` },
       { value: "tools", label: `${t("library.tab.tools")}${count((data) => data.tools)}` },

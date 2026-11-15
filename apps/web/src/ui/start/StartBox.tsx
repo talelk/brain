@@ -4,13 +4,14 @@ import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Select } from "@talelk/newui-molecules";
-import type { PlayView } from "@brain/contracts";
+import type { PlayView, StandingTeam } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { missionHref } from "../mission-links";
 import { formatDateTime } from "../format";
 import { reuseSearch } from "../../data/reuse";
+import { standingTeamsRead } from "../../data/standing-teams";
 import { librarySummary, type LibrarySummary } from "../../data/library";
 import { AddStarterPlays } from "../components/LibraryControls";
 import { fromMissions, fromReuseItems, repeatHref, sourceConstraint } from "./reuse";
@@ -54,6 +55,8 @@ export function createStartController() {
   const missions = app.useMissions();
   const [intent, setIntent] = createSignal("");
   const [playId, setPlayId] = createSignal("");
+  /** A standing team a Play is started with (ADR 0056); its members are copied into the mission's plan. Empty keeps the Play's own team. */
+  const [teamId, setTeamId] = createSignal("");
   const [source, setSource] = createSignal<ReuseCandidate>();
   const [title, setTitle] = createSignal("");
   const [startMode, setStartMode] = createSignal("auto");
@@ -70,7 +73,7 @@ export function createStartController() {
   const needsSentence = () => !playId() && !source();
   const problem = () => (needsSentence() && !intent().trim() ? t("start.problem") : undefined);
   const shownProblem = () => (attempted() ? problem() : undefined);
-  const pickPlay = (id: string) => { setPlayId(playId() === id ? "" : id); if (playId()) setSource(undefined); };
+  const pickPlay = (id: string) => { setPlayId(playId() === id ? "" : id); setTeamId(""); if (playId()) setSource(undefined); };
   const pickSource = (candidate: ReuseCandidate | undefined) => { setSource(candidate); if (candidate) setPlayId(""); };
   async function start(): Promise<void> {
     setAttempted(true);
@@ -82,7 +85,7 @@ export function createStartController() {
       const payload = {
         title: title().trim() || derivedTitle() || "New mission",
         autoStart: startMode() === "auto",
-        ...(playId() ? { playId: playId(), ...(typed ? { intent: typed } : {}) }
+        ...(playId() ? { playId: playId(), ...(teamId() ? { standingTeamId: teamId() } : {}), ...(typed ? { intent: typed } : {}) }
           : from ? { intent: typed || from.intent, successCriteria: typed ? [`Done: ${firstLine()}`] : [...from.successCriteria], constraints: [sourceConstraint(from)] }
           // The Governor needs at least one criterion; the sentence is the first, editable in the plan.
           : { intent: typed, successCriteria: [`Done: ${firstLine()}`] }),
@@ -102,10 +105,28 @@ export function createStartController() {
       void navigate(missionHref(app.workspaceId(), receipt.resourceId, "plan"));
     } catch (reason) { setError(reason instanceof Error ? reason.message : "The sample goal was not started."); } finally { setBusy(false); }
   }
-  return { startSample, intent, setIntent, playId, play, playList, pickPlay, source, pickSource, candidates, title, setTitle, startMode, setStartMode, busy, error, shownProblem, derivedTitle, start,
+  return { startSample, intent, setIntent, playId, teamId, setTeamId, play, playList, pickPlay, source, pickSource, candidates, title, setTitle, startMode, setStartMode, busy, error, shownProblem, derivedTitle, start,
     canStart: () => app.canDispatch(), workspaceId: () => app.workspaceId(), plays, missions, library, reloadLibrary, listMissions: () => missions.state().data ?? [] };
 }
 export type StartController = ReturnType<typeof createStartController>;
+
+/**
+ * "Use a standing team" for a picked Play (ADR 0056): the team's members are copied into the mission's plan in place of the Play's own team,
+ * and a Play that runs a coordinator needs a team that names one. Nothing shows when the workspace has no standing team.
+ */
+function StartTeamChoice(props: { start: StartController; disabled?: boolean | undefined }): JSX.Element {
+  const app = useApp();
+  const teams = createScopedRead<StandingTeam[]>({ scope: app.scope, load: async (scope, signal) => standingTeamsRead(scope.workspaceId, signal) });
+  const active = () => (teams.state().data ?? []).filter((team) => team.state === "active");
+  const NONE = "__none";
+  return <Show when={active().length}>
+    <div class="flex min-w-0 flex-col gap-1" data-testid="start-standing-team">
+      <Select label={t("start.team.label")} description={t("start.team.hint")} value={props.start.teamId() || NONE} disabled={props.disabled}
+        options={[{ value: NONE, label: t("start.team.own") }, ...active().map((team) => ({ value: team.standingTeamId, label: team.name, description: team.coordinatorMemberId ? t("start.team.with-coordinator", { n: team.members.length }) : t("teams.members", { n: team.members.length }) }))]}
+        onValueChange={(value) => props.start.setTeamId(!value || value === NONE ? "" : value)} />
+    </div>
+  </Show>;
+}
 
 /** The sentence box, the play chips, the reuse chips and the "more options" disclosure. */
 export function StartFields(props: { start: StartController; large?: boolean; /** One tight row of chips under the box, for Today where the box leads. */ compact?: boolean; onSubmit?: () => void; /** Blocks the box (setup is not done); chips stay visible but cannot be used. */ disabled?: boolean; /** Offers the "Try a sample goal" chip. */ sample?: boolean; /** Phone only: the primary action sits beside the box in a bar fixed to the bottom of the screen (the box leaves the card). */ dockAction?: JSX.Element }): JSX.Element {
@@ -153,6 +174,7 @@ export function StartFields(props: { start: StartController; large?: boolean; /*
       <span class="min-w-0 break-words">{s.source() ? t("start.seed.mission") : t("start.seed.play")} <strong>{name()}</strong>. {s.intent().trim() ? t("start.seed.replaces") : t("start.seed.add")}</span>
       <Button variant="ghost" size="sm" iconLeft="lucide-x" onClick={clear}>{t("start.seed.remove")}</Button>
     </p>}</Show>
+    <Show when={s.playId()}><StartTeamChoice start={s} disabled={props.disabled} /></Show>
     <fieldset class={`m-0 flex min-w-0 flex-col gap-2 border-0 p-0${props.compact ? " brain-start-compact" : ""}`} aria-label={t("start.ready.label")}>
       <Show when={s.playList().length || (s.library.state().data?.starterPlays.installable ?? 0) > 0}>
         <div class="flex min-w-0 flex-wrap items-center gap-2" data-testid="play-chips"><span class="text-caption text-ink-gray-7">{t("start.plays")}</span>

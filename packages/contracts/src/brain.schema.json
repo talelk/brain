@@ -7404,6 +7404,9 @@
             },
             "autoStart": {
               "type": "boolean"
+            },
+            "standingTeamId": {
+              "$ref": "#/$defs/Id"
             }
           },
           "required": [
@@ -7475,6 +7478,9 @@
                 "$ref": "#/$defs/TeamMember"
               },
               "maxItems": 50
+            },
+            "standingTeamId": {
+              "$ref": "#/$defs/Id"
             }
           },
           "required": [
@@ -7985,7 +7991,8 @@
             "integrations.guide",
             "identity.oidc.get",
             "quality.breakdown",
-            "practices.list"
+            "practices.list",
+            "standingTeams.list"
           ]
         },
         "workspaceId": {
@@ -8080,7 +8087,8 @@
             "integrations.guide",
             "identity.oidc.get",
             "quality.breakdown",
-            "practices.list"
+            "practices.list",
+            "standingTeams.list"
           ]
         },
         "snapshot": {
@@ -11832,6 +11840,15 @@
         },
         {
           "$ref": "#/$defs/PlayProposeFromMissionsCommand"
+        },
+        {
+          "$ref": "#/$defs/StandingTeamCreateCommand"
+        },
+        {
+          "$ref": "#/$defs/StandingTeamUpdateCommand"
+        },
+        {
+          "$ref": "#/$defs/StandingTeamArchiveCommand"
         }
       ]
     },
@@ -27417,6 +27434,247 @@
           },
           "required": [
             "routes"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "StandingTeam": {
+      "type": "object",
+      "properties": {
+        "standingTeamId": {
+          "$ref": "#/$defs/Id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamMember"
+          },
+          "minItems": 1,
+          "maxItems": 12
+        },
+        "coordinatorMemberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "archived"
+          ]
+        },
+        "version": {
+          "$ref": "#/$defs/Counter"
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "standingTeamId",
+        "name",
+        "members",
+        "state",
+        "version",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ],
+      "additionalProperties": false
+    },
+    "StandingTeamCreateCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "standingTeam.create"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamMember"
+              },
+              "minItems": 1,
+              "maxItems": 12
+            },
+            "coordinatorMemberId": {
+              "$ref": "#/$defs/ConfigId"
+            }
+          },
+          "required": [
+            "name",
+            "members"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "StandingTeamUpdateCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "standingTeam.update"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "standingTeamId": {
+              "$ref": "#/$defs/Id"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamMember"
+              },
+              "minItems": 1,
+              "maxItems": 12
+            },
+            "coordinatorMemberId": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ConfigId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "standingTeamId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "StandingTeamArchiveCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "standingTeam.archive"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "standingTeamId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "standingTeamId"
           ],
           "additionalProperties": false
         }

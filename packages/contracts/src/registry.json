@@ -852,6 +852,33 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "standingTeam.create",
+      "schema": "StandingTeamCreateCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "standingTeam.update",
+      "schema": "StandingTeamUpdateCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "standingTeam.archive",
+      "schema": "StandingTeamArchiveCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -963,7 +990,8 @@
     "integrations.guide",
     "identity.oidc.get",
     "quality.breakdown",
-    "practices.list"
+    "practices.list",
+    "standingTeams.list"
   ],
   "events": [
     {
@@ -1570,6 +1598,24 @@
       "type": "mission.budgetChanged",
       "envelope": "EventEnvelope",
       "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "standingTeam.created",
+      "envelope": "EventEnvelope",
+      "payloadContract": "CapitalizationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "standingTeam.updated",
+      "envelope": "EventEnvelope",
+      "payloadContract": "CapitalizationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "standingTeam.archived",
+      "envelope": "EventEnvelope",
+      "payloadContract": "CapitalizationEventPayload",
       "durable": true
     }
   ],

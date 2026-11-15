@@ -622,3 +622,12 @@ CREATE TABLE play_proposals (
  practice TEXT DEFAULT NULL, source_missions_json TEXT DEFAULT NULL
 ) STRICT;
 
+
+-- Standing teams (ADR 0056): named sets of roles bound to agent definitions and engines that plans and Plays reference. Referencing one COPIES its members into the plan version; editing or archiving a standing team never touches a plan version, a mission or work.
+CREATE TABLE standing_teams (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+  members_json TEXT NOT NULL CHECK(json_valid(members_json)), coordinator_member_id TEXT DEFAULT NULL,
+  state TEXT NOT NULL DEFAULT 'active' CHECK(state IN ('active','archived')),
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0), created_by TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
