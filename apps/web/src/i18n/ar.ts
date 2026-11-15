@@ -1761,5 +1761,12 @@ export const ar: Catalog = {
   "adm.git-provider.hint": "يفتح Brain طلبات الدمج عبر واجهة برمجة هذا المزوّد ولا يخمّنه من العنوان.",
   "adm.git-provider.required": "اختر مزوّد خادم Git هذا.",
   "adm.git-provider.first-step": "اختر ربط مستودع بعيد، ثم حدّد مزوّد Git، ثم أدخل عنوان المستودع (ورمزًا إن كان خاصًا).",
+  "health.service.backup": "آخر نسخة احتياطية",
+  "health.service.restore-test": "آخر اختبار استعادة",
+  "health.diagnostics.title": "الحصول على مساعدة",
+  "health.diagnostics.description": "شارك حزمة تشخيص منقّحة مع المسؤول أو جهة الدعم.",
+  "health.diagnostics.download": "تنزيل التشخيص",
+  "health.diagnostics.done": "تم تنزيل حزمة التشخيص: الإصدارات، وجرد المشغّلات كما أبلغت عنها، وفحوص الجاهزية، وآخر نسخة احتياطية وآخر اختبار استعادة، والأخطاء الأخيرة على شكل رموز ومعرّفات. لا تتضمن بيانات الاعتماد ولا الرموز ولا الرسائل ولا نص المهام ولا السجلات الخام.",
+  "health.diagnostics.failed": "تعذّر تصدير التشخيص.",
   // @@END
 };

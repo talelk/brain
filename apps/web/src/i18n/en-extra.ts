@@ -1297,5 +1297,12 @@ export const enExtra = {
   "adm.git-provider.hint": "Brain opens pull requests through this provider's API. It does not guess from the address.",
   "adm.git-provider.required": "Choose the provider of this Git host.",
   "adm.git-provider.first-step": "Choose Connect remote, pick the Git provider, then give the repository URL (and a token if it is private).",
+  "health.service.backup": "Last backup",
+  "health.service.restore-test": "Last restore test",
+  "health.diagnostics.title": "Get help",
+  "health.diagnostics.description": "Share a redacted diagnostics bundle with your administrator or support contact.",
+  "health.diagnostics.download": "Download diagnostics",
+  "health.diagnostics.done": "Downloaded the diagnostics bundle: versions, runner inventory as the runners reported it, readiness checks, the last backup and restore test, and recent errors as codes and ids. Credentials, tokens, messages, task text and raw logs are left out.",
+  "health.diagnostics.failed": "Could not export diagnostics.",
   // @@END
 } as const satisfies Record<string, string>;

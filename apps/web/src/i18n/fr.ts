@@ -1699,5 +1699,12 @@ export const fr: Catalog = {
   "adm.git-provider.hint": "Brain ouvre les demandes de fusion via l'API de ce fournisseur. Il ne le devine pas d'après l'adresse.",
   "adm.git-provider.required": "Choisissez le fournisseur de cet hôte Git.",
   "adm.git-provider.first-step": "Choisissez Connecter un dépôt distant, indiquez le fournisseur Git, puis l'URL du dépôt (et un jeton s'il est privé).",
+  "health.service.backup": "Dernière sauvegarde",
+  "health.service.restore-test": "Dernier test de restauration",
+  "health.diagnostics.title": "Obtenir de l'aide",
+  "health.diagnostics.description": "Partagez un dossier de diagnostic expurgé avec votre administrateur ou votre contact support.",
+  "health.diagnostics.download": "Télécharger le diagnostic",
+  "health.diagnostics.done": "Dossier de diagnostic téléchargé : versions, inventaire des runners tel qu'ils l'ont déclaré, contrôles de disponibilité, dernière sauvegarde et dernier test de restauration, et erreurs récentes sous forme de codes et d'identifiants. Identifiants, jetons, messages, texte des tâches et journaux bruts en sont exclus.",
+  "health.diagnostics.failed": "Impossible d'exporter le diagnostic.",
   // @@END
 };
