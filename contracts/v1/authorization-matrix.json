@@ -873,6 +873,11 @@
       "scopeMode": "organization",
       "redactPrivilegedDetails": false
     },
+    "chatIdentities.list": {
+      "scope": "identity:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
     "quality.breakdown": {
       "scope": "quality:read",
       "scopeMode": "organization",

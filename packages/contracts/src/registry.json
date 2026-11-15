@@ -863,6 +863,24 @@
       ]
     },
     {
+      "type": "chatIdentity.set",
+      "schema": "ChatIdentitySetCommand",
+      "scope": "identity:security",
+      "authority": "control",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "chatIdentity.remove",
+      "schema": "ChatIdentityRemoveCommand",
+      "scope": "identity:security",
+      "authority": "control",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "play.proposeFromMissions",
       "schema": "PlayProposeFromMissionsCommand",
       "scope": "mission:write",
@@ -1011,6 +1029,7 @@
     "runnerGroups.list",
     "integrations.guide",
     "identity.oidc.get",
+    "chatIdentities.list",
     "quality.breakdown",
     "practices.list",
     "standingTeams.list"

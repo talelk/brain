@@ -233,6 +233,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "agents-list", route: () => "/w/operations/library/agents", heading: "Agents", prepare: async (governor, _page, demo) => { agentActivity ??= await seedAgentActivity(governor.app.brain, demo.actor, demo.workspaceId, "vb-agents"); }, after: async (page) => { await expect(page.getByTestId("agent-list")).toBeVisible(); await expect(page.locator("[data-agent=task-worker]").getByTestId("activity-status")).toBeVisible(); } },
   { id: "agent-page", route: () => "/w/operations/library/agents/task-worker", heading: "Task worker", after: async (page) => { await expect(page.getByTestId("figure-cost-value")).toContainText("tokens"); await expect(page.getByTestId("recent-run").first()).toBeVisible(); } },
   { id: "mission-team-member", route: () => `/missions/${agentActivity!.missionId}/team?member=writer`, heading: "Draft and review the vendor summary", after: async (page) => { await expect(page.getByTestId("member-panel")).toBeVisible(); await expect(page.getByTestId("figure-cost-value")).toContainText("tokens"); await page.getByTestId("member-panel").evaluate((element) => element.scrollIntoView({ block: "start" })); } },
+  // Chat identities (ticket #123): who a signed chat message is from, linked to a member, under People.
+  { id: "settings-chat-identities", route: () => "/settings?tab=people", heading: "People", prepare: seedChatIdentities, after: async (page) => { const identities = page.locator("[data-chat-identities]"); await expect(identities).toBeVisible(); await expect(identities.locator("[data-chat-identity]")).toHaveCount(2); await identities.scrollIntoViewIfNeeded(); } },
   // Handing a mission to a teammate (#117): the mission's menu, then the dialog with a teammate chosen. It adds one member, so it comes after every screen that lists people.
   { id: "mission-handover", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedTeammate, after: async (page) => { await page.getByRole("button", { name: "More", exact: true }).click(); await page.getByRole("menuitem", { name: "Hand this mission to someone else" }).click(); const dialog = page.getByRole("dialog", { name: "Hand this mission over" }); await dialog.getByRole("combobox", { name: "New owner" }).click(); await page.getByRole("option", { name: /Dana Cole/ }).click(); await expect(dialog.getByRole("button", { name: "Hand over", exact: true })).toBeEnabled(); } },
   { id: "settings-model-routes", route: () => "/settings?tab=work", heading: "How work runs", prepare: async (governor, _page, demo) => {
@@ -251,6 +253,10 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];
 
+async function seedChatIdentities(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Demo): Promise<void> {
+  await command(governor.app.brain, demo.actor, demo.workspaceId, "chatIdentity.set", "vb-chat-slack", { provider: "slack", chatUserId: "U024BE7LH", principalId: demo.actor.actorId });
+  await command(governor.app.brain, demo.actor, demo.workspaceId, "chatIdentity.set", "vb-chat-teams", { provider: "teams", chatUserId: "7c1e2d0a-5f4b-4a53-9a31-0b2c7d6e8f90", principalId: demo.actor.actorId });
+}
 /** A teammate who can work on missions (the one hand-over screen); added once, when its screen is reached. */
 let teammate = false;
 async function seedTeammate(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Awaited<ReturnType<typeof seedBrowserDemo>>): Promise<void> {

@@ -1,5 +1,5 @@
 import { runCommand } from "../data/governor";
-import type { OidcRole } from "./engine";
+import type { ChatProvider, OidcRole } from "./engine";
 import type { CommandReceipt, GitProvider, MissionBudget, OrganizationAdminCommand, PlanTask, TeamMember, WorkItemPriority, WorkItemState } from "@brain/contracts";
 
 /**
@@ -16,7 +16,7 @@ export type CommandKind =
   | "mission.create" | "mission.owner.transfer" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "mission.watch" | "mission.seen"
   | "mission.brief.edit" | "decision.accept" | "standingTeam.create" | "standingTeam.update" | "standingTeam.archive" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
   | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise" | "workItem.details.set" | "pullRequest.refresh"
-  | "workspace.wayOfWorking.set" | "workspace.modelRoutes.set" | "workspace.effects.set" | "workspace.queueLimit.set" | "workspace.autonomyCeiling.set" | "workspace.sessions.stopAll" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set"
+  | "workspace.wayOfWorking.set" | "workspace.modelRoutes.set" | "workspace.effects.set" | "workspace.queueLimit.set" | "workspace.autonomyCeiling.set" | "workspace.sessions.stopAll" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set" | "chatIdentity.set" | "chatIdentity.remove"
   | "play.proposeFromMissions" | "knowledge.withdrawUnobserved"
   | "automation.upsert" | "automation.control"
   | "document.upload" | "document.revise" | "document.associate" | "document.delete"
@@ -54,6 +54,8 @@ export type PayloadFor<K extends CommandKind> =
     : K extends "workspace.effects.set" ? { containers?: string[]; services?: string[]; approvalMinutes?: number; egressHosts?: string[] }
     : K extends "platform.drain.set" ? { draining: boolean }
     : K extends "runnerGroup.set" ? { groupId: string; hostTools: boolean; workspaceIds: string[] }
+    : K extends "chatIdentity.set" ? { provider: ChatProvider; chatUserId: string; principalId: string }
+    : K extends "chatIdentity.remove" ? { provider: ChatProvider; chatUserId: string }
     : K extends "identity.oidc.set" ? { enabled: boolean; issuer: string; clientId: string; secretRef: string; autoProvision: boolean; defaultRole?: OidcRole; groupClaim?: string; groupRoles?: { group: string; role: OidcRole }[]; workspaceIds?: string[]; allowedDomains?: string[] }
     : K extends "play.proposeFromMissions" ? { practice: string }
     : K extends "mission.watch" ? { missionId: string; watch: boolean }

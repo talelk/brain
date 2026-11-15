@@ -835,7 +835,8 @@
     "effects.get",
     "runnerGroups.list",
     "lessons.list",
-    "identity.oidc.get"
+    "identity.oidc.get",
+    "chatIdentities.list"
    ],
    "actions": [
     "member.grant",
@@ -849,6 +850,8 @@
     "platform.drain.set",
     "runnerGroup.set",
     "identity.oidc.set",
+    "chatIdentity.set",
+    "chatIdentity.remove",
     "knowledge.withdrawUnobserved",
     "organization.invitation.create",
     "organization.invitation.cancel",

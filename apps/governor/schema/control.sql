@@ -621,6 +621,17 @@ CREATE INDEX effect_calls_open ON effect_calls(created_at_ms) WHERE settled_at_m
 CREATE TABLE inbound_hook_events (
   remote_event_id TEXT PRIMARY KEY, received_at_ms INTEGER NOT NULL
 ) STRICT;
+-- Who a chat user is in Brain (ADR 0011 amendment, spec #90 ticket #123): an administrator maps one chat identity (what the signed hook
+-- says about the sender) to one member. Chat starts work only for a mapped, active member; nothing is mapped by default.
+CREATE TABLE chat_identities (
+  organization_id TEXT NOT NULL REFERENCES organizations(id),
+  provider TEXT NOT NULL CHECK(provider IN ('slack','teams','brain')),
+  chat_user_id TEXT NOT NULL,
+  principal_id TEXT NOT NULL,
+  created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(organization_id, provider, chat_user_id),
+  FOREIGN KEY(principal_id, organization_id) REFERENCES principals(id, organization_id)
+) STRICT;
 -- Single sign-on (ADR 0026): one OpenID Connect provider per Governor. The secret is only a reference, never a value.
 CREATE TABLE identity_provider (
   singleton INTEGER PRIMARY KEY CHECK(singleton=1), organization_id TEXT NOT NULL REFERENCES organizations(id),

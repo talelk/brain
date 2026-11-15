@@ -443,6 +443,12 @@ At the limit a person's new work is refused with the reason; work already admitt
 on (ADR 0040). Not mission budget admission or the spend cap.
 _Avoid_: rate limit, quota (quota is a model provider's limit)
 
+**Chat identity**:
+A chat user (Slack user id, Teams object id or the user of a Brain-signed request) that an
+administrator linked to one member. Only a linked, active member can `start` a mission from
+chat, with their own access; chat never approves or confirms a plan (ADR 0011, amendment).
+_Avoid_: chat account, bot user
+
 **Engine**:
 A model-execution harness a runner adapts, pinned for the duration of an attempt.
 _Avoid_: model (a model is what the engine drives), provider

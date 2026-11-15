@@ -20,6 +20,7 @@ const SAMPLES: Readonly<Record<string, readonly string[]>> = {
   approvalLink: [links.approvalLink(), links.approvalLink("apr-1")],
   digestLink: [links.digestLink("ws-1")],
   securitySettingsLink: [links.securitySettingsLink()],
+  missionLink: [links.missionLink("ws-1", "m-1", "plan"), links.missionLink("ws-1", "m-1", "outputs")],
   attentionLink: [
     links.attentionLink({ kind: "result-ready", workspaceId: "ws-1", missionId: "m-1", resourceId: "m-1" }),
     links.attentionLink({ kind: "result-ready", workspaceId: "ws-1", missionId: "m-1", resourceId: "wi-1" }),
