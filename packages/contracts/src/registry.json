@@ -989,6 +989,8 @@
     "usage.member",
     "usage.series",
     "usage.verifiedCost",
+    "agents.profile",
+    "members.profile",
     "plans.estimate",
     "reuse.search",
     "reuse.forMission",

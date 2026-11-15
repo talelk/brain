@@ -23,6 +23,7 @@ import { PAUSABLE_FEATURES, runnerReports, runningSession } from "../support/run
 import { seedPullRequest } from "../support/pullRequestDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 import { seedQuestion } from "../support/question-demo";
+import { seedAgentActivity } from "../support/agent-activity";
 import { delegationsOf, driveChildren, enrollChildRunners } from "../support/delegation-world";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
 
@@ -160,6 +161,9 @@ async function pausedSessionRoute(demo: Demo, governor: Fixture): Promise<string
   return `/w/operations/live?session=${running.sessionId}`;
 }
 
+/** The agent-activity mission, made once when the first agent screen is reached. */
+let agentActivity: Awaited<ReturnType<typeof seedAgentActivity>> | undefined;
+
 const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Demo) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
@@ -225,6 +229,10 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // Spend over time (#112): earlier days of spend for the active mission, then the workspace chart with cost per verified task, and the mission's own chart.
   { id: "missions-spend-history", route: () => "/w/operations/missions", heading: "Missions", prepare: seedSpendHistory, after: async (page) => { await page.getByTestId("workspace-spend-history").getByText("Spend over time", { exact: true }).click(); await expect(page.getByTestId("workspace-spend-history").getByTestId("daily-bar")).toHaveCount(30); await page.getByTestId("verified-cost").getByText("Cost per verified task", { exact: true }).click(); await expect(page.getByTestId("verified-by-agent")).toContainText("task-worker"); await page.getByTestId("workspace-spend-history").evaluate((element) => element.scrollIntoView({ block: "start" })); } },
   { id: "mission-spend-history", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", after: async (page) => { await page.getByTestId("mission-spend-history").getByText("Spend over time", { exact: true }).click(); await expect(page.getByTestId("mission-spend-history").getByTestId("daily-bar")).toHaveCount(30); await page.getByTestId("mission-spend-history").evaluate((element) => element.scrollIntoView({ block: "center" })); } },
+  // Agent page and team-member panel (ticket #113): a runner took a two-member team's tasks, one attempt failed and one is working. The mission adds a parked task to Needs you, which the push screens after it count.
+  { id: "agents-list", route: () => "/w/operations/library/agents", heading: "Agents", prepare: async (governor, _page, demo) => { agentActivity ??= await seedAgentActivity(governor.app.brain, demo.actor, demo.workspaceId, "vb-agents"); }, after: async (page) => { await expect(page.getByTestId("agent-list")).toBeVisible(); await expect(page.locator("[data-agent=task-worker]").getByTestId("activity-status")).toBeVisible(); } },
+  { id: "agent-page", route: () => "/w/operations/library/agents/task-worker", heading: "Task worker", after: async (page) => { await expect(page.getByTestId("figure-cost-value")).toContainText("tokens"); await expect(page.getByTestId("recent-run").first()).toBeVisible(); } },
+  { id: "mission-team-member", route: () => `/missions/${agentActivity!.missionId}/team?member=writer`, heading: "Draft and review the vendor summary", after: async (page) => { await expect(page.getByTestId("member-panel")).toBeVisible(); await expect(page.getByTestId("figure-cost-value")).toContainText("tokens"); await page.getByTestId("member-panel").evaluate((element) => element.scrollIntoView({ block: "start" })); } },
   // Handing a mission to a teammate (#117): the mission's menu, then the dialog with a teammate chosen. It adds one member, so it comes after every screen that lists people.
   { id: "mission-handover", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedTeammate, after: async (page) => { await page.getByRole("button", { name: "More", exact: true }).click(); await page.getByRole("menuitem", { name: "Hand this mission to someone else" }).click(); const dialog = page.getByRole("dialog", { name: "Hand this mission over" }); await dialog.getByRole("combobox", { name: "New owner" }).click(); await page.getByRole("option", { name: /Dana Cole/ }).click(); await expect(dialog.getByRole("button", { name: "Hand over", exact: true })).toBeEnabled(); } },
   { id: "settings-model-routes", route: () => "/settings?tab=work", heading: "How work runs", prepare: async (governor, _page, demo) => {
@@ -365,7 +373,7 @@ async function seedChangeApprovalRecord(governor: Parameters<typeof seedBrowserD
 test.afterEach(async () => { standingTeamsSeeded = false; questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(900_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const demo = await seedBrowserDemo(page, governor);
   for (const screen of SCREENS.filter((entry) => !process.env["VB_ONLY"] || entry.id === process.env["VB_ONLY"])) {

@@ -7992,6 +7992,8 @@
             "usage.member",
             "usage.series",
             "usage.verifiedCost",
+            "agents.profile",
+            "members.profile",
             "plans.estimate",
             "missions.forSubject",
             "reuse.search",
@@ -8090,6 +8092,8 @@
             "usage.member",
             "usage.series",
             "usage.verifiedCost",
+            "agents.profile",
+            "members.profile",
             "plans.estimate",
             "missions.forSubject",
             "reuse.search",
@@ -28093,6 +28097,344 @@
         "reservedMicroUsd"
       ],
       "additionalProperties": false
+    },
+    "ActivityProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "id",
+        "status",
+        "sessions",
+        "recentRuns",
+        "metrics",
+        "failureClasses",
+        "window"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "member"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "agentId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "agentIds": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/ConfigId"
+          }
+        },
+        "memberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "missionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "status": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "reason",
+            "definition"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "working",
+                "idle",
+                "waiting",
+                "failing"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "definition": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "since": {
+              "$ref": "#/$defs/Timestamp"
+            }
+          }
+        },
+        "sessions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "live",
+            "total"
+          ],
+          "properties": {
+            "live": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "recentRuns": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sessionId",
+              "task",
+              "state",
+              "createdAt",
+              "updatedAt"
+            ],
+            "properties": {
+              "sessionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "jobId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "task": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "starting",
+                  "running",
+                  "waiting",
+                  "stopping",
+                  "stopped",
+                  "failed"
+                ]
+              },
+              "missionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "workItemId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "memberId": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "createdAt": {
+                "$ref": "#/$defs/Timestamp"
+              },
+              "updatedAt": {
+                "$ref": "#/$defs/Timestamp"
+              }
+            }
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "label",
+              "definition",
+              "unit",
+              "numerator",
+              "denominator"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "enum": [
+                  "verified-rate"
+                ]
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "definition": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "unit": {
+                "type": "string",
+                "enum": [
+                  "ratio"
+                ]
+              },
+              "value": {
+                "type": "number",
+                "minimum": 0
+              },
+              "numerator": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "denominator": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "failureClasses": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "definition",
+            "items"
+          ],
+          "properties": {
+            "definition": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "items": {
+              "type": "array",
+              "maxItems": 10,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "code",
+                  "label",
+                  "count"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "enum": [
+                      "missing-tool",
+                      "unmeetable-criterion",
+                      "model-slip",
+                      "tool-outage",
+                      "quota",
+                      "budget",
+                      "unclassified"
+                    ]
+                  },
+                  "label": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "from",
+            "to",
+            "days"
+          ],
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "to": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "days": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "tasks": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "workItemId",
+              "title",
+              "state",
+              "parked"
+            ],
+            "properties": {
+              "workItemId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "backlog",
+                  "ready",
+                  "in-progress",
+                  "blocked",
+                  "review",
+                  "done",
+                  "abandoned"
+                ]
+              },
+              "parked": {
+                "type": "boolean"
+              },
+              "failureClass": {
+                "type": "string",
+                "enum": [
+                  "missing-tool",
+                  "unmeetable-criterion",
+                  "model-slip",
+                  "tool-outage",
+                  "quota",
+                  "budget",
+                  "unclassified"
+                ]
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
