@@ -375,6 +375,19 @@ its tokens times its prices, so mission and workspace dollar caps bind it; the s
 model costs no dollars. A route names its API key by reference, never the key.
 _Avoid_: hosted model, external model, cloud model
 
+**Model gateway**:
+The Governor's optional OpenAI-compatible endpoint for a model route marked "send calls through
+the Governor" (off by default). The runner calls it with its attempt's gateway token; the
+Governor forwards with the key held only on its own host, applies the route's order, prices and
+quota cooldown, and refuses once the attempt ended or the mission's money or the workspace cap
+is spent. It keeps counts and status per call, never what was said.
+_Avoid_: proxy, relay
+
+**Gateway token**:
+The credential of one running attempt for the model gateway: bound to the attempt and its fence,
+shown once, revoked when the attempt ends or its fence moves, expiring at the attempt's deadline.
+_Avoid_: model key, API key
+
 **Session**:
 A governed agent conversation served by one team member and bound to a mission, a job
 and an attempt. Steering and stopping act on a session. A session may end while its

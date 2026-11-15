@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { type TestWorld } from "../helpers";
+import type { TestWorld } from "../helpers";
 import { command } from "../support/reuse";
 import { clock, gatewayWorld, route, running, secondAttempt, set, upstream } from "../support/model-gateway";
 
