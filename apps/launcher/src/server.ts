@@ -4,8 +4,9 @@ import { mkdirSync, unlinkSync, existsSync, readFileSync, writeFileSync, appendF
 import { dirname, resolve } from "node:path";
 import { execa } from "execa";
 import { loadHostCommands, resolveHostCommand, type HostCommandEffect } from "./host-commands";
+import { isEgressHost, pruneEgressGrants, removeEgressGrant, writeEgressGrant } from "./egress-proxy";
 
-interface Sandbox { id: string; containerId: string; profile: string; requestHash: string }
+interface Sandbox { id: string; containerId: string; profile: string; requestHash: string; grantId?: string }
 const sandboxes = new Map<string, Sandbox>();
 
 const PROFILES = new Set(["agent", "privileged-tool", "evaluator"]);
@@ -44,17 +45,21 @@ function loadOrCreateToken(socket: string, configured?: string): string {
 // Recover the sandbox registry after a launcher restart: containers carry the
 // brain.launcher label with their idempotency request, so live sandboxes are
 // re-registered instead of leaking unmanaged (doc 20 reconcile requirement).
-async function reconcileRegistry(): Promise<void> {
+async function reconcileRegistry(grantsDir: string | undefined): Promise<void> {
   try {
-    const listed = await execa("docker", ["ps", "--filter", "label=brain.launcher", "--format", "{{.Names}}\t{{.Label \"brain.launcher\"}}"], { timeout: 15_000, reject: false });
+    const listed = await execa("docker", ["ps", "--filter", "label=brain.launcher", "--format", "{{.Names}}\t{{.Label \"brain.launcher\"}}\t{{.Label \"brain.egress-grant\"}}"], { timeout: 15_000, reject: false });
     if (listed.exitCode !== 0) return;
+    const live = new Set<string>();
     for (const line of listed.stdout.split("\n")) {
-      const [name, label] = line.split("\t");
+      const [name, label, grantId] = line.split("\t");
       if (!name || !label) continue;
+      if (grantId) live.add(grantId);
       if (sandboxes.has(name)) continue;
       const profile = name.startsWith("brain-") ? (name.split("-")[1] ?? "agent") : "agent";
-      sandboxes.set(name, { id: name, containerId: name, profile: PROFILES.has(profile) ? profile : "agent", requestHash: label });
+      sandboxes.set(name, { id: name, containerId: name, profile: PROFILES.has(profile) ? profile : "agent", requestHash: label, ...(grantId ? { grantId } : {}) });
     }
+    // The egress grants of sandboxes that are gone (a crash between create and stop) are dropped with them.
+    if (grantsDir) pruneEgressGrants(grantsDir, live);
   } catch { /* docker unreachable: the launcher still serves refusals */ }
 }
 
@@ -78,6 +83,8 @@ export async function startLauncher(): Promise<void> {
     const eq = pair.indexOf("=");
     if (eq > 0) dataMounts.set(pair.slice(0, eq).trim(), resolve(pair.slice(eq + 1).trim()));
   }
+  // Where the egress proxy reads its per-sandbox grants (ADR 0037); without it no sandbox gets a network.
+  const egressGrantsDir = process.env["BRAIN_LAUNCHER_EGRESS_GRANTS_DIR"] ? resolve(process.env["BRAIN_LAUNCHER_EGRESS_GRANTS_DIR"]) : undefined;
   // Operator-owned allowlist of named host commands (ADR 0021): "name" -> fixed argv, never a caller-supplied command line.
   const hostCommands = loadHostCommands(process.env["BRAIN_LAUNCHER_HOST_COMMANDS"]);
   mkdirSync(dirname(socket), { recursive: true });
@@ -137,7 +144,7 @@ export async function startLauncher(): Promise<void> {
         // one permitted tool mount (read-only at /tools); dataMounts may only
         // name an operator-declared path and is always mounted read-only.
         for (const k of Object.keys(b)) {
-          if (!["profile", "image", "requestId", "worktreeId", "cpuMillicores", "memoryMb", "network", "toolsDir", "dataMounts"].includes(k)) { json(res, 422, { error: `field ${k} forbidden` }); return; }
+          if (!["profile", "image", "requestId", "worktreeId", "cpuMillicores", "memoryMb", "network", "egressHosts", "toolsDir", "dataMounts"].includes(k)) { json(res, 422, { error: `field ${k} forbidden` }); return; }
         }
         const requestedMounts = Array.isArray(b["dataMounts"]) ? b["dataMounts"].map((m) => String(m)) : [];
         if (requestedMounts.length > 8) { json(res, 422, { error: "too many dataMounts" }); return; }
@@ -149,6 +156,14 @@ export async function startLauncher(): Promise<void> {
           if (!existsSync(host)) { json(res, 409, { error: `dataMount ${name} path is absent on this host` }); return; }
           mounts.push("-v", `${host}:/data/${name}:ro`);
         }
+        // The network a sandbox gets is the proxy's, and only for the hosts named here (ADR 0037): no hosts means no network, and a tool that
+        // runs a privileged effect never has one.
+        const requestedHosts = Array.isArray(b["egressHosts"]) ? b["egressHosts"].map((h) => String(h)) : [];
+        if (requestedHosts.length > 100 || requestedHosts.some((h) => !isEgressHost(h))) { json(res, 422, { error: "egressHosts must be at most 100 lower-case host or host:port entries" }); return; }
+        const wantsNet = String(b["network"] ?? "none") !== "none";
+        if (wantsNet !== (requestedHosts.length > 0)) { json(res, 422, { error: wantsNet ? "a sandbox with a network must name the egressHosts it may reach" : "egressHosts need network internal" }); return; }
+        if (wantsNet && profile === "privileged-tool") { json(res, 422, { error: "a privileged tool never gets a network" }); return; }
+        if (wantsNet && !egressGrantsDir) { json(res, 409, { error: "the egress proxy is not configured on this launcher (BRAIN_LAUNCHER_EGRESS_GRANTS_DIR)" }); return; }
         const pin = imagePins.get(image);
         if (pin) {
           const inspect = await execa("docker", ["image", "inspect", image, "--format", "{{json .RepoDigests}}"], { timeout: 15_000, reject: false });
@@ -162,29 +177,24 @@ export async function startLauncher(): Promise<void> {
         const prior = [...sandboxes.values()].find((s) => s.requestHash === requestId);
         if (prior) { json(res, 200, { sandboxId: prior.id, containerId: prior.containerId, profile: prior.profile, state: "running", terminationConfirmed: false, cleanupConfirmed: false }); return; }
         const name = `brain-${profile}-${Date.now().toString(36)}`;
-        // Egress policy by profile: privileged tools never get a network.
-        // Agent/evaluator sandboxes may join the internal allowlist network;
-        // the proxy is the only member with an external uplink (operator-run,
-        // see proxy/allowlist_proxy.py). Any non-"none" request still lands
-        // on the internal network, never a caller-named network.
-        const wantsNet = String(b["network"] ?? "none") !== "none";
-        const network = profile === "privileged-tool" ? "none" : wantsNet ? "brain-internal" : "none";
+        const network = wantsNet ? "brain-internal" : "none";
         if (network === "brain-internal") {
           await execa("docker", ["network", "create", "--internal", "brain-internal"], { timeout: 15_000, reject: false });
         }
-        const proxyEnv = network === "brain-internal"
-          ? ["-e", "http_proxy=http://brain-egress-proxy:18080", "-e", "https_proxy=http://brain-egress-proxy:18080",
-             "-e", "HTTP_PROXY=http://brain-egress-proxy:18080", "-e", "HTTPS_PROXY=http://brain-egress-proxy:18080",
-             "-e", "no_proxy=127.0.0.1,localhost"]
+        // The sandbox's own credentials for the proxy: what they reach is the grant written here, and the grant goes when the sandbox does.
+        const grant = wantsNet ? writeEgressGrant(egressGrantsDir!, requestedHosts) : undefined;
+        const proxyUrl = grant ? `http://${grant.id}:${grant.token}@brain-egress-proxy:18080` : undefined;
+        const proxyEnv = proxyUrl
+          ? ["-e", `http_proxy=${proxyUrl}`, "-e", `https_proxy=${proxyUrl}`, "-e", `HTTP_PROXY=${proxyUrl}`, "-e", `HTTPS_PROXY=${proxyUrl}`, "-e", "no_proxy=127.0.0.1,localhost"]
           : [];
         const toolsDir = typeof b["toolsDir"] === "string" && b["toolsDir"] ? ["-v", `${String(b["toolsDir"])}:/tools:ro`] : [];
         const args = ["run", "-d", "--name", name, "--network", network, ...proxyEnv, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
           "--cpus", String(Math.max(0.1, Number(b["cpuMillicores"] ?? 500) / 1000)), "--memory", `${Number(b["memoryMb"] ?? 512)}m`, "--pids-limit", "128",
-          "--label", `brain.launcher=request:${requestId}`, ...toolsDir, ...mounts, image, "sleep", "infinity"];
+          "--label", `brain.launcher=request:${requestId}`, ...(grant ? ["--label", `brain.egress-grant=${grant.id}`] : []), ...toolsDir, ...mounts, image, "sleep", "infinity"];
         const created = await execa("docker", args, { timeout: 60_000, reject: false });
-        if (created.exitCode !== 0) { json(res, 503, { error: `docker run failed: ${String(created.stderr).slice(0, 500)}` }); return; }
+        if (created.exitCode !== 0) { if (grant) removeEgressGrant(egressGrantsDir!, grant.id); json(res, 503, { error: `docker run failed: ${String(created.stderr).slice(0, 500)}` }); return; }
         const containerId = String(created.stdout).trim();
-        sandboxes.set(name, { id: name, containerId, profile, requestHash: requestId });
+        sandboxes.set(name, { id: name, containerId, profile, requestHash: requestId, ...(grant ? { grantId: grant.id } : {}) });
         json(res, 201, { sandboxId: name, containerId, profile, state: "running", terminationConfirmed: false, cleanupConfirmed: false });
         return;
       }
@@ -229,7 +239,7 @@ export async function startLauncher(): Promise<void> {
         await execa("docker", ["rm", "-f", sb.containerId], { timeout: 30_000, reject: false });
         const check = await execa("docker", ["inspect", sb.containerId], { timeout: 10_000, reject: false });
         const gone = check.exitCode !== 0;
-        if (gone) sandboxes.delete(id);
+        if (gone) { sandboxes.delete(id); if (sb.grantId && egressGrantsDir) removeEgressGrant(egressGrantsDir, sb.grantId); }
         json(res, 200, { sandboxId: id, containerId: sb.containerId, profile: sb.profile, state: gone ? "stopped" : "unknown", terminationConfirmed: gone, cleanupConfirmed: gone });
         return;
       }
@@ -247,6 +257,6 @@ export async function startLauncher(): Promise<void> {
     }
   });
   await new Promise<void>((resolve) => server.listen(socket, resolve));
-  await reconcileRegistry();
+  await reconcileRegistry(egressGrantsDir);
   console.log(`Brain launcher listening on ${socket}`);
 }

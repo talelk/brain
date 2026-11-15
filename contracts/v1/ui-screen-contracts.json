@@ -101,7 +101,9 @@
     "missions.brief",
     "missions.sinceLastVisit",
     "missionMessages.list",
+    "workItemComments.list",
     "missionOutputs.list",
+    "missionBundles.latest",
     "plans.get",
     "workItems.list",
     "executionLinks.list",
@@ -125,6 +127,7 @@
     "mission.resume",
     "mission.proposeCompletion",
     "mission.close",
+    "mission.verdict.record",
     "mission.watch",
     "mission.seen",
     "mission.message.send",
@@ -1009,6 +1012,11 @@
     "label": "Approvals",
     "route": "/approvals",
     "icon": "lucide-shield-check"
+   },
+   {
+    "label": "Live",
+    "route": "/w/:id/live",
+    "icon": "lucide-radio"
    },
    {
     "label": "Schedules",

@@ -54,7 +54,7 @@ local demonstration data.
 
 ## 5. Close
 
-When everything is verified, propose completion and close the mission from its page.
+When everything is verified, propose completion. The mission shows "ready for sign-off" in Needs you; open it, verify it (or reject it with findings, which return it to work) on the Outputs tab, then close it as achieved.
 
 ## Related
 

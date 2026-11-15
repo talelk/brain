@@ -123,7 +123,9 @@ aggregate for a wall display. It never shows private ticket bodies and has no ac
 4. **Follow live.** Mission Live tab or the Live area; open a session to steer or stop.
 5. **Review outputs and evidence.** Outputs tab; open an output, then its run's
    evidence. A model reply alone is not a pass; check the validation verdict.
-6. **Close.** Propose completion, then close the mission.
+6. **Close.** Propose completion; the mission waits in Needs you as "ready for sign-off".
+   On the Outputs tab a person verifies it (then closes it as achieved) or rejects it
+   with findings, which send it back to work.
 7. **Approvals.** Approvals shows pending decisions; each is one exact effect. See
    [Runs and approvals](howto/operate-runs-and-approvals.md).
 8. **Knowledge capture.** Upload documents or publish memory in Knowledge; review

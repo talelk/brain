@@ -35,9 +35,16 @@ _Avoid_: result, resolution, done
 
 **Attention item**:
 Something in a mission that a human must act on (a blocking item: an approval, a plan
-proposal, a parked work item or a paused mission) or wants to know (a **result ready**
-item). Only attention items notify; progress events never do.
+proposal, a parked work item, a paused mission or a **sign-off item**) or wants to know (a
+**result ready** item). Only attention items notify; progress events never do.
 _Avoid_: alert, notification (the delivery, not the item), todo
+
+**Sign-off item**:
+The blocking attention item "ready for sign-off", derived while a verifying mission's
+evidence bundle is submitted. It names the bundle, so a rejected and resubmitted mission
+raises a new one. A person answers it on the mission's Outputs tab with the mission
+verdict (independence L3); an agent never can.
+_Avoid_: approval (that gates an effect), review request
 
 **Result ready**:
 The one non-blocking attention item: a mission closed achieved or a task reached Done on
@@ -239,6 +246,12 @@ coordinator). It is steered into a live session when the engine allows, otherwis
 delivered when the recipient's next session starts. It never authorizes anything.
 _Avoid_: chat, prompt, instruction (it is not a brief edit or an approval)
 
+**Comment**:
+A note on a work item, shown as its thread with corrections beside what they correct. A person's
+comment is also sent as a Mission message to the team member serving the item (to the mission when
+none does); a session's own comment is only in the thread. A comment never authorizes anything.
+_Avoid_: note, annotation
+
 **Checkpoint**:
 Durable state recorded by an attempt — a checkpoint commit on its branch, progress,
 consumed and produced outputs, and in-flight effects — from which a later attempt can
@@ -272,6 +285,12 @@ _Avoid_: scratch branch, chat branch
 The trusted component that sandboxes effect execution in ephemeral containers under
 fixed profiles.
 _Avoid_: sandbox, executor, container host
+
+**Egress allowlist**:
+The hosts an administrator lets a workspace's sandboxed tools reach (`host` or `host:port`).
+The egress proxy gives each sandbox a grant of exactly those hosts; none means no network
+(ADR 0037). Not the per-tool `allowedHosts` of the fetch broker.
+_Avoid_: firewall, whitelist, network policy
 
 **Engine**:
 A model-execution harness a runner adapts, pinned for the duration of an attempt.

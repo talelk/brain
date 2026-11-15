@@ -14,6 +14,7 @@ import { missionTaskTrust } from "./task-trust";
 import { capReached, missionUsage, outsideMissionsUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
 import { planEstimate, planWallLimit } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
+import { listComments, recordComment } from "./comments";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, recordTaskResult, sendMessage, taskOf, taskResult, verifyOutputs } from "./outputs";
 import { readVerified } from "../artifacts/index";
 import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, needsSignOff, recordMissionVerdict, submitHandoff, trustForBundle, workflowCovers } from "../evidence/index";
@@ -546,11 +547,17 @@ export class MissionService {
 
   private comment(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
     const item = this.workItemRow(actor, workspaceId, String(payload["workItemId"]));
-    const db = this.db(actor, workspaceId);
-    const id = this.store.id("comment");
-    db.prepare("INSERT INTO work_item_comments(id,work_item_id,actor_id,body,created_at_ms) VALUES (?,?,?,?,?)")
-      .run(id, item.id, actor.actorId, String(payload["text"]), this.store.now());
-    return id;
+    const mission = this.missionRow(actor, workspaceId, item.mission_id);
+    const team = mission.active_plan_version_id ? (JSON.parse(this.planRow(actor, workspaceId, mission.active_plan_version_id).team_json) as TeamMember[]).map((member) => member.memberId) : [];
+    const serving = item.assignment_json ? (JSON.parse(item.assignment_json) as { id?: string }).id : undefined;
+    // Only a person's comment on live work is sent to the team (a mission message, ADR 0003); every comment is part of the thread.
+    const { commentId, messageId } = recordComment(this.store, this.db(actor, workspaceId), {
+      workItemId: item.id, missionId: mission.id, authorId: actor.actorId, text: String(payload["text"]), serving, team,
+      send: actor.kind === "human" && mission.state !== "closed" && item.state !== "abandoned",
+      ...(payload["correctionOf"] ? { correctionOf: String(payload["correctionOf"]) } : {}),
+    });
+    if (messageId) this.delivery?.deliver(actor.organizationId, workspaceId, messageId, false);
+    return commentId;
   }
 
   /** Published agent definitions of the organization's active release, as eligibility sees them. */
@@ -795,16 +802,19 @@ export class MissionService {
     return submitHandoff(this.store, this.db(actor, workspaceId), { workItemId: item.id, submittedBy: actor.actorId, notes: payload["notes"] as HandoffNotes });
   }
 
-  /** An independent verdict on the mission's evidence bundle; a team agent can never record it. */
+  /**
+   * The verdict on the mission's evidence bundle. Through the command only a person records it (the registry admits no other actor), which is
+   * independence L3; the Governor's hands-off path calls this directly as a workflow actor and claims no independence. A rejection needs findings.
+   */
   private verdict(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
-    if (actor.kind === "agent") throw new BrainDomainError("FORBIDDEN", "a team member cannot judge its own mission");
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
     if (mission.state !== "verifying") throw new BrainDomainError("CONFLICT", "only a verifying mission takes a verdict");
     const db = this.db(actor, workspaceId);
     const outcome = String(payload["outcome"]) as "verified" | "rejected";
-    const findings = (payload["findings"] as string[] | undefined) ?? [];
+    const findings = ((payload["findings"] as string[] | undefined) ?? []).map((finding) => finding.trim()).filter((finding) => finding.length > 0);
+    if (outcome === "rejected" && findings.length === 0) throw new BrainDomainError("INVALID_ARGUMENT", "a rejected verdict needs findings: say what to fix");
     this.store.inTx(db, () => {
-      recordMissionVerdict(this.store, db, { missionId: mission.id, digest: String(payload["bundleDigest"]), outcome, findings, by: actor.actorId });
+      recordMissionVerdict(this.store, db, { missionId: mission.id, digest: String(payload["bundleDigest"]), outcome, findings, by: actor.actorId, ...(actor.kind === "human" ? { independence: "L3" as const } : {}) });
       // A rejected sign-off is a re-open: it becomes a regression case without anyone filing it (issue #64).
       if (outcome === "rejected") recordEvalCase(this.store, db, { workspaceId, source: `verdict:${String(payload["bundleDigest"])}`, kind: "rejected-verdict", missionId: mission.id, findings });
     });
@@ -1369,6 +1379,7 @@ export class MissionService {
     if (queryType === "evalCases.list") return listEvalCases(db, limit) as unknown as JsonValue;
     if (queryType === "missionOutputs.get") return outputDetail(db, String(resourceId)) as unknown as JsonValue;
     if (queryType === "missionOutputs.list") return { items: listOutputs(db, this.missionRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
+    if (queryType === "workItemComments.list") return { items: listComments(this.store, db, actor.organizationId, this.workItemRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "missionMessages.list") return { items: listMessages(db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "handoffs.forWorkItem") return { items: dependencyHandoffs(db, this.workItemRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
     if (queryType === "missionBundles.latest") return (latestMissionBundle(db, this.missionRow(actor, workspaceId, String(resourceId)).id) ?? null) as unknown as JsonValue;

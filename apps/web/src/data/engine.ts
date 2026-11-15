@@ -26,7 +26,7 @@ export interface EngineSettings {
 }
 export const engineSettingsRead = (workspaceId: string, signal?: AbortSignal) => read<EngineSettings>({ queryType: "engineSettings.get", workspaceId }, signal);
 
-export interface EffectSettings { workspaceId: string; containers: string[]; services: string[]; approvalMinutes: number; runnerGroups: { groupId: string; hostTools: boolean }[] }
+export interface EffectSettings { workspaceId: string; containers: string[]; services: string[]; approvalMinutes: number; egressHosts: string[]; runnerGroups: { groupId: string; hostTools: boolean }[] }
 export const effectSettingsRead = (workspaceId: string, signal?: AbortSignal) => read<EffectSettings>({ queryType: "effects.get", workspaceId }, signal);
 
 export interface RunnerGroupRow { groupId: string; hostTools: boolean; workspaceIds: string[] }

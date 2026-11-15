@@ -64,11 +64,12 @@ export class LauncherClient {
     return { docker: r.json["docker"] === true, missingImages: Array.isArray(r.json["missingImages"]) ? r.json["missingImages"].map(String) : [] };
   }
 
-  async createSandbox(input: { profile: "agent" | "privileged-tool" | "evaluator"; requestId: string; toolsDir?: string; network?: "none" | "internal"; cpuMillicores?: number; memoryMb?: number; dataMounts?: readonly string[] }): Promise<{ sandboxId: string }> {
+  async createSandbox(input: { profile: "agent" | "privileged-tool" | "evaluator"; requestId: string; toolsDir?: string; network?: "none" | "internal"; egressHosts?: readonly string[]; cpuMillicores?: number; memoryMb?: number; dataMounts?: readonly string[] }): Promise<{ sandboxId: string }> {
     const image = input.profile === "privileged-tool" ? "brain-sandbox-tool" : input.profile === "evaluator" ? "brain-sandbox-evaluator" : "brain-sandbox-agent";
     const r = await this.call("POST", "/v1/sandboxes", {
       profile: input.profile, image, requestId: input.requestId,
       network: input.network ?? "none", toolsDir: input.toolsDir,
+      ...(input.egressHosts && input.egressHosts.length > 0 ? { egressHosts: [...input.egressHosts] } : {}),
       cpuMillicores: input.cpuMillicores ?? 1000, memoryMb: input.memoryMb ?? 1024,
       ...(input.dataMounts && input.dataMounts.length > 0 ? { dataMounts: [...input.dataMounts] } : {}),
     });

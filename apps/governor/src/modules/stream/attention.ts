@@ -50,8 +50,10 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
         items.push({ id: `budget:${m.id}`, workspaceId, missionId: m.id, kind: "budget-pause", tier: 2, title: `${m.title} is paused: ${wording}`, ...(limits.length ? { limits } : {}), resourceId: m.id, waitingSince: iso(m.updated_at_ms) });
       }
       if (m.state === "active" && withParked.has(m.id) && needsAttention(db, m.id)) items.push({ id: `stuck:${m.id}`, workspaceId, missionId: m.id, kind: "needs-attention", tier: 2, title: `${m.title} needs attention: all remaining work is parked`, resourceId: m.id, waitingSince: iso(m.updated_at_ms) });
-      const latest = m.state !== "verifying" ? undefined : db.prepare("SELECT bundle.state, bundle.created_at_ms FROM mission_evidence_bundles bundle WHERE mission_id=? ORDER BY created_at_ms DESC LIMIT 1").get(m.id) as { state: string; created_at_ms: number } | undefined;
-      if (m.state === "verifying" && latest?.state === "verified") items.push({ id: `verdict:${m.id}`, workspaceId, missionId: m.id, kind: "verdict-ready", tier: 4, title: `${m.title} is verified and ready to close`, resourceId: m.id, waitingSince: iso(latest.created_at_ms) });
+      const latest = m.state !== "verifying" ? undefined : db.prepare("SELECT digest, state, created_at_ms FROM mission_evidence_bundles WHERE mission_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get(m.id) as { digest: string; state: string; created_at_ms: number } | undefined;
+      // A submitted bundle waits for a person's verdict; the id carries the bundle, so a rejected and resubmitted mission notifies again.
+      if (latest?.state === "submitted") items.push({ id: `signoff:${latest.digest}`, workspaceId, missionId: m.id, kind: "sign-off", tier: 4, title: `${m.title} is ready for sign-off`, resourceId: m.id, waitingSince: iso(latest.created_at_ms) });
+      if (latest?.state === "verified") items.push({ id: `verdict:${m.id}`, workspaceId, missionId: m.id, kind: "verdict-ready", tier: 4, title: `${m.title} is verified and ready to close`, resourceId: m.id, waitingSince: iso(latest.created_at_ms) });
     }
     for (const row of db.prepare(`SELECT p.id, p.mission_id, p.created_at_ms, m.title FROM plan_versions p JOIN missions m ON m.id=p.mission_id
       WHERE p.state='proposed' AND m.state!='closed' AND p.revision=(SELECT MAX(revision) FROM plan_versions q WHERE q.mission_id=p.mission_id)`).all() as Array<{ id: string; mission_id: string; created_at_ms: number; title: string }>) {

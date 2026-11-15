@@ -2805,6 +2805,15 @@
             "maxItems": 100
           }
         },
+        "egressHosts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 260
+          },
+          "maxItems": 100
+        },
         "grantRef": {
           "$ref": "#/$defs/Id"
         },
@@ -7451,6 +7460,9 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 8000
+            },
+            "correctionOf": {
+              "$ref": "#/$defs/Id"
             }
           },
           "required": [
@@ -7692,6 +7704,7 @@
             "missionBundles.latest",
             "handoffs.forWorkItem",
             "missionMessages.list",
+            "workItemComments.list",
             "missionOutputs.list",
             "missionOutputs.get",
             "plans.get",
@@ -7779,6 +7792,7 @@
             "missionBundles.latest",
             "handoffs.forWorkItem",
             "missionMessages.list",
+            "workItemComments.list",
             "missionOutputs.list",
             "missionOutputs.get",
             "plans.get",
@@ -22461,6 +22475,75 @@
       ],
       "additionalProperties": false
     },
+    "WorkItemComment": {
+      "type": "object",
+      "properties": {
+        "commentId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "authorId": {
+          "$ref": "#/$defs/Id"
+        },
+        "authorKind": {
+          "type": "string",
+          "enum": [
+            "human",
+            "agent"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "correctionOf": {
+          "$ref": "#/$defs/Id"
+        },
+        "delivery": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "delivered-live",
+            "delivered-at-session-start",
+            "superseded"
+          ]
+        },
+        "recipient": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "mission",
+                "member"
+              ]
+            },
+            "memberId": {
+              "$ref": "#/$defs/ConfigId"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "commentId",
+        "workItemId",
+        "authorId",
+        "authorKind",
+        "text",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
     "MissionMessageSendCommand": {
       "type": "object",
       "properties": {
@@ -22753,6 +22836,12 @@
             "$ref": "#/$defs/MissionBundleCheck"
           },
           "maxItems": 200
+        },
+        "independence": {
+          "type": "string",
+          "enum": [
+            "L3"
+          ]
         }
       },
       "required": [
@@ -23345,6 +23434,7 @@
             "needs-attention",
             "plan-proposal",
             "parked",
+            "sign-off",
             "verdict-ready",
             "routed",
             "result-ready",
@@ -25290,6 +25380,16 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 1440
+            },
+            "egressHosts": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 260,
+                "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?(:[0-9]{1,5})?$"
+              },
+              "maxItems": 100
             }
           },
           "additionalProperties": false

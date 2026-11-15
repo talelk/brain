@@ -13,7 +13,7 @@ import type { CommandReceipt, GitProvider, MissionBudget, OrganizationAdminComma
 export type CommandKind =
   | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.create"
   | "runner.control"
-  | "mission.create" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.watch" | "mission.seen"
+  | "mission.create" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "mission.watch" | "mission.seen"
   | "mission.brief.edit" | "decision.accept" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
   | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise"
   | "workspace.wayOfWorking.set" | "workspace.hostedModel.set" | "workspace.effects.set" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set"
@@ -39,12 +39,13 @@ export type PayloadFor<K extends CommandKind> =
     : K extends "mission.policy.set" ? { missionId: string; autoStart?: boolean; preset?: "supervised" | "standard" | "autonomous" }
     : K extends "mission.pause" | "mission.resume" | "mission.proposeCompletion" ? { missionId: string }
     : K extends "mission.close" ? { missionId: string; outcome: "achieved" | "ended" | "cancelled" }
+    : K extends "mission.verdict.record" ? { missionId: string; bundleDigest: string; outcome: "verified" | "rejected"; findings?: string[] }
     : K extends "mission.budget.set" ? { missionId: string; budget: MissionBudget }
     : K extends "workspace.spendCap.set" ? { dailyMicroUsd?: number; weeklyMicroUsd?: number }
     : K extends "workItem.spendCap.raise" ? { workItemId: string; maxTokens: number }
     : K extends "workspace.wayOfWorking.set" ? { workflowId: string; requiredTools?: string[] }
     : K extends "workspace.hostedModel.set" ? { enabled: boolean; vendor?: string; model?: string; baseUrl?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number }
-    : K extends "workspace.effects.set" ? { containers?: string[]; services?: string[]; approvalMinutes?: number }
+    : K extends "workspace.effects.set" ? { containers?: string[]; services?: string[]; approvalMinutes?: number; egressHosts?: string[] }
     : K extends "platform.drain.set" ? { draining: boolean }
     : K extends "runnerGroup.set" ? { groupId: string; hostTools: boolean; workspaceIds: string[] }
     : K extends "identity.oidc.set" ? { enabled: boolean; issuer: string; clientId: string; secretRef: string; autoProvision: boolean; defaultRole?: OidcRole; groupClaim?: string; groupRoles?: { group: string; role: OidcRole }[]; workspaceIds?: string[]; allowedDomains?: string[] }
