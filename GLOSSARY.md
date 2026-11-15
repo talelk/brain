@@ -144,7 +144,7 @@ confirmed per mission at a time; editing a plan always produces a new plan versi
 _Avoid_: plan (unqualified — say plan version or plan proposal), plan revision
 
 **Plan proposal**:
-A plan version awaiting human confirmation. A coordinator's plan version needs it only
+A plan version awaiting human confirmation. A session's plan version needs it only
 when it goes beyond the mission's autonomy policy; anything else an agent proposes is
 inert until a human confirms it.
 _Avoid_: draft plan, suggested plan
@@ -253,9 +253,11 @@ through Brain commands.
 _Avoid_: planning session, chat session, free session
 
 **Mission message**:
-A durable message from a human to one team member or to the mission (which means its
-coordinator). It is steered into a live session when the engine allows, otherwise
-delivered when the recipient's next session starts. It never authorizes anything.
+A durable message from a human, or from a team member's session, to one team member or (from a
+human only) to the mission, which means its coordinator. A team member names another member, never
+itself, never interrupts, and has a few waiting at a time. It is steered into a live session when the
+engine allows, otherwise delivered when the recipient's next session starts, labelled with its sender.
+It never authorizes anything.
 _Avoid_: chat, prompt, instruction (it is not a brief edit or an approval)
 
 **Comment**:
@@ -581,6 +583,14 @@ session it acted through)
 **Actor**:
 The principal performing a command, together with the session and scope it acts through.
 _Avoid_: caller
+
+**Brain tool**:
+An operator-declared, release-pinned tool through which an agent acts on Brain itself: comment on a
+work item, message a team member, submit a handoff, propose a plan (ADR 0041). Each is one command run
+as the session principal, so the authorization matrix and the principal's own-mission scope decide. A
+plan proposal inside the autonomy policy is confirmed, outside it waits for a person; no Brain tool
+records a verdict, closes a mission, approves an effect or confirms beyond the policy.
+_Avoid_: agent API, MCP tool (that is another channel)
 
 **Session principal**:
 The machine principal (kind agent) of one team member of a mission, bound to its workspace

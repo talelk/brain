@@ -12,4 +12,4 @@ Machine actions were recorded under the mission owner's name: auto-start and coo
 
 ## Consequences
 - The owner no longer shares an actor with the agents that act for them: the requester of an effect on auto-started work is the agent, not the owner (ADR 0024 still needs a person's approval per effect).
-- Not covered: attempts outside any mission have no principal; schedule starts and the Governor's own mission completion keep their current actor until every event records its actor (#148). Nothing in the runner calls `sessionCredential` yet; the Brain tools (#107) will.
+- Not covered: attempts outside any mission have no principal; schedule starts and the Governor's own mission completion keep their current actor until every event records its actor (#148). The runner asks for the credential only to make a Brain tool call (ADR 0041).
