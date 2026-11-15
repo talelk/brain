@@ -5,7 +5,7 @@ import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
 import { assertPlanTasks } from "../../domain/work-plan";
 import { assertServedCriteria, criteriaFromText, criteriaCoverage, parseCriteria } from "../../domain/criteria";
-import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
+import { AUTONOMY_PRESETS, assertMembersBound, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
 import { repeatGate, type RepeatPlan, type RepeatSchedule } from "./repeat";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
@@ -325,6 +325,7 @@ export class MissionService {
     const started = new Set((db.prepare("SELECT plan_task_id AS id, state, parked FROM work_items WHERE mission_id=? AND state!='abandoned'").all(mission.id) as Array<{ id: string; state: WorkItemState; parked: number }>)
       .filter(isStarted).map((row) => row.id));
     const diff = diffPlan(confirmed, tasks, started);
+    assertMembersBound(JSON.parse(active.team_json) as TeamMember[], team, tasks);
     const policy = JSON.parse(mission.policy_json) as AutonomyPolicy;
     const beyond = [...new Set([...beyondPolicy(diff, policy), ...teamOperations(JSON.parse(active.team_json) as TeamMember[], team).filter((operation) => !policy.operations.includes(operation))])].sort();
     return { autoConfirm: actor.kind === "agent" && mission.state === "active" && beyond.length === 0, beyond };
@@ -361,13 +362,18 @@ export class MissionService {
     const tasks = JSON.parse(plan.tasks_json) as PlanTask[];
     assertPlanTasks(tasks);
     assertServedCriteria(tasks, new Set(parseCriteria(mission.success_criteria_json).map((criterion) => criterion.id)));
+    const team = JSON.parse(plan.team_json) as TeamMember[];
+    // The release may have changed since the version was proposed: eligibility holds at confirmation too.
+    assertTeamEligible(team, tasks, this.agentCapabilities(actor.organizationId));
     this.assertWayOfWorking(actor.organizationId, workspaceId, tasks);
-    this.gate(actor, workspaceId, mission, tasks, JSON.parse(plan.team_json) as TeamMember[]);
+    this.gate(actor, workspaceId, mission, tasks, team);
     const db = this.db(actor, workspaceId);
     const defaults = wayOfWorking(this.store, workspaceId);
     this.store.inTx(db, () => {
       const priorActive = mission.active_plan_version_id;
       if (priorActive) transitionState(db, "planVersion", priorActive, "superseded");
+      // An older proposal this version was edited from (or that it overtakes) is no longer a live proposal: left open it would come back as the plan to confirm.
+      for (const open of db.prepare("SELECT id FROM plan_versions WHERE mission_id=? AND state='proposed' AND revision<? AND id!=?").all(mission.id, plan.revision, plan.id) as Array<{ id: string }>) transitionState(db, "planVersion", open.id, "superseded");
       const previous = db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state!='abandoned' ORDER BY created_at_ms DESC,id DESC").all(mission.id) as WorkItemRow[];
       const latestByTask = new Map<string, WorkItemRow>();
       for (const item of previous) if (!latestByTask.has(item.plan_task_id)) latestByTask.set(item.plan_task_id, item);

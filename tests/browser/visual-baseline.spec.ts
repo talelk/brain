@@ -50,6 +50,20 @@ async function pushDevice(page: Page, on: boolean): Promise<void> {
   }, on);
 }
 
+/** A mission with a confirmed two-member team, made when its screen is reached; the screen is its plan editor open on the team and the first step. */
+async function planEditorRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  const cmd = async (type: string, key: string, payload: Record<string, unknown>, expectedVersion?: number) => (await brain.executeCommand(demo.actor, {
+    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: type, workspaceId: demo.workspaceId, idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
+  } as never, key)).receipt;
+  const missionId = (await cmd("mission.create", "baseline-team-create", { title: "Prepare the vendor review", intent: "Prepare the vendor review", successCriteria: ["The review is ready"], autoStart: false })).resourceId ?? "";
+  const planId = (await cmd("plan.propose", "baseline-team-plan", { missionId, origin: "manual", team: [{ memberId: "writer", role: "Writer", agentId: "task-worker", engine: "fixture" }, { memberId: "reviewer", role: "Reviewer", agentId: "support-analyst", engine: "fixture" }],
+    tasks: [{ id: "read", title: "Read the vendor sheet", criteria: ["Every vendor row is read"], dependsOn: [], requiredTools: ["csv.query"], assignment: { kind: "agent", id: "writer", role: "specialist" } }, { id: "review", title: "Review the summary", criteria: ["The summary is checked"], dependsOn: ["read"], assignment: { kind: "agent", id: "reviewer", role: "specialist" } }] })).resourceId ?? "";
+  const version = ((await brain.executeQuery(demo.actor, { queryType: "missions.get", workspaceId: demo.workspaceId, resourceId: missionId })) as unknown as { snapshot: { version: number } }).snapshot.version;
+  await cmd("plan.confirm", "baseline-team-confirm", { planVersionId: planId }, version);
+  return `/missions/${missionId}/plan`;
+}
+
 const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Demo) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
@@ -73,6 +87,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "mission-task-comments", route: (d) => `/missions/${d.seed.missionIds.active}/plan?item=${d.seed.workItems["in-progress"]}`, heading: "Comments", prepare: seedTaskComments, after: async (page) => { await page.getByRole("heading", { name: "Comments", level: 4 }).evaluate((element) => element.scrollIntoView({ block: "start" })); } },
   // Eval cases come late, because the cases are recorded by sending tasks back, which adds missions the screens above would show.
   { id: "eval-cases", route: () => "/w/operations/quality/cases", heading: "Eval cases", prepare: seedEvalCases },
+  // The plan editor open on a confirmed plan's team: its mission adds a work item only the screens after it could list.
+  { id: "mission-plan-editor", route: planEditorRoute, heading: "Prepare the vendor review", after: async (page) => { await page.getByRole("button", { name: /^See the confirmed plan/ }).click(); await page.getByRole("button", { name: "Edit steps", exact: true }).first().click(); await expect(page.getByTestId("plan-team")).toBeVisible(); await expect(page.getByTestId("plan-step-assignment").first()).toBeVisible(); } },
   // Last of all: the sign-off mission adds an attention item every earlier screen would count in its bell.
   { id: "mission-signoff", route: signOffRoute, heading: "Compile the quarterly report", waitFor: "mission-signoff" },
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
