@@ -131,6 +131,32 @@ function Effects(props: { effects: EffectSettings; reload: () => Promise<unknown
   </WorkspaceSection>;
 }
 
+/** The hosts a sandboxed tool of this workspace may reach through the egress proxy; none means the tool has no network (ADR 0037). */
+const egressEntryOk = (entry: string): boolean => {
+  const colon = entry.lastIndexOf(":");
+  const host = (colon < 0 ? entry : entry.slice(0, colon)).toLowerCase();
+  const port = colon < 0 ? undefined : entry.slice(colon + 1);
+  return host.length >= 1 && host.length <= 253 && /^[a-z0-9.-]+$/u.test(host) && /^[a-z0-9]/u.test(host) && /[a-z0-9]$/u.test(host) && !/\.\.|\.-|-\./u.test(host)
+    && (port === undefined || (/^[0-9]{1,5}$/u.test(port) && Number(port) >= 1 && Number(port) <= 65535));
+};
+function EgressHosts(props: { effects: EffectSettings; reload: () => Promise<unknown> }): JSX.Element {
+  const app = useApp();
+  const [hosts, setHosts] = createSignal<string | undefined>();
+  const saver = createSaver(async () => { setHosts(undefined); await props.reload(); });
+  const entries = () => lines(hosts() ?? props.effects.egressHosts.join("\n"));
+  const invalid = () => entries().filter((entry) => !egressEntryOk(entry));
+  return <WorkspaceSection title={t("work.egress.title")} description={t("work.egress.description")}>
+    <div class="flex min-w-0 flex-col gap-3" data-work-egress>
+      <p class="m-0 break-words text-interface text-ink-gray-8" data-work-egress-current>{props.effects.egressHosts.length ? t("work.egress.summary", { hosts: props.effects.egressHosts.join(", ") }) : t("work.egress.none")}</p>
+      <Textarea label={t("work.egress.hosts")} description={t("work.egress.hint")} rows={4} value={hosts() ?? props.effects.egressHosts.join("\n")} onInput={(event) => setHosts(event.currentTarget.value)} />
+      <Show when={invalid().length > 0}><p role="alert" class="m-0 break-words text-interface text-ink-red-8">{t("work.egress.invalid", { entries: invalid().join(", ") })}</p></Show>
+      <div><Button variant="solid" theme="blue" size="sm" loading={saver.busy()} disabled={saver.busy() || !app.canAdminister() || invalid().length > 0}
+        onClick={() => void saver.save(() => app.run("workspace.effects.set", { egressHosts: entries() }), t("work.egress.saved"))}>{t("work.save")}</Button></div>
+      <Outcome result={saver.result()} />
+    </div>
+  </WorkspaceSection>;
+}
+
 /** Runner groups: which workspaces a group of runners serves and whether it may run tools that touch hosts. */
 function RunnerGroups(props: { groups: RunnerGroupRow[]; workspaces: { workspaceId: string; displayName: string }[]; reload: () => Promise<unknown> }): JSX.Element {
   const app = useApp();
@@ -236,7 +262,7 @@ export function WorkSettings(): JSX.Element {
       </>}</Show>
     </ScreenRegion>
     <ScreenRegion state={effects.state()} onRetry={() => void effects.refresh({ force: true })} emptyTitle={t("work.empty.title")} emptyDescription={t("work.empty.description")}>
-      <Show when={effects.state().data}>{(data) => <Effects effects={data()} reload={reload} />}</Show>
+      <Show when={effects.state().data}>{(data) => <><Effects effects={data()} reload={reload} /><EgressHosts effects={data()} reload={reload} /></>}</Show>
     </ScreenRegion>
     <ScreenRegion state={groups.state()} onRetry={() => void groups.refresh({ force: true })} emptyTitle={t("work.groups.title")} emptyDescription={t("work.groups.none")}>
       <Show when={groups.state().data}>{(data) => <RunnerGroups groups={data()} workspaces={workspaces.state().data ?? []} reload={reload} />}</Show>

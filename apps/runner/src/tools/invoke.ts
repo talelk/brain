@@ -69,6 +69,8 @@ export interface ToolExecution {
   fetchPinnedTool?: ((toolId: string, digest: string) => Promise<{ entrypoint: string; bytes: Uint8Array }>) | undefined;
   /** Content-addressed cache root for verified tool scripts. */
   toolCacheDir?: string | undefined;
+  /** The workspace's egress allowlist from the job offer: a read-class tool's sandbox reaches these hosts through the proxy and nothing else. */
+  egressHosts?: readonly string[] | undefined;
   /** Tool-broker boundary: re-validate the permit immediately before exec. */
   validatePermit?: ((token: string, invocationId: string) => Promise<boolean>) | undefined;
 }
@@ -102,6 +104,7 @@ export async function executeToolPayload(
   tool: ToolExecution,
 ): Promise<{ ok: boolean; output: JsonValue }> {
   const { offer, cfg, signal, launcher, permit } = tool;
+  const egressHosts = tool.egressHosts ?? [];
   const step = offer.payload.step ?? {};
   const input = (offer.payload.input ?? {}) as Record<string, unknown>;
   // Secret references move only through the exact `secretRefs` channel. Any
@@ -189,7 +192,7 @@ export async function executeToolPayload(
     }
     const profile = effectClass === "privileged" ? "privileged-tool" as const : offer.execution.kind === "eval" ? "evaluator" as const : "agent" as const;
     try {
-      const { sandboxId } = await launcher.createSandbox({ profile, requestId: `exec-${offer.execution.kind}-${Math.random().toString(36).slice(2, 10)}`, toolsDir: sandboxToolsDir ?? toolsRoot(cfg), network: "none", ...(cfg.dataMounts?.get(toolId) ? { dataMounts: cfg.dataMounts.get(toolId)! } : {}) });
+      const { sandboxId } = await launcher.createSandbox({ profile, requestId: `exec-${offer.execution.kind}-${Math.random().toString(36).slice(2, 10)}`, toolsDir: sandboxToolsDir ?? toolsRoot(cfg), ...(profile !== "privileged-tool" && egressHosts.length > 0 ? { network: "internal" as const, egressHosts } : { network: "none" as const }), ...(cfg.dataMounts?.get(toolId) ? { dataMounts: cfg.dataMounts.get(toolId)! } : {}) });
       try {
         const inContainer = sandboxToolsDir ? join("/tools", "run.sh") : join("/tools", rel);
         const result = await launcher.exec(sandboxId, inContainer, stdin, 60_000);

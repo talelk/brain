@@ -280,6 +280,12 @@ The trusted component that sandboxes effect execution in ephemeral containers un
 fixed profiles.
 _Avoid_: sandbox, executor, container host
 
+**Egress allowlist**:
+The hosts an administrator lets a workspace's sandboxed tools reach (`host` or `host:port`).
+The egress proxy gives each sandbox a grant of exactly those hosts; none means no network
+(ADR 0037). Not the per-tool `allowedHosts` of the fetch broker.
+_Avoid_: firewall, whitelist, network policy
+
 **Engine**:
 A model-execution harness a runner adapts, pinned for the duration of an attempt.
 _Avoid_: model (a model is what the engine drives), provider

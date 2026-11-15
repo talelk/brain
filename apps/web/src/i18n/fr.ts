@@ -1721,5 +1721,13 @@ export const fr: Catalog = {
   "adm.git-provider.hint": "Brain ouvre les demandes de fusion via l'API de ce fournisseur. Il ne le devine pas d'après l'adresse.",
   "adm.git-provider.required": "Choisissez le fournisseur de cet hôte Git.",
   "adm.git-provider.first-step": "Choisissez Connecter un dépôt distant, indiquez le fournisseur Git, puis l'URL du dépôt (et un jeton s'il est privé).",
+  "work.egress.title": "Ce que les outils isolés peuvent joindre",
+  "work.egress.description": "Les hôtes que les outils isolés de cet espace de travail peuvent contacter, par le proxy de sortie de Brain. Tout ce qui n'est pas listé est refusé.",
+  "work.egress.hosts": "Hôtes autorisés",
+  "work.egress.hint": "Un par ligne : un nom ou une adresse IPv4, avec :port en option. Sans port, 80 et 443 sont autorisés. Ni schéma, ni chemin, ni joker.",
+  "work.egress.summary": "Joignables par le proxy de sortie : {hosts}.",
+  "work.egress.none": "Aucun hôte n'est autorisé : les outils de cet espace de travail s'exécutent sans réseau.",
+  "work.egress.invalid": "Pas un hôte que le proxy peut autoriser : {entries}.",
+  "work.egress.saved": "Les hôtes autorisés ont été enregistrés.",
   // @@END
 };

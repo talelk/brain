@@ -47,6 +47,7 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "runner-detail", route: (d) => `/runners/${d.seed.runnerId}`, heading: "runner-demo" },
   { id: "settings-setup", route: () => "/settings?tab=setup", heading: "Setup" },
   { id: "settings-work", route: () => "/settings?tab=work", heading: "How work runs" },
+  { id: "settings-egress", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { const egress = page.locator("[data-work-egress]"); await expect(egress).toBeVisible(); await egress.scrollIntoViewIfNeeded(); } },
   { id: "knowledge", route: () => "/w/operations/knowledge", heading: "Knowledge" },
   { id: "integrations", route: () => "/administration/integrations", heading: "Integrations" },
   { id: "integrations-connect", route: () => "/administration/integrations", heading: "Integrations", after: async (page) => { await page.getByRole("button", { name: "Connect remote", exact: true }).first().click(); await expect(page.getByRole("dialog").getByLabel(/^Git provider/)).toBeVisible(); } },
