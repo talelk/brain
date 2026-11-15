@@ -1964,5 +1964,12 @@ export const fr: Catalog = {
   "schedules.subject.plan-card-off": "Attend votre accord à chaque fois (confirmation automatique désactivée)",
   "schedules.subject.run-now-note": "Exécuter maintenant n'est pas proposé : un déclencheur ne démarre qu'à l'arrivée d'un nouveau ticket ou incident.",
   "schedules.subject.review": "{title} · démarre le Play {play} : {when}",
+  "console.resume.action": "Reprendre depuis le point de sauvegarde",
+  "console.resume.description": "Brain démarre une nouvelle session sur {runner}, l'exécuteur qui détient le point de sauvegarde. Elle reprend la conversation enregistrée au lieu de recommencer la tâche.",
+  "console.resume.unavailable": "Cette session a enregistré un point de sauvegarde. {reason} Vous pouvez recommencer la tâche depuis le début.",
+  "console.resume.started": "Reprise en cours : une nouvelle session démarre depuis le point de sauvegarde.",
+  "console.resume.startedFrom": "Démarrée depuis",
+  "console.resume.startedFromBody": "le point de sauvegarde {digest}… détenu par l'exécuteur {runner}, de la session précédente",
+  "console.resume.openEarlier": "Session précédente",
   // @@END
 };

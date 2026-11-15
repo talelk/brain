@@ -58,7 +58,7 @@ describe("native and managed BrainSessions (T53)", () => {
     const missionId = (await workView(w)).items.find((entry) => entry.workItemId === item)!.missionId;
     const first = (await run(w, "mission.message.send", "message-1", { missionId, recipient: { kind: "mission" }, workItemId: item, body: "Verification is next." })).resourceId!;
     await run(w, "mission.message.send", "message-2", { missionId, recipient: { kind: "mission" }, workItemId: item, body: "Correction: independent verification is next.", correctionOf: first });
-    // Resuming is its own command (ADR 0043): a session that no run of its own produced has no run to continue, and says so.
+    // Resuming is its own command (ADR 0044): a session that no run of its own produced has no run to continue, and says so.
     await expect(run(w, "session.resume", "resume-managed", { sessionId: parentId })).rejects.toThrow(/no engine conversation|no run to continue/i);
     // A session that starts afterwards receives the messages sent while none was working, once, with the correction in place of the original.
     const nextId = (await run(w, "session.create", "session-next", { ...input, task: checkpoint.nextAction, worktreeId: "wt-next" })).resourceId!;

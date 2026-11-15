@@ -9,7 +9,7 @@ import { advertisedCapabilities } from "../../apps/runner/src/engines/isolation"
 import { DIGEST_A, setupWorld } from "../helpers";
 import { advance, clock, closeWorlds, confirmedMission, run, stageStarter, task, type Offer, type Runner, type World } from "../support/machine-session";
 
-// ADR 0043: a session that left a checkpoint on a runner is resumed by a new session, in a new run whose continuing step only that runner may
+// ADR 0044: a session that left a checkpoint on a runner is resumed by a new session, in a new run whose continuing step only that runner may
 // claim. The control is offered only when it can work. State is reached through commands and the runner protocol, never through table writes.
 
 const dirs: string[] = [];
@@ -88,7 +88,7 @@ async function interrupted(options: { checkpoint?: boolean | "no-state"; engineF
   return { w, a, b, sessionId: ended!.sessionId, offer, workItemId };
 }
 
-describe("resuming a session from its checkpoint (ADR 0043)", () => {
+describe("resuming a session from its checkpoint (ADR 0044)", () => {
   it("offers the resume only on the runner that holds the checkpoint, and a resume starts a new session there from it", async () => {
     const { w, a, b, sessionId, offer } = await interrupted();
     const before = await sessionOf(w, sessionId);

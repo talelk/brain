@@ -9,7 +9,7 @@ import { PiEngine } from "../../apps/runner/src/engines/pi";
 import { FixtureEngine } from "../../apps/runner/src/engines/fixture";
 import { runAgentExecution } from "../../apps/runner/src/engines/run";
 
-// ADR 0043: a Pi attempt that did not finish leaves its conversation on the runner, and a later attempt on that runner starts from it. Driven
+// ADR 0044: a Pi attempt that did not finish leaves its conversation on the runner, and a later attempt on that runner starts from it. Driven
 // through the real Pi engine and the runner's own execution path against a fake model endpoint that records every request it was sent.
 
 const DIGEST = `sha256:${"0".repeat(64)}`;
@@ -76,7 +76,7 @@ async function checkpointed(attemptId: string): Promise<Checkpoint> {
 
 const texts = (asked: Asked): string[] => asked.messages.map((message) => typeof message.content === "string" ? message.content : JSON.stringify(message.content));
 
-describe("an engine that can resume continues a saved conversation (ADR 0043)", () => {
+describe("an engine that can resume continues a saved conversation (ADR 0044)", () => {
   it("starts a new session from the checkpoint: the model is asked with the earlier exchange, then the new task", async () => {
     const model = await fakeModel({ text: "STORED", finish: "stop" });
     process.env["BRAIN_PI_AGENT_DIR"] = runnerDir();
@@ -128,7 +128,7 @@ describe("an engine that can resume continues a saved conversation (ADR 0043)", 
   }, 120_000);
 });
 
-describe("the runner's attempt path (ADR 0043)", () => {
+describe("the runner's attempt path (ADR 0044)", () => {
   const input = (engine: PiEngine | FixtureEngine, attemptId: string, extra: Record<string, unknown> = {}) => ({
     engine, attemptId, jobFence: 1, leaseId: "lease-r", runnerId: "runner-r", organizationId: "org-r", workspaceId: "ws-r", jobId: `job-${attemptId}`, configDigest: DIGEST,
     instructions: "Follow the task.", task: "Remember the codeword ZEPHYR-42. Say STORED.", modelId: "acme-large", timeoutMs: 60_000, maxTokens: 100_000, maxMicroUsd: 0, maxTurns: 4,

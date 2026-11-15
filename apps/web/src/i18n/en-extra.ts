@@ -1518,5 +1518,12 @@ export const enExtra = {
   "schedules.subject.plan-card-off": "Waits for your OK each time (automatic confirmation is off)",
   "schedules.subject.run-now-note": "Run now is not offered: a trigger starts only when a new ticket or incident arrives.",
   "schedules.subject.review": "{title} · starts the Play {play}: {when}",
+  "console.resume.action": "Resume from checkpoint",
+  "console.resume.description": "Brain starts a new session on {runner}, the runner that holds the checkpoint. It continues the saved conversation instead of starting the task over.",
+  "console.resume.unavailable": "This session saved a checkpoint. {reason} You can start the task again from the beginning instead.",
+  "console.resume.started": "Resuming: a new session is starting from the checkpoint.",
+  "console.resume.startedFrom": "Started from",
+  "console.resume.startedFromBody": "checkpoint {digest}… held on runner {runner}, of the earlier session",
+  "console.resume.openEarlier": "Earlier session",
   // @@END
 } as const satisfies Record<string, string>;
