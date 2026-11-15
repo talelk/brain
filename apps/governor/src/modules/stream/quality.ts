@@ -32,7 +32,7 @@ export function qualitySummary(store: Store, actor: ActorContext): QualitySummar
     const doneIds = (db.prepare("SELECT DISTINCT aggregate_id AS id FROM events WHERE event_type='workItem.transitioned' AND json_extract(payload_json,'$.state')='done' AND created_at_ms>=?").all(from) as Array<{ id: string }>).map((row) => row.id);
     verified += doneIds.length;
     for (const id of doneIds) {
-      const handoff = db.prepare("SELECT submitted_by FROM handoffs WHERE work_item_id=? AND superseded_by IS NULL ORDER BY version DESC LIMIT 1").get(id) as { submitted_by: string } | undefined;
+      const handoff = db.prepare("SELECT submitted_by FROM handoffs WHERE work_item_id=? AND superseded_by IS NULL AND delegation_id IS NULL ORDER BY version DESC LIMIT 1").get(id) as { submitted_by: string } | undefined;
       if (handoff?.submitted_by === "governor") verifiedAlone++;
     }
     active += (db.prepare("SELECT COUNT(*) AS n FROM work_items WHERE updated_at_ms>=? OR created_at_ms>=?").get(from, from) as { n: number }).n;

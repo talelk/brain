@@ -33,7 +33,7 @@ describe("tool registry read (issue #84)", () => {
       expect(new Date(first[0]!.createdAt).getTime()).toBe(activated.created_at_ms);
 
       const byId = new Map(first.map((tool) => [tool.id, tool]));
-      expect([...byId.keys()].sort()).toEqual(["csv.query", "documents.read", "files.write", "git.open-pr", "host.exec", "host.read", "host.reload", "host.restart", "knowledge.search", "message.send", "mission.ask", "mission.comment", "mission.message-member", "mission.propose-plan", "mission.submit-handoff", "operations.context", "operations.validate", "task.validate", "ticket.create", "web.fetch"]);
+      expect([...byId.keys()].sort()).toEqual(["csv.query", "documents.read", "files.write", "git.open-pr", "host.exec", "host.read", "host.reload", "host.restart", "knowledge.search", "message.send", "mission.ask", "mission.comment", "mission.delegate", "mission.message-member", "mission.propose-plan", "mission.submit-handoff", "operations.context", "operations.validate", "task.validate", "ticket.create", "web.fetch"]);
       expect(byId.get("documents.read")).toEqual(expect.objectContaining({ allowedAgents: ["sre-operator", "task-worker"], status: "trusted", effectClass: "read", usage: { calls: 0, failures: 0, recent: { calls: 0, failures: 0 } } }));
       expect(byId.get("operations.context")!.allowedAgents).toEqual(["operations-assistant"]);
       expect(byId.get("files.write")).toEqual(expect.objectContaining({ allowedAgents: [], status: "trusted", effectClass: "read" }));
@@ -42,6 +42,8 @@ describe("tool registry read (issue #84)", () => {
       // The Brain tools (ADR 0042) are the task worker's alone and declared read: they change only Brain, as the session principal.
       // The coordinator (ADR 0048) may only plan and message members.
       for (const id of ["mission.ask", "mission.comment", "mission.message-member", "mission.propose-plan", "mission.submit-handoff"]) expect(byId.get(id)).toEqual(expect.objectContaining({ allowedAgents: ["mission.message-member", "mission.propose-plan"].includes(id) ? ["plan-coordinator", "task-worker"] : ["task-worker"], status: "trusted", effectClass: "read" }));
+      // Delegating (ADR 0053) is shipped but given to no agent: a release author lists it on an agent and raises that agent's limits to turn it on.
+      expect(byId.get("mission.delegate")).toEqual(expect.objectContaining({ allowedAgents: [], status: "trusted", effectClass: "read" }));
       expect(byId.get("web.fetch")).toEqual(expect.objectContaining({ allowedHosts: expect.arrayContaining(["en.wikipedia.org"]), description: expect.stringContaining("plain GET") }));
       // Proof: the pinned script's own bytes and digest, not an empty list.
       const script = bundle.scripts!.find((entry) => entry.toolId === "documents.read")!;

@@ -13,6 +13,7 @@ import { ScreenRegion } from "../screen-region";
 import { PageStack } from "./PageLayout";
 import { WorkItemTasks } from "./WorkItemTasks";
 import { WorkItemComments } from "./WorkItemComments";
+import { WorkItemDelegations } from "../delegations/WorkItemDelegations";
 import { EvidenceBundleSelector } from "./ArtifactSelectors";
 import { EvidenceList } from "./EvidenceList";
 import { StatusBadge } from "./StatusBadge";
@@ -233,6 +234,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
               <Button variant="solid" theme="blue" iconLeft="lucide-send" onClick={() => setSheet("handoff")}>{t("plan.hand-off-to-the-next-tasks.33d2")}</Button>
             </Alert></Show>
             <WorkItemTasks origin={{ kind: "work-item", id: item.workItemId }} />
+            <WorkItemDelegations item={item} />
             <PullRequests resourceId={item.workItemId} workspaceId={app.scope().workspaceId} kind="work-item" canRefresh={app.canDispatch()} />
             <WorkItemComments item={item} />
             <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3">

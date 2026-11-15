@@ -59,8 +59,7 @@ export function register(w: World, runnerId: string): Runner {
 }
 
 /** Stages and activates the fixture starter release, whose agents run on the fixture engine. */
-export function stageStarter(w: World): void {
-  const bundle = fixtureStarter();
+export function stageStarter(w: World, bundle: ReturnType<typeof fixtureStarter> = fixtureStarter()): void {
   w.brain.activateRelease(w.owner, w.brain.stageRelease(w.owner, bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas).digest);
 }
 
@@ -68,8 +67,8 @@ export function stageStarter(w: World): void {
  * A confirmed mission whose tasks are assigned to team members: auto-start dispatches each ready one as its member's principal. By default
  * one task "a" for the member "pi" and no declared team; give `team` to name members a message can reach.
  */
-export async function confirmedMission(w: World, options: { tasks?: PlanTask[]; team?: TeamMember[]; autonomy?: "supervised" | "standard" | "autonomous" } = {}): Promise<{ missionId: string; workItemId: string }> {
-  const missionId = (await run(w, "mission.create", "m-create", { title: "Principals", intent: "Check who acts", successCriteria: ["done"], ...(options.autonomy ? { autonomy: options.autonomy } : {}) })).resourceId ?? "";
+export async function confirmedMission(w: World, options: { tasks?: PlanTask[]; team?: TeamMember[]; autonomy?: "supervised" | "standard" | "autonomous"; budget?: Record<string, number> } = {}): Promise<{ missionId: string; workItemId: string }> {
+  const missionId = (await run(w, "mission.create", "m-create", { title: "Principals", intent: "Check who acts", successCriteria: ["done"], ...(options.autonomy ? { autonomy: options.autonomy } : {}), ...(options.budget ? { budget: options.budget } : {}) })).resourceId ?? "";
   const planId = (await run(w, "plan.propose", "m-plan", { missionId, origin: "manual", tasks: options.tasks ?? [task("a")], ...(options.team ? { team: options.team } : {}) })).resourceId ?? "";
   await run(w, "plan.confirm", "m-confirm", { planVersionId: planId }, (await missionOf(w, missionId)).version);
   const workItemId = (w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT id FROM work_items WHERE mission_id=? ORDER BY rowid LIMIT 1").get(missionId) as { id: string }).id;
@@ -77,18 +76,18 @@ export async function confirmedMission(w: World, options: { tasks?: PlanTask[]; 
 }
 
 /** A world with its own Governor on a controllable clock, the starter staged and an enrolled runner. */
-export function freshWorld(): { w: World; runner: Runner } {
+export function freshWorld(starter?: ReturnType<typeof fixtureStarter>): { w: World; runner: Runner } {
   const dir = mkdtempSync(join(tmpdir(), "brain-test-session-principal-"));
   dirs.push(dir);
   const w = setupWorld(new Brain({ dataDir: dir, allowTestActor: true, clock }));
   worlds.push(w);
-  stageStarter(w);
+  stageStarter(w, starter);
   return { w, runner: register(w, "runner-principal") };
 }
 
 /** A fresh world with a confirmed mission. */
-export async function startedMission(options: Parameters<typeof confirmedMission>[1] = {}): Promise<{ w: World; missionId: string; runner: Runner; workItemId: string }> {
-  const { w, runner } = freshWorld();
+export async function startedMission(options: Parameters<typeof confirmedMission>[1] & { starter?: ReturnType<typeof fixtureStarter> } = {}): Promise<{ w: World; missionId: string; runner: Runner; workItemId: string }> {
+  const { w, runner } = freshWorld(options.starter);
   return { w, ...(await confirmedMission(w, options)), runner };
 }
 

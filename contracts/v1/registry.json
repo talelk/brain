@@ -151,7 +151,7 @@
     {
       "type": "session.delegate",
       "schema": "SessionDelegateCommand",
-      "scope": "session:steer",
+      "scope": "mission:write",
       "authority": "workspace",
       "actors": [
         "human",
