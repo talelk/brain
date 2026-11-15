@@ -14,7 +14,7 @@ import { oidcSettingsQuery, ssoCommands } from "./sso-admin";
 import { chatIdentitiesQuery, chatIdentityCommands } from "./chat-identity-admin";
 import { startFromChat } from "./chat-start";
 import { secretDirectories } from "../modules/identity/index";
-import { completeUpload, completeUploadStream, initUpload, readVerified, readWorkspaceArtifactText, sweepStorage } from "../modules/artifacts/index";
+import { completeUpload, completeUploadStream, initUpload, readVerified, readWorkspaceArtifactText, sweepStorage, verifyStored } from "../modules/artifacts/index";
 import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
 import { activateRelease, activeReleaseAssets, activeReleaseRecord, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
@@ -40,7 +40,7 @@ import { getPack, listPack, slaSummary } from "../modules/packs/index";
 import { artifactHistory, diffArtifacts, listArtifacts, readArtifactBytes, searchArtifacts } from "../modules/evidence/index";
 import { bridge } from "../modules/missions/index";
 import { searchSessions } from "../modules/sessions/index";
-import { jobCommands, JobProtocol, runnerResumeReadiness, type CreateJobInput } from "../modules/jobs/index";
+import { jobCommands, JobProtocol, resumeEligibility, type CreateJobInput } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { beginGovernorRun, finishEffect, issueEffectPermit, requestEffect, startEffect, type EffectPorts } from "../modules/governance/index";
 import { runGovernorEffect } from "./effect-broker";
@@ -120,7 +120,8 @@ export class Brain {
         setRunPriority: (organizationId, workspaceId, runId, jobPriority) => { setRunPriority(this.store, organizationId, workspaceId, runId, jobPriority); this.jobProtocol.reprioritizeForRun(runId, jobPriority); },
       });
       this.sessions = new SessionService(this.store, { brief: (actor, workspaceId, missionId) => this.missions.briefOf(actor, workspaceId, missionId) }, {
-        runnerReadiness: (runnerId, engineId) => runnerResumeReadiness(this.store, runnerId, engineId),
+        checkpointBlocker: (organizationId, state) => this.checkpointBlocker(organizationId, state),
+        runnerReadiness: (input) => resumeEligibility(this.store, input),
         taskBlocker: (actor, workspaceId, workItemId) => this.missions.resumeBlocker(actor, workspaceId, workItemId),
         startRun: (actor, workspaceId, input) => this.startResumedRun(actor, workspaceId, input),
       });
@@ -427,11 +428,20 @@ export class Brain {
     // The finished item frees a member slot: the next ready task may start.
     void this.autoStart.sweep(input.organizationId, input.workspaceId).catch(() => undefined);
   }
+  /** Why a checkpoint artifact cannot be served now (ADR 0063): it is not registered for the organization, or its stored bytes are gone or changed. */
+  private checkpointBlocker(organizationId: string, state: ArtifactRef): string | undefined {
+    const stored = this.store.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(state.artifactId, organizationId) as { digest: string } | undefined;
+    const lost = "The saved conversation is no longer stored, so the checkpoint cannot be continued.";
+    if (!stored || stored.digest !== state.digest) return lost;
+    try { verifyStored(this.store, state.digest, state.bytes); } catch { return lost; }
+    return undefined;
+  }
+
   /**
-   * Resume (ADR 0045): a new run of the source run's workflow and input, its continuing step pinned to the runner holding the saved engine
-   * state, linked to the task. A run that cannot be linked is cancelled, never left queued for a runner.
+   * Resume (ADR 0063): a new run of the source run's workflow and input whose continuing step carries the saved engine state and is claimed by
+   * any eligible runner, linked to the task. A run that cannot be linked is cancelled, never left queued for a runner.
    */
-  private startResumedRun(actor: ActorContext, workspaceId: string, input: { sourceRunId: string; stepId: string; workItemId: string; executionKey: string; resume: { runnerId: string; engineId: string; engineState: ArtifactRef; fromSessionId: string } }): string {
+  private startResumedRun(actor: ActorContext, workspaceId: string, input: { sourceRunId: string; stepId: string; workItemId: string; executionKey: string; resume: { engineId: string; engineState: ArtifactRef; fromSessionId: string } }): string {
     const ws = this.store.workspaceDb(workspaceId, actor.organizationId);
     const source = ws.prepare("SELECT r.config_digest AS configDigest, i.input_json AS inputJson, i.workflow_json AS workflowJson, i.priority AS priority FROM workflow_runs r JOIN run_inputs i ON i.run_id=r.id WHERE r.id=?")
       .get(input.sourceRunId) as { configDigest: string; inputJson: string; workflowJson: string; priority: number } | undefined;

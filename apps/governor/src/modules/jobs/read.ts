@@ -6,7 +6,7 @@ import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import type { QuerySnapshot } from "../../application/query";
 import { failureCode, type FailureCode } from "../../domain/failure-reason";
-import { isReadOnlyReasoningJob, runnerView } from "./attempts";
+import { isReadOnlyReasoningJob, runnerGroupsOf, runnerRefusals, runnerView } from "./attempts";
 import { attemptRouteUses } from "./model-route";
 import { choicesFor, type ChoiceReason, type ChoiceSubject } from "./choice-reasons";
 import { jobNeedsYou, runContext, type RunContext } from "./run-context";
@@ -391,17 +391,29 @@ export function searchJobs(
 }
 
 /**
- * Whether the runner that holds a session's saved engine state can take it back now: it must still exist, take work, answer, be healthy and
- * still offer the engine's resume. The answer is a plain sentence a person can act on (a checkpoint stays on the runner that saved it).
+ * Whether any runner could continue a saved conversation now (ADR 0063): the placement the resumed step would get (the source step's, narrowed
+ * to the session's engine and asking that engine to offer resume, and pinned to no runner) judged by the same rules the claim applies. Capacity
+ * is not judged, since a busy runner frees up. The answer is a plain sentence a person can act on when none could.
  */
-export function runnerResumeReadiness(store: Store, runnerId: string, engineId: string): { ready: true } | { ready: false; reason: string } {
-  const runner = runnerView(store, runnerId);
-  const meta = store.control.prepare("SELECT deregistered_at_ms FROM runners WHERE id=?").get(runnerId) as { deregistered_at_ms: number | null } | undefined;
-  if (!runner || !meta || meta.deregistered_at_ms !== null) return { ready: false, reason: `Runner ${runnerId} held this checkpoint and is no longer registered, so it cannot be resumed.` };
-  if (runner.adminState !== "enabled") return { ready: false, reason: `Runner ${runnerId} holds this checkpoint but is ${runner.adminState} and takes no work.` };
-  if (!runner.online) return { ready: false, reason: `Runner ${runnerId} holds this checkpoint and is offline. A checkpoint stays on the runner that saved it, so it can be resumed only when that runner is back.` };
-  if (runner.health === "unhealthy") return { ready: false, reason: `Runner ${runnerId} holds this checkpoint but reports itself unhealthy and takes no work.` };
-  const resume = runner.capabilities.get(`engine-feature:${engineId}:resume`);
-  if (!resume || !resume.verified || resume.expiresAtMs <= store.now()) return { ready: false, reason: `Runner ${runnerId} is online but its ${engineId} engine does not offer resume right now, so the checkpoint cannot be continued.` };
-  return { ready: true };
+export function resumeEligibility(store: Store, input: { organizationId: string; workspaceId: string; jobId: string; engineId: string }): { ready: true } | { ready: false; reason: string } {
+  const job = store.control.prepare("SELECT id, workspace_id, placement_json, config_digest FROM jobs WHERE id=? AND organization_id=?").get(input.jobId, input.organizationId) as Record<string, unknown> | undefined;
+  if (!job) return { ready: false, reason: "The run this session belonged to is gone, so there is nothing to continue." };
+  const stated = JSON.parse(String(job["placement_json"])) as Placement;
+  const { runnerId: _pinned, ...unpinned } = stated;
+  const placement: Placement = { ...unpinned, engine: { anyOf: [input.engineId], features: [...new Set([...(stated.engine?.features ?? []), "resume"])] } };
+  const demand = placement.resources ?? { cpuMillicores: 500, memoryMb: 512, diskMb: 512, slots: 1 };
+  const groups = runnerGroupsOf(store, input.organizationId);
+  const hostJobs = new Map<string, boolean>();
+  const views = (store.control.prepare("SELECT id FROM runners WHERE organization_id=? AND deregistered_at_ms IS NULL").all(input.organizationId) as Array<{ id: string }>)
+    .map((r) => runnerView(store, r.id)).filter((v): v is NonNullable<typeof v> => !!v);
+  const verdicts = views.map((view) => ({ view, reasons: runnerRefusals(store, { organizationId: input.organizationId, groups, hostJobs }, job, placement, demand, view).filter((reason) => reason !== "insufficient-capacity") }));
+  if (verdicts.some((entry) => entry.reasons.length === 0)) return { ready: true };
+  const tail = "The checkpoint stays saved, so it can be resumed as soon as one can.";
+  const taking = views.filter((view) => view.adminState === "enabled" && view.online && view.health !== "unhealthy");
+  if (views.length === 0) return { ready: false, reason: `No runner is registered, so the checkpoint cannot be continued. ${tail}` };
+  if (taking.length === 0) return { ready: false, reason: `No runner is online and taking work, so the checkpoint cannot be continued. ${tail}` };
+  const fresh = (view: (typeof views)[number], capability: string) => { const seen = view.capabilities.get(capability); return seen?.verified === true && seen.expiresAtMs > store.now(); };
+  if (!taking.some((view) => fresh(view, `engine-feature:${input.engineId}:resume`))) return { ready: false, reason: `No runner that is online and taking work offers resume for the ${input.engineId} engine right now, so the checkpoint cannot be continued. ${tail}` };
+  const blockers = [...new Set(verdicts.filter((entry) => taking.includes(entry.view)).flatMap((entry) => entry.reasons))].slice(0, 4).join(", ");
+  return { ready: false, reason: `Runners that offer resume for the ${input.engineId} engine do not meet what this step needs (${blockers}), so the checkpoint cannot be continued. ${tail}` };
 }

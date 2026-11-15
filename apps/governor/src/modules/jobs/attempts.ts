@@ -82,6 +82,23 @@ function jobUsesHostTools(s: Store, organizationId: string, job: Record<string, 
   return found;
 }
 
+/**
+ * Why a runner may not take a job, in the order the claim applies the rules; empty means it may. The claim and the resume offer (is there any
+ * runner that could continue a checkpoint?) both ask it, so what is offered is exactly what a runner would be given.
+ * A runner group set aside for other workspaces (ADR 0024) never sees the job; host tools need a host group bound to the workspace; then the
+ * placement itself (group, isolation, capabilities, engine and its features, capacity).
+ */
+export function runnerRefusals(s: Store, ctx: { organizationId: string; groups: ReadonlyMap<string, readonly string[]>; hostJobs: Map<string, boolean> }, job: Record<string, unknown>, placement: import("@brain/contracts").Placement, demand: import("@brain/contracts").Resources, view: RunnerView): string[] {
+  if (!groupAdmits(ctx.groups, view.groupId, String(job["workspace_id"]))) return ["runner-group-reserved"];
+  if (jobUsesHostTools(s, ctx.organizationId, job, ctx.hostJobs) && !hostGroupFor(s, ctx.organizationId, view.groupId, String(job["workspace_id"]))) return ["host-tools-group-required"];
+  return [...evaluateRunner(placement, demand, view, s.now()).reasons];
+}
+
+/** The runner groups of an organization and the workspaces each is set aside for, as the claim reads them. */
+export function runnerGroupsOf(s: Store, organizationId: string): Map<string, string[]> {
+  return new Map((s.control.prepare("SELECT group_id, workspaces_json FROM runner_groups WHERE organization_id=?").all(organizationId) as Array<{ group_id: string; workspaces_json: string }>).map((row) => [row.group_id, JSON.parse(row.workspaces_json) as string[]]));
+}
+
 export function claim(s: Store, deps: {
   isEvaluatorEligible: (runnerId: string, jobId: string) => boolean; isRunnerCurrent?: (runnerId: string) => boolean;
   missionAdmission?: (workspaceId: string, runId: string) => import("./job-protocol").MissionAdmission;
@@ -104,7 +121,7 @@ export function claim(s: Store, deps: {
     // found. Each workspace is scanned on its own, best priority first, so a workspace with hundreds of urgent jobs queued cannot push
     // another workspace's jobs out of the candidate set (ADR 0041); the order between workspaces is decided below, by fairness.
     const eligible: Array<Record<string, unknown>> = [];
-    const groups = new Map((s.control.prepare("SELECT group_id, workspaces_json FROM runner_groups WHERE organization_id=?").all(runner.organizationId) as Array<{ group_id: string; workspaces_json: string }>).map((row) => [row.group_id, JSON.parse(row.workspaces_json) as string[]] as const));
+    const groups = runnerGroupsOf(s, runner.organizationId);
     const hostJobs = new Map<string, boolean>();
     const queuedWorkspaces = (s.control.prepare(`SELECT DISTINCT workspace_id FROM jobs WHERE organization_id=? AND state='queued' AND deadline_ms>? AND ready_at_ms<=? AND EXISTS (SELECT 1 FROM workspaces w WHERE w.id=jobs.workspace_id AND w.organization_id=jobs.organization_id AND w.status='active')`)
       .all(runner.organizationId, s.now(), s.now()) as Array<{ workspace_id: string }>).map((row) => row.workspace_id);
@@ -125,11 +142,7 @@ export function claim(s: Store, deps: {
         for (const job of rows) {
           const placement = JSON.parse(String(job["placement_json"])) as import("@brain/contracts").Placement;
           const demand = placement.resources ?? { cpuMillicores: 500, memoryMb: 512, diskMb: 512, slots: 1 };
-          // A runner group the owner set aside (ADR 0024) takes jobs of its own workspaces only; every other workspace never sees it.
-          if (!groupAdmits(groups, view.groupId, String(job["workspace_id"]))) continue;
-          // Host tools (host.*) run only on a runner group the owner marked for them and bound to this workspace (ADR 0024).
-          if (jobUsesHostTools(s, runner.organizationId, job, hostJobs) && !hostGroupFor(s, runner.organizationId, view.groupId, String(job["workspace_id"]))) continue;
-          if (!evaluateRunner(placement, demand, view, s.now()).eligible || !deps.isEvaluatorEligible(runner.runnerId, String(job["id"]))) continue;
+          if (runnerRefusals(s, { organizationId: runner.organizationId, groups, hostJobs }, job, placement, demand, view).length > 0 || !deps.isEvaluatorEligible(runner.runnerId, String(job["id"]))) continue;
           // A check or second attempt whose every route is down or out of quota waits for one (ADR 0023, ADR 0055); nothing else is held.
           const routeOffer = modelRoutesForJob(s, String(job["id"]));
           if (routeOffer.held) { recordRouteOffer(s, String(job["id"]), routeOffer); continue; }
@@ -346,6 +359,22 @@ export function readExecutionArtifact(s: Store, runner: { runnerId: string; epoc
   const assoc = s.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, runner.organizationId) as { digest: string } | undefined;
   if (!assoc) throw new BrainDomainError("EVIDENCE_MISSING", "execution artifact not materialized");
   return readVerified(s, assoc.digest);
+}
+
+/**
+ * The saved conversation a resumed attempt continues (ADR 0063): the bytes of the checkpoint artifact its own job names, served to the runner
+ * that holds the attempt and to no one else. The runner names nothing, so it cannot ask for another job's or workspace's artifact.
+ */
+export function readResumeCheckpoint(s: Store, runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): Uint8Array {
+  const row = loadAttempt(s, attemptId);
+  if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
+  assertAttemptLive(s, runner, row);
+  const payload = s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(String(row["job_id"])) as { payload_json: string } | undefined;
+  const state = (payload ? JSON.parse(payload.payload_json) as { resume?: { engineState?: { artifactId: string; digest: string; bytes: number } } } : {}).resume?.engineState;
+  if (!state) throw new BrainDomainError("NOT_FOUND", "this attempt resumes no checkpoint");
+  const assoc = s.control.prepare("SELECT digest, workspace_id FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(state.artifactId, runner.organizationId) as { digest: string; workspace_id: string } | undefined;
+  if (!assoc || assoc.digest !== state.digest || assoc.workspace_id !== String(row["workspace_id"])) throw new BrainDomainError("EVIDENCE_MISSING", "the checkpoint artifact is not stored");
+  return readVerified(s, assoc.digest, state.bytes);
 }
 
 export function offerJson(s: Store, attemptId: string): JsonValue {
@@ -602,7 +631,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     if (cleanup === 1) releaseReservation(s, attemptId);
     settleRouteReport(s, { attemptId, jobId, workspaceId, report: body["modelRoutes"] });
     endAttemptSession(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, failed: attemptFailed });
-    // An engine that can resume leaves its saved conversation on this runner; the session records that it is the holder (ADR 0045).
+    // An engine that can resume saved its conversation and the runner uploaded it before completing; the session records the checkpoint (ADR 0063).
     if (body["checkpoint"] !== undefined) recordAttemptCheckpoint(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, checkpoint: body["checkpoint"] });
     revokeSessionCredentials(s, attemptId);
     for (const keyRow of s.control.prepare("SELECT resource_key FROM resource_leases WHERE attempt_id=?").all(attemptId) as Array<{ resource_key: string }>) {

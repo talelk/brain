@@ -50,11 +50,14 @@ describe("pi checkpoint/resume (T24)", () => {
     expect(checkpoint.diff).toBeUndefined();
     expect(diff.bytes).toBeGreaterThan(0);
     expect(diff.digest).toMatch(/^sha256:[0-9a-f]{64}$/u);
+    const bytes = await first.readCheckpoint(diff);
     await first.dispose();
 
-    // Tampered digest must be refused before any session state changes.
-    await expect(new PiEngine().start({ ...spec(), resumeFrom: { ...diff, digest: `sha256:${"f".repeat(64)}` } }, new AbortController().signal)).rejects.toThrow();
+    // Bytes that differ from the reference must be refused before any session state changes (they come from the Governor, ADR 0063).
+    await expect(new PiEngine().stageCheckpoint({ ...diff, digest: `sha256:${"f".repeat(64)}` }, bytes)).rejects.toThrow();
+    await expect(new PiEngine().start({ ...spec(), resumeFrom: diff }, new AbortController().signal)).rejects.toThrow();
     const second = new PiEngine();
+    await second.stageCheckpoint(diff, bytes);
     const started = await second.start({ ...spec(), resumeFrom: diff, task: "What was the codeword I asked you to remember? Reply with exactly the codeword and nothing else." }, new AbortController().signal);
     let text = "";
     for await (const ev of second.events(started.sessionId, 0, new AbortController().signal)) {

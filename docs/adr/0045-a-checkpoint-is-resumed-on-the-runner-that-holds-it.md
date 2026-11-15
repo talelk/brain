@@ -1,6 +1,6 @@
 # 45. A checkpoint is resumed on the runner that holds it
 
-Status: accepted, 2026-11-15. Builds on ADR 0006 (an interrupted reasoning step restarts itself) and ADR 0030 (a finished answer is kept). Ticket #129 later moves checkpoints to the Governor so any runner can resume; this does not build that.
+Status: accepted, 2026-11-15. Builds on ADR 0006 (an interrupted reasoning step restarts itself) and ADR 0030 (a finished answer is kept). Partly superseded by ADR 0063 (#129): points 1, 2 and 4 and the first limit no longer hold; a checkpoint is an artifact of the Governor and any eligible runner resumes it.
 
 The console offered "Resume from checkpoint" and nothing could carry it out: `session.create` with a resume checkpoint inserted a waiting session row and started no job. Only the Pi engine can resume at all, and its checkpoint is a copy of its transcript on the disk of the runner that took it, not a source diff.
 

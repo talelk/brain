@@ -6,8 +6,9 @@ import { advertisedCapabilities } from "../../apps/runner/src/engines/isolation"
 import { observation, registerRunner } from "./runnerHello";
 
 /**
- * An agent's attempt that stopped before it finished and left a checkpoint on the runner that took it (ADR 0045), reached the way a real one is:
- * through commands and the runner protocol (enroll, claim, ack, complete with the checkpoint), never through table writes.
+ * An agent's attempt that stopped before it finished and left a checkpoint with the Governor (ADR 0063), reached the way a real one is:
+ * through commands and the runner protocol (enroll, claim, ack, upload the saved conversation, complete with the checkpoint), never through
+ * table writes.
  */
 const DIGEST = `sha256:${"a".repeat(64)}`;
 export const RESUMABLE_FEATURES = ["sessions", "checkpoint", "resume"];
@@ -40,11 +41,14 @@ export async function interruptedSession(brain: Brain, actor: ActorContext, work
   const offer = brain.jobProtocol.claim(runner, `claim-${key}`) as unknown as { attemptId: string; leaseId: string; jobFence: number } | null;
   if (!offer) throw new Error("the runner was offered no task");
   brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence, engine: { id: "fixture", adapterDigest: DIGEST, features: RESUMABLE_FEATURES } });
+  // The engine's saved conversation goes to the Governor while the attempt is still running, as an artifact of that attempt.
+  const conversation = new TextEncoder().encode(`{"type":"session","id":"${offer.attemptId}"}\n{"role":"user","content":"${title}"}\n`);
+  const stored = brain.acceptAttemptArtifact(runner, offer.attemptId, { digest: sha256Digest(conversation), bytesBase64: Buffer.from(conversation).toString("base64"), mediaType: "application/x-ndjson" });
   brain.jobProtocol.complete(runner, offer.attemptId, {
     result: "failed", output: { error: "the model stopped answering" }, jobFence: offer.jobFence, cleanupConfirmed: true,
     checkpoint: {
       contractVersion: "brain.checkpoint/v2", attemptId: offer.attemptId, sourceRevision: DIGEST,
-      engineState: { artifactId: `fixture-checkpoint-${key}`, digest: sha256Digest(new TextEncoder().encode(offer.attemptId)), bytes: offer.attemptId.length, mediaType: "application/x-ndjson", classification: "internal" },
+      engineState: { artifactId: stored.artifactId, digest: stored.digest, bytes: stored.bytes, mediaType: "application/x-ndjson", classification: "internal" },
       completedCriteria: [], failures: [], worktreeId: "read-only:workspace", eventSequence: 0, ownedResources: [], nextAction: "continue the saved conversation", createdAt: new Date().toISOString(),
     },
   });

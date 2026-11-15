@@ -419,11 +419,19 @@ _Avoid_: note, annotation
 
 **Checkpoint**:
 Durable state an attempt leaves — progress, consumed and produced outputs, in-flight
-effects and, for an engine that can resume, its saved conversation held on the runner that
-took it. Resuming starts a new session in a new run on that runner and the session shows the
-checkpoint it started from. A checkpoint is valid once the Governor has checked it; it is
-never "verified", which belongs to evidence.
+effects and, for an engine that can resume, its saved conversation, kept by the Governor as
+a **checkpoint artifact**. Resuming starts a new session in a new run on any eligible runner
+and the session shows the checkpoint it started from. A checkpoint is valid once the Governor
+has checked it; it is never "verified", which belongs to evidence.
 _Avoid_: snapshot, savepoint, resume point, verified checkpoint
+
+**Checkpoint artifact**:
+The saved conversation of a checkpoint as an immutable, content-addressed artifact of the
+attempt that took it, uploaded by its runner before the attempt completes and classified and
+kept like any other attempt artifact. It is what lets a session resume on a runner other than
+the one that took it; a runner that downloads it verifies the digest first, and it is never
+carried in events.
+_Avoid_: checkpoint file, transcript copy, held checkpoint
 
 **Runner**:
 A separate outbound executable that executes agent and validator jobs, enrolled by

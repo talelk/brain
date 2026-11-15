@@ -19,7 +19,7 @@ export interface CreateJobInput {
   executionDigest: string; effectClass: string; kind: string; payload: JsonValue;
   /** The runner the run was pinned to at dispatch, if any. */
   runnerId?: string | undefined;
-  /** The engine state this job continues (a resumed session): only an engine that can resume it, on the runner holding it, may take the job. */
+  /** The engine state this job continues (a resumed session): only a runner whose engine offers resume may take the job, and it downloads the state from the Governor. */
   resume?: { engineId: string; engineState: ArtifactRef; fromSessionId: string } | undefined;
   /** The priority of the work the run serves, 0 low .. 3 urgent: the claim sorts on it within a workspace (ADR 0041). */
   priority: number;

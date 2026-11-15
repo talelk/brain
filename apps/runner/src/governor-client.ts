@@ -208,6 +208,19 @@ export class GovernorClient {
     return res.bytes;
   }
 
+  /**
+   * The saved conversation a resumed attempt continues, downloaded from the Governor (ADR 0063) and checked against the reference the offer
+   * pinned: a copy with another digest or size is refused, so a resume never starts from bytes nobody vouched for.
+   */
+  async resumeCheckpoint(attemptId: string, expected: { digest: string; bytes: number }): Promise<Uint8Array> {
+    const res = await this.requestBytes(`/runner/v1/attempts/${attemptId}/checkpoint`);
+    if (res.status !== 200) throw new GovernorProtocolError("checkpoint download", res.status, null);
+    if (sha256Digest(res.bytes) !== expected.digest || res.bytes.length !== expected.bytes) {
+      throw new Error(`the downloaded checkpoint does not match ${expected.digest.slice(0, 19)}; refusing to resume from it`);
+    }
+    return res.bytes;
+  }
+
   async events(attemptId: string, body: unknown): Promise<void> {
     const res = await this.request(`/runner/v1/attempts/${attemptId}/events`, body);
     if (res.status !== 200) throw new GovernorProtocolError("events", res.status, res.json);
