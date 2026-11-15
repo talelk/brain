@@ -29,7 +29,8 @@
     "attention.list",
     "missions.list",
     "plays.list",
-    "library.summary"
+    "library.summary",
+    "fleet.overview"
    ],
    "actions": [
     "mission.create",

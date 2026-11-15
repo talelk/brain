@@ -9,6 +9,7 @@ import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { attentionHref, resultName } from "../../ui/components/AttentionDrawer";
 import { NeedsYouQueue } from "../../ui/components/NeedsYouQueue";
 import { WorkingNow, runningMissions } from "../../ui/components/WorkingNow";
+import { FleetOverviewPanel } from "../../ui/components/FleetOverviewPanel";
 import { ATTENTION_CHANGED, blockingCount, createAttentionRead } from "../../ui/attention";
 import { missionHref, sameTitleHints } from "../../ui/mission-links";
 import { formatDateTime, formatRelative } from "../../ui/format";
@@ -78,6 +79,7 @@ export default function TodayPage(): JSX.Element {
         </WorkspaceSection>
       </Show>
       <WorkingNow />
+      <FleetOverviewPanel />
       {setup}
       <Show when={!waitingItems().length && (items().length || recent().length)}>
         <PlainSummary icon="lucide-circle-check">{summary()}</PlainSummary>
