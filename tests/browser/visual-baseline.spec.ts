@@ -13,7 +13,25 @@
 import { test, expect } from "./fixtures";
 import { seedBrowserDemo } from "../support/browserDemo";
 
-const SCREENS: Array<{ id: string; route: (demo: Awaited<ReturnType<typeof seedBrowserDemo>>) => string; heading: string | RegExp; testid?: string }> = [
+type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
+type Fixture = Parameters<typeof seedBrowserDemo>[1];
+
+/** A finished one-task mission with a submitted bundle, made when its screen is reached so no earlier screen changes. */
+async function signOffRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  const cmd = async (type: string, key: string, payload: Record<string, unknown>, expectedVersion?: number) => (await brain.executeCommand(demo.actor, {
+    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: type, workspaceId: demo.workspaceId, idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
+  } as never, key)).receipt;
+  const version = async (id: string) => ((await brain.executeQuery(demo.actor, { queryType: "missions.get", workspaceId: demo.workspaceId, resourceId: id })) as unknown as { snapshot: { version: number } }).snapshot.version;
+  const missionId = (await cmd("mission.create", "baseline-signoff-create", { title: "Compile the quarterly report", intent: "Compile the quarterly report", successCriteria: ["The report is complete"], autoStart: false })).resourceId ?? "";
+  const planId = (await cmd("plan.propose", "baseline-signoff-plan", { missionId, origin: "manual", tasks: [{ id: "compile", title: "Compile the figures", criteria: ["Figures compiled"], dependsOn: [] }] })).resourceId ?? "";
+  await cmd("plan.confirm", "baseline-signoff-confirm", { planVersionId: planId }, await version(missionId));
+  brain.store.workspaceDb(demo.workspaceId, demo.actor.organizationId).prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE mission_id=?").run(`sha256:${"9".repeat(64)}`, missionId);
+  await cmd("mission.proposeCompletion", "baseline-signoff-finish", { missionId }, await version(missionId));
+  return `/missions/${missionId}/outputs`;
+}
+
+const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
   { id: "mission-live", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication" },
@@ -27,6 +45,7 @@ const SCREENS: Array<{ id: string; route: (demo: Awaited<ReturnType<typeof seedB
   { id: "settings-setup", route: () => "/settings?tab=setup", heading: "Setup" },
   { id: "settings-work", route: () => "/settings?tab=work", heading: "How work runs" },
   { id: "knowledge", route: () => "/w/operations/knowledge", heading: "Knowledge" },
+  { id: "mission-signoff", route: signOffRoute, heading: "Compile the quarterly report", waitFor: "mission-signoff" },
 ];
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
@@ -34,11 +53,16 @@ test("key screens match their visual baselines", async ({ page, governor }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const demo = await seedBrowserDemo(page, governor);
   for (const screen of SCREENS) {
-    await page.goto(`${governor.url}${screen.route(demo)}`);
+    await page.goto(`${governor.url}${await screen.route(demo, governor)}`);
     const landmark = screen.testid
       ? page.getByTestId(screen.testid).getByRole("heading", { name: screen.heading })
       : page.getByRole("heading", { name: screen.heading }).first();
     await expect(landmark.first()).toBeVisible({ timeout: 20_000 });
+    // A screen with a named region is shot scrolled to it, so the region itself is what the baseline holds.
+    if (screen.waitFor) {
+      await expect(page.getByTestId(screen.waitFor)).toBeVisible({ timeout: 20_000 });
+      await page.getByTestId(screen.waitFor).evaluate((element) => element.scrollIntoView({ block: "center" }));
+    }
     await page.waitForTimeout(400);
     await expect(page).toHaveScreenshot(`${screen.id}.png`, { maxDiffPixelRatio: 0.02, animations: "disabled", caret: "hide" });
   }
