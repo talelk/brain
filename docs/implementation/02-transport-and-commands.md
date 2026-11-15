@@ -10,7 +10,7 @@ Canonical hashing uses RFC 8785-compatible canonical JSON over validated JSON va
 
 ## HTTP surface
 
-The machine-readable [OpenAPI](../../contracts/v1/openapi.json) describes the shared endpoints. Prefix application routes with `/v1`, runner routes with `/runner/v1`, auth routes with `/api/auth`; MCP uses `/mcp` Streamable HTTP. Browser and runner credentials are distinct. TV identities are read-only and cannot obtain human command scopes.
+The machine-readable [OpenAPI](../../contracts/v1/openapi.json) describes the shared endpoints. Prefix application routes with `/v1`, runner routes with `/runner/v1`, auth routes with `/api/auth`; MCP uses `/mcp` Streamable HTTP (stateless, JSON replies): tools `command.<type>` and `query.<type>` are generated from the registry and `brain.schema.json` and run as the signed-in principal. Browser and runner credentials are distinct. TV identities are read-only and cannot obtain human command scopes.
 
 | Route | Meaning | Durable response |
 |---|---|---|

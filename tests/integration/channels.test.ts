@@ -7,13 +7,13 @@ import { setupWorld } from "../helpers";
 import { scaled } from "../support/timing";
 
 // T32 packet acceptance: one command/query surface across channels. HTTP and
-// MCP execute identical handlers (same idempotency), humans are refused on
-// the MCP channel, and approval decisions do not exist there by design.
+// MCP execute identical handlers (same idempotency), and approval decisions
+// do not exist on the MCP channel by design.
 let app: Awaited<ReturnType<typeof createApp>> | undefined;
 afterEach(async () => { await app?.close(); app = undefined; });
 
 describe("channel parity (T32)", () => {
-  it("MCP refuses humans and approval decisions; agent command/query matches HTTP exactly", async () => {
+  it("MCP refuses approval decisions; agent command/query matches HTTP exactly", async () => {
     app = await createApp({ dataDir: mkdtempSync(join(tmpdir(), "brain-channels-")), allowTestActor: true });
     const brain = app.brain;
     const w = setupWorld(brain);
@@ -32,20 +32,19 @@ describe("channel parity (T32)", () => {
       payload: { title: "Channel parity objective", intent: "Prove channel parity", successCriteria: ["c1"] },
     };
 
-    // Humans cannot use the MCP channel at all.
-    const humanMcp = await call("/mcp", "owner-1", { jsonrpc: "2.0", id: 1, method: "tools/call", params: { query: { queryType: "missions.list", workspaceId: w.workspaceId } } });
-    expect(humanMcp.status).toBe(403);
+    const tool = (name: string, args: unknown) => ({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } });
+    const { commandId, workspaceId, idempotencyKey, payload } = command;
 
-    // Agent query over MCP works and returns the same envelope family.
-    const agentQuery = await call("/mcp", "agent-1", { jsonrpc: "2.0", id: 2, method: "tools/call", params: { query: { queryType: "missions.list", workspaceId: w.workspaceId } } });
+    // A read over MCP returns the same envelope family.
+    const agentQuery = await call("/mcp", "agent-1", tool("query.missions.list", { workspaceId: w.workspaceId }));
     expect(agentQuery.status).toBe(200);
-    const agentQueryBody = (await agentQuery.json()) as { result: { queryType: string } };
-    expect(agentQueryBody.result.queryType).toBe("missions.list");
+    const agentQueryBody = (await agentQuery.json()) as { result: { structuredContent: { queryType: string } } };
+    expect(agentQueryBody.result.structuredContent.queryType).toBe("missions.list");
 
     // The same command over MCP then HTTP is one idempotent execution.
-    const viaMcp = await call("/mcp", "agent-1", { jsonrpc: "2.0", id: 3, method: "tools/call", params: { command } });
+    const viaMcp = await call("/mcp", "agent-1", tool("command.mission.create", { commandId, workspaceId, idempotencyKey, payload }));
     expect(viaMcp.status).toBe(200);
-    const mcpReceipt = ((await viaMcp.json()) as { result: Record<string, unknown> }).result;
+    const mcpReceipt = ((await viaMcp.json()) as { result: { structuredContent: Record<string, unknown> } }).result.structuredContent;
     const viaHttp = await call("/v1/commands", "agent-1", command);
     expect(viaHttp.status).toBeLessThan(300);
     const httpBody = (await viaHttp.json()) as { receipt?: Record<string, unknown> } & Record<string, unknown>;
@@ -54,12 +53,8 @@ describe("channel parity (T32)", () => {
     const objectives = brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT COUNT(*) AS c FROM missions WHERE title='Channel parity objective'").get() as { c: number };
     expect(objectives.c).toBe(1);
 
-    // Approval decisions are absent from MCP by design, even for agents.
-    const decision = await call("/mcp", "agent-1", {
-      jsonrpc: "2.0", id: 4, method: "tools/call",
-      params: { command: { ...command, commandId: "cmd-chan-2", commandType: "approval.revoke", idempotencyKey: "chan-2", payload: {} } },
-    });
-    expect(decision.status).toBe(403);
+    // Approval decisions are not available over MCP, even for agents.
+    const decision = await call("/mcp", "agent-1", tool("command.approval.revoke", { workspaceId, idempotencyKey: "chan-2", payload: {} }));
     expect(await decision.clone().text()).toMatch(/not available over MCP/);
   }, scaled(120_000));
 });
