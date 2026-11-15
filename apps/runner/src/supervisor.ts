@@ -2,7 +2,7 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { cpus, freemem } from "node:os";
 import { join } from "node:path";
-import { domainDigest, sha256Digest } from "@brain/contracts";
+import { domainDigest, isKeyReference, sha256Digest } from "@brain/contracts";
 import type { ArtifactRef, Checkpoint, EngineInfo, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
 import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
@@ -16,7 +16,7 @@ import { DurableEventSpool } from "./spool-durable";
 import { GovernorClient, GovernorProtocolError } from "./governor-client";
 import { LauncherClient } from "./launcher-client";
 import { payloadValidator } from "@brain/contracts/validate";
-import { instructionsWithSkills, promptWithContext, runAgentExecution, selectEngine } from "./engines/run";
+import { instructionsWithSkills, promptWithContext, runAgentExecution, runAgentOnRoutes, selectEngine, type RouteReport } from "./engines/run";
 import { advertisedCapabilities, advertisedIsolationModes, engineIsolation } from "./engines/isolation";
 import type { HostedRoute } from "./engines/pi";
 
@@ -177,12 +177,14 @@ export function settledEffectsNote(settled: ReadonlyArray<{ summary: string; out
 /** What a resumed attempt is told: the conversation before it is its own earlier work, not a new task. */
 export const RESUME_NOTE = "\n\n# Resuming earlier work\nThis conversation continues your own earlier attempt at this task, which stopped before it finished. Pick up from where it stopped; do not start over or repeat work you already did.";
 
-/** The hosted model the Governor routed this attempt to (a check or a second attempt, ADR 0023), for every engine that can take one. */
-export function hostedRouteOf(route: { tier?: string; role?: string; baseUrl?: string; model?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number } | undefined): HostedRoute | undefined {
-  // A route without both prices would run hosted spend for free; the Governor never sends one, and the runner does not accept one.
+/**
+ * The hosted model routes the Governor offered this attempt (a check, a second attempt, ADR 0023), in the order they are tried. A route without
+ * both prices would run hosted spend for free, and one without a key reference has nowhere to find its key; neither is accepted here.
+ */
+export function hostedRoutesOf(routes: ReadonlyArray<{ tier?: string; role?: string; routeId?: string; keyRef?: string; baseUrl?: string; model?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number }> | undefined): HostedRoute[] {
   const priced = (price: number | undefined): price is number => typeof price === "number" && price >= 1;
-  return route?.tier === "hosted" && (route.role === "second-attempt" || route.role === "evaluator") && route.baseUrl && route.model && priced(route.inputMicroUsdPerMTok) && priced(route.outputMicroUsdPerMTok)
-    ? { baseUrl: route.baseUrl, model: route.model, inputMicroUsdPerMTok: route.inputMicroUsdPerMTok, outputMicroUsdPerMTok: route.outputMicroUsdPerMTok } : undefined;
+  return (routes ?? []).flatMap((route) => route.tier === "hosted" && (route.role === "second-attempt" || route.role === "evaluator") && route.routeId && route.keyRef && isKeyReference(route.keyRef) && route.baseUrl && route.model && priced(route.inputMicroUsdPerMTok) && priced(route.outputMicroUsdPerMTok)
+    ? [{ routeId: route.routeId, keyRef: route.keyRef, baseUrl: route.baseUrl, model: route.model, inputMicroUsdPerMTok: route.inputMicroUsdPerMTok, outputMicroUsdPerMTok: route.outputMicroUsdPerMTok }] : []);
 }
 
 export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => string), runnerEpoch = 1, controls: RunnerControls = newRunnerControls()): Promise<boolean> {
@@ -197,7 +199,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
   const ack = await client.ack(offer.attemptId, ackBody);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
   const artifactBytes = await client.executionArtifact(offer.attemptId, offer.execution.artifact.digest, offer.execution.artifact.bytes);
-  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; modelRoute?: Parameters<typeof hostedRouteOf>[0]; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> }; skills?: Array<{ id: string; digest: string; text: string }>; resume?: { engineState: ArtifactRef; fromSessionId: string } };
+  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; modelRoutes?: Parameters<typeof hostedRoutesOf>[0]; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> }; skills?: Array<{ id: string; digest: string; text: string }>; resume?: { engineState: ArtifactRef; fromSessionId: string } };
   // The execution deadline is the lease: a monotonic clock (performance.now)
   // is armed from the ack's server lease expiry and refreshed by every
   // successful renewal, so wall-clock adjustments cannot extend the window.
@@ -298,6 +300,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     // Changes this attempt proposed and left held. When there are any, the attempt ends after its report and writes no evidence: the
     // attempt resumed once they are settled carries the receipts (ADR 0028).
     let heldProposals = 0;
+    let routeReport: RouteReport[] = [];
     // A resumed attempt is told what became of each change proposed before; the ones that were made are evidence of this run.
     const settledEffects = ((payload as { effectOutcomes?: Array<{ proposalId: string; toolId: string; summary: string; approvalId: string; outcome: string; result?: string; invocationId?: string; targetId?: string; operation?: string; receiptArtifact?: ArtifactRef }> }).effectOutcomes) ?? [];
     for (const settled of settledEffects) {
@@ -330,8 +333,9 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       const offeredBindings = asset.toolBindings.filter((binding) => !withheld.has(binding.release.id));
       const offeredTools = asset.agent.spec.tools.filter((tool) => !withheld.has(tool.id));
       // A second attempt the Governor routed to the workspace's hosted model (ADR 0023); every other attempt stays on this runner's own model.
-      const route = hostedRouteOf(payload.modelRoute);
-      const engine = selectEngine(engineConfigured, offeredBindings, route);
+      const hostedRoutes = hostedRoutesOf(payload.modelRoutes);
+      const candidates = hostedRoutes.flatMap((route) => { const picked = selectEngine(engineConfigured, offeredBindings, route); return picked ? [{ route, engine: picked }] : []; });
+      const engine = hostedRoutes.length > 0 ? candidates[0]?.engine : selectEngine(engineConfigured, offeredBindings);
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner with the ${required} isolation this step requires`);
       const engineProbe = await engine.probe();
       engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features] };
@@ -355,11 +359,11 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           });
         }
       }, 500);
-      const agentResult = await runAgentExecution({
-        engine, attemptId: offer.attemptId, jobFence: offer.jobFence, leaseId: offer.leaseId,
+      const agentInput: Omit<Parameters<typeof runAgentExecution>[0], "engine" | "modelId"> = {
+        attemptId: offer.attemptId, jobFence: offer.jobFence, leaseId: offer.leaseId,
         runnerId: cfg.runnerId, runnerEpoch, organizationId: offer.organizationId ?? "", workspaceId: offer.workspaceId,
         jobId: offer.jobId, configDigest: offer.configDigest, sourceRevision: offer.sourceRevision ?? offer.configDigest,
-        instructions, task, ...(payload.resume ? { resumeFrom: payload.resume.engineState } : {}), modelId: route?.model ?? process.env["BRAIN_LOCAL_MODEL_ID"], timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
+        instructions, task, ...(payload.resume ? { resumeFrom: payload.resume.engineState } : {}), timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
         maxTurns: asset.agent.spec.maxTurns, maxTokens: asset.agent.spec.maxTokens,
         outputCheck: outputContractCheck((payload as { outputSchema?: unknown }).outputSchema),
         maxMicroUsd: asset.agent.spec.maxMicroUsd, allowedTools: offeredTools,
@@ -410,7 +414,10 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
             output: executed.output };
         },
         emit, signal: controller.signal,
-      });
+      };
+      // Routed attempts move to the next route on a quota refusal (ADR 0052); an unrouted one runs on this runner's own model.
+      const agentResult = candidates.length > 0 ? await runAgentOnRoutes(agentInput, candidates) : await runAgentExecution({ ...agentInput, engine, modelId: process.env["BRAIN_LOCAL_MODEL_ID"] });
+      routeReport = (agentResult as { routes?: RouteReport[] }).routes ?? [];
       if (agentResult.ok) {
         const outputBytes = new TextEncoder().encode(agentResult.outputText);
         const uploaded = await client.uploadArtifact(offer.attemptId, outputBytes, "text/plain");
@@ -469,6 +476,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       result: outcomeUnknown ? "unknown-outcome" : result.ok ? "succeeded" : "failed", output, jobFence: offer.jobFence, cleanupConfirmed: result.cleanupConfirmed ?? true,
       ...(held ? { held: true } : {}),
       ...(result.checkpoint ? { checkpoint: result.checkpoint } : {}),
+      ...(routeReport.length > 0 ? { modelRoutes: routeReport } : {}),
     });
     // A workflow with no evaluator (a tool test) claims no checks: there is nothing for a bundle to carry, and an empty one is refused.
     if (result.ok && !held && (payload as { kind?: string }).kind !== "act" && !assignment && offer.authorEvidence && offer.authorEvidence.claimedChecks.length > 0 && offer.workflowRunId && artifact) {

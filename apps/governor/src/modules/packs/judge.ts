@@ -48,7 +48,10 @@ export function parseJudgeResponse(raw: string): { outcome: JudgeOutcome; ration
 export interface JudgeRoute { baseUrl: string; model: string; apiKey?: string; fetchImpl?: typeof fetch; timeoutMs?: number }
 
 /** Why a model call gave nothing, in words that name no address and no key. */
-export class JudgeUnavailable extends Error {}
+export class JudgeUnavailable extends Error {
+  /** The provider refused for quota or rate (HTTP 429): the next route is tried instead of the same one again (ADR 0052). */
+  constructor(message: string, readonly quota = false, readonly retryAfterMs?: number) { super(message); }
+}
 
 export async function runJudge(input: { criterionText: string; evidenceText: string }, route: JudgeRoute): Promise<JudgeVerdict> {
   const doFetch = route.fetchImpl ?? fetch;
@@ -68,6 +71,10 @@ export async function runJudge(input: { criterionText: string; evidenceText: str
       signal: AbortSignal.timeout(route.timeoutMs ?? 120_000),
     });
   } catch { throw new JudgeUnavailable("the hosted model did not answer"); }
+  if (res.status === 429) {
+    const seconds = Number(res.headers.get("retry-after"));
+    throw new JudgeUnavailable("the hosted model refused for quota or rate (HTTP 429)", true, Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1000) : undefined);
+  }
   if (!res.ok) throw new JudgeUnavailable(`the hosted model answered HTTP ${res.status}`);
   let body: { choices?: Array<{ message?: { content?: string | null; reasoning?: string | null; reasoning_content?: string | null } }>; usage?: { prompt_tokens?: unknown; completion_tokens?: unknown } };
   try { body = await res.json() as typeof body; } catch { throw new JudgeUnavailable("the hosted model's reply was not readable"); }

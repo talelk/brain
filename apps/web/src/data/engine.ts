@@ -17,11 +17,20 @@ async function read<T>(request: Parameters<typeof query>[0], signal?: AbortSigna
 export type FailureClass = NonNullable<WorkItem["failureClass"]>;
 export type Remedy = NonNullable<WorkItem["remedy"]>;
 
+export type CostTier = "low" | "standard" | "premium";
+export interface ModelRouteRow {
+  routeId: string; enabled: boolean; vendor: string; keyRef: string; model: string; baseUrl: string; costTier: CostTier;
+  inputMicroUsdPerMTok: number; outputMicroUsdPerMTok: number; position: number; usable: boolean;
+  status: "off" | "down" | "up" | "unknown" | "quota"; quotaUntil?: string;
+}
+
 export interface EngineSettings {
   workspaceId: string;
   wayOfWorking?: { workflowId: string; requiredTools: string[] };
   workflows: { workflowId: string; tools: string[] }[];
-  hostedModel: { enabled: boolean; vendor: string; model: string; baseUrl: string; inputMicroUsdPerMTok: number; outputMicroUsdPerMTok: number; status: "off" | "down" | "up" | "unknown"; roles: string[] };
+  /** The workspace's model routes in the order they are tried (ADR 0052); a key is only ever named by reference. */
+  modelRoutes: ModelRouteRow[];
+  modelRouteRoles: string[];
   drain: { draining: boolean; runningAttempts: number; queuedJobs: number; since?: string };
   queueLimit: { maxQueued: number; queued: number; isDefault: boolean };
   autonomyCeiling: { preset: "supervised" | "standard" | "autonomous"; isDefault: boolean };

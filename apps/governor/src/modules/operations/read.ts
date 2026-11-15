@@ -125,7 +125,7 @@ function engineServices(store: Store): Array<{ id: string; status: string; check
   if (hosted.length > 0) {
     const down = hosted.filter((entry) => entry.status === "unavailable");
     out.push({ id: "hosted-model", status: down.length > 0 ? "unavailable" : "healthy", checkedAt: hosted[0]!.checkedAt,
-      detail: down.length > 0 ? `${down.length} of ${hosted.length} hosted models are down: checks and second attempts for those workspaces wait until they are back.` : "Every hosted model answers." });
+      detail: down.length > 0 ? `${down.length} of ${hosted.length} model routes are down: a route that is down is skipped, and checks and second attempts wait when none is left.` : "Every model route answers." });
   }
   // The launcher is judged from the runners that use one: a runner that cannot reach it reports itself degraded or unhealthy.
   const online = store.control.prepare("SELECT health FROM runners WHERE admin_state='enabled' AND deregistered_at_ms IS NULL AND last_heartbeat_ms>?").all(store.now() - 45_000) as Array<{ health: string }>;

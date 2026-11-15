@@ -41,8 +41,8 @@ test.describe("Arabic on a phone", () => {
 
     await page.goto(`${governor.url}/settings?tab=work`);
     await expectRightToLeft(page, "كيف يعمل العمل");
-    await expect(page.locator("[data-work-hosted]")).toContainText("متوقف");
-    await expect(page.getByText("Hosted model")).toHaveCount(0);
+    await expect(page.locator("[data-work-hosted]")).toContainText("لا توجد مسارات نماذج بعد");
+    await expect(page.getByText("Model routes")).toHaveCount(0);
 
     await page.goto(`${governor.url}/settings?tab=policy`);
     await expectRightToLeft(page, "المصادقة");

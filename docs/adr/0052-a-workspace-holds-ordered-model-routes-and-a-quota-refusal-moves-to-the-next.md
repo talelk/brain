@@ -1,0 +1,19 @@
+# 52. A workspace holds ordered model routes, and a quota refusal moves to the next one
+
+Status: accepted, 2026-11-15. Amends ADR 0023 (one hosted model becomes an ordered list) and ADR 0033 (the Governor now chooses another route when one account runs dry).
+
+A workspace had one hosted model and one runner key. When its account ran out of quota the task waited, although a second account or vendor could have served it.
+
+## Decision
+1. A workspace holds up to eight **model routes** in the order the owner sets in Administration > How work runs: name, vendor, model, address, key reference, cost tier (low, standard, premium) and both token prices. The whole list is replaced by one command (`workspace.modelRoutes.set`), so an order change is atomic. The single hosted-model setting is gone.
+2. The roles do not change: independent check, second attempt after a model slip, and the advisory judge. Planning and first attempts stay self-hosted. An agent definition's `modelRoutes` (preferred names, tried first in the order given) and `costTier` (a ceiling: that tier or a cheaper one) only reorder and filter inside those roles; they never open a role. When nothing the agent accepts remains, the job runs self-hosted.
+3. A job is offered the eligible routes in order: switched on, priced, not reported down by its health check, not out of quota, accepted by the agent. The list is pinned in the job's payload with the first offer. When every route that would serve the job is down or out of quota the job waits, as ADR 0023 says; it does not fall back to the self-hosted model.
+4. **Failover is inside the attempt.** The runner takes the first route; a quota refusal (ADR 0033 text) or a route it holds no key for moves the attempt to the next route at once, never a retry on the same route when the provider named a wait (as ADR 0033 point 4: a Retry-After makes the vendor stop at once with the wait in its words; only a refusal that names no wait gets the vendor's one quick retry, kept so the wait is learned). What the failed routes spent is carried into the usage the attempt reports, and a refusal that reached no model is charged no estimate. When every route refuses, the last refusal ends the attempt and ADR 0033's wait applies.
+5. The runner reports the routes it tried (`modelRoutes` on completion: served, quota with the provider's retry-after, or failed). The Governor keeps only routes the job was offered, records them per attempt (shown in the run inspector) and leaves a route that refused out of every later offer for that workspace until the retry-after (5 s to 15 min, 60 s when none was named) has passed. A reorder keeps the cooldown of a route that stays.
+6. The advisory judge walks the same ordered routes per criterion: HTTP 429 moves to the next route, another failure ends the pass as before. Each call is priced with the route that answered and settled as mission spend. The evaluator step is offered the same routes through the same selection; today's evaluator tools run no model, so the judge is the model consumer.
+7. A key is named by **reference** (`^[a-z][a-z0-9-]{0,31}$`, not secret-shaped), resolved by whoever calls from `BRAIN_MODEL_KEY_<REFERENCE>` in its own environment. A reference can never name another variable of the host, so an administrator cannot make a runner send a different secret to an address they chose. It appears in no job, event, output or screen except as the reference. `BRAIN_HOSTED_MODEL_API_KEY` is retired: every host sets one variable per reference.
+
+## Consequences
+- Spend is priced per route (tokens times that route's prices) and counts against the existing mission and workspace caps unchanged.
+- Usage attribution per engine and model (#111) reads the model from the route's `model`; the route that served is in `attempt_model_routes`.
+- Hosts need one `BRAIN_MODEL_KEY_*` variable per route reference on the runner and on the Governor (probe and judge).

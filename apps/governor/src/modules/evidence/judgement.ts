@@ -62,8 +62,8 @@ export function finishJudgement(store: Store, db: Db, digest: string, missionId:
 }
 
 /** The criterion ids the judge already gave an opinion on for this bundle (a resumed request does not ask, or charge, again). */
-export function judgedCriteria(db: Db, digest: string, evaluator: string): Set<string> {
-  return new Set((db.prepare("SELECT criterion_id FROM mission_bundle_checks WHERE bundle_digest=? AND evaluator=?").all(digest, evaluator) as Array<{ criterion_id: string }>).map((row) => row.criterion_id));
+export function judgedCriteria(db: Db, digest: string): Set<string> {
+  return new Set((db.prepare("SELECT criterion_id FROM mission_bundle_checks WHERE bundle_digest=? AND evaluator LIKE 'judge:%'").all(digest) as Array<{ criterion_id: string }>).map((row) => row.criterion_id));
 }
 
 /**

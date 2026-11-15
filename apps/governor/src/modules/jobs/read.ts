@@ -7,6 +7,7 @@ import { requireWorkspaceRead } from "../../application/authz";
 import type { QuerySnapshot } from "../../application/query";
 import { failureCode, type FailureCode } from "../../domain/failure-reason";
 import { isReadOnlyReasoningJob, runnerView } from "./attempts";
+import { attemptRouteUses } from "./model-route";
 import { jobNeedsYou, runContext, type RunContext } from "./run-context";
 
 export interface JobAttemptView {
@@ -18,6 +19,8 @@ export interface JobAttemptView {
   /** Why the attempt failed: the failed step's own error, redacted and short, and its kind (the interface words each kind). */
   failureReason?: string;
   failureCode?: FailureCode;
+  /** The model routes the attempt tried, in order: the one that served it and any it moved past on a quota refusal (ADR 0052). */
+  modelRoutes?: Array<{ routeId: string; model: string; outcome: "served" | "quota" | "failed" }>;
 }
 
 /** The job read model: one row joined to its attempts, run outputs and evidence. */
@@ -93,6 +96,7 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
       state: String(a["state"]),
       ...(a["lease_expires_at_ms"] != null ? { leaseExpiresAt: iso(Number(a["lease_expires_at_ms"])) } : {}),
       ...(typeof a["failure_reason"] === "string" && a["failure_reason"] ? { failureReason: a["failure_reason"], failureCode: failureCode(a["failure_reason"]) } : {}),
+      ...(attemptRouteUses(store, String(a["id"])).length > 0 ? { modelRoutes: attemptRouteUses(store, String(a["id"])) } : {}),
     })),
     configDigest: String(row["config_digest"]),
     createdAt: iso(Number(row["created_at_ms"])),

@@ -21,6 +21,6 @@ export { jobCommands } from "./commands";
 export { unknownJobsForWorkspace } from "./unknown";
 export { runContext } from "./run-context";
 export { drainStatus, isDraining, setDraining } from "./drain";
-export { hostedConfig, hostedUsable, modelRouteFor, type HostedConfig } from "./model-route";
+export { attemptRouteUses, eligibleRoutes, markRouteQuota, modelRoutesFor, modelRoutesOf, modelRoutesUsable, recordRouteUses, routeCooldownUntil, routeProbeId, routeUsable, type ModelRoute } from "./model-route";
 export { createActJob, effectResultFor } from "./effect-hold";
 export { assertQueueAdmits, queueLimitOf, setQueueLimit } from "./queue-limit";
