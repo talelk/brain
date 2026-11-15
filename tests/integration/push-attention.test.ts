@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActorContext, AttentionItem, CommandReceipt, Mission, PlanTask, WorkItem } from "@brain/contracts";
 import { setupWorld, workView, type TestWorld } from "../helpers";
 import { requestApproval } from "../support/approvals";
@@ -6,7 +6,7 @@ import { startPushReceiver, type PushReceiver } from "../support/push-receiver";
 
 // Spec #90, ticket #104: every attention-item kind reaches a person's device as a web push, once, under the per-mission throttle, and
 // progress never does. The receiver below is a real push service for one device (the push payload is decrypted with the device's key),
-// so each assertion is about what the person would see. State is reached through commands; the writes that remain are named where used.
+// so each assertion is about what the person would see. State is reached through commands and the clock; the two table writes that remain (a task Done, a mission paused at its limit) are named where used.
 let world: TestWorld;
 let device: PushReceiver;
 beforeEach(async () => {
@@ -107,10 +107,14 @@ describe("push for every attention item (#104, ADR 0005 and 0011)", () => {
     expect(last()).toMatchObject({ title: "Mission stuck needs attention: all remaining work is parked", url: `${base(id)}/plan?${w}` });
     // The second item of the same mission is inside the 15-minute window: held, not lost.
     await pass(1);
-    db().prepare("UPDATE attention_notifications SET sent_at_ms=sent_at_ms-?").run(16 * 60_000);
-    await pass(2);
-    expect(last()).toMatchObject({ title: "Task a is parked" });
-    await pass(2);
+    // Sixteen minutes later (only the clock moves) the window is over and the held item goes out, once.
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
+    try {
+      vi.setSystemTime(Date.now() + 16 * 60_000);
+      await pass(2);
+      expect(last()).toMatchObject({ title: "Task a is parked" });
+      await pass(2);
+    } finally { vi.useRealTimers(); }
   });
 
   it("a mission submitted for sign-off pushes and opens its Results tab; a verified verdict waiting to close does too", async () => {
