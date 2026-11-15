@@ -1,7 +1,7 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
-import { Alert } from "@talelk/newui-molecules";
+import { Alert, Select } from "@talelk/newui-molecules";
 import type { Mission, MissionPlanView, PlanTask, PlanVersion, ReuseItem, TeamMember } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { governor, query } from "../../data/client";
@@ -32,6 +32,7 @@ import { t } from "../../i18n";
  * asks for a reason in a dialog. Nothing executes before confirmation.
  */
 /** What the plan draft is doing right now, from `MissionPlanView.stage`. */
+const NO_PARENT = "none";
 const stageLine = (stage: "reading" | "drafting" | "checking"): string => t(stage === "reading" ? "plan.stage.reading" : stage === "drafting" ? "plan.stage.drafting" : "plan.stage.checking");
 
 export function PlanCanvas(props: { mission: Mission; proposalId?: string; onChanged: () => Promise<void> | void }): JSX.Element {
@@ -147,6 +148,35 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     setDirty(true);
     setEditedTasks((tasks) => tasks.map((task, position) => position === index ? assignTo(task, memberId) : task));
   }
+  /** A step sits inside another step (a subtask) or stands alone; the Governor refuses chains and loops, so the choices offered are the plain ones. */
+  function setParent(index: number, parentId: string) {
+    setDirty(true);
+    setEditedTasks((tasks) => tasks.map((task, position) => {
+      if (position !== index) return task;
+      const { parentId: _previous, ...rest } = task;
+      return parentId === NO_PARENT ? rest : { ...rest, parentId };
+    }));
+  }
+  /** A new, empty subtask is listed right after the last subtask of its parent; the person names it and says when it is done. */
+  function addSubtask(index: number) {
+    const parent = editedTasks()[index];
+    if (!parent) return;
+    const taken = new Set(editedTasks().map((task) => task.id));
+    let n = 1;
+    while (taken.has(`${parent.id}-sub-${n}`)) n += 1;
+    const subtask: PlanTask = { id: `${parent.id}-sub-${n}`, title: "", criteria: [], dependsOn: [], parentId: parent.id };
+    setDirty(true);
+    setEditedTasks((tasks) => {
+      let at = tasks.findIndex((task) => task.id === parent.id);
+      tasks.forEach((task, position) => { if (task.parentId === parent.id) at = Math.max(at, position); });
+      return [...tasks.slice(0, at + 1), subtask, ...tasks.slice(at + 1)];
+    });
+  }
+  const parentOptions = (task: PlanTask) => [
+    { value: NO_PARENT, label: t("plan.no-parent") },
+    ...editedTasks().filter((other) => other.id !== task.id && !other.parentId && !editedTasks().some((child) => child.parentId === task.id)).map((other) => ({ value: other.id, label: other.title || other.id })),
+  ];
+  const incomplete = () => editedTasks().some((task) => !task.title.trim() || task.criteria.length === 0);
   function changeTeam(team: TeamMember[]) { setDirty(true); setEditedTeam(team); }
   const unfit = () => ineligibleSteps(editedTasks(), editedTeam(), teamData.agents());
   const serves = (task: PlanTask) => props.mission.successCriteria.filter((criterion) => task.criterionIds?.includes(criterion.criterionId));
@@ -199,6 +229,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
   const roadmap = (): RoadmapNode[] => editedTasks().map((task) => ({ id: task.id, title: task.title, deps: task.dependsOn, weight: task.estimatedMinutes ?? 1, done: false }));
   const stepCard = (task: PlanTask, critical: boolean): JSX.Element => <div class="flex min-w-0 flex-col gap-2">
     <p class="flex items-start gap-2"><span class="lucide-circle-dashed mt-0.5 size-4 shrink-0 text-ink-gray-6" aria-hidden="true" /><span class="min-w-0 break-words text-interface font-medium text-ink-gray-9"><InlineMarkdown text={task.title} /></span></p>
+    <Show when={task.parentId}>{(parentId) => <p class="flex items-center gap-1 text-caption text-ink-gray-6" data-testid="plan-step-parent-line"><span class="lucide-corner-down-right size-3.5" aria-hidden="true" />{t("work.subtask-of", { title: editedTasks().find((other) => other.id === parentId())?.title || parentId() })}</p>}</Show>
     <Show when={critical}><span class="inline-flex w-fit items-center gap-1 rounded-full bg-surface-blue-2 px-1.5 text-caption text-ink-blue-8"><span class="lucide-route size-3" aria-hidden="true" />{t("plan.critical-path.c77e")}</span></Show>
     <Show when={task.criteria.length}><ul class="flex flex-col gap-0.5 text-caption text-ink-gray-7" aria-label={t("plan.done-when.c84f")}><For each={task.criteria}>{(criterion) => <li class="flex items-start gap-1"><span class="lucide-check mt-0.5 size-3 shrink-0 text-ink-gray-6" aria-hidden="true" /><InlineMarkdown text={criterion} /></li>}</For></ul></Show>
     <Show when={serves(task).length}><ul class="flex flex-col gap-0.5 text-caption text-ink-gray-7" aria-label={t("plan.serves.label")} data-testid="plan-step-serves"><For each={serves(task)}>{(criterion) => <li class="flex items-start gap-1" data-criterion-id={criterion.criterionId}><span class="lucide-target mt-0.5 size-3 shrink-0 text-ink-gray-6" aria-hidden="true" /><span class="min-w-0 break-words">{criterion.text}</span></li>}</For></ul></Show>
@@ -238,22 +269,28 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
         <WorkRoadmap nodes={roadmap()} label={t("plan.plan-steps-by-round.7712")}
           renderNode={(node, critical) => <Show when={editedTasks().find((task) => task.id === node.id)}>{(task) => stepCard(task(), critical)}</Show>} />
       </Show>
-      <FormSheet size="xl" open={editOpen()} onClose={() => setEditOpen(false)} title={t("plan.edit-the-plan-steps.a8fd")} description={t("plan.edits-become-a-new-plan-revision.18a4")} submit={t("plan.keep-edits.2584")} icon="lucide-check" disabled={unfit().length > 0} onSubmit={() => { setEditOpen(false); }}>
+      <FormSheet size="xl" open={editOpen()} onClose={() => setEditOpen(false)} title={t("plan.edit-the-plan-steps.a8fd")} description={t("plan.edits-become-a-new-plan-revision.18a4")} submit={t("plan.keep-edits.2584")} icon="lucide-check" disabled={unfit().length > 0 || incomplete()} onSubmit={() => { setEditOpen(false); }}>
         <TeamSection team={editedTeam()} tasks={editedTasks()} agents={teamData.agents()} locked={teamData.lockedMembers()} standing={teamData.standingTeams() ?? []} onChange={changeTeam} />
         <For each={editedTasks()}>{(task, index) => <section class="flex flex-col gap-3 border-b border-outline-gray-1 pb-4" aria-label={`Step ${index() + 1}`}>
           <div class="flex flex-col gap-3"><TextInput label={`Step ${index() + 1} expected outcome`} value={task.title} onInput={(event) => updateTask(index(), "title", event.currentTarget.value)} />
             <TextInput label={t("plan.depends-on.8bfa")} value={task.dependsOn.join(", ")} description={t("plan.comma-separated-task-ids-no-depe.46ab")} onInput={(event) => updateTask(index(), "dependsOn", event.currentTarget.value)} /></div>
           <Textarea label={t("plan.acceptance-criteria.133c")} value={task.criteria.join("\n")} onInput={(event) => updateTask(index(), "criteria", event.currentTarget.value)} />
+          <div class="flex flex-col gap-1.5" data-testid="plan-step-parent">
+            <Select label={t("plan.subtask-of")} value={task.parentId ?? NO_PARENT} options={parentOptions(task)} onValueChange={(value) => setParent(index(), value ?? NO_PARENT)} />
+            <Show when={!task.parentId}><div class="flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" iconLeft="lucide-list-plus" onClick={() => addSubtask(index())}>{t("plan.add-subtask")}</Button>
+              <span class="text-caption text-ink-gray-6">{t("plan.subtask-hint")}</span></div></Show>
+          </div>
           <Show when={editedTeam().length || task.assignment}><StepAssignment task={task} position={index() + 1} team={editedTeam()} agents={teamData.agents()} started={teamData.startedSteps().has(task.id)} onAssign={(memberId) => assign(index(), memberId)} /></Show>
           <fieldset class="flex flex-col gap-1.5" data-testid="plan-step-criteria"><legend class="text-interface font-medium text-ink-gray-8">{t("plan.serves.legend")}</legend>
             <For each={props.mission.successCriteria}>{(criterion) => <Checkbox checked={task.criterionIds?.includes(criterion.criterionId) ?? false} onCheckedChange={(checked) => toggleCriterion(index(), criterion.criterionId, Boolean(checked))} label={criterion.text} />}</For>
           </fieldset>
         </section>}</For>
+        <Show when={incomplete()}><p class="text-caption text-ink-amber-8" role="status" data-testid="plan-step-incomplete">{t("plan.step-incomplete")}</p></Show>
       </FormSheet>
       <Show when={!confirmedQuiet() && (plan.state === "proposed" || dirty())}><section class="brain-plan-actions" aria-label={t("plan.plan-decision.6411")}>
         <p class="brain-plan-actions-hint"><span class="lucide-shield-check size-4 shrink-0" aria-hidden="true" /><span>{editedTasks().length} {editedTasks().length === 1 ? "step" : "steps"} · nothing runs until you confirm</span></p>
         <div class="brain-plan-actions-buttons">
-          <Show when={canConfirm()}><Button class="brain-plan-primary" variant="solid" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length || unfit().length > 0} onClick={() => void confirm()}>{t("plan.confirm-this-plan.f61c")}</Button></Show>
+          <Show when={canConfirm()}><Button class="brain-plan-primary" variant="solid" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length || unfit().length > 0 || incomplete()} onClick={() => void confirm()}>{t("plan.confirm-this-plan.f61c")}</Button></Show>
           <Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditOpen(true)}>{t("plan.edit-steps.06ec")}</Button>
           <Show when={dirty()}><Button variant="ghost" iconLeft="lucide-undo-2" onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task, criteria: [...task.criteria], dependsOn: [...task.dependsOn] }))); setEditedTeam([...(plan.team ?? [])]); }}>{t("plan.reset-edits.56d9")}</Button></Show>
           <Show when={plan.state === "proposed"}><Button variant="ghost" theme="red" iconLeft="lucide-x" disabled={busy()} onClick={() => { setRejectReason(""); setRejectOpen(true); }}>{t("plan.reject-this-proposal.09f4")}</Button></Show>

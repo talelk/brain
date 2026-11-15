@@ -2343,5 +2343,18 @@ export const ar: Catalog = {
   "start.team.own": "فريق القالب نفسه",
   "start.team.hint": "يُنسخ أعضاؤه إلى خطة هذه المهمة. تعديل الفريق لاحقًا لا يغيّر هذه المهمة.",
   "start.team.with-coordinator": "{n} أعضاء، مع منسّق",
+  "work.subtask-of": "مهمة فرعية من {title}",
+  "work.subtasks": "المهام الفرعية",
+  "work.subtasks-progress": "اكتملت {done} من {total} مهام فرعية",
+  "work.subtasks-hint": "لا تكتمل هذه المهمة إلا عندما تكتمل كل مهمة فرعية بدليلها، وتحتاج أيضا إلى دليلها الخاص.",
+  "work.subtasks-cost": "{amount} أنفقت على هذه المهمة ومهامها الفرعية معا",
+  "work.part-of": "جزء من",
+  "work.abandon-subtasks": "تخلَّ أيضا عن مهامها الفرعية المفتوحة ({count})",
+  "work.abandon-subtasks-reason": "لماذا؟ تعرض كل مهمة فرعية هذا السبب.",
+  "plan.subtask-of": "مهمة فرعية من",
+  "plan.no-parent": "لا شيء، خطوة مستقلة",
+  "plan.add-subtask": "إضافة مهمة فرعية",
+  "plan.subtask-hint": "المهمة الفرعية خطوة داخل خطوة أخرى. لا تكتمل الخطوة الأم إلا بعد مهامها الفرعية.",
+  "plan.step-incomplete": "تحتاج كل خطوة إلى نتيجة ومعيار واحد على الأقل لإكمالها.",
   // @@END
 };

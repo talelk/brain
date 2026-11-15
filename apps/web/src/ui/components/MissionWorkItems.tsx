@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createResource, createSignal, For, Match, on, Show, Switch, untrack } from "solid-js";
 import type { JSX } from "solid-js";
-import { Badge, Button, TextInput } from "@talelk/newui-atoms";
+import { Badge, Button, Checkbox, TextInput } from "@talelk/newui-atoms";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { Alert, Select, TabButtons } from "@talelk/newui-molecules";
 import type { BrainSession, Handoff, Mission, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
@@ -30,12 +30,13 @@ import { TaskSessionsContext } from "../work/TaskNow";
 import { WorkRoadmap, type RoadmapNode } from "../work/WorkRoadmap";
 import { minutesText, tagsOf, workGraph, type BoardColumnId, type NextAction } from "../work/work-model";
 import { WorkItemDetails } from "./WorkItemDetails";
+import { Subtasks } from "../work/Subtasks";
 import { PullRequests } from "./PullRequests";
 import { t } from "../../i18n";
 
 const STATES: readonly { id: WorkItemState; name: string }[] = [
   { id: "backlog", name: "Backlog" }, { id: "ready", name: "Ready" }, { id: "in-progress", name: "In Progress" },
-  { id: "blocked", name: "Blocked" }, { id: "review", name: "Review" }, { id: "done", name: "Done" },
+  { id: "blocked", name: "Blocked" }, { id: "review", name: "Review" }, { id: "done", name: "Done" }, { id: "abandoned", name: "Abandoned" },
 ];
 
 type View = "timeline" | "board" | "list";
@@ -66,6 +67,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
   const setSelectedId = (id: string): void => { setSearch({ item: id || undefined }); };
   const [move, setMove] = createSignal("");
   const [reason, setReason] = createSignal("");
+  const [cascade, setCascade] = createSignal(false);
   const [evidence, setEvidence] = createSignal("");
   const [conflict, setConflict] = createSignal("");
   const missionId = () => props.mission.missionId;
@@ -104,7 +106,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
   const tag = (): string => (typeof search.tag === "string" && tags().includes(search.tag) ? search.tag : "");
   const shown = createMemo(() => (tag() ? live().filter((item) => item.tags.includes(tag())) : live()));
   const selected = () => items.state().data?.find((item) => item.workItemId === selectedId());
-  const reset = () => { setMove(""); setReason(""); setEvidence(""); };
+  const reset = () => { setMove(""); setReason(""); setEvidence(""); setCascade(false); };
 
   const taskOf = (item: WorkItem) => plan.state().data?.tasks.find((task) => task.id === item.planTaskId);
   const estimateOf = (item: WorkItem) => taskOf(item)?.estimatedMinutes;
@@ -149,9 +151,9 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
 
   async function transition(item: WorkItem): Promise<void> {
     try {
-      const result = await app.run("workItem.transition", { workItemId: item.workItemId, state: move() as WorkItemState, ...(evidence() ? { evidenceDigest: evidence() } : {}), ...(reason().trim() ? { reason: reason().trim() } : {}) }, { expectedVersion: item.version });
+      const result = await app.run("workItem.transition", { workItemId: item.workItemId, state: move() as WorkItemState, ...(evidence() ? { evidenceDigest: evidence() } : {}), ...(reason().trim() ? { reason: reason().trim() } : {}), ...(cascade() && move() === "abandoned" ? { cascade: true } : {}) }, { expectedVersion: item.version });
       setConflict(result.accepted ? "" : result.detail ?? "The move was refused");
-      if (result.accepted) { reset(); setSheet(""); }
+      if (result.accepted) { const dropped = move() === "abandoned"; reset(); setSheet(""); if (dropped) setSelectedId(""); }
     } catch (error) {
       setConflict(error instanceof Error ? error.message : "The move was refused");
     }
@@ -216,6 +218,8 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
         {(item) => {
           const handoff = createHandoffNeed(() => item);
           const verified = () => Boolean(item.evidenceDigest || evidence());
+          const openChildren = () => live().filter((other) => other.parentId === item.workItemId && other.state !== "done").length;
+          const cascadeOffered = () => move() === "abandoned" && openChildren() > 0;
           const doneBlocked = () => move() === "done" && (!verified() || handoff.required());
           return <PageStack>
             <div class="flex flex-wrap items-center justify-between gap-2">
@@ -226,6 +230,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
             {/* A task waiting out the provider's quota or rate limit is not parked: it says why, and that nothing is asked of the person (ADR 0033). */}
             <Show when={item.state === "ready" && item.failureClass === "quota"}><TaskFailure item={item} /></Show>
             <div class="border-y border-outline-gray-1 py-3"><h4 class="text-base-medium">{t("plan.next-action.d816")}</h4><p class="mt-1 text-interface text-ink-gray-7">{item.nextAction}</p><Show when={item.blockedReason}><Alert theme="amber" variant="outline" title={t("plan.blocked.9961")} description={item.blockedReason} /></Show></div>
+            <Subtasks item={item} items={live()} onOpen={open} />
             <WorkItemDetails item={item} canEdit={app.canDispatch()} onSaved={async () => { await items.refresh({ force: true }); }} />
             <div><h4 class="text-base-medium">{t("plan.acceptance-criteria.133c")}</h4><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
             <Show when={item.evidenceDigest}><EvidenceList bundleDigest={item.evidenceDigest} /></Show>
@@ -242,9 +247,12 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
               <Button variant="outline" iconLeft="lucide-arrow-right-left" onClick={() => { reset(); setSheet("move"); }}>{t("plan.move-work-item.7e73")}</Button>
             </div>
             <FormSheet open={sheet() === "move"} onClose={() => setSheet("")} title={`Update ${item.title}`} description={t("plan.done-requires-independently-veri.f78b")}
-              submit={t("plan.move-work-item.7e73")} icon="lucide-arrow-right-left" error={conflict()} errorTitle={t("plan.this-work-changed-your-intended.38ce")} disabled={!move() || doneBlocked() || (move() === "blocked" && !reason().trim())} onSubmit={() => { if (move() && !doneBlocked()) return transition(item); }}>
+              submit={t("plan.move-work-item.7e73")} icon="lucide-arrow-right-left" error={conflict()} errorTitle={t("plan.this-work-changed-your-intended.38ce")} disabled={!move() || doneBlocked() || (move() === "blocked" && !reason().trim()) || (cascadeOffered() && cascade() && !reason().trim())} onSubmit={() => { if (move() && !doneBlocked()) return transition(item); }}>
               <EvidenceBundleSelector label={`Verified evidence for ${item.title}`} workItemId={item.workItemId} onSelect={setEvidence} />
               <Select label={`Move ${item.title}`} value={move() || null} options={STATES.filter((state) => state.id !== item.state).map((state) => ({ value: state.id, label: state.name, disabled: state.id === "done" && !verified() }))} onValueChange={(state) => setMove(state ?? "")} />
+              <Show when={cascadeOffered()}><div class="flex flex-col gap-2" data-testid="abandon-subtasks">
+                <Checkbox checked={cascade()} onCheckedChange={(checked) => setCascade(Boolean(checked))} label={t("work.abandon-subtasks", { count: openChildren() })} />
+                <Show when={cascade()}><TextInput label={t("work.abandon-subtasks-reason")} value={reason()} onInput={(event) => setReason(event.currentTarget.value)} required /></Show></div></Show>
               <Show when={move() === "blocked"}><TextInput label={t("plan.blocking-reason.7cee")} value={reason()} onInput={(event) => setReason(event.currentTarget.value)} required /></Show>
               <Show when={move() === "done" && handoff.required()}><Alert theme="amber" variant="outline" title={t("plan.hand-off-to-the-next-tasks-first.3727")} description={t("plan.other-tasks-depend-on-this-one-c.cf5e")} /></Show>
               <Show when={move() === "done" && !verified()}><Alert theme="amber" variant="outline" title={t("plan.verified-evidence-is-required.f5b1")} description={t("plan.choose-an-independently-verified.2099")} /></Show>
