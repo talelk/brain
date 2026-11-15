@@ -235,7 +235,9 @@ _Avoid_: snapshot, savepoint, resume point, verified checkpoint
 
 **Runner**:
 A separate outbound executable that executes agent and validator jobs, enrolled by
-group with declared capabilities and engines.
+group with declared capabilities and engines. What it reports about itself (engine
+version, adapter digest, when it observed a capability) is shown exactly as reported
+and left out when not reported; Brain never fills it in.
 _Avoid_: worker, agent (an agent is a definition, a runner executes it), worker pool
 
 **Mission branch**:

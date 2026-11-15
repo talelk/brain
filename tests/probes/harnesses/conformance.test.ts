@@ -27,7 +27,7 @@ async function modelReachable(): Promise<boolean> {
 async function exercise(engine: EngineAdapter, needsModel: boolean): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   const probe = await engine.probe();
-  out["probe"] = probe.version !== "unavailable" ? "pass" : "unavailable";
+  out["probe"] = probe.features.includes("sessions") ? "pass" : "unavailable";
   if (needsModel && !(await modelReachable())) {
     out["start"] = "skipped-model-unreachable";
     return out;

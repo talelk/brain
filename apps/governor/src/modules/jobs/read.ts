@@ -287,7 +287,7 @@ export interface RunnerSummaryView {
 }
 
 function runnerSummary(store: Store, organizationId: string, runnerId: string): RunnerSummaryView | undefined {
-  const meta = store.control.prepare("SELECT last_heartbeat_ms,deregistered_at_ms FROM runners WHERE id=? AND organization_id=?").get(runnerId, organizationId) as { last_heartbeat_ms: number | null; deregistered_at_ms: number | null } | undefined;
+  const meta = store.control.prepare("SELECT last_heartbeat_ms,deregistered_at_ms,engines_json FROM runners WHERE id=? AND organization_id=?").get(runnerId, organizationId) as { last_heartbeat_ms: number | null; deregistered_at_ms: number | null; engines_json: string } | undefined;
   const v = runnerView(store, runnerId);
   if (!v || !meta) return undefined;
   const display = v.adminState === "disabled" ? "disabled" : v.adminState === "quarantined" ? "quarantined" : v.adminState === "draining" ? "draining" : !v.online ? "offline" : v.reserved.slots > 0 ? "busy" : "idle";
@@ -297,8 +297,10 @@ function runnerSummary(store: Store, organizationId: string, runnerId: string): 
     health: v.health, displayStatus: display, capacity: v.capacity as unknown as JsonValue,
     reserved: { cpuMillicores: v.reserved.cpuMillicores, memoryMb: v.reserved.memoryMb, diskMb: v.reserved.diskMb, slots: v.reserved.slots } as unknown as JsonValue,
     observedFree: { cpuMillicores: Math.max(0, v.capacity.cpuMillicores - v.reserved.cpuMillicores), memoryMb: Math.max(0, v.capacity.memoryMb - v.reserved.memoryMb), diskMb: Math.max(0, v.capacity.diskMb - v.reserved.diskMb), slots: Math.max(0, v.capacity.slots - v.reserved.slots) } as unknown as JsonValue,
-    capabilities: [...v.capabilities.entries()].map(([capability, c]) => ({ capability, observedAt: store.nowIso(), source: "runner-probe", verified: c.verified, expiresAt: iso(c.expiresAtMs) })),
-    engines: v.engines.map((e) => ({ id: e, version: "1", adapterDigest: `sha256:${"0".repeat(64)}`, features: [] })),
+    // Exactly what was observed and stored: the observation time and source of each capability, and the engines as the runner reported them.
+    capabilities: (store.control.prepare("SELECT capability,verified,source,observed_at_ms,expires_at_ms FROM runner_capabilities WHERE runner_id=? ORDER BY capability").all(runnerId) as Array<{ capability: string; verified: number; source: string; observed_at_ms: number; expires_at_ms: number }>)
+      .map((c) => ({ capability: c.capability, observedAt: iso(c.observed_at_ms), source: c.source, verified: c.verified === 1, expiresAt: iso(c.expires_at_ms) })),
+    engines: JSON.parse(meta.engines_json) as Array<Record<string, JsonValue>>,
     activeAttemptIds, lastSeenAt: iso(meta.last_heartbeat_ms ?? 0),
     ...(meta.deregistered_at_ms ? { deregisteredAt: iso(meta.deregistered_at_ms) } : {}),
   };
