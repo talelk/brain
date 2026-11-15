@@ -111,6 +111,20 @@ describe("notification channels, preferences and digest (#53, ADR 0011)", () => 
     expect(w.brain.notificationPreferences(w.owner).available.webhook).toBe(false);
   });
 
+  it("a platform alert links to the Health tab, a route the app answers", async () => {
+    const w = setupWorld(); worlds.push(w);
+    await webhook();
+    w.brain.setNotificationPreferences(w.owner, { webhook: true, push: false });
+    // The workspace owner is who a platform alert reaches (the test workspace is created with owner-1 as its owner).
+    process.env["BRAIN_LOCAL_MODEL_URL"] = "http://model.invalid/v1";
+    try { await w.brain.runEngineProbes((async () => { throw new Error("offline"); }) as unknown as typeof fetch); } finally { delete process.env["BRAIN_LOCAL_MODEL_URL"]; }
+    await until(() => received.length >= 1);
+    const alert = received.map((entry) => JSON.parse(entry.body) as { kind: string; link: string }).find((entry) => entry.kind === "platform");
+    expect(alert?.link).toBe("https://brain.example.test/settings?tab=health");
+    // Only the in-app drawer lists the alert by title; the link itself carries no title or detail.
+    expect(received[0]!.body).not.toMatch(/model endpoint|offline/iu);
+  });
+
   it("the digest batches only non-urgent items; a blocking item and an approval go out at once, past the throttle", async () => {
     const w = setupWorld(); worlds.push(w);
     await webhook();

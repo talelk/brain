@@ -112,6 +112,9 @@ describe("a session acts as its own machine principal (ADR 0032)", () => {
     expect(w.brain.store.control.prepare("SELECT actor_id FROM command_idempotency WHERE command_id='cmd-agent-comment'").get()).toEqual({ actor_id: principalId });
     // The owner's own commands are still the owner's: nothing is attributed to a machine.
     await run(w, "workItem.comment", "owner-comment", { workItemId, text: "Thanks" });
+    // The thread shows both. Only the person's comment is sent to the team as a message; a session's own comment is never sent back to anyone (#100).
+    const thread = ((await w.brain.executeQuery(w.owner, { queryType: "workItemComments.list", workspaceId: w.workspaceId, resourceId: workItemId })) as unknown as { snapshot: { items: Array<{ authorId: string; authorKind: string; delivery?: string }> } }).snapshot.items;
+    expect(thread.map((entry) => [entry.authorId, entry.authorKind, entry.delivery !== undefined])).toEqual([[principalId, "agent", false], [w.owner.actorId, "human", true]]);
     expect((await audit(w)).filter((item) => item.action === "session.acted")).toHaveLength(1);
   });
 
