@@ -57,6 +57,19 @@ describe("the runner summary states only what the runner reported or probed", ()
     expect(listed.find((entry) => entry.runnerId === "runner-engines")!.engines).toEqual(snapshot.engines);
   });
 
+  it("lists a Codex engine the runner probed, with the trusted-local isolation it states for it", async () => {
+    const w = world();
+    register(w, "runner-codex", {
+      engines: [{ id: "codex", version: "0.1.0", adapterDigest: DIGEST_A, features: ["sessions"] }],
+      capabilities: [observation("engine:codex", minutesAgo(1)), observation("engine-isolation:codex:trusted-local", minutesAgo(1))],
+    });
+    const snapshot = await runner(w, "runner-codex");
+    expect(snapshot.engines).toEqual([{ id: "codex", version: "0.1.0", adapterDigest: DIGEST_A, features: ["sessions"] }]);
+    expect(snapshot.capabilities.map((entry) => entry.capability)).toContain("engine-isolation:codex:trusted-local");
+    const listed = ((await w.brain.executeQuery(w.owner, { queryType: "runners.list" })) as unknown as { snapshot: { items: Snapshot[] } }).snapshot.items;
+    expect(listed.find((entry) => entry.runnerId === "runner-codex")!.engines.map((engine) => engine.id)).toEqual(["codex"]);
+  });
+
   it("shows no engine for a runner that reported none, and invents none for an engine capability it merely listed", async () => {
     const w = world();
     register(w, "runner-silent", { capabilities: [observation("os:linux", minutesAgo(1)), observation("engine:pi", minutesAgo(1))] });

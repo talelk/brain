@@ -486,6 +486,12 @@ runner's broker, which validates it and runs it in a sandbox. An engine has no o
 tool: its own native shell, edit and fetch are refused (ADR 0035).
 _Avoid_: native tool (the engine's own, never allowed), plugin
 
+**Broker bridge**:
+The loopback MCP endpoint a runner opens per attempt so an ACP agent can call the job's
+broker tools; token-authenticated, serves only declared tools, and every call takes the
+runner's governed tool-call path (ADR 0035).
+_Avoid_: MCP server (the agent's own are not the bridge)
+
 **Engine isolation**:
 The isolation an engine really provides on a runner, stated by the runner per engine
 (`engine-isolation:<engine>:<mode>`); a step is placed on an engine only if it states

@@ -15,6 +15,7 @@ const ENGINE_ISOLATION: Readonly<Record<string, IsolationMode>> = {
   claude: "ephemeral-container",
   acp: "trusted-local",
   opencode: "trusted-local",
+  codex: "trusted-local",
 };
 
 export function engineIsolation(engineId: string): IsolationMode {
