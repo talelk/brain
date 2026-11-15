@@ -4,7 +4,7 @@ import type { GovernorClient, SessionGrant } from "../governor-client";
 import type { BrokerResult } from "./brokers";
 
 /**
- * Governed Brain tools (ADR 0042): an agent reaches Brain through four operator-declared, release-pinned tools, each of which is exactly one
+ * Governed Brain tools (ADR 0042): an agent reaches Brain through five operator-declared, release-pinned tools, each of which is exactly one
  * Brain command run as the attempt's own machine principal (ADR 0032). The tool names no command type and no id it cannot know: the mission,
  * the member and the task this attempt serves come from the Governor with the credential. What the call may do is decided by the Governor's
  * authorization matrix and the principal's own-mission scope, never here; a refusal comes back as a failed tool call with its plain reason.
@@ -66,21 +66,28 @@ function payloadOf(toolId: string, input: Readonly<Record<string, unknown>>, gra
     case "mission.message-member":
       if (!grant.memberId) return "this session is not a team member's, so it has no one to message from";
       return { missionId: grant.missionId, recipient: { kind: "member", memberId: text("memberId") ?? "" }, body: text("body") ?? "" };
+    case "mission.ask": {
+      if (!grant.memberId) return "this session is not a team member's, so it has no one to ask from";
+      return defined({ missionId: grant.missionId, body: text("question") ?? "", workItemId: grant.workItemId });
+    }
     case "mission.submit-handoff": {
       if (!grant.workItemId) return "this session serves no task, so it has nothing to hand off";
       const { summary, decisions, openQuestions, nextAction, referencedOutputs } = input;
       return { workItemId: grant.workItemId, notes: defined({ summary: summary as JsonValue, decisions: decisions as JsonValue | undefined, openQuestions: openQuestions as JsonValue | undefined, nextAction: nextAction as JsonValue | undefined, referencedOutputs: referencedOutputs as JsonValue | undefined }) };
     }
-    default: {
+    case "mission.comment": {
       const workItemId = text("workItemId") ?? grant.workItemId;
       if (!workItemId) return "this session serves no task: name the work item to comment on";
       return defined({ workItemId, text: text("text") ?? "", correctionOf: text("correctionOf") });
     }
+    default:
+      return `${toolId} is not a Brain tool`;
   }
 }
 
 /** What the model is told about the result: the new thing's id and, for a plan, whether it was confirmed or waits for a person. */
 async function describe(toolId: string, resourceId: string | undefined, grant: SessionGrant, client: Client): Promise<JsonValue> {
+  if (toolId === "mission.ask") return { recorded: true, ...(resourceId ? { id: resourceId } : {}), outcome: "A person has been asked. Their answer reaches you as a message from a person, in this session if it can take it, otherwise in your next one. Do not ask again and do not wait for it: carry on with what you can do, and say in your answer what depends on it." };
   if (toolId !== "mission.propose-plan" || !resourceId) return { recorded: true, ...(resourceId ? { id: resourceId } : {}) };
   const read = await client.actAs(grant.credential, "/v1/query", { queryType: "plans.get", workspaceId: grant.workspaceId, resourceId });
   const state = read.status === 200 ? String((read.json as { snapshot?: { state?: string } }).snapshot?.state ?? "") : "";

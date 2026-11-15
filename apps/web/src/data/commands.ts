@@ -72,7 +72,7 @@ export type PayloadFor<K extends CommandKind> =
         : K extends "workItem.transition" ? { workItemId: string; state: WorkItemState; evidenceDigest?: string; reason?: string }
           : K extends "handoff.submit" ? { workItemId: string; notes: { summary: string; decisions?: string[]; openQuestions?: string[]; nextAction?: string; referencedOutputs?: string[] } }
           : K extends "workItem.comment" ? { workItemId: string; text: string }
-            : K extends "mission.message.send" ? { missionId: string; recipient: { kind: "mission" | "member"; memberId?: string }; workItemId?: string; body: string; correctionOf?: string; interrupt?: boolean }
+            : K extends "mission.message.send" ? { missionId: string; recipient: { kind: "mission" | "member"; memberId?: string }; workItemId?: string; body: string; correctionOf?: string; interrupt?: boolean; answersQuestionId?: string }
             : K extends "workflow.dispatch" ? { workflow: { id: string; digest: string }; input: Record<string, unknown>; workItemId?: string }
     : K extends "workflow.cancel" ? { runId: string; reason: string }
       : K extends "job.reconcile" ? { jobId: string; reason: string; resolution?: "fail" | "retry" }

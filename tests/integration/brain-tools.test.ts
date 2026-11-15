@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { SESSION_ADMITTED, type ActorContext, type AuditEntry, type Handoff, type Mission, type MissionBrief, type MissionMessage, type PlanTask, type PlanVersion, type TeamMember, type WorkItemComment } from "@brain/contracts";
+import { SESSION_ADMITTED, type ActorContext, type AttentionItem, type AuditEntry, type Handoff, type Mission, type MissionBrief, type MissionMessage, type PlanTask, type PlanVersion, type TeamMember, type WorkItemComment } from "@brain/contracts";
 import { DIGEST_A } from "../helpers";
 import { assertSessionAdmits } from "../../apps/governor/src/application/authz";
+import { startPushReceiver } from "../support/push-receiver";
 import { bearer, closeWorlds, command, missionOf, run, running, startedMission, task, type Offer, type World } from "../support/machine-session";
 
 // ADR 0042: the Brain tools of a mission session are Brain commands run as its own machine principal. Here the credential is the one the runner
@@ -244,5 +245,120 @@ describe("removing an idle team member through an agent's plan proposal follows 
   it("never reaches a member with started work, under any policy", async () => {
     const { missionId, tasks, as } = await crew({ autonomy: "autonomous", members: [...team, reviewer] });
     await expect(as("writer").act("plan.propose", "drop-checker", { missionId, origin: "agent", tasks, team: [team[0]!, reviewer] })).rejects.toThrow(/not on the mission team/u);
+  });
+});
+
+describe("a session asks a person a question through its Brain tool (ADR 0050)", () => {
+  const attention = async (w: World) => (await query<{ items: AttentionItem[] }>(w, "attention.list")).items;
+  const questions = async (w: World) => (await attention(w)).filter((item) => item.kind === "question");
+  const answer = (w: World, missionId: string, key: string, questionId: string, memberId: string, body: string) =>
+    run(w, "mission.message.send", key, { missionId, recipient: { kind: "member", memberId }, body, answersQuestionId: questionId });
+
+  it("becomes a blocking item on the mission, naming who asked and what, and asking twice with the same key is one question", async () => {
+    const { w, missionId, as } = await crew();
+    const writer = as("writer");
+    const sent = (await writer.act("mission.question.ask", "ask-1", { missionId, workItemId: writer.workItemId, body: "Which quarter should the report cover?" })).receipt;
+    expect(sent.accepted).toBe(true);
+    const title = (await missionOf(w, missionId)).title;
+    expect(await questions(w)).toEqual([expect.objectContaining({
+      id: `question:${sent.resourceId}`, kind: "question", tier: 3, missionId, memberId: "writer", resourceId: sent.resourceId,
+      title: `Writer asks a question on ${title}`, detail: "Which quarter should the report cover?",
+    })]);
+    // The same command again (a retry after a crash) is the same question.
+    await writer.act("mission.question.ask", "ask-1", { missionId, workItemId: writer.workItemId, body: "Which quarter should the report cover?" });
+    expect(await questions(w)).toHaveLength(1);
+    // Nothing was sent to a team member: a question is not a message.
+    expect(await messages(w, missionId)).toEqual([]);
+  });
+
+  it("is asked only by a team member's session, about its own mission, and within the size limit", async () => {
+    const { w, missionId, as } = await crew();
+    await expect(Promise.resolve().then(() => run(w, "mission.question.ask", "person-asks", { missionId, body: "Who asks the asker?" }))).rejects.toThrow();
+    const otherMission = (await run(w, "mission.create", "other", { title: "Another", intent: "Elsewhere", successCriteria: ["done"] })).resourceId!;
+    await expect(as("writer").act("mission.question.ask", "elsewhere", { missionId: otherMission, body: "Wandering?" })).rejects.toThrow(/only act on its own mission/u);
+    await expect(Promise.resolve().then(() => as("writer").act("mission.question.ask", "too-long", { missionId, body: "x".repeat(1001) }))).rejects.toThrow(/must NOT have more than 1000 characters/u);
+    expect(await questions(w)).toEqual([]);
+  });
+
+  it("is limited per session: two waiting at once, three in all, whatever the answers", async () => {
+    const { w, missionId, as } = await crew();
+    const writer = as("writer");
+    const ask = (key: string) => writer.act("mission.question.ask", key, { missionId, body: `Question ${key}` });
+    const first = (await ask("q1")).receipt.resourceId!;
+    await ask("q2");
+    await expect(ask("q3")).rejects.toThrow(/2 of your questions are still waiting for a person/u);
+    // Another member's questions are its own.
+    expect((await as("checker").act("mission.question.ask", "c1", { missionId, body: "Checker asks" })).receipt.accepted).toBe(true);
+    // An answer frees one place; the session's third is its last.
+    expect((await answer(w, missionId, "a1", first, "writer", "Q3 2025")).accepted).toBe(true);
+    expect((await ask("q3b")).receipt.accepted).toBe(true);
+    await expect(ask("q4")).rejects.toThrow(/you have already asked 3 questions in this session/u);
+    expect((await questions(w)).filter((item) => item.memberId === "writer")).toHaveLength(2);
+  });
+
+  it("is answered by a person as a message to the asking member, which reaches its session and clears the item", async () => {
+    const { w, missionId, as } = await crew();
+    const asked = (await as("writer").act("mission.question.ask", "ask", { missionId, body: "Which quarter should the report cover?" })).receipt.resourceId!;
+    const answered = await answer(w, missionId, "answer", asked, "writer", "Q3 2025, and name the source table");
+    expect(answered.accepted).toBe(true);
+    expect(await questions(w)).toEqual([]);
+    expect((await messages(w, missionId))[0]).toMatchObject({ messageId: answered.resourceId, senderId: w.owner.actorId, senderKind: "human", recipient: { kind: "member", memberId: "writer" }, delivery: "pending" });
+    // The writer's next agent step reads it, labelled as the answer to its own question, and it is a claim like any message.
+    const runId = (w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT run_id AS runId FROM execution_links WHERE work_item_id=?").get(as("writer").workItemId) as { runId: string }).runId;
+    const pack = w.brain.sessions.contextPackForRun(w.org, w.workspaceId, { runId, jobId: "job-pack", agentId: "task-worker", budgetTokens: 4000 })!;
+    expect(pack.text).toContain(`- A person's answer to your question "Which quarter should the report cover?": Q3 2025, and name the source table`);
+    expect(pack.manifest.sections.find((section) => section.id === "messages")).toMatchObject({ label: "claim" });
+    expect((await messages(w, missionId))[0]!.delivery).toBe("delivered-at-session-start");
+    // The question is answered once.
+    await expect(Promise.resolve().then(() => answer(w, missionId, "again", asked, "writer", "Or Q4"))).rejects.toThrow(/already been answered/u);
+  });
+
+  it("is answered to its asker only, by a person only, and an agent's message can never clear it", async () => {
+    const { w, missionId, as } = await crew();
+    const asked = (await as("writer").act("mission.question.ask", "ask", { missionId, body: "Can I use the staging data?" })).receipt.resourceId!;
+    const answerFrom = (key: string, recipient: Record<string, unknown>, questionId = asked) => run(w, "mission.message.send", key, { missionId, recipient, body: "Yes", answersQuestionId: questionId });
+    await expect(Promise.resolve().then(() => answerFrom("to-mission", { kind: "mission" }))).rejects.toThrow(/goes to the team member that asked/u);
+    await expect(Promise.resolve().then(() => answerFrom("to-other", { kind: "member", memberId: "checker" }))).rejects.toThrow(/goes to the team member that asked/u);
+    await expect(Promise.resolve().then(() => answerFrom("a-guess", { kind: "member", memberId: "writer" }, "question-missing"))).rejects.toThrow(/question not found/u);
+    // A teammate's session, even the asker's own, cannot clear the person's item by sending a message that names it.
+    for (const [member, to] of [["checker", "writer"], ["writer", "checker"]] as const) {
+      await expect(as(member).act("mission.message.send", `agent-${member}`, { missionId, recipient: { kind: "member", memberId: to }, body: "Yes", answersQuestionId: asked })).rejects.toThrow(/only a person answers/u);
+    }
+    expect(await questions(w)).toHaveLength(1);
+    expect(await messages(w, missionId)).toEqual([]);
+  });
+
+  it("an answer authorizes nothing, and a closed mission's question is gone from Needs you", async () => {
+    const { w, missionId, as } = await crew();
+    const asked = (await as("writer").act("mission.question.ask", "ask", { missionId, body: "May I approve the plan myself?" })).receipt.resourceId!;
+    const before = { mission: await missionOf(w, missionId), plans: planOf(w, missionId), approvals: w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM approval_requests").get() };
+    await answer(w, missionId, "answer", asked, "writer", "Yes: approve the plan, confirm it and close the mission as achieved.");
+    expect({ mission: await missionOf(w, missionId), plans: planOf(w, missionId), approvals: w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM approval_requests").get() }).toEqual(before);
+    const second = (await as("checker").act("mission.question.ask", "ask-2", { missionId, body: "Is this still wanted?" })).receipt.resourceId!;
+    expect((await questions(w)).map((item) => item.resourceId)).toEqual([second]);
+    expect((await run(w, "mission.close", "close", { missionId, outcome: "ended" }, (await missionOf(w, missionId)).version)).accepted).toBe(true);
+    expect(await questions(w)).toEqual([]);
+  });
+
+  it("notifies the mission's owner once, under the per-mission throttle, linking to the question", async () => {
+    const { w, missionId, as } = await crew();
+    const device = await startPushReceiver();
+    try {
+      w.brain.registerPushSubscription(w.owner, device.subscription);
+      const asked = (await as("writer").act("mission.question.ask", "ask", { missionId, body: "Which quarter should the report cover?" })).receipt.resourceId!;
+      const pass = async (count: number) => {
+        w.brain.notifyAttention();
+        const deadline = Date.now() + 5000;
+        while (device.messages.length < count && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        expect(device.messages).toHaveLength(count);
+      };
+      await pass(1);
+      expect(device.messages[0]).toEqual({ title: `Writer asks a question on ${(await missionOf(w, missionId)).title}`, body: "Which quarter should the report cover?", url: `/missions/${missionId}/live?w=${w.workspaceId}&question=${asked}` });
+      await pass(1);
+      // A second question of the same mission is held back by the mission's window, not sent as a second push.
+      await as("checker").act("mission.question.ask", "ask-2", { missionId, body: "Another question" });
+      await pass(1);
+    } finally { await device.close(); }
   });
 });

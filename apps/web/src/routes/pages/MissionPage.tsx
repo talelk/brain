@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog, Dropdown, Select, TabButtons } from "@talelk/newui-molecules";
-import type { BrainSession, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
+import type { AttentionItem, BrainSession, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -30,6 +30,7 @@ import { MissionUsage, reportsNoCost } from "../../ui/usage/Usage";
 import { PlanEstimate } from "../../ui/usage/PlanEstimate";
 import { ReusedInBrief } from "../../ui/components/Reuse";
 import { MissionTimeline } from "../../ui/timeline/MissionTimeline";
+import { ATTENTION_CHANGED } from "../../ui/attention";
 
 const TAB_KEYS: Readonly<Record<MissionTab, MessageKey>> = {
   live: "mission.tab.live", team: "mission.tab.team", plan: "mission.tab.plan", brief: "mission.tab.brief", timeline: "mission.tab.timeline", outputs: "mission.tab.outputs",
@@ -285,6 +286,15 @@ function LiveTab(props: ActProps): JSX.Element {
   const summary = useMissionRead<SinceLastVisitSummary>(props.mission.missionId, "missions.sinceLastVisit", (raw) => raw as SinceLastVisitSummary);
   const messages = useMissionRead<MissionMessage[]>(props.mission.missionId, "missionMessages.list", (raw) => [...(raw as { items: MissionMessage[] }).items], (items) => items.length === 0);
   const brief = useMissionRead<MissionBrief>(props.mission.missionId, "missions.brief", (raw) => raw as MissionBrief);
+  // The questions team members asked a person are attention items, so the mission shows exactly what Needs you shows, no second record.
+  const questions = createScopedRead<AttentionItem[]>({
+    scope: app.scope, live: true,
+    load: async (scope, signal) => {
+      const response = await query<Envelope<{ items: AttentionItem[] }>>({ queryType: "attention.list", workspaceId: scope.workspaceId } as never, signal);
+      return { snapshot: response.snapshot.items.filter((item) => item.kind === "question" && item.missionId === props.mission.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+    isEmpty: (items) => items.length === 0,
+  });
   const team = createScopedRead<{ members: TeamMember[]; items: WorkItem[]; sessions: BrainSession[] }>({
     scope: app.scope,
     load: async (scope, signal) => {
@@ -327,10 +337,25 @@ function LiveTab(props: ActProps): JSX.Element {
   const [interrupt, setInterrupt] = createSignal(false);
   const [addToBrief, setAddToBrief] = createSignal(false);
   const [composeOpen, setComposeOpen] = createSignal(false);
+  /** The question the composer is answering, if any: the same composer, aimed at the member that asked and tied to that question. */
+  const [answering, setAnswering] = createSignal<AttentionItem | undefined>();
+  const startAnswering = (item: AttentionItem) => { setAnswering(item); setBody(""); setInterrupt(false); setAddToBrief(false); setComposeOpen(true); };
+  const startComposing = () => { setAnswering(undefined); setComposeOpen(true); };
+  const closeComposer = () => { setComposeOpen(false); setAnswering(undefined); };
+  // A notification or Needs you row opens the mission with ?question=<id>: the composer opens on that question once it is loaded.
+  createEffect(() => {
+    const wanted = typeof search.question === "string" ? search.question : "";
+    const item = wanted ? (questions.state().data ?? []).find((entry) => entry.resourceId === wanted) : undefined;
+    if (item && !composeOpen()) { startAnswering(item); setSearch({ question: undefined }, { replace: true }); }
+  });
   const send = () => void props.onAct(async () => {
     const text = body().trim();
-    const sent = await app.run("mission.message.send", { missionId: props.mission.missionId, recipient: recipient() === "mission" ? { kind: "mission" } : { kind: "member", memberId: recipient() }, body: text, ...(interrupt() ? { interrupt: true } : {}) });
+    const question = answering();
+    const sent = await app.run("mission.message.send", question
+      ? { missionId: props.mission.missionId, recipient: { kind: "member", memberId: question.memberId ?? "" }, body: text, answersQuestionId: question.resourceId }
+      : { missionId: props.mission.missionId, recipient: recipient() === "mission" ? { kind: "mission" } : { kind: "member", memberId: recipient() }, body: text, ...(interrupt() ? { interrupt: true } : {}) });
     if (!sent.accepted) throw new Error(sent.detail);
+    if (question) { setBody(""); closeComposer(); await Promise.all([messages.refresh({ force: true }), questions.refresh({ force: true })]); window.dispatchEvent(new Event(ATTENTION_CHANGED)); return; }
     const current = brief.state().data;
     if (addToBrief() && current) {
       const edited = await app.run("mission.brief.edit", { missionId: props.mission.missionId, baseVersion: current.version, constraints: [...current.constraints, text.slice(0, 1000)] });
@@ -350,6 +375,19 @@ function LiveTab(props: ActProps): JSX.Element {
   };
   const chip = (selected: boolean) => `inline-flex min-w-0 cursor-pointer items-center gap-2 rounded-full border py-1 ps-1 pe-3 text-caption focus-visible:focus-ring ${selected ? "border-outline-blue-3 bg-surface-blue-1 text-ink-blue-8" : "border-outline-gray-2 bg-surface-elevation-1 text-ink-gray-8 hover:bg-surface-gray-1"}`;
   return <PageStack>
+    <Show when={(questions.state().data ?? []).length > 0}>
+      <WorkspaceSection title={t("mp.question.title")} description={t("mp.question.description")}>
+        <ul class="m-0 flex list-none flex-col gap-2 p-0" data-testid="mission-questions"><For each={questions.state().data ?? []}>{(item) => <li class="flex min-w-0 flex-wrap items-start gap-3 rounded-card border border-outline-blue-1 bg-surface-blue-1 p-3" data-testid="mission-question">
+          <span class="lucide-message-circle-question mt-0.5 size-5 shrink-0 text-ink-blue-8" aria-hidden="true" />
+          <div class="min-w-0 flex-1">
+            <p class="text-caption font-medium text-ink-gray-7">{t("mp.question.asks", { name: roleOfMember(item.memberId) })}</p>
+            <p class="break-words text-interface text-ink-gray-9">{item.detail}</p>
+            <p class="text-caption text-ink-gray-6">{t("mp.question.waiting", { when: formatDateTime(item.waitingSince) })}</p>
+          </div>
+          <Button variant="solid" theme="blue" iconLeft="lucide-reply" disabled={props.mission.state === "closed"} onClick={() => startAnswering(item)}>{t("mp.question.answer")}</Button>
+        </li>}</For></ul>
+      </WorkspaceSection>
+    </Show>
     <fieldset class="m-0 flex min-w-0 flex-wrap items-center gap-2 border-0 p-0">
       <legend class="sr-only">{t("mp.whose-sessions-to-follow.39fe")}</legend>
       <span class="me-1 text-caption font-medium text-ink-gray-6" aria-hidden="true">{t("mp.follow.6658")}</span>
@@ -380,13 +418,22 @@ function LiveTab(props: ActProps): JSX.Element {
           </>}</Show>
         </ScreenRegion>
       </WorkspaceSection>
-      <WorkspaceSection title={t("mp.messages.f170")} description={t("mp.reaches-the-coordinator-or-one-m.675c")} actions={<Button variant="outline" theme="blue" iconLeft="lucide-send" disabled={props.mission.state === "closed"} onClick={() => setComposeOpen(true)}>{t("mp.message-the-mission.4ffc")}</Button>}>
-        <FormSheet open={composeOpen()} onClose={() => setComposeOpen(false)} title={t("mp.message-the-mission.4ffc")} centered description={t("mp.a-message-never-approves-anythin.4e43")} submit={t("mp.send.9bc2")} icon="lucide-send" busy={props.busy} disabled={!body().trim() || props.mission.state === "closed"} onSubmit={() => { if (body().trim() && !props.busy) send(); }}>
-        <Select label={t("mp.recipient.9034")} value={recipient()} onValueChange={(value) => setRecipient(value ?? "mission")}
-          options={[{ value: "mission", label: t("mp.the-mission-coordinator.5ace") }, ...(team.state().data?.members ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))]} />
-        <Textarea label={t("mp.message.68f4")} required value={body()} onInput={(event) => setBody(event.currentTarget.value)} placeholder={t("mp.prioritise-the-login-flow.3f3d")} />
-        <Checkbox label={t("mp.interrupt-running-sessions-at-th.c995")} checked={interrupt()} onCheckedChange={(checked) => setInterrupt(checked === true)} />
-        <Checkbox label={t("mp.also-add-to-the-brief-as-a-const.4a42")} checked={addToBrief()} onCheckedChange={(checked) => setAddToBrief(checked === true)} />
+      <WorkspaceSection title={t("mp.messages.f170")} description={t("mp.reaches-the-coordinator-or-one-m.675c")} actions={<Button variant="outline" theme="blue" iconLeft="lucide-send" disabled={props.mission.state === "closed"} onClick={startComposing}>{t("mp.message-the-mission.4ffc")}</Button>}>
+        <FormSheet open={composeOpen()} onClose={closeComposer} title={answering() ? t("mp.question.answerTitle") : t("mp.message-the-mission.4ffc")} centered
+          description={answering() ? t("mp.question.answerDescription", { name: roleOfMember(answering()?.memberId) }) : t("mp.a-message-never-approves-anythin.4e43")}
+          submit={answering() ? t("mp.question.send") : t("mp.send.9bc2")} icon="lucide-send" busy={props.busy} disabled={!body().trim() || props.mission.state === "closed"} onSubmit={() => { if (body().trim() && !props.busy) send(); }}>
+        <Show when={answering()}>{(question) => <blockquote class="m-0 rounded-control border-s-4 border-outline-blue-3 bg-surface-blue-1 px-3 py-2" data-testid="answering-question">
+          <p class="text-caption font-medium text-ink-gray-7">{t("mp.question.theirQuestion")}</p><p class="break-words text-interface text-ink-gray-9">{question().detail}</p>
+        </blockquote>}</Show>
+        <Show when={!answering()} fallback={<p class="text-interface text-ink-gray-8">{t("mp.question.to")}: <strong>{roleOfMember(answering()?.memberId)}</strong></p>}>
+          <Select label={t("mp.recipient.9034")} value={recipient()} onValueChange={(value) => setRecipient(value ?? "mission")}
+            options={[{ value: "mission", label: t("mp.the-mission-coordinator.5ace") }, ...(team.state().data?.members ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))]} />
+        </Show>
+        <Textarea label={answering() ? t("mp.question.yourAnswer") : t("mp.message.68f4")} required value={body()} onInput={(event) => setBody(event.currentTarget.value)} placeholder={answering() ? "" : t("mp.prioritise-the-login-flow.3f3d")} />
+        <Show when={!answering()}>
+          <Checkbox label={t("mp.interrupt-running-sessions-at-th.c995")} checked={interrupt()} onCheckedChange={(checked) => setInterrupt(checked === true)} />
+          <Checkbox label={t("mp.also-add-to-the-brief-as-a-const.4a42")} checked={addToBrief()} onCheckedChange={(checked) => setAddToBrief(checked === true)} />
+        </Show>
         </FormSheet>
         <ScreenRegion state={messages.state()} onRetry={() => void messages.refresh({ force: true })} emptyTitle={t("mp.no-messages.6f77")} emptyDescription={t("mp.messages-you-send-appear-here-wi.c1d0")}>
           <ul class="mt-3 flex flex-col gap-2"><For each={(messages.state().data ?? []).slice(0, 5)}>{(message) => <li class="rounded-control border border-outline-gray-1 p-2">

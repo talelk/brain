@@ -135,7 +135,7 @@ function outputOf(db: Db, row: OutputRow): Output {
 }
 
 /** A durable message to the mission (its coordinator) or one member; delivery is the sessions module's (T53). */
-export function sendMessage(store: Store, db: Db, input: { missionId: string; senderId: string; recipient: MissionMessage["recipient"]; body: string; workItemId?: string; correctionOf?: string; team: readonly string[] }): string {
+export function sendMessage(store: Store, db: Db, input: { missionId: string; senderId: string; recipient: MissionMessage["recipient"]; body: string; workItemId?: string; correctionOf?: string; answersQuestionId?: string; team: readonly string[] }): string {
   if (input.recipient.kind === "member" && (!input.recipient.memberId || !input.team.includes(input.recipient.memberId))) throw new BrainDomainError("INVALID_ARGUMENT", "the recipient is not on the mission team");
   if (input.recipient.kind === "mission" && input.recipient.memberId) throw new BrainDomainError("INVALID_ARGUMENT", "a message to the mission names no member");
   if (input.workItemId && !db.prepare("SELECT 1 FROM work_items WHERE id=? AND mission_id=?").get(input.workItemId, input.missionId)) throw new BrainDomainError("NOT_FOUND", "work item not found in this mission");
@@ -145,8 +145,8 @@ export function sendMessage(store: Store, db: Db, input: { missionId: string; se
       const prior = db.prepare("UPDATE mission_messages SET delivery='superseded' WHERE id=? AND mission_id=? AND sender_id=? AND delivery='pending'").run(input.correctionOf, input.missionId, input.senderId);
       if (prior.changes !== 1) throw new BrainDomainError("CONFLICT", "only your own undelivered message can be corrected");
     }
-    db.prepare("INSERT INTO mission_messages(id,mission_id,recipient_kind,recipient_member_id,work_item_id,sender_id,body,correction_of,created_at_ms) VALUES (?,?,?,?,?,?,?,?,?)")
-      .run(id, input.missionId, input.recipient.kind, input.recipient.memberId ?? null, input.workItemId ?? null, input.senderId, input.body, input.correctionOf ?? null, store.now());
+    db.prepare("INSERT INTO mission_messages(id,mission_id,recipient_kind,recipient_member_id,work_item_id,sender_id,body,correction_of,answers_question_id,created_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?)")
+      .run(id, input.missionId, input.recipient.kind, input.recipient.memberId ?? null, input.workItemId ?? null, input.senderId, input.body, input.correctionOf ?? null, input.answersQuestionId ?? null, store.now());
     store.emit(db, { aggregateType: "mission", aggregateId: input.missionId, eventType: "mission.messageSent", payload: { missionId: input.missionId } });
   });
   return id;

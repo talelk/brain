@@ -16,6 +16,7 @@ import { capReached, missionUsage, outsideMissionsUsage, runUsage, setSpendCap, 
 import { planEstimate, planWallLimit } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listComments, recordComment } from "./comments";
+import { questionOf, recordQuestion } from "./questions";
 import { listPullRequests } from "./pull-requests";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, recordTaskResult, sendMessage, taskOf, taskResult, verifyOutputs } from "./outputs";
 import { readVerified } from "../artifacts/index";
@@ -243,6 +244,7 @@ export class MissionService {
       case "decision.accept": return this.acceptDecision(actor, workspaceId, command.payload);
       case "mission.policy.set": return this.setPolicy(actor, workspaceId, command.payload, command.expectedVersion);
       case "mission.message.send": return this.message(actor, workspaceId, command.payload);
+      case "mission.question.ask": return this.ask(actor, workspaceId, command.payload);
       case "mission.budget.set": return this.setBudget(actor, workspaceId, command.payload, command.expectedVersion);
       case "workspace.spendCap.set": return this.setSpendCap(actor, workspaceId, command.payload);
       case "workItem.spendCap.raise": return this.raiseTaskCap(actor, workspaceId, command.payload);
@@ -817,16 +819,44 @@ export class MissionService {
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
     assertNotClosed(mission);
     if (actor.kind !== "human") this.assertTeammateMessage(actor, workspaceId, mission.id, payload);
+    const answers = typeof payload["answersQuestionId"] === "string" ? payload["answersQuestionId"] : undefined;
+    if (answers) this.assertAnswer(actor, workspaceId, mission.id, answers, payload);
     const team = mission.active_plan_version_id ? (JSON.parse(this.planRow(actor, workspaceId, mission.active_plan_version_id).team_json) as TeamMember[]).map((member) => member.memberId) : [];
     const messageId = sendMessage(this.store, this.db(actor, workspaceId), {
       missionId: mission.id, senderId: actor.actorId, recipient: payload["recipient"] as { kind: "mission" | "member"; memberId?: string },
       body: String(payload["body"]), team,
       ...(payload["workItemId"] ? { workItemId: String(payload["workItemId"]) } : {}), ...(payload["correctionOf"] ? { correctionOf: String(payload["correctionOf"]) } : {}),
+      ...(answers ? { answersQuestionId: answers } : {}),
     });
     this.delivery?.deliver(actor.organizationId, workspaceId, messageId, payload["interrupt"] === true);
     // A message to the mission itself (no work item) wakes its coordinator (#38).
     if ((payload["recipient"] as { kind?: string } | undefined)?.kind === "mission" && !payload["workItemId"]) wake(this.store, this.db(actor, workspaceId), mission.id, "message", String(payload["body"]).slice(0, 200));
     return messageId;
+  }
+
+  /** A team member's session asks a person a question (ADR 0050): written once; it becomes a blocking attention item until a person answers it. */
+  private ask(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    if (actor.kind !== "agent" || !actor.memberId || !actor.attemptId) throw new BrainDomainError("FORBIDDEN", "only a team member's session asks a person a question");
+    const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
+    assertNotClosed(mission);
+    return recordQuestion(this.store, this.db(actor, workspaceId), {
+      missionId: mission.id, memberId: actor.memberId, attemptId: actor.attemptId, askerId: actor.actorId, body: String(payload["body"]),
+      ...(payload["workItemId"] ? { workItemId: String(payload["workItemId"]) } : {}),
+    });
+  }
+
+  /**
+   * Only a person answers a question, once, and the answer goes to the member that asked (never the mission, never a correction): a session that
+   * could clear a person's blocking item by sending a message would hide the very thing the item is for. The answer is an ordinary message
+   * to that member and authorizes nothing.
+   */
+  private assertAnswer(actor: ActorContext, workspaceId: string, missionId: string, questionId: string, payload: Readonly<Record<string, unknown>>): void {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person answers a question");
+    const { question, answered } = questionOf(this.db(actor, workspaceId), questionId, missionId);
+    if (answered) throw new BrainDomainError("CONFLICT", "this question has already been answered");
+    const recipient = payload["recipient"] as { kind?: string; memberId?: string } | undefined;
+    if (recipient?.kind !== "member" || recipient.memberId !== question.member_id) throw new BrainDomainError("INVALID_ARGUMENT", "an answer goes to the team member that asked");
+    if (payload["correctionOf"]) throw new BrainDomainError("INVALID_ARGUMENT", "an answer is not a correction of an earlier message");
   }
 
   /**
@@ -1357,7 +1387,7 @@ export class MissionService {
   /**
    * Ready work the Governor may start by itself: missions whose auto-start
    * switch is on that are active; a coordinator only plans, the Governor starts
-   * a coordinated mission's work like any other's (ADR 0048). Each mission lists its free member slots (the
+   * a coordinated mission's work like any other's (ADR 0050). Each mission lists its free member slots (the
    * member cap minus in-progress work), whether its budget still has headroom,
    * and its ready, unparked items oldest first.
    */
