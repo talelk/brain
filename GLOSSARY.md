@@ -137,6 +137,14 @@ Governor supplies member and agent; the runner reports engine and model; unrepor
 advisory judge's spend is its own source.
 _Avoid_: cost center, tagging
 
+**Estimate basis**:
+Where a plan estimate's figure for time or cost comes from (ADR 0063): the median of past completed runs
+of the same Play task or workflow in the workspace (history; shown as "median of N runs", with the 25th to
+75th percentile range from four runs), what the planner declared, or unknown. Plain arithmetic over the
+ledger; no model computes it, and it never changes a mission budget. A suggested budget is only an offer
+a person may take.
+_Avoid_: forecast, prediction, AI estimate
+
 **Standing team**:
 A named set of roles bound to agent definitions and engines, optionally naming a coordinator, kept in the Library. A plan or a Play start copies its members into the plan version as the mission team; editing or archiving it never changes a confirmed plan or a running mission (ADR 0056).
 _Avoid_: shared team, team template
