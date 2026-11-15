@@ -2483,5 +2483,18 @@ export const ar: Catalog = {
   "console.pause.short": "إيقاف مؤقت",
   "console.continue.short": "متابعة",
   "console.pause.factLabel": "الإيقاف المؤقت",
+  "library.stale.badge": "تغيّر المصدر",
+  "library.stale.detail": "وُسم كقديم {when}: {what}. لا يزال قابلاً للقراءة، لكن تحقّق منه مقابل المصدر المتغيّر قبل الاعتماد عليه.",
+  "library.stale.change.document.revised": "للمستند «{title}» إصدار أحدث",
+  "library.stale.change.document.removed": "حُذف المستند «{title}»",
+  "library.stale.change.output.revised": "للمخرَج «{title}» إصدار موثَّق أحدث",
+  "library.stale.change.output.superseded": "واصلت مهمة لاحقة العمل على المخرَج «{title}»",
+  "library.stale.reconfirm": "أعد التأكيد: ما زال صحيحاً",
+  "library.stale.withdraw": "سحب",
+  "library.stale.reconfirmed": "أُعيد التأكيد. لم يعد موسوماً كقديم.",
+  "library.stale.withdrawn": "سُحب من البحث وإعادة الاستخدام.",
+  "library.stale.failed": "لم يُحفظ ذلك.",
+  "library.stale.reconfirmedAt": "أُعيد التأكيد {when}",
+  "library.stale.reuse": "تغيّر المصدر منذ كتابته: تحقّق منه قبل الاعتماد عليه.",
   // @@END
 };

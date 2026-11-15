@@ -20,6 +20,7 @@ import { seedHuman } from "../helpers";
 import { sendTaskBack } from "../support/evalCases";
 import { command, interruptedSession } from "../support/interrupted-session";
 import { PAUSABLE_FEATURES, runnerReports, runningSession } from "../support/running-session";
+import { seedStaleKnowledge } from "../support/stale-knowledge";
 import { seedPullRequest } from "../support/pullRequestDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 import { seedQuestion } from "../support/question-demo";
@@ -237,6 +238,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "settings-chat-identities", route: () => "/settings?tab=people", heading: "People", prepare: seedChatIdentities, after: async (page) => { const identities = page.locator("[data-chat-identities]"); await expect(identities).toBeVisible(); await expect(identities.locator("[data-chat-identity]")).toHaveCount(2); await identities.scrollIntoViewIfNeeded(); } },
   // Handing a mission to a teammate (#117): the mission's menu, then the dialog with a teammate chosen. It adds one member, so it comes after every screen that lists people.
   { id: "mission-handover", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedTeammate, after: async (page) => { await page.getByRole("button", { name: "More", exact: true }).click(); await page.getByRole("menuitem", { name: "Hand this mission to someone else" }).click(); const dialog = page.getByRole("dialog", { name: "Hand this mission over" }); await dialog.getByRole("combobox", { name: "New owner" }).click(); await page.getByRole("option", { name: /Dana Cole/ }).click(); await expect(dialog.getByRole("button", { name: "Hand over", exact: true })).toBeEnabled(); } },
+  // Knowledge whose source document got a newer version (#133): it says what changed and offers Re-confirm and Withdraw. It adds a document, so it comes before only the push screens.
+  { id: "knowledge-stale", route: () => "/w/operations/knowledge", heading: "Knowledge", prepare: seedStaleKnowledgeEntry, after: async (page) => { await expect(page.getByTestId("learned-stale")).toBeVisible(); await expect(page.getByTestId("learned-reconfirm")).toBeVisible(); } },
   { id: "settings-model-routes", route: () => "/settings?tab=work", heading: "How work runs", prepare: async (governor, _page, demo) => {
     const route = (routeId: string, extra: Record<string, unknown>) => ({ routeId, enabled: true, vendor: "Acme", keyRef: `${routeId}-key`, model: `${routeId}-large`, baseUrl: `https://${routeId}.acme.example/v1`, costTier: "standard", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000, ...extra });
     await governor.app.brain.executeCommand(demo.actor, { contractVersion: "brain.command/v1", commandId: "cmd-vb-routes", commandType: "workspace.modelRoutes.set", workspaceId: demo.workspaceId, idempotencyKey: "vb-routes",
@@ -259,6 +262,14 @@ async function seedChatIdentities(governor: Parameters<typeof seedBrowserDemo>[1
   await command(governor.app.brain, demo.actor, demo.workspaceId, "chatIdentity.set", "vb-chat-slack", { provider: "slack", chatUserId: "U024BE7LH", principalId: demo.actor.actorId });
   await command(governor.app.brain, demo.actor, demo.workspaceId, "chatIdentity.set", "vb-chat-teams", { provider: "teams", chatUserId: "7c1e2d0a-5f4b-4a53-9a31-0b2c7d6e8f90", principalId: demo.actor.actorId });
 }
+/** One published write-up of the closed mission whose source document then got a new version; added once, when its screen is reached. */
+let staleKnowledge = false;
+async function seedStaleKnowledgeEntry(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Awaited<ReturnType<typeof seedBrowserDemo>>): Promise<void> {
+  if (staleKnowledge) return;
+  staleKnowledge = true;
+  await seedStaleKnowledge(governor.app.brain, demo.actor, demo.workspaceId, { key: "vb-stale", missionId: demo.seed.missionIds.closed, title: "Vendor seat prices", content: "Vendor A is cheapest per seat on a one-year term; Vendor B needs a three-year term.", documentTitle: "Vendor price list" });
+}
+
 /** A teammate who can work on missions (the one hand-over screen); added once, when its screen is reached. */
 let teammate = false;
 async function seedTeammate(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Awaited<ReturnType<typeof seedBrowserDemo>>): Promise<void> {

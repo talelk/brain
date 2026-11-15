@@ -2393,5 +2393,18 @@ export const fr: Catalog = {
   "console.pause.short": "Pause",
   "console.continue.short": "Poursuivre",
   "console.pause.factLabel": "Mise en pause",
+  "library.stale.badge": "Source modifiée",
+  "library.stale.detail": "Marquée périmée {when} : {what}. Toujours lisible, mais vérifiez-la par rapport à la source modifiée avant de vous y fier.",
+  "library.stale.change.document.revised": "le document « {title} » a une version plus récente",
+  "library.stale.change.document.removed": "le document « {title} » a été supprimé",
+  "library.stale.change.output.revised": "le livrable « {title} » a une version vérifiée plus récente",
+  "library.stale.change.output.superseded": "le livrable « {title} » a été poursuivi par une mission ultérieure",
+  "library.stale.reconfirm": "Reconfirmer : elle reste valable",
+  "library.stale.withdraw": "Retirer",
+  "library.stale.reconfirmed": "Reconfirmée. Elle n'est plus marquée périmée.",
+  "library.stale.withdrawn": "Retirée de la recherche et de la réutilisation.",
+  "library.stale.failed": "Cela n'a pas été enregistré.",
+  "library.stale.reconfirmedAt": "Reconfirmée {when}",
+  "library.stale.reuse": "La source a changé depuis la rédaction : vérifiez avant de vous y fier.",
   // @@END
 };

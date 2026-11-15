@@ -9,7 +9,7 @@ import { requireWorkspaceRead, scopesForPrincipal } from "../../application/auth
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { iso } from "../../domain/clock";
-import { KNOWLEDGE_TTL_MS, knowledgeExpired, knowledgeLife, looksLikeSecret, personViewer, SCOPE_RANK, viewerFor, type MemoryStore, type ReuseService, type ScopeKind } from "../knowledge/index";
+import { KNOWLEDGE_TTL_MS, fingerprintSources, knowledgeExpired, knowledgeLife, looksLikeSecret, markStaleKnowledge, personViewer, SCOPE_RANK, staleOf, viewerFor, type MemoryStore, type ReuseService, type ScopeKind } from "../knowledge/index";
 import { putBytes } from "../artifacts/index";
 import { readableSources, toolAvailability } from "../resources/index";
 import { buildWriteup, goalKey } from "./writeup";
@@ -54,6 +54,7 @@ type AssetRow = {
   reviewed_by: string | null; self_reviewed: number; reviewed_at_ms: number | null; rejection_reason: string | null; content_digest: string | null;
   superseded_by: string | null; auto_published: number; expires_at_ms: number | null;
   scope: ScopeKind; scope_requested: "team" | "workspace" | null;
+  source_fingerprints_json: string; stale_at_ms: number | null; stale_changes_json: string; reconfirmed_at_ms: number | null;
   created_at_ms: number; updated_at_ms: number;
 };
 type CandidateRow = {
@@ -210,9 +211,9 @@ export class CapitalizationService {
     const { mission, writeup, provenance, bundles } = prepared;
     const signature = domainDigest("brain:mission-knowledge:v1", { missionId });
     const id = digestId("knowledge", signature);
-    const inserted = db.prepare(`INSERT OR IGNORE INTO knowledge_assets(id,signature,operation_id,state,classification,content,source_count,title,mission_id,producer_id,provenance_json,expires_at_ms,created_at_ms,updated_at_ms)
-      VALUES (?,?, 'mission-knowledge', 'extracted', 'internal', ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(id, signature, writeup.content, Math.max(1, bundles), writeup.title, missionId, mission.owner_id, JSON.stringify(provenance), now + KNOWLEDGE_TTL_MS, now, now);
+    const inserted = db.prepare(`INSERT OR IGNORE INTO knowledge_assets(id,signature,operation_id,state,classification,content,source_count,title,mission_id,producer_id,provenance_json,source_fingerprints_json,expires_at_ms,created_at_ms,updated_at_ms)
+      VALUES (?,?, 'mission-knowledge', 'extracted', 'internal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(id, signature, writeup.content, Math.max(1, bundles), writeup.title, missionId, mission.owner_id, JSON.stringify(provenance), JSON.stringify(fingerprintSources(db, missionId)), now + KNOWLEDGE_TTL_MS, now, now);
     if (Number(inserted.changes) > 0) this.supersedeSameGoal(organizationId, workspaceId, db, id, mission.intent, now);
     return Number(inserted.changes);
   }
@@ -290,6 +291,7 @@ export class CapitalizationService {
       try { this.syncSavedDocuments(workspace.organization_id, workspace.id); } catch { /* the next pass tries again */ }
       try { this.autoPublishSweep(workspace.organization_id, workspace.id); } catch { /* the inbox keeps it */ }
       try { this.expireSweep(workspace.organization_id, workspace.id); } catch { /* the next pass tries again */ }
+      try { markStaleKnowledge(this.store.workspaceDb(workspace.id, workspace.organization_id), this.store.now()); } catch { /* the next pass tries again */ }
     }
     return { processed, failed };
   }
@@ -432,6 +434,7 @@ export class CapitalizationService {
     const asset = db.prepare("SELECT * FROM knowledge_assets WHERE id=?").get(assetId) as AssetRow | undefined;
     if (!asset) throw new BrainDomainError("NOT_FOUND", "knowledge asset not found");
     if (!REVIEWABLE.includes(asset.operation_id)) throw new BrainDomainError("CONFLICT", "only proposed knowledge from a closed mission or a saved document is reviewed here");
+    if (decision === "reconfirm" || decision === "revoke") return this.settleStale(actor, workspaceId, asset, decision, reason);
     if (decision === "reject") {
       if (asset.state !== "extracted") throw new BrainDomainError("CONFLICT", `a ${asset.state} knowledge asset cannot be rejected`);
       db.prepare("UPDATE knowledge_assets SET rejection_reason=?,updated_at_ms=? WHERE id=?").run(reason.slice(0, 512), this.store.now(), assetId);
@@ -525,6 +528,32 @@ export class CapitalizationService {
     if (target === "workspace") this.ports.reuse.indexKnowledge(actor.organizationId, workspaceId, assetId);
     else this.ports.reuse.unindex(actor.organizationId, workspaceId, `knowledge:${assetId}`);
     return assetId;
+  }
+
+  /**
+   * A person's decision on knowledge marked stale (#133). Re-confirm says the text still holds: the sources are fingerprinted again as
+   * they are now and the mark is cleared. Revoke withdraws it from search and reuse; nothing is deleted. The producer-or-other-reviewer
+   * rule of approval applies to re-confirming (ADR 0007); anyone who may review may revoke.
+   */
+  private settleStale(actor: ActorContext, workspaceId: string, asset: AssetRow, decision: "reconfirm" | "revoke", reason: string): string {
+    const db = this.store.workspaceDb(workspaceId, actor.organizationId);
+    markStaleKnowledge(db, this.store.now());
+    const current = db.prepare("SELECT state, stale_at_ms FROM knowledge_assets WHERE id=?").get(asset.id) as { state: string; stale_at_ms: number | null };
+    if (current.state !== "published" || current.stale_at_ms === null) throw new BrainDomainError("CONFLICT", "only published knowledge marked stale is re-confirmed or revoked");
+    const now = this.store.now();
+    if (decision === "revoke") {
+      this.ports.memory.revoke(actor.organizationId, workspaceId, asset.id);
+      db.prepare("UPDATE knowledge_assets SET state='revoked',rejection_reason=?,updated_at_ms=? WHERE id=?").run(`Revoked as stale: ${reason}`.slice(0, 512), now, asset.id);
+      this.ports.reuse.unindex(actor.organizationId, workspaceId, `knowledge:${asset.id}`);
+      return asset.id;
+    }
+    if (asset.producer_id === actor.actorId && this.otherReviewers(actor.organizationId, workspaceId, actor.actorId).length > 0) {
+      throw new BrainDomainError("FORBIDDEN", "another reviewer in this workspace must re-confirm knowledge you produced");
+    }
+    const fingerprints = asset.mission_id ? fingerprintSources(db, asset.mission_id) : [];
+    db.prepare("UPDATE knowledge_assets SET source_fingerprints_json=?,stale_at_ms=NULL,stale_changes_json='[]',reconfirmed_at_ms=?,reviewed_by=?,reviewed_at_ms=?,updated_at_ms=? WHERE id=?")
+      .run(JSON.stringify(fingerprints), now, actor.actorId, now, now, asset.id);
+    return asset.id;
   }
 
   /** Publication itself, shared by a person's approval and the automatic path: secret scan, content artifact, memory publication, asset state, reuse index. */
@@ -861,6 +890,7 @@ export class CapitalizationService {
     if (queryType === "tools.calls") return this.toolCalls(actor.organizationId, workspaceId, String(resourceId ?? ""), Math.min(limit, 100)) as unknown as JsonValue;
     if (queryType === "tools.list") return { items: this.activeTools(actor.organizationId, workspaceId).slice(0, limit) } as unknown as JsonValue;
     if (queryType === "knowledgeAssets.list") {
+      markStaleKnowledge(db, this.store.now());
       // Scope is enforced here too: a person lists the workspace's knowledge, their mission teams' and their own private notes; a pending
       // request for a wider scope also reaches the people who review it. A session lists only its own mission's team.
       const viewer = actor.kind === "human" ? personViewer(this.store, actor.organizationId, workspaceId, actor.actorId) : viewerFor(this.store, actor, workspaceId);
@@ -899,6 +929,7 @@ export class CapitalizationService {
       ...(row.rejection_reason ? { rejectionReason: row.rejection_reason } : {}), ...(row.auto_published ? { autoPublished: true } : {}), ...(row.superseded_by ? { supersededBy: row.superseded_by } : {}), ...(row.content_digest ? { contentDigest: row.content_digest } : {}),
       ...(row.state === "published" || row.state === "extracted" ? (() => { const life = knowledgeLife(db, row); return { expiresAt: iso(life.expiresAtMs), helpedCount: life.helpedCount }; })() : {}),
       scope: row.scope, ...(row.scope_requested ? { scopeRequested: row.scope_requested } : {}),
+      ...(row.state === "published" && staleOf(row) ? { stale: staleOf(row)! } : {}), ...(row.reconfirmed_at_ms ? { reconfirmedAt: iso(row.reconfirmed_at_ms) } : {}),
       createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }

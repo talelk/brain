@@ -9,6 +9,7 @@ import { query } from "../../data/client";
 import { WorkspaceSection } from "./Domain";
 import { reusedByMission, reuseItemHref } from "../../data/reuse";
 import { formatRelative } from "../format";
+import { t } from "../../i18n";
 
 const KIND_LABEL: Record<ReuseItem["kind"], string> = { mission: "Past mission", output: "Verified result", knowledge: "Approved knowledge", play: "Play", handoff: "Findings" };
 
@@ -60,7 +61,7 @@ export function PastWorkUsed(props: { missionId: string; workspaceId: string; /*
           <For each={items()}>{(item) => <li class="flex min-w-0 items-start gap-3 py-2 first:pt-0 last:pb-0" data-testid="reuse-suggestion">
             <input type="checkbox" class="mt-1 size-4 shrink-0" checked={!off().has(item.itemRef)} disabled={!props.canEdit || props.busy} onChange={(event) => toggle(item.itemRef, event.currentTarget.checked)} aria-label={`Use ${item.title}`} />
             <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-              <p class="flex min-w-0 flex-wrap items-center gap-1.5"><ItemLink item={item} /><Badge size="sm" variant="outline" theme="gray" label={KIND_LABEL[item.kind]} /><Show when={item.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label="Self-reviewed" /></Show></p>
+              <p class="flex min-w-0 flex-wrap items-center gap-1.5"><ItemLink item={item} /><Badge size="sm" variant="outline" theme="gray" label={KIND_LABEL[item.kind]} /><Show when={item.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label="Self-reviewed" /></Show><Show when={item.stale}><Badge size="sm" variant="subtle" theme="amber" label={t("library.stale.badge")} /></Show></p>
               <p class="text-caption text-ink-gray-6">{freshness(item)}</p>
             </div>
           </li>}</For>
@@ -99,6 +100,7 @@ export function ReusedLine(props: { missionId: string; workspaceId: string; canE
           <For each={kept()}>{(item) => <li class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5" data-testid="reused-item">
             <span>Reused:</span><ItemLink item={item} /><Badge size="sm" variant="outline" theme="gray" label={KIND_LABEL[item.kind]} /><span>last verified {formatRelative(item.lastVerifiedAt)} · {usedText(item.usedCount)}</span>
             <Show when={item.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label="Self-reviewed" /></Show>
+            <Show when={item.stale}><Badge size="sm" variant="subtle" theme="amber" label={t("library.stale.badge")} /></Show>
             <Show when={props.canEdit ?? app.canDispatch()}><Button size="xs" variant="ghost" aria-label={`Stop reusing ${item.title}`} onClick={() => void drop(item)}>Remove</Button></Show>
           </li>}</For>
         </ul>
