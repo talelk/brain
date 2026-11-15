@@ -1613,5 +1613,6 @@ export const enExtra = {
   "usage.run.agent": "agent {name}",
   "usage.run.engine": "engine {name}",
   "usage.run.model": "model {name}",
+  "usage.breakdown.none": "No usage recorded yet, so there is nothing to split.",
   // @@END
 } as const satisfies Record<string, string>;

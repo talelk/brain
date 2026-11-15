@@ -2138,5 +2138,6 @@ export const ar: Catalog = {
   "usage.run.agent": "الوكيل {name}",
   "usage.run.engine": "المحرك {name}",
   "usage.run.model": "النموذج {name}",
+  "usage.breakdown.none": "لا يوجد استخدام مسجّل بعد، لذلك لا شيء لتوزيعه.",
   // @@END
 };

@@ -21,7 +21,7 @@ const assigned = (id: string, memberId: string) => task(id, { assignment: { kind
 const query = async <T>(w: World, queryType: string, resourceId?: string): Promise<T> =>
   ((await w.brain.executeQuery(w.owner, { queryType, workspaceId: w.workspaceId, ...(resourceId ? { resourceId } : {}) } as never)) as unknown as { snapshot: T }).snapshot;
 
-const FIELDS: ReadonlyArray<keyof UsageSummary> = ["settledMicroUsd", "reservedMicroUsd", "settledTokens", "reservedTokens", "inputTokens", "outputTokens", "cachedInputTokens", "attempts", "openAttempts"];
+const FIELDS: ReadonlyArray<Exclude<keyof UsageSummary, "estimated">> = ["settledMicroUsd", "reservedMicroUsd", "settledTokens", "reservedTokens", "inputTokens", "outputTokens", "cachedInputTokens", "attempts", "openAttempts"];
 /** Every grouping covers every ledger row exactly once, so its groups add up to the total on every figure. */
 function expectGroupsSumTo(breakdown: UsageBreakdown, total: UsageSummary): void {
   for (const dimension of ["member", "agent", "engine", "model"] as const) {

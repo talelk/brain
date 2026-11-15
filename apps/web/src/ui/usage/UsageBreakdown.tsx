@@ -44,6 +44,7 @@ function BreakdownBody(props: { mission: Mission; scope: ReturnType<typeof useAp
   };
   return <div class="flex min-w-0 flex-col gap-3 border-t border-outline-gray-1 px-3 py-3">
     <Show when={usage.state().data?.breakdown} fallback={<p class="text-caption text-ink-gray-6">{t("usage.breakdown.loading")}</p>}>{(breakdown) => <>
+      <Show when={(breakdown().member ?? []).length > 0} fallback={<p class="text-caption text-ink-gray-7" data-testid="usage-breakdown-none">{t("usage.breakdown.none")}</p>}>
       <div class="grid gap-4 md:grid-cols-2">
         <For each={DIMENSIONS}>{(dimension) => <section class="flex min-w-0 flex-col gap-1" aria-label={t(dimension.title)} data-testid={`usage-by-${dimension.id}`}>
           <h4 class="m-0 text-caption font-medium text-ink-gray-7">{t(dimension.title)}</h4>
@@ -56,6 +57,7 @@ function BreakdownBody(props: { mission: Mission; scope: ReturnType<typeof useAp
         </section>}</For>
       </div>
       <p class="text-caption text-ink-gray-6">{t("usage.breakdown.hint")}</p>
+      </Show>
     </>}</Show>
   </div>;
 }

@@ -2060,5 +2060,6 @@ export const fr: Catalog = {
   "usage.run.agent": "agent {name}",
   "usage.run.engine": "moteur {name}",
   "usage.run.model": "modèle {name}",
+  "usage.breakdown.none": "Aucune utilisation enregistrée pour l'instant, rien à répartir.",
   // @@END
 };
