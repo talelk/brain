@@ -198,7 +198,8 @@ export class AutomationService {
       scheduledAtMs = Date.parse(String(trigger?.scheduledAt ?? ""));
       if (!Number.isFinite(scheduledAtMs) || scheduledAtMs <= this.store.now()) throw new BrainDomainError("INVALID_ARGUMENT", "once trigger needs a future scheduledAt");
     }
-    const overlap = payload["overlap"] === "queue-one" ? "queue-one" as const : "skip" as const;
+    // Every new subject gets its own mission: "skip while the previous one runs" would drop a ticket for good (its occurrence is per subject).
+    const overlap = kind === "subject" || payload["overlap"] === "queue-one" ? "queue-one" as const : "skip" as const;
     const misfire = payload["misfire"] === "coalesce" ? "coalesce" as const : "skip" as const;
     const execution = payload["execution"] as { mode?: string; runnerId?: string; offlinePolicy?: string } | undefined;
     const executionMode = execution?.mode === "personal-host" ? "personal-host" as const : execution?.mode === undefined || execution.mode === "managed" ? "managed" as const : undefined;
@@ -215,10 +216,9 @@ export class AutomationService {
     if (!existingId) {
       const id = this.store.id("auto");
       this.store.inTx(db, () => {
-        db.prepare(`INSERT INTO automations(id,title,state,revision,target_kind,target_id,trigger_kind,cron,timezone,scheduled_at_ms,input_json,overlap,misfire,execution_mode,runner_id,offline_policy,created_by,version,revision_created_at_ms,created_at_ms,updated_at_ms)
-          VALUES (?,?,'active',1,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)`)
-          .run(id, String(payload["title"] ?? "Automation"), target.kind, target.id, kind, cron, timezone, scheduledAtMs, input, overlap, misfire, executionMode, runnerId, offlinePolicy, actor.actorId, now, now, now);
-        if (subjectKind) db.prepare("UPDATE automations SET subject_kind=? WHERE id=?").run(subjectKind, id);
+        db.prepare(`INSERT INTO automations(id,title,state,revision,target_kind,target_id,trigger_kind,subject_kind,cron,timezone,scheduled_at_ms,input_json,overlap,misfire,execution_mode,runner_id,offline_policy,created_by,version,revision_created_at_ms,created_at_ms,updated_at_ms)
+          VALUES (?,?,'active',1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)`)
+          .run(id, String(payload["title"] ?? "Automation"), target.kind, target.id, kind, subjectKind ?? null, cron, timezone, scheduledAtMs, input, overlap, misfire, executionMode, runnerId, offlinePolicy, actor.actorId, now, now, now);
         this.store.emit(db, { aggregateType: "automation", aggregateId: id, eventType: "automation.created", payload: { automationId: id } });
       });
       return id;
@@ -227,8 +227,8 @@ export class AutomationService {
     assertExpectedVersion(existing.version, expectedVersion);
     if (existing.state === "retired") throw new BrainDomainError("CONFLICT", "retired automations cannot be revised; duplicate them instead");
     this.store.inTx(db, () => {
-      db.prepare(`UPDATE automations SET title=?,target_kind=?,target_id=?,trigger_kind=?,cron=?,timezone=?,scheduled_at_ms=?,input_json=?,overlap=?,misfire=?,execution_mode=?,runner_id=?,offline_policy=?,revision=revision+1,revision_created_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?`)
-        .run(String(payload["title"] ?? existing.title), target.kind, target.id, kind, cron, timezone, scheduledAtMs, input, overlap, misfire, executionMode, runnerId, offlinePolicy, now, now, existing.id, existing.version);
+      db.prepare(`UPDATE automations SET title=?,target_kind=?,target_id=?,trigger_kind=?,subject_kind=?,cron=?,timezone=?,scheduled_at_ms=?,input_json=?,overlap=?,misfire=?,execution_mode=?,runner_id=?,offline_policy=?,revision=revision+1,revision_created_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?`)
+        .run(String(payload["title"] ?? existing.title), target.kind, target.id, kind, subjectKind ?? null, cron, timezone, scheduledAtMs, input, overlap, misfire, executionMode, runnerId, offlinePolicy, now, now, existing.id, existing.version);
       this.store.emit(db, { aggregateType: "automation", aggregateId: existing.id, eventType: "automation.revised", payload: { automationId: existing.id, revision: existing.revision + 1 } });
     });
     return existing.id;
@@ -241,6 +241,7 @@ export class AutomationService {
     if (action !== "pause" && action !== "resume" && action !== "runNow" && action !== "retire") throw new BrainDomainError("INVALID_ARGUMENT", "action must be pause, resume, runNow or retire");
     const db = this.db(actor, workspaceId);
     if (automation.state === "retired" && action !== "retire") throw new BrainDomainError("CONFLICT", "retired automations preserve history and cannot run or resume");
+    if (action === "runNow" && automation.trigger_kind === "subject") throw new BrainDomainError("INVALID_ARGUMENT", "a subject trigger starts only for a new ticket or incident; it needs a new ticket or incident to run");
     if (action === "pause" || action === "resume" || action === "retire") {
       if (action === "retire" && !String(payload["reason"] ?? "").trim()) throw new BrainDomainError("INVALID_ARGUMENT", "retirement requires a reason");
       const next = action === "pause" ? "paused" : action === "resume" ? "active" : "retired";

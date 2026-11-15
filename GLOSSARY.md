@@ -85,6 +85,20 @@ A user's deterministic digest of a mission's notable events since they last saw 
 What counts as seen is per user and per mission, whatever the device.
 _Avoid_: recap, briefing, catch-up, AI summary
 
+**Mission timeline**:
+One chronological list of what happened on a mission: plan versions, accepted decisions,
+messages, runs, approvals, effects, checks and results, filterable by kind and team
+member, each entry linking to its source record. The Governor composes it on every read
+from existing records; nothing is stored. It lives under the mission's Timeline view and
+is neither the plan's dependency Timeline (work items over time) nor the Since-last-visit
+summary (a digest of what changed since you looked).
+_Avoid_: activity feed, audit log, history (an audit entry is a different record)
+
+**Tool calls tab**:
+The run page's list of every tool call that run made, in order, with its outcome, the
+approval it proposed (if any) and a plain-words diagnosis of a failure.
+_Avoid_: tool log, call history
+
 **Mission shape**:
 Whether a mission is interactive or long-running, derived from whether it has a
 coordinator or a confirmed plan version. A mission changes shape without changing state.
@@ -147,7 +161,7 @@ always produces a new plan version, and started work is never changed in place.
 _Avoid_: plan (unqualified — say plan version or plan proposal), plan revision
 
 **Plan proposal**:
-A plan version awaiting human confirmation. A coordinator's plan version needs it only
+A plan version awaiting human confirmation. A session's plan version needs it only
 when it goes beyond the mission's autonomy policy; anything else an agent proposes is
 inert until a human confirms it.
 _Avoid_: draft plan, suggested plan
@@ -193,6 +207,12 @@ An external record a mission is about, such as a support ticket or an incident. 
 subject is owned by its pack and can have several missions over time; it is neither a
 mission nor a work item.
 _Avoid_: case, intake item, work item (when meaning a ticket or incident)
+
+**Subject trigger**:
+A schedule that starts a Play for each new ticket or incident, one mission per subject. Its
+plan waits for a person unless it repeats an earlier achieved mission under the ADR 0017
+safety conditions.
+_Avoid_: webhook, event rule, listener
 
 **Execution link**:
 The record that joins a mission, and a work item when there is one, to the runs, jobs,
@@ -272,9 +292,11 @@ through Brain commands.
 _Avoid_: planning session, chat session, free session
 
 **Mission message**:
-A durable message from a human to one team member or to the mission (which means its
-coordinator). It is steered into a live session when the engine allows, otherwise
-delivered when the recipient's next session starts. It never authorizes anything.
+A durable message from a human, or from a team member's session, to one team member or (from a
+human only) to the mission, which means its coordinator. A team member names another member, never
+itself, never interrupts, and has a few waiting at a time. It is steered into a live session when the
+engine allows, otherwise delivered when the recipient's next session starts, labelled with its sender.
+It never authorizes anything.
 _Avoid_: chat, prompt, instruction (it is not a brief edit or an approval)
 
 **Comment**:
@@ -600,6 +622,14 @@ session it acted through)
 **Actor**:
 The principal performing a command, together with the session and scope it acts through.
 _Avoid_: caller
+
+**Brain tool**:
+An operator-declared, release-pinned tool through which an agent acts on Brain itself: comment on a
+work item, message a team member, submit a handoff, propose a plan (ADR 0042). Each is one command run
+as the session principal, so the authorization matrix and the principal's own-mission scope decide. A
+plan proposal inside the autonomy policy is confirmed, outside it waits for a person; no Brain tool
+records a verdict, closes a mission, approves an effect or confirms beyond the policy.
+_Avoid_: agent API, MCP tool (that is another channel)
 
 **Session principal**:
 The machine principal (kind agent) of one team member of a mission, bound to its workspace

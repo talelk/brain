@@ -58,6 +58,9 @@ import { IntegrationService, integrationCommands } from "../modules/integrations
 import { ConfigurationDraftService } from "../modules/configuration/index";
 import { CapitalizationService, ToolTests, capitalizationCommands } from "../modules/capabilities/index";
 
+/** Reads that answer a whole history: a mission's timeline (its newest entries) and a run's tool calls. They return up to this many unless the caller asks for fewer. */
+const WHOLE_LIST: Readonly<Record<string, number>> = { "missions.timeline": 300, "run.toolCalls": 200 };
+
 export class Brain {
   readonly runtime: RuntimeConfig;
   readonly store: Store;
@@ -968,7 +971,7 @@ export class Brain {
     // ≤ 500×4); the generic clamp would silently cap stream.tail at 100.
     const limit = q.queryType.startsWith("stream.")
       ? Math.max(Math.floor(Number(q.limit ?? 100)) || 100, 1)
-      : Math.min(Math.max(q.limit ?? 50, 1), 100);
+      : Math.min(Math.max(q.limit ?? WHOLE_LIST[q.queryType] ?? 50, 1), WHOLE_LIST[q.queryType] ?? 100);
     const workspaces = (): string[] => (q.workspaceId ? [q.workspaceId] : orgWorkspaces(s, actor));
     const requireRead = (): void => { if (q.workspaceId) requireWorkspaceRead(s, actor, q.workspaceId); };
     switch (q.queryType) {
@@ -1056,7 +1059,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.jobProtocol.automations.query(actor, q.queryType, q.workspaceId, q.resourceId, limit, (raw as { search?: string }).search));
       }
-      case "missions.list": case "missions.get": case "missions.forSubject": case "missions.brief": case "handoffs.forWorkItem": case "missionBundles.latest": case "missionOutputs.list": case "missionOutputs.get": case "missionMessages.list": case "workItemComments.list": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": case "usage.run": case "usage.task": case "usage.mission": case "usage.workspace": case "plans.estimate": case "evalCases.list": case "lessons.list": {
+      case "missions.list": case "missions.get": case "missions.timeline": case "missions.forSubject": case "missions.brief": case "handoffs.forWorkItem": case "missionBundles.latest": case "missionOutputs.list": case "missionOutputs.get": case "missionMessages.list": case "workItemComments.list": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": case "usage.run": case "usage.task": case "usage.mission": case "usage.workspace": case "plans.estimate": case "evalCases.list": case "lessons.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.missions.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }
@@ -1114,7 +1117,7 @@ export class Brain {
         return this.envelope(q.queryType, attentionQuery(s, actor, q.queryType, orgWorkspaces(s, actor), q.workspaceId, q.resourceId));
       case "bridge":
         return this.envelope(q.queryType, bridge(s, actor, orgWorkspaces(s, actor)));
-      case "tools.list": case "tools.calls": {
+      case "tools.list": case "tools.calls": case "run.toolCalls": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.capitalization.query(actor, q.queryType, q.workspaceId, limit, q.resourceId));
       }

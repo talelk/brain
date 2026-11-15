@@ -83,6 +83,18 @@ function parameterShape(value: unknown): Record<string, string> {
 
 export interface CapitalizationPorts { readonly memory: MemoryStore; readonly reuse: ReuseService }
 
+const LIVE_ATTEMPT = new Set(["offered", "running", "uploading", "cancelling", "verifying"]);
+const CALL_COLUMNS = `SELECT c.attempt_id AS attemptId, c.proposal_id AS proposalId, c.run_id AS runId, c.tool_id AS toolId, c.proposed_at AS proposedAt, c.finished_at AS finishedAt,
+  c.failed AS failed, c.failure_message AS message, a.state AS attemptState`;
+interface CallRow { attemptId: string; proposalId: string; runId: string; toolId: string; proposedAt: string; finishedAt: string | null; failed: number; message: string | null; attemptState: string | null }
+
+/** What became of one recorded tool call, in the words the tool catalog and the run page share. */
+function describeToolCall(row: CallRow): { proposalId: string; attemptId: string; proposedAt: string; finishedAt?: string; outcome: "failed" | "succeeded" | "running" | "no-result"; message?: string; diagnosis?: ReturnType<typeof diagnoseToolFailure> } {
+  const outcome = row.failed === 1 ? "failed" : row.finishedAt ? "succeeded" : row.attemptState && LIVE_ATTEMPT.has(row.attemptState) ? "running" : "no-result";
+  const diagnosis = outcome === "failed" || outcome === "no-result" ? diagnoseToolFailure(row.message) : undefined;
+  return { proposalId: row.proposalId, attemptId: row.attemptId, proposedAt: row.proposedAt, ...(row.finishedAt ? { finishedAt: row.finishedAt } : {}), outcome, ...(row.message ? { message: row.message } : {}), ...(diagnosis ? { diagnosis } : {}) };
+}
+
 export class CapitalizationService {
   constructor(private readonly store: Store, private readonly ports: CapitalizationPorts) {}
 
@@ -707,26 +719,35 @@ export class CapitalizationService {
    */
   private toolCalls(organizationId: string, workspaceId: string, toolId: string, limit: number): { toolId: string; items: unknown[]; causes: unknown[] } {
     if (!/^[A-Za-z][A-Za-z0-9._-]{0,127}$/u.test(toolId)) throw new BrainDomainError("INVALID_ARGUMENT", "resourceId must be a tool id");
-    const rows = this.store.control.prepare(`SELECT c.attempt_id AS attemptId, c.proposal_id AS proposalId, c.run_id AS runId, c.proposed_at AS proposedAt, c.finished_at AS finishedAt,
-        c.failed AS failed, c.failure_message AS message, a.state AS attemptState
-      FROM tool_calls c LEFT JOIN job_attempts a ON a.id=c.attempt_id
-      WHERE c.organization_id=? AND c.workspace_id=? AND c.tool_id=? ORDER BY c.proposed_at DESC, c.rowid DESC LIMIT ?`)
-      .all(organizationId, workspaceId, toolId, limit) as Array<{ attemptId: string; proposalId: string; runId: string; proposedAt: string; finishedAt: string | null; failed: number; message: string | null; attemptState: string | null }>;
-    const live = new Set(["offered", "running", "uploading", "cancelling", "verifying"]);
+    const rows = this.store.control.prepare(`${CALL_COLUMNS} FROM tool_calls c LEFT JOIN job_attempts a ON a.id=c.attempt_id
+      WHERE c.organization_id=? AND c.workspace_id=? AND c.tool_id=? ORDER BY c.proposed_at DESC, c.rowid DESC LIMIT ?`).all(organizationId, workspaceId, toolId, limit) as CallRow[];
     const causes = new Map<string, { cause: string; headline: string; nextStep: string; count: number }>();
     const items = rows.map((row) => {
-      const outcome = row.failed === 1 ? "failed" : row.finishedAt ? "succeeded" : row.attemptState && live.has(row.attemptState) ? "running" : "no-result";
-      const diagnosis = outcome === "failed" || outcome === "no-result" ? diagnoseToolFailure(row.message) : undefined;
-      if (diagnosis) {
-        const known = causes.get(diagnosis.cause);
-        if (known) known.count++; else causes.set(diagnosis.cause, { ...diagnosis, count: 1 });
+      const call = describeToolCall(row);
+      if (call.diagnosis) {
+        const known = causes.get(call.diagnosis.cause);
+        if (known) known.count++; else causes.set(call.diagnosis.cause, { ...call.diagnosis, count: 1 });
       }
-      return {
-        proposalId: row.proposalId, attemptId: row.attemptId, runId: row.runId, proposedAt: row.proposedAt, ...(row.finishedAt ? { finishedAt: row.finishedAt } : {}),
-        outcome, ...(row.message ? { message: row.message } : {}), ...(diagnosis ? { diagnosis } : {}),
-      };
+      return { proposalId: call.proposalId, attemptId: call.attemptId, runId: row.runId, proposedAt: call.proposedAt, ...(call.finishedAt ? { finishedAt: call.finishedAt } : {}), outcome: call.outcome, ...(call.message ? { message: call.message } : {}), ...(call.diagnosis ? { diagnosis: call.diagnosis } : {}) };
     });
     return { toolId, items, causes: [...causes.values()].sort((left, right) => right.count - left.count) };
+  }
+
+  /**
+   * Every tool call one run made, in the order it made them: which tool, what became of it and, for a failure, the plain-words diagnosis.
+   * A call that proposed an effect names its approval, so a person can follow it from the run to the decision. Read from the same rows
+   * the tool catalog counts; nothing is stored for this view.
+   */
+  private runToolCalls(organizationId: string, workspaceId: string, runId: string, limit: number): { runId: string; items: unknown[]; truncated: boolean } {
+    if (!this.store.control.prepare("SELECT 1 FROM jobs WHERE organization_id=? AND workspace_id=? AND workflow_run_id=? LIMIT 1").get(organizationId, workspaceId, runId)) throw new BrainDomainError("NOT_FOUND", "run not found");
+    const rows = this.store.control.prepare(`${CALL_COLUMNS}, e.approval_id AS approvalId, a.attempt_no AS attemptNo FROM tool_calls c LEFT JOIN job_attempts a ON a.id=c.attempt_id
+      LEFT JOIN effect_calls e ON e.attempt_id=c.attempt_id AND e.proposal_id=c.proposal_id
+      WHERE c.organization_id=? AND c.workspace_id=? AND c.run_id=? ORDER BY c.proposed_at, c.rowid LIMIT ?`).all(organizationId, workspaceId, runId, limit + 1) as Array<CallRow & { approvalId: string | null; attemptNo: number | null }>;
+    const items = rows.slice(0, limit).map((row) => {
+      const call = describeToolCall(row);
+      return { ...call, toolId: row.toolId, ...(row.attemptNo ? { attemptNumber: row.attemptNo } : {}), ...(row.approvalId ? { approvalId: row.approvalId } : {}) };
+    });
+    return { runId, items, truncated: rows.length > limit };
   }
 
   query(actor: ActorContext, queryType: string, workspaceId: string, limit: number, resourceId?: string): JsonValue {
@@ -752,6 +773,7 @@ export class CapitalizationService {
         tools: this.activeTools(actor.organizationId, workspaceId).length,
       } as unknown as JsonValue;
     }
+    if (queryType === "run.toolCalls") return this.runToolCalls(actor.organizationId, workspaceId, String(resourceId ?? ""), limit) as unknown as JsonValue;
     if (queryType === "tools.calls") return this.toolCalls(actor.organizationId, workspaceId, String(resourceId ?? ""), Math.min(limit, 100)) as unknown as JsonValue;
     if (queryType === "tools.list") return { items: this.activeTools(actor.organizationId, workspaceId).slice(0, limit) } as unknown as JsonValue;
     if (queryType === "knowledgeAssets.list") {
