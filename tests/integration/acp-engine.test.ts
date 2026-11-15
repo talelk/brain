@@ -33,7 +33,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-const spec = (): EngineSessionSpec => ({ ...(JSON.parse(readFileSync("examples/v1/transport/EngineSessionSpec.json", "utf8")) as EngineSessionSpec), allowedTools: [BROKER] });
+const spec = (over: Partial<EngineSessionSpec> = {}): EngineSessionSpec => ({ ...(JSON.parse(readFileSync("examples/v1/transport/EngineSessionSpec.json", "utf8")) as EngineSessionSpec), allowedTools: [BROKER], ...over });
 interface AgentLogEntry {
   event: string;
   clientCapabilities?: unknown;
@@ -56,19 +56,19 @@ const permission = (name: string | undefined, kind: string, extra: Record<string
   },
 });
 
-async function play(engine: AcpEngine, steps: unknown[]): Promise<EngineEvent[]> {
+/** The attempt as the runner runs it: start (which prompts the agent with the steps as its task) and read the event stream to its end. */
+async function play(engine: AcpEngine, steps: unknown[], over: Partial<EngineSessionSpec> = {}): Promise<EngineEvent[]> {
   const controller = new AbortController();
-  const { sessionId } = await engine.start(spec(), controller.signal);
-  await engine.prompt(JSON.stringify(steps));
+  const { sessionId } = await engine.start(spec({ task: JSON.stringify(steps), ...over }), controller.signal);
   const events: EngineEvent[] = [];
   for await (const event of engine.events(sessionId, 0, controller.signal)) events.push(event);
   return events;
 }
 
 describe("an ACP agent has no way to the host except broker tools (ADR 0035)", () => {
-  it("declares no client capabilities and no MCP servers", async () => {
+  it("declares no client capabilities, and no MCP servers for a job without tools", async () => {
     const engine = new AcpEngine({ toolBindings: [BINDING] });
-    try { await play(engine, []); } finally { await engine.dispose(); }
+    try { await play(engine, [], { allowedTools: [] }); } finally { await engine.dispose(); }
     const log = agentLog();
     expect(log.find((entry) => entry.event === "initialize")?.clientCapabilities).toEqual({ fs: { readTextFile: false, writeTextFile: false }, terminal: false });
     expect(log.find((entry) => entry.event === "session/new")?.mcpServers).toEqual([]);
@@ -142,15 +142,11 @@ describe("an ACP agent has no way to the host except broker tools (ADR 0035)", (
   it("stops an agent that runs a native tool, with or without having asked, and fails the session", async () => {
     for (const asked of [true, false]) {
       const engine = new AcpEngine({ toolBindings: [BINDING] });
-      const controller = new AbortController();
-      const { sessionId } = await engine.start(spec(), controller.signal);
       const call = { toolCallId: "call-bash", name: "bash", kind: "execute", title: "ls /" };
       // A call that was only attempted and refused is not a violation; one that runs is.
       const steps = [...(asked ? [permission("bash", "execute")] : []), { update: { sessionUpdate: "tool_call", ...call, status: "pending" } }, { update: { sessionUpdate: "tool_call_update", toolCallId: "call-bash", status: "in_progress" } }, { text: "never reached" }];
-      await expect(engine.prompt(JSON.stringify(steps))).rejects.toThrow("ran a native tool (bash, execute)");
-      const events: EngineEvent[] = [];
-      for await (const event of engine.events(sessionId, 0, controller.signal)) events.push(event);
-      expect(events.find((event) => event.kind === "error")).toMatchObject({ payload: { error: { code: "POLICY_DENIED", retryable: false }, retryClass: "never" } });
+      const events = await play(engine, steps);
+      expect(events.find((event) => event.kind === "error")).toMatchObject({ payload: { error: { code: "POLICY_DENIED", retryable: false, detail: expect.stringContaining("ran a native tool (bash, execute)") }, retryClass: "never" } });
       expect(events.at(-1)).toMatchObject({ kind: "session.stopped", payload: { reason: "error", terminationConfirmed: true } });
       expect(events.some((event) => event.kind === "text" && event.payload.channel === "assistant")).toBe(false);
       await engine.dispose();
@@ -176,9 +172,8 @@ describe("an ACP agent has no way to the host except broker tools (ADR 0035)", (
 
   it("stops an agent that reports a broker tool as a command", async () => {
     const engine = new AcpEngine({ toolBindings: [BINDING] });
-    await engine.start(spec(), new AbortController().signal);
-    const steps = [{ update: { sessionUpdate: "tool_call", toolCallId: "spoof", name: BROKER_NAME, kind: "execute", status: "in_progress" } }];
-    await expect(engine.prompt(JSON.stringify(steps))).rejects.toThrow("ran a native tool");
+    const events = await play(engine, [{ update: { sessionUpdate: "tool_call", toolCallId: "spoof", name: BROKER_NAME, kind: "execute", status: "in_progress" } }]);
+    expect(events.find((event) => event.kind === "error")).toMatchObject({ payload: { error: { code: "POLICY_DENIED" } } });
     await engine.dispose();
   });
 });

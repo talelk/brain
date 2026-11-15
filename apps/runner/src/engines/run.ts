@@ -8,6 +8,7 @@ import { quotaRetryAfterMs, QUOTA_TEXT } from "./failure-detail";
 import { ClaudeEngine } from "./claude";
 import { AcpEngine } from "./acp";
 import { OpenCodeEngine } from "./opencode";
+import { CodexEngine } from "./codex";
 
 export function selectEngine(configured: string | undefined, toolBindings: readonly EngineToolBinding[] = [], route?: HostedRoute): EngineAdapter | undefined {
   switch (configured) {
@@ -17,6 +18,7 @@ export function selectEngine(configured: string | undefined, toolBindings: reado
     case "claude": return route?.gatewayToken ? undefined : new ClaudeEngine(toolBindings, route);
     case "acp": return new AcpEngine({ toolBindings });
     case "opencode": return new OpenCodeEngine(toolBindings);
+    case "codex": return new CodexEngine(toolBindings);
     default: return undefined;
   }
 }
