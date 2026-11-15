@@ -1761,5 +1761,6 @@ export const ar: Catalog = {
   "adm.git-provider.hint": "يفتح Brain طلبات الدمج عبر واجهة برمجة هذا المزوّد ولا يخمّنه من العنوان.",
   "adm.git-provider.required": "اختر مزوّد خادم Git هذا.",
   "adm.git-provider.first-step": "اختر ربط مستودع بعيد، ثم حدّد مزوّد Git، ثم أدخل عنوان المستودع (ورمزًا إن كان خاصًا).",
+  "nav.item.live": "مباشر",
   // @@END
 };

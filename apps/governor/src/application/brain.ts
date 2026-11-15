@@ -50,7 +50,7 @@ import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualityBreakdown, qualitySummary } from "../modules/stream/index";
 import { connectorsFromEnv, handleInbound, smtpTarget, type Connectors } from "../modules/operations/index";
-import { alertBadProbes, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
+import { alertBadProbes, approvalLink, platformAlertLink, securitySettingsLink, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
@@ -259,7 +259,7 @@ export class Brain {
     await checkHostedModels(this.store, fetchImpl);
     for (const alert of alertBadProbes(this.store)) {
       const channels = channelsFor(this.store, alert.organizationId, alert.ownerId);
-      if (channels.push || channels.webhook || channels.email) void this.deliver(alert.organizationId, alert.ownerId, { title: alert.title, body: alert.detail, url: `/w/${alert.workspaceId}/health`, kind: "platform" }, channels).catch(() => undefined);
+      if (channels.push || channels.webhook || channels.email) void this.deliver(alert.organizationId, alert.ownerId, { title: alert.title, body: alert.detail, url: platformAlertLink(), kind: "platform" }, channels).catch(() => undefined);
     }
   }
 
@@ -472,7 +472,7 @@ export class Brain {
   async sendTestEmail(actor: ActorContext): Promise<{ sent: boolean; reason: string }> {
     if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "a test email goes to a person");
     if (!smtpTarget()) throw new BrainDomainError("CONFLICT", "Email is not configured on this server (BRAIN_NOTIFY_SMTP_URL and BRAIN_NOTIFY_FROM)");
-    const sent = await sendEmail(this.store, actor.organizationId, actor.actorId, { kind: "test", url: "/settings?tab=security" });
+    const sent = await sendEmail(this.store, actor.organizationId, actor.actorId, { kind: "test", url: securitySettingsLink() });
     const last = this.store.control.prepare("SELECT reason FROM email_deliveries WHERE organization_id=? AND principal_id=? ORDER BY id DESC LIMIT 1").get(actor.organizationId, actor.actorId) as { reason: string } | undefined;
     return { sent, reason: sent ? "" : last?.reason ?? "not sent" };
   }
@@ -496,7 +496,7 @@ export class Brain {
     ).all(input.workspaceId, input.organizationId) as Array<{ principal_id: string }>;
     // Approvals bypass the per-mission throttle and the summary; a person's channel switches still apply (ADR 0011). A message is a link: the decision happens after sign-in and step-up.
     // An approval of one exact call links straight to that decision, so it can be answered from a phone (ADR 0024).
-    const url = input.approvalId ? `/approvals/${input.approvalId}` : "/approvals";
+    const url = approvalLink(input.approvalId);
     const body = input.summary ? `Waiting for your decision: ${input.summary}` : "A workflow gate is waiting for your review.";
     for (const a of approvers) {
       void this.deliver(input.organizationId, a.principal_id, { title: "Approval requested", body, url, kind: "approval" }, channelsFor(this.store, input.organizationId, a.principal_id)).catch(() => undefined);

@@ -41,14 +41,14 @@ self.addEventListener("fetch", (event) => {
 // Push (T45): notifications are attention hints only — opening one lands on
 // the approvals inbox, where the durable, authorized decision flow runs.
 self.addEventListener("push", (event) => {
-  let data = { title: "Keyrus Brain", body: "Something needs your attention.", url: "/#/approvals" };
+  let data = { title: "Keyrus Brain", body: "Something needs your attention.", url: "/approvals" };
   try { if (event.data) data = { ...data, ...event.data.json() }; } catch { /* keep defaults */ }
   event.waitUntil(self.registration.showNotification(data.title, { body: data.body, data: { url: data.url } }));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url ?? "/#/approvals";
+  const url = event.notification.data?.url ?? "/approvals";
   event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
     for (const client of clients) {
       if ("focus" in client) { client.navigate(url); return client.focus(); }

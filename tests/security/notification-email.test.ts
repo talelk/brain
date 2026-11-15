@@ -18,6 +18,8 @@ describe("email never carries a secret, a typed title or a credential-bearing li
     const link = safeMailLink("/missions/m1/outputs?w=ws-1&result=r1&token=SECRET123&key=abc&sig=zzz&session=s#access_token=SECRET456", "https://brain.example.test");
     expect(link).toBe("https://brain.example.test/missions/m1/outputs?w=ws-1&result=r1");
     expect(safeMailLink("/live?w=ws%0d%0aBcc:evil@example.test", "https://brain.example.test")).toBe("https://brain.example.test/live");
+    // A settings tab is a page name, not a credential: the Health link of a platform alert keeps it, so the mail lands on that tab.
+    expect(safeMailLink("/settings?tab=health&token=SECRET123", "https://brain.example.test")).toBe("https://brain.example.test/settings?tab=health");
     // Even a hostile absolute URL is resolved against this server, never followed elsewhere.
     expect(safeMailLink("https://evil.example.test/steal?token=x", "https://brain.example.test")).toMatch(/^https:\/\/brain\.example\.test\/steal$/u);
   });

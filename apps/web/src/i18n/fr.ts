@@ -1699,5 +1699,6 @@ export const fr: Catalog = {
   "adm.git-provider.hint": "Brain ouvre les demandes de fusion via l'API de ce fournisseur. Il ne le devine pas d'après l'adresse.",
   "adm.git-provider.required": "Choisissez le fournisseur de cet hôte Git.",
   "adm.git-provider.first-step": "Choisissez Connecter un dépôt distant, indiquez le fournisseur Git, puis l'URL du dépôt (et un jeton s'il est privé).",
+  "nav.item.live": "En direct",
   // @@END
 };

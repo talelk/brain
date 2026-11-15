@@ -69,7 +69,9 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await openNav();
   const nav = page.getByRole("navigation", { name: "Brain navigation" });
   for (const place of ["Today", "Missions", "Library", "Administration"]) await expect(nav.getByRole("button", { name: place, exact: true })).toBeVisible();
-  for (const view of ["Live", "Logs", "Outputs"]) await expect(nav.getByRole("button", { name: view, exact: true })).toHaveCount(0);
+  for (const view of ["Logs", "Outputs"]) await expect(nav.getByRole("button", { name: view, exact: true })).toHaveCount(0);
+  // Live is a view of Missions: it sits in the Missions menu (which Approvals belongs to), not among the places.
+  await expect(nav.getByRole("button", { name: "Live", exact: true })).toHaveCount(1);
 
   // Live is a view of what is running: the console still opens, and says so honestly when nothing runs.
   await page.goto(`${governor.url}/w/ws-nav/live`);

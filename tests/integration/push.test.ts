@@ -74,7 +74,7 @@ describe("web push delivery (T45)", () => {
     expect(stored.encrypted_endpoint_json).not.toContain(endpoint);
     expect(stored.encrypted_endpoint_json).not.toContain(authSecret.toString("base64url"));
 
-    const delivered = await brain.notifyPrincipal(w.org, "owner-1", { title: "Approval requested", body: "Gate waiting", url: "/#/approvals" });
+    const delivered = await brain.notifyPrincipal(w.org, "owner-1", { title: "Approval requested", body: "Gate waiting", url: "/approvals" });
     expect(delivered).toBe(1);
     expect(captured).toHaveLength(1);
     const plain = decryptPush(captured[0]!.body, receiver, authSecret);
