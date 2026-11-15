@@ -53,7 +53,6 @@ export interface EngineAdapter {
   toolResult?(sessionId: string, result: EngineToolExecutionResult): Promise<void>;
   cancel(sessionId: string, reason: string): Promise<{ terminationConfirmed: boolean }>;
   checkpoint(sessionId: string): Promise<Checkpoint>;
-  resume?(sessionId: string, checkpoint: ArtifactRef): Promise<void>;
   steer?(sessionId: string, messageId: string, message: string): Promise<void>;
   dispose(sessionId: string): Promise<void>;
 }

@@ -24,9 +24,9 @@ type ConsoleScope = Accessor<{ organizationId: string; workspaceId: string; gene
  * Steer → session.steer; Stop → session.stop; Attach context →
  * mission.message.send for the session's work item. A tool call's result and
  * approval linkage open on its card in the transcript. After an interruption the
- * chooser names exactly one recovery operation (reconnect / continue native /
- * resume from verified checkpoint / restart / reconcile) — they are not
- * interchangeable, and the UI enables only the commands that exist.
+ * chooser names exactly one recovery operation (reconnect / resume from
+ * checkpoint / restart / reconcile) — they are not interchangeable, and the
+ * UI enables only the commands that exist.
  */
 
 export function ConsoleToolbar(props: {
@@ -145,10 +145,15 @@ export function ConsoleToolbar(props: {
   </div>;
 }
 
-/** Exactly one suggested recovery operation, derived from server continuation facts. */
+/**
+ * Exactly one suggested recovery operation, derived from server continuation facts. Resume from checkpoint is offered only when the Governor says
+ * it can work (the engine can resume and the runner holding the checkpoint is online); a checkpoint that cannot be used is explained, never offered.
+ */
 export function interruptionOperation(continuation: SessionContinuation): {
-  operation: "continue-native" | "resume-checkpoint" | "restart" | "reconcile" | "none";
+  operation: "resume-checkpoint" | "restart" | "reconcile" | "none";
   label: string; description: string; command: string;
+  /** Why a checkpoint exists that cannot be resumed, in the Governor's plain words. */
+  unavailable?: string;
 } {
   if (continuation.reconcileRequired) {
     return {
@@ -157,31 +162,27 @@ export function interruptionOperation(continuation: SessionContinuation): {
       description: "The run ended with an unknown outcome and unresolved effects. Reconcile against the target system before any retry — resume and restart are intentionally unavailable until this is settled.",
     };
   }
-  if (continuation.continueNative && continuation.resumable) {
+  if (continuation.resume.possible) {
     return {
-      operation: "continue-native", command: "session.create (resumeFromSessionId)",
-      label: "Continue the native session",
-      description: "The engine advertises native resume and a verified checkpoint exists. Brain continues the same session under the harness and pinned version that recorded the checkpoint.",
+      operation: "resume-checkpoint", command: "session.resume",
+      label: t("console.resume.action"),
+      description: t("console.resume.description", { runner: continuation.resume.runnerId ?? "" }),
     };
   }
-  if (continuation.resumable) {
-    return {
-      operation: "resume-checkpoint", command: "session.create (resumeFromSessionId)",
-      label: "Resume from the verified checkpoint as a new attempt",
-      description: "A verified checkpoint exists and no live attempt holds the session. Brain resumes a new attempt from it — it does not reconnect to the old process.",
-    };
-  }
+  const unavailable = continuation.resume.reason;
   if (continuation.restartable) {
     return {
       operation: "restart", command: "workflow.dispatch",
       label: "Restart the task as a new dispatch",
       description: "No checkpoint applies. Brain dispatches the task again as a new run through the Start work flow, which validates the workflow input schema.",
+      ...(unavailable ? { unavailable } : {}),
     };
   }
   return {
     operation: "none", command: "—",
     label: "No recovery operation applies",
     description: "The session is closed with no verified checkpoint, its work item cannot be re-dispatched, and no unknown effect awaits reconciliation.",
+    ...(unavailable ? { unavailable } : {}),
   };
 }
 
@@ -204,7 +205,7 @@ export function InterruptionChooser(props: {
   const [feedback, setFeedback] = createSignal("");
   const suggested = () => interruptionOperation(props.session.continuation);
   const actionable = () => props.canOperate && suggested().operation !== "none"
-    && (suggested().operation !== "continue-native" && suggested().operation !== "resume-checkpoint" || !!props.session.workItemId);
+    && (suggested().operation !== "resume-checkpoint" || !!props.session.workItemId);
 
   async function run(action: () => Promise<void>): Promise<void> {
     setBusy(true);
@@ -235,6 +236,7 @@ export function InterruptionChooser(props: {
             }}>{suggested().label}</Button>
         </Show>
       </div>
+      <Show when={suggested().unavailable}><p class="mt-1 text-caption text-ink-gray-7" data-testid="resume-unavailable">{t("console.resume.unavailable", { reason: suggested().unavailable ?? "" })}</p></Show>
       <Show when={!decide()}><p class="mt-1 text-caption text-ink-gray-6">{suggested().description}</p></Show>
       <Show when={suggested().operation === "restart" && !decide()}><p class="mt-1 text-caption text-ink-gray-6">This runs the task again exactly as it is. If a reviewer rejected the result, change the task or the way of working it runs with in the plan first (Decide on the task).</p></Show>
       <Show when={!actionable() && suggested().operation !== "none"}>
@@ -313,6 +315,13 @@ export function ConsoleInspection(props: {
         <dt class="text-ink-gray-6">State</dt><dd class="min-w-0"><StatusBadge status={props.session?.state ?? "unknown"} /></dd>
         <dt class="text-ink-gray-6">Engine</dt><dd class="min-w-0 break-words text-ink-gray-9">{props.session?.engine.id && props.session.engine.id !== "unknown" ? `${props.session.engine.id} ${props.session.engine.version ?? ""}`.trim() : "Not reported"}</dd>
         <dt class="text-ink-gray-6">Turn limit</dt><dd class="min-w-0 text-ink-gray-9">{props.session?.budget.maxTurns ?? "—"} turns</dd>
+        <Show when={props.session?.resumedFrom}>{(from) => <>
+          <dt class="text-ink-gray-6">{t("console.resume.startedFrom")}</dt>
+          <dd class="min-w-0 break-words text-ink-gray-9" data-testid="resumed-from">
+            {t("console.resume.startedFromBody", { digest: from().checkpointDigest.slice(0, 19), runner: from().runnerId })}{" "}
+            <CorrelationLink target={{ kind: "session", sessionId: from().sessionId }} label={t("console.resume.openEarlier")} icon="lucide-square-terminal" class="max-w-full" />
+          </dd>
+        </>}</Show>
         <Show when={props.session?.workItemId}><dt class="text-ink-gray-6">Work item</dt><dd class="min-w-0 break-all"><WorkItemLink workspaceId={props.workspaceId} workItemId={props.session!.workItemId!} class="text-ink-blue-link hover:underline focus-visible:focus-ring">{props.session!.task || "Open the task"}</WorkItemLink></dd></Show>
         <Show when={props.session?.jobId}><dt class="text-ink-gray-6">Run</dt><dd class="min-w-0"><CorrelationLink target={{ kind: "job", jobId: props.session!.jobId! }} label="Open this run" icon="lucide-workflow" class="max-w-full" /></dd></Show>
         <dt class="text-ink-gray-6">Updated</dt><dd class="min-w-0 text-ink-gray-9"><RelativeTime value={props.session?.updatedAt} /></dd>

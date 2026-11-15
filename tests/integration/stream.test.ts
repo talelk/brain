@@ -446,16 +446,13 @@ describe("unified execution stream", () => {
       const envelopeOf = async (query: Record<string, unknown>) => (await w.brain.executeQuery(w.owner, { queryType: "session.get", workspaceId: w.workspaceId, resourceId: "ses-stream-10", ...query })) as unknown as { snapshot: Record<string, unknown> };
       const snapshot = (await envelopeOf({})) as unknown as { snapshot: {
         engine: { features: string[] }; streamCursor: number;
-        continuation: { reconnectable: boolean; resumable: boolean; continueNative: boolean; restartable: boolean; reconcileRequired: boolean };
+        continuation: { reconnectable: boolean; resume: { possible: boolean; reason?: string }; restartable: boolean; reconcileRequired: boolean };
       } };
       expect(snapshot.snapshot.engine.features).toEqual(["sessions", "steer"]);
       expect(snapshot.snapshot.continuation.reconnectable).toBe(true);
-      expect(snapshot.snapshot.continuation.continueNative).toBe(false);
+      // Nothing was checkpointed, so there is nothing to resume and nothing to explain.
+      expect(snapshot.snapshot.continuation.resume).toEqual({ possible: false });
       expect(snapshot.snapshot.streamCursor).toBeGreaterThan(0);
-      // resume advertisement flips the continue-native fact.
-      ws.prepare("UPDATE sessions SET engine_features='[\"sessions\",\"steer\",\"resume\"]' WHERE id='ses-stream-10'").run();
-      const after = (await envelopeOf({})) as unknown as { snapshot: { continuation: { continueNative: boolean } } };
-      expect(after.snapshot.continuation.continueNative).toBe(true);
       // Job snapshot names its bound session server-side.
       const job = (await w.brain.executeQuery(w.owner, { queryType: "job.get", resourceId: "job-stream-10" })) as unknown as { snapshot: { sessionId?: string } };
       expect(job.snapshot.sessionId).toBe("ses-stream-10");

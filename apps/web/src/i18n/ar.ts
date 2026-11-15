@@ -2071,5 +2071,12 @@ export const ar: Catalog = {
   "schedules.subject.plan-card-off": "تنتظر موافقتك كل مرة (التأكيد التلقائي متوقف)",
   "schedules.subject.run-now-note": "التشغيل الآن غير متاح: لا يبدأ المحفّز إلا عند وصول تذكرة أو حادثة جديدة.",
   "schedules.subject.review": "{title} · يبدأ الخطة الجاهزة {play}: {when}",
+  "console.resume.action": "الاستئناف من نقطة الحفظ",
+  "console.resume.description": "يبدأ Brain جلسة جديدة على {runner}، المنفّذ الذي يحتفظ بنقطة الحفظ. تواصل الجلسة المحادثة المحفوظة بدلاً من إعادة المهمة من البداية.",
+  "console.resume.unavailable": "حفظت هذه الجلسة نقطة حفظ. {reason} يمكنك بدلاً من ذلك بدء المهمة من جديد.",
+  "console.resume.started": "جارٍ الاستئناف: تبدأ جلسة جديدة من نقطة الحفظ.",
+  "console.resume.startedFrom": "بدأت من",
+  "console.resume.startedFromBody": "نقطة الحفظ {digest}… المحفوظة على المنفّذ {runner}، من الجلسة السابقة",
+  "console.resume.openEarlier": "الجلسة السابقة",
   // @@END
 };

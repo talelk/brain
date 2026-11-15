@@ -130,6 +130,15 @@
       ]
     },
     {
+      "type": "session.resume",
+      "schema": "SessionResumeCommand",
+      "scope": "workflow:dispatch",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "session.checkpoint",
       "schema": "SessionCheckpointCommand",
       "scope": "session:steer",

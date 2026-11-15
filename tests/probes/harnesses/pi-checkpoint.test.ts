@@ -53,12 +53,9 @@ describe("pi checkpoint/resume (T24)", () => {
     await first.dispose();
 
     // Tampered digest must be refused before any session state changes.
+    await expect(new PiEngine().start({ ...spec(), resumeFrom: { ...diff, digest: `sha256:${"f".repeat(64)}` } }, new AbortController().signal)).rejects.toThrow();
     const second = new PiEngine();
-    const started = await second.start(spec(), new AbortController().signal);
-    for await (const event of second.events(started.sessionId,0,new AbortController().signal)) { if (event.kind === "session.stopped") expect(event.payload.reason).toBe("completed"); }
-    await expect(second.resume(started.sessionId, { ...diff, digest: `sha256:${"f".repeat(64)}` })).rejects.toThrow();
-    await second.resume(started.sessionId, diff);
-    await second.prompt("What was the codeword I asked you to remember? Reply with exactly the codeword and nothing else.");
+    const started = await second.start({ ...spec(), resumeFrom: diff, task: "What was the codeword I asked you to remember? Reply with exactly the codeword and nothing else." }, new AbortController().signal);
     let text = "";
     for await (const ev of second.events(started.sessionId, 0, new AbortController().signal)) {
       text += String((ev.payload as { text?: string }).text ?? "");

@@ -40,7 +40,7 @@ async function session(w: TestWorld, id: string): Promise<SessionDetail> {
 }
 
 describe("native and managed BrainSessions (T53)", () => {
-  it("resumes a checkpoint as a new managed session; messages reach the next session and its context (T53, E118)", async () => {
+  it("keeps a saved checkpoint with its session; messages reach the next session and its context (T53, E118)", async () => {
     const w = setupWorld();
     cleanup.push(() => w.brain.close());
     const item = await workItem(w, "resume");
@@ -58,22 +58,17 @@ describe("native and managed BrainSessions (T53)", () => {
     const missionId = (await workView(w)).items.find((entry) => entry.workItemId === item)!.missionId;
     const first = (await run(w, "mission.message.send", "message-1", { missionId, recipient: { kind: "mission" }, workItemId: item, body: "Verification is next." })).resourceId!;
     await run(w, "mission.message.send", "message-2", { missionId, recipient: { kind: "mission" }, workItemId: item, body: "Correction: independent verification is next.", correctionOf: first });
-    const resumedId = (await run(w, "session.create", "session-resume", { ...input, task: checkpoint.nextAction, engineId: "claude", resumeFromSessionId: parentId })).resourceId!;
-    const resumed = await session(w, resumedId);
-    expect(resumed).toEqual(expect.objectContaining({
-      mode: "managed", state: "waiting", parentSessionId: parentId, rootSessionId: parentId,
-      task: checkpoint.nextAction, workItemId: item, worktreeId: "wt-parent",
-      engine: expect.objectContaining({ id: "claude", version: "unbound" }),
-      checkpoint: expect.objectContaining({ nextAction: checkpoint.nextAction, diffDigest: checkpoint.diffDigest, briefVersion: 1 }),
-    }));
-    expect(resumed.sessionId).not.toBe(parentId);
-
-    const context = ((await w.brain.executeQuery(w.owner, { queryType: "sessions.context", workspaceId: w.workspaceId, resourceId: resumedId })) as { snapshot: SessionContext }).snapshot;
+    // Resuming is its own command (ADR 0045): a session that no run of its own produced has no run to continue, and says so.
+    await expect(run(w, "session.resume", "resume-managed", { sessionId: parentId })).rejects.toThrow(/no engine conversation|no run to continue/i);
+    // A session that starts afterwards receives the messages sent while none was working, once, with the correction in place of the original.
+    const nextId = (await run(w, "session.create", "session-next", { ...input, task: checkpoint.nextAction, worktreeId: "wt-next" })).resourceId!;
+    expect(await session(w, nextId)).toEqual(expect.objectContaining({ mode: "managed", state: "waiting", task: checkpoint.nextAction, workItemId: item }));
+    const context = ((await w.brain.executeQuery(w.owner, { queryType: "sessions.context", workspaceId: w.workspaceId, resourceId: nextId })) as { snapshot: SessionContext }).snapshot;
     expect(validate("SessionContext", context)).toEqual({ ok: true, errors: [] });
     expect(context.brief).toEqual(expect.objectContaining({ missionId, version: 1 }));
     expect(context.messages.map((entry) => [entry.body, entry.delivery])).toEqual([["Correction: independent verification is next.", "delivered-at-session-start"]]);
-    expect(context.checkpoint).toEqual(expect.objectContaining({ nextAction: checkpoint.nextAction }));
-    await expect(Promise.resolve().then(async () => await run(w, "session.create", "resume-expanded", { ...input, task: checkpoint.nextAction, resumeFromSessionId: parentId, scope: { allowedPaths: ["src", "tests", "secrets"], prohibitedPaths: [], allowedTools: ["fixture.echo"] } }))).rejects.toThrow(/cannot expand|checkpoint authority/i);
+    const saved = ((await w.brain.executeQuery(w.owner, { queryType: "sessions.context", workspaceId: w.workspaceId, resourceId: parentId })) as { snapshot: SessionContext }).snapshot;
+    expect(saved.checkpoint).toEqual(expect.objectContaining({ nextAction: checkpoint.nextAction, diffDigest: checkpoint.diffDigest, briefVersion: 1 }));
   });
 
   it("binds a managed session to its real dispatched attempt and WorkItem execution link", async () => {

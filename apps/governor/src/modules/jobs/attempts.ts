@@ -4,7 +4,7 @@ import { releaseRecord, releaseToolAllowedHosts, releaseToolPins } from "../conf
 import { workspaceEgressHosts } from "../governance/index";
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
 import { putBytes, readVerified, registerArtifact } from "../artifacts/index";
-import { endAttemptSession, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
+import { endAttemptSession, recordAttemptCheckpoint, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
 import { ensureAgentPrincipal, issueSessionCredential, revokeSessionCredentials } from "../identity/index";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
@@ -572,6 +572,8 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     }
     if (cleanup === 1) releaseReservation(s, attemptId);
     endAttemptSession(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, failed: attemptFailed });
+    // An engine that can resume leaves its saved conversation on this runner; the session records that it is the holder (ADR 0045).
+    if (body["checkpoint"] !== undefined) recordAttemptCheckpoint(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, checkpoint: body["checkpoint"] });
     revokeSessionCredentials(s, attemptId);
     for (const keyRow of s.control.prepare("SELECT resource_key FROM resource_leases WHERE attempt_id=?").all(attemptId) as Array<{ resource_key: string }>) {
       void keyRow; // unresolved guards persist until reconciled; compute release is separate

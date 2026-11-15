@@ -7,7 +7,7 @@ import { NORMAL_JOB_PRIORITY } from "../../domain/work-priority";
 import type { Db } from "../../infrastructure/persistence/open";
 import { compileWorkflowGraph, pointerGet, resolveBinding } from "../configuration/index";
 import { pinnedEvaluator } from "../evidence/index";
-import type { WorkflowEnginePort, WorkflowHost } from "./engine-port";
+import type { RunResume, WorkflowEnginePort, WorkflowHost } from "./engine-port";
 
 /**
  * Step admission: the single place that decides which steps run and what
@@ -51,6 +51,13 @@ const SETTLED: Record<string, AdmissionState> = { waiting: "waiting", running: "
 function runnerPin(ws: Db, runId: string): string | undefined {
   const row = ws.prepare("SELECT runner_id FROM run_inputs WHERE run_id=?").get(runId) as { runner_id: string | null } | undefined;
   return row?.runner_id ?? undefined;
+}
+
+/** The checkpoint this run resumes, for the step that continues it. */
+function resumeFor(ws: Db, runId: string, stepId: string): RunResume | undefined {
+  const row = ws.prepare("SELECT resume_json FROM run_inputs WHERE run_id=?").get(runId) as { resume_json: string | null } | undefined;
+  const resume = row?.resume_json ? JSON.parse(row.resume_json) as RunResume : undefined;
+  return resume?.stepId === stepId ? resume : undefined;
 }
 
 /** The job priority of the work this run serves; every job the run creates carries it. */
@@ -167,9 +174,10 @@ export function admitStep(store: Store, ports: AdmissionPorts, run: AdmissionRun
   const placement = "runsOn" in step ? (step as { runsOn: unknown }).runsOn : undefined;
   const effectClass = step.kind === "dispatch" && "effectClass" in step ? String((step as { effectClass: string }).effectClass) : "read";
   const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound } as unknown as JsonValue);
+  const resume = step.kind === "dispatch" ? resumeFor(ws, runId, stepId) : undefined;
   const jobId = ports.host.createJobForStep({
     organizationId, workspaceId, runId, stepId,
-    executionKey: `${runId}:${stepId}`, configDigest: run.configDigest, runnerId: runnerPin(ws, runId),
+    executionKey: `${runId}:${stepId}`, configDigest: run.configDigest, runnerId: resume?.runnerId ?? runnerPin(ws, runId), resume,
     placementJson: JSON.stringify(placement ?? {}),
     executionDigest, effectClass, kind: step.kind, priority: runPriority(ws, runId),
     payload: { step: step as unknown as JsonValue, input: bound as unknown as JsonValue },

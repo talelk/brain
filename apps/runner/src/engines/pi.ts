@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { sha256Digest } from "@brain/contracts";
 import type { ArtifactRef, Checkpoint, EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
@@ -264,7 +264,9 @@ export class PiEngine implements EngineAdapter {
     this.stream = new EngineEventStream();
     mkdirSync(this.sessionsDir(), { recursive: true });
     const { SessionManager } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");
-    const manager = SessionManager.create(process.cwd(), this.sessionsDir());
+    // A resumed session continues a saved conversation: forked into this worktree, never opened as the stored file itself (the checkpoint stays
+    // exactly as it was taken), and it is a new session with its own id. A checkpoint this runner does not hold is refused before anything starts.
+    const manager = spec.resumeFrom ? SessionManager.forkFrom(this.heldCheckpoint(spec.resumeFrom), process.cwd(), this.sessionsDir()) : SessionManager.create(process.cwd(), this.sessionsDir());
     const started = await this.openSession(spec, manager);
     this.push("session.started", { engine: spec.engine });
     signal.addEventListener("abort", () => { void this.cancel(this.sessionId, "execution aborted"); }, { once: true });
@@ -326,6 +328,7 @@ export class PiEngine implements EngineAdapter {
     const artifactId = `pi-checkpoint-${digest.slice(7, 23)}`;
     const dest = join(this.checkpointsDir(), `${digest.slice(7)}.jsonl`);
     if (!existsSync(dest)) copyFileSync(this.sessionFile, dest);
+    this.pruneCheckpoints(dest);
     return {
       contractVersion: "brain.checkpoint/v2", attemptId: this.spec.attemptId, sourceRevision: this.spec.sourceRevision,
       // The Pi transcript is an engine warm-start artifact, not the source diff (#29).
@@ -335,22 +338,19 @@ export class PiEngine implements EngineAdapter {
     };
   }
 
-  async resume(sessionId: string, checkpoint: ArtifactRef): Promise<void> {
-    if (!this.spec) throw Object.assign(new Error("Pi resume requires a prior session spec on this adapter"), { code: "UNSUPPORTED_CAPABILITY" });
+  /** The path of a saved conversation this runner holds, checked against the digest and size it was saved with. */
+  private heldCheckpoint(checkpoint: ArtifactRef): string {
     const path = join(this.checkpointsDir(), `${checkpoint.digest.replace(/^sha256:/u, "")}.jsonl`);
-    if (!existsSync(path)) throw Object.assign(new Error("Pi checkpoint artifact not present on this runner"), { code: "UNSUPPORTED_CAPABILITY" });
+    if (!existsSync(path)) throw Object.assign(new Error(`The checkpoint is not on this runner: Pi keeps a saved conversation on the runner that took it, and this runner has no copy of ${checkpoint.digest.slice(0, 19)}`), { code: "UNSUPPORTED_CAPABILITY" });
     const bytes = readFileSync(path);
-    const digest = sha256Digest(bytes);
-    if (digest !== checkpoint.digest || bytes.length !== checkpoint.bytes) throw Object.assign(new Error("Pi checkpoint artifact digest mismatch"), { code: "UNSUPPORTED_CAPABILITY" });
-    const { SessionManager } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");
-    await this.session?.abort();
-    // Fork the pinned transcript into this worktree: the stored artifact is never
-    // opened as a live file (#28), tools run against the current worktree (#29)
-    // and the resumed work is a new session with its own id.
-    const manager = SessionManager.forkFrom(path, process.cwd(), this.sessionsDir());
-    this.spec = { ...this.spec, task: "Resume the pinned session." };
-    await this.openSession(this.spec, manager);
-    void sessionId;
+    if (sha256Digest(bytes) !== checkpoint.digest || bytes.length !== checkpoint.bytes) throw Object.assign(new Error(`The saved conversation ${checkpoint.digest.slice(0, 19)} on this runner does not match the checkpoint, so it is not used`), { code: "UNSUPPORTED_CAPABILITY" });
+    return path;
+  }
+
+  /** Only the newest saved conversations are kept: each is a whole transcript, and one is taken for every attempt that did not finish. */
+  private pruneCheckpoints(keep: string, keepNewest = 50): void {
+    const files = readdirSync(this.checkpointsDir()).filter((name) => name.endsWith(".jsonl") && join(this.checkpointsDir(), name) !== keep).map((name) => ({ name, at: statSync(join(this.checkpointsDir(), name)).mtimeMs })).sort((a, b) => b.at - a.at);
+    for (const old of files.slice(keepNewest - 1)) rmSync(join(this.checkpointsDir(), old.name), { force: true });
   }
 
   async dispose(_sessionId?: string) {

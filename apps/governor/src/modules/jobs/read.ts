@@ -356,3 +356,19 @@ export function searchJobs(
   }
   return results;
 }
+
+/**
+ * Whether the runner that holds a session's saved engine state can take it back now: it must still exist, take work, answer, be healthy and
+ * still offer the engine's resume. The answer is a plain sentence a person can act on (a checkpoint stays on the runner that saved it).
+ */
+export function runnerResumeReadiness(store: Store, runnerId: string, engineId: string): { ready: true } | { ready: false; reason: string } {
+  const runner = runnerView(store, runnerId);
+  const meta = store.control.prepare("SELECT deregistered_at_ms FROM runners WHERE id=?").get(runnerId) as { deregistered_at_ms: number | null } | undefined;
+  if (!runner || !meta || meta.deregistered_at_ms !== null) return { ready: false, reason: `Runner ${runnerId} held this checkpoint and is no longer registered, so it cannot be resumed.` };
+  if (runner.adminState !== "enabled") return { ready: false, reason: `Runner ${runnerId} holds this checkpoint but is ${runner.adminState} and takes no work.` };
+  if (!runner.online) return { ready: false, reason: `Runner ${runnerId} holds this checkpoint and is offline. A checkpoint stays on the runner that saved it, so it can be resumed only when that runner is back.` };
+  if (runner.health === "unhealthy") return { ready: false, reason: `Runner ${runnerId} holds this checkpoint but reports itself unhealthy and takes no work.` };
+  const resume = runner.capabilities.get(`engine-feature:${engineId}:resume`);
+  if (!resume || !resume.verified || resume.expiresAtMs <= store.now()) return { ready: false, reason: `Runner ${runnerId} is online but its ${engineId} engine does not offer resume right now, so the checkpoint cannot be continued.` };
+  return { ready: true };
+}

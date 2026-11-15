@@ -311,10 +311,11 @@ none does); a session's own comment is only in the thread. A comment never autho
 _Avoid_: note, annotation
 
 **Checkpoint**:
-Durable state recorded by an attempt — a checkpoint commit on its branch, progress,
-consumed and produced outputs, and in-flight effects — from which a later attempt can
-resume. Resuming always creates a new attempt. A checkpoint is valid once the Governor
-has checked it; it is never "verified", which belongs to evidence.
+Durable state an attempt leaves — progress, consumed and produced outputs, in-flight
+effects and, for an engine that can resume, its saved conversation held on the runner that
+took it. Resuming starts a new session in a new run on that runner and the session shows the
+checkpoint it started from. A checkpoint is valid once the Governor has checked it; it is
+never "verified", which belongs to evidence.
 _Avoid_: snapshot, savepoint, resume point, verified checkpoint
 
 **Runner**:
