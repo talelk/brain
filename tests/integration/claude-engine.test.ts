@@ -103,12 +103,12 @@ describe("Claude SDK lifecycle mapping", () => {
 });
 
 describe("a hosted-model route is per attempt, never process-global (ADR 0023, backlog 83)", () => {
-  const route = { baseUrl: "https://models.acme.example/anthropic", model: "acme-large", inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 };
+  const route = { routeId: "acme", keyRef: "acme-main", baseUrl: "https://models.acme.example/anthropic", model: "acme-large", inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 };
   const answer = [{ type: "assistant", message: { content: [{ type: "text", text: "CHECKED" }] } }, { type: "result", subtype: "success", result: "CHECKED", total_cost_usd: 0.02, usage: { input_tokens: 10, output_tokens: 3 } }];
 
   it("sends the attempt to the routed model with the runner's hosted key, leaves the process environment alone, and counts the cost", async () => {
     const value = spec();
-    vi.stubEnv("BRAIN_HOSTED_MODEL_API_KEY", "hosted-key-for-tests");
+    vi.stubEnv("BRAIN_MODEL_KEY_ACME_MAIN", "hosted-key-for-tests");
     vi.stubEnv("BRAIN_ANTHROPIC_BASE_URL", "http://localhost:8096/claude-code/default");
     vi.stubEnv("ANTHROPIC_CUSTOM_HEADERS", "x-team-id: local-team");
     messages(answer);
@@ -128,7 +128,7 @@ describe("a hosted-model route is per attempt, never process-global (ADR 0023, b
 
   it("keeps two attempts at once apart: the routed one and a self-hosted one each get their own endpoint", async () => {
     const value = spec();
-    vi.stubEnv("BRAIN_HOSTED_MODEL_API_KEY", "hosted-key-for-tests");
+    vi.stubEnv("BRAIN_MODEL_KEY_ACME_MAIN", "hosted-key-for-tests");
     vi.stubEnv("BRAIN_ANTHROPIC_BASE_URL", "http://localhost:8096/claude-code/default");
     // The routed attempt is still running when the self-hosted one starts (and sets up the process environment for itself).
     let release!: () => void;
@@ -146,24 +146,26 @@ describe("a hosted-model route is per attempt, never process-global (ADR 0023, b
 
   it("refuses to send anything when the runner has no hosted key, or the route is not https", async () => {
     const value = spec();
-    vi.stubEnv("BRAIN_HOSTED_MODEL_API_KEY", "");
+    vi.stubEnv("BRAIN_MODEL_KEY_ACME_MAIN", "");
     messages(answer);
-    await expect(new ClaudeEngine([], route).start(value, new AbortController().signal)).rejects.toThrow(/BRAIN_HOSTED_MODEL_API_KEY/u);
-    vi.stubEnv("BRAIN_HOSTED_MODEL_API_KEY", "hosted-key-for-tests");
+    await expect(new ClaudeEngine([], route).start(value, new AbortController().signal)).rejects.toThrow(/BRAIN_MODEL_KEY_ACME_MAIN/u);
+    vi.stubEnv("BRAIN_MODEL_KEY_ACME_MAIN", "hosted-key-for-tests");
     await expect(new ClaudeEngine([], { ...route, baseUrl: "http://models.acme.example/v1" }).start(value, new AbortController().signal)).rejects.toThrow(/https/u);
     expect(sdk.query).not.toHaveBeenCalled();
   });
 
   it("is chosen by the supervisor for a check or a second attempt only, and reaches the Claude engine through selectEngine", async () => {
-    const { hostedRouteOf } = await import("../../apps/runner/src/supervisor");
+    const { hostedRoutesOf } = await import("../../apps/runner/src/supervisor");
     const { selectEngine } = await import("../../apps/runner/src/engines/run");
-    expect(hostedRouteOf({ ...route, tier: "hosted", role: "evaluator" })).toEqual(route);
-    expect(hostedRouteOf({ ...route, tier: "hosted", role: "second-attempt" })).toEqual(route);
-    expect(hostedRouteOf({ ...route, tier: "hosted", role: "planner" })).toBeUndefined();
-    expect(hostedRouteOf({ ...route, tier: "local", role: "evaluator" })).toBeUndefined();
-    expect(hostedRouteOf(undefined)).toBeUndefined();
+    expect(hostedRoutesOf([{ ...route, tier: "hosted", role: "evaluator" }])).toEqual([route]);
+    expect(hostedRoutesOf([{ ...route, tier: "hosted", role: "second-attempt" }])).toEqual([route]);
+    expect(hostedRoutesOf([{ ...route, tier: "hosted", role: "planner" }])).toEqual([]);
+    expect(hostedRoutesOf([{ ...route, tier: "local", role: "evaluator" }])).toEqual([]);
+    // A route that names no key reference, or a raw variable name, is not a route.
+    expect(hostedRoutesOf([{ ...route, keyRef: "BRAIN_AUTH_SECRET", tier: "hosted", role: "evaluator" }])).toEqual([]);
+    expect(hostedRoutesOf(undefined)).toEqual([]);
     const value = spec();
-    vi.stubEnv("BRAIN_HOSTED_MODEL_API_KEY", "hosted-key-for-tests");
+    vi.stubEnv("BRAIN_MODEL_KEY_ACME_MAIN", "hosted-key-for-tests");
     messages(answer);
     await execute(selectEngine("claude", [], route) as ClaudeEngine, value);
     expect(sdk.query.mock.calls[0]![0].options.env.ANTHROPIC_BASE_URL).toBe(route.baseUrl);

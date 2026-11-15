@@ -1,4 +1,5 @@
 import { statfsSync } from "node:fs";
+import { resolveModelKey } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { modelEndpoint } from "./local-runtime";
 import { backupStatus, restoreTestStatus } from "./backup-status";
@@ -76,17 +77,17 @@ export async function checkModelEndpoint(s: Store, fetchImpl: typeof fetch = fet
   recordProbe(s, "model", result.ok ? "healthy" : "unavailable", result.ok ? "The model endpoint answers." : `The model endpoint ${result.detail}: tasks cannot be planned, worked or checked until it is back.`);
 }
 
-/** The hosted model of every workspace that switched it on (ADR 0023): one `hosted:<workspace>` probe each; a workspace that switched it off loses its probe. */
+/** Every enabled model route of every workspace (ADR 0055): one `hosted:<workspace>/<route>` probe each; a route that is switched off or removed loses its probe. */
 export async function checkHostedModels(s: Store, fetchImpl: typeof fetch = fetch): Promise<void> {
-  const enabled = s.control.prepare("SELECT workspace_id, vendor, base_url FROM workspace_hosted_model WHERE enabled=1").all() as Array<{ workspace_id: string; vendor: string; base_url: string }>;
-  const ids = new Set(enabled.map((row) => `hosted:${row.workspace_id}`));
+  const enabled = s.control.prepare("SELECT workspace_id, route_id, vendor, key_ref, base_url FROM workspace_model_routes WHERE enabled=1").all() as Array<{ workspace_id: string; route_id: string; vendor: string; key_ref: string; base_url: string }>;
+  const ids = new Set(enabled.map((row) => `hosted:${row.workspace_id}/${row.route_id}`));
   for (const row of s.control.prepare("SELECT id FROM service_probes WHERE id LIKE 'hosted:%'").all() as Array<{ id: string }>) {
     if (!ids.has(row.id)) s.control.prepare("DELETE FROM service_probes WHERE id=?").run(row.id);
   }
   for (const row of enabled) {
-    const result = await reach(row.base_url, process.env["BRAIN_HOSTED_MODEL_API_KEY"], fetchImpl);
-    recordProbe(s, `hosted:${row.workspace_id}`, result.ok ? "healthy" : "unavailable",
-      result.ok ? `The hosted model (${row.vendor}) answers.` : `The hosted model (${row.vendor}) ${result.detail}: checks and second attempts for this workspace wait until it is back.`);
+    const result = await reach(row.base_url, resolveModelKey(row.key_ref), fetchImpl);
+    recordProbe(s, `hosted:${row.workspace_id}/${row.route_id}`, result.ok ? "healthy" : "unavailable",
+      result.ok ? `Model route ${row.route_id} (${row.vendor}) answers.` : `Model route ${row.route_id} (${row.vendor}) ${result.detail}: it is skipped, and checks and second attempts for this workspace wait when no route is left.`);
   }
 }
 
@@ -102,10 +103,10 @@ export function alertBadProbes(s: Store): Array<{ organizationId: string; worksp
     // Alert again only when it got worse (degraded to unavailable) or after it recovered.
     if (probe.alerted_status === probe.status || (probe.alerted_status === "unavailable" && probe.status === "degraded")) continue;
     const workspaces = (probe.id.startsWith("hosted:")
-      ? s.control.prepare("SELECT id, organization_id, owner_id FROM workspaces WHERE id=? AND status='active' AND owner_id IS NOT NULL").all(probe.id.slice(7))
+      ? s.control.prepare("SELECT id, organization_id, owner_id FROM workspaces WHERE id=? AND status='active' AND owner_id IS NOT NULL").all(probe.id.slice(7).split("/")[0])
       : s.control.prepare("SELECT id, organization_id, owner_id FROM workspaces WHERE status='active' AND owner_id IS NOT NULL").all()) as Array<{ id: string; organization_id: string; owner_id: string }>;
     const title = probe.id === "disk" ? "Disk is filling up" : probe.id === "model" ? "The model endpoint is down" : probe.id === "replica" ? "The database replica is behind"
-      : probe.id === "backup" ? "The last backup is stale" : probe.id === "restore-test" ? "The last restore test needs attention" : "The hosted model is down";
+      : probe.id === "backup" ? "The last backup is stale" : probe.id === "restore-test" ? "The last restore test needs attention" : "A model route is down";
     for (const workspace of workspaces) {
       const db = s.workspaceDb(workspace.id, workspace.organization_id);
       db.prepare("INSERT INTO attention_notifications(principal_id,item_id,mission_id,title,pushed,sent_at_ms) VALUES (?,?,NULL,?,0,?) ON CONFLICT(principal_id,item_id) DO UPDATE SET title=excluded.title,sent_at_ms=excluded.sent_at_ms,pushed=0")

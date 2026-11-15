@@ -6,8 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { EngineEvent, EngineSessionSpec } from "@brain/contracts";
 import { PiEngine, type HostedRoute } from "../../apps/runner/src/engines/pi";
-import { hostedMicroUsd } from "../../apps/runner/src/engines/pricing";
-import { hostedRouteOf } from "../../apps/runner/src/supervisor";
+import { hostedRoutesOf } from "../../apps/runner/src/supervisor";
 import { overAllowanceReason, wrapUpReason } from "../../apps/runner/src/engines/limits";
 
 // ADR 0023: hosted spend is real. The runner prices an attempt on the hosted route with the prices the Governor handed it (tokens x price),
@@ -46,7 +45,7 @@ async function fakeModel(usage: { prompt: number; completion: number }): Promise
 const cleanups: Array<() => void> = [];
 afterEach(() => {
   for (const clean of cleanups.splice(0)) clean();
-  delete process.env["BRAIN_PI_AGENT_DIR"]; delete process.env["BRAIN_HOSTED_MODEL_API_KEY"];
+  delete process.env["BRAIN_PI_AGENT_DIR"]; delete process.env["BRAIN_MODEL_KEY_ACME_MAIN"];
 });
 
 async function runAttempt(route: HostedRoute | undefined, usage: { prompt: number; completion: number }, attemptId: string) {
@@ -55,7 +54,7 @@ async function runAttempt(route: HostedRoute | undefined, usage: { prompt: numbe
   const dir = mkdtempSync(join(tmpdir(), "brain-hosted-spend-"));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
   process.env["BRAIN_PI_AGENT_DIR"] = dir;
-  process.env["BRAIN_HOSTED_MODEL_API_KEY"] = "hosted-key-for-tests";
+  process.env["BRAIN_MODEL_KEY_ACME_MAIN"] = "hosted-key-for-tests";
   process.env["BRAIN_LOCAL_MODEL_URL"] = model.url;
   cleanups.push(() => { delete process.env["BRAIN_LOCAL_MODEL_URL"]; });
   const engine = new PiEngine([], route ? { ...route, baseUrl: model.url } : undefined);
@@ -68,7 +67,7 @@ async function runAttempt(route: HostedRoute | undefined, usage: { prompt: numbe
 }
 
 describe("an attempt on the hosted route records what it cost (ADR 0023)", () => {
-  const route: HostedRoute = { baseUrl: "https://models.acme.example/v1", model: "acme-large", inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 };
+  const route: HostedRoute = { routeId: "acme", keyRef: "acme-main", baseUrl: "https://models.acme.example/v1", model: "acme-large", inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 };
 
   it("reports non-zero spend equal to tokens x the route's prices", async () => {
     const { usage, requests, events } = await runAttempt(route, { prompt: 20_000, completion: 3_000 }, "att-priced");
@@ -102,13 +101,11 @@ describe("hosted dollars meet the attempt's own allowance", () => {
 });
 
 describe("the route reaches the engine with its prices", () => {
-  const base = { tier: "hosted", role: "second-attempt", baseUrl: "https://models.acme.example/v1", model: "acme-large" };
-  it("is read from the job's model route, and a route without both prices is not a route", () => {
-    expect(hostedRouteOf({ ...base, inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 })).toEqual({ baseUrl: base.baseUrl, model: base.model, inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 });
-    expect(hostedRouteOf({ ...base, inputMicroUsdPerMTok: 3_000_000 })).toBeUndefined();
-    expect(hostedRouteOf({ ...base, inputMicroUsdPerMTok: 0, outputMicroUsdPerMTok: 15_000_000 })).toBeUndefined();
-  });
-  it("prices cached input like input, so a cache never makes hosted spend look smaller than it is", () => {
-    expect(hostedMicroUsd({ inputMicroUsdPerMTok: 1_000_000, outputMicroUsdPerMTok: 2_000_000 }, { input: 1_000, cacheRead: 4_000, output: 500 })).toBe(6_000);
+  const base = { tier: "hosted", role: "second-attempt", routeId: "acme", keyRef: "acme-main", baseUrl: "https://models.acme.example/v1", model: "acme-large" };
+  it("is read from the job's model routes, and a route without both prices is not a route", () => {
+    const full = { ...base, inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 };
+    expect(hostedRoutesOf([full])).toEqual([{ routeId: "acme", keyRef: "acme-main", baseUrl: base.baseUrl, model: base.model, inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 }]);
+    expect(hostedRoutesOf([{ ...base, inputMicroUsdPerMTok: 3_000_000 }])).toEqual([]);
+    expect(hostedRoutesOf([{ ...base, inputMicroUsdPerMTok: 0, outputMicroUsdPerMTok: 15_000_000 }])).toEqual([]);
   });
 });

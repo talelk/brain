@@ -1371,6 +1371,24 @@
               "minItems": 0,
               "maxItems": 8,
               "uniqueItems": true
+            },
+            "modelRoutes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+              },
+              "minItems": 0,
+              "maxItems": 8,
+              "uniqueItems": true
+            },
+            "costTier": {
+              "type": "string",
+              "enum": [
+                "low",
+                "standard",
+                "premium"
+              ]
             }
           },
           "required": [
@@ -11783,7 +11801,7 @@
           "$ref": "#/$defs/WorkspaceWayOfWorkingSetCommand"
         },
         {
-          "$ref": "#/$defs/WorkspaceHostedModelSetCommand"
+          "$ref": "#/$defs/WorkspaceModelRoutesSetCommand"
         },
         {
           "$ref": "#/$defs/PlatformDrainSetCommand"
@@ -25924,74 +25942,6 @@
       ],
       "additionalProperties": false
     },
-    "WorkspaceHostedModelSetCommand": {
-      "type": "object",
-      "properties": {
-        "contractVersion": {
-          "type": "string",
-          "const": "brain.command/v1"
-        },
-        "commandId": {
-          "$ref": "#/$defs/Id"
-        },
-        "commandType": {
-          "type": "string",
-          "const": "workspace.hostedModel.set"
-        },
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "idempotencyKey": {
-          "$ref": "#/$defs/Id"
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "vendor": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 64
-            },
-            "model": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            },
-            "baseUrl": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 512
-            },
-            "inputMicroUsdPerMTok": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 1000000000
-            },
-            "outputMicroUsdPerMTok": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 1000000000
-            }
-          },
-          "required": [
-            "enabled"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "contractVersion",
-        "commandId",
-        "commandType",
-        "workspaceId",
-        "idempotencyKey",
-        "payload"
-      ],
-      "additionalProperties": false
-    },
     "PlatformDrainSetCommand": {
       "type": "object",
       "properties": {
@@ -27367,6 +27317,112 @@
       "required": [
         "digest",
         "bundleState"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceModelRoutesSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workspace.modelRoutes.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "routes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "routeId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,31}$"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "vendor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "keyRef": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,31}$"
+                  },
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 512
+                  },
+                  "costTier": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "standard",
+                      "premium"
+                    ]
+                  },
+                  "inputMicroUsdPerMTok": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000
+                  },
+                  "outputMicroUsdPerMTok": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000
+                  }
+                },
+                "required": [
+                  "routeId",
+                  "enabled",
+                  "vendor",
+                  "keyRef",
+                  "model",
+                  "baseUrl",
+                  "costTier",
+                  "inputMicroUsdPerMTok",
+                  "outputMicroUsdPerMTok"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 8
+            }
+          },
+          "required": [
+            "routes"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
       ],
       "additionalProperties": false
     }

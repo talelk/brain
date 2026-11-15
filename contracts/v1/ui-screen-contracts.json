@@ -764,7 +764,7 @@
     "member.revoke",
     "config.activate",
     "workspace.wayOfWorking.set",
-    "workspace.hostedModel.set",
+    "workspace.modelRoutes.set",
     "workspace.effects.set",
     "workspace.autonomyCeiling.set",
     "workspace.sessions.stopAll",

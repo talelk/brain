@@ -5,7 +5,7 @@ import { fixtureStarter } from "../support/starter";
 import { ownBundleJob } from "../support/evidence";
 import { achievedMission, command as cmd, reuseSearch } from "../support/reuse";
 import { alertBadProbes, recordProbe } from "../../apps/governor/src/modules/operations/index";
-import { modelRouteFor } from "../../apps/governor/src/modules/jobs/index";
+import { modelRoutesFor } from "../../apps/governor/src/modules/jobs/index";
 import { OUTAGE_WAIT_MS } from "../../apps/governor/src/domain/failure";
 
 type World = ReturnType<typeof setupWorld>;
@@ -287,89 +287,89 @@ describe("a task stops at its token cap across all attempts (default 200k)", () 
   });
 });
 
-describe("a hosted model checks results and takes second attempts only, per workspace (ADR 0023)", () => {
-  const hosted = { enabled: true, vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 };
+describe("model routes check results and take second attempts only, per workspace (ADR 0023, ADR 0055)", () => {
+  const route = { routeId: "acme", enabled: true, vendor: "Acme", keyRef: "acme-main", model: "acme-large", baseUrl: "https://models.acme.example/v1", costTier: "standard", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 };
   const priced = { inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 };
+  const forJob = (w: World, runId: string, kind: string) => modelRoutesFor(w.brain.store, { organizationId: w.org, workspaceId: w.workspaceId, runId, kind, configDigest: DIGEST_A, agentId: undefined }).routes;
+  const set = (w: World, key: string, routes: Array<Record<string, unknown>>) => run(w, "workspace.modelRoutes.set", key, { routes });
 
   it("cannot be saved without both token prices, and the saved prices are what the settings and the route carry", async () => {
     const w = world();
-    const { inputMicroUsdPerMTok: _in, outputMicroUsdPerMTok: _out, ...unpriced } = hosted;
-    const settings = async () => ((await w.brain.executeQuery(w.owner, { queryType: "engineSettings.get", workspaceId: w.workspaceId })) as unknown as { snapshot: { hostedModel: Record<string, unknown> } }).snapshot.hostedModel;
-    await expect(run(w, "workspace.hostedModel.set", "pr-none", unpriced)).rejects.toThrow(/input and output token prices/);
-    await expect(run(w, "workspace.hostedModel.set", "pr-in", { ...unpriced, inputMicroUsdPerMTok: 150_000 })).rejects.toThrow(/input and output token prices/);
-    await expect(run(w, "workspace.hostedModel.set", "pr-out", { ...unpriced, outputMicroUsdPerMTok: 600_000 })).rejects.toThrow(/input and output token prices/);
-    // A hosted model that is only being described (switched off) is not saved half-priced either.
-    await expect(run(w, "workspace.hostedModel.set", "pr-off", { ...unpriced, enabled: false })).rejects.toThrow(/input and output token prices/);
-    await expect(run(w, "workspace.hostedModel.set", "pr-zero", { ...hosted, outputMicroUsdPerMTok: 0 })).rejects.toThrow();
-    expect(await settings()).toMatchObject({ enabled: false, model: "" });
-    await run(w, "workspace.hostedModel.set", "pr-ok", hosted);
-    expect(await settings()).toMatchObject({ enabled: true, ...priced });
-    expect(modelRouteFor(w.brain.store, w.org, w.workspaceId, "any-run", "eval")).toMatchObject(priced);
-    // Switching it off keeps what was saved, and switching it back on needs nothing new.
-    await run(w, "workspace.hostedModel.set", "pr-off2", { enabled: false });
-    expect(await settings()).toMatchObject({ enabled: false, ...priced });
-    await run(w, "workspace.hostedModel.set", "pr-on2", { enabled: true });
-    expect(await settings()).toMatchObject({ enabled: true, ...priced });
+    const settings = async () => ((await w.brain.executeQuery(w.owner, { queryType: "engineSettings.get", workspaceId: w.workspaceId })) as unknown as { snapshot: { modelRoutes: Array<Record<string, unknown>> } }).snapshot.modelRoutes;
+    const { inputMicroUsdPerMTok: _in, ...noInput } = route;
+    await expect(set(w, "pr-none", [noInput])).rejects.toThrow();
+    await expect(set(w, "pr-zero", [{ ...route, outputMicroUsdPerMTok: 0 }])).rejects.toThrow();
+    await expect(set(w, "pr-off", [{ ...route, enabled: false, inputMicroUsdPerMTok: 0 }])).rejects.toThrow();
+    expect(await settings()).toEqual([]);
+    await set(w, "pr-ok", [route]);
+    expect(await settings()).toMatchObject([{ routeId: "acme", enabled: true, ...priced, position: 1 }]);
+    expect(forJob(w, "any-run", "eval")).toMatchObject([priced]);
+    // Switching it off keeps it listed; no route is offered to a job.
+    await set(w, "pr-off2", [{ ...route, enabled: false }]);
+    expect(await settings()).toMatchObject([{ enabled: false, ...priced }]);
+    expect(forJob(w, "any-run", "eval")).toEqual([]);
   });
 
-  it("is off by default and cannot carry a credential", async () => {
+  it("is off by default and a route never carries a credential, only a key reference", async () => {
     const w = world();
-    const settings = async () => ((await w.brain.executeQuery(w.owner, { queryType: "engineSettings.get", workspaceId: w.workspaceId })) as unknown as { snapshot: { hostedModel: { enabled: boolean; status: string } } }).snapshot.hostedModel;
-    expect(await settings()).toMatchObject({ enabled: false, status: "off" });
-    expect(modelRouteFor(w.brain.store, w.org, w.workspaceId, "any-run", "eval")).toBeUndefined();
-    await expect(run(w, "workspace.hostedModel.set", "hm-cred", { ...hosted, baseUrl: "https://user:secret@models.acme.example/v1" })).rejects.toThrow(/without credentials/);
-    await expect(run(w, "workspace.hostedModel.set", "hm-query", { ...hosted, baseUrl: "https://models.acme.example/v1?key=abc" })).rejects.toThrow(/without credentials/);
-    await expect(run(w, "workspace.hostedModel.set", "hm-http", { ...hosted, baseUrl: "http://models.acme.example/v1" })).rejects.toThrow(/https/);
-    await expect(run(w, "workspace.hostedModel.set", "hm-incomplete", { enabled: true })).rejects.toThrow(/Choose the vendor/);
-    expect(await settings()).toMatchObject({ enabled: false });
+    const settings = async () => ((await w.brain.executeQuery(w.owner, { queryType: "engineSettings.get", workspaceId: w.workspaceId })) as unknown as { snapshot: { modelRoutes: unknown[] } }).snapshot.modelRoutes;
+    expect(await settings()).toEqual([]);
+    expect(forJob(w, "any-run", "eval")).toEqual([]);
+    await expect(set(w, "hm-cred", [{ ...route, baseUrl: "https://user:secret@models.acme.example/v1" }])).rejects.toThrow(/without credentials/);
+    await expect(set(w, "hm-query", [{ ...route, baseUrl: "https://models.acme.example/v1?key=abc" }])).rejects.toThrow(/without credentials/);
+    await expect(set(w, "hm-http", [{ ...route, baseUrl: "http://models.acme.example/v1" }])).rejects.toThrow(/https/);
+    await expect(set(w, "hm-key", [{ ...route, keyRef: "sk-live-abcdef1234567890" }])).rejects.toThrow(/short reference/);
+    await expect(set(w, "hm-env", [{ ...route, keyRef: "BRAIN_AUTH_SECRET" }])).rejects.toThrow();
+    expect(await settings()).toEqual([]);
   });
 
   it("routes the evaluator and the second attempt of a model slip only, and never carries a key", async () => {
     const w = world();
-    await run(w, "workspace.hostedModel.set", "hm-on", hosted);
+    await set(w, "hm-on", [route]);
     const id = await planned(w, "hm", [task("a")]);
     const a = item(w, id, "a");
-    expect(modelRouteFor(w.brain.store, w.org, w.workspaceId, "hm-1", "eval")).toEqual({ tier: "hosted", role: "evaluator", vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1", ...priced });
+    expect(forJob(w, "hm-1", "eval")).toEqual([{ ...route, tier: "hosted", role: "evaluator" }]);
     // Planning and non-agent kinds stay self-hosted; so does a first attempt.
     attempt(w, a.workItemId, "hm-1");
-    expect(modelRouteFor(w.brain.store, w.org, w.workspaceId, "hm-1", "dispatch")).toBeUndefined();
-    expect(modelRouteFor(w.brain.store, w.org, w.workspaceId, "hm-1", "merge")).toBeUndefined();
+    expect(forJob(w, "hm-1", "dispatch")).toEqual([]);
+    expect(forJob(w, "hm-1", "merge")).toEqual([]);
     // After a model slip the next attempt (and only an agent step) is routed.
     ws(w).prepare("UPDATE work_items SET failed_attempts=1,failure_class='model-slip' WHERE id=?").run(a.workItemId);
     attempt(w, a.workItemId, "hm-2");
-    const route = modelRouteFor(w.brain.store, w.org, w.workspaceId, "hm-2", "dispatch");
-    expect(route).toMatchObject({ tier: "hosted", role: "second-attempt" });
-    expect(JSON.stringify(route)).not.toMatch(/key|secret|token|password|authorization/i);
+    const routed = forJob(w, "hm-2", "dispatch");
+    expect(routed).toMatchObject([{ tier: "hosted", role: "second-attempt", routeId: "acme" }]);
+    expect(JSON.stringify(routed)).not.toMatch(/secret|token|password|authorization|sk-/i);
     // Another failure class is not a model slip: no hosted model for it.
     ws(w).prepare("UPDATE work_items SET failure_class='tool-outage' WHERE id=?").run(a.workItemId);
-    expect(modelRouteFor(w.brain.store, w.org, w.workspaceId, "hm-2", "dispatch")).toBeUndefined();
+    expect(forJob(w, "hm-2", "dispatch")).toEqual([]);
     // Another workspace is unaffected.
-    expect(modelRouteFor(w.brain.store, w.org, "another-workspace", "hm-2", "eval")).toBeUndefined();
+    expect(modelRoutesFor(w.brain.store, { organizationId: w.org, workspaceId: "another-workspace", runId: "hm-2", kind: "eval", configDigest: DIGEST_A, agentId: undefined }).routes).toEqual([]);
   });
 
   it("a workspace that reads production hosts stays self-hosted, in either order", async () => {
     const w = world();
     await setWayOfWorking(w, "sh-wow");
-    await expect(run(w, "workspace.hostedModel.set", "sh-on", hosted)).rejects.toThrow(/stays self-hosted/);
+    await expect(set(w, "sh-on", [route])).rejects.toThrow(/stays self-hosted/);
     const other = world();
-    await run(other, "workspace.hostedModel.set", "sh-on2", hosted);
-    await expect(setWayOfWorking(other, "sh-wow2")).rejects.toThrow(/stays self-hosted|Switch the hosted model off/);
+    await set(other, "sh-on2", [route]);
+    await expect(setWayOfWorking(other, "sh-wow2")).rejects.toThrow(/stays self-hosted|Switch its routes off/);
   });
 
-  it("Health says when the hosted model is down", async () => {
+  it("Health says when a model route is down", async () => {
     const w = world();
-    await run(w, "workspace.hostedModel.set", "hd-on", hosted);
+    await set(w, "hd-on", [route]);
     await w.brain.runEngineProbes(async () => { throw new Error("offline"); });
     const health = ((await w.brain.executeQuery(w.owner, { queryType: "platform.health" })) as unknown as { snapshot: { status: string; services: Array<{ id: string; status: string; detail: string }> } }).snapshot;
     expect(health.status).toBe("degraded");
     expect(health.services.find((entry) => entry.id === "hosted-model")).toMatchObject({ status: "unavailable" });
     expect(health.services.find((entry) => entry.id === "hosted-model")?.detail).toMatch(/wait/);
-    await run(w, "workspace.hostedModel.set", "hd-off", { enabled: false });
+    await set(w, "hd-off", []);
     await w.brain.runEngineProbes(async () => { throw new Error("offline"); });
     const after = ((await w.brain.executeQuery(w.owner, { queryType: "platform.health" })) as unknown as { snapshot: { services: Array<{ id: string }> } }).snapshot;
     expect(after.services.some((entry) => entry.id === "hosted-model")).toBe(false);
   });
 });
+
 
 describe("capitalization writes up only missions with observed evidence (ADR 0022)", () => {
   const REPORT = { summary: "Two containers are unhealthy: the proxy restarts every minute and the worker has no disk.", deliverable: "# Findings\n\nproxy: restart loop (host.exec docker ps).\nworker: disk full (host.read /srv).\n\nBoth are shown by the tool output quoted above.", criteria: [{ criterion: "Names the unhealthy containers", met: true, evidence: "tool output" }], assumptions: [] };
@@ -455,22 +455,23 @@ describe("drain mode stops new attempts and resumes", () => {
     expect(w.brain.jobProtocol.claim(runner, "req-2")).toMatchObject({ attemptId: expect.any(String) });
   });
 
-  it("holds a second attempt for a hosted model that is down, and offers it with the route once the model answers", async () => {
+  it("holds a second attempt while every model route is down, and offers it with the routes once one answers", async () => {
     const { w, runner, jobId } = await queuedJob("hosted-hold");
-    await run(w, "workspace.hostedModel.set", "hold-on", { enabled: true, vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 });
+    const acme = { routeId: "acme", enabled: true, vendor: "Acme", keyRef: "acme-main", model: "acme-large", baseUrl: "https://models.acme.example/v1", costTier: "standard", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 };
+    await run(w, "workspace.modelRoutes.set", "hold-on", { routes: [acme] });
     // The queued job belongs to a task whose first attempt failed as a model slip: this is its second attempt.
     const id = await planned(w, "hold", [task("a")]);
     const a = item(w, id, "a");
     const runId = (w.brain.store.control.prepare("SELECT workflow_run_id AS id FROM jobs WHERE id=?").get(jobId) as { id: string }).id;
     attempt(w, a.workItemId, runId);
     ws(w).prepare("UPDATE work_items SET failed_attempts=1, failure_class='model-slip' WHERE id=?").run(a.workItemId);
-    recordProbe(w.brain.store, `hosted:${w.workspaceId}`, "unavailable", "down");
+    recordProbe(w.brain.store, `hosted:${w.workspaceId}/acme`, "unavailable", "down");
     expect(w.brain.jobProtocol.claim(runner, "req-h1")).toBeNull();
-    recordProbe(w.brain.store, `hosted:${w.workspaceId}`, "healthy", "up");
+    recordProbe(w.brain.store, `hosted:${w.workspaceId}/acme`, "healthy", "up");
     expect(w.brain.jobProtocol.claim(runner, "req-h2")).toMatchObject({ attemptId: expect.any(String) });
-    // The route travels in the pinned execution payload: a place and a model, never a key.
+    // The routes travel in the pinned execution payload: a place, a model and a key reference, never a key.
     const payload = w.brain.store.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { payload_json: string };
-    expect(JSON.parse(payload.payload_json).modelRoute).toEqual({ tier: "hosted", role: "second-attempt", vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 });
+    expect(JSON.parse(payload.payload_json).modelRoutes).toEqual([{ ...acme, tier: "hosted", role: "second-attempt" }]);
     expect(payload.payload_json).not.toMatch(/api[-_]?key|authorization|secret/iu);
   });
 });
