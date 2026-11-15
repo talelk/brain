@@ -30,7 +30,7 @@
   "fileCeilingTokens": {
     "AGENTS.md": 900,
     "IMPLEMENTATION_PROMPT.md": 4300,
-    "GLOSSARY.md": 10000,
+    "GLOSSARY.md": 12500,
     "docs/implementation/23-runtime-status.md": 13800
   }
 }
