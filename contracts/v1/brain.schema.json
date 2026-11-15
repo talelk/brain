@@ -6940,6 +6940,7 @@
             "unmeetable-criterion",
             "model-slip",
             "tool-outage",
+            "quota",
             "budget",
             "unclassified"
           ]
@@ -6951,6 +6952,7 @@
             "stronger-model",
             "ask-one-question",
             "wait-and-retry",
+            "wait-for-quota",
             "park-budget",
             "retry"
           ]
@@ -15778,6 +15780,7 @@
           "enum": [
             "sandbox-image-missing",
             "sandbox-unavailable",
+            "quota",
             "model-unreachable",
             "timeout",
             "other"
@@ -23397,6 +23400,7 @@
                       "unmeetable-criterion",
                       "model-slip",
                       "tool-outage",
+                      "quota",
                       "budget",
                       "unclassified"
                     ]

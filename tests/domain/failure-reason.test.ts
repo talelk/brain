@@ -31,6 +31,9 @@ describe("failure reason", () => {
     const missing = "sandboxed execution failed: sandbox create failed 503: docker run failed: Unable to find image 'brain-sandbox-evaluator:latest' locally";
     expect(failureCode(missing)).toBe("sandbox-image-missing");
     expect(failureCode("sandbox create failed 503: Cannot connect to the Docker daemon")).toBe("sandbox-unavailable");
+    // A provider's 429 is a quota, never "the model could not be reached" (the cause the runner's "model endpoint" lead used to give it).
+    expect(failureCode("agent ended with error: quota or rate limit (retry after 30s): 429: slow down")).toBe("quota");
+    expect(failureCode("agent ended with error: model endpoint: 503 service unavailable")).toBe("model-unreachable");
     expect(failureCode("claude is unavailable or its model is unreachable")).toBe("model-unreachable");
     expect(failureCode("the step timed out after 300 seconds")).toBe("timeout");
     expect(failureCode("agent completed without output")).toBe("other");

@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "@solidjs/router";
 import { Alert, Select, TabButtons } from "@talelk/newui-molecules";
 import type { BrainSession, Handoff, Mission, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
 import { ParkedActions } from "./ParkedActions";
+import { TaskFailure } from "./TaskFailure";
 import { useApp } from "../app-context";
 import { query } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
@@ -209,6 +210,8 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
               <Button variant="ghost" iconLeft="lucide-arrow-left" onClick={() => setSelectedId("")}>{t("plan.back-to-mission-work.9a1f")}</Button>
             </div>
             <Show when={item.parked}><ParkedActions item={item} onChanged={async () => { setSelectedId(""); await items.refresh({ force: true }); }} /></Show>
+            {/* A task waiting out the provider's quota or rate limit is not parked: it says why, and that nothing is asked of the person (ADR 0033). */}
+            <Show when={item.state === "ready" && item.failureClass === "quota"}><TaskFailure item={item} /></Show>
             <div class="border-y border-outline-gray-1 py-3"><h4 class="text-base-medium">{t("plan.next-action.d816")}</h4><p class="mt-1 text-interface text-ink-gray-7">{item.nextAction}</p><Show when={item.blockedReason}><Alert theme="amber" variant="outline" title={t("plan.blocked.9961")} description={item.blockedReason} /></Show></div>
             <div><h4 class="text-base-medium">{t("plan.acceptance-criteria.133c")}</h4><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
             <Show when={item.evidenceDigest}><EvidenceList bundleDigest={item.evidenceDigest} /></Show>

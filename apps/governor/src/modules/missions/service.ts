@@ -20,7 +20,7 @@ import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissi
 import type { HandoffNotes } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
-import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, REMEDY, classifyFailure, lessonText, type FailureClass } from "../../domain/failure";
+import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, QUOTA_MAX_WAITS, REMEDY, classifyFailure, lessonText, quotaWaitMs, waitWords, type FailureClass } from "../../domain/failure";
 import { GENERAL_TASK_WORKFLOW } from "../workflows/index";
 import { observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
@@ -1014,6 +1014,15 @@ export class MissionService {
         // Waiting out an outage is not a failure of the work, until the outage outlasts the waits.
         if (waits < OUTAGE_MAX_WAITS) retry(item.failed_attempts, "Waiting for a tool that is down; retrying shortly", { failure_class: failureClass, retry_after_ms: now + OUTAGE_WAIT_MS });
         else counted();
+        break;
+      }
+      case "wait-for-quota": {
+        const waits = (db.prepare("SELECT COUNT(*) AS n FROM task_failures WHERE work_item_id=? AND failure_class='quota' AND run_id!=?").get(item.id, runId) as { n: number }).n;
+        // Waiting out a limit is not a failure of the work, until the limit outlasts the waits. The provider's own retry-after sets the wait (ADR 0033).
+        if (waits < QUOTA_MAX_WAITS) {
+          const waitMs = quotaWaitMs(detail);
+          retry(item.failed_attempts, `The model provider's quota or rate limit was reached; trying again in ${waitWords(waitMs)}`, { failure_class: failureClass, retry_after_ms: now + waitMs });
+        } else counted();
         break;
       }
       default:

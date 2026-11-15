@@ -1263,5 +1263,7 @@ export const enExtra = {
   "work.hosted.priceIn": "Input price (USD per million tokens)",
   "work.hosted.priceOut": "Output price (USD per million tokens)",
   "work.hosted.priceHint": "What the vendor charges. Both prices are required: every hosted attempt is counted in dollars against the mission and workspace spend caps.",
+  "run.fail.quota": "The model provider refused the request: its quota or rate limit was reached.",
+  "run.fail.quota.next": "nothing to do, Brain waits for the time the provider named and tries the task again; if it keeps happening, raise the plan or quota with the provider.",
   // @@END
 } as const satisfies Record<string, string>;

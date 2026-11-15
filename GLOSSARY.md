@@ -187,8 +187,13 @@ _Avoid_: try, execution, session (an attempt is not the conversation)
 
 **Failure class**:
 The one code stored for a failed attempt: missing tool, unmeetable criterion, model slip,
-tool outage, budget or unclassified. Each class has one remedy.
+tool outage, quota, budget or unclassified. Each class has one remedy.
 _Avoid_: error type
+
+**Quota failure**:
+The model provider refused with a 429 or quota or rate-limit text. Its remedy waits the
+provider's retry-after (bounded), without spending an attempt, then retries.
+_Avoid_: rate-limit error, throttling
 
 **Way of working**:
 The kind of worker and independent check a task runs with, chosen from the active
