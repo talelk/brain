@@ -59,6 +59,11 @@ included), is derived from the mission and work records for 24 hours, and notifi
 any attention item under the per-mission throttle.
 _Avoid_: success notification, completion alert, progress update
 
+**Push device**:
+A browser a person turned notifications on for; each attention item is pushed to every one
+of their push devices. Turning it off, in Settings or on Needs you, removes that device only.
+_Avoid_: subscription (the browser's record of it), channel
+
 **Quality summary**:
 The owner's deterministic read over a trailing window of existing records: share of tasks
 verified without a human, stall rate, re-open rate, cost per verified task, median time
