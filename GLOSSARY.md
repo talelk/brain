@@ -94,6 +94,8 @@ A mission-scoped role (such as backend engineer or reviewer) bound to an agent
 definition and engine. A team member is served by many sessions over the mission's
 life; it is neither a runner nor a session. It is eligible for a plan task only when its
 definition's tools, engine and caps cover what the task requires; the role name is a label.
+It keeps its agent definition and engine for the whole mission: a new plan version may add or
+drop members, never rebind one.
 _Avoid_: agent (an agent is a definition), worker, bot
 
 **Mission brief**:
@@ -134,7 +136,8 @@ _Avoid_: lead, orchestrator, manager
 **Plan version**:
 An immutable, versioned decomposition of a mission into plan tasks and the mission team
 assigned to them. Exactly one is
-confirmed per mission at a time; editing a plan always produces a new plan version.
+confirmed per mission at a time; editing a plan, including a task's assignment or the team,
+always produces a new plan version, and started work is never changed in place.
 _Avoid_: plan (unqualified — say plan version or plan proposal), plan revision
 
 **Plan proposal**:
