@@ -130,7 +130,7 @@ describe("mission timeline and run tool calls", () => {
   it("only someone who may read the workspace reads a mission's timeline", async () => {
     const w = world ?? (world = await effectsWorld());
     const missionId = (w.store.workspaceDb(w.w.workspaceId, w.w.org).prepare("SELECT id FROM missions LIMIT 1").get() as { id: string }).id;
-    await expect(read(w, "missions.timeline", missionId, {}, { ...w.w.owner, actorId: "stranger", scopes: [] })).rejects.toThrow();
+    await expect(read(w, "missions.timeline", missionId, {}, { ...w.w.owner, actorId: "stranger", scopes: [] })).rejects.toThrow(/workspace not found/);
     await expect(read(w, "missions.timeline", "mission-unknown")).rejects.toThrow(/not found/);
   }, scaled(60_000));
 });
