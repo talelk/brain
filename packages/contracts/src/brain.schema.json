@@ -7747,6 +7747,8 @@
             "evalCases.list",
             "library.summary",
             "fleet.overview",
+            "missions.timeline",
+            "run.toolCalls",
             "challenges.list",
             "playProposals.list",
             "tools.calls",
@@ -7836,6 +7838,8 @@
             "evalCases.list",
             "library.summary",
             "fleet.overview",
+            "missions.timeline",
+            "run.toolCalls",
             "challenges.list",
             "playProposals.list",
             "tools.calls",
@@ -25922,6 +25926,254 @@
         "spend",
         "attentionOutsideMissions",
         "observedAt"
+      ],
+      "additionalProperties": false
+    },
+    "MissionTimelineEntry": {
+      "type": "object",
+      "properties": {
+        "entryId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "plan",
+            "decision",
+            "message",
+            "run",
+            "approval",
+            "effect",
+            "verdict",
+            "output"
+          ]
+        },
+        "event": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "outcome": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "actorId": {
+          "$ref": "#/$defs/Id"
+        },
+        "memberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "toolCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "source": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "plan",
+                "decision",
+                "message",
+                "run",
+                "approval",
+                "output",
+                "mission"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "jobId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "entryId",
+        "at",
+        "kind",
+        "event",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "MissionTimeline": {
+      "type": "object",
+      "properties": {
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/$defs/MissionTimelineEntry"
+          }
+        },
+        "members": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "properties": {
+              "memberId": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            },
+            "required": [
+              "memberId",
+              "role"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "missionId",
+        "items",
+        "members",
+        "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "RunToolCall": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "attemptId": {
+          "$ref": "#/$defs/Id"
+        },
+        "attemptNumber": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "toolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "proposedAt": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "finishedAt": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "succeeded",
+            "failed",
+            "running",
+            "no-result"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "diagnosis": {
+          "type": "object",
+          "properties": {
+            "cause": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "headline": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400
+            },
+            "nextStep": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400
+            }
+          },
+          "required": [
+            "cause",
+            "headline",
+            "nextStep"
+          ],
+          "additionalProperties": false
+        },
+        "approvalId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [
+        "proposalId",
+        "attemptId",
+        "toolId",
+        "proposedAt",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    "RunToolCalls": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/$defs/RunToolCall"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "runId",
+        "items",
+        "truncated"
       ],
       "additionalProperties": false
     }

@@ -892,6 +892,8 @@
     "evalCases.list",
     "library.summary",
     "fleet.overview",
+    "missions.timeline",
+    "run.toolCalls",
     "challenges.list",
     "playProposals.list",
     "tools.calls",
