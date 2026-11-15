@@ -606,8 +606,7 @@
       "scope": "mission:write",
       "authority": "workspace",
       "actors": [
-        "human",
-        "workflow"
+        "human"
       ]
     },
     {

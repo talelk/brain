@@ -35,9 +35,16 @@ _Avoid_: result, resolution, done
 
 **Attention item**:
 Something in a mission that a human must act on (a blocking item: an approval, a plan
-proposal, a parked work item or a paused mission) or wants to know (a **result ready**
-item). Only attention items notify; progress events never do.
+proposal, a parked work item, a paused mission or a **sign-off item**) or wants to know (a
+**result ready** item). Only attention items notify; progress events never do.
 _Avoid_: alert, notification (the delivery, not the item), todo
+
+**Sign-off item**:
+The blocking attention item "ready for sign-off", derived while a verifying mission's
+evidence bundle is submitted. It names the bundle, so a rejected and resubmitted mission
+raises a new one. A person answers it on the mission's Outputs tab with the mission
+verdict (independence L3); an agent never can.
+_Avoid_: approval (that gates an effect), review request
 
 **Result ready**:
 The one non-blocking attention item: a mission closed achieved or a task reached Done on
