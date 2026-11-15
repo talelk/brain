@@ -1,6 +1,6 @@
 import { runCommand } from "../data/governor";
 import type { OidcRole } from "./engine";
-import type { CommandReceipt, GitProvider, MissionBudget, OrganizationAdminCommand, PlanTask, WorkItemPriority, WorkItemState } from "@brain/contracts";
+import type { CommandReceipt, GitProvider, MissionBudget, OrganizationAdminCommand, PlanTask, TeamMember, WorkItemPriority, WorkItemState } from "@brain/contracts";
 
 /**
  * Explicit Brain commands, one per declared command type.
@@ -11,10 +11,10 @@ import type { CommandReceipt, GitProvider, MissionBudget, OrganizationAdminComma
  * newer server state.
  */
 export type CommandKind =
-  | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.resume" | "delegation.review"
+  | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.pause" | "session.continue" | "session.resume" | "delegation.review"
   | "runner.control"
   | "mission.create" | "mission.owner.transfer" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "mission.watch" | "mission.seen"
-  | "mission.brief.edit" | "decision.accept" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
+  | "mission.brief.edit" | "decision.accept" | "standingTeam.create" | "standingTeam.update" | "standingTeam.archive" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
   | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise" | "workItem.details.set" | "pullRequest.refresh"
   | "workspace.wayOfWorking.set" | "workspace.modelRoutes.set" | "workspace.effects.set" | "workspace.queueLimit.set" | "workspace.autonomyCeiling.set" | "workspace.sessions.stopAll" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set"
   | "play.proposeFromMissions" | "knowledge.withdrawUnobserved"
@@ -35,7 +35,7 @@ export interface CommandContext {
 }
 
 export type PayloadFor<K extends CommandKind> =
-  K extends "mission.create" ? { title: string; intent?: string; successCriteria?: string[]; constraints?: string[]; playId?: string; autonomy?: "supervised" | "standard" | "autonomous"; budget?: { maxMicroUsd?: number; memberCap: number }; autoStart?: boolean }
+  K extends "mission.create" ? { title: string; intent?: string; successCriteria?: string[]; constraints?: string[]; playId?: string; standingTeamId?: string; autonomy?: "supervised" | "standard" | "autonomous"; budget?: { maxMicroUsd?: number; memberCap: number }; autoStart?: boolean }
     : K extends "mission.policy.set" ? { missionId: string; autoStart?: boolean; preset?: "supervised" | "standard" | "autonomous" }
     : K extends "mission.owner.transfer" ? { missionId: string; newOwnerId: string }
     : K extends "mission.pause" | "mission.resume" | "mission.proposeCompletion" ? { missionId: string }
@@ -60,7 +60,10 @@ export type PayloadFor<K extends CommandKind> =
     : K extends "mission.seen" ? { missionId: string; cursor: number }
     : K extends "mission.brief.edit" ? { missionId: string; baseVersion: number; intent?: string; constraints?: string[] }
     : K extends "decision.accept" ? { missionId: string; baseVersion: number; statement: string; source: { kind: "human" | "handoff" | "verdict" | "knowledge"; ref?: string }; supersedes?: string }
-    : K extends "plan.propose" ? { missionId: string; origin: "manual" | "agent" | "template" | "capitalization"; summary?: string; tasks: PlanTask[] }
+    : K extends "plan.propose" ? { missionId: string; origin: "manual" | "agent" | "template" | "capitalization"; summary?: string; tasks: PlanTask[]; team?: readonly TeamMember[]; standingTeamId?: string }
+    : K extends "standingTeam.create" ? { name: string; description?: string; members: readonly TeamMember[]; coordinatorMemberId?: string }
+    : K extends "standingTeam.update" ? { standingTeamId: string; name?: string; description?: string; members?: readonly TeamMember[]; coordinatorMemberId?: string | null }
+    : K extends "standingTeam.archive" ? { standingTeamId: string }
       : K extends "plan.confirm" ? { planVersionId: string }
       : K extends "plan.reject" ? { planVersionId: string; reason: string }
       : K extends "knowledge.approveVerified" | "plays.addStarter" | "knowledge.withdrawUnobserved" ? Record<string, never>
@@ -80,7 +83,7 @@ export type PayloadFor<K extends CommandKind> =
         : K extends "session.steer" ? { sessionId: string; message: string }
           : K extends "session.stop" ? { sessionId: string; reason: string }
           : K extends "delegation.review" ? { delegationId: string; decision: "accepted" | "rejected"; evidenceDigest: string }
-            : K extends "session.resume" ? { sessionId: string }
+            : K extends "session.pause" | "session.continue" | "session.resume" ? { sessionId: string }
                       : K extends "runner.control" ? { runnerId: string; action: "enable" | "disable" | "drain" | "quarantine" | "rotate" | "deregister"; reason: string }
                         : K extends "member.grant" ? { principalId: string; role: string; reason: string }
                         : K extends "member.revoke" ? { principalId: string; role: string; reason: string }

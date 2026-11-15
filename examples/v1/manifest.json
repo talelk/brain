@@ -141,6 +141,14 @@
       "schema": "CommandEnvelope"
     },
     {
+      "path": "commands/session.pause.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/session.continue.json",
+      "schema": "CommandEnvelope"
+    },
+    {
       "path": "commands/approval.request.json",
       "schema": "CommandEnvelope"
     },

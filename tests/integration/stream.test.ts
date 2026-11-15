@@ -394,7 +394,7 @@ describe("unified execution stream", () => {
     }
   });
 
-  it("delivers session controls through the heartbeat ack and deletes them (at-most-once)", () => {
+  it("delivers a steer once and a stop until the session has ended, through the heartbeat ack", () => {
     const w = setupWorld();
     try {
       const s = w.brain.store;
@@ -413,10 +413,11 @@ describe("unified execution stream", () => {
       expect(first.serverTime).toBeTruthy();
       expect(first.commands).toContainEqual(expect.objectContaining({ type: "steer", attemptId: "att-stream-9", text: "focus on the failing diff" }));
       expect(first.commands).toContainEqual(expect.objectContaining({ type: "stop-attempt", attemptId: "att-stream-9" }));
-      expect((ws.prepare("SELECT COUNT(*) AS c FROM session_controls").get() as { c: number }).c).toBe(0);
-      // A second heartbeat delivers nothing: rows were deleted with the ack.
+      // The steer was deleted with the ack; the stop stays, so a lost acknowledgement cannot lose it.
+      expect((ws.prepare("SELECT kind FROM session_controls").all() as Array<{ kind: string }>).map((row) => row.kind)).toEqual(["session.stop"]);
       const second = jobsProtocol(s).heartbeat({ runnerId: "runner-stream-9", epoch: 1 }, { sequence: 2, health: "healthy" });
-      expect(second.commands).toEqual([]);
+      expect(second.commands).toEqual([expect.objectContaining({ type: "stop-attempt", attemptId: "att-stream-9" })]);
+      ws.prepare("DELETE FROM session_controls WHERE id='ctl-stop-9'").run();
       // Unbound sessions (no live attempt) are not drained.
       ws.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES ('ctl-idle-9', 'ses-idle', 'session.steer', '{}', ?)").run(now);
       const third = jobsProtocol(s).heartbeat({ runnerId: "runner-stream-9", epoch: 1 }, { sequence: 3, health: "healthy" });

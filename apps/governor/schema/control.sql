@@ -169,6 +169,16 @@ CREATE UNIQUE INDEX one_active_attempt ON job_attempts(job_id)
 WHERE state IN ('offered','running','uploading','cancelling','verifying','outcome_unknown');
 CREATE INDEX attempts_expiry ON job_attempts(state, lease_expires_at_ms);
 CREATE INDEX attempts_deadline ON job_attempts(state, deadline_ms);
+-- attempt_pauses: one row per time a person held a running session at a turn boundary (ADR 0058). requested_at_ms: the pause command; paused_at_ms: the
+-- runner reported the engine held at a boundary; continue_requested_at_ms: the continue command; resumed_at_ms: the runner reported the engine running again.
+-- The attempt keeps its fence, lease and slot throughout. [paused_at_ms, resumed_at_ms) is not working time and does not run down the step deadline.
+CREATE TABLE attempt_pauses (
+  id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES job_attempts(id), requested_by TEXT NOT NULL,
+  requested_at_ms INTEGER NOT NULL, paused_at_ms INTEGER DEFAULT NULL,
+  continue_requested_at_ms INTEGER DEFAULT NULL, resumed_at_ms INTEGER DEFAULT NULL
+) STRICT;
+CREATE UNIQUE INDEX attempt_pauses_open ON attempt_pauses(attempt_id) WHERE resumed_at_ms IS NULL;
+CREATE INDEX attempt_pauses_attempt ON attempt_pauses(attempt_id, requested_at_ms);
 CREATE TABLE runner_claim_requests (
   runner_id TEXT NOT NULL REFERENCES runners(id), runner_epoch INTEGER NOT NULL CHECK(runner_epoch > 0),
   request_id TEXT NOT NULL, attempt_id TEXT REFERENCES job_attempts(id),

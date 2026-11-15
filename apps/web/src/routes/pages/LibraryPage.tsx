@@ -40,6 +40,7 @@ export default function LibraryPage(): JSX.Element {
     { id: "knowledge", label: t("library.shelf.knowledge"), count: (value) => value.publishedKnowledge, description: t("library.shelf.knowledge.note"), icon: "lucide-brain", href: `${base()}/knowledge` },
     { id: "documents", label: t("library.shelf.documents"), count: (value) => value.documents, description: t("library.shelf.documents.note"), icon: "lucide-file-text", href: `${base()}/knowledge?tab=documents` },
     { id: "plays", label: t("library.shelf.plays"), count: (value) => value.plays, description: t("library.shelf.plays.note"), icon: "lucide-book-open-check", href: `${base()}/plays` },
+    { id: "teams", label: t("library.shelf.teams"), count: (value) => value.teams, description: t("library.shelf.teams.note"), icon: "lucide-users", href: `${base()}/library/teams` },
     { id: "tools", label: t("library.shelf.tools"), count: (value) => value.tools, description: t("library.shelf.tools.note"), icon: "lucide-wrench", href: `${base()}/knowledge?tab=tools` },
   ];
   return <div class="flex min-w-0 flex-col gap-3">

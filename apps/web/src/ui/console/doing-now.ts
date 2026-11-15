@@ -1,5 +1,6 @@
 import type { BrainSession } from "@brain/contracts";
 import type { SessionDetail } from "../../data/exec-console";
+import { t } from "../../i18n";
 
 /** The part of a transcript entry the sentence needs; the console's feed entries satisfy it. */
 export interface ActivityEntry {
@@ -63,8 +64,12 @@ export type TaskState = "backlog" | "ready" | "in-progress" | "blocked" | "revie
 const sources = (count: number) => `${count} ${count === 1 ? "source" : "sources"}`;
 
 /** The plain sentence for the session's current condition, built from its latest tool and message. */
-export function nowSentence(session: Pick<SessionDetail, "state"> | undefined, activity: FeedActivity, taskState?: TaskState): string {
+export function nowSentence(session: Pick<SessionDetail, "state"> & { pause?: SessionDetail["pause"] } | undefined, activity: FeedActivity, taskState?: TaskState): string {
   const state = session?.state;
+  // A held session is still running for the system; a person is told it is paused (ADR 0058).
+  const held = session?.pause?.state;
+  if (state === "running" && (held === "paused" || held === "resuming")) return t("console.session.paused");
+  if (state === "running" && held === "pausing") return t("console.session.pausing");
   if (state === "failed") return "This session stopped because of an error. The last activity is listed below.";
   if (taskState === "review" && (state === undefined || state === "stopped" || state === "waiting")) return "Waiting for the independent check of this task's result.";
   if (state === "stopped") return "This session has finished. Its full transcript is below.";
@@ -84,7 +89,9 @@ export function nowSentence(session: Pick<SessionDetail, "state"> | undefined, a
 }
 
 /** The one line a task row shows when only the session and task state are at hand (no transcript is loaded). */
-export function taskNowLine(taskState: TaskState | undefined, sessionState: string | undefined): string | undefined {
+export function taskNowLine(taskState: TaskState | undefined, sessionState: string | undefined, held?: string): string | undefined {
+  if (sessionState === "running" && (held === "paused" || held === "resuming")) return "Paused by a person.";
+  if (sessionState === "running" && held === "pausing") return "Pausing at the end of its turn.";
   if (taskState === "review") return "Waiting for the independent check.";
   if (sessionState === "waiting") return "Waiting for a person before it continues.";
   if (sessionState === "starting") return "Starting up.";
@@ -137,8 +144,10 @@ export function etaBand(input: { estimatedMinutes?: number; startedAt?: string; 
  * The sentence for a running session from the Governor's tool-call counts (BrainSession.activity), for places that do not load the
  * transcript (session rail, Plan rows). Falls back to the state-only line while no tool has run yet.
  */
-export function activityLine(session: Pick<BrainSession, "state" | "activity">, taskState?: TaskState): string | undefined {
+export function activityLine(session: Pick<BrainSession, "state" | "activity" | "pause">, taskState?: TaskState): string | undefined {
   const activity = session.activity;
+  const held = session.pause?.state;
+  if (session.state === "running" && (held === "paused" || held === "resuming" || held === "pausing")) return taskNowLine(taskState, session.state, held);
   if (session.state !== "running" || !activity || activity.toolCalls === 0) return taskNowLine(taskState, session.state);
   if (taskState === "review") return taskNowLine(taskState, session.state);
   const reading = isReadingTool(activity.lastTool);

@@ -54,6 +54,14 @@ export interface EngineAdapter {
   cancel(sessionId: string, reason: string): Promise<{ terminationConfirmed: boolean }>;
   checkpoint(sessionId: string): Promise<Checkpoint>;
   steer?(sessionId: string, messageId: string, message: string): Promise<void>;
+  /**
+   * Holds the session at its next turn boundary (before the next model request) and resolves once it is held; nothing is sent to the model
+   * until `continue`. The session, its tools and its conversation stay alive. Rejects when the session ends before a boundary. Offered only
+   * by engines that advertise the "pause" feature.
+   */
+  pause?(sessionId: string): Promise<void>;
+  /** Releases a held session (or cancels a pause not yet reached); a no-op for a session that is not held. */
+  continue?(sessionId: string): Promise<void>;
   dispose(sessionId: string): Promise<void>;
 }
 export interface SchedulerPort {

@@ -2848,6 +2848,8 @@
                 "enum": [
                   "stop-attempt",
                   "steer",
+                  "pause-attempt",
+                  "continue-attempt",
                   "drain",
                   "quarantine",
                   "refresh-inventory"
@@ -3720,6 +3722,8 @@
                 "session.stopped",
                 "session.usage",
                 "session.steered",
+                "session.paused",
+                "session.continued",
                 "session.checkpointed",
                 "session.created",
                 "session.resumed",
@@ -7067,6 +7071,9 @@
           },
           "maxItems": 100,
           "uniqueItems": true
+        },
+        "parentId": {
+          "$ref": "#/$defs/ConfigId"
         }
       },
       "required": [
@@ -7313,6 +7320,17 @@
         "overdue": {
           "type": "boolean",
           "const": true
+        },
+        "parentId": {
+          "$ref": "#/$defs/Id"
+        },
+        "parentTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "subtasks": {
+          "$ref": "#/$defs/WorkItemSubtasks"
         }
       },
       "required": [
@@ -7444,6 +7462,9 @@
             },
             "autoStart": {
               "type": "boolean"
+            },
+            "standingTeamId": {
+              "$ref": "#/$defs/Id"
             }
           },
           "required": [
@@ -7515,6 +7536,9 @@
                 "$ref": "#/$defs/TeamMember"
               },
               "maxItems": 50
+            },
+            "standingTeamId": {
+              "$ref": "#/$defs/Id"
             }
           },
           "required": [
@@ -7673,6 +7697,9 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 1024
+            },
+            "cascade": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -8025,7 +8052,8 @@
             "integrations.guide",
             "identity.oidc.get",
             "quality.breakdown",
-            "practices.list"
+            "practices.list",
+            "standingTeams.list"
           ]
         },
         "workspaceId": {
@@ -8120,7 +8148,8 @@
             "integrations.guide",
             "identity.oidc.get",
             "quality.breakdown",
-            "practices.list"
+            "practices.list",
+            "standingTeams.list"
           ]
         },
         "snapshot": {
@@ -8441,6 +8470,9 @@
             "runnerId"
           ],
           "additionalProperties": false
+        },
+        "pause": {
+          "$ref": "#/$defs/SessionPause"
         },
         "activity": {
           "type": "object",
@@ -10976,6 +11008,98 @@
       ],
       "additionalProperties": false
     },
+    "SessionPauseCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "session.pause"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "sessionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "idempotencyKey",
+        "payload",
+        "workspaceId"
+      ],
+      "additionalProperties": false
+    },
+    "SessionContinueCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "session.continue"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "sessionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "idempotencyKey",
+        "payload",
+        "workspaceId"
+      ],
+      "additionalProperties": false
+    },
     "ApprovalRequestCommand": {
       "type": "object",
       "properties": {
@@ -11655,6 +11779,12 @@
           "$ref": "#/$defs/SessionStopCommand"
         },
         {
+          "$ref": "#/$defs/SessionPauseCommand"
+        },
+        {
+          "$ref": "#/$defs/SessionContinueCommand"
+        },
+        {
           "$ref": "#/$defs/SessionCreateCommand"
         },
         {
@@ -11872,6 +12002,15 @@
         },
         {
           "$ref": "#/$defs/PlayProposeFromMissionsCommand"
+        },
+        {
+          "$ref": "#/$defs/StandingTeamCreateCommand"
+        },
+        {
+          "$ref": "#/$defs/StandingTeamUpdateCommand"
+        },
+        {
+          "$ref": "#/$defs/StandingTeamArchiveCommand"
         }
       ]
     },
@@ -12595,6 +12734,44 @@
       ],
       "additionalProperties": false
     },
+    "SessionPause": {
+      "type": "object",
+      "description": "Whether one session can be paused at its next turn boundary and where that stands. `supported` is false when the engine cannot stop at a turn boundary (then `reason` says so in plain words). A paused session keeps its fence, lease and runner slot; `stopsAt` is when Brain stops it if nobody continues it (the hold limit), so the slot is not held forever.",
+      "properties": {
+        "supported": {
+          "type": "boolean"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "running",
+            "pausing",
+            "paused",
+            "resuming"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "since": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "stopsAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "holdLimitMs": {
+          "$ref": "#/$defs/Counter"
+        }
+      },
+      "required": [
+        "supported",
+        "state",
+        "holdLimitMs"
+      ],
+      "additionalProperties": false
+    },
     "SessionDetail": {
       "type": "object",
       "description": "session.get snapshot: the BrainSession record extended with the execution-stream cursor and the interruption continuation facts.",
@@ -12708,6 +12885,9 @@
           ],
           "additionalProperties": false
         },
+        "pause": {
+          "$ref": "#/$defs/SessionPause"
+        },
         "version": {
           "$ref": "#/$defs/Counter"
         },
@@ -12747,7 +12927,8 @@
         "createdAt",
         "updatedAt",
         "streamCursor",
-        "continuation"
+        "continuation",
+        "pause"
       ],
       "additionalProperties": false
     },
@@ -27468,6 +27649,280 @@
         "workspaceId",
         "idempotencyKey",
         "payload"
+      ],
+      "additionalProperties": false
+    },
+    "StandingTeam": {
+      "type": "object",
+      "properties": {
+        "standingTeamId": {
+          "$ref": "#/$defs/Id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamMember"
+          },
+          "minItems": 1,
+          "maxItems": 12
+        },
+        "coordinatorMemberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "archived"
+          ]
+        },
+        "version": {
+          "$ref": "#/$defs/Counter"
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "standingTeamId",
+        "name",
+        "members",
+        "state",
+        "version",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ],
+      "additionalProperties": false
+    },
+    "StandingTeamCreateCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "standingTeam.create"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamMember"
+              },
+              "minItems": 1,
+              "maxItems": 12
+            },
+            "coordinatorMemberId": {
+              "$ref": "#/$defs/ConfigId"
+            }
+          },
+          "required": [
+            "name",
+            "members"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "StandingTeamUpdateCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "standingTeam.update"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "standingTeamId": {
+              "$ref": "#/$defs/Id"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamMember"
+              },
+              "minItems": 1,
+              "maxItems": 12
+            },
+            "coordinatorMemberId": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ConfigId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "standingTeamId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "StandingTeamArchiveCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "standingTeam.archive"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "standingTeamId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "standingTeamId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "WorkItemSubtasks": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensUsed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "settledMicroUsd": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reservedMicroUsd": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "total",
+        "done",
+        "tokensUsed",
+        "settledMicroUsd",
+        "reservedMicroUsd"
       ],
       "additionalProperties": false
     }
