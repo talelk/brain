@@ -2,7 +2,7 @@ import { readRuntimeConfig, type RuntimeConfig } from "../runtime-config";
 import { join } from "node:path";
 import type { ActorContext, CommandReceipt, RedactedDiagnostics, HumanApprovalDecision, JsonValue, MemoryResult, WorkflowCatalogEntry,
 } from "@brain/contracts";
-import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from "@brain/contracts";
+import { approvalSubjectDigest, domainDigest, isKnownQuery } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
 import { Store, type BrainOptions } from "./store";
@@ -21,7 +21,7 @@ import { knowledgeCommands, knowledgeExpired, LOCAL_ONLY_SOURCE_TYPES, MemorySto
 import { admitApprovalDecision, governanceCommands, StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
 import { localRunnerSettingsCurrent, quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
-import { EvidenceService } from "../modules/evidence/index";
+import { EvidenceService, recordBundleCheck } from "../modules/evidence/index";
 import { readReleaseAgentInstructions, readReleaseToolScript } from "../modules/configuration/index";
 import { acceptAttemptArtifact } from "../modules/evidence/index";
 import {
@@ -46,6 +46,7 @@ import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } f
 import { MissionService, ShareService, missionCommands } from "../modules/missions/index";
 import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
 import { Challenges } from "./challenges";
+import { BundleJudge } from "./bundle-judge";
 import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualityBreakdown, qualitySummary } from "../modules/stream/index";
@@ -79,6 +80,9 @@ export class Brain {
   readonly commands: CommandFunnel;
   readonly autoStart: AutoStart;
   readonly challenges: Challenges;
+  readonly bundleJudge: BundleJudge;
+  /** The network port for model calls the Governor makes itself (the advisory judge, the probes). Tests and the browser fixture replace it with a fake model. */
+  modelFetch: typeof fetch = fetch;
   readonly playProposals: PlayProposals;
   readonly starterPlays: StarterPlays;
   readonly shares: ShareService;
@@ -161,6 +165,7 @@ export class Brain {
         dispatch: (actor, command) => this.commands.run(actor, command as Parameters<CommandFunnel["run"]>[1]),
         catalog: (organizationId) => (releaseDefinitions(this.store, organizationId, "workflows") as unknown as { items: WorkflowCatalogEntry[] }).items,
       });
+      this.bundleJudge = new BundleJudge({ store: this.store, modelFetch: () => this.modelFetch });
       this.playProposals = new PlayProposals({
         store: this.store,
         createDraft: (actor, workspaceId, input) => this.drafts.apply(actor, { commandType: "configDraft.create", workspaceId, payload: input }),
@@ -256,7 +261,7 @@ export class Brain {
    * The checks below the application (free disk, the model endpoint, each enabled hosted model): their latest results are what Health
    * shows, and a check that turns bad alerts the workspace owner once (in-app, pushed on their channels).
    */
-  async runEngineProbes(fetchImpl: typeof fetch = fetch): Promise<void> {
+  async runEngineProbes(fetchImpl: typeof fetch = this.modelFetch): Promise<void> {
     checkDisk(this.store);
     checkReplica(this.store, this.replica);
     checkBackups(this.store);
@@ -539,6 +544,8 @@ export class Brain {
       // A revoked approval, or a cancelled task, withdraws the change that was held for it.
       if (outcome.receipt.accepted && (String(cmd.commandType).startsWith("approval.") || cmd.commandType === "workflow.cancel")) this.jobProtocol.settleEffects();
       // A requested challenge starts its reviewer run now; the maintenance pass collects the answer.
+      // A submitted mission evidence bundle asks the advisory judge for its opinion; the maintenance pass resumes it after a restart.
+      if (outcome.receipt.accepted && cmd.workspaceId && cmd.commandType === "mission.proposeCompletion") void this.bundleJudge.sweep().catch(() => undefined);
       if (outcome.receipt.accepted && cmd.workspaceId && cmd.commandType === "result.challenge") void this.challenges.sweep(actor.organizationId, cmd.workspaceId).catch(() => undefined);
       return outcome;
     });
@@ -852,65 +859,17 @@ export class Brain {
     if (changed.changes === 0) throw new BrainDomainError("CONFLICT", "remediation proposal not found or already decided");
   }
 
-  // Delivery dossier lifecycle (T44): explicit creation, rubric results only
-  // from real attempts, and an explicit finalize that computes the verdict
-  // deterministically — reads never transition state.
   /**
-   * An evaluator's check on a mission's current evidence bundle (T44). Checks
-   * inform the mission verdict; recording one never changes the bundle's
-   * state. Evidence must be a real artifact of the workspace.
+   * An evaluator's check on a mission's current evidence bundle (T44). Checks inform the mission verdict; recording one never changes the
+   * bundle's state. The advisory judge writes its own through its request (application/bundle-judge.ts), never through here.
    */
   recordBundleCheck(input: {
     actor: ActorContext; workspaceId: string; missionId: string;
     criterionId: string; evaluator: string; outcome: "passed" | "failed" | "incomplete"; evidenceDigest: string; advisory?: boolean;
   }): void {
-    const s = this.store;
-    requireWorkspaceRead(s, input.actor, input.workspaceId);
-    const ws = s.workspaceDb(input.workspaceId, input.actor.organizationId);
-    const bundle = ws.prepare("SELECT digest, state FROM mission_evidence_bundles WHERE mission_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get(input.missionId) as { digest: string; state: string } | undefined;
-    if (!bundle) throw new BrainDomainError("NOT_FOUND", "the mission has no evidence bundle");
-    if (bundle.state !== "submitted") throw new BrainDomainError("CONFLICT", `a ${bundle.state} mission evidence bundle takes no new checks`);
-    if (!ws.prepare("SELECT 1 FROM artifacts WHERE digest=?").get(input.evidenceDigest)) throw new BrainDomainError("EVIDENCE_MISSING", "check evidence artifact not found in workspace");
-    ws.prepare("INSERT OR REPLACE INTO mission_bundle_checks(bundle_digest, criterion_id, evaluator, outcome, evidence_digest, advisory, created_at_ms) VALUES (?,?,?,?,?,?,?)")
-      .run(bundle.digest, input.criterionId, input.evaluator, input.outcome, input.evidenceDigest, input.advisory ? 1 : 0, s.now());
-  }
-
-  // Optional calibrated judge (T44): assesses pinned evidence against the
-  // mission's criteria with the local model, stores each transcript as CAS
-  // evidence and records an advisory check. The judge is a recommendation:
-  // it never records a mission verdict, which stays a separate act.
-  async judgeMissionBundle(input: {
-    actor: ActorContext; workspaceId: string; missionId: string;
-    criteria: Array<{ criterionId: string; criterionText: string; evidenceDigest: string }>;
-  }): Promise<Array<{ criterionId: string; outcome: string; transcriptDigest: string }>> {
-    const s = this.store;
-    requireWorkspaceRead(s, input.actor, input.workspaceId);
-    const ws = s.workspaceDb(input.workspaceId, input.actor.organizationId);
-    const bundle = ws.prepare("SELECT state FROM mission_evidence_bundles WHERE mission_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get(input.missionId) as { state: string } | undefined;
-    if (!bundle) throw new BrainDomainError("NOT_FOUND", "the mission has no evidence bundle");
-    if (bundle.state !== "submitted") throw new BrainDomainError("CONFLICT", "the mission evidence bundle is already judged");
-    const { runLocalJudge, judgeModelId, JUDGE_PROMPT_VERSION } = await import("../modules/packs/index");
-    const out: Array<{ criterionId: string; outcome: string; transcriptDigest: string }> = [];
-    for (const criterion of input.criteria) {
-      const evidenceText = Buffer.from(readVerified(this.store, criterion.evidenceDigest)).toString("utf8").slice(0, 32_768);
-      let verdict;
-      try {
-        verdict = await runLocalJudge({ criterionText: criterion.criterionText, evidenceText });
-      } catch (e) {
-        throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", `judge model unavailable: ${(e as Error).message}`);
-      }
-      const transcript = Buffer.from(JSON.stringify({
-        promptVersion: JUDGE_PROMPT_VERSION, model: judgeModelId(), criterionId: criterion.criterionId,
-        criterionText: criterion.criterionText, evidenceDigest: criterion.evidenceDigest,
-        outcome: verdict.outcome, rationale: verdict.rationale, raw: verdict.raw.slice(0, 4096),
-      }), "utf8");
-      const digest = sha256Digest(transcript);
-      const up = this.initUpload(input.actor, { workspaceId: input.workspaceId, expectedDigest: digest, expectedBytes: transcript.length }) as unknown as { uploadId: string };
-      this.putUpload(input.actor, up.uploadId, transcript);
-      this.recordBundleCheck({ actor: input.actor, workspaceId: input.workspaceId, missionId: input.missionId, criterionId: criterion.criterionId, evaluator: `judge:${judgeModelId()}`, outcome: verdict.outcome, evidenceDigest: digest, advisory: true });
-      out.push({ criterionId: criterion.criterionId, outcome: verdict.outcome, transcriptDigest: digest });
-    }
-    return out;
+    requireWorkspaceRead(this.store, input.actor, input.workspaceId);
+    const { actor: _actor, workspaceId, ...check } = input;
+    recordBundleCheck(this.store, this.store.workspaceDb(workspaceId, input.actor.organizationId), check);
   }
 
   // --- queries ---

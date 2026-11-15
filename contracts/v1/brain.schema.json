@@ -22790,6 +22790,45 @@
       ],
       "additionalProperties": false
     },
+    "MissionJudge": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "running",
+            "done",
+            "unavailable",
+            "not-run"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "hosted-off",
+            "budget",
+            "no-evidence",
+            "too-late",
+            "model-unavailable"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "additionalProperties": false
+    },
     "MissionEvidenceBundle": {
       "type": "object",
       "properties": {
@@ -22878,6 +22917,9 @@
           "enum": [
             "L3"
           ]
+        },
+        "judge": {
+          "$ref": "#/$defs/MissionJudge"
         }
       },
       "required": [
@@ -22889,7 +22931,8 @@
         "coverage",
         "complete",
         "state",
-        "createdAt"
+        "createdAt",
+        "judge"
       ],
       "additionalProperties": false
     },
