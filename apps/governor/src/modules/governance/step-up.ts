@@ -1,9 +1,10 @@
-import type { StepUpChallenge, StepUpEvidence } from "@brain/contracts";
+import type { CommandStepUpChallenge, JsonValue, StepUpChallenge, StepUpEvidence } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 import { resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "../../application/authz";
 import { assertHumanIdentity, type BrainAuth } from "../identity/index";
+import { createCommandChallenge, verifyCommandChallenge } from "./command-step-up";
 
 export class StepUpService {
   constructor(private readonly store: Store, private readonly auth: BrainAuth) {}
@@ -22,6 +23,15 @@ export class StepUpService {
     const id = s.id("stepup"); const expires = Math.min(s.now() + 300_000, row.expires_at_ms);
     s.control.prepare("INSERT INTO step_up_challenges(id,actor_id,auth_session_digest,approval_id,subject_digest,expires_at_ms,factor_digest,auth_generation) VALUES (?,?,?,?,?,?,?,?)").run(id, actor.actorId, sessionDigest, approvalId, subjectDigest, expires, humanSession!.factorDigest, actor.authGeneration);
     return { challengeId: id, approvalId, subjectDigest, expiresAt: iso(expires), method: this.auth.requireTwoFactor ? "totp" : "session" };
+  }
+
+  /** A fresh step-up for one administrative command, bound to its exact payload (ADR 0045). */
+  createCommandChallenge(identity: ResolvedActor, request: { commandType: string; workspaceId: string; payload: JsonValue }): CommandStepUpChallenge {
+    return createCommandChallenge(this.store, this.auth, identity, request);
+  }
+
+  verifyCommand(identity: ResolvedActor, challengeId: string, code: string, headers: Headers): Promise<StepUpEvidence> {
+    return verifyCommandChallenge(this.store, this.auth, identity, challengeId, code, headers);
   }
 
   async verify(identity: ResolvedActor, challengeId: string, code: string, headers: Headers): Promise<StepUpEvidence> {

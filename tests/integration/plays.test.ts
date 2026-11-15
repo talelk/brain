@@ -65,17 +65,21 @@ describe("plays (T63)", () => {
     const w = setupWorld();
     w.brain.activateRelease(w.owner, stage(w, [play("auth-stabilize")]).digest);
     const workspace = w.brain.store.control.prepare("SELECT version FROM workspaces WHERE id=?").get(w.workspaceId) as { version: number };
-    await (await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "cmd-ceiling", commandType: "workspace.autonomyCeiling.set", workspaceId: w.workspaceId, idempotencyKey: "ceiling", expectedVersion: workspace.version, payload: { workspaceId: w.workspaceId, operations: ["task.add", "task.change", "decision.accept"] } } as never, "ceiling")).receipt;
+    const headers = new Headers({ authorization: `Bearer ${w.ownerToken}` });
+    const identity = await w.brain.resolveActor(headers, w.workspaceId);
+    const challenge = w.brain.stepUp.createCommandChallenge(identity, { commandType: "workspace.autonomyCeiling.set", workspaceId: w.workspaceId, payload: { workspaceId: w.workspaceId, preset: "standard" } });
+    const evidence = await w.brain.stepUp.verifyCommand(identity, challenge.challengeId, "", headers);
+    await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "cmd-ceiling", commandType: "workspace.autonomyCeiling.set", workspaceId: w.workspaceId, idempotencyKey: "ceiling", expectedVersion: workspace.version, payload: { workspaceId: w.workspaceId, preset: "standard", stepUpEvidenceId: evidence.evidenceId } } as never, "ceiling", headers);
     const id = (await run(w, "mission.create", "play-mission", { title: "Auth, from the play", playId: "auth-stabilize" })).resourceId ?? "";
     const mission = await query<Mission>(w, "missions.get", id);
-    expect(mission).toMatchObject({ playId: "auth-stabilize", state: "active", parkingThreshold: 2, budget: { maxMicroUsd: 500000, memberCap: 2 }, autonomyPolicy: { preset: "autonomous", operations: ["decision.accept", "task.add", "task.change"] } });
+    expect(mission).toMatchObject({ playId: "auth-stabilize", state: "active", parkingThreshold: 2, budget: { maxMicroUsd: 500000, memberCap: 2 }, autonomyPolicy: { preset: "autonomous", operations: ["conflictTask.create", "decision.accept", "member.addExistingRole", "task.add", "task.change", "task.reassign", "task.remove"] } });
     expect(await query<MissionBrief>(w, "missions.brief", id)).toMatchObject({ intent: "Find and fix session expiry", constraints: ["Keep the public API"] });
     const plans = w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT id FROM plan_versions WHERE mission_id=?").all(id) as Array<{ id: string }>;
     expect(plans).toHaveLength(1);
     const plan = await query<PlanVersion>(w, "plans.get", plans[0]!.id);
     expect(plan).toMatchObject({ state: "proposed", origin: "template" });
     expect(plan.team?.map((member) => member.memberId)).toEqual(["lead", "backend"]);
-    await expect(Promise.resolve().then(async () => await run(w, "mission.policy.set", "play-widen", { missionId: id, preset: "autonomous" }, mission.version))).rejects.toThrow(/ceiling does not allow/);
+    await expect(Promise.resolve().then(async () => await run(w, "mission.policy.set", "play-widen", { missionId: id, preset: "autonomous" }, mission.version))).rejects.toThrow(/ceiling does not allow backlog.drop, member.addNewRole/);
     await expect(Promise.resolve().then(async () => await run(w, "mission.create", "play-missing", { title: "Nope", playId: "ghost" }))).rejects.toThrow(/not in the active release/);
     w.brain.close();
   });
@@ -128,6 +132,40 @@ describe("plays (T63)", () => {
     w.brain.missions.recordReservation(w.org, w.workspaceId, { missionId: id, runId: "run-work-audit", attemptId: "att-work-1", microUsd: 50 });
     expect(w.brain.missions.admission(w.org, w.workspaceId, "run-work-audit")).toMatchObject({ admitted: false, reason: "budget" });
     expect(w.brain.missions.admission(w.org, w.workspaceId, runs[0]!.run_id)).toMatchObject({ admitted: true, reserve: 50 });
+    w.brain.close();
+  });
+
+  it("stop all sessions pauses a coordinated mission and keeps its coordinator out; resuming it wakes the coordinator again (ADR 0045)", async () => {
+    const w = setupWorld();
+    const coordinated = play("coordinated").text.replace("  coordinator: lead\n", "  coordinator: lead\n  coordinatorWorkflow: coordinator-workflow\n");
+    const fixture = readFileSync("examples/v1/golden-release/config/fixture-workflow.yaml", "utf8");
+    const coordinatorWorkflow = { path: "config/coordinator-workflow.yaml", text: fixture.replace("id: fixture-workflow", "id: coordinator-workflow").replace("pointer: /message", "pointer: /missionId") };
+    w.brain.activateRelease(w.owner, stage(w, [coordinatorWorkflow, { path: "config/plays/coordinated.yaml", text: coordinated }]).digest);
+    const id = (await run(w, "mission.create", "stop-coord-create", { title: "Coordinated", playId: "coordinated" })).resourceId ?? "";
+    const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    await run(w, "plan.confirm", "stop-coord-confirm", { planVersionId: (db.prepare("SELECT id FROM plan_versions WHERE mission_id=?").get(id) as { id: string }).id }, (await query<Mission>(w, "missions.get", id)).version);
+    expect(w.brain.missions.pumpCoordinators()).toBe(1);
+    const coordinatorRun = (db.prepare("SELECT run_id FROM mission_runs WHERE mission_id=?").get(id) as { run_id: string }).run_id;
+    expect(w.brain.missions.admission(w.org, w.workspaceId, coordinatorRun)).toMatchObject({ admitted: true });
+
+    const headers = new Headers({ authorization: `Bearer ${w.ownerToken}` });
+    const identity = await w.brain.resolveActor(headers, w.workspaceId);
+    const stop = async (key: string, reason: string) => {
+      const challenge = w.brain.stepUp.createCommandChallenge(identity, { commandType: "workspace.sessions.stopAll", workspaceId: w.workspaceId, payload: { workspaceId: w.workspaceId, reason } });
+      const evidence = await w.brain.stepUp.verifyCommand(identity, challenge.challengeId, "", headers);
+      return (await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workspace.sessions.stopAll", workspaceId: w.workspaceId, idempotencyKey: key,
+        payload: { workspaceId: w.workspaceId, reason, stepUpEvidenceId: evidence.evidenceId } } as never, key, headers)).receipt;
+    };
+    expect((await stop("stop-coord", "Coordinator is looping")).accepted).toBe(true);
+    // A mission paused for budget lets its coordinator write the final checkpoint; one an administrator stopped admits nothing, coordinator included.
+    expect(await query<Mission>(w, "missions.get", id)).toMatchObject({ state: "paused", pauseReason: "stopped", pauseNote: "Coordinator is looping" });
+    expect(w.brain.missions.admission(w.org, w.workspaceId, coordinatorRun)).toMatchObject({ admitted: false, reason: "mission paused" });
+    expect(w.brain.missions.pumpCoordinators()).toBe(0);
+
+    // Resuming wakes the coordinator, which is what starts its mission's tasks again.
+    expect((await run(w, "mission.resume", "stop-coord-resume", { missionId: id }, (await query<Mission>(w, "missions.get", id)).version)).accepted).toBe(true);
+    expect(await query<Mission>(w, "missions.get", id)).not.toHaveProperty("pauseNote");
+    expect(w.brain.missions.pumpCoordinators()).toBe(1);
     w.brain.close();
   });
 

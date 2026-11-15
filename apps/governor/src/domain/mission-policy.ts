@@ -12,6 +12,12 @@ export function policyFor(preset: AutonomyPreset, version: number): AutonomyPoli
   return { preset, operations: [...AUTONOMY_PRESETS[preset]], version };
 }
 
+/** The preset a stored ceiling is: the lowest one that allows every operation of it; no ceiling means every operation is allowed. */
+export function ceilingPreset(operations: readonly string[] | null): AutonomyPreset {
+  const stored = operations === null ? [...AUTONOMY_PRESETS.autonomous] : [...operations];
+  return (["supervised", "standard", "autonomous"] as const).find((preset) => stored.every((operation) => AUTONOMY_PRESETS[preset].includes(operation as never))) ?? "autonomous";
+}
+
 /** A preset clipped to the workspace ceiling: a Play or a mission can never grant more than the workspace allows. */
 export function withinCeiling(policy: AutonomyPolicy, ceiling: readonly PlanOperation[]): AutonomyPolicy {
   return { ...policy, operations: policy.operations.filter((operation) => ceiling.includes(operation)).sort() };

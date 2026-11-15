@@ -50,7 +50,9 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
     // Only missions with parked open work can be stuck, and only verifying ones have a verdict to close: a workspace keeps every mission
     // it ever ran, so the per-mission lookups below must not run for the common mission (steady benchmark, growth across trials).
     const withParked = new Set((db.prepare("SELECT DISTINCT mission_id FROM work_items WHERE parked=1 AND state NOT IN ('done','abandoned')").all() as Array<{ mission_id: string }>).map((row) => row.mission_id));
-    for (const m of db.prepare("SELECT id, title, state, pause_reason, updated_at_ms FROM missions WHERE state!='closed'").all() as Array<{ id: string; title: string; state: string; pause_reason: string | null; updated_at_ms: number }>) {
+    for (const m of db.prepare("SELECT id, title, state, pause_reason, stop_note, updated_at_ms FROM missions WHERE state!='closed'").all() as Array<{ id: string; title: string; state: string; pause_reason: string | null; stop_note: string | null; updated_at_ms: number }>) {
+      // An administrator stopped every session (ADR 0045): the mission waits for a person to resume it, and says why.
+      if (m.state === "paused" && m.stop_note) items.push({ id: `stopped:${m.id}`, workspaceId, missionId: m.id, kind: "needs-attention", tier: 2, title: `${m.title} was paused: all sessions were stopped`, detail: m.stop_note.slice(0, 1024), resourceId: m.id, waitingSince: iso(m.updated_at_ms) });
       if (m.state === "paused" && m.pause_reason === "budget") {
         const limits = reachedLimits(store, db, m.id);
         const wording = limits.length === 0 ? "a limit was reached" : `${limits.join(" and ")} ${limits.length === 1 && limits[0] !== "workspace cap" ? "limit" : "limits"} reached`;

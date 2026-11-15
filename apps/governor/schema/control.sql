@@ -364,6 +364,15 @@ CREATE TABLE step_up_evidence (
   decision_id TEXT UNIQUE REFERENCES approval_decisions(id), revoked_at_ms INTEGER,
   auth_session_id TEXT NOT NULL, auth_user_id TEXT NOT NULL, factor_digest TEXT, auth_generation INTEGER NOT NULL
 ) STRICT;
+-- A fresh authentication for one administrative command (ADR 0045), bound to the person's session, the command, its workspace and the digest of its exact
+-- payload. Verifying it makes it evidence; the one command it names spends it.
+CREATE TABLE command_step_ups (
+  id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, auth_session_digest TEXT NOT NULL,
+  command_type TEXT NOT NULL, workspace_id TEXT NOT NULL, subject_digest TEXT NOT NULL,
+  expires_at_ms INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 5),
+  verified_at_ms INTEGER, method TEXT CHECK(method IS NULL OR method IN ('session','totp')),
+  auth_session_id TEXT NOT NULL, auth_user_id TEXT NOT NULL, factor_digest TEXT, auth_generation INTEGER NOT NULL, consumed_at_ms INTEGER, revoked_at_ms INTEGER
+) STRICT;
 CREATE TABLE permit_credentials (
   permit_id TEXT PRIMARY KEY REFERENCES effect_permits(id), token_digest TEXT NOT NULL UNIQUE,
   token_nonce TEXT NOT NULL, key_id TEXT NOT NULL,
