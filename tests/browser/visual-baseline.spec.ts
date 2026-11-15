@@ -28,10 +28,15 @@ async function signOffRoute(demo: Demo, governor: Fixture): Promise<string> {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: type, workspaceId: demo.workspaceId, idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
   } as never, key)).receipt;
   const version = async (id: string) => ((await brain.executeQuery(demo.actor, { queryType: "missions.get", workspaceId: demo.workspaceId, resourceId: id })) as unknown as { snapshot: { version: number } }).snapshot.version;
-  const missionId = (await cmd("mission.create", "baseline-signoff-create", { title: "Compile the quarterly report", intent: "Compile the quarterly report", successCriteria: ["The report is complete"], autoStart: false })).resourceId ?? "";
-  const planId = (await cmd("plan.propose", "baseline-signoff-plan", { missionId, origin: "manual", tasks: [{ id: "compile", title: "Compile the figures", criteria: ["Figures compiled"], dependsOn: [] }] })).resourceId ?? "";
+  const missionId = (await cmd("mission.create", "baseline-signoff-create", { title: "Compile the quarterly report", intent: "Compile the quarterly report", successCriteria: ["The report is complete", "Every figure cites its source"], autoStart: false })).resourceId ?? "";
+  const planId = (await cmd("plan.propose", "baseline-signoff-plan", { missionId, origin: "manual", tasks: [{ id: "compile", title: "Compile the figures", criteria: ["Figures compiled"], dependsOn: [], criterionIds: ["c1"] }] })).resourceId ?? "";
   await cmd("plan.confirm", "baseline-signoff-confirm", { planVersionId: planId }, await version(missionId));
-  brain.store.workspaceDb(demo.workspaceId, demo.actor.organizationId).prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE mission_id=?").run(`sha256:${"9".repeat(64)}`, missionId);
+  // The finished task's verified evidence has one check that names the first criterion; the second criterion is served by no task, so it shows as not linked.
+  const ws = brain.store.workspaceDb(demo.workspaceId, demo.actor.organizationId);
+  const evidence = `sha256:${"9".repeat(64)}`;
+  ws.prepare("INSERT INTO evidence_bundles(digest, bundle_id, job_id, attempt_id, state, manifest_json, created_at_ms) VALUES (?,?,?,?, 'verified', ?,?)")
+    .run(evidence, "bundle-baseline", "job-baseline", "att-baseline", JSON.stringify({ checks: [{ criterionId: "c1", checkId: "figures-reconcile", status: "passed" }] }), brain.store.now());
+  ws.prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE mission_id=?").run(evidence, missionId);
   await cmd("mission.proposeCompletion", "baseline-signoff-finish", { missionId }, await version(missionId));
   return `/missions/${missionId}/outputs`;
 }
