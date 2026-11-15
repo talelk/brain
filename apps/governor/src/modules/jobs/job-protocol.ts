@@ -9,7 +9,7 @@ import { settleEffects } from "./effect-hold";
 import { resolveUnknownJob, type UnknownResolution } from "./unknown";
 import { runScheduledDispatch } from "./scheduler";
 import { AutomationService } from "./automation";
-import { cancelJobsForRun, concludeAttempt, createJobForStep, resolveReconciliation, workspaceJobLoad, type CreateJobInput, type ReconciliationOutcome } from "./lifecycle";
+import { cancelJobsForRun, concludeAttempt, createJobForStep, reprioritizeQueuedJobs, resolveReconciliation, workspaceJobLoad, type CreateJobInput, type ReconciliationOutcome } from "./lifecycle";
 
 /**
  * The runner identity established by {@link JobProtocol.authenticate}; it
@@ -204,6 +204,11 @@ export class JobProtocol {
   /** Queues the job for a workflow step; a repeated execution key returns the same job. */
   createForStep(input: CreateJobInput): string {
     return createJobForStep(this.store, input);
+  }
+
+  /** Moves the run's jobs that no runner holds yet to a new priority. */
+  reprioritizeForRun(runId: string, jobPriority: number): void {
+    reprioritizeQueuedJobs(this.store, runId, jobPriority);
   }
 
   /** Cancels the run's jobs that no runner holds yet. */

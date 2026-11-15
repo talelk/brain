@@ -138,6 +138,7 @@
     "plan.confirm",
     "workItem.transition",
     "workItem.comment",
+    "workItem.details.set",
     "automation.upsert",
     "automation.control",
     "plan.propose",

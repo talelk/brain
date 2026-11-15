@@ -34,6 +34,8 @@ describe("effect tools: an incident from watch to restart with one approval", ()
     expect(watch).toMatchObject({ step_id: "respond", state: "blocked", queue_reason: "AWAITING_APPROVAL", effect_class: "read" });
     // The change is held as its own job, bound by the approval's subject, and nobody can claim it before the decision.
     expect(act).toMatchObject({ id: subject.effectBounds.actJobId, step_id: "act", state: "blocked", queue_reason: "AWAITING_APPROVAL", effect_class: "privileged" });
+    // The held change keeps the priority of the work that proposed it (#116): a default of 0 would rank it below normal work.
+    expect(act!.priority).toBe(watch!.priority);
     expect(await w.run()).toBe(false);
     // The owner decides from the approval's own page (the notification links to it); the request was made by the platform, not by them.
     expect((w.store.control.prepare("SELECT requested_by FROM approval_requests WHERE id=?").get(approval.id) as { requested_by: string }).requested_by).toBe("system:effect-call");

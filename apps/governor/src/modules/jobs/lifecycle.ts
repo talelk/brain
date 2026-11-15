@@ -19,6 +19,8 @@ export interface CreateJobInput {
   executionDigest: string; effectClass: string; kind: string; payload: JsonValue;
   /** The runner the run was pinned to at dispatch, if any. */
   runnerId?: string | undefined;
+  /** The priority of the work the run serves, 0 low .. 3 urgent: the claim sorts on it within a workspace (ADR 0041). */
+  priority: number;
 }
 
 export type ReconciliationOutcome = "applied" | "absent" | "conflicting" | "unknown";
@@ -56,13 +58,19 @@ export function createJobForStep(s: Store, input: CreateJobInput): string {
     const jobId = s.id("job");
     let placementJson = agentPlacement(s, input);
     if (input.runnerId) placementJson = JSON.stringify({ ...(JSON.parse(placementJson) as Placement), runnerId: input.runnerId });
-    s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, created_at_ms, ready_at_ms, deadline_ms)
-      VALUES (?,?,?,?,?,?,'queued',?,?,?,?,'WAITING_FOR_RUNNER',?,?,?)`)
-      .run(jobId, input.organizationId, input.workspaceId, input.executionKey, input.runId, input.stepId, input.configDigest, placementJson, input.executionDigest, input.effectClass, s.now(), s.now(), s.now() + 7 * 24 * 3600_000);
+    s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, priority, created_at_ms, ready_at_ms, deadline_ms)
+      VALUES (?,?,?,?,?,?,'queued',?,?,?,?,'WAITING_FOR_RUNNER',?,?,?,?)`)
+      .run(jobId, input.organizationId, input.workspaceId, input.executionKey, input.runId, input.stepId, input.configDigest, placementJson, input.executionDigest, input.effectClass, input.priority, s.now(), s.now(), s.now() + 7 * 24 * 3600_000);
     s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(jobId, input.kind, JSON.stringify(withOutputSchema(s, input)));
     s.emit(s.control, { organizationId: input.organizationId, workspaceId: input.workspaceId, aggregateType: "job", aggregateId: jobId, eventType: "job.queued", payload: { jobId, runId: input.runId, stepId: input.stepId }, destinations: [`workspace:${input.workspaceId}`] });
     return jobId;
   });
+}
+
+/** A person changed the priority of the work a run serves: the run's jobs still waiting for a runner are claimed at the new priority. */
+export function reprioritizeQueuedJobs(s: Store, runId: string, jobPriority: number): void {
+  s.control.prepare(`UPDATE jobs SET priority=?
+    WHERE workflow_run_id=? AND state IN ('queued') AND priority!=?`).run(jobPriority, runId, jobPriority);
 }
 
 /** Cancels a run's jobs that no runner holds yet (queued, offered, or parked while a person decides a change it proposed). */

@@ -2,6 +2,11 @@ import type { Run } from "@brain/contracts";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 
+/** A person changed the priority of the work a run serves (#116): the run's later steps are created with it. */
+export function setRunPriority(store: Store, organizationId: string, workspaceId: string, runId: string, jobPriority: number): void {
+  store.workspaceDb(workspaceId, organizationId).prepare("UPDATE run_inputs SET priority=? WHERE run_id=?").run(jobPriority, runId);
+}
+
 /**
  * The Run aggregate (ADR 0019). One execution of a released workflow; the
  * workflow_runs row is the source of truth, run_inputs names the release, and

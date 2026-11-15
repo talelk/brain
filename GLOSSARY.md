@@ -168,6 +168,21 @@ A work item stopped after repeated failed attempts, waiting for a human to retry
 reassign, edit or drop it. Independent work continues; only a human unparks it.
 _Avoid_: stuck, failed (failure is an attempt's outcome), quarantined
 
+**Priority**:
+A work item's urgent, high, normal or low, written into the priority of every job its runs create. Inside
+a workspace's fair share the higher priority is claimed first; it never lets a workspace jump another's
+turn and never changes what Done needs (ADR 0041).
+_Avoid_: rank, severity
+
+**Tag**:
+A lower-case label (up to 10) a person puts on a work item to slice the board.
+_Avoid_: category, label
+
+**Overdue**:
+An open work item past its due date, flagged on its card and the board only. It is not an attention item
+and never notifies.
+_Avoid_: late alert, deadline breach
+
 **Affected branch**:
 The plan tasks a new plan version changes, plus everything downstream of them. Every
 other task must stay identical across the two versions.

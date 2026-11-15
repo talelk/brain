@@ -67,6 +67,7 @@ async function planEditorRoute(demo: Demo, governor: Fixture): Promise<string> {
 const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Demo) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
+  { id: "mission-board", route: (d) => `/missions/${d.seed.missionIds.active}/plan?view=board`, heading: "Stabilize authentication", waitFor: "work-board", after: async (page) => { await expect(page.getByTestId("work-board")).toBeVisible(); await expect(page.getByTestId("work-overdue")).toBeVisible(); } },
   { id: "mission-live", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication" },
   { id: "plays", route: () => "/w/operations/plays?mode=catalog", heading: "Plays" },
   { id: "live", route: () => "/w/operations/live", heading: "Sessions & runs", testid: "console-rail" },
