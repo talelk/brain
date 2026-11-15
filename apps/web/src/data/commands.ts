@@ -65,11 +65,11 @@ export type PayloadFor<K extends CommandKind> =
       : K extends "plan.reject" ? { planVersionId: string; reason: string }
       : K extends "knowledge.approveVerified" | "plays.addStarter" | "knowledge.withdrawUnobserved" ? Record<string, never>
       : K extends "library.settings.set" ? { autoPublishKnowledge: boolean }
-      : K extends "knowledge.review" ? { assetId: string; decision: "approve" | "reject"; reason: string }
+      : K extends "knowledge.review" ? { assetId: string; decision: "approve" | "reject" | "reconfirm" | "revoke"; reason: string }
       : K extends "mission.reuse.decide" ? { missionId: string; itemRef: string; decision: "keep" | "drop" }
       : K extends "result.challenge" ? { workItemId: string }
       : K extends "play.propose" ? { missionId: string }
-      : K extends "play.proposal.review" ? { proposalId: string; decision: "approve" | "reject"; reason: string }
+      : K extends "play.proposal.review" ? { proposalId: string; decision: "approve" | "reject" | "reconfirm" | "revoke"; reason: string }
         : K extends "workItem.transition" ? { workItemId: string; state: WorkItemState; evidenceDigest?: string; reason?: string }
           : K extends "handoff.submit" ? { workItemId: string; notes: { summary: string; decisions?: string[]; openQuestions?: string[]; nextAction?: string; referencedOutputs?: string[] } }
           : K extends "workItem.comment" ? { workItemId: string; text: string }
@@ -90,7 +90,7 @@ export type PayloadFor<K extends CommandKind> =
                                 : K extends "tool.propose" ? { package: unknown; evidence: string[] }
                                   : K extends "tool.publish" ? { release: { id: string; digest: string }; evidence: string[] }
                                     : K extends "capitalization.run" ? Record<string, never>
-                                      : K extends "capability.review" ? { candidateId: string; decision: "approve" | "reject"; reason: string }
+                                      : K extends "capability.review" ? { candidateId: string; decision: "approve" | "reject" | "reconfirm" | "revoke"; reason: string }
                                         : K extends "approval.revoke" ? { approvalId: string; reason: string }
                                       : K extends "workspace.update" ? { workspaceId: string; displayName: string; description: string; ownerId: string; tags: string[] }
                                           : K extends "workspace.control" ? { workspaceId: string; action: "suspend" | "resume" | "archive"; reason: string }

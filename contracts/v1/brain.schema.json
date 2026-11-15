@@ -6192,6 +6192,9 @@
         },
         "selfReviewed": {
           "type": "boolean"
+        },
+        "stale": {
+          "$ref": "#/$defs/KnowledgeStale"
         }
       },
       "required": [
@@ -20210,6 +20213,57 @@
       ],
       "additionalProperties": false
     },
+    "KnowledgeStale": {
+      "type": "object",
+      "properties": {
+        "since": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "changes": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "document",
+                  "output"
+                ]
+              },
+              "id": {
+                "$ref": "#/$defs/Id"
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "what": {
+                "type": "string",
+                "enum": [
+                  "revised",
+                  "removed",
+                  "superseded"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "title",
+              "what"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "since",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
     "KnowledgeAsset": {
       "type": "object",
       "properties": {
@@ -20314,6 +20368,12 @@
           "maximum": 9007199254740991
         },
         "expiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "stale": {
+          "$ref": "#/$defs/KnowledgeStale"
+        },
+        "reconfirmedAt": {
           "$ref": "#/$defs/Timestamp"
         }
       },
@@ -25324,6 +25384,9 @@
             "successCriteria"
           ],
           "additionalProperties": false
+        },
+        "stale": {
+          "$ref": "#/$defs/KnowledgeStale"
         }
       },
       "required": [
@@ -25370,7 +25433,9 @@
               "type": "string",
               "enum": [
                 "approve",
-                "reject"
+                "reject",
+                "reconfirm",
+                "revoke"
               ]
             },
             "reason": {

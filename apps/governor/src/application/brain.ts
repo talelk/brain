@@ -153,6 +153,7 @@ export class Brain {
             return { query: input.query, ...(scope.missionId ? { missionId: scope.missionId } : {}), results: hits.map((hit) => ({
               sourceId: hit.sourceId, content: hit.content, updatedAt: hit.updatedAt, status: hit.status, provenance: hit.provenance,
               ...(hit.sourceType ? { sourceType: hit.sourceType } : {}), ...(hit.title ? { title: hit.title } : {}), ...(hit.selfReviewed ? { selfReviewed: true } : {}),
+              ...(hit.stale ? { stale: hit.stale } : {}),
             })) };
           },
           csvArtifact: (organizationId, workspaceId, artifactId) => {

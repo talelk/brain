@@ -571,6 +571,14 @@ knowledge) labelled as claims with provenance; a knowledge search never counts a
 (self-reviewed, ADR 0007); a newer asset of the same goal supersedes the older.
 _Avoid_: memory (unqualified), insight, learning
 
+**Stale knowledge**:
+A published knowledge asset whose source changed since it was written: a document it rests on has a newer version or was
+removed, or an output it quotes has a newer verified version. The asset records fingerprints of its sources; a change marks it
+stale (the contract's `stale` status) but it stays readable, searchable and reusable, labelled with what changed, and it is
+never deleted. Search results and context packs flag it, and a pack lists what changed since the task's previous pack. Only
+a person clears the mark: re-confirm (sources fingerprinted again) or revoke (ADR 0059).
+_Avoid_: outdated, expired (expiry is time and use only)
+
 **Memory publication**:
 The governed promotion of vetted knowledge into a broader scope, requiring an approver
 who is not the producer of the knowledge. A single owner with no other reviewer may

@@ -19,6 +19,7 @@ import { seedBrowserDemo } from "../support/browserDemo";
 import { seedHuman } from "../helpers";
 import { sendTaskBack } from "../support/evalCases";
 import { command, interruptedSession } from "../support/interrupted-session";
+import { seedStaleKnowledge } from "../support/stale-knowledge";
 import { seedPullRequest } from "../support/pullRequestDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 import { seedQuestion } from "../support/question-demo";
@@ -195,9 +196,19 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "mission-usage-breakdown", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedAttributedUsage, after: async (page) => { await page.getByTestId("usage-breakdown").getByText("Where the usage went", { exact: true }).click(); await expect(page.getByTestId("usage-by-member")).toContainText("writer"); await page.getByTestId("usage-breakdown").evaluate((element) => element.scrollIntoView({ block: "center" })); } },
   // Handing a mission to a teammate (#117): the mission's menu, then the dialog with a teammate chosen. It adds one member, so it comes after every screen that lists people.
   { id: "mission-handover", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedTeammate, after: async (page) => { await page.getByRole("button", { name: "More", exact: true }).click(); await page.getByRole("menuitem", { name: "Hand this mission to someone else" }).click(); const dialog = page.getByRole("dialog", { name: "Hand this mission over" }); await dialog.getByRole("combobox", { name: "New owner" }).click(); await page.getByRole("option", { name: /Dana Cole/ }).click(); await expect(dialog.getByRole("button", { name: "Hand over", exact: true })).toBeEnabled(); } },
+  // Knowledge whose source document got a newer version (#133): it says what changed and offers Re-confirm and Withdraw. It adds a document, so it comes before only the push screens.
+  { id: "knowledge-stale", route: () => "/w/operations/knowledge", heading: "Knowledge", prepare: seedStaleKnowledgeEntry, after: async (page) => { await expect(page.getByTestId("learned-stale")).toBeVisible(); await expect(page.getByTestId("learned-reconfirm")).toBeVisible(); } },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];
+
+/** One published write-up of the closed mission whose source document then got a new version; added once, when its screen is reached. */
+let staleKnowledge = false;
+async function seedStaleKnowledgeEntry(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Awaited<ReturnType<typeof seedBrowserDemo>>): Promise<void> {
+  if (staleKnowledge) return;
+  staleKnowledge = true;
+  await seedStaleKnowledge(governor.app.brain, demo.actor, demo.workspaceId, { key: "vb-stale", missionId: demo.seed.missionIds.closed, title: "Vendor seat prices", content: "Vendor A is cheapest per seat on a one-year term; Vendor B needs a three-year term.", documentTitle: "Vendor price list" });
+}
 
 /** A teammate who can work on missions (the one hand-over screen); added once, when its screen is reached. */
 let teammate = false;

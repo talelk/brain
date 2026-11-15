@@ -1,6 +1,7 @@
 import type { MemoryQuery, MemoryResult } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import type { Store } from "../../application/store";
+import { markStaleKnowledge, staleOf } from "./lifecycle";
 
 // Secret classification is by meaning, not by one spelling: any credential-
 // shaped key/value pair (long or short names, camelCase or snake_case), key
@@ -99,18 +100,23 @@ export class MemoryStore {
     if (terms.length > 0) {
       const assetTypes = ["chat", "skill", "wiki", "codegraph", "knowledge"].filter((type) => types.has(type));
       if (assetTypes.length > 0) {
+        // Knowledge whose source changed is returned labelled stale with what changed (ADR 0059); it is never dropped here.
+        const staleDb = scope.workspaceId ? this.store.workspaceDb(scope.workspaceId, scope.organizationId) : undefined;
+        if (staleDb) markStaleKnowledge(staleDb, this.store.now());
         const rows = this.store.control.prepare(`SELECT a.*, bm25(memory_fts, 1.0, 3.0, 1.0) AS rank FROM memory_fts f JOIN memory_assets a ON a.id=f.asset_id
           WHERE memory_fts MATCH ? AND a.revoked=0 AND a.organization_id=? AND (a.workspace_id IS NULL OR ? IS NULL OR a.workspace_id=?)
             AND a.source_type IN (${assetTypes.map(() => "?").join(",")})
           ORDER BY rank, a.created_at_ms DESC LIMIT ?`).all(ftsOr(terms), scope.organizationId, scope.workspaceId ?? null, scope.workspaceId ?? null, ...assetTypes, limit) as AssetRow[];
         for (const a of rows) {
+          const mark = staleDb && a.source_type === "knowledge" ? staleDb.prepare("SELECT stale_at_ms, stale_changes_json FROM knowledge_assets WHERE id=? AND state='published'").get(a.source_id) as { stale_at_ms: number | null; stale_changes_json: string } | undefined : undefined;
+          const stale = mark ? staleOf(mark) : undefined;
           ranked.push({ rank: a.rank, at: a.created_at_ms, result: {
             sourceId: a.source_id,
             scope: a.workspace_id
               ? { organizationId: a.organization_id, visibility: "workspace" as const, workspaceId: a.workspace_id }
               : { organizationId: a.organization_id, visibility: "global-approved" as const },
             sourceVersion: "local-1", updatedAt: new Date(a.created_at_ms).toISOString(), classification: "internal" as const,
-            content: a.body.slice(0, maxChars), provenance: [a.source_id], status: a.status,
+            content: a.body.slice(0, maxChars), provenance: [a.source_id], status: stale ? "stale" as const : a.status, ...(stale ? { stale } : {}),
             ...(a.title ? { title: a.title } : {}), sourceType: a.source_type as NonNullable<MemoryResult["sourceType"]>,
             ...(a.self_reviewed ? { selfReviewed: true } : {}),
           } });

@@ -1727,5 +1727,18 @@ export const enExtra = {
   "mp.handover.none": "Nobody else in this workspace can work on missions yet.",
   "mp.handover.confirm": "Hand over",
   "mp.handover.done": "This mission now belongs to {name}.",
+  "library.stale.badge": "Source changed",
+  "library.stale.detail": "Marked stale {when}: {what}. Still readable, but check it against the changed source before relying on it.",
+  "library.stale.change.document.revised": "document “{title}” has a newer version",
+  "library.stale.change.document.removed": "document “{title}” was removed",
+  "library.stale.change.output.revised": "output “{title}” has a newer verified version",
+  "library.stale.change.output.superseded": "output “{title}” was continued by a later mission",
+  "library.stale.reconfirm": "Re-confirm: it still holds",
+  "library.stale.withdraw": "Withdraw",
+  "library.stale.reconfirmed": "Re-confirmed. It is no longer marked stale.",
+  "library.stale.withdrawn": "Withdrawn from search and reuse.",
+  "library.stale.failed": "That was not saved.",
+  "library.stale.reconfirmedAt": "Re-confirmed {when}",
+  "library.stale.reuse": "Source changed since this was written: check it before relying on it.",
   // @@END
 } as const satisfies Record<string, string>;

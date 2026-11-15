@@ -15,6 +15,7 @@ import { readableSources, toolAvailability } from "../resources/index";
 import { buildContextPack, type BuiltPack, type PackItem, type PackSection } from "./context-pack";
 import { MAX_ACTIVE_CHILDREN, MAX_DELEGATION_DEPTH, delegatedRunOf, pinnedAgentOfJob, type PinnedAgent } from "./delegation";
 import { coordinatorSections } from "./coordinator-pack";
+import { knowledgeSections } from "./knowledge-section";
 
 /** What a steered session reads: a teammate's message says who wrote it, so it is never mistaken for the person's own instruction. */
 function steerText(store: Store, db: ReturnType<Store["workspaceDb"]>, message: MessageRow): string {
@@ -630,6 +631,7 @@ export class SessionService {
         ...(checkpoint.completedCriteria.length > 0 ? [fact("completed", `Criteria already completed: ${checkpoint.completedCriteria.join(", ")}`)] : []),
       ] : [] },
       { id: "last-failure", title: "The previous attempt failed", label: "fact", items: failure ? [fact("error", failure)] : [] },
+      ...(delegated ? [] : knowledgeSections(db, item.mission_id, item.id, this.store.now())),
       { id: "delegated", title: "Work this task handed to child sessions", label: "claim", items: sentOut.flatMap((entry) => {
         // A child's result is its own claim until a person accepts it; a failure is a fact the Governor recorded.
         const state = entry.run.state === "succeeded" ? `finished${entry.state === "accepted" ? " and accepted" : entry.state === "rejected" ? " but rejected by a reviewer" : ", not yet reviewed"}: ${entry.run.result ?? "no result written"}`
