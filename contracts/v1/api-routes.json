@@ -41,6 +41,11 @@
    "type": "http",
    "scheme": "bearer",
    "description": "BRAIN_METRICS_TOKEN_FILE token; the route does not exist when it is unset."
+  },
+  "modelGatewayToken": {
+   "type": "http",
+   "scheme": "bearer",
+   "description": "An attempt's model gateway token (ADR 0072): minted for one running attempt and its fence, shown once, revoked when the attempt ends."
   }
  },
  "routes": [
@@ -2287,6 +2292,85 @@
     "401",
     "403",
     "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/model-gateway-token",
+   "summary": "the runner holding a running attempt whose model routes include one through the Governor's gateway asks for that attempt's gateway token (ADR 0072); asking again replaces it",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/model-gateway/v1/routes/{routeId}/chat/completions",
+   "summary": "optional Governor model gateway (ADR 0072): an OpenAI-compatible chat completions endpoint authenticated only by an attempt's gateway token; forwards to the route's upstream with the key held on the Governor host and relays the answer or stream; stores counts and status, never request or response bodies",
+   "auth": [
+    "modelGatewayToken"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "The upstream answer, or its event stream",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      },
+      "text/event-stream": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "413",
+    "429",
+    "502"
    ]
   },
   {

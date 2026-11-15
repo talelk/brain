@@ -186,10 +186,15 @@ export const RESUME_NOTE = "\n\n# Resuming earlier work\nThis conversation conti
  * The hosted model routes the Governor offered this attempt (a check, a second attempt, ADR 0023), in the order they are tried. A route without
  * both prices would run hosted spend for free, and one without a key reference has nowhere to find its key; neither is accepted here.
  */
-export function hostedRoutesOf(routes: ReadonlyArray<{ tier?: string; role?: string; routeId?: string; keyRef?: string; baseUrl?: string; model?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number }> | undefined): HostedRoute[] {
+export function hostedRoutesOf(routes: ReadonlyArray<{ tier?: string; role?: string; routeId?: string; keyRef?: string; baseUrl?: string; model?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number; viaGateway?: boolean }> | undefined, gateway?: { baseUrl: (routeId: string) => string; token: string }): HostedRoute[] {
   const priced = (price: number | undefined): price is number => typeof price === "number" && price >= 1;
-  return (routes ?? []).flatMap((route) => route.tier === "hosted" && (route.role === "second-attempt" || route.role === "evaluator") && route.routeId && route.keyRef && isKeyReference(route.keyRef) && route.baseUrl && route.model && priced(route.inputMicroUsdPerMTok) && priced(route.outputMicroUsdPerMTok)
-    ? [{ routeId: route.routeId, keyRef: route.keyRef, baseUrl: route.baseUrl, model: route.model, inputMicroUsdPerMTok: route.inputMicroUsdPerMTok, outputMicroUsdPerMTok: route.outputMicroUsdPerMTok }] : []);
+  return (routes ?? []).flatMap((route): HostedRoute[] => {
+    if (route.tier !== "hosted" || !(route.role === "second-attempt" || route.role === "evaluator") || !route.routeId || !route.model || !priced(route.inputMicroUsdPerMTok) || !priced(route.outputMicroUsdPerMTok)) return [];
+    const prices = { inputMicroUsdPerMTok: route.inputMicroUsdPerMTok, outputMicroUsdPerMTok: route.outputMicroUsdPerMTok };
+    // A route through the Governor's gateway (ADR 0072) carries no key reference and no upstream address: the runner calls the gateway with its attempt's token.
+    if (route.viaGateway === true) return gateway ? [{ routeId: route.routeId, keyRef: "", baseUrl: gateway.baseUrl(route.routeId), model: route.model, ...prices, gatewayToken: gateway.token }] : [];
+    return route.keyRef && isKeyReference(route.keyRef) && route.baseUrl ? [{ routeId: route.routeId, keyRef: route.keyRef, baseUrl: route.baseUrl, model: route.model, ...prices }] : [];
+  });
 }
 
 export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => string), runnerEpoch = 1, controls: RunnerControls = newRunnerControls()): Promise<boolean> {
@@ -338,7 +343,9 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       const offeredBindings = asset.toolBindings.filter((binding) => !withheld.has(binding.release.id));
       const offeredTools = asset.agent.spec.tools.filter((tool) => !withheld.has(tool.id));
       // A second attempt the Governor routed to the workspace's hosted model (ADR 0023); every other attempt stays on this runner's own model.
-      const hostedRoutes = hostedRoutesOf(payload.modelRoutes);
+      // A route through the Governor's gateway is called with this attempt's own token, asked for now that the attempt runs; the key stays on the Governor host (ADR 0072).
+      const gatewayToken = payload.modelRoutes?.some((route) => route.viaGateway === true) ? (await client.modelGatewayToken(offer.attemptId)).token : undefined;
+      const hostedRoutes = hostedRoutesOf(payload.modelRoutes, gatewayToken ? { baseUrl: (routeId) => client.gatewayBaseUrl(routeId), token: gatewayToken } : undefined);
       const candidates = hostedRoutes.flatMap((route) => { const picked = selectEngine(engineConfigured, offeredBindings, route); return picked ? [{ route, engine: picked }] : []; });
       const engine = hostedRoutes.length > 0 ? candidates[0]?.engine : selectEngine(engineConfigured, offeredBindings);
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner with the ${required} isolation this step requires`);

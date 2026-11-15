@@ -888,6 +888,15 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return c.json({ valid: true } as never);
     } catch (e) { return fail(c as never, e); }
   });
+  // The runner of a running attempt asks for the token its model-gateway routes are called with (ADR 0072).
+  app.post("/runner/v1/attempts/:id/model-gateway-token", (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.jobProtocol.modelGatewayToken(runner, c.req.param("id")) as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+  // The Governor's optional model gateway (ADR 0072): an OpenAI-compatible endpoint the attempt's gateway token alone authenticates. Never cookie or human session.
+  app.post("/model-gateway/v1/routes/:routeId/chat/completions", (c) => brain.modelGateway.handle(c.req.raw, c.req.param("routeId")));
   // Effect tools (ADR 0024): propose a call, learn its decision, take its one permit, start it, perform it, report how it ended.
   app.post("/runner/v1/attempts/:id/effects", async (c) => {
     try {

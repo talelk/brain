@@ -14,7 +14,7 @@ V1 = ROOT / 'contracts/v1'
 OUTPUT = V1 / 'openapi.json'
 ERROR = {'$ref': '#/components/schemas/BrainError'}
 DESCRIPTIONS = {'400': 'Invalid request', '401': 'Not signed in', '403': 'Not allowed', '404': 'Not found', '409': 'Conflict with current state',
-                '410': 'Gone', '413': 'Too large', '422': 'Rejected by a domain rule', '429': 'Rate limited', '503': 'Not ready', 'default': 'Structured error'}
+                '410': 'Gone', '413': 'Too large', '422': 'Rejected by a domain rule', '429': 'Rate limited', '502': 'The model endpoint behind the gateway failed', '503': 'Not ready', 'default': 'Structured error'}
 
 
 def load(name):

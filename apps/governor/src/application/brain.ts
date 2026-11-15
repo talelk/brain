@@ -51,6 +51,7 @@ import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
 import { DelegationRuns } from "./delegation-runs";
 import { Challenges } from "./challenges";
 import { BundleJudge } from "./bundle-judge";
+import { ModelGateway } from "./model-gateway";
 import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualityBreakdown, qualitySummary } from "../modules/stream/index";
@@ -93,8 +94,11 @@ export class Brain {
   readonly delegationRuns: DelegationRuns;
   readonly challenges: Challenges;
   readonly bundleJudge: BundleJudge;
+  readonly modelGateway: ModelGateway;
   /** The network port for model calls the Governor makes itself (the advisory judge, the probes). Tests and the browser fixture replace it with a fake model. */
   modelFetch: typeof fetch = fetch;
+  /** Where the Governor host holds model keys for routes through the gateway; tests hand in their own. */
+  modelKeyEnv: Readonly<Record<string, string | undefined>> = process.env;
   readonly playProposals: PlayProposals;
   readonly starterPlays: StarterPlays;
   readonly shares: ShareService;
@@ -190,6 +194,7 @@ export class Brain {
         catalog: (organizationId) => (releaseDefinitions(this.store, organizationId, "workflows") as unknown as { items: WorkflowCatalogEntry[] }).items,
       });
       this.bundleJudge = new BundleJudge({ store: this.store, modelFetch: () => this.modelFetch });
+      this.modelGateway = new ModelGateway({ store: this.store, modelFetch: () => this.modelFetch, keyEnv: () => this.modelKeyEnv, spendStopped: (organizationId, workspaceId, runId, inFlightMicroUsd) => this.missions.spendStopped(organizationId, workspaceId, runId, inFlightMicroUsd) });
       this.playProposals = new PlayProposals({
         store: this.store,
         createDraft: (actor, workspaceId, input) => this.drafts.apply(actor, { commandType: "configDraft.create", workspaceId, payload: input }),

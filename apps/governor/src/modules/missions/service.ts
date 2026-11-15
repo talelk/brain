@@ -11,7 +11,7 @@ import { activeReleaseRecord } from "../configuration/index";
 import { repeatGate, type RepeatPlan, type RepeatSchedule } from "./repeat";
 import { addStandingMembers, applyStandingTeam, listStandingTeams, referenceStandingTeam, standingTeamCounts } from "./standing-teams";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
-import { admit, admitChallenge, admitOutsideMission, budgetOf, DEFAULT_MISSION_BUDGET, hasHeadroom, limitChangeNote, minutesWord, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
+import { admit, admitChallenge, admitOutsideMission, budgetOf, DEFAULT_MISSION_BUDGET, hasHeadroom, limitChangeNote, minutesWord, reserve as reserveSpend, settle, settleAll, spendStopped, usageOf } from "./budget";
 import { missionTaskTrust } from "./task-trust";
 import { agentProfile, agentProfiles, asJson, memberProfile, splitMemberKey } from "./agent-profile";
 import { agentUsage, capReached, memberUsage, missionBreakdown, missionUsage, outsideMissionsUsage, runUsage, SERIES_MAX_DAYS, setSpendCap, spendCapOf, spendSeries, verifiedCost, taskUsage, workspaceUsage } from "./usage";
@@ -1037,6 +1037,17 @@ export class MissionService {
     }
     const decision = this.store.inTx(db, () => admit(this.store, db, link.mission_id, Boolean(coordinatorRun), (missionId) => wake(this.store, db, missionId, "mission-paused", "budget exhausted; write the final checkpoint"), () => this.soleHuman(workspaceId)));
     return { missionId: link.mission_id, ...decision };
+  }
+
+  /** Whether a model call through the gateway must stop for a run: its mission's money or the workspace cap (ADR 0072). Read-only. */
+  spendStopped(organizationId: string, workspaceId: string, runId: string, inFlightMicroUsd = 0): boolean {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const work = db.prepare("SELECT mission_id FROM execution_links WHERE run_id=? LIMIT 1").get(runId) as { mission_id: string } | undefined;
+    const coordinator = work ? undefined : db.prepare("SELECT mission_id FROM mission_runs WHERE run_id=?").get(runId) as { mission_id: string } | undefined;
+    const delegated = work || coordinator ? undefined : delegatedRunOf(db, runId);
+    const challenged = work || coordinator || delegated ? undefined : db.prepare(`SELECT w.mission_id FROM workflow_runs r JOIN result_challenges c ON r.execution_key='challenge-' || c.id
+        JOIN work_items w ON w.id=c.work_item_id WHERE r.id=?`).get(runId) as { mission_id: string } | undefined;
+    return spendStopped(this.store, db, work?.mission_id ?? coordinator?.mission_id ?? delegated?.missionId ?? challenged?.mission_id, inFlightMicroUsd);
   }
 
   /** True when the workspace has exactly one person who could pause, resume or approve: nobody else could object to a time extension. */

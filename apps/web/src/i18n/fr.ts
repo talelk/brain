@@ -2517,5 +2517,7 @@ export const fr: Catalog = {
   "library.stale.failed": "Cela n'a pas été enregistré.",
   "library.stale.reconfirmedAt": "Reconfirmée {when}",
   "library.stale.reuse": "La source a changé depuis la rédaction : vérifiez avant de vous y fier.",
+  "work.routes.gateway": "Passer les appels par le Governor",
+  "work.routes.gatewayHint": "Désactivé par défaut. Activé, le runner ne détient jamais la clé de cette route : il appelle le Governor, qui garde la clé sur son propre hôte, applique l'ordre, les prix et le délai de quota de cette route, et coupe l'appel quand l'argent de la mission ou le plafond de l'espace est épuisé. La référence de clé ci-dessus n'est alors lue que sur l'hôte du Governor. Les questions et les réponses ne sont pas conservées.",
   // @@END
 };
