@@ -6594,6 +6594,9 @@
         "activePlanVersionId": {
           "$ref": "#/$defs/Id"
         },
+        "pendingPlanVersionId": {
+          "$ref": "#/$defs/Id"
+        },
         "version": {
           "$ref": "#/$defs/Counter"
         },
@@ -6641,6 +6644,9 @@
           "maxItems": 20
         },
         "playId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "coordinatorMemberId": {
           "$ref": "#/$defs/ConfigId"
         },
         "watching": {
@@ -8100,6 +8106,9 @@
           "$ref": "#/$defs/Id"
         },
         "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
           "$ref": "#/$defs/Id"
         },
         "parentSessionId": {
@@ -24848,7 +24857,6 @@
         "contractVersion",
         "runId",
         "jobId",
-        "workItemId",
         "agentId",
         "budgetTokens",
         "estimatedTokens",
@@ -24869,6 +24877,9 @@
           "$ref": "#/$defs/Id"
         },
         "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
           "$ref": "#/$defs/Id"
         },
         "agentId": {

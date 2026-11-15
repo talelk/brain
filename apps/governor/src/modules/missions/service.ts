@@ -155,13 +155,16 @@ export class MissionService {
     const db = this.store.workspaceDb(workspaceId, this.organizationOf(workspaceId));
     settle(this.store, db, row.id);
     const taskTrust = missionTaskTrust(this.store, this.organizationOf(workspaceId), db, row.id);
+    // The newest plan version still waiting for a person (a Play's starting plan, or a coordinator's proposal beyond its policy).
+    const pending = db.prepare("SELECT id FROM plan_versions WHERE mission_id=? AND state='proposed' ORDER BY revision DESC LIMIT 1").get(row.id) as { id: string } | undefined;
     return {
       ...(taskTrust ? { taskTrust } : {}),
       budget: budgetOf(row), usage: usageOf(this.store, db, row, this.store.now()),
       subjects: (db.prepare("SELECT pack, kind, subject_id FROM mission_subjects WHERE mission_id=? ORDER BY kind, subject_id").all(row.id) as Array<{ pack: "support" | "sre"; kind: "ticket" | "incident"; subject_id: string }>).map((entry) => ({ pack: entry.pack, kind: entry.kind, id: entry.subject_id })),
-      missionId: row.id, workspaceId, title: row.title, intent: row.intent, ...(row.play_id ? { playId: row.play_id } : {}),
+      missionId: row.id, workspaceId, title: row.title, intent: row.intent, ...(row.play_id ? { playId: row.play_id } : {}), ...(row.coordinator_member_id ? { coordinatorMemberId: row.coordinator_member_id } : {}),
       successCriteria: this.coverage(db, row), ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
+      ...(pending ? { pendingPlanVersionId: pending.id } : {}),
       state: row.state, ...(row.pause_reason ? { pauseReason: row.pause_reason } : {}), ...(row.outcome ? { outcome: row.outcome } : {}),
       briefVersion: row.brief_version, autonomyPolicy: JSON.parse(row.policy_json) as AutonomyPolicy, parkingThreshold: row.parking_threshold, autoStart: row.auto_start === 1,
       ...(row.wall_extended === 1 ? { timeExtendedByBrain: true } : {}),
@@ -401,7 +404,8 @@ export class MissionService {
       const now = this.store.now();
       for (const task of tasks) {
         const prior = latestByTask.get(task.id);
-        if (prior && prior.plan_version_id === priorActive && this.sameTask(db, prior, task, effectiveTools(task, defaults))) {
+        // A task's latest live work item is kept whatever plan version made it: a second re-plan must not start finished work again.
+        if (prior && this.sameTask(db, prior, task, effectiveTools(task, defaults))) {
           selected.set(task.id, prior.id);
           retained.add(prior.id);
           continue;
@@ -1233,7 +1237,7 @@ export class MissionService {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     this.store.inTx(db, () => {
       const items = db.prepare("SELECT w.* FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? AND w.state='in-progress'").all(runId) as WorkItemRow[];
-      const autoStart = new Map((db.prepare("SELECT id FROM missions WHERE auto_start=1 AND coordinator_member_id IS NULL AND state='active'").all() as Array<{ id: string }>).map((row) => [row.id, true]));
+      const autoStart = new Map((db.prepare("SELECT id FROM missions WHERE auto_start=1 AND state='active'").all() as Array<{ id: string }>).map((row) => [row.id, true]));
       for (const item of items) {
         // ADR 0022: a run that finished without one successful call of the tools its task needs observed nothing; that is a failed attempt, not a result.
         const needed = JSON.parse(item.required_tools_json) as string[];
@@ -1261,7 +1265,7 @@ export class MissionService {
     const waiting = db.prepare("SELECT DISTINCT w.mission_id AS id FROM work_items w JOIN missions m ON m.id=w.mission_id AND m.state='active' WHERE w.parked=0 AND w.state='backlog'").all() as Array<{ id: string }>;
     for (const entry of waiting) this.store.inTx(db, () => this.releaseReadyItems(db, entry.id, ["backlog"]));
     const rows = db.prepare(`SELECT w.*, l.run_id AS link_run FROM work_items w
-      JOIN missions m ON m.id=w.mission_id AND m.state='active' AND m.auto_start=1 AND m.coordinator_member_id IS NULL
+      JOIN missions m ON m.id=w.mission_id AND m.state='active' AND m.auto_start=1
       JOIN execution_links l ON l.work_item_id=w.id JOIN workflow_runs r ON r.id=l.run_id AND r.state='succeeded'
       WHERE w.state IN ('in-progress','review') ORDER BY l.created_at_ms`).all() as Array<WorkItemRow & { link_run: string }>;
     for (const row of rows) {
@@ -1272,9 +1276,11 @@ export class MissionService {
 
   completeFinishedMissions(organizationId: string, workspaceId: string): void {
     const db = this.store.workspaceDb(workspaceId, organizationId);
-    const missions = db.prepare(`SELECT * FROM missions m WHERE m.state='active' AND m.auto_start=1 AND m.coordinator_member_id IS NULL
+    const missions = db.prepare(`SELECT * FROM missions m WHERE m.state='active' AND m.auto_start=1
       AND EXISTS (SELECT 1 FROM work_items w WHERE w.mission_id=m.id AND w.state!='abandoned')
-      AND NOT EXISTS (SELECT 1 FROM work_items w WHERE w.mission_id=m.id AND w.state NOT IN ('done','abandoned'))`).all() as MissionRow[];
+      AND NOT EXISTS (SELECT 1 FROM work_items w WHERE w.mission_id=m.id AND w.state NOT IN ('done','abandoned'))
+      AND NOT EXISTS (SELECT 1 FROM mission_wakes k WHERE k.mission_id=m.id AND k.consumed_by_run IS NULL)
+      AND NOT EXISTS (SELECT 1 FROM mission_runs r JOIN workflow_runs wr ON wr.id=r.run_id WHERE r.mission_id=m.id AND wr.state NOT IN ('succeeded','failed','cancelled','partial'))`).all() as MissionRow[];
     for (const mission of missions) {
       const actor: ActorContext = { kind: "workflow", actorId: mission.owner_id, organizationId, workspaceId, scopes: [], authMethod: "service-credential", authGeneration: 1 };
       try {
@@ -1322,8 +1328,8 @@ export class MissionService {
 
   /**
    * Ready work the Governor may start by itself: missions whose auto-start
-   * switch is on, without a play coordinator (the coordinator owns dispatch
-   * there), that are active. Each mission lists its free member slots (the
+   * switch is on that are active; a coordinator only plans, the Governor starts
+   * a coordinated mission's work like any other's (ADR 0045). Each mission lists its free member slots (the
    * member cap minus in-progress work), whether its budget still has headroom,
    * and its ready, unparked items oldest first.
    */
@@ -1331,7 +1337,7 @@ export class MissionService {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     // Only missions with ready work can contribute: a workspace keeps every mission it ever ran, and walking all of them on each command
     // (several prepared statements apiece) made every command slower as history grew (steady benchmark, trial over trial).
-    const missions = db.prepare(`SELECT id, owner_id, member_cap FROM missions WHERE state='active' AND auto_start=1 AND coordinator_member_id IS NULL
+    const missions = db.prepare(`SELECT id, owner_id, member_cap FROM missions WHERE state='active' AND auto_start=1
       AND id IN (SELECT mission_id FROM work_items WHERE state='ready' AND parked=0) ORDER BY rowid`).all() as Array<{ id: string; owner_id: string; member_cap: number }>;
     const plan = [];
     for (const mission of missions) {

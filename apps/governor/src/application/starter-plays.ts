@@ -49,6 +49,8 @@ const engineFor = (release: Release, member: { agentId: string; engine: string }
 function blockedBy(entry: StarterPlay, release: Release): string | undefined {
   if (release.workflows?.[entry.playId]) return "a task with this id already exists in the release";
   for (const member of entry.play.spec.team) if (!release.agents?.[member.agentId]) return `the agent ${member.agentId} is not in the active release`;
+  const coordinating = entry.play.spec.coordinatorWorkflow;
+  if (coordinating && !release.workflows?.[coordinating]) return `the coordinator workflow ${coordinating} is not in the active release`;
   for (const task of entry.play.spec.plan.tasks) if (task.workflowId && !release.workflows?.[task.workflowId]) return `the task ${task.workflowId} is not in the active release`;
   return undefined;
 }

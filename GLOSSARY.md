@@ -149,8 +149,9 @@ can be started by hand, on a schedule or by a trigger.
 _Avoid_: playbook, recipe, template, pack
 
 **Coordinator**:
-The team member whose role is planning and coordinating the rest of the mission team.
-Missions whose dependencies are deterministic have none.
+The team member whose role is planning and re-planning the mission within its autonomy
+policy, only through Brain tools. It starts nothing and signs nothing off. Missions whose
+dependencies are deterministic have none.
 _Avoid_: lead, orchestrator, manager
 
 **Plan version**:
@@ -288,8 +289,7 @@ _Avoid_: task session, worker session
 
 **Mission-level session**:
 A session bound to a mission but to no work item — an interactive conversation, or a
-coordinator planning and coordinating. A coordinator's mission-level sessions act only
-through Brain commands.
+coordinator planning.
 _Avoid_: planning session, chat session, free session
 
 **Mission message**:
