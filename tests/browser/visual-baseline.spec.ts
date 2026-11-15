@@ -72,6 +72,8 @@ async function seedBackupRecords(governor: Parameters<typeof seedBrowserDemo>[1]
   writeFileSync(join(backupRecordsDir, "last-restore-test.json"), JSON.stringify({ ok: true, backup: "brain-20261110.tar.enc", databases: 4, seconds: 42, at: new Date(Date.now() - 3 * 86_400_000).toISOString() }));
   process.env["BRAIN_BACKUP_STAMP_FILE"] = join(backupRecordsDir, "last-backup-ok");
   process.env["BRAIN_RESTORE_TEST_FILE"] = join(backupRecordsDir, "last-restore-test.json");
+  // The seeded runner reports in only for a moment after the seed; Health lists runners and the launcher only while one is online, so keep it online for this screen.
+  governor.app.brain.store.control.prepare("UPDATE runners SET last_heartbeat_ms=?").run(governor.app.brain.store.now());
   await governor.app.brain.runEngineProbes((async () => new Response("{}")) as unknown as typeof fetch);
 }
 function restoreBackupRecords(): void {
