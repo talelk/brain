@@ -48,7 +48,7 @@ export function tallyUsage(events: readonly UsageEvent[]): AttemptUsage {
 
 /** Every ledger row of the workspace: mission attempts, and interactive attempts outside any mission (mission_id NULL). */
 const SPEND_COLUMNS = "attempt_id, run_id, reserved_micro_usd, settled_micro_usd, reserved_tokens, input_tokens, output_tokens, cached_input_tokens, accounting, estimated, source, agent_id, member_id, engine_id, model_id, created_at_ms, settled_at_ms";
-const ALL_SPEND = `(SELECT mission_id, ${SPEND_COLUMNS} FROM mission_spend
+export const ALL_SPEND = `(SELECT mission_id, ${SPEND_COLUMNS} FROM mission_spend
   UNION ALL SELECT NULL AS mission_id, ${SPEND_COLUMNS} FROM workspace_spend)`;
 const MISSION_SPEND = "mission_spend";
 

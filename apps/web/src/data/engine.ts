@@ -52,6 +52,9 @@ export interface OidcSettings {
   issuer?: string; clientId?: string; secretRef?: string; secretReadable?: boolean; autoProvision?: boolean; defaultRole?: OidcRole; groupClaim?: string;
   groupRoles?: { group: string; role: OidcRole }[]; workspaceIds?: string[]; allowedDomains?: string[]; updatedBy?: string; updatedAt?: string;
 }
+export type ChatProvider = "slack" | "teams" | "brain";
+export interface ChatIdentity { provider: ChatProvider; chatUserId: string; principalId: string; name: string; email: string; active: boolean; createdAt: string }
+export const chatIdentitiesRead = (signal?: AbortSignal) => read<{ identities: ChatIdentity[] }>({ queryType: "chatIdentities.list" }, signal);
 export const oidcSettingsRead = (signal?: AbortSignal) => read<OidcSettings>({ queryType: "identity.oidc.get" }, signal);
 
 export interface Lesson { lessonId: string; failureClass: FailureClass; outcome: "healed" | "parked"; taskTitle: string; lesson: string; createdAt: string; expiresAt: string }

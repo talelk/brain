@@ -1,4 +1,5 @@
 import { generateKeyPairSync, sign } from "node:crypto";
+import { NO_VIEWER } from "../../apps/governor/src/modules/knowledge/index";
 import { describe, expect, it } from "vitest";
 import { domainDigest } from "@brain/contracts";
 import type { JsonValue } from "@brain/contracts";
@@ -496,7 +497,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
     expect(pub("deploy runbook: restart the fixture service", "s6")).toBeTruthy();
     const found = w.brain.memory.search(
       { query: "runbook", limit: 4, maxChars: 1000, scope: { organizationId: w.org, visibility: "workspace", workspaceId: w.workspaceId } } as never,
-      { organizationId: w.org, workspaceId: w.workspaceId },
+      { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER,
     );
     expect(found.results.length).toBeGreaterThan(0);
     expect(found.results.every((r) => r.status === "unverified")).toBe(true);

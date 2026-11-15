@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { NO_VIEWER } from "../../apps/governor/src/modules/knowledge/index";
 import { validate } from "@brain/contracts/validate";
 import type { KnowledgeAsset, MemoryQuery, ReuseItem } from "@brain/contracts";
 import { setupWorld, type TestWorld } from "../helpers";
@@ -244,7 +245,7 @@ describe("Library review inbox and one searchable memory (#71, #75)", () => {
     const publish = (sourceId: string, text: string) => w.brain.memory.publish({ organizationId: w.org, workspaceId: w.workspaceId, sourceId, text });
     publish("older-exact", "rollout checklist for the golden workflow with rollback and canary steps");
     publish("newer-partial", "workflow notes");
-    const found = w.brain.memory.search(memoryQuery(w, "golden workflow rollout checklist", ["wiki"]), { organizationId: w.org, workspaceId: w.workspaceId });
+    const found = w.brain.memory.search(memoryQuery(w, "golden workflow rollout checklist", ["wiki"]), { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER);
     expect(found.results.map((hit) => hit.sourceId)).toEqual(["older-exact", "newer-partial"]);
     expect(found.degraded).toBe(false);
   });

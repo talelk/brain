@@ -430,7 +430,19 @@ CREATE TABLE knowledge_assets (
   reviewed_at_ms INTEGER DEFAULT NULL, rejection_reason TEXT DEFAULT NULL, content_digest TEXT DEFAULT NULL,
   superseded_by TEXT DEFAULT NULL, auto_published INTEGER NOT NULL DEFAULT 0 CHECK(auto_published IN (0,1)),
   expires_at_ms INTEGER DEFAULT NULL,
+  -- Memory scope (#135): who may read a published asset (team = the team of mission_id, private = producer_id), and the wider scope its author asked a reviewer for.
+  scope TEXT NOT NULL DEFAULT 'workspace' CHECK(scope IN ('private','team','workspace')),
+  scope_requested TEXT DEFAULT NULL CHECK(scope_requested IS NULL OR scope_requested IN ('team','workspace')),
+  -- Stale knowledge (#133): the sources the asset was built from and, once one changed, the mark that stays until a person re-confirms or revokes.
+  source_fingerprints_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(source_fingerprints_json)),
+  stale_at_ms INTEGER DEFAULT NULL, stale_changes_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(stale_changes_json)),
+  reconfirmed_at_ms INTEGER DEFAULT NULL,
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+-- What each task's last context pack said about each kept knowledge asset (#133), so the next pack lists only what changed since.
+CREATE TABLE knowledge_pack_seen (
+  work_item_id TEXT NOT NULL, asset_id TEXT NOT NULL, seen TEXT NOT NULL,
+  PRIMARY KEY(work_item_id, asset_id)
 ) STRICT;
 -- Library settings (row 47): one row at most; no row means the defaults (auto-publish on).
 CREATE TABLE library_settings (

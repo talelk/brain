@@ -13,6 +13,7 @@ import { addStandingMembers, applyStandingTeam, listStandingTeams, referenceStan
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
 import { admit, admitChallenge, admitOutsideMission, budgetOf, DEFAULT_MISSION_BUDGET, hasHeadroom, limitChangeNote, minutesWord, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
 import { missionTaskTrust } from "./task-trust";
+import { agentProfile, agentProfiles, asJson, memberProfile, splitMemberKey } from "./agent-profile";
 import { agentUsage, capReached, memberUsage, missionBreakdown, missionUsage, outsideMissionsUsage, runUsage, SERIES_MAX_DAYS, setSpendCap, spendCapOf, spendSeries, verifiedCost, taskUsage, workspaceUsage } from "./usage";
 import { planEstimate, planWallLimit } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
@@ -1848,6 +1849,13 @@ export class MissionService {
       const mission = this.missionRow(actor, workspaceId, String(resourceId));
       settleAll(this.store, db);
       return { scope: "mission", id: mission.id, usage: missionUsage(db, mission.id), breakdown: missionBreakdown(db, mission.id) } as unknown as JsonValue;
+    }
+    if (queryType === "agents.profile") { settleAll(this.store, db); return asJson(resourceId ? agentProfile(this.store, db, resourceId) : { items: agentProfiles(this.store, db) }); }
+    if (queryType === "members.profile") {
+      const { missionId, memberId } = splitMemberKey(resourceId);
+      const mission = this.missionRow(actor, workspaceId, missionId);
+      settleAll(this.store, db);
+      return asJson(memberProfile(this.store, db, mission.id, memberId));
     }
     if (queryType === "usage.agent") { settleAll(this.store, db); return { scope: "agent", id: String(resourceId), ...agentUsage(db, String(resourceId)) } as unknown as JsonValue; }
     if (queryType === "usage.member") {

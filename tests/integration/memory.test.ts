@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { NO_VIEWER } from "../../apps/governor/src/modules/knowledge/index";
 import { sha256Digest, type MemoryQuery } from "@brain/contracts";
 import { setupWorld, type TestWorld } from "../helpers";
 
@@ -109,7 +110,7 @@ describe("reviewed memory publication (T39)", () => {
       workspaceId: w.workspaceId, idempotencyKey: "mem-rev",
       payload: { sourceId: "golden-doc", reason: "superseded checklist" },
     }, "mem-rev");
-    expect(w.brain.memory.search(mq(w), { organizationId: w.org, workspaceId: w.workspaceId }).results).toEqual([]);
+    expect(w.brain.memory.search(mq(w), { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER).results).toEqual([]);
     const exported = w.brain.memory.exportScope(w.org, w.workspaceId);
     expect(exported.completeness).toBe("partial");
     expect(exported.missing).toEqual(["tencentdb-wiki", "tencentdb-codegraph"]);
@@ -123,9 +124,9 @@ describe("reviewed memory publication (T39)", () => {
     w.brain.memory.publish({ ...base, sourceId: "strong", text: "rollout checklist with rollback plan" });
     w.brain.memory.publish({ ...base, sourceId: "none", text: "unrelated billing text" });
     const query = { ...mq(w), query: "rollout rollback", limit: 1 } as MemoryQuery;
-    const found = w.brain.memory.search(query, { organizationId: w.org, workspaceId: w.workspaceId }).results;
+    const found = w.brain.memory.search(query, { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER).results;
     expect(found.map((r) => r.sourceId)).toEqual(["strong"]);
-    const all = w.brain.memory.search({ ...query, limit: 8 } as MemoryQuery, { organizationId: w.org, workspaceId: w.workspaceId }).results;
+    const all = w.brain.memory.search({ ...query, limit: 8 } as MemoryQuery, { organizationId: w.org, workspaceId: w.workspaceId }, NO_VIEWER).results;
     expect(all.map((r) => r.sourceId)).toEqual(["strong", "weak"]);
   });
 });

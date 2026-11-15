@@ -1,5 +1,7 @@
 import { For, Show, createEffect, createSignal, on } from "solid-js";
 import { t } from "../../i18n";
+import { A } from "@solidjs/router";
+import { agentHref } from "../mission-links";
 import type { Accessor, JSX } from "solid-js";
 import { Button, Textarea } from "@talelk/newui-atoms";
 import type { ArtifactRef, JobSnapshot } from "@brain/contracts";
@@ -96,7 +98,7 @@ export function ConsoleToolbar(props: {
             <StatusBadge kind={phaseKind(sessionPhase(session()))} status={sessionPhase(session())} />
           </div>
           <p class="truncate text-caption text-ink-gray-6" title="The engine decides which controls exist">
-            {[session()?.agentId, session()?.engine.id ?? "engine unavailable"].filter((part) => part && part !== "unknown").join(" · ")}<Show when={features().length > 0}> ({features().join(", ")})</Show>
+            <Show when={session()?.agentId}>{(agentId) => <><A class="text-ink-blue-link underline focus-visible:focus-ring" href={agentHref(props.workspaceId, agentId())} data-testid="console-agent-link">{agentId()}</A>{" · "}</>}</Show>{[session()?.engine.id ?? "engine unavailable"].filter((part) => part && part !== "unknown").join(" · ")}<Show when={features().length > 0}> ({features().join(", ")})</Show>
           </p>
         </div>
       </div>
