@@ -25,7 +25,7 @@ let pinnedDigest = "";
 let pinnedListing: Awaited<ReturnType<typeof listTools>>;
 beforeAll(async () => { server = await fakeMcpServer(); other = await fakeMcpServer(); net = await egressDouble(); root = mkdtempSync(join(tmp, "brain-mcp-tools-")); pinnedListing = await listTools(server.url); pinnedDigest = pinnedListing.toolListDigest; });
 afterAll(async () => { await server.close(); await other.close(); await net.close(); rmSync(root, { recursive: true, force: true }); });
-afterEach(() => { server.calls.length = 0; other.calls.length = 0; delete process.env["BRAIN_SECRETS_DIR"]; });
+afterEach(() => { server.calls.length = 0; other.calls.length = 0; delete process.env["BRAIN_MCP_SECRETS_DIR"]; });
 
 function declaration(overrides: Partial<McpDeclaration> = {}): McpDeclaration {
   return { url: server.url, tool: "search", toolListDigest: pinnedDigest, maxOutputBytes: 512, host: server.host, ...overrides };
@@ -115,7 +115,7 @@ describe("header secrets are by reference and scrubbed from what comes back", ()
     mkdirSync(join(secrets, "ws-a"), { recursive: true });
     writeFileSync(join(secrets, "ws-a", "mcp-token"), "tok-9f3a7c1e\n", { mode: 0o600 });
     chmodSync(join(secrets, "ws-a", "mcp-token"), 0o600);
-    process.env["BRAIN_SECRETS_DIR"] = secrets;
+    process.env["BRAIN_MCP_SECRETS_DIR"] = secrets;
     server.answer = (_name, _args) => ({ text: `the server saw Bearer tok-9f3a7c1e in your header` });
     const done = await call({ query: "notes" }, { decl: declaration({ headers: { Authorization: { secretRef: "mcp-token", prefix: "Bearer " } } }) });
     expect(server.calls[0]!.authorization).toBe("Bearer tok-9f3a7c1e");

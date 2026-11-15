@@ -1,5 +1,5 @@
 import type { JsonValue } from "@brain/contracts";
-import { readSecretFile, secretsDir } from "./secrets";
+import { readSecretFile, mcpSecretsDir } from "./secrets";
 
 /**
  * External MCP tools on the runner (ADR 0064). The runner never speaks to the MCP server: the pinned client script does, inside a launcher
@@ -38,7 +38,7 @@ export function prepareMcpCall(declaration: McpDeclaration, workspaceId: string 
   const secretValues: string[] = [];
   const refs = Object.entries(declaration.headers ?? {});
   if (refs.length > 0) {
-    const root = secretsDir();
+    const root = mcpSecretsDir();
     if (!root) return { ok: false, error: "no runner secret store is configured for this tool's headers" };
     if (!workspaceId || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(workspaceId)) return { ok: false, error: "header secrets need a workspace scope" };
     for (const [name, ref] of refs) {

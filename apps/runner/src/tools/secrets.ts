@@ -1,59 +1,79 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-// Scoped secret delivery (T14): the Governor and workflow declarations only
-// ever carry secret *references*. Values live in runner-local protected
-// files laid out as <secretsDir>/<workspaceId>/<name> (mode 0600, owned by
-// the runner account) and are resolved here, at invocation time, for
-// privileged tool slots only. Values are injected as process env for the
-// single tool execution and scrubbed from every returned stream.
-const SECRET_NAME = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
+// Secret credentials on the runner (ADR 0070). The runner holds no secret store: the Governor mints short-lived credentials, bound to the
+// attempt and its fence, for the secrets a privileged tool declared. They arrive over the authenticated runner channel, live only in this
+// process's memory for one tool call, go to the sandbox beside the stdin and never to disk, an event or an artifact. This file is what turns
+// the Governor's answer into what a tool call uses, and scrubs every value from whatever the tool returns.
 const ENV_NAME = /^[A-Z][A-Z0-9_]{0,63}$/u;
-const MAX_SECRET_BYTES = 8192;
 const MAX_SECRETS = 16;
+const MAX_SECRET_BYTES = 8192;
+
+export interface SecretCredential { id: string; envName: string; value: string; expiresAt: string }
+
+/** What the tool broker needs of the Governor: mint the attempt's credentials, and re-check them immediately before use. */
+export interface SecretCredentialSource {
+  mint(): Promise<SecretCredential[]>;
+  validate(ids: readonly string[]): Promise<void>;
+}
 
 export interface ResolvedSecrets {
   env: Record<string, string>;
   values: string[];
+  ids: string[];
+  expiresAtMs: number;
 }
 
-export function secretsDir(): string | undefined {
-  return process.env["BRAIN_SECRETS_DIR"];
-}
+export const noSecrets = (): ResolvedSecrets => ({ env: {}, values: [], ids: [], expiresAtMs: Number.POSITIVE_INFINITY });
 
-// secretRefs arrives as declared workflow input: { ENV_NAME: "secret-name" }.
-// Anything malformed, out of scope, or missing fails closed — the tool never
-// runs with a partial secret set.
-export function resolveSecretRefs(
+/**
+ * secretRefs arrives as the declared workflow input { ENV_NAME: reference }. The reference names are not looked up here: the Governor mints
+ * for what the job's pinned payload declares, and the names must agree with it, else the tool never runs with a partial or foreign set.
+ */
+export async function leaseSecretRefs(
   secretRefs: unknown,
-  workspaceId: string | undefined,
   effectClass: string,
-): { ok: true; resolved: ResolvedSecrets } | { ok: false; error: string } {
-  if (secretRefs === undefined) return { ok: true, resolved: { env: {}, values: [] } };
-  if (!secretRefs || typeof secretRefs !== "object" || Array.isArray(secretRefs)) {
-    return { ok: false, error: "secretRefs must be an object of ENV_NAME to secret name" };
-  }
-  const entries = Object.entries(secretRefs as Record<string, unknown>);
-  if (entries.length === 0) return { ok: true, resolved: { env: {}, values: [] } };
-  if (entries.length > MAX_SECRETS) return { ok: false, error: "too many secretRefs" };
+  source: SecretCredentialSource | undefined,
+): Promise<{ ok: true; resolved: ResolvedSecrets } | { ok: false; error: string }> {
+  if (secretRefs === undefined) return { ok: true, resolved: noSecrets() };
+  if (!secretRefs || typeof secretRefs !== "object" || Array.isArray(secretRefs)) return { ok: false, error: "secretRefs must be an object of ENV_NAME to secret name" };
+  const declared = Object.entries(secretRefs as Record<string, unknown>);
+  if (declared.length === 0) return { ok: true, resolved: noSecrets() };
+  if (declared.length > MAX_SECRETS) return { ok: false, error: "too many secretRefs" };
   if (effectClass !== "privileged") return { ok: false, error: "secretRefs require a privileged tool slot" };
-  if (!workspaceId || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(workspaceId)) return { ok: false, error: "secretRefs require a workspace scope" };
-  const root = secretsDir();
-  if (!root) return { ok: false, error: "no runner secret store configured" };
-  const env: Record<string, string> = {};
-  const values: string[] = [];
-  for (const [envName, rawName] of entries) {
-    if (!ENV_NAME.test(envName)) return { ok: false, error: `invalid secret env name ${envName}` };
-    if (typeof rawName !== "string" || !SECRET_NAME.test(rawName) || rawName.includes("..")) {
-      return { ok: false, error: "invalid secret reference name" };
-    }
-    const read = readSecretFile(root, workspaceId, rawName);
-    if (!read.ok) return read;
-    const value = read.value;
-    env[envName] = value;
-    values.push(value);
+  for (const [envName, ref] of declared) if (!ENV_NAME.test(envName) || typeof ref !== "string") return { ok: false, error: `invalid secret reference for ${envName}` };
+  if (!source) return { ok: false, error: "no secret credentials are available to this tool call" };
+  let minted: SecretCredential[];
+  try { minted = await source.mint(); } catch (e) { return { ok: false, error: `secret credentials were refused: ${e instanceof Error ? e.message.slice(0, 200) : "refused"}` }; }
+  const names = new Set(minted.map((credential) => credential.envName));
+  if (minted.length !== declared.length || declared.some(([envName]) => !names.has(envName))) return { ok: false, error: "the secret credentials do not match the tool's declared secrets" };
+  const now = Date.now();
+  if (minted.some((credential) => Date.parse(credential.expiresAt) <= now)) return { ok: false, error: "a secret credential has already expired; invocation refused" };
+  return { ok: true, resolved: {
+    env: Object.fromEntries(minted.map((credential) => [credential.envName, credential.value])),
+    values: minted.map((credential) => credential.value),
+    ids: minted.map((credential) => credential.id),
+    expiresAtMs: Math.min(...minted.map((credential) => Date.parse(credential.expiresAt))),
+  } };
+}
+
+/** Immediately before the tool runs: expired locally is refused without asking, and the Governor re-checks revocation and the fence (and audits a refusal). */
+export async function assertSecretsCurrent(resolved: ResolvedSecrets, source: SecretCredentialSource | undefined): Promise<string | undefined> {
+  if (resolved.ids.length === 0) return undefined;
+  if (Date.now() >= resolved.expiresAtMs) {
+    // Ask anyway so the Governor records the refused use; the answer cannot change the outcome.
+    await source?.validate(resolved.ids).catch(() => undefined);
+    return "a secret credential expired before the tool ran; invocation refused";
   }
-  return { ok: true, resolved: { env, values } };
+  try { await source!.validate(resolved.ids); return undefined; } catch (e) { return `secret credentials no longer valid: ${e instanceof Error ? e.message.slice(0, 200) : "refused"}`; }
+}
+
+/**
+ * The runner-local store of an external MCP tool's header secrets (#137). Tool secrets no longer come from here (the Governor leases them,
+ * ADR 0070); moving the MCP headers behind the same lease is a follow-up. Laid out as <dir>/<workspaceId>/<name>.
+ */
+export function mcpSecretsDir(): string | undefined {
+  return process.env["BRAIN_MCP_SECRETS_DIR"];
 }
 
 /** One secret file of a workspace, with the store's checks (a plain file, 0600, bounded, not empty). */

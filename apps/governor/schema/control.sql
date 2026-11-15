@@ -304,6 +304,14 @@ CREATE TABLE machine_sessions (
 ) STRICT;
 CREATE INDEX machine_sessions_expiry ON machine_sessions(expires_at_ms);
 CREATE INDEX machine_sessions_attempt ON machine_sessions(attempt_id);
+-- A short-lived secret credential (ADR 0070): the lease of one secret reference for one running attempt, minted through the secrets adapter port. It binds
+-- the attempt and the job fence it was minted under and never holds the value. It ends with the attempt, a moved fence, a stop-all, a quarantine or its expiry.
+CREATE TABLE secret_credentials (
+  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, attempt_id TEXT NOT NULL REFERENCES job_attempts(id), job_fence INTEGER NOT NULL,
+  ref TEXT NOT NULL, adapter TEXT NOT NULL, tool_id TEXT, created_at_ms INTEGER NOT NULL, expires_at_ms INTEGER NOT NULL,
+  revoked_at_ms INTEGER, revoked_reason TEXT
+) STRICT;
+CREATE INDEX secret_credentials_attempt ON secret_credentials(attempt_id);
 -- The machine principal of a mission team member (ADR 0032): bound to one workspace and mission, acting for the mission owner.
 CREATE TABLE agent_principals (
   principal_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, mission_id TEXT NOT NULL,

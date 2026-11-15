@@ -2,7 +2,7 @@ import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, runnerChallenge, runnerHello, type HeartbeatCommand } from "./protocol";
 import { stopOverlongPauses } from "../sessions/index";
-import { ackAttempt, attemptEvents, claim, completeAttempt, expireAttemptDeadlines, expireLeases, readExecutionArtifact, readResumeCheckpoint, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, type ContextPackPort, type SessionCredential } from "./attempts";
+import { ackAttempt, attemptEvents, claim, completeAttempt, expireAttemptDeadlines, expireLeases, mintSecretCredentials, readExecutionArtifact, readResumeCheckpoint, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, validateSecretCredentials, type ContextPackPort, type SessionCredential } from "./attempts";
 import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
 import { BrainDomainError } from "../../domain/errors";
 import { sweepStuckJobs } from "./watchdog";
@@ -10,6 +10,7 @@ import { settleEffects } from "./effect-hold";
 import { resolveUnknownJob, type UnknownResolution } from "./unknown";
 import { runScheduledDispatch } from "./scheduler";
 import { AutomationService } from "./automation";
+import type { MintedSecret, SecretBroker } from "../secret-leases/index";
 import { stopWorkspaceWork, type StoppedWork } from "./stop-all";
 import { cancelJobsForRun, concludeAttempt, createJobForStep, reprioritizeQueuedJobs, resolveReconciliation, workspaceJobLoad, type CreateJobInput, type ReconciliationOutcome } from "./lifecycle";
 
@@ -48,6 +49,8 @@ export interface JobProtocolPorts {
   missionReserve?(organizationId: string, workspaceId: string, input: { missionId?: string; runId: string; attemptId: string; microUsd: number; agentId?: string }): void;
   /** The mission, team member and owner a run's work belongs to (ADR 0032); none for work outside any mission. */
   sessionBinding?(organizationId: string, workspaceId: string, runId: string): { missionId: string; memberId: string | null; actingFor: string; workItemId?: string } | undefined;
+  /** The secrets broker behind the adapter port (ADR 0070): short-lived credentials for the secrets a privileged tool declared. */
+  secrets?: SecretBroker;
   /** Where governed read tools get their data (documents, CSV artifacts, knowledge). */
   toolReads?: ToolReadPorts;
   /** The context pack of an agent step's work item, built at the step's first offer. */
@@ -133,6 +136,24 @@ export class JobProtocol {
    */
   sessionCredential(runner: RunnerIdentity, attemptId: string): SessionCredential {
     return sessionCredential(this.store, this.ports.sessionBinding, runner, attemptId);
+  }
+
+  /**
+   * Short-lived credentials for the secrets the attempt's own privileged tool declared (ADR 0070), through the secrets adapter port. They are
+   * bound to this attempt and its fence and die with the attempt; the runner holds the values only in memory for the one tool call.
+   */
+  secretCredentials(runner: RunnerIdentity, attemptId: string): MintedSecret[] {
+    return mintSecretCredentials(this.store, this.secretBroker(), runner, attemptId);
+  }
+
+  /** The runner asks, immediately before using minted credentials, whether they still hold. A refusal is audited. */
+  validateSecretCredentials(runner: RunnerIdentity, attemptId: string, ids: readonly string[]): void {
+    validateSecretCredentials(this.store, this.secretBroker(), runner, attemptId, ids);
+  }
+
+  private secretBroker(): SecretBroker {
+    if (!this.ports.secrets) throw new BrainDomainError("FORBIDDEN", "no secrets adapter is configured on this server");
+    return this.ports.secrets;
   }
 
   executionArtifact(runner: RunnerIdentity, attemptId: string): Uint8Array {

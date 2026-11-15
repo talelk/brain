@@ -5,7 +5,7 @@ import type { CheckResult, EvaluationAssignment, JsonValue } from "@brain/contra
 import { sha256Digest } from "@brain/contracts";
 import type { RunnerConfig } from "../supervisor";
 import type { LauncherClient } from "../launcher-client";
-import { resolveSecretRefs, scrubSecrets } from "./secrets";
+import { assertSecretsCurrent, leaseSecretRefs, scrubSecrets, type SecretCredentialSource } from "./secrets";
 import type { McpCall } from "./mcp";
 
 const TOOL_SCRIPTS: Record<string, string> = {
@@ -79,6 +79,8 @@ export interface ToolExecution {
   mcp?: McpCall | undefined;
   /** Tool-broker boundary: re-validate the permit immediately before exec. */
   validatePermit?: ((token: string, invocationId: string) => Promise<boolean>) | undefined;
+  /** The short-lived secret credentials of this attempt's own tool (ADR 0070); without it a tool that declares secrets is refused. */
+  secrets?: SecretCredentialSource | undefined;
 }
 
 /**
@@ -133,7 +135,7 @@ export async function executeToolPayload(
   if (effectClass !== "read" && !permit) {
     return { ok: false, output: { error: `effect-class tool ${effectClass} executed without an effect permit; invocation refused` } as unknown as JsonValue };
   }
-  const secrets = resolveSecretRefs(input["secretRefs"], offer.workspaceId, effectClass);
+  const secrets = await leaseSecretRefs(input["secretRefs"], effectClass, tool.secrets);
   if (!secrets.ok) return { ok: false, output: { error: secrets.error } as unknown as JsonValue };
   const toolInput: Record<string, unknown> = { ...input };
   delete toolInput["secretRefs"];
@@ -207,7 +209,10 @@ export async function executeToolPayload(
       const { sandboxId } = await launcher.createSandbox({ profile, requestId: `exec-${offer.execution.kind}-${Math.random().toString(36).slice(2, 10)}`, toolsDir: sandboxToolsDir ?? toolsRoot(cfg), ...(mcp ? { network: "internal" as const, egressHosts: [mcp.host] } : profile !== "privileged-tool" && egressHosts.length > 0 ? { network: "internal" as const, egressHosts } : { network: "none" as const }), ...(cfg.dataMounts?.get(toolId) ? { dataMounts: cfg.dataMounts.get(toolId)! } : {}) });
       try {
         const inContainer = sandboxToolsDir ? join("/tools", "run.sh") : join("/tools", rel);
-        const result = await launcher.exec(sandboxId, inContainer, stdin, 60_000);
+        // The credentials are checked again at the last moment: one that expired, was revoked or lost its fence while this call waited is not used.
+        const stale = await assertSecretsCurrent(secrets.resolved, tool.secrets);
+        if (stale) return { ok: false, output: { error: stale } as unknown as JsonValue };
+        const result = await launcher.exec(sandboxId, inContainer, stdin, 60_000, secrets.resolved.env);
         if (result.exitCode !== 0) return { ok: false, output: { error: failedToolMessage(result.exitCode, result.stdout, scrubValues), stderr: scrubSecrets(result.stderr, scrubValues).slice(0, 2000) } as unknown as JsonValue };
         const stdout = scrubSecrets(result.stdout, scrubValues);
         if (Buffer.byteLength(stdout, "utf8") > outputLimit) return { ok: false, output: { error: "tool output too large" } as unknown as JsonValue };
@@ -225,7 +230,7 @@ export async function executeToolPayload(
       // extendEnv:false is load-bearing: execa otherwise merges the runner's
       // own environment (credentials included) into the tool's env.
       extendEnv: false,
-      env: { PATH: "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp", TMPDIR: "/tmp", LANG: "C.UTF-8", ...secrets.resolved.env },
+      env: { PATH: "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp", TMPDIR: "/tmp", LANG: "C.UTF-8" },
       shell: false, reject: false,
       ...(signal ? { cancelSignal: signal } : {}),
     });

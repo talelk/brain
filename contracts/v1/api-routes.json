@@ -2221,6 +2221,76 @@
   },
   {
    "method": "POST",
+   "path": "/runner/v1/attempts/{id}/secret-credentials",
+   "summary": "the runner holding a running attempt of a privileged tool asks for short-lived credentials for the secrets that tool declared, minted through the secrets adapter port and bound to the attempt and its fence (ADR 0070)",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/secret-credentials/validate",
+   "summary": "the runner re-checks, immediately before use, that its minted secret credentials are unexpired, unrevoked and still bound to the attempt's fence; a refusal is audited (ADR 0070)",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
    "path": "/mcp",
    "summary": "Model Context Protocol server (streamable HTTP, JSON-RPC: initialize, ping, tools/list, tools/call): every registered command and query is a tool, called as the signed-in principal with the same credentials and authorization as /v1; approval decisions are not offered",
    "auth": [

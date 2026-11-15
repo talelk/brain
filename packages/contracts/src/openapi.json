@@ -4899,6 +4899,170 @@
     }
    }
   },
+  "/runner/v1/attempts/{id}/secret-credentials": {
+   "post": {
+    "operationId": "post_runner_v1_attempts_id_secret_credentials",
+    "summary": "the runner holding a running attempt of a privileged tool asks for short-lived credentials for the secrets that tool declared, minted through the secrets adapter port and bound to the attempt and its fence (ADR 0070)",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Invalid request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Not signed in",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Not allowed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/attempts/{id}/secret-credentials/validate": {
+   "post": {
+    "operationId": "post_runner_v1_attempts_id_secret_credentials_validate",
+    "summary": "the runner re-checks, immediately before use, that its minted secret credentials are unexpired, unrevoked and still bound to the attempt's fence; a refusal is audited (ADR 0070)",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Invalid request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Not signed in",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Not allowed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/mcp": {
    "post": {
     "operationId": "post_mcp",

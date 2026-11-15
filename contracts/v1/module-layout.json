@@ -97,6 +97,10 @@
       "path": "apps/governor/src/modules/integrations",
       "owns": "GitHub/GitLab connections, secret references, repository bindings, webhooks and change proposals"
     },
+    "secret-leases": {
+      "path": "apps/governor/src/modules/secret-leases",
+      "owns": "The secrets adapter port, its built-in adapters and the broker that leases short-lived, attempt-bound secret credentials"
+    },
     "packs": {
       "path": "apps/governor/src/modules/packs",
       "owns": "Compiled onboarding/support/SRE/delivery/eval modules and connector adapters"

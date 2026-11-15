@@ -58,6 +58,13 @@ describe("open a pull request (second effect tool, ADR 0024)", () => {
       world.store.control.prepare("SELECT payload_json FROM events").all(), world.store.control.prepare("SELECT output_json FROM job_outputs").all(),
     ]);
     expect(dump).not.toContain(token);
+    // The push went out on a short-lived credential minted for the held change's own attempt (ADR 0070), and it ended with the call.
+    const leases = world.store.control.prepare("SELECT * FROM secret_credentials").all() as Array<Record<string, unknown>>;
+    expect(leases).toHaveLength(1);
+    expect(leases[0]).toMatchObject({ ref: `git:${connectionId}`, adapter: "encrypted-store", tool_id: "git.open-pr", revoked_reason: "call-finished" });
+    expect(leases[0]!["revoked_at_ms"]).not.toBeNull();
+    expect(world.attempts().map((attempt) => attempt.id)).toContain(leases[0]!["attempt_id"]);
+    expect(JSON.stringify([leases, world.store.control.prepare("SELECT payload_json FROM events WHERE event_type LIKE 'secret.%'").all()])).not.toContain(token);
     // The result is in the receipt of the held change (content-addressed), where the resumed task reads it.
     expect(new TextDecoder().decode(readVerified(world.store, world.permits().at(-1)!.receipt_digest!))).toContain("https://git.example.test/demo/pull/7");
   }, scaled(180_000));

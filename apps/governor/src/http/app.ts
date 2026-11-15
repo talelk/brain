@@ -871,6 +871,23 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return c.json(brain.jobProtocol.sessionCredential(runner, c.req.param("id")) as never);
     } catch (e) { return fail(c as never, e); }
   });
+  // The runner of a running attempt of a privileged tool asks for short-lived credentials for the secrets that tool declared, and re-checks them just before use (ADR 0070).
+  app.post("/runner/v1/attempts/:id/secret-credentials", (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      const credentials = brain.jobProtocol.secretCredentials(runner, c.req.param("id")).map((item) => ({ id: item.id, envName: item.envName, value: item.value, expiresAt: new Date(item.expiresAtMs).toISOString() }));
+      return c.json({ credentials } as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.post("/runner/v1/attempts/:id/secret-credentials/validate", async (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      const body = (await readJson(c)) as { ids?: unknown };
+      if (!Array.isArray(body.ids) || body.ids.some((id) => typeof id !== "string")) throw new BrainDomainError("INVALID_ARGUMENT", "ids are required");
+      brain.jobProtocol.validateSecretCredentials(runner, c.req.param("id"), body.ids as string[]);
+      return c.json({ valid: true } as never);
+    } catch (e) { return fail(c as never, e); }
+  });
   // Effect tools (ADR 0024): propose a call, learn its decision, take its one permit, start it, perform it, report how it ended.
   app.post("/runner/v1/attempts/:id/effects", async (c) => {
     try {

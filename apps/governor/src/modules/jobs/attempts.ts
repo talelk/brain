@@ -5,6 +5,7 @@ import { workspaceEgressHosts } from "../governance/index";
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
 import { putBytes, readVerified, registerArtifact } from "../artifacts/index";
 import { endAttemptSession, recordAttemptCheckpoint, recordPauseProgress, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
+import { revokeAttemptSecrets, type MintedSecret, type SecretBroker } from "../secret-leases/index";
 import { ensureAgentPrincipal, issueSessionCredential, revokeSessionCredentials } from "../identity/index";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
@@ -351,6 +352,40 @@ export function sessionCredential(s: Store, binding: JobProtocolPorts["sessionBi
   return { principalId: principal.principalId, credential, expiresAt: iso(expiresAtMs), workspaceId, missionId: bound.missionId, ...(bound.memberId ? { memberId: bound.memberId } : {}), ...(bound.workItemId ? { workItemId: bound.workItemId } : {}) };
 }
 
+/**
+ * The secrets a running attempt's tool declared (ADR 0070): the `secretRefs` of a privileged tool step's pinned input, nothing the runner or a
+ * model names later. A held change (`act`), an evaluator, a merge and an agent step declare none, so no credential is ever minted for them.
+ */
+function declaredSecretRefs(s: Store, jobId: string): { toolId: string; refs: Record<string, string> } | undefined {
+  const row = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { kind: string; payload_json: string } | undefined;
+  if (!row || row.kind === "eval" || row.kind === "merge" || row.kind === "act") return undefined;
+  const payload = JSON.parse(row.payload_json) as { input?: { secretRefs?: unknown }; step?: { uses?: { type?: string; release?: { id?: string } }; effectClass?: string } };
+  const refs = payload.input?.secretRefs;
+  if (payload.step?.uses?.type !== "tool" || payload.step.effectClass !== "privileged" || !refs || typeof refs !== "object" || Array.isArray(refs)) return undefined;
+  const entries = Object.entries(refs as Record<string, unknown>);
+  if (entries.some(([, ref]) => typeof ref !== "string")) return undefined;
+  return { toolId: payload.step.uses.release?.id ?? "", refs: Object.fromEntries(entries) as Record<string, string> };
+}
+
+/** See JobProtocol.secretCredentials. */
+export function mintSecretCredentials(s: Store, broker: SecretBroker, runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): MintedSecret[] {
+  const row = loadAttempt(s, attemptId);
+  if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
+  assertAttemptLive(s, runner, row);
+  if (String(row["state"]) !== "running") throw new BrainDomainError("CONFLICT", "only a running attempt is given secret credentials");
+  const declared = declaredSecretRefs(s, String(row["job_id"]));
+  if (!declared) throw new BrainDomainError("FORBIDDEN", "this attempt's tool declares no secrets");
+  return broker.mint({ organizationId: runner.organizationId, workspaceId: String(row["workspace_id"]), attemptId, refs: declared.refs, toolId: declared.toolId, replace: true });
+}
+
+/** See JobProtocol.validateSecretCredentials. */
+export function validateSecretCredentials(s: Store, broker: SecretBroker, runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, ids: readonly string[]): void {
+  const row = loadAttempt(s, attemptId);
+  if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
+  assertAttemptLive(s, runner, row);
+  broker.validate(attemptId, ids);
+}
+
 export function readExecutionArtifact(s: Store, runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): Uint8Array {
   const row = loadAttempt(s, attemptId);
   if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
@@ -634,6 +669,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     // An engine that can resume saved its conversation and the runner uploaded it before completing; the session records the checkpoint (ADR 0068).
     if (body["checkpoint"] !== undefined) recordAttemptCheckpoint(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, checkpoint: body["checkpoint"] });
     revokeSessionCredentials(s, attemptId);
+    revokeAttemptSecrets(s, attemptId, "ended");
     for (const keyRow of s.control.prepare("SELECT resource_key FROM resource_leases WHERE attempt_id=?").all(attemptId) as Array<{ resource_key: string }>) {
       void keyRow; // unresolved guards persist until reconciled; compute release is separate
     }
@@ -749,6 +785,7 @@ export function expireLeases(s: Store): number {
       // The runner stopped renewing the lease: its process was replaced or the Governor was down. That is the platform's doing.
       markPlatformInterruption(s, a.id);
       revokeSessionCredentials(s, a.id);
+      revokeAttemptSecrets(s, a.id, "lease-lost");
       transitionState(s.control, "attempt", a.id, "outcome_unknown");
       transitionState(s.control, "job", a.job_id, "outcome_unknown", { bumpVersion: true });
       restartInterruptedReadJob(s, a.job_id, a.id);
@@ -791,6 +828,7 @@ export function expireAttemptDeadlines(s: Store, deps: { completeStep: (organiza
       }
       endAttemptSession(s, { organizationId: item.organizationId, workspaceId: item.workspaceId, attemptId: item.attemptId, failed: true });
       revokeSessionCredentials(s, item.attemptId);
+      revokeAttemptSecrets(s, item.attemptId, "deadline");
       return true;
     });
     if (!ended) continue;
