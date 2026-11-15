@@ -91,6 +91,9 @@ export interface MissionDeliveryPort {
 /** The blocked reason of a task stopped because its agent was interrupted too often; the interface offers Try again for it. */
 export const PARKED_INTERRUPTED_REASON = "Stopped: waiting for you to try again";
 
+/** Undelivered messages one team member's session may have waiting (ADR 0041). */
+const MAX_PENDING_TEAMMATE_MESSAGES = 5;
+
 export class MissionService {
   constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort, private readonly coordinatorPort?: CoordinatorPort, private readonly capitalization?: { requestMissionRun(organizationId: string, workspaceId: string, missionId: string): string }) {}
 
@@ -668,15 +671,15 @@ export class MissionService {
    * The mission, team member and owner a run's work belongs to, which is what the machine principal of its sessions is bound to (ADR 0032).
    * A coordinator run belongs to the coordinator member. Work outside any mission has no principal.
    */
-  sessionBinding(organizationId: string, workspaceId: string, runId: string): { missionId: string; memberId: string | null; actingFor: string } | undefined {
+  sessionBinding(organizationId: string, workspaceId: string, runId: string): { missionId: string; memberId: string | null; actingFor: string; workItemId?: string } | undefined {
     const db = this.store.workspaceDb(workspaceId, organizationId);
-    const task = db.prepare("SELECT l.mission_id AS missionId, w.assignment_json AS assignment FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? ORDER BY l.created_at_ms DESC LIMIT 1").get(runId) as { missionId: string; assignment: string | null } | undefined;
+    const task = db.prepare("SELECT l.mission_id AS missionId, l.work_item_id AS workItemId, w.assignment_json AS assignment FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? ORDER BY l.created_at_ms DESC LIMIT 1").get(runId) as { missionId: string; workItemId: string; assignment: string | null } | undefined;
     const coordinating = task ? undefined : db.prepare("SELECT mission_id AS missionId FROM mission_runs WHERE run_id=? AND purpose='coordinator'").get(runId) as { missionId: string } | undefined;
     const missionId = task?.missionId ?? coordinating?.missionId;
     if (!missionId) return undefined;
     const mission = db.prepare("SELECT owner_id AS owner, coordinator_member_id AS coordinator FROM missions WHERE id=?").get(missionId) as { owner: string; coordinator: string | null } | undefined;
     if (!mission) return undefined;
-    return { missionId, memberId: task ? memberOf(task.assignment) : mission.coordinator, actingFor: mission.owner };
+    return { missionId, memberId: task ? memberOf(task.assignment) : mission.coordinator, actingFor: mission.owner, ...(task ? { workItemId: task.workItemId } : {}) };
   }
 
   isOpen(organizationId: string, workspaceId: string, missionId: string): boolean {
@@ -752,9 +755,9 @@ export class MissionService {
   }
 
   private message(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
-    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "mission messages come from humans");
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
     assertNotClosed(mission);
+    if (actor.kind !== "human") this.assertTeammateMessage(actor, workspaceId, mission.id, payload);
     const team = mission.active_plan_version_id ? (JSON.parse(this.planRow(actor, workspaceId, mission.active_plan_version_id).team_json) as TeamMember[]).map((member) => member.memberId) : [];
     const messageId = sendMessage(this.store, this.db(actor, workspaceId), {
       missionId: mission.id, senderId: actor.actorId, recipient: payload["recipient"] as { kind: "mission" | "member"; memberId?: string },
@@ -765,6 +768,21 @@ export class MissionService {
     // A message to the mission itself (no work item) wakes its coordinator (#38).
     if ((payload["recipient"] as { kind?: string } | undefined)?.kind === "mission" && !payload["workItemId"]) wake(this.store, this.db(actor, workspaceId), mission.id, "message", String(payload["body"]).slice(0, 200));
     return messageId;
+  }
+
+  /**
+   * A team member's session may tell another member something (ADR 0041). It names the member (never the mission, so it cannot wake the
+   * coordinator in a loop), never itself, never interrupts a running session, and at most MAX_PENDING_TEAMMATE_MESSAGES of its messages wait
+   * undelivered. The message is a claim like any other: it authorizes nothing.
+   */
+  private assertTeammateMessage(actor: ActorContext, workspaceId: string, missionId: string, payload: Readonly<Record<string, unknown>>): void {
+    if (actor.kind !== "agent" || !actor.memberId) throw new BrainDomainError("FORBIDDEN", "only a person or a team member's session sends a mission message");
+    const recipient = payload["recipient"] as { kind?: string; memberId?: string } | undefined;
+    if (recipient?.kind !== "member" || !recipient.memberId) throw new BrainDomainError("FORBIDDEN", "a session messages a team member by name, not the mission");
+    if (recipient.memberId === actor.memberId) throw new BrainDomainError("INVALID_ARGUMENT", "a session does not message its own team member");
+    if (payload["interrupt"] === true) throw new BrainDomainError("FORBIDDEN", "only a person interrupts a running session");
+    const waiting = this.db(actor, workspaceId).prepare("SELECT COUNT(*) AS n FROM mission_messages WHERE mission_id=? AND sender_id=? AND delivery='pending'").get(missionId, actor.actorId) as { n: number };
+    if (waiting.n >= MAX_PENDING_TEAMMATE_MESSAGES && !payload["correctionOf"]) throw new BrainDomainError("CONFLICT", `${waiting.n} of your messages have not reached their member yet; wait for them to be read before sending more`);
   }
 
   /** Mission lifecycle per issue #19: humans pause, resume and close; completion is proposed, never declared. */
@@ -1392,7 +1410,7 @@ export class MissionService {
     if (queryType === "missionOutputs.get") return outputDetail(db, String(resourceId)) as unknown as JsonValue;
     if (queryType === "missionOutputs.list") return { items: listOutputs(db, this.missionRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
     if (queryType === "workItemComments.list") return { items: listComments(this.store, db, actor.organizationId, this.workItemRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
-    if (queryType === "missionMessages.list") return { items: listMessages(db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
+    if (queryType === "missionMessages.list") return { items: listMessages(this.store, db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "handoffs.forWorkItem") return { items: dependencyHandoffs(db, this.workItemRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
     if (queryType === "missionBundles.latest") return (latestMissionBundle(db, this.missionRow(actor, workspaceId, String(resourceId)).id) ?? null) as unknown as JsonValue;
     if (queryType === "missions.forSubject") {

@@ -826,6 +826,13 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return c.json({ data: brain.jobProtocol.toolRead(runner, c.req.param("id"), { tool: { id: body.tool.id, digest: body.tool.digest }, input: body.input }) } as never);
     } catch (e) { return fail(c as never, e); }
   });
+  // The runner of a running mission attempt asks for the credential the attempt's Brain tools act with (ADR 0041).
+  app.post("/runner/v1/attempts/:id/session-credential", (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.jobProtocol.sessionCredential(runner, c.req.param("id")) as never);
+    } catch (e) { return fail(c as never, e); }
+  });
   // Effect tools (ADR 0024): propose a call, learn its decision, take its one permit, start it, perform it, report how it ended.
   app.post("/runner/v1/attempts/:id/effects", async (c) => {
     try {

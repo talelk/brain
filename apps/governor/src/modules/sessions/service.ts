@@ -2,6 +2,7 @@ import { criteriaText } from "../../domain/criteria";
 import { domainDigest } from "@brain/contracts";
 import type { ActorContext, BrainSession, ContextManifest, ContextPackView, Checkpoint, CheckpointInput, Delegation, JsonValue, MissionBrief, MissionMessage, SessionBudget, SessionContext, SessionScope } from "@brain/contracts";
 import { dependencyHandoffs } from "../evidence/index";
+import { senderOf } from "../identity/index";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion } from "../../domain/states";
@@ -11,6 +12,12 @@ import { enqueueSessionControl } from "./controls";
 import { readVerified } from "../artifacts/index";
 import { readableSources, toolAvailability } from "../resources/index";
 import { buildContextPack, type BuiltPack, type PackItem, type PackSection } from "./context-pack";
+
+/** What a steered session reads: a teammate's message says who wrote it, so it is never mistaken for the person's own instruction. */
+function steerText(store: Store, message: MessageRow): string {
+  const member = senderOf(store, message.sender_id).senderMemberId;
+  return member ? `From team member ${member}: ${message.body}` : message.body;
+}
 
 export interface SessionCommand {
   readonly commandType: string;
@@ -319,7 +326,7 @@ export class SessionService {
     }
     const steerable = sessions.filter((session) => session.state === "running" && (JSON.parse(session.engine_features ?? "[]") as string[]).includes("steer"));
     if (steerable.length === 0) return message.delivery;
-    for (const session of steerable) enqueueSessionControl(this.store, { organizationId, workspaceId, sessionId: session.id, kind: "session.steer", payload: { sessionId: session.id, message: message.body } });
+    for (const session of steerable) enqueueSessionControl(this.store, { organizationId, workspaceId, sessionId: session.id, kind: "session.steer", payload: { sessionId: session.id, message: steerText(this.store, message) } });
     db.prepare("UPDATE mission_messages SET delivery='delivered-live' WHERE id=? AND delivery='pending'").run(messageId);
     return "delivered-live";
   }
@@ -342,7 +349,7 @@ export class SessionService {
       AND (work_item_id=? OR (recipient_kind='member' AND recipient_member_id=? AND work_item_id IS NULL)) ORDER BY created_at_ms DESC, id DESC LIMIT 20`)
       .all(item.mission_id, session.work_item_id, member) as MessageRow[]).reverse().map((row): MissionMessage => ({
         messageId: row.id, missionId: row.mission_id, recipient: { kind: row.recipient_kind, ...(row.recipient_member_id ? { memberId: row.recipient_member_id } : {}) },
-        ...(row.work_item_id ? { workItemId: row.work_item_id } : {}), senderId: row.sender_id, body: row.body, delivery: row.delivery,
+        ...(row.work_item_id ? { workItemId: row.work_item_id } : {}), senderId: row.sender_id, ...senderOf(this.store, row.sender_id), body: row.body, delivery: row.delivery,
         ...(row.correction_of ? { correctionOf: row.correction_of } : {}), createdAt: iso(row.created_at_ms),
       }));
     return {
@@ -383,8 +390,8 @@ export class SessionService {
     const where = `mission_id=? AND (work_item_id=? OR (recipient_kind='member' AND recipient_member_id=? AND work_item_id IS NULL))`;
     db.prepare(`UPDATE mission_messages SET delivery='delivered-at-session-start' WHERE delivery='pending' AND ${where}`).run(item.mission_id, item.id, member);
     // A person's work-item comment arrives as a message; the pack says which ones are comments (their own text, written by a person, never a command).
-    const messages = (db.prepare(`SELECT id, body, EXISTS(SELECT 1 FROM work_item_comments WHERE message_id=mission_messages.id) AS comment FROM mission_messages
-      WHERE delivery IN ('delivered-at-session-start','delivered-live') AND ${where} ORDER BY created_at_ms DESC, id DESC LIMIT 20`).all(item.mission_id, item.id, member) as Array<{ id: string; body: string; comment: number }>).reverse();
+    const messages = (db.prepare(`SELECT id, body, sender_id, EXISTS(SELECT 1 FROM work_item_comments WHERE message_id=mission_messages.id) AS comment FROM mission_messages
+      WHERE delivery IN ('delivered-at-session-start','delivered-live') AND ${where} ORDER BY created_at_ms DESC, id DESC LIMIT 20`).all(item.mission_id, item.id, member) as Array<{ id: string; body: string; sender_id: string; comment: number }>).reverse();
     const session = db.prepare("SELECT checkpoint_json FROM sessions WHERE work_item_id=? AND checkpoint_json IS NOT NULL ORDER BY updated_at_ms DESC, id DESC LIMIT 1").get(item.id) as { checkpoint_json: string } | undefined;
     const checkpoint = session ? JSON.parse(session.checkpoint_json) as Checkpoint : undefined;
     const failure = this.lastFailure(db, item.id, input.runId) ?? item.parked_diagnostic ?? undefined;
@@ -417,7 +424,12 @@ export class SessionService {
         return parts.length === 0 ? [] : [prose(handoff.workItemId, `- ${titleOf(handoff.workItemId)}: ${parts.join(" ")}`, `Handoff note from ${titleOf(handoff.workItemId)}`)];
       }) },
       { id: "inputs", title: "Inputs pinned for this task (fetch by reference)", label: "reference", items: inputs.map((row) => fact(row.outputVersionId, `- ${row.outputVersionId}: artifact:${row.artifactDigest}`)) },
-      { id: "messages", title: "Messages sent to this task", label: "claim", items: messages.map((row) => prose(row.id, row.comment === 1 ? `- Comment: ${row.body}` : `- ${row.body}`, row.comment === 1 ? "A comment on this task" : "A message sent to this task")) },
+      { id: "messages", title: "Messages sent to this task", label: "claim", items: messages.map((row) => {
+        // A teammate's message is a claim like any other message: the pack names who wrote it and it never authorizes anything.
+        const member = senderOf(this.store, row.sender_id).senderMemberId;
+        return row.comment === 1 ? prose(row.id, `- Comment: ${row.body}`, "A comment on this task")
+          : member ? prose(row.id, `- From team member ${member}: ${row.body}`, "A message from a team member of this mission") : prose(row.id, `- ${row.body}`, "A message sent to this task");
+      }) },
       { id: "checkpoint", title: "Where earlier work on this task stopped", label: "fact", items: checkpoint ? [
         prose("next-action", `Next action: ${checkpoint.nextAction}`, "The next action saved by earlier work"),
         ...(checkpoint.completedCriteria.length > 0 ? [fact("completed", `Criteria already completed: ${checkpoint.completedCriteria.join(", ")}`)] : []),

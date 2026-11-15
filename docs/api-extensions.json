@@ -39,6 +39,11 @@
     },
     {
       "method": "POST",
+      "path": "/runner/v1/attempts/{id}/session-credential",
+      "purpose": "the runner holding a running agent attempt of a mission asks for that attempt's machine-principal credential and the ids it acts on (ADR 0032, 0041); asking again replaces it"
+    },
+    {
+      "method": "POST",
       "path": "/mcp",
       "purpose": "Brain knowledge/session tools exposed over MCP to agent runtimes"
     },

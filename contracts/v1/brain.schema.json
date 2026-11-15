@@ -22448,6 +22448,17 @@
         "senderId": {
           "$ref": "#/$defs/Id"
         },
+        "senderKind": {
+          "type": "string",
+          "enum": [
+            "human",
+            "agent",
+            "system"
+          ]
+        },
+        "senderMemberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
         "body": {
           "type": "string",
           "minLength": 1,
@@ -22474,6 +22485,7 @@
         "missionId",
         "recipient",
         "senderId",
+        "senderKind",
         "body",
         "delivery",
         "createdAt"

@@ -587,7 +587,8 @@
       "scope": "mission:write",
       "authority": "workspace",
       "actors": [
-        "human"
+        "human",
+        "agent"
       ]
     },
     {
