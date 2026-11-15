@@ -32,6 +32,6 @@ export function workItemHref(workspaceId: string, missionId: string, workItemId:
 
 /** The mission a path shows, when it is a mission page: `/missions/:id` or `/missions/:id/:tab`. */
 export function missionOfPath(pathname: string): { missionId: string; tab?: string } | undefined {
-  const match = /^\/missions\/([^/]+)(?:\/([^/]+))?\/?$/u.exec(pathname);
-  return match?.[1] ? { missionId: decodeURIComponent(match[1]), ...(match[2] ? { tab: match[2] } : {}) } : undefined;
+  const [root, missionId, tab, ...rest] = pathname.split("/").filter(Boolean);
+  return root === "missions" && missionId && rest.length === 0 ? { missionId: decodeURIComponent(missionId), ...(tab ? { tab } : {}) } : undefined;
 }

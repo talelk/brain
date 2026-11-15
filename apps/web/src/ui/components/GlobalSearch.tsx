@@ -80,15 +80,15 @@ export function GlobalSearchDialog(props: { open: boolean; onOpenChange: (open: 
           role="combobox" aria-expanded="true" aria-controls="palette-list" aria-activedescendant={rows()[active()] ? `palette-row-${active()}` : undefined}
           onInput={(event) => setTerm(event.currentTarget.value)} onKeyDown={onKeyDown} />
         <Show when={error()}><p class="mt-2 text-interface text-ink-red-7" role="alert">{error()}</p></Show>
-        <ul id="palette-list" role="listbox" aria-label={t("palette.label")} class="m-0 mt-2 max-h-80 list-none overflow-y-auto p-0">
-          <For each={rows()}>{(row, index) => <li id={`palette-row-${index()}`} role="option" aria-selected={active() === index()}
+        <div id="palette-list" role="listbox" aria-label={t("palette.label")} class="mt-2 max-h-80 overflow-y-auto">
+          <For each={rows()}>{(row, index) => <div id={`palette-row-${index()}`} role="option" tabIndex={-1} aria-selected={active() === index()}
             class="flex cursor-pointer items-center justify-between gap-3 rounded-control px-2 py-1.5 text-base text-ink-gray-8 aria-selected:bg-surface-gray-3"
-            onMouseEnter={() => setActive(index())} onClick={() => choose(row.href)}>
+            onMouseEnter={() => setActive(index())} onClick={() => choose(row.href)} onKeyDown={(event) => { if (event.key === "Enter") choose(row.href); }}>
             <span class="min-w-0 truncate">{row.label}</span><span class="shrink-0 text-caption text-ink-gray-6">{row.description}</span>
-          </li>}</For>
-          <Show when={rows().length === 0 && !loading()}><li role="option" aria-disabled="true" aria-selected="false" class="px-2 py-1.5 text-base text-ink-gray-6">{term().trim().length < 2 ? t("palette.type-more") : t("palette.empty")}</li></Show>
-          <Show when={loading()}><li role="option" aria-disabled="true" aria-selected="false" class="px-2 py-1.5 text-base text-ink-gray-6">{t("palette.searching")}</li></Show>
-        </ul>
+          </div>}</For>
+          <Show when={rows().length === 0 && !loading()}><div role="status" class="px-2 py-1.5 text-base text-ink-gray-6">{term().trim().length < 2 ? t("palette.type-more") : t("palette.empty")}</div></Show>
+          <Show when={loading()}><div role="status" class="px-2 py-1.5 text-base text-ink-gray-6">{t("palette.searching")}</div></Show>
+        </div>
       </Show>
     </Dialog.Content>
   </Dialog.Root>;
