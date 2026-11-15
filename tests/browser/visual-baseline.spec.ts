@@ -222,6 +222,9 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
   // Where a mission's usage went (#111): it adds spend to the active mission, which the screens before it would show in their totals.
   { id: "mission-usage-breakdown", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedAttributedUsage, after: async (page) => { await page.getByTestId("usage-breakdown").getByText("Where the usage went", { exact: true }).click(); await expect(page.getByTestId("usage-by-member")).toContainText("writer"); await page.getByTestId("usage-breakdown").evaluate((element) => element.scrollIntoView({ block: "center" })); } },
+  // Spend over time (#112): earlier days of spend for the active mission, then the workspace chart with cost per verified task, and the mission's own chart.
+  { id: "missions-spend-history", route: () => "/w/operations/missions", heading: "Missions", prepare: seedSpendHistory, after: async (page) => { await page.getByTestId("workspace-spend-history").getByText("Spend over time", { exact: true }).click(); await expect(page.getByTestId("workspace-spend-history").getByTestId("daily-bar")).toHaveCount(30); await page.getByTestId("verified-cost").getByText("Cost per verified task", { exact: true }).click(); await expect(page.getByTestId("verified-by-agent")).toContainText("task-worker"); await page.getByTestId("workspace-spend-history").evaluate((element) => element.scrollIntoView({ block: "start" })); } },
+  { id: "mission-spend-history", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", after: async (page) => { await page.getByTestId("mission-spend-history").getByText("Spend over time", { exact: true }).click(); await expect(page.getByTestId("mission-spend-history").getByTestId("daily-bar")).toHaveCount(30); await page.getByTestId("mission-spend-history").evaluate((element) => element.scrollIntoView({ block: "center" })); } },
   // Handing a mission to a teammate (#117): the mission's menu, then the dialog with a teammate chosen. It adds one member, so it comes after every screen that lists people.
   { id: "mission-handover", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedTeammate, after: async (page) => { await page.getByRole("button", { name: "More", exact: true }).click(); await page.getByRole("menuitem", { name: "Hand this mission to someone else" }).click(); const dialog = page.getByRole("dialog", { name: "Hand this mission over" }); await dialog.getByRole("combobox", { name: "New owner" }).click(); await page.getByRole("option", { name: /Dana Cole/ }).click(); await expect(dialog.getByRole("button", { name: "Hand over", exact: true })).toBeEnabled(); } },
   { id: "settings-model-routes", route: () => "/settings?tab=work", heading: "How work runs", prepare: async (governor, _page, demo) => {
@@ -309,6 +312,17 @@ async function seedAttributedUsage(governor: Parameters<typeof seedBrowserDemo>[
   row.run("vb-usage-1", missionId, "vb-usage-run-1", 0, 41_000, 2_100, 6_000, "attempt", "task-worker", "writer", "pi", "qwen-local", now, now);
   row.run("vb-usage-2", missionId, "vb-usage-run-2", 182_000, 9_500, 1_200, 0, "attempt", "operations-assistant", "reviewer", "pi", "acme-hosted", now, now);
   row.run("judge:vb:c1", missionId, "judge:vb", 210, 1_000, 100, 0, "judge", null, null, null, "acme-hosted", now, now);
+}
+
+/** Spend of the active mission on earlier days (1 to 21 days ago, two agents) so the daily chart has a shape; the demo has no runner behind its seeded work. */
+async function seedSpendHistory(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Awaited<ReturnType<typeof seedBrowserDemo>>): Promise<void> {
+  const brain = governor.app.brain;
+  const db = brain.store.workspaceDb(demo.workspaceId, demo.actor.organizationId);
+  const now = brain.store.now();
+  const row = db.prepare(`INSERT INTO mission_spend(attempt_id,mission_id,run_id,reserved_micro_usd,settled_micro_usd,input_tokens,output_tokens,cached_input_tokens,accounting,source,agent_id,member_id,engine_id,model_id,created_at_ms,settled_at_ms)
+    VALUES (?,?,?,0,?,?,?,0,'final-total','attempt',?,?,'pi','acme-hosted',?,?)`);
+  const days: Array<[number, number, string]> = [[1, 120_000, "task-worker"], [2, 310_000, "operations-assistant"], [3, 80_000, "task-worker"], [6, 450_000, "operations-assistant"], [7, 90_000, "task-worker"], [11, 230_000, "task-worker"], [15, 60_000, "operations-assistant"], [21, 170_000, "task-worker"]];
+  for (const [index, [daysAgo, microUsd, agent]] of days.entries()) row.run(`vb-history-${index}`, demo.seed.missionIds.active, `vb-history-run-${index}`, microUsd, 3_000, 400, agent, agent === "task-worker" ? "writer" : "reviewer", now - daysAgo * 86_400_000, now - daysAgo * 86_400_000);
 }
 
 /** Two calls of the seeded run, recorded the way the Governor records a runner's tool events (the seeded run has no runner behind it). */

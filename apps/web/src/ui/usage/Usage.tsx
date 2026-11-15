@@ -9,6 +9,7 @@ import { query } from "../../data/client";
 import { useApp } from "../app-context";
 import { count, formatTokens, formatUsd } from "../format";
 import { Meter } from "../viz/Meter";
+import { SpendHistory, VerifiedCost } from "./SpendHistory";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 type Figures = Pick<UsageSummary, "settledMicroUsd" | "reservedMicroUsd" | "settledTokens" | "reservedTokens" | "inputTokens" | "outputTokens" | "cachedInputTokens" | "estimated"> & { attempts?: number; openAttempts?: number };
@@ -135,6 +136,8 @@ export function WorkspaceUsage(props: { onChanged?: () => void }): JSX.Element {
       </Show>
       <Show when={cap().weeklyMicroUsd !== undefined}><Meter label="Weekly spend cap (last 7 days)" settled={cap().weeklySpentMicroUsd} reserved={0} limit={cap().weeklyMicroUsd ?? 0} format={formatUsd} /></Show>
     </div>}</Show>
+    <SpendHistory resource="workspace" testId="workspace-spend-history" />
+    <VerifiedCost />
     <Dialog.Root open={editing()} onOpenChange={(next) => { if (!next) setEditing(false); }}>
       <Dialog.Content size="md">
         <Dialog.Header><Dialog.Title>Workspace spend cap</Dialog.Title><Dialog.Description>When the dollars settled and reserved in the last 24 hours (or 7 days) reach the cap, new work pauses until you raise it, whether it belongs to a mission or not. Leave a field empty for no cap. Local models cost $0, so use a mission token ceiling to bound them.</Dialog.Description></Dialog.Header>

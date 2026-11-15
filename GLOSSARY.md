@@ -134,6 +134,12 @@ _Avoid_: cost center, tagging
 A named set of roles bound to agent definitions and engines, optionally naming a coordinator, kept in the Library. A plan or a Play start copies its members into the plan version as the mission team; editing or archiving it never changes a confirmed plan or a running mission (ADR 0056).
 _Avoid_: shared team, team template
 
+**Spend series**:
+Settled spend per UTC day for the workspace, a mission or an agent, read from the usage ledger by the
+day each attempt settled; days without spend are zero (ADR 0059). Cost per verified task by agent and
+Play uses the Quality summary's definition.
+_Avoid_: trend, forecast
+
 **Team member**:
 A mission-scoped role (such as backend engineer or reviewer) bound to an agent
 definition and engine. A team member is served by many sessions over the mission's

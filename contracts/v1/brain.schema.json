@@ -7990,6 +7990,8 @@
             "usage.workspace",
             "usage.agent",
             "usage.member",
+            "usage.series",
+            "usage.verifiedCost",
             "plans.estimate",
             "missions.forSubject",
             "reuse.search",
@@ -8086,6 +8088,8 @@
             "usage.workspace",
             "usage.agent",
             "usage.member",
+            "usage.series",
+            "usage.verifiedCost",
             "plans.estimate",
             "missions.forSubject",
             "reuse.search",
@@ -25204,6 +25208,210 @@
         "scope",
         "id",
         "usage"
+      ],
+      "additionalProperties": false
+    },
+    "UsageSeries": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "mission",
+            "agent"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "window": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "to": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90
+            }
+          },
+          "required": [
+            "from",
+            "to",
+            "days"
+          ],
+          "additionalProperties": false
+        },
+        "definition": {
+          "type": "string"
+        },
+        "days": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "day": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "settledMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "settledTokens": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "attempts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "day",
+              "settledMicroUsd",
+              "settledTokens",
+              "attempts"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "totalMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "totalTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "scope",
+        "id",
+        "window",
+        "definition",
+        "days",
+        "totalMicroUsd",
+        "totalTokens"
+      ],
+      "additionalProperties": false
+    },
+    "VerifiedCostReport": {
+      "type": "object",
+      "properties": {
+        "window": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "to": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90
+            }
+          },
+          "required": [
+            "from",
+            "to",
+            "days"
+          ],
+          "additionalProperties": false
+        },
+        "byAgentDefinition": {
+          "type": "string"
+        },
+        "byPlayDefinition": {
+          "type": "string"
+        },
+        "byAgent": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "spendMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "verifiedTasks": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "costPerVerifiedMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "spendMicroUsd",
+              "verifiedTasks"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "byPlay": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "spendMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "verifiedTasks": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "costPerVerifiedMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "spendMicroUsd",
+              "verifiedTasks"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "window",
+        "byAgentDefinition",
+        "byPlayDefinition",
+        "byAgent",
+        "byPlay"
       ],
       "additionalProperties": false
     },
