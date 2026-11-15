@@ -4,7 +4,7 @@
  */
 export const FAILURE_REASON_LIMIT = 500;
 
-export const FAILURE_CODES = ["sandbox-image-missing", "sandbox-unavailable", "model-unreachable", "timeout", "other"] as const;
+export const FAILURE_CODES = ["sandbox-image-missing", "sandbox-unavailable", "quota", "model-unreachable", "timeout", "other"] as const;
 export type FailureCode = (typeof FAILURE_CODES)[number];
 
 // Credential shapes, in the same families the knowledge store refuses to keep (memory.ts SECRET_PATTERNS), but as segments to replace.
@@ -41,6 +41,7 @@ export function failureCode(reason: string | null | undefined): FailureCode {
   const text = reason ?? "";
   if (/unable to find image|pull access denied|image .* not (?:found|installed|preinstalled)|no such image|brain-sandbox-\w+/iu.test(text)) return "sandbox-image-missing";
   if (/sandbox (?:create|exec|stop) failed|docker|launcher|sandboxed execution failed/iu.test(text)) return "sandbox-unavailable";
+  if (/quota or rate limit|insufficient[_ ]quota|\b429\b.*(?:rate|quota|too many)|resource[_ ]exhausted/iu.test(text)) return "quota";
   if (/model is unreachable|unavailable or its model|model endpoint|ECONNREFUSED|ENOTFOUND/iu.test(text)) return "model-unreachable";
   if (/timed? ?out|timeout|deadline/iu.test(text)) return "timeout";
   return "other";

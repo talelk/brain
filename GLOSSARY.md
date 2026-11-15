@@ -53,6 +53,14 @@ to first result and top failure reasons. Every figure ships with its definition;
 computes or tunes anything.
 _Avoid_: score, health score, KPI, AI report
 
+**Eval case**:
+A regression case Brain saves, unasked, when a task is sent back from review or a mission
+sign-off is rejected (ADR 0010): the stored plan, the reviewer's findings and the
+deliverable digests, never transcripts. The Quality area lists them with source, mission
+and date. A person replays them by hand before a release; nothing replays them or changes
+a prompt, workflow or release because of one.
+_Avoid_: test case, benchmark, learned prompt
+
 **Since-last-visit summary**:
 A user's deterministic digest of a mission's notable events since they last saw it.
 What counts as seen is per user and per mission, whatever the device.
@@ -187,8 +195,13 @@ _Avoid_: try, execution, session (an attempt is not the conversation)
 
 **Failure class**:
 The one code stored for a failed attempt: missing tool, unmeetable criterion, model slip,
-tool outage, budget or unclassified. Each class has one remedy.
+tool outage, quota, budget or unclassified. Each class has one remedy.
 _Avoid_: error type
+
+**Quota failure**:
+The model provider refused with a 429 or quota or rate-limit text. Its remedy waits the
+provider's retry-after (bounded), without spending an attempt, then retries.
+_Avoid_: rate-limit error, throttling
 
 **Way of working**:
 The kind of worker and independent check a task runs with, chosen from the active
@@ -484,6 +497,12 @@ Making a published release the current one, re-checking the observed active dige
 concurrent activation fails.
 _Avoid_: publish, apply, promote
 
+**Git provider**:
+The hosting product a Git connection is declared to be (GitHub, GitHub Enterprise, GitLab or
+Gitea), chosen when the connection is set up. It decides which API opens a pull request; it is
+never inferred from the address, and any other provider is refused.
+_Avoid_: Git host (the host is only the address), vendor
+
 ### People and tenancy
 
 **Organization**:
@@ -503,6 +522,12 @@ session it acted through)
 **Actor**:
 The principal performing a command, together with the session and scope it acts through.
 _Avoid_: caller
+
+**Session principal**:
+The machine principal (kind agent) of one team member of a mission, bound to its workspace
+and mission and recorded as acting for the mission owner (ADR 0032). A running attempt holds
+a credential for it that ends with the attempt or when its fence moves.
+_Avoid_: bot, service account, agent user
 
 ### Surfaces
 

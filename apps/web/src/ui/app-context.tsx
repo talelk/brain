@@ -272,6 +272,8 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
       if (!actorId) return "someone";
       if (actorId === "system" || actorId === "governor") return "Brain";
       if (actorId === identity()?.actor.actorId) return "you";
+      // A team member's machine principal (ADR 0032) is named `agent:<mission>:<member>`; it is never a person in the workspace.
+      if (actorId.startsWith("agent:")) return "an agent";
       const member = (members.state().data ?? []).find((m) => m.principalId === actorId);
       return member?.displayName ?? "a teammate";
     },

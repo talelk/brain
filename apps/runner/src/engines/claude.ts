@@ -2,6 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import { sha256Digest } from "@brain/contracts";
 import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
+import { engineFailureDetail } from "./failure-detail";
 import type { HostedRoute } from "./pi";
 import { hostedMicroUsd } from "./pricing";
 import { overCostCap } from "./limits";
@@ -260,7 +261,7 @@ export class ClaudeEngine implements EngineAdapter {
       this.push("session.stopped", { reason: "completed", terminationConfirmed: true, output: artifact });
     } catch (e) {
       this.push("error", {
-        error: { code: "DEPENDENCY_UNAVAILABLE", detail: e instanceof Error ? e.message : "Claude SDK run failed", retryable: true, correlationId: this.sessionId },
+        error: { code: "DEPENDENCY_UNAVAILABLE", detail: engineFailureDetail(e instanceof Error ? e.message : "Claude SDK run failed"), retryable: true, correlationId: this.sessionId },
         phase: "stream", retryClass: "new-attempt",
       });
       this.push("session.stopped", { reason: "error", terminationConfirmed: true });

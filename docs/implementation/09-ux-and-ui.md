@@ -47,6 +47,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/studio/:kind` | knowledge | Create and validate a capability without editing YAML | definitions, drafts, validation, dependencies |
 | `/studio/:kind/:draftId` | knowledge | Edit, test, review and publish an immutable definition | editor, diagnostics, diff, tests, publication |
 | `/quality` | administration | See whether Brain is getting better | metric, definition, window, failure, breakdown |
+| `/w/:id/quality/cases` | administration | Review the results sent back or rejected, and replay each by hand before a release | case, source, mission, findings, replay |
 | `/administration/integrations` | administration | Connect Git providers and bind repositories to workspaces | providers, organizations, repositories, permissions, webhooks, status |
 | `/shared/:token` | outputs | Read one shared result without signing in: read-only, expiring, revocable (ADR 0013) | result |
 <!-- END GENERATED ROUTES -->

@@ -20,7 +20,7 @@ import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissi
 import type { HandoffNotes } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
-import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, REMEDY, classifyFailure, lessonText, type FailureClass } from "../../domain/failure";
+import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, QUOTA_MAX_WAITS, REMEDY, classifyFailure, lessonText, quotaWaitMs, waitWords, type FailureClass } from "../../domain/failure";
 import { GENERAL_TASK_WORKFLOW } from "../workflows/index";
 import { observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
@@ -54,6 +54,11 @@ const CHECK_WORDS: Readonly<Record<string, string>> = {
   safety: "the report claims actions it must not take",
   deliverable: "there is no real deliverable (it copies the brief, asks a question, or is too short)",
   "criteria-met": "not every acceptance criterion is answered, with evidence",
+};
+/** The team member a task is assigned to, when it is assigned to an agent; the machine principal of its sessions is that member's (ADR 0032). */
+const memberOf = (assignmentJson: string | null): string | null => {
+  const assignment = assignmentJson ? JSON.parse(assignmentJson) as PlanAssignment : undefined;
+  return assignment?.kind === "agent" ? assignment.id : null;
 };
 /** Parked work is stopped, not running: a person may re-plan it (edit, reassign, run it with another recipe), which replaces the parked item. */
 const isStarted = (row: { state: WorkItemState; parked?: number }): boolean => STARTED.has(row.state) && !(row.state === "blocked" && row.parked === 1);
@@ -640,6 +645,21 @@ export class MissionService {
     }
   }
 
+  /**
+   * The mission, team member and owner a run's work belongs to, which is what the machine principal of its sessions is bound to (ADR 0032).
+   * A coordinator run belongs to the coordinator member. Work outside any mission has no principal.
+   */
+  sessionBinding(organizationId: string, workspaceId: string, runId: string): { missionId: string; memberId: string | null; actingFor: string } | undefined {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const task = db.prepare("SELECT l.mission_id AS missionId, w.assignment_json AS assignment FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? ORDER BY l.created_at_ms DESC LIMIT 1").get(runId) as { missionId: string; assignment: string | null } | undefined;
+    const coordinating = task ? undefined : db.prepare("SELECT mission_id AS missionId FROM mission_runs WHERE run_id=? AND purpose='coordinator'").get(runId) as { missionId: string } | undefined;
+    const missionId = task?.missionId ?? coordinating?.missionId;
+    if (!missionId) return undefined;
+    const mission = db.prepare("SELECT owner_id AS owner, coordinator_member_id AS coordinator FROM missions WHERE id=?").get(missionId) as { owner: string; coordinator: string | null } | undefined;
+    if (!mission) return undefined;
+    return { missionId, memberId: task ? memberOf(task.assignment) : mission.coordinator, actingFor: mission.owner };
+  }
+
   isOpen(organizationId: string, workspaceId: string, missionId: string): boolean {
     const row = this.store.workspaceDb(workspaceId, organizationId).prepare("SELECT state FROM missions WHERE id=?").get(missionId) as { state: string } | undefined;
     if (!row || row.state === "closed") return false;
@@ -1016,6 +1036,15 @@ export class MissionService {
         else counted();
         break;
       }
+      case "wait-for-quota": {
+        const waits = (db.prepare("SELECT COUNT(*) AS n FROM task_failures WHERE work_item_id=? AND failure_class='quota' AND run_id!=?").get(item.id, runId) as { n: number }).n;
+        // Waiting out a limit is not a failure of the work, until the limit outlasts the waits. The provider's own retry-after sets the wait (ADR 0033).
+        if (waits < QUOTA_MAX_WAITS) {
+          const waitMs = quotaWaitMs(detail);
+          retry(item.failed_attempts, `The model provider's quota or rate limit was reached; trying again in ${waitWords(waitMs)}`, { failure_class: failureClass, retry_after_ms: now + waitMs });
+        } else counted();
+        break;
+      }
       default:
         counted();
     }
@@ -1204,7 +1233,7 @@ export class MissionService {
    * member cap minus in-progress work), whether its budget still has headroom,
    * and its ready, unparked items oldest first.
    */
-  autoStartPlan(organizationId: string, workspaceId: string): Array<{ defaultWorkflowId: string | null; wayOfWorkingId: string | null; missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; upstream: Array<{ title: string; summary: string; deliverable?: string }>; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string; requiredTools: string[]; failureClass: FailureClass | null; secondAttempt: boolean }> }> {
+  autoStartPlan(organizationId: string, workspaceId: string): Array<{ defaultWorkflowId: string | null; wayOfWorkingId: string | null; missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; upstream: Array<{ title: string; summary: string; deliverable?: string }>; memberId: string | null; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string; requiredTools: string[]; failureClass: FailureClass | null; secondAttempt: boolean }> }> {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     // Only missions with ready work can contribute: a workspace keeps every mission it ever ran, and walking all of them on each command
     // (several prepared statements apiece) made every command slower as history grew (steady benchmark, trial over trial).
@@ -1231,7 +1260,7 @@ export class MissionService {
         wayOfWorkingId: wayOfWorking(this.store, workspaceId)?.workflowId ?? null,
         defaultWorkflowId: (db.prepare("SELECT workflow_id AS id FROM work_items WHERE mission_id=? AND workflow_id IS NOT NULL ORDER BY (SELECT COUNT(*) FROM work_items x WHERE x.mission_id=work_items.mission_id AND x.workflow_id=work_items.workflow_id) DESC, created_at_ms LIMIT 1").get(mission.id) as { id: string } | undefined)?.id ?? null,
         missionId: mission.id, ownerId: mission.owner_id, memberCap: mission.member_cap, slots: Math.max(0, mission.member_cap - running), headroom: hasHeadroom(this.store, db, mission.id),
-        items: items.map((item) => ({ workItemId: item.id, title: item.title, criteria: JSON.parse(item.criteria_json) as string[], upstream: this.upstreamResults(db, item.id), workflowId: item.workflow_id, failedAttempts: item.failed_attempts, runs: (db.prepare("SELECT COUNT(*) AS n FROM execution_links WHERE work_item_id=?").get(item.id) as { n: number }).n, nextAction: item.next_action, requiredTools: JSON.parse(item.required_tools_json) as string[], failureClass: item.failure_class, secondAttempt: item.failed_attempts > 0 && item.failure_class === "model-slip" })),
+        items: items.map((item) => ({ workItemId: item.id, title: item.title, criteria: JSON.parse(item.criteria_json) as string[], upstream: this.upstreamResults(db, item.id), memberId: memberOf(item.assignment_json), workflowId: item.workflow_id, failedAttempts: item.failed_attempts, runs: (db.prepare("SELECT COUNT(*) AS n FROM execution_links WHERE work_item_id=?").get(item.id) as { n: number }).n, nextAction: item.next_action, requiredTools: JSON.parse(item.required_tools_json) as string[], failureClass: item.failure_class, secondAttempt: item.failed_attempts > 0 && item.failure_class === "model-slip" })),
       });
     }
     return plan;

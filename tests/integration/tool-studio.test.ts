@@ -49,7 +49,7 @@ describe("editing a tool in Studio", () => {
     expect((await run(w, "configDraft.validate", "tool-validate", { draftId })).accepted).toBe(true);
     expect((await detail()).validations[0]!.status).toBe("passed");
 
-    const connectionId = (await run(w, "integration.connect", "tool-connect", { name: "Tool remote", repositoryUrl: remote.remote })).resourceId!;
+    const connectionId = (await run(w, "integration.connect", "tool-connect", { provider: "gitea", name: "Tool remote", repositoryUrl: remote.remote })).resourceId!;
     expect(await w.brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });
     const bindingId = (await run(w, "integration.bind", "tool-bind", { connectionId, workspaceId: w.workspaceId, kind: "configuration", repositoryKey: remote.remote, access: "write" })).resourceId!;
     expect(await w.brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });

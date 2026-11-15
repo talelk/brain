@@ -4,16 +4,19 @@ import { dirname, join, normalize } from "node:path";
 import http from "isomorphic-git/http/node";
 import { add, branch, checkout, clone, commit, push } from "isomorphic-git";
 import fs from "node:fs";
+import type { GitProvider } from "@brain/contracts";
 import type { GitCredentialMaterial } from "./crypto";
+import { gitProviderLabel } from "./git-provider";
 
 /**
  * Opening a pull request (ADR 0024): push a new branch with the proposed files over the Git connection's own credentials, then ask the
- * hosting provider's REST API to open the request. The credentials stay in the Governor; the model sees the address of the new request.
+ * connection's Git provider's REST API to open the request. The credentials stay in the Governor; the model sees the address of the new request.
  */
 export interface ProposedFile { readonly path: string; readonly content: string }
 
+export interface PullRequestInput { provider: GitProvider; remoteUrl: string; credentials: GitCredentialMaterial; base: string; head: string; title: string; body: string }
 export interface PullRequestApi {
-  open(input: { remoteUrl: string; credentials: GitCredentialMaterial; base: string; head: string; title: string; body: string }): Promise<{ number: number; url: string }>;
+  open(input: PullRequestInput): Promise<{ number: number; url: string }>;
 }
 
 const MAX_FILES = 20;
@@ -56,9 +59,9 @@ export async function pushProposalBranch(remoteUrl: string, credentials: GitCred
   }
 }
 
-function repositoryPath(remoteUrl: string): { origin: string; host: string; path: string } {
+function repositoryPath(remoteUrl: string): { origin: string; path: string } {
   const url = new URL(remoteUrl);
-  return { origin: url.origin, host: url.hostname, path: url.pathname.replace(/^\/+|\/+$/gu, "").replace(/\.git$/u, "") };
+  return { origin: url.origin, path: url.pathname.replace(/^\/+|\/+$/gu, "").replace(/\.git$/u, "") };
 }
 
 async function expectJson(response: Response, what: string): Promise<Record<string, unknown>> {
@@ -66,26 +69,40 @@ async function expectJson(response: Response, what: string): Promise<Record<stri
   return await response.json() as Record<string, unknown>;
 }
 
-/** GitHub (github.com) or a GitLab-style host (any other address); the provider is read from the remote's address, never from the model. */
+/**
+ * Opens the request through the API of the provider the owner chose for the connection (GitHub, GitHub Enterprise, GitLab, Gitea).
+ * There is no guessing from the address and no fallback: a provider with no case here is refused.
+ */
 export class HostedPullRequestApi implements PullRequestApi {
   constructor(private readonly fetchImpl: typeof fetch = fetch) {}
 
-  async open(input: { remoteUrl: string; credentials: GitCredentialMaterial; base: string; head: string; title: string; body: string }): Promise<{ number: number; url: string }> {
-    const { origin, host, path } = repositoryPath(input.remoteUrl);
+  private async post(url: string, headers: Record<string, string>, body: Record<string, unknown>, what: string): Promise<Record<string, unknown>> {
+    return await expectJson(await this.fetchImpl(url, { method: "POST", signal: AbortSignal.timeout(20_000), headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) }), what);
+  }
+
+  async open(input: PullRequestInput): Promise<{ number: number; url: string }> {
+    const { origin, path } = repositoryPath(input.remoteUrl);
     const token = input.credentials.token ?? "";
-    if (host === "github.com") {
-      const answer = await expectJson(await this.fetchImpl(`https://api.github.com/repos/${path}/pulls`, {
-        method: "POST", signal: AbortSignal.timeout(20_000),
-        headers: { "content-type": "application/json", accept: "application/vnd.github+json", "user-agent": "Brain", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ title: input.title, head: input.head, base: input.base, body: input.body }),
-      }), "GitHub");
-      return { number: Number(answer["number"]), url: String(answer["html_url"] ?? "") };
+    const label = gitProviderLabel(input.provider);
+    const proposal = { title: input.title, head: input.head, base: input.base, body: input.body };
+    switch (input.provider) {
+      case "github":
+      case "github-enterprise": {
+        const api = input.provider === "github" ? "https://api.github.com" : `${origin}/api/v3`;
+        const answer = await this.post(`${api}/repos/${path}/pulls`, { accept: "application/vnd.github+json", "user-agent": "Brain", ...(token ? { authorization: `Bearer ${token}` } : {}) }, proposal, label);
+        return { number: Number(answer["number"]), url: String(answer["html_url"] ?? "") };
+      }
+      case "gitea": {
+        const answer = await this.post(`${origin}/api/v1/repos/${path}/pulls`, token ? { authorization: `token ${token}` } : {}, proposal, label);
+        return { number: Number(answer["number"]), url: String(answer["html_url"] ?? "") };
+      }
+      case "gitlab": {
+        const answer = await this.post(`${origin}/api/v4/projects/${encodeURIComponent(path)}/merge_requests`, token ? { "private-token": token } : {},
+          { source_branch: input.head, target_branch: input.base, title: input.title, description: input.body }, label);
+        return { number: Number(answer["iid"]), url: String(answer["web_url"] ?? "") };
+      }
+      default: throw new Error(`pull requests are not supported for the Git provider "${String(input.provider).slice(0, 40)}"`);
     }
-    const answer = await expectJson(await this.fetchImpl(`${origin}/api/v4/projects/${encodeURIComponent(path)}/merge_requests`, {
-      method: "POST", signal: AbortSignal.timeout(20_000),
-      headers: { "content-type": "application/json", ...(token ? { "private-token": token } : {}) },
-      body: JSON.stringify({ source_branch: input.head, target_branch: input.base, title: input.title, description: input.body }),
-    }), "the Git host");
-    return { number: Number(answer["iid"]), url: String(answer["web_url"] ?? "") };
   }
 }
+
