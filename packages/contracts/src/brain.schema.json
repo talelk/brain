@@ -20677,13 +20677,62 @@
       "type": "object",
       "properties": {
         "format": {
-          "const": "brain.redacted-diagnostics/v1"
+          "const": "brain.redacted-diagnostics/v2"
         },
         "exportedAt": {
           "$ref": "#/$defs/Timestamp"
         },
         "correlationId": {
           "$ref": "#/$defs/Id"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "versions": {
+          "type": "object",
+          "properties": {
+            "governor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "node": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "sqlite": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "controlSchema": {
+              "$ref": "#/$defs/Digest"
+            },
+            "workspaceSchema": {
+              "$ref": "#/$defs/Digest"
+            },
+            "commandContract": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "runnerContract": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "governor",
+            "node",
+            "sqlite",
+            "controlSchema",
+            "workspaceSchema",
+            "commandContract",
+            "runnerContract"
+          ],
+          "additionalProperties": false
         },
         "configDigest": {
           "oneOf": [
@@ -20700,6 +20749,12 @@
         },
         "smokeVerified": {
           "type": "boolean"
+        },
+        "memoryMode": {
+          "enum": [
+            "local",
+            "remote"
+          ]
         },
         "checks": {
           "type": "array",
@@ -20726,31 +20781,438 @@
                   "task",
                   "model"
                 ]
+              },
+              "detail": {
+                "type": "string",
+                "maxLength": 512
               }
             },
             "required": [
               "id",
-              "status"
+              "status",
+              "detail"
             ],
             "additionalProperties": false
           }
         },
-        "memoryMode": {
-          "enum": [
-            "local",
-            "remote"
-          ]
+        "services": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "status": {
+                "enum": [
+                  "healthy",
+                  "degraded",
+                  "unavailable",
+                  "disabled"
+                ]
+              },
+              "checkedAt": {
+                "$ref": "#/$defs/Timestamp"
+              },
+              "detail": {
+                "type": "string",
+                "maxLength": 512
+              }
+            },
+            "required": [
+              "id",
+              "status",
+              "checkedAt",
+              "detail"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "runners": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "properties": {
+              "runnerId": {
+                "$ref": "#/$defs/Id"
+              },
+              "group": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "adminState": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "connectivity": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "health": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "lastSeenAt": {
+                "$ref": "#/$defs/Timestamp"
+              },
+              "capacity": {
+                "type": "object",
+                "properties": {
+                  "cpuMillicores": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "memoryMb": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "diskMb": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "slots": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "cpuMillicores",
+                  "memoryMb",
+                  "diskMb",
+                  "slots"
+                ],
+                "additionalProperties": false
+              },
+              "engines": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "adapterDigest": {
+                      "$ref": "#/$defs/Digest"
+                    },
+                    "features": {
+                      "type": "array",
+                      "maxItems": 64,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "adapterDigest",
+                    "features"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "capabilities": {
+                "type": "array",
+                "maxItems": 200,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "capability": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "source": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "observedAt": {
+                      "$ref": "#/$defs/Timestamp"
+                    },
+                    "verified": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "capability",
+                    "source",
+                    "observedAt",
+                    "verified"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "runnerId",
+              "group",
+              "adminState",
+              "connectivity",
+              "health",
+              "lastSeenAt",
+              "capacity",
+              "engines",
+              "capabilities"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "backups": {
+          "type": "object",
+          "properties": {
+            "backup": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "healthy",
+                    "degraded",
+                    "unavailable",
+                    "disabled"
+                  ]
+                },
+                "detail": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "lastAt": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/Timestamp"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ageSeconds": {
+                  "oneOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "status",
+                "detail",
+                "lastAt",
+                "ageSeconds"
+              ],
+              "additionalProperties": false
+            },
+            "restoreTest": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "healthy",
+                    "degraded",
+                    "unavailable",
+                    "disabled"
+                  ]
+                },
+                "detail": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "lastAt": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/Timestamp"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ageSeconds": {
+                  "oneOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "backup": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "databases": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "seconds": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "status",
+                "detail",
+                "lastAt",
+                "ageSeconds"
+              ],
+              "additionalProperties": false
+            },
+            "replica": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "healthy",
+                    "degraded",
+                    "unavailable",
+                    "disabled"
+                  ]
+                },
+                "detail": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "lagSeconds": {
+                  "oneOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "status",
+                "detail",
+                "lagSeconds"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "backup",
+            "restoreTest",
+            "replica"
+          ],
+          "additionalProperties": false
+        },
+        "recentErrors": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Timestamp"
+              },
+              "source": {
+                "enum": [
+                  "health-check",
+                  "task",
+                  "attempt"
+                ]
+              },
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "status": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "detail": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "remedy": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "workspaceId": {
+                "$ref": "#/$defs/Id"
+              },
+              "missionId": {
+                "$ref": "#/$defs/Id"
+              },
+              "workItemId": {
+                "$ref": "#/$defs/Id"
+              },
+              "runId": {
+                "$ref": "#/$defs/Id"
+              },
+              "jobId": {
+                "$ref": "#/$defs/Id"
+              },
+              "attemptId": {
+                "$ref": "#/$defs/Id"
+              }
+            },
+            "required": [
+              "at",
+              "source",
+              "code"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
         "format",
         "exportedAt",
         "correlationId",
+        "workspaceId",
+        "versions",
         "configDigest",
         "ready",
         "smokeVerified",
+        "memoryMode",
         "checks",
-        "memoryMode"
+        "services",
+        "runners",
+        "backups",
+        "recentErrors"
       ],
       "additionalProperties": false
     },

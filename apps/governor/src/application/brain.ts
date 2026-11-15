@@ -1,6 +1,6 @@
 import { readRuntimeConfig, type RuntimeConfig } from "../runtime-config";
 import { join } from "node:path";
-import type { ActorContext, CommandReceipt, HumanApprovalDecision, JsonValue, MemoryResult, WorkflowCatalogEntry,
+import type { ActorContext, CommandReceipt, RedactedDiagnostics, HumanApprovalDecision, JsonValue, MemoryResult, WorkflowCatalogEntry,
 } from "@brain/contracts";
 import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
@@ -50,7 +50,7 @@ import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualityBreakdown, qualitySummary } from "../modules/stream/index";
 import { connectorsFromEnv, handleInbound, smtpTarget, type Connectors } from "../modules/operations/index";
-import { alertBadProbes, approvalLink, platformAlertLink, securitySettingsLink, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
+import { alertBadProbes, approvalLink, platformAlertLink, securitySettingsLink, checkBackups, checkDisk, diagnosticsBundle, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
@@ -212,6 +212,7 @@ export class Brain {
     this.memoryProbeTimer.unref();
     checkDisk(this.store);
     checkReplica(this.store, this.replica);
+    checkBackups(this.store);
     if (this.replica) {
       const config = this.replica;
       void this.replicate();
@@ -255,12 +256,18 @@ export class Brain {
   async runEngineProbes(fetchImpl: typeof fetch = fetch): Promise<void> {
     checkDisk(this.store);
     checkReplica(this.store, this.replica);
+    checkBackups(this.store);
     await checkModelEndpoint(this.store, fetchImpl);
     await checkHostedModels(this.store, fetchImpl);
     for (const alert of alertBadProbes(this.store)) {
       const channels = channelsFor(this.store, alert.organizationId, alert.ownerId);
       if (channels.push || channels.webhook || channels.email) void this.deliver(alert.organizationId, alert.ownerId, { title: alert.title, body: alert.detail, url: platformAlertLink(), kind: "platform" }, channels).catch(() => undefined);
     }
+  }
+
+  /** The redacted diagnostics bundle (Settings > Health > Download diagnostics); organization administrators only. */
+  diagnostics(actor: ActorContext, workspaceId: string, correlationId: string): RedactedDiagnostics {
+    return diagnosticsBundle(this.store, actor, workspaceId, correlationId);
   }
 
   close(): void {

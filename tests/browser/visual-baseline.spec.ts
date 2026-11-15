@@ -10,6 +10,9 @@
  * differ (seeded timestamps and ids vary per run); they run on the seeded workspace from
  * tests/support/browserDemo.ts.
  */
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { seedBrowserDemo } from "../support/browserDemo";
@@ -48,6 +51,7 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "runner-detail", route: (d) => `/runners/${d.seed.runnerId}`, heading: "runner-demo" },
   { id: "settings-setup", route: () => "/settings?tab=setup", heading: "Setup" },
   { id: "settings-work", route: () => "/settings?tab=work", heading: "How work runs" },
+  { id: "settings-health", route: () => "/settings?tab=health", heading: "Health", prepare: seedBackupRecords },
   { id: "settings-egress", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { const egress = page.locator("[data-work-egress]"); await expect(egress).toBeVisible(); await egress.scrollIntoViewIfNeeded(); } },
   { id: "knowledge", route: () => "/w/operations/knowledge", heading: "Knowledge" },
   { id: "integrations", route: () => "/administration/integrations", heading: "Integrations" },
@@ -58,6 +62,28 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // Last of all: the sign-off mission adds an attention item every earlier screen would count in its bell.
   { id: "mission-signoff", route: signOffRoute, heading: "Compile the quarterly report", waitFor: "mission-signoff" },
 ];
+
+/** Health with a fresh backup and a passed restore test, recorded the way the host's jobs record them; `restoreBackupRecords` puts the environment back. */
+const BACKUP_ENV = ["BRAIN_BACKUP_STAMP_FILE", "BRAIN_RESTORE_TEST_FILE"] as const;
+const backupEnvBefore = Object.fromEntries(BACKUP_ENV.map((key) => [key, process.env[key]]));
+let backupRecordsDir: string | undefined;
+async function seedBackupRecords(governor: Parameters<typeof seedBrowserDemo>[1]): Promise<void> {
+  backupRecordsDir = mkdtempSync(join(tmpdir(), "brain-visual-backups-"));
+  writeFileSync(join(backupRecordsDir, "last-backup-ok"), String(Math.floor(Date.now() / 1000) - 5 * 3600));
+  writeFileSync(join(backupRecordsDir, "last-restore-test.json"), JSON.stringify({ ok: true, backup: "brain-20261110.tar.enc", databases: 4, seconds: 42, at: new Date(Date.now() - 3 * 86_400_000).toISOString() }));
+  process.env["BRAIN_BACKUP_STAMP_FILE"] = join(backupRecordsDir, "last-backup-ok");
+  process.env["BRAIN_RESTORE_TEST_FILE"] = join(backupRecordsDir, "last-restore-test.json");
+  // The seeded runner reports in only for a moment after the seed; Health lists runners and the launcher only while one is online, so keep it online for this screen.
+  governor.app.brain.store.control.prepare("UPDATE runners SET last_heartbeat_ms=?").run(governor.app.brain.store.now());
+  await governor.app.brain.runEngineProbes((async () => new Response("{}")) as unknown as typeof fetch);
+}
+function restoreBackupRecords(): void {
+  for (const key of BACKUP_ENV) {
+    if (backupEnvBefore[key] === undefined) delete process.env[key];
+    else process.env[key] = backupEnvBefore[key];
+  }
+  if (backupRecordsDir) rmSync(backupRecordsDir, { recursive: true, force: true });
+}
 
 /** A person's comment on a task and the correction of it, through the same command the screen sends. */
 async function seedTaskComments(governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Awaited<ReturnType<typeof seedBrowserDemo>>): Promise<void> {
@@ -77,6 +103,8 @@ async function seedEvalCases(governor: Parameters<typeof seedBrowserDemo>[1], pa
   await sendTaskBack(brain, actor, "operations", { key: "vb1", title: "Quarterly churn report", finding: "Cause two had no cited source" });
   await sendTaskBack(brain, actor, "operations", { key: "vb2", title: "Refund summary", finding: "The refund total does not add up" });
 }
+
+test.afterEach(() => restoreBackupRecords());
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(300_000);

@@ -287,9 +287,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   app.get("/v1/diagnostics", async (c) => {
     try {
       const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId);
-      if (actor.kind !== "human" || !actor.scopes.includes("config:activate") || !actor.scopes.includes("runner:admin")) throw new BrainDomainError("FORBIDDEN", "Diagnostics export requires organization administration");
-      const readiness = operationalReadiness(brain.store, actor, workspaceId);
-      return c.json({ format: "brain.redacted-diagnostics/v1", exportedAt: brain.store.nowIso(), correlationId: correlation(c), configDigest: readiness.configDigest, ready: readiness.ready, smokeVerified: readiness.smokeVerified, checks: readiness.checks.map((check) => ({ id: check.id, status: check.status, action: check.action })), memoryMode: readiness.memoryMode });
+      return c.json(brain.diagnostics(actor, workspaceId, correlation(c)));
     } catch (e) { return fail(c as never, e); }
   });
 

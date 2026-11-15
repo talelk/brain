@@ -96,6 +96,7 @@ Task-oriented guides live under [`./`](./): running the local stack, compiling a
 | `BRAIN_ADMIN_EMAIL`, `BRAIN_ADMIN_PASSWORD` | Initial local administrator credentials; defaults `admin@brain.local` / `admin-password`, with no forced change. Set a private override before exposing Governor |
 | `BRAIN_REPLICA_DIR` and `_INTERVAL_SECONDS` `_WARN_SECONDS` `_CRITICAL_SECONDS` `_SHIPPED_FILE` `_KEEP` | Continuous database replica (ADR 0027); off when `BRAIN_REPLICA_DIR` is unset |
 | `BRAIN_METRICS_TOKEN_FILE`, `BRAIN_BACKUP_STAMP_FILE` | Bearer-token file that creates `/metrics`; file holding the last backup's epoch seconds |
+| `BRAIN_RESTORE_TEST_FILE`, `BRAIN_BACKUP_STALE_SECONDS`, `BRAIN_RESTORE_TEST_STALE_SECONDS` | File holding the last restore rehearsal's JSON result (`ok`, `at`, `backup`, `databases`, `seconds`); seconds after which Health calls the last backup stale (default 129600, 36 hours) or the last restore test stale (default 40 days). Health also reads `BRAIN_BACKUP_STAMP_FILE` |
 | `BRAIN_PRACTICES_FILE` | Practice tags other than the shipped `examples/v1/starter-release/practices.json` |
 | `BRAIN_ADMIN_PASSWORD_FILE`, `BRAIN_ADMIN_TOTP` | Optional unattended runner-enrollment login; password file must be owned and private; otherwise use `brain login` first |
 
