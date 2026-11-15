@@ -6,6 +6,7 @@ import { useApp } from "../ui/app-context";
 import { AuthenticatorEnrollment } from "../ui/components/Authentication";
 import { PasskeyControls } from "../ui/components/PasskeyControls";
 import { NotificationPreferences } from "../ui/components/NotificationPreferences";
+import { PushDeviceControl } from "../ui/components/PushDevice";
 import { WorkSettings } from "../ui/components/EngineAdmin";
 import { OrganizationAuthPolicy, OrganizationInvitations, OrganizationMemberSelect, OrganizationPeople } from "../ui/components/OrganizationAdmin";
 import type { JSX } from "solid-js";
@@ -116,7 +117,7 @@ export function SettingsScreen(props: {
       <Show when={tab() === "release" && searchParams.from === "today"}><p class="m-0"><A href={`/w/${props.workspaceId}/today`} class="inline-flex min-h-8 items-center gap-1 text-interface font-medium text-ink-blue-8 hover:underline"><span class="lucide-arrow-left size-4" aria-hidden="true" />{t("adm.back-to-today-when-you-are-done.98f2")}</A></p></Show>
       <Show when={tab() === "release"}><WorkspaceSection title={t("adm.active-and-available-releases.a25b")} description={t("adm.pick-a-release-check-what-is-in.4dbd")}><Show when={organizationAdmin()} fallback={<p class="text-interface text-ink-gray-7">{t("adm.only-an-organization-administrat.6266")}</p>}><InspectRelease activeConfigDigest={props.activeConfigDigest} onActivate={props.onActivate} /></Show></WorkspaceSection></Show>
       <Show when={tab() === "release" && organizationAdmin() && props.explanation}><TechnicalDetails label={t("adm.where-the-workflow-settings-come.de8e")}><PageStack><Show when={props.explanation}><div class="grid gap-3 lg:grid-cols-2"><KeyValue label={t("adm.pointer.bc5d")} value={<span class="break-all">{props.explanation!.pointer}</span>} /><KeyValue label={t("adm.active-digest.8341")} value={<code class="break-all">{props.explanation!.configDigest}</code>} orientation="vertical" /><For each={props.explanation!.sources}>{(source) => <KeyValue label={`Rule (${source.rule})`} value={<span class="break-all">{source.path}:{source.line}</span>} orientation="vertical" />}</For></div></Show></PageStack></TechnicalDetails></Show>
-      <Show when={tab() === "security"}><WorkspaceSection title={t("adm.notifications.753a")} description={t("adm.attention-hints-never-replace-si.e9dc")}><PushControls /><NotificationPreferences /></WorkspaceSection></Show>
+      <Show when={tab() === "security"}><WorkspaceSection title={t("adm.notifications.753a")} description={t("adm.attention-hints-never-replace-si.e9dc")}><PushDeviceControl /><NotificationPreferences /></WorkspaceSection></Show>
       <Dialog.Root open={accessOpen()} onOpenChange={setAccessOpen}><Dialog.Content size="md"><Dialog.Header><Dialog.Title>{t("adm.manage-workspace-access.12c3")}</Dialog.Title><Dialog.Description>{t("adm.grant-or-revoke-one-role-for-an.071c")}</Dialog.Description></Dialog.Header><BrainForm bare label={t("adm.manage-workspace-access.12c3")} onSubmit={() => { if (principalId().trim() && reason().trim()) { void props.onGrant(principalId().trim(), role(), reason().trim()); setAccessOpen(false); } }}><div class="my-3 flex flex-col gap-3"><OrganizationMemberSelect value={principalId()} onChange={setPrincipalId} /><Select label={t("adm.role.c3f1")} value={role()} options={[{ value: "viewer", label: t("adm.viewer.dbad") }, { value: "operator", label: t("adm.operator.d0e6") }, { value: "workspace-lead", label: t("adm.workspace-lead.897b") }, { value: "approver", label: t("adm.approver.f18f") }]} onValueChange={(value) => setRole(value ?? "viewer")} /><TextInput label={t("adm.reason.f219")} required value={reason()} onInput={(event) => setReason(event.currentTarget.value)} /><Alert theme="amber" variant="outline" title={t("adm.scope-and-consequence.bc9a")} description={`${role()} access applies to workspace ${props.workspaceId}. Revocation stops new reads and writes; it does not delete organization membership.`} /></div><Dialog.Footer class="flex-wrap justify-end gap-2"><Button variant="outline" onClick={() => setAccessOpen(false)}>{t("adm.cancel.77df")}</Button><Button variant="outline" theme="red" disabled={!principalId().trim() || !reason().trim()} onClick={() => { void props.onRevoke(principalId().trim(), role(), reason().trim()); setAccessOpen(false); }}>{t("adm.revoke.0be7")}</Button><Button type="submit" variant="solid" theme="blue" disabled={!principalId().trim() || !reason().trim()}>{t("adm.grant.c023")}</Button></Dialog.Footer></BrainForm></Dialog.Content></Dialog.Root>
     </PageStack>
   </BrainPage>;
@@ -254,20 +255,3 @@ function SessionControls(): JSX.Element {
   </WorkspaceSection>;
 }
 
-function PushControls(): JSX.Element {
-  const [state, setState] = createSignal("");
-  async function enable() {
-    try {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) { setState("Push is not available in this browser."); return; }
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") { setState("Notification permission was not granted."); return; }
-      const registration = await navigator.serviceWorker.ready;
-      const { publicKey } = await (await fetch("/v1/push/vapid-public-key", { credentials: "same-origin" })).json() as { publicKey: string };
-      const keyBytes = Uint8Array.from(atob(publicKey.replace(/-/gu, "+").replace(/_/gu, "/")), (character) => character.charCodeAt(0));
-      const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes as BufferSource });
-      await fetch("/v1/push/subscriptions", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(subscription.toJSON()) });
-      setState("Notifications enabled. They are attention hints only — decisions still happen here, after you sign in and confirm with your authenticator code.");
-    } catch (reason) { setState(reason instanceof Error ? reason.message : "Could not enable notifications."); }
-  }
-  return <div class="flex flex-col items-start gap-3"><p class="brain-readable text-interface text-ink-gray-7">{t("adm.push-notifications-are-attention.355b")}</p><Button variant="outline" theme="blue" iconLeft="lucide-bell" onClick={() => void enable()}>{t("adm.enable-notifications.da39")}</Button><Show when={state()}><p role="status" class="brain-readable text-interface">{state()}</p></Show></div>;
-}

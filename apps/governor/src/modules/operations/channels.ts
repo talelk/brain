@@ -101,12 +101,12 @@ export function absoluteLink(path: string, baseUrl = process.env["BRAIN_BASE_URL
   try { return new URL(path, baseUrl).toString(); } catch { return path; }
 }
 
-/** A link safe for a mail body: this server's path with only the ids the page needs. No credential-like parameter can pass. */
+/** A link safe for a mail body: this server's path with only the ids the page needs (workspace, asset, result, proposal). No credential-like parameter can pass. */
 export function safeMailLink(path: string, baseUrl = process.env["BRAIN_BASE_URL"]): string {
   let url: URL;
   try { url = new URL(path, baseUrl ?? "http://brain.invalid"); } catch { return "/"; }
   const keep = new URLSearchParams();
-  for (const key of ["w", "asset", "result", "tab"]) { const value = url.searchParams.get(key); if (value && /^[A-Za-z0-9_.:-]{1,128}$/u.test(value)) keep.set(key, value); }
+  for (const key of ["w", "asset", "result", "proposal", "tab"]) { const value = url.searchParams.get(key); if (value && /^[A-Za-z0-9_.:-]{1,128}$/u.test(value)) keep.set(key, value); }
   const query = keep.toString();
   const clean = `${url.pathname}${query ? `?${query}` : ""}`;
   return baseUrl ? absoluteLink(clean, baseUrl) : clean;

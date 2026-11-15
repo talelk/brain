@@ -77,7 +77,19 @@ test("a finished mission waits for sign-off: reject with findings, finish again,
   const signOff = page.getByTestId("mission-signoff");
   await expect(signOff).toHaveAttribute("data-state", "waiting", { timeout: 30_000 });
   await expect(signOff.getByTestId("signoff-facts")).toContainText("1 task done");
-  await expect(signOff).toContainText("Summarize the incident log");
+  // Every success criterion is listed with the work serving it. The workflow's own checks passed, but none names the criterion, so the
+  // owner is told it is not linked to a check before the verdict buttons (ADR 0034).
+  const criterion = signOff.getByTestId("signoff-criterion");
+  await expect(criterion).toHaveCount(1);
+  await expect(criterion).toHaveAttribute("data-linked", "false");
+  await expect(criterion).toContainText("Not linked to a check");
+  await expect(criterion.getByTestId("signoff-criterion-work")).toContainText("Work: Summarize the incident log");
+  await expect(signOff.getByTestId("signoff-criterion-check")).toHaveCount(0);
+  await expect(signOff.getByTestId("signoff-criteria-summary")).toHaveText("0 of 1 success criterion is linked to a check");
+  const warning = signOff.getByTestId("signoff-unlinked-warning");
+  await expect(warning).toContainText("1 success criterion is not linked to a check");
+  const verifyButton = signOff.getByRole("button", { name: "Verify the mission", exact: true });
+  expect((await warning.boundingBox())!.y).toBeLessThan((await verifyButton.boundingBox())!.y);
   await shot("signoff-waiting");
 
   // A rejection needs findings: the button stays off until one is written, then the mission returns to work.
@@ -139,6 +151,8 @@ test("a viewer sees the sign-off view but cannot record a verdict", async ({ pag
   await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/outputs?w=ws-view`);
   const signOff = page.getByTestId("mission-signoff");
   await expect(signOff).toHaveAttribute("data-state", "waiting", { timeout: 30_000 });
+  await expect(signOff.getByTestId("signoff-criterion")).toContainText("No task serves this criterion");
+  await expect(signOff.getByTestId("signoff-criterion")).toContainText("Not linked to a check");
   await expect(signOff.getByTestId("signoff-no-scope")).toContainText("only an operator can record the verdict");
   await expect(signOff.getByRole("button", { name: "Verify the mission", exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);

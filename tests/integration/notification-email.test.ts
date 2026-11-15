@@ -3,6 +3,7 @@ import type { ActorContext, CommandReceipt, Mission, PlanTask, WorkItem } from "
 import { sendMail, smtpTarget } from "../../apps/governor/src/modules/operations/index";
 import { startFakeSmtp, type FakeSmtp } from "../support/fake-smtp";
 import { setupWorld, workView } from "../helpers";
+import { requestApproval } from "../support/approvals";
 
 type World = ReturnType<typeof setupWorld>;
 const worlds: World[] = [];
@@ -88,7 +89,7 @@ describe("email transport for notifications (ADR 0011 amendment)", () => {
     const blocking = smtp.messages[0]!;
     expect(blocking).toMatchObject({ from: "brain@example.test", to: "owner-1@fixture.test", authenticated: true });
     expect(blocking.data).toContain("Subject: Brain: something needs you");
-    expect(blocking.data).toMatch(/https:\/\/brain\.example\.test\/missions\/.+\/live\?w=ws-test/u);
+    expect(blocking.data).toMatch(/https:\/\/brain\.example\.test\/missions\/.+\/plan\?w=ws-test/u);
     w.brain.store.control.prepare("UPDATE notification_preferences SET digest_last_ms=digest_last_ms-?").run(25 * 3_600_000);
     expect(w.brain.notifyDigests()).toBe(1);
     await until(() => smtp.messages.length === 2);
@@ -154,14 +155,15 @@ describe("email transport for notifications (ADR 0011 amendment)", () => {
     process.env["BRAIN_NOTIFY_SMTP_URL"] = `smtp://127.0.0.1:${smtp.port}`;
     process.env["BRAIN_NOTIFY_EMAIL_PER_HOUR"] = "2";
     w.brain.setNotificationPreferences(w.owner, { email: true, push: false });
-    const approve = () => (w.brain as unknown as { notifyApprovers(input: { organizationId: string; workspaceId: string }): void }).notifyApprovers({ organizationId: w.org, workspaceId: w.workspaceId });
-    for (let i = 0; i < 4; i++) { approve(); await new Promise((resolve) => setTimeout(resolve, 80)); }
+    let requested = 0;
+    const approve = () => requestApproval(w, `rate-${requested++}`);
+    for (let i = 0; i < 4; i++) { await approve(); await new Promise((resolve) => setTimeout(resolve, 80)); }
     await until(() => w.brain.notificationPreferences(w.owner).emailDeliveries.length === 4);
     expect(smtp.messages).toHaveLength(2);
     const view = w.brain.notificationPreferences(w.owner).emailDeliveries;
     expect(view.filter((d) => d.status === "failed").map((d) => d.reason)).toEqual([expect.stringMatching(/^rate limited/u), expect.stringMatching(/^rate limited/u)]);
     w.brain.store.control.prepare("UPDATE email_deliveries SET at_ms=at_ms-?").run(2 * 3_600_000);
-    approve();
+    await approve();
     await until(() => smtp.messages.length === 3);
   });
 });

@@ -18,7 +18,7 @@ import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listComments, recordComment } from "./comments";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, recordTaskResult, sendMessage, taskOf, taskResult, verifyOutputs } from "./outputs";
 import { readVerified } from "../artifacts/index";
-import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, needsSignOff, recordMissionVerdict, submitHandoff, trustForBundle, workflowCovers } from "../evidence/index";
+import { assembleMissionBundle, type ServedCriterion, dependencyHandoffs, finalizeHandoff, latestMissionBundle, needsSignOff, recordMissionVerdict, submitHandoff, trustForBundle, workflowCovers } from "../evidence/index";
 import type { HandoffNotes } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
@@ -166,15 +166,27 @@ export class MissionService {
 
   /** Each success criterion with whether the work serving it is done, read from the confirmed plan and its latest live work item per task (ADR 0034). */
   private coverage(db: ReturnType<Store["workspaceDb"]>, row: MissionRow): Mission["successCriteria"] {
+    const { tasks, latest } = this.confirmedWork(db, row);
+    return criteriaCoverage(parseCriteria(row.success_criteria_json), tasks, new Set([...latest].filter(([, item]) => item.state === "done").map(([taskId]) => taskId)));
+  }
+
+  /** The confirmed plan's tasks and the latest live work item of each (a retained item keeps its old plan version, so the plan task id is the key). */
+  private confirmedWork(db: ReturnType<Store["workspaceDb"]>, row: MissionRow): { tasks: PlanTask[]; latest: Map<string, { id: string; state: WorkItemState }> } {
     const plan = row.active_plan_version_id ? db.prepare("SELECT tasks_json FROM plan_versions WHERE id=?").get(row.active_plan_version_id) as { tasks_json: string } | undefined : undefined;
-    const done = new Set<string>();
-    const seen = new Set<string>();
-    for (const item of db.prepare("SELECT plan_task_id, state FROM work_items WHERE mission_id=? AND state!='abandoned' ORDER BY created_at_ms DESC, id DESC").all(row.id) as Array<{ plan_task_id: string; state: WorkItemState }>) {
-      if (seen.has(item.plan_task_id)) continue;
-      seen.add(item.plan_task_id);
-      if (item.state === "done") done.add(item.plan_task_id);
+    const latest = new Map<string, { id: string; state: WorkItemState }>();
+    for (const item of db.prepare("SELECT id, plan_task_id, state FROM work_items WHERE mission_id=? AND state!='abandoned' ORDER BY created_at_ms DESC, id DESC").all(row.id) as Array<{ id: string; plan_task_id: string; state: WorkItemState }>) {
+      if (!latest.has(item.plan_task_id)) latest.set(item.plan_task_id, { id: item.id, state: item.state });
     }
-    return criteriaCoverage(parseCriteria(row.success_criteria_json), plan ? JSON.parse(plan.tasks_json) as PlanTask[] : [], done);
+    return { tasks: plan ? JSON.parse(plan.tasks_json) as PlanTask[] : [], latest };
+  }
+
+  /** Each criterion with the live work items of the confirmed plan tasks that serve it: what the mission evidence bundle records coverage from. */
+  private servedCriteria(db: ReturnType<Store["workspaceDb"]>, row: MissionRow): ServedCriterion[] {
+    const { tasks, latest } = this.confirmedWork(db, row);
+    return parseCriteria(row.success_criteria_json).map((criterion) => ({
+      criterionId: criterion.id, text: criterion.text,
+      workItemIds: tasks.filter((task) => (task.criterionIds ?? []).includes(criterion.id)).flatMap((task) => latest.get(task.id)?.id ?? []),
+    }));
   }
 
   private plan(workspaceId: string, row: PlanRow): PlanVersion {
@@ -828,7 +840,7 @@ export class MissionService {
     });
     if (next === "closed") this.capitalization?.requestMissionRun(actor.organizationId, workspaceId, mission.id);
     if (next === "verifying") {
-      const bundle = this.store.inTx(db, () => assembleMissionBundle(this.store, db, mission.id, mission.brief_version));
+      const bundle = this.store.inTx(db, () => assembleMissionBundle(this.store, db, mission.id, mission.brief_version, this.servedCriteria(db, mission)));
       if (!bundle.complete) this.backToWork(actor, workspaceId, mission.id, latestMissionBundle(db, mission.id)?.findings ?? []);
     }
     return mission.id;

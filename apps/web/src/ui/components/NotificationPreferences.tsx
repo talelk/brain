@@ -25,7 +25,7 @@ export function NotificationPreferences(): JSX.Element {
     <Show when={view()} fallback={<p class="text-interface text-ink-gray-7" role="status">{view.error ? "Your notification choices could not be read." : "Loading your choices…"}</p>}>{(loaded) => <fieldset class="flex min-w-0 flex-col gap-2 border-0 p-0">
       <legend class="sr-only">Notification channels</legend>
       <Checkbox checked disabled label="In Brain (always on): the bell and the Needs you queue are the record." />
-      <Checkbox checked={loaded().preferences.push} onCheckedChange={(checked) => void set({ push: checked === true })} label="Browser notifications for what needs you or is ready (after you enable them above)." />
+      <Checkbox checked={loaded().preferences.push} onCheckedChange={(checked) => void set({ push: checked === true })} label="Browser notifications for what needs you or is ready, on each device where you turned them on." />
       <Checkbox checked={loaded().preferences.webhook} disabled={!loaded().available.webhook} onCheckedChange={(checked) => void set({ webhook: checked === true })}
         label={loaded().available.webhook ? "Also send a link to the team webhook (for chat or a mail relay)." : "Webhook: not set up on this server. An administrator turns it on in the server settings."} />
       <Checkbox checked={loaded().preferences.email} disabled={!loaded().available.email} onCheckedChange={(checked) => void set({ email: checked === true })}

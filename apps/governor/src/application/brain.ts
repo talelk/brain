@@ -50,7 +50,7 @@ import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualityBreakdown, qualitySummary } from "../modules/stream/index";
 import { connectorsFromEnv, handleInbound, smtpTarget, type Connectors } from "../modules/operations/index";
-import { alertBadProbes, approvalLink, platformAlertLink, securitySettingsLink, checkBackups, checkDisk, diagnosticsBundle, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
+import { alertBadProbes, notifyApprovers, platformAlertLink, securitySettingsLink, checkBackups, checkDisk, diagnosticsBundle, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
@@ -429,9 +429,9 @@ export class Brain {
 
   unregisterPushSubscription(actor: ActorContext, endpoint: string): void {
     const s = this.store;
-    const digest = s.tokenDigest("push-endpoint", endpoint);
-    s.control.prepare("UPDATE notification_subscriptions SET revoked_at_ms=? WHERE organization_id=? AND principal_id=? AND endpoint_digest=?")
-      .run(s.now(), actor.organizationId, actor.actorId, digest);
+    // The device is removed, not parked: nothing is sent to it again, and subscribing again makes a new record.
+    s.control.prepare("DELETE FROM notification_subscriptions WHERE organization_id=? AND principal_id=? AND endpoint_digest=?")
+      .run(actor.organizationId, actor.actorId, s.tokenDigest("push-endpoint", endpoint));
   }
 
   async notifyPrincipal(organizationId: string, principalId: string, payload: { title: string; body: string; url?: string }): Promise<number> {
@@ -500,17 +500,9 @@ export class Brain {
     return preferencesView(this.store, actor.organizationId, actor.actorId);
   }
 
-  private notifyApprovers(input: { organizationId: string; workspaceId: string; approvalId?: string; summary?: string }): void {
-    const approvers = this.store.control.prepare(
-      "SELECT DISTINCT principal_id FROM workspace_memberships WHERE workspace_id=? AND organization_id=? AND role IN ('approver','workspace-lead') AND revoked_at_ms IS NULL",
-    ).all(input.workspaceId, input.organizationId) as Array<{ principal_id: string }>;
-    // Approvals bypass the per-mission throttle and the summary; a person's channel switches still apply (ADR 0011). A message is a link: the decision happens after sign-in and step-up.
-    // An approval of one exact call links straight to that decision, so it can be answered from a phone (ADR 0024).
-    const url = approvalLink(input.approvalId);
-    const body = input.summary ? `Waiting for your decision: ${input.summary}` : "A workflow gate is waiting for your review.";
-    for (const a of approvers) {
-      void this.deliver(input.organizationId, a.principal_id, { title: "Approval requested", body, url, kind: "approval" }, channelsFor(this.store, input.organizationId, a.principal_id)).catch(() => undefined);
-    }
+  /** A new approval reaches its workspace's approvers at once, on the channels they allow, with a link to that decision (ADR 0011, 0024). */
+  private notifyApprovers(input: { organizationId: string; workspaceId: string }): void {
+    try { notifyApprovers(this.store, this.deliver, input.organizationId, input.workspaceId); } catch { /* the inbox and the next maintenance pass are the record */ }
   }
 
   createApprovalForGate(input: { organizationId: string; workspaceId: string; runId: string; stepId: string; subject: JsonValue; expiresAtMs: number; requestedBy: string }): string {
@@ -542,6 +534,8 @@ export class Brain {
       if (outcome.receipt.accepted && cmd.workspaceId && AUTO_START_TRIGGERS.has(String(cmd.commandType))) {
         try { await this.autoStart.sweep(actor.organizationId, cmd.workspaceId); } catch { /* the maintenance pass retries */ }
       }
+      // A request an agent or a workflow made reaches the approvers now; the repeat of a pending request tells no one twice.
+      if (outcome.receipt.accepted && cmd.workspaceId && cmd.commandType === "approval.request") this.notifyApprovers({ organizationId: actor.organizationId, workspaceId: cmd.workspaceId });
       // A revoked approval, or a cancelled task, withdraws the change that was held for it.
       if (outcome.receipt.accepted && (String(cmd.commandType).startsWith("approval.") || cmd.commandType === "workflow.cancel")) this.jobProtocol.settleEffects();
       // A requested challenge starts its reviewer run now; the maintenance pass collects the answer.

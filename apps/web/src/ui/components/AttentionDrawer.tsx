@@ -89,7 +89,7 @@ export function AttentionDrawer(props: { attention: AttentionRead }): JSX.Elemen
           <WorkspaceSection title={t("decision.notifications.title")} description={t("decision.notifications.description")}>
             <ScreenRegion state={history.state()} onRetry={() => void history.refresh({ force: true })} emptyTitle={t("decision.notifications.emptyTitle")} emptyDescription={t("decision.notifications.emptyDescription")}>
               <div class="brain-queue"><For each={history.state().data ?? []}>{(entry) => <QueueRow title={entry.title} description={`${t("decision.notifications.sent", { when: formatDateTime(entry.sentAt) })}${entry.pushed ? ` · ${t("decision.notifications.pushed")}` : ""}`} icon="lucide-bell"
-                label={`${entry.title}. ${t("decision.open")}`} onClick={() => go(entry.missionId ? missionHref(entry.workspaceId, entry.missionId, "live") : `/w/${entry.workspaceId}/missions`)} />}</For></div>
+                label={`${entry.title}. ${t("decision.open")}`} onClick={() => go(entry.itemId.startsWith("approval:") ? `/approvals/${entry.itemId.slice("approval:".length)}` : entry.missionId ? missionHref(entry.workspaceId, entry.missionId, "live") : `/w/${entry.workspaceId}/missions`)} />}</For></div>
             </ScreenRegion>
           </WorkspaceSection>
         </div>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { notifyAttention, type Sender } from "../../apps/governor/src/modules/operations/index";
 import { setupWorld, DIGEST_A } from "../helpers";
 
 type World = ReturnType<typeof setupWorld>;
@@ -120,6 +121,13 @@ describe("stuck-run watchdog", () => {
       const item = (await attention(w)).find((entry) => entry.kind === "outcome-unknown");
       expect(item).toMatchObject({ id: `unknown:${offer.jobId}`, safeToRetry: false });
       expect(item?.detail).toMatch(/may already have changed something outside Brain/);
+      // A step outside any mission reaches the workspace owner once (#104), and the notification opens the run.
+      const sent: Array<{ kind: string; url: string }> = [];
+      const send: Sender = async (_org, _principal, message) => { sent.push({ kind: message.kind, url: message.url }); return 1; };
+      expect(notifyAttention(w.brain.store, send)).toBe(1);
+      expect(notifyAttention(w.brain.store, send)).toBe(0);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(sent).toEqual([{ kind: "outcome-unknown", url: `/runs/${item!.resourceId}` }]);
       // Try again is refused for an effectful step.
       await expect(Promise.resolve().then(async () => await settle(w, offer.jobId, "retry", item!.version!))).rejects.toThrow(/not safe/);
       expect(job(w, offer.jobId).state).toBe("outcome_unknown");
