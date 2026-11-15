@@ -2,7 +2,7 @@ import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, runnerChallenge, runnerHello, type HeartbeatCommand } from "./protocol";
 import { stopOverlongPauses } from "../sessions/index";
-import { ackAttempt, attemptEvents, claim, completeAttempt, expireAttemptDeadlines, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, type ContextPackPort, type SessionCredential } from "./attempts";
+import { ackAttempt, attemptEvents, claim, completeAttempt, expireAttemptDeadlines, expireLeases, modelGatewayToken, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, type ContextPackPort, type SessionCredential } from "./attempts";
 import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
 import { BrainDomainError } from "../../domain/errors";
 import { sweepStuckJobs } from "./watchdog";
@@ -133,6 +133,11 @@ export class JobProtocol {
    */
   sessionCredential(runner: RunnerIdentity, attemptId: string): SessionCredential {
     return sessionCredential(this.store, this.ports.sessionBinding, runner, attemptId);
+  }
+
+  /** The credential this running attempt calls the Governor's model gateway with (ADR 0066). Asking again replaces it. */
+  modelGatewayToken(runner: RunnerIdentity, attemptId: string): { token: string; expiresAt: string } {
+    return modelGatewayToken(this.store, runner, attemptId);
   }
 
   executionArtifact(runner: RunnerIdentity, attemptId: string): Uint8Array {

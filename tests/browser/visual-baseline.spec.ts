@@ -243,7 +243,7 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "settings-model-routes", route: () => "/settings?tab=work", heading: "How work runs", prepare: async (governor, _page, demo) => {
     const route = (routeId: string, extra: Record<string, unknown>) => ({ routeId, enabled: true, vendor: "Acme", keyRef: `${routeId}-key`, model: `${routeId}-large`, baseUrl: `https://${routeId}.acme.example/v1`, costTier: "standard", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000, ...extra });
     await governor.app.brain.executeCommand(demo.actor, { contractVersion: "brain.command/v1", commandId: "cmd-vb-routes", commandType: "workspace.modelRoutes.set", workspaceId: demo.workspaceId, idempotencyKey: "vb-routes",
-      payload: { routes: [route("primary", {}), route("backup", { costTier: "low", enabled: false, inputMicroUsdPerMTok: 50_000, outputMicroUsdPerMTok: 200_000 })] } } as never, "vb-routes");
+      payload: { routes: [route("primary", { viaGateway: true }), route("backup", { costTier: "low", enabled: false, inputMicroUsdPerMTok: 50_000, outputMicroUsdPerMTok: 200_000 })] } } as never, "vb-routes");
   }, after: async (page) => { const routes = page.locator("[data-work-hosted]"); await expect(routes.locator("[data-work-route='2']")).toBeVisible(); await routes.scrollIntoViewIfNeeded(); } },
   // Standing teams (ticket #130), before the push screens (those stay last): the Library's Teams place, its create form, a plan editor using a team, and a Play start choosing one.
   { id: "library-teams", route: () => "/w/operations/library/teams", heading: "Teams", prepare: seedStandingTeams, after: async (page) => { await expect(page.getByTestId("standing-team")).toHaveCount(2); } },

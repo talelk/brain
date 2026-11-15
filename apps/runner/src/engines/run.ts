@@ -13,7 +13,8 @@ export function selectEngine(configured: string | undefined, toolBindings: reado
   switch (configured) {
     case "fixture": return new FixtureEngine(toolBindings);
     case "pi": return new PiEngine(toolBindings, route);
-    case "claude": return new ClaudeEngine(toolBindings, route);
+    // The gateway speaks the OpenAI protocol only: the Anthropic-protocol engine cannot call a route through it (ADR 0066), so that route is not offered to it.
+    case "claude": return route?.gatewayToken ? undefined : new ClaudeEngine(toolBindings, route);
     case "acp": return new AcpEngine({ toolBindings });
     case "opencode": return new OpenCodeEngine(toolBindings);
     default: return undefined;

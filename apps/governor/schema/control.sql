@@ -510,9 +510,25 @@ CREATE TABLE workspace_model_routes (
   enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)), vendor TEXT NOT NULL, key_ref TEXT NOT NULL, model TEXT NOT NULL, base_url TEXT NOT NULL,
   cost_tier TEXT NOT NULL CHECK(cost_tier IN ('low','standard','premium')),
   input_micro_usd_per_mtok INTEGER NOT NULL CHECK(input_micro_usd_per_mtok >= 1), output_micro_usd_per_mtok INTEGER NOT NULL CHECK(output_micro_usd_per_mtok >= 1),
+  -- Calls go through the Governor's model gateway (ADR 0066): the key is held on the Governor host and never reaches a runner. Off by default.
+  via_gateway INTEGER NOT NULL DEFAULT 0 CHECK(via_gateway IN (0,1)),
   updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL,
   PRIMARY KEY(workspace_id, route_id)
 ) STRICT;
+-- The credential of one running attempt for the model gateway (ADR 0066): only its digest is kept; it is bound to the attempt and the fence it was
+-- minted under and is alive only while that attempt runs under that fence.
+CREATE TABLE model_gateway_tokens (
+  token_digest TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, attempt_id TEXT NOT NULL, job_fence INTEGER NOT NULL,
+  created_at_ms INTEGER NOT NULL, expires_at_ms INTEGER NOT NULL, revoked_at_ms INTEGER
+) STRICT;
+CREATE INDEX model_gateway_tokens_attempt ON model_gateway_tokens(attempt_id);
+-- One row per call through the gateway: ids, status, token counts, byte counts and the price. Never a request or response body.
+CREATE TABLE model_gateway_calls (
+  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, attempt_id TEXT NOT NULL, route_id TEXT NOT NULL, model TEXT NOT NULL,
+  status INTEGER NOT NULL, outcome TEXT NOT NULL CHECK(outcome IN ('served','quota','failed','cancelled','refused')), input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0,
+  micro_usd INTEGER NOT NULL DEFAULT 0, request_bytes INTEGER NOT NULL DEFAULT 0, response_bytes INTEGER NOT NULL DEFAULT 0, duration_ms INTEGER NOT NULL DEFAULT 0, at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX model_gateway_calls_attempt ON model_gateway_calls(attempt_id);
 -- A route whose account ran out of quota or rate is left out of every offer until the provider's retry-after has passed: never a blind retry on the same route.
 CREATE TABLE model_route_cooldowns (
   workspace_id TEXT NOT NULL, route_id TEXT NOT NULL, until_ms INTEGER NOT NULL, reason TEXT NOT NULL DEFAULT '',

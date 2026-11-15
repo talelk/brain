@@ -22,6 +22,8 @@ export interface ModelRouteConfig {
   /** What the model costs, in micro-USD per million tokens: the caller prices tokens with these, so the spend caps see real dollars. */
   readonly inputMicroUsdPerMTok: number;
   readonly outputMicroUsdPerMTok: number;
+  /** Calls go through the Governor's model gateway: the key lives on the Governor host and the runner never holds it (ADR 0066). */
+  readonly viaGateway: boolean;
 }
 
 /** One route as a job or the judge is handed it. */
@@ -35,9 +37,9 @@ export interface RoutePreference { readonly routes?: readonly string[] | undefin
 
 /** The workspace's routes in the order the owner set. */
 export function modelRoutesOf(s: Store, workspaceId: string): ModelRouteConfig[] {
-  return (s.control.prepare(`SELECT route_id, enabled, vendor, key_ref, model, base_url, cost_tier, input_micro_usd_per_mtok AS input, output_micro_usd_per_mtok AS output
-    FROM workspace_model_routes WHERE workspace_id=? ORDER BY position`).all(workspaceId) as Array<{ route_id: string; enabled: number; vendor: string; key_ref: string; model: string; base_url: string; cost_tier: CostTier; input: number; output: number }>)
-    .map((row) => ({ routeId: row.route_id, enabled: row.enabled === 1, vendor: row.vendor, keyRef: row.key_ref, model: row.model, baseUrl: row.base_url, costTier: row.cost_tier, inputMicroUsdPerMTok: row.input, outputMicroUsdPerMTok: row.output }));
+  return (s.control.prepare(`SELECT route_id, enabled, vendor, key_ref, model, base_url, cost_tier, input_micro_usd_per_mtok AS input, output_micro_usd_per_mtok AS output, via_gateway
+    FROM workspace_model_routes WHERE workspace_id=? ORDER BY position`).all(workspaceId) as Array<{ route_id: string; enabled: number; vendor: string; key_ref: string; model: string; base_url: string; cost_tier: CostTier; input: number; output: number; via_gateway: number }>)
+    .map((row) => ({ routeId: row.route_id, enabled: row.enabled === 1, vendor: row.vendor, keyRef: row.key_ref, model: row.model, baseUrl: row.base_url, costTier: row.cost_tier, inputMicroUsdPerMTok: row.input, outputMicroUsdPerMTok: row.output, viaGateway: row.via_gateway === 1 }));
 }
 
 /** Whether a route is switched on, described, priced and names a key: only then does any role use it. */

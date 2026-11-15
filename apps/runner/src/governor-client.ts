@@ -263,6 +263,16 @@ export class GovernorClient {
     return this.expect("session credential", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/session-credential`, {}), 200);
   }
 
+  /** The token this running attempt calls the Governor's model gateway with (ADR 0066), and the base address of a route through it. Asking again replaces it. */
+  async modelGatewayToken(attemptId: string): Promise<{ token: string; expiresAt: string }> {
+    return this.expect("model gateway token", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/model-gateway-token`, {}), 200);
+  }
+
+  /** The address an OpenAI-compatible client uses for one model route through the Governor's gateway. */
+  gatewayBaseUrl(routeId: string): string {
+    return `${this.cfg.governorUrl.replace(/\/$/, "")}/model-gateway/v1/routes/${encodeURIComponent(routeId)}`;
+  }
+
   /**
    * One call to the Governor's public command or query endpoint as a session principal: the bearer is the attempt's credential, never this
    * runner's own token, so the Governor's authorization decides exactly as it does for any actor and nothing here is a shortcut.

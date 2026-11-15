@@ -39,6 +39,16 @@
     },
     {
       "method": "POST",
+      "path": "/runner/v1/attempts/{id}/model-gateway-token",
+      "purpose": "runner of a running attempt asks for the token its model-gateway routes are called with (ADR 0066); bound to the attempt and fence, revoked when the attempt ends"
+    },
+    {
+      "method": "POST",
+      "path": "/model-gateway/v1/routes/{routeId}/chat/completions",
+      "purpose": "optional Governor model gateway (ADR 0066): an OpenAI-compatible endpoint authenticated only by an attempt's gateway token; forwards to the route's upstream with the key held on the Governor host and relays the answer; stores counts and status, never bodies"
+    },
+    {
+      "method": "POST",
       "path": "/runner/v1/attempts/{id}/session-credential",
       "purpose": "the runner holding a running agent attempt of a mission asks for that attempt's machine-principal credential and the ids it acts on (ADR 0032, 0041); asking again replaces it"
     },

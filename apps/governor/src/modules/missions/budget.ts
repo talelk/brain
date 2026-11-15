@@ -255,6 +255,24 @@ export function judgeAdmitted(store: Store, db: Db, missionId: string): boolean 
 }
 
 /**
+ * Whether a model call an attempt makes through the Governor's gateway must stop (ADR 0066): the mission's money is spent (settled plus every
+ * reservation, this attempt's own included, above the budget) or the workspace cap is reached. Read-only: it reserves nothing and wakes nothing,
+ * and unlike admission it does not add a further attempt reserve, so an attempt admitted under budget is never refused for its own reservation.
+ * Without a mission only the workspace cap applies.
+ */
+export function spendStopped(store: Store, db: Db, missionId: string | undefined, inFlightMicroUsd = 0): boolean {
+  settleAll(store, db);
+  const now = store.now();
+  if (capReached(db, now, 0)) return true;
+  if (!missionId) return false;
+  const row = db.prepare("SELECT * FROM missions WHERE id=?").get(missionId) as BudgetRow | undefined;
+  if (!row || row.budget_micro_usd === null) return false;
+  const usage = usageOf(store, db, row, now);
+  // What the attempt itself already spent through the gateway counts even when its reservation was smaller: money is measured, not only reserved.
+  return usage.settledMicroUsd + Math.max(usage.reservedMicroUsd, inFlightMicroUsd) > row.budget_micro_usd;
+}
+
+/**
  * Charges one finished judge call to its mission, settled at once: the ledger row has no runner attempt to wait for. `attemptId` is
  * `judge:<bundle>:<criterion>`, so a replayed call is the same row and never charged twice.
  */

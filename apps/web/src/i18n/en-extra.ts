@@ -1917,5 +1917,7 @@ export const enExtra = {
   "library.stale.failed": "That was not saved.",
   "library.stale.reconfirmedAt": "Re-confirmed {when}",
   "library.stale.reuse": "Source changed since this was written: check it before relying on it.",
+  "work.routes.gateway": "Send calls through the Governor",
+  "work.routes.gatewayHint": "Off by default. When on, the runner never holds this route's key: it calls the Governor, which keeps the key on its own host, applies this route's order, prices and quota cooldown, and stops the call when the mission's money or the workspace cap is used up. The key reference above is then read on the Governor host only. Questions and answers are not stored.",
   // @@END
 } as const satisfies Record<string, string>;
