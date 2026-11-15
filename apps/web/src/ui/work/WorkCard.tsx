@@ -1,6 +1,7 @@
 import { For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
+import { A } from "@solidjs/router";
 import type { WorkItem } from "@brain/contracts";
 import { statusLabel, statusTheme } from "../components/StatusBadge";
 import { formatInstant } from "../format";
@@ -37,6 +38,8 @@ export function WorkCard(props: {
   handoffRequired: boolean;
   canDispatch: boolean;
   critical?: boolean;
+  /** The workspace board mixes missions, so each card names its own and links to it. */
+  mission?: { title: string; href: string };
   /** The Board's column already names the state; the Timeline shows it. */
   showState?: boolean;
   onOpen: () => void;
@@ -66,6 +69,8 @@ export function WorkCard(props: {
       </p>
     </Show>
     <ul class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-6" aria-label={t("plan.facts.aeff")}>
+      <Show when={props.mission}>{(mission) => <li class="inline-flex min-w-0 items-center gap-1" data-testid="work-mission" title={t("board.in-mission", { title: mission().title })}>
+        <span class="lucide-target size-3.5 shrink-0" aria-hidden="true" /><A href={mission().href} class="truncate rounded-control font-medium text-ink-blue-link hover:underline focus-visible:focus-ring">{mission().title}</A></li>}</Show>
       <Show when={PRIORITY_MARK[props.item.priority]}>{(mark) => <li class={`inline-flex items-center gap-1 font-medium ${mark().tone}`} title={t("work.priority")} data-testid="work-priority">
         <span class={`${mark().icon} size-3.5`} aria-hidden="true" />{t(`work.priority.${props.item.priority}` as "work.priority.urgent")}</li>}</Show>
       <Show when={props.item.dueAt}>{(due) => <li class={`inline-flex items-center gap-1 ${props.item.overdue ? "font-medium text-ink-red-8" : ""}`} title={t("work.due-date")} data-testid={props.item.overdue ? "work-overdue" : "work-due"}>

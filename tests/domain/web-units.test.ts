@@ -91,8 +91,8 @@ describe("web and runner unit mechanisms", () => {
     });
     const items = [item("a", "done", { evidenceDigest: "sha256:x" }), item("b", "in-progress"), item("c", "review"), item("d", "ready"), item("e", "blocked", { dependsOn: ["b"] }), item("f", "blocked")];
     const find = (id: string) => items.find((entry) => entry.workItemId === id)!;
-    expect(dragTargets(find("b"), items, true)).toEqual(["ready", "review"]);
-    expect(dragTargets(find("c"), items, true)).toEqual(["in-progress"]); // never Done: it needs verified evidence
+    expect(dragTargets(find("b"), items, true)).toEqual(["ready"]); // never Review or Done: evidence moves work there, not a drag
+    expect(dragTargets(find("c"), items, true)).toEqual(["in-progress"]); // sending back is plain; Done needs verified evidence
     expect(dragTargets(find("d"), items, true)).toEqual([]); // Start dispatches; it is not a drag
     expect(dragTargets(find("e"), items, true)).toEqual([]); // its dependency is not done yet
     expect(dragTargets(find("f"), items, true)).toEqual(["ready"]);

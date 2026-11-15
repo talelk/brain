@@ -7914,7 +7914,6 @@
             "missionOutputs.list",
             "missionOutputs.get",
             "plans.get",
-            "workItems.list",
             "workItems.get",
             "executionLinks.list",
             "automations.list",
@@ -13887,6 +13886,42 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 2048
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "queryType",
+            "workspaceId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "workItems.list"
+            },
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            },
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "memberId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "priority": {
+              "$ref": "#/$defs/WorkItemPriority"
+            },
+            "tag": {
+              "$ref": "#/$defs/WorkItemTag"
             },
             "limit": {
               "type": "integer",

@@ -35,6 +35,7 @@ const PAGE_LOADERS = {
   PlaysPage: () => import('./routes/pages/PlaysPage'),
   LibraryPage: () => import('./routes/pages/LibraryPage'),
   SchedulesPage: () => import('./routes/pages/SchedulesPage'),
+  BoardPage: () => import('./routes/pages/BoardPage'),
   QualityPage: () => import('./routes/pages/QualityPage'),
   EvalCasesPage: () => import('./routes/pages/EvalCasesPage'),
   BridgePage: () => import('./routes/pages/BridgePage'),
@@ -95,7 +96,7 @@ const FALLBACK_ICON = "lucide-circle";
 
 /** The sidebar entries come from the screen contract in English; this maps each to its catalogue key. */
 const NAV_ITEM_KEYS: Readonly<Record<string, MessageKey>> = {
-  "Today": "nav.item.today", "Missions": "nav.item.missions", "Approvals": "nav.item.approvals", "Live": "nav.item.live", "Schedules": "nav.item.schedules", "All results": "nav.item.all-results",
+  "Today": "nav.item.today", "Missions": "nav.item.missions", "Approvals": "nav.item.approvals", "Live": "nav.item.live", "Board": "nav.item.board", "Schedules": "nav.item.schedules", "All results": "nav.item.all-results",
   "Library": "nav.item.library", "Plays": "nav.item.plays", "Knowledge": "nav.item.knowledge", "Review inbox": "nav.item.review-inbox", "Support": "nav.item.support",
   "Incidents": "nav.item.incidents", "Studio": "nav.item.studio", "Logs": "nav.item.logs", "Runners": "nav.item.runners", "Workspaces": "nav.item.workspaces",
   "Setup": "nav.item.setup", "How work runs": "nav.item.work", "Security": "nav.item.security", "Quality": "nav.item.quality", "Eval cases": "nav.item.eval-cases", "Integrations": "nav.item.integrations", "Releases": "nav.item.releases",
@@ -307,6 +308,7 @@ export function App(): JSX.Element {
       <Route path="/plays/:id" component={page("PlayPage")} />
       <Route path="/administration/workspaces" component={page("BridgePage")} />
       <Route path="/w/:id/live" component={workspacePage("LivePage")} />
+      <Route path="/w/:id/board" component={workspacePage("BoardPage")} />
       <Route path="/w/:id/logs" component={workspacePage("LogsPage")} />
       <Route path="/w/:id/outputs" component={workspacePage("OutputsPage")} />
       <Route path="/w/:id/plays/support" component={workspacePage("SupportPage")} />
@@ -337,6 +339,7 @@ export function App(): JSX.Element {
       <Route path="/plays" component={() => <ToWorkspacePage page="plays" />} />
       <Route path="/schedules" component={() => <ToWorkspacePage page="schedules" />} />
       <Route path="/live" component={() => <ToWorkspacePage page="live" />} />
+      <Route path="/board" component={() => <ToWorkspacePage page="board" />} />
       <Route path="/logs" component={() => <ToWorkspacePage page="logs" />} />
       <Route path="/outputs" component={() => <ToWorkspacePage page="outputs" />} />
       <Route path="/knowledge" component={() => <ToWorkspacePage page="knowledge" />} />
