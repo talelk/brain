@@ -151,6 +151,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "mission-question", route: questionRoute, heading: "Compile the quarterly report figures", waitFor: "mission-questions" },
   { id: "mission-question-answer", route: questionRoute, heading: "Compile the quarterly report figures", after: async (page) => { await page.getByTestId("mission-question").getByRole("button", { name: "Answer", exact: true }).click(); await expect(page.getByRole("dialog", { name: "Answer a question" })).toBeVisible(); } },
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
+  // Where a mission's usage went (#111): it adds spend to the active mission, which the screens before it would show in their totals.
+  { id: "mission-usage-breakdown", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedAttributedUsage, after: async (page) => { await page.getByTestId("usage-breakdown").getByText("Where the usage went", { exact: true }).click(); await expect(page.getByTestId("usage-by-member")).toContainText("writer"); await page.getByTestId("usage-breakdown").evaluate((element) => element.scrollIntoView({ block: "center" })); } },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];
@@ -200,6 +202,19 @@ async function seedTimelineEntries(governor: Parameters<typeof seedBrowserDemo>[
   const brief = (await brain.executeQuery(actor, { queryType: "missions.brief", workspaceId: "operations", resourceId: missionId })) as unknown as { snapshot: { version: number } };
   await send("vb-timeline-decision", "decision.accept", { missionId, baseVersion: brief.snapshot.version, statement: "Check the session cookie before anything else", source: { kind: "human" } });
   await send("vb-timeline-message", "mission.message.send", { missionId, recipient: { kind: "mission" }, body: "Start with the login redirect." });
+}
+
+/** Settled spend of the active mission by two team members on two agents, one on a local model and one hosted, plus the advisory judge's call (the demo has no runner behind its seeded work). */
+async function seedAttributedUsage(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Awaited<ReturnType<typeof seedBrowserDemo>>): Promise<void> {
+  const brain = governor.app.brain;
+  const db = brain.store.workspaceDb(demo.workspaceId, demo.actor.organizationId);
+  const now = brain.store.now();
+  const row = db.prepare(`INSERT INTO mission_spend(attempt_id,mission_id,run_id,reserved_micro_usd,settled_micro_usd,input_tokens,output_tokens,cached_input_tokens,accounting,source,agent_id,member_id,engine_id,model_id,created_at_ms,settled_at_ms)
+    VALUES (?,?,?,0,?,?,?,?,'final-total',?,?,?,?,?,?,?)`);
+  const missionId = demo.seed.missionIds.active;
+  row.run("vb-usage-1", missionId, "vb-usage-run-1", 0, 41_000, 2_100, 6_000, "attempt", "task-worker", "writer", "pi", "qwen-local", now, now);
+  row.run("vb-usage-2", missionId, "vb-usage-run-2", 182_000, 9_500, 1_200, 0, "attempt", "operations-assistant", "reviewer", "pi", "acme-hosted", now, now);
+  row.run("judge:vb:c1", missionId, "judge:vb", 210, 1_000, 100, 0, "judge", null, null, null, "acme-hosted", now, now);
 }
 
 /** Two calls of the seeded run, recorded the way the Governor records a runner's tool events (the seeded run has no runner behind it). */

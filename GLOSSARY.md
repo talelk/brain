@@ -117,6 +117,12 @@ The team members assigned to one mission. It is part of each plan version, so pl
 team are confirmed together. The evaluator is never a member.
 _Avoid_: team (unqualified), squad, crew
 
+**Usage attribution**:
+The team member, agent definition, engine and model each settled usage row names (ADR 0051). The
+Governor supplies member and agent; the runner reports engine and model; unreported stays empty. The
+advisory judge's spend is its own source.
+_Avoid_: cost center, tagging
+
 **Team member**:
 A mission-scoped role (such as backend engineer or reviewer) bound to an agent
 definition and engine. A team member is served by many sessions over the mission's

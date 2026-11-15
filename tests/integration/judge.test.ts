@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { MissionEvidenceBundle, PlanTask } from "@brain/contracts";
+import type { MissionEvidenceBundle, PlanTask, UsageView } from "@brain/contracts";
 import { Brain } from "../../apps/governor/src/application/brain";
 import { BundleJudge } from "../../apps/governor/src/application/bundle-judge";
 import { readVerified } from "../../apps/governor/src/modules/artifacts/index";
@@ -126,6 +126,11 @@ describe("the advisory judge on a submitted mission bundle (#95)", () => {
     // Its calls are the mission's spend, priced from the hosted model's prices, and count in the workspace's totals.
     expect(await missionUsage(w, id)).toMatchObject({ settledMicroUsd: 2 * CALL_COST, inputTokens: 2000, outputTokens: 200, estimated: false });
     expect((await query<{ usage: { settledMicroUsd: number } }>(w, "usage.workspace")).usage.settledMicroUsd).toBe(2 * CALL_COST);
+    // It is attributed too (#111): a judge source on the hosted model, with no agent, member or engine, and every grouping still sums to the total.
+    const view = await query<UsageView>(w, "usage.mission", id);
+    for (const dimension of ["member", "agent", "engine", "model"] as const) {
+      expect(view.breakdown![dimension], dimension).toEqual([{ source: "judge", ...(dimension === "model" ? { id: "acme-judge" } : {}), usage: expect.objectContaining({ settledMicroUsd: 2 * CALL_COST, inputTokens: 2000, outputTokens: 200, attempts: 2 }) }]);
+    }
 
     // A pass is not a link and not a verdict: the person still decides, and the opinion stays beside the evidence afterwards.
     expect((await command(w, w.owner, "mission.verdict.record", "judged-verdict", { missionId: id, bundleDigest: bundle.digest, outcome: "verified" })).accepted).toBe(true);
