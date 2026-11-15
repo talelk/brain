@@ -21,7 +21,9 @@ export function readRun(store: Store, organizationId: string, workspaceId: strin
   const release = ws.prepare("SELECT json_extract(workflow_json,'$.metadata.id') AS id FROM run_inputs WHERE run_id=?").get(runId) as { id: string } | undefined;
   const link = ws.prepare("SELECT mission_id, work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms LIMIT 1").get(runId) as { mission_id: string; work_item_id: string } | undefined;
   const coordinator = link ? undefined : ws.prepare("SELECT mission_id FROM mission_runs WHERE run_id=?").get(runId) as { mission_id: string } | undefined;
-  const missionId = link?.mission_id ?? coordinator?.mission_id;
+  // A delegated child's run belongs to its mission but to no task of it (ADR 0049).
+  const delegated = link || coordinator ? undefined : ws.prepare("SELECT mission_id FROM delegation_runs WHERE run_id=?").get(runId) as { mission_id: string } | undefined;
+  const missionId = link?.mission_id ?? coordinator?.mission_id ?? delegated?.mission_id;
   return {
     runId: row.id,
     organizationId,

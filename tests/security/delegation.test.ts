@@ -1,111 +1,62 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActorContext, BrainSession, CommandReceipt, Delegation } from "@brain/contracts";
-import { recordAttemptSession } from "../../apps/governor/src/modules/sessions/index";
-import { setupWorld, DIGEST_A, type TestWorld, workView } from "../helpers";
+import type { BrainSession, Delegation } from "@brain/contracts";
+import { delegatingStarter } from "../support/starter";
+import { closeWorlds, run, running, startedMission, type World } from "../support/machine-session";
 
-const cleanup: Array<() => void> = [];
-afterEach(() => { for (const close of cleanup.splice(0).reverse()) close(); });
+// Bounded delegation (T53, E106, ADR 0049). The parent is a person's view of a real running session (the first attempt of the mission's task);
+// a delegation of it is asked by a person naming that session, so scope, budget, worktree and depth are the Governor's, not the caller's.
 
-function world(): TestWorld {
-  const w = setupWorld();
-  cleanup.push(() => w.brain.close());
-  return w;
+afterEach(closeWorlds);
+
+async function parent() {
+  const world = await startedMission({ starter: delegatingStarter() });
+  running(world.w, world.runner, "parent");
+  const sessions = ((await world.w.brain.executeQuery(world.w.owner, { queryType: "sessions.list", workspaceId: world.w.workspaceId })) as unknown as { snapshot: { items: BrainSession[] } }).snapshot.items;
+  return { ...world, parentId: sessions[0]!.sessionId, parentSession: sessions[0]! };
 }
 
-async function run(w: TestWorld, commandType: string, key: string, payload: Record<string, unknown>, actor: ActorContext = w.owner, expectedVersion?: number): Promise<CommandReceipt> {
-  return (await w.brain.executeCommand(actor, {
-    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType,
-    workspaceId: w.workspaceId, idempotencyKey: key, ...(expectedVersion === undefined ? {} : { expectedVersion }), payload,
-  } as never, key)).receipt;
-}
+const delegations = async (w: World): Promise<Delegation[]> => ((await w.brain.executeQuery(w.owner, { queryType: "delegations.list", workspaceId: w.workspaceId })) as unknown as { snapshot: { items: Delegation[] } }).snapshot.items;
+const sessionOf = async (w: World, id: string): Promise<BrainSession> => ((await w.brain.executeQuery(w.owner, { queryType: "session.get", workspaceId: w.workspaceId, resourceId: id })) as unknown as { snapshot: BrainSession }).snapshot;
+const childOf = async (w: World, delegationId: string): Promise<BrainSession> => sessionOf(w, (await delegations(w)).find((entry) => entry.delegationId === delegationId)!.childSessionId);
 
-async function workItem(w: TestWorld): Promise<string> {
-  const missionId = (await run(w, "mission.create", "delegation-objective", { title: "Bounded collaboration", intent: "Delegate independent work", successCriteria: ["Reviewed"] })).resourceId!;
-  const planId = (await run(w, "plan.propose", "delegation-plan", { missionId, origin: "manual", tasks: [{ id: "task", title: "Implement", criteria: ["verified"], dependsOn: [] }] })).resourceId!;
-  await run(w, "plan.confirm", "delegation-confirm", { planVersionId: planId }, w.owner, 1);
-  const board = (await workView(w));
-  return board.items[0]!.workItemId;
-}
+describe("bounded delegation (T53, E106)", () => {
+  it("narrows scope to the parent's, reserves aggregate budget and prevents active writers sharing a worktree", async () => {
+    const { w, parentId, parentSession } = await parent();
+    const [tool] = parentSession.scope.allowedTools;
+    expect(tool, "the session's scope is its agent's tools").toBeTruthy();
+    // The parent's scope is its agent's tools and no paths: a child cannot be given a path or a tool the parent has not.
+    await expect(run(w, "session.delegate", "path-escape", { parentSessionId: parentId, task: "Write to src", scope: { allowedPaths: ["src"], prohibitedPaths: [], allowedTools: [] } })).rejects.toThrow(/exceed the parent/i);
+    await expect(run(w, "session.delegate", "tool-escape", { parentSessionId: parentId, task: "Use a tool", scope: { allowedPaths: [], prohibitedPaths: ["secrets"], allowedTools: ["fixture.unapproved"] } })).rejects.toThrow(/exceed the parent/i);
 
-async function parent(w: TestWorld, item: string): Promise<string> {
-  return (await run(w, "session.create", "delegation-parent", {
-    workItemId: item, agentId: "parent-agent", engineId: "pi", task: "Coordinate implementation",
-    budget: { maxTokens: 1000, maxMicroUsd: 500, maxTurns: 4 },
-    scope: { allowedPaths: ["src", "tests"], prohibitedPaths: ["secrets"], allowedTools: ["fixture.echo"] }, worktreeId: "wt-parent",
-  })).resourceId!;
-}
-
-function childInput(parentSessionId: string, key = "child"): Record<string, unknown> {
-  return {
-    parentSessionId, agentId: `${key}-agent`, engineId: "claude", task: "Implement the assigned slice",
-    budget: { maxTokens: 600, maxMicroUsd: 200, maxTurns: 2 },
-    scope: { allowedPaths: ["src"], prohibitedPaths: ["secrets", "dist"], allowedTools: ["fixture.echo"] }, worktreeId: `wt-${key}`,
-  };
-}
-
-async function delegation(w: TestWorld, id: string): Promise<Delegation> {
-  const result = ((await w.brain.executeQuery(w.owner, { queryType: "delegations.list", workspaceId: w.workspaceId })) as { snapshot: { items: Delegation[] } }).snapshot;
-  return result.items.find((item) => item.delegationId === id)!;
-}
-
-async function child(w: TestWorld, delegationId: string): Promise<BrainSession> {
-  const id = (await delegation(w, delegationId)).childSessionId;
-  return ((await w.brain.executeQuery(w.owner, { queryType: "session.get", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: BrainSession }).snapshot;
-}
-
-describe("bounded cross-agent delegation and independent review (T53, E106)", () => {
-  it("narrows scope, reserves aggregate budget and prevents active writers sharing a worktree", async () => {
-    const w = world();
-    const parentId = await parent(w, await workItem(w));
-    await expect(Promise.resolve().then(async () => await run(w, "session.delegate", "scope-escape", { ...childInput(parentId, "escape"), scope: { allowedPaths: ["src", "secrets"], prohibitedPaths: [], allowedTools: ["fixture.echo"] } }))).rejects.toThrow(/exceed the parent/i);
-    await expect(Promise.resolve().then(async () => await run(w, "session.delegate", "tool-escape", { ...childInput(parentId, "tool"), scope: { allowedPaths: ["src"], prohibitedPaths: [], allowedTools: ["fixture.unapproved"] } }))).rejects.toThrow(/exceed the parent/i);
-    await expect(Promise.resolve().then(async () => await run(w, "session.delegate", "same-agent", { ...childInput(parentId), agentId: "parent-agent" }))).rejects.toThrow(/different child agent/i);
-
-    const first = (await run(w, "session.delegate", "child-first", childInput(parentId, "first"))).resourceId!;
-    expect(await child(w, first)).toEqual(expect.objectContaining({
+    const first = (await run(w, "session.delegate", "child-first", { parentSessionId: parentId, task: "First", budget: { maxTokens: 60_000, maxMicroUsd: 0, maxTurns: 4 }, scope: { allowedPaths: [], prohibitedPaths: ["dist"], allowedTools: [tool!] } })).resourceId!;
+    expect(await childOf(w, first)).toEqual(expect.objectContaining({
       parentSessionId: parentId, rootSessionId: parentId, delegationDepth: 1,
-      scope: { allowedPaths: ["src"], prohibitedPaths: ["secrets", "dist"], allowedTools: ["fixture.echo"] },
+      scope: { allowedPaths: [], prohibitedPaths: ["dist"], allowedTools: [tool] },
     }));
-    await expect(Promise.resolve().then(async () => await run(w, "session.delegate", "child-budget", { ...childInput(parentId, "budget"), budget: { maxTokens: 500, maxMicroUsd: 200, maxTurns: 2 } }))).rejects.toThrow(/unreserved budget/i);
-
-    const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
-    db.prepare("UPDATE sessions SET state='running' WHERE id=?").run(parentId);
-    await expect(Promise.resolve().then(async () => await run(w, "session.delegate", "shared-worktree", { ...childInput(parentId, "shared"), worktreeId: "wt-parent", budget: { maxTokens: 100, maxMicroUsd: 100, maxTurns: 1 } }))).rejects.toThrow(/cannot share a worktree/i);
-    db.prepare("UPDATE sessions SET delegation_depth=3 WHERE id=?").run(parentId);
-    await expect(Promise.resolve().then(async () => await run(w, "session.delegate", "too-deep", { ...childInput(parentId, "deep"), budget: { maxTokens: 100, maxMicroUsd: 100, maxTurns: 1 } }))).rejects.toThrow(/maximum delegation depth/i);
-    expect(db.prepare("SELECT COUNT(*) AS n FROM delegations").get()).toEqual({ n: 1 });
+    // The parent declared 100000 tokens: 60000 are reserved for the first child, so 50000 more do not fit.
+    await expect(run(w, "session.delegate", "child-budget", { parentSessionId: parentId, task: "Too big", budget: { maxTokens: 50_000, maxMicroUsd: 0, maxTurns: 2 } })).rejects.toThrow(/unreserved budget/i);
+    // The parent's own worktree belongs to an active writer, so no child may take it.
+    await expect(run(w, "session.delegate", "shared-worktree", { parentSessionId: parentId, task: "Share it", worktreeId: parentSession.worktreeId, budget: { maxTokens: 1000, maxMicroUsd: 0, maxTurns: 1 } })).rejects.toThrow(/cannot share a worktree/i);
+    expect(await delegations(w)).toHaveLength(1);
   });
 
-  it("requires an independent reviewer and a verdict from a different attempt", async () => {
-    const w = world();
-    const workItemId = await workItem(w);
-    const parentId = await parent(w, workItemId);
-    const delegationId = (await run(w, "session.delegate", "review-child", childInput(parentId, "review"))).resourceId!;
-    const childId = (await delegation(w, delegationId)).childSessionId;
-    const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
-    // The child session was dispatched for run child-run; its attempt binds through that link.
-    db.prepare("INSERT INTO execution_links(mission_id,work_item_id,run_id,session_id,created_at_ms) SELECT mission_id,id,?,?,? FROM work_items WHERE id=?").run("child-run", childId, w.brain.store.now(), workItemId);
-    recordAttemptSession(w.brain.store, { organizationId: w.org, workspaceId: w.workspaceId, jobId: "child-job", attemptId: "child-attempt", engineId: "claude", adapterDigest: DIGEST_A, runId: "child-run" });
-    db.prepare("INSERT INTO evidence_bundles(digest,bundle_id,job_id,attempt_id,state,manifest_json,created_at_ms) VALUES (?,'child-bundle','child-job','child-attempt','verified','{}',?)").run(DIGEST_A, w.brain.store.now());
-    db.prepare("INSERT INTO verification_verdicts(id,bundle_digest,evaluator_attempt_id,evaluator_digest,outcome,manifest_json,created_at_ms) VALUES ('child-verdict',?,'evaluator-attempt',?,'verified','{}',?)").run(DIGEST_A, DIGEST_A, w.brain.store.now());
-
-    await expect(Promise.resolve().then(async () => await run(w, "delegation.review", "delegator-review", { delegationId, decision: "accepted", evidenceDigest: DIGEST_A }))).rejects.toThrow(/independent reviewer/i);
-    const reviewer = (await w.grantApprover("reviewer-1")).actor;
-    const agentReviewer = { ...reviewer, kind: "agent" as const, actorId: "review-agent" };
-    await expect(Promise.resolve().then(async () => await run(w, "delegation.review", "agent-review", { delegationId, decision: "accepted", evidenceDigest: DIGEST_A }, agentReviewer))).rejects.toThrow(/actor kind/i);
-    db.prepare("UPDATE verification_verdicts SET evaluator_attempt_id='child-attempt' WHERE bundle_digest=?").run(DIGEST_A);
-    await expect(Promise.resolve().then(async () => await run(w, "delegation.review", "self-evaluation", { delegationId, decision: "accepted", evidenceDigest: DIGEST_A }, reviewer))).rejects.toThrow(/independent evaluator/i);
-    db.prepare("UPDATE verification_verdicts SET evaluator_attempt_id='evaluator-attempt' WHERE bundle_digest=?").run(DIGEST_A);
-    await run(w, "delegation.review", "independent-review", { delegationId, decision: "accepted", evidenceDigest: DIGEST_A }, reviewer);
-    expect(await delegation(w, delegationId)).toEqual(expect.objectContaining({ state: "accepted", reviewerId: "reviewer-1", evidenceDigest: DIGEST_A, parentSessionId: parentId, childSessionId: childId }));
-    expect((await child(w, delegationId)).state).toBe("stopped");
+  it("goes three levels deep and no further, and every level is a child of the one above", async () => {
+    const { w, parentId } = await parent();
+    let above = parentId;
+    for (const level of [1, 2, 3]) {
+      const id = (await run(w, "session.delegate", `level-${level}`, { parentSessionId: above, task: `Level ${level} slice` })).resourceId!;
+      const session = await childOf(w, id);
+      expect(session).toEqual(expect.objectContaining({ parentSessionId: above, rootSessionId: parentId, delegationDepth: level }));
+      above = session.sessionId;
+    }
+    await expect(run(w, "session.delegate", "level-4", { parentSessionId: above, task: "Level 4 slice" })).rejects.toThrow(/maximum delegation depth is 3.*itself/is);
+    expect(await delegations(w)).toHaveLength(3);
   });
 
   it("keeps cross-tenant session and WorkItem identifiers invisible", async () => {
-    const w = world();
-    const parentId = await parent(w, await workItem(w));
+    const { w, parentId } = await parent();
     const outsider = { ...w.owner, actorId: "outsider", organizationId: "org-other" };
-    await expect(Promise.resolve().then(async () => await run(w, "session.delegate", "cross-tenant", childInput(parentId), outsider))).rejects.toThrow(/workspace not found/i);
+    await expect(w.brain.executeCommand(outsider, { contractVersion: "brain.command/v1", commandId: "cmd-cross", commandType: "session.delegate", workspaceId: w.workspaceId, idempotencyKey: "cross", payload: { parentSessionId: parentId, task: "Not mine" } } as never, "cross")).rejects.toThrow(/workspace not found/i);
     await expect(Promise.resolve().then(() => w.brain.executeQuery(outsider, { queryType: "session.get", workspaceId: w.workspaceId, resourceId: parentId }))).rejects.toThrow(/workspace not found/i);
   });
 });

@@ -46,6 +46,7 @@ import { pullRequestCommands } from "./pull-requests";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 import { MissionService, ShareService, missionCommands, recordPullRequest } from "../modules/missions/index";
 import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
+import { DelegationRuns } from "./delegation-runs";
 import { Challenges } from "./challenges";
 import { BundleJudge } from "./bundle-judge";
 import { PlayProposals } from "./play-proposals";
@@ -53,7 +54,7 @@ import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualityBreakdown, qualitySummary } from "../modules/stream/index";
 import { connectorsFromEnv, handleInbound, smtpTarget, type Connectors } from "../modules/operations/index";
 import { alertBadProbes, notifyApprovers, platformAlertLink, securitySettingsLink, checkBackups, checkDisk, diagnosticsBundle, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
-import { SessionService, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
+import { SessionService, delegatedRunEnded, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
 import { IntegrationService, integrationCommands, type OpenedPullRequest } from "../modules/integrations/index";
@@ -83,6 +84,8 @@ export class Brain {
   readonly evidence: EvidenceService;
   readonly commands: CommandFunnel;
   readonly autoStart: AutoStart;
+  /** Starts the runs of delegated child sessions (ADR 0049). */
+  readonly delegationRuns: DelegationRuns;
   readonly challenges: Challenges;
   readonly bundleJudge: BundleJudge;
   /** The network port for model calls the Governor makes itself (the advisory judge, the probes). Tests and the browser fixture replace it with a fake model. */
@@ -217,6 +220,12 @@ export class Brain {
         ssoCommands(this.store),
         organizationCommandHandlers(this.store, this.auth),
       ], { afterCommit: () => { this.stream.project(); void this.auth.applyOidc().catch(() => undefined); } });
+      this.delegationRuns = new DelegationRuns({
+        store: this.store, missions: this.missions,
+        catalog: (organizationId) => (releaseDefinitions(this.store, organizationId, "workflows") as unknown as { items: WorkflowCatalogEntry[] }).items,
+        loadWorkflow: (organizationId, workflowId) => this.loadWorkflow(organizationId, workflowId),
+        startRun: (input) => this.workflows.startRun(input),
+      });
       this.autoStart = new AutoStart({
         store: this.store, missions: this.missions,
         dispatch: (actor, command) => this.commands.run(actor, command as Parameters<CommandFunnel["run"]>[1]),
@@ -397,12 +406,15 @@ export class Brain {
 
   runFailed(input: { organizationId: string; workspaceId: string; runId: string; diagnostic: string }): void {
     this.missions.recordRunFailure(input.organizationId, input.workspaceId, input.runId, input.diagnostic);
+    // A delegated child's run is not its parent task's: its failure is told to the parent session instead (ADR 0049).
+    delegatedRunEnded(this.store, input.organizationId, input.workspaceId, input.runId, { ok: false, diagnostic: input.diagnostic });
   }
   cancelUnclaimedJobs(runId: string): void {
     this.jobProtocol.cancelForRun(runId);
   }
   runSucceeded(input: { organizationId: string; workspaceId: string; runId: string }): void {
     this.missions.recordRunSuccess(input.organizationId, input.workspaceId, input.runId);
+    delegatedRunEnded(this.store, input.organizationId, input.workspaceId, input.runId, { ok: true });
     // The finished item frees a member slot: the next ready task may start.
     void this.autoStart.sweep(input.organizationId, input.workspaceId).catch(() => undefined);
   }
@@ -580,6 +592,8 @@ export class Brain {
       if (outcome.receipt.accepted && cmd.workspaceId && AUTO_START_TRIGGERS.has(String(cmd.commandType))) {
         try { await this.autoStart.sweep(actor.organizationId, cmd.workspaceId); } catch { /* the maintenance pass retries */ }
       }
+      // A delegated child's run starts now; the maintenance pass starts it after a restart.
+      if (outcome.receipt.accepted && cmd.workspaceId && cmd.commandType === "session.delegate") { try { this.delegationRuns.sweep(actor.organizationId, cmd.workspaceId); } catch { /* the maintenance pass retries */ } }
       // A request an agent or a workflow made reaches the approvers now; the repeat of a pending request tells no one twice.
       if (outcome.receipt.accepted && cmd.workspaceId && cmd.commandType === "approval.request") this.notifyApprovers({ organizationId: actor.organizationId, workspaceId: cmd.workspaceId });
       // A revoked approval, or a cancelled task, withdraws the change that was held for it.

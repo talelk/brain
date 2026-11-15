@@ -186,7 +186,8 @@ function liveWorkOf(store: Store, organizationId: string, workspaceId: string): 
   const sessionsOf = new Map<string, number>();
   let standalone = 0;
   for (const attempt of attempts) {
-    const mission = db.prepare("SELECT w.mission_id AS id FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? LIMIT 1").get(attempt.run_id) as { id: string } | undefined;
+    const mission = db.prepare("SELECT w.mission_id AS id FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? LIMIT 1").get(attempt.run_id) as { id: string } | undefined
+      ?? db.prepare("SELECT mission_id AS id FROM delegation_runs WHERE run_id=?").get(attempt.run_id) as { id: string } | undefined;
     if (mission) sessionsOf.set(mission.id, (sessionsOf.get(mission.id) ?? 0) + 1); else standalone++;
   }
   const active = db.prepare("SELECT id, title FROM missions WHERE state='active' ORDER BY created_at_ms, id").all() as Array<{ id: string; title: string }>;

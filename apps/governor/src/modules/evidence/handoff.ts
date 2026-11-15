@@ -5,7 +5,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 
 type Db = ReturnType<Store["workspaceDb"]>;
-type HandoffRow = { id: string; mission_id: string; work_item_id: string; version: number; notes_json: string; facts_json: string | null; submitted_by: string; superseded_by: string | null; created_at_ms: number };
+type HandoffRow = { id: string; mission_id: string; work_item_id: string; version: number; notes_json: string; facts_json: string | null; submitted_by: string; superseded_by: string | null; created_at_ms: number; delegation_id: string | null };
 export type BundleRow = { digest: string; mission_id: string; state: MissionEvidenceBundle["state"]; manifest_json: string; findings_json: string; verdict_independence: "L3" | null; created_at_ms: number };
 
 /** Member notes stay claims and stay small (issue #33). */
@@ -19,7 +19,7 @@ function toHandoff(row: HandoffRow): Handoff {
   return {
     handoffId: row.id, missionId: row.mission_id, workItemId: row.work_item_id, version: row.version,
     notes: JSON.parse(row.notes_json) as HandoffNotes, ...(row.facts_json ? { facts: JSON.parse(row.facts_json) as HandoffFacts } : {}),
-    submittedBy: row.submitted_by, ...(row.superseded_by ? { supersededBy: row.superseded_by } : {}), createdAt: iso(row.created_at_ms),
+    submittedBy: row.submitted_by, ...(row.superseded_by ? { supersededBy: row.superseded_by } : {}), ...(row.delegation_id ? { delegationId: row.delegation_id } : {}), createdAt: iso(row.created_at_ms),
   };
 }
 
@@ -31,13 +31,41 @@ export function submitHandoff(store: Store, db: Db, input: { workItemId: string;
   if (notesChars(input.notes) > NOTES_CHAR_CAP) throw new BrainDomainError("INVALID_ARGUMENT", `handoff notes exceed ${NOTES_CHAR_CAP} characters`);
   const id = store.id("handoff");
   store.inTx(db, () => {
-    const prior = db.prepare("SELECT id, version FROM handoffs WHERE work_item_id=? AND superseded_by IS NULL").get(input.workItemId) as { id: string; version: number } | undefined;
+    const prior = db.prepare("SELECT id FROM handoffs WHERE work_item_id=? AND superseded_by IS NULL AND delegation_id IS NULL").get(input.workItemId) as { id: string } | undefined;
     db.prepare("INSERT INTO handoffs(id,mission_id,work_item_id,version,notes_json,submitted_by,created_at_ms) VALUES (?,?,?,?,?,?,?)")
-      .run(id, item.mission_id, input.workItemId, (prior?.version ?? 0) + 1, JSON.stringify(input.notes), input.submittedBy, store.now());
+      .run(id, item.mission_id, input.workItemId, nextVersion(db, input.workItemId), JSON.stringify(input.notes), input.submittedBy, store.now());
     if (prior) db.prepare("UPDATE handoffs SET superseded_by=? WHERE id=?").run(id, prior.id);
     store.emit(db, { aggregateType: "workItem", aggregateId: input.workItemId, eventType: "handoff.submitted", payload: { workItemId: input.workItemId, missionId: item.mission_id } });
   });
   return id;
+}
+
+/** Versions of a work item's handoffs count every row, the member's own and those delegations reported, so they never collide. */
+function nextVersion(db: Db, workItemId: string): number {
+  return (db.prepare("SELECT COALESCE(MAX(version),0)+1 AS next FROM handoffs WHERE work_item_id=?").get(workItemId) as { next: number }).next;
+}
+
+/**
+ * A delegated child's result as a handoff on the work item its parent serves (ADR 0049). It is a claim from the child's session: it
+ * never supersedes the member's own handoff, is never superseded by it, and no dependent, bundle or Done check reads it. Unlike a
+ * member's handoff it is accepted after the item is done too: the child can finish after its parent, and the result is still reported.
+ */
+export function submitDelegatedHandoff(store: Store, db: Db, input: { workItemId: string; delegationId: string; submittedBy: string; notes: HandoffNotes; facts?: HandoffFacts }): string {
+  const item = db.prepare("SELECT mission_id FROM work_items WHERE id=?").get(input.workItemId) as { mission_id: string } | undefined;
+  if (!item) throw new BrainDomainError("NOT_FOUND", "work item not found");
+  if (notesChars(input.notes) > NOTES_CHAR_CAP) throw new BrainDomainError("INVALID_ARGUMENT", `handoff notes exceed ${NOTES_CHAR_CAP} characters`);
+  const id = store.id("handoff");
+  store.inTx(db, () => {
+    db.prepare("INSERT INTO handoffs(id,mission_id,work_item_id,version,notes_json,facts_json,submitted_by,delegation_id,created_at_ms) VALUES (?,?,?,?,?,?,?,?,?)")
+      .run(id, item.mission_id, input.workItemId, nextVersion(db, input.workItemId), JSON.stringify(input.notes), input.facts ? JSON.stringify(input.facts) : null, input.submittedBy, input.delegationId, store.now());
+    store.emit(db, { aggregateType: "workItem", aggregateId: input.workItemId, eventType: "handoff.submitted", payload: { workItemId: input.workItemId, missionId: item.mission_id, delegationId: input.delegationId } });
+  });
+  return id;
+}
+
+/** What delegated children reported back for a work item, oldest first. */
+export function delegatedHandoffs(db: Db, workItemId: string): Handoff[] {
+  return (db.prepare("SELECT * FROM handoffs WHERE work_item_id=? AND delegation_id IS NOT NULL ORDER BY created_at_ms, id").all(workItemId) as HandoffRow[]).map(toHandoff);
 }
 
 /**
@@ -49,7 +77,7 @@ export function submitHandoff(store: Store, db: Db, input: { workItemId: string;
  */
 export function finalizeHandoff(db: Db, workItemId: string, evidenceDigest: string): void {
   const dependents = db.prepare("SELECT COUNT(*) AS n FROM work_item_dependencies d JOIN work_items w ON w.id=d.work_item_id WHERE d.depends_on_work_item_id=? AND w.state!='abandoned'").get(workItemId) as { n: number };
-  const handoff = db.prepare("SELECT * FROM handoffs WHERE work_item_id=? AND superseded_by IS NULL").get(workItemId) as HandoffRow | undefined;
+  const handoff = db.prepare("SELECT * FROM handoffs WHERE work_item_id=? AND superseded_by IS NULL AND delegation_id IS NULL").get(workItemId) as HandoffRow | undefined;
   if (!handoff) {
     if (dependents.n > 0) throw new BrainDomainError("EVIDENCE_MISSING", "work that others depend on needs a handoff before Done");
     return;
@@ -77,7 +105,7 @@ export function finalizeHandoff(db: Db, workItemId: string, evidenceDigest: stri
 /** What a dependent receives: the current handoffs of its direct dependencies only. */
 export function dependencyHandoffs(db: Db, workItemId: string): Handoff[] {
   return (db.prepare(`SELECT h.* FROM work_item_dependencies d JOIN handoffs h ON h.work_item_id=d.depends_on_work_item_id
-    WHERE d.work_item_id=? AND h.superseded_by IS NULL ORDER BY h.work_item_id`).all(workItemId) as HandoffRow[]).map(toHandoff);
+    WHERE d.work_item_id=? AND h.superseded_by IS NULL AND h.delegation_id IS NULL ORDER BY h.work_item_id`).all(workItemId) as HandoffRow[]).map(toHandoff);
 }
 
 /** A success criterion and the live work items serving it, as the missions module reads them from the confirmed plan (ADR 0034). */
@@ -128,7 +156,7 @@ function coverageOf(db: Db, criteria: readonly ServedCriterion[]): StoredCoverag
  */
 export function assembleMissionBundle(store: Store, db: Db, missionId: string, briefVersion: number, criteria: readonly ServedCriterion[]): { digest: string; complete: boolean } {
   const items = db.prepare("SELECT id, state, evidence_digest FROM work_items WHERE mission_id=? AND state!='abandoned' ORDER BY id").all(missionId) as Array<{ id: string; state: WorkItemState; evidence_digest: string | null }>;
-  const handoffs = new Map((db.prepare("SELECT id, work_item_id FROM handoffs WHERE mission_id=? AND superseded_by IS NULL").all(missionId) as Array<{ id: string; work_item_id: string }>).map((row) => [row.work_item_id, row.id]));
+  const handoffs = new Map((db.prepare("SELECT id, work_item_id FROM handoffs WHERE mission_id=? AND superseded_by IS NULL AND delegation_id IS NULL").all(missionId) as Array<{ id: string; work_item_id: string }>).map((row) => [row.work_item_id, row.id]));
   const outputVersions = (db.prepare("SELECT v.id FROM output_versions v JOIN mission_outputs o ON o.id=v.output_id WHERE o.mission_id=? AND v.verified=1 ORDER BY v.id").all(missionId) as Array<{ id: string }>).map((row) => row.id);
   const complete = items.length > 0 && items.every((item) => item.state === "done");
   const assembledAt = store.now();

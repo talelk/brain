@@ -1346,7 +1346,7 @@
             "maxDepth": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 2
+              "maximum": 3
             },
             "maxTokens": {
               "type": "integer",
@@ -8317,7 +8317,8 @@
           "$ref": "#/$defs/Id"
         },
         "agentId": {
-          "$ref": "#/$defs/ConfigId"
+          "type": "string",
+          "maxLength": 256
         },
         "task": {
           "type": "string",
@@ -8357,6 +8358,42 @@
         },
         "reviewedAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemTitle": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "memberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "delegatedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "run": {
+          "$ref": "#/$defs/DelegationRun"
+        },
+        "evidence": {
+          "$ref": "#/$defs/DelegationEvidence"
+        },
+        "review": {
+          "type": "object",
+          "description": "Whether the person asking can decide this review now, and the plain reason when not.",
+          "properties": {
+            "possible": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 400
+            }
+          },
+          "required": [
+            "possible"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -8372,7 +8409,12 @@
         "scope",
         "worktreeId",
         "state",
-        "createdAt"
+        "createdAt",
+        "missionId",
+        "workItemTitle",
+        "delegatedBy",
+        "run",
+        "review"
       ],
       "additionalProperties": false
     },
@@ -8556,14 +8598,15 @@
     },
     "SessionDelegateInput": {
       "type": "object",
+      "description": "A bounded sub-task for a child session of the same mission (ADR 0049). A session delegates from itself (its own attempt's session) and names only the task; a person names the parent session. Budget and scope default to what the parent still has, and the child can only narrow them.",
       "properties": {
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
         "parentSessionId": {
           "$ref": "#/$defs/Id"
         },
-        "agentId": {
-          "$ref": "#/$defs/ConfigId"
-        },
-        "engineId": {
+        "memberId": {
           "$ref": "#/$defs/ConfigId"
         },
         "task": {
@@ -8582,13 +8625,7 @@
         }
       },
       "required": [
-        "parentSessionId",
-        "agentId",
-        "engineId",
-        "task",
-        "budget",
-        "scope",
-        "worktreeId"
+        "task"
       ],
       "additionalProperties": false
     },
@@ -22955,6 +22992,9 @@
         },
         "createdAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "delegationId": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -23374,6 +23414,22 @@
         },
         "checkpoint": {
           "$ref": "#/$defs/Checkpoint"
+        },
+        "delegations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Delegation"
+          },
+          "maxItems": 50,
+          "description": "The work this session's task delegated, with how each child's run stands, including a failure fact."
+        },
+        "delegatedHandoffs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Handoff"
+          },
+          "maxItems": 50,
+          "description": "What delegated children handed back: claims from their sessions, never the task's own handoff."
         }
       },
       "required": [
@@ -26868,6 +26924,65 @@
         "subjectDigest",
         "expiresAt",
         "method"
+      ],
+      "additionalProperties": false
+    },
+    "DelegationRun": {
+      "type": "object",
+      "description": "Where a delegated child's own run stands: waiting to start, running, finished with a result handed back to the parent, or failed with a reason the parent is told.",
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "running",
+            "succeeded",
+            "failed"
+          ]
+        },
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "handoffId": {
+          "$ref": "#/$defs/Id"
+        },
+        "result": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "failure": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "DelegationEvidence": {
+      "type": "object",
+      "description": "The child's latest evidence bundle, which a delegation review decides on, and what an independent evaluator said of it.",
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "bundleState": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "rejected",
+            "incomplete"
+          ]
+        }
+      },
+      "required": [
+        "digest",
+        "bundleState"
       ],
       "additionalProperties": false
     }

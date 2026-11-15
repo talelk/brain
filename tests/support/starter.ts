@@ -43,3 +43,22 @@ export function modelOpinionStarter() {
   return { ...bundle, evaluatorDigest: next };
 }
 
+/**
+ * The fixture starter with delegation switched on for its task worker: it lists the `mission.delegate` tool and declares how many children
+ * and how many levels it may have (ADR 0049). The shipped starter gives the tool to no agent, so a test that delegates opts in here.
+ */
+export function delegatingStarter(limits: { maxChildren: number; maxDepth: number } = { maxChildren: 2, maxDepth: 3 }) {
+  const bundle = fixtureStarter();
+  const agentDoc = bundle.documents.find((doc) => doc.path.endsWith("task-worker-agent.yaml"))!;
+  const tool = bundle.documents.find((doc) => doc.path.endsWith("mission.delegate.yaml"))!;
+  const prior = sha256Digest(new TextEncoder().encode(agentDoc.text));
+  const agent = JSON.parse(agentDoc.text);
+  agent.spec.tools.push({ id: "mission.delegate", digest: sha256Digest(new TextEncoder().encode(tool.text)) });
+  agent.spec.maxChildren = limits.maxChildren;
+  agent.spec.maxDepth = limits.maxDepth;
+  agentDoc.text = JSON.stringify(agent, null, 2) + "\n";
+  const next = sha256Digest(new TextEncoder().encode(agentDoc.text));
+  for (const doc of bundle.documents) doc.text = doc.text.replaceAll(prior, next);
+  return bundle;
+}
+

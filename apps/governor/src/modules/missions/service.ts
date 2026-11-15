@@ -61,6 +61,9 @@ const CHECK_WORDS: Readonly<Record<string, string>> = {
   "criteria-met": "not every acceptance criterion is answered, with evidence",
 };
 /** The team member a task is assigned to, when it is assigned to an agent; the machine principal of its sessions is that member's (ADR 0032). */
+/** The mission and member of a delegated child's run (ADR 0049), which is no task's run; undefined for any other run. */
+const delegatedRunOf = (db: ReturnType<Store["workspaceDb"]>, runId: string): { missionId: string; memberId: string | null } | undefined =>
+  db.prepare("SELECT mission_id AS missionId, member_id AS memberId FROM delegation_runs WHERE run_id=?").get(runId) as { missionId: string; memberId: string | null } | undefined;
 const memberOf = (assignmentJson: string | null): string | null => {
   const assignment = assignmentJson ? JSON.parse(assignmentJson) as PlanAssignment : undefined;
   return assignment?.kind === "agent" ? assignment.id : null;
@@ -729,6 +732,12 @@ export class MissionService {
   sessionBinding(organizationId: string, workspaceId: string, runId: string): { missionId: string; memberId: string | null; actingFor: string; workItemId?: string } | undefined {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const task = db.prepare("SELECT l.mission_id AS missionId, l.work_item_id AS workItemId, w.assignment_json AS assignment FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? ORDER BY l.created_at_ms DESC LIMIT 1").get(runId) as { missionId: string; workItemId: string; assignment: string | null } | undefined;
+    // A delegated child acts as the member it was given, on no task of its own: its tools must not default to its parent's task (ADR 0049).
+    const delegated = task ? undefined : delegatedRunOf(db, runId);
+    if (delegated) {
+      const owner = db.prepare("SELECT owner_id AS owner FROM missions WHERE id=?").get(delegated.missionId) as { owner: string } | undefined;
+      return owner ? { missionId: delegated.missionId, memberId: delegated.memberId, actingFor: owner.owner } : undefined;
+    }
     const coordinating = task ? undefined : db.prepare("SELECT mission_id AS missionId FROM mission_runs WHERE run_id=? AND purpose='coordinator'").get(runId) as { missionId: string } | undefined;
     const missionId = task?.missionId ?? coordinating?.missionId;
     if (!missionId) return undefined;
@@ -779,7 +788,9 @@ export class MissionService {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const work = db.prepare("SELECT mission_id FROM execution_links WHERE run_id=? LIMIT 1").get(runId) as { mission_id: string } | undefined;
     const coordinatorRun = work ? undefined : db.prepare("SELECT mission_id FROM mission_runs WHERE run_id=?").get(runId) as { mission_id: string } | undefined;
-    const link = work ?? coordinatorRun;
+    // A delegated child is admitted like any member's attempt: it counts toward the member cap and spends the mission's budget (ADR 0049).
+    const delegatedRun = work || coordinatorRun ? undefined : delegatedRunOf(db, runId);
+    const link = work ?? coordinatorRun ?? (delegatedRun ? { mission_id: delegatedRun.missionId } : undefined);
     if (!link) {
       // A challenge's reviewer run is bound to no work item but is charged to the mission it reviews. It is found by its execution key
       // (the command id `challenge-<id>`), which exists before the challenge learns the run id.

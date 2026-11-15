@@ -24,7 +24,7 @@ export function runContext(db: Db, runId: string, jobState?: string): RunContext
       w.state AS workState, l.created_at_ms AS linkedAt
     FROM execution_links l JOIN work_items w ON w.id=l.work_item_id JOIN missions m ON m.id=l.mission_id WHERE l.run_id=? LIMIT 1`).get(runId) as
     { missionId: string; missionTitle: string; missionState: string; workItemId: string; workItemTitle: string; workState: string; linkedAt: number } | undefined;
-  if (!row) return undefined;
+  if (!row) return delegatedContext(db, runId, jobState);
   const base = { missionId: row.missionId, missionTitle: row.missionTitle, workItemId: row.workItemId, workItemTitle: row.workItemTitle };
   // A run that itself succeeded needs no settling story.
   if (jobState === "succeeded" || db.prepare("SELECT 1 FROM workflow_runs WHERE id=? AND state='succeeded'").get(runId)) return base;
@@ -33,6 +33,17 @@ export function runContext(db: Db, runId: string, jobState?: string): RunContext
   if (row.workState === "abandoned") return { ...base, resolution: "set-aside" };
   const later = db.prepare("SELECT 1 FROM execution_links WHERE work_item_id=? AND run_id!=? AND created_at_ms>?").get(row.workItemId, runId, row.linkedAt);
   return later ? { ...base, resolution: "retried" } : base;
+}
+
+/**
+ * A delegated child's run (ADR 0049) belongs to its mission and parent task. Its plain failure is told to the parent session as a fact on
+ * its delegation, so it asks no person; a job stuck or of unknown outcome still does, as any job would.
+ */
+function delegatedContext(db: Db, runId: string, jobState?: string): RunContext | undefined {
+  const row = db.prepare(`SELECT r.mission_id AS missionId, m.title AS missionTitle, d.work_item_id AS workItemId, w.title AS workItemTitle
+    FROM delegation_runs r JOIN delegations d ON d.id=r.delegation_id JOIN missions m ON m.id=r.mission_id JOIN work_items w ON w.id=d.work_item_id WHERE r.run_id=?`).get(runId) as
+    { missionId: string; missionTitle: string; workItemId: string; workItemTitle: string } | undefined;
+  return row && (jobState === "failed" ? { ...row, resolution: "set-aside" as const } : row);
 }
 
 /** Same rule for a job row: only stuck or failed states with no settling event ask for a person, and Brain's own restarts never do. */

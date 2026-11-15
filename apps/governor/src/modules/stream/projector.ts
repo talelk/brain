@@ -141,6 +141,7 @@ class Correlator {
       const db = this.s.workspaceDb(target.workspaceId, this.orgForWorkspace(target.workspaceId));
       const row = target.runId
         ? db.prepare("SELECT work_item_id FROM execution_links WHERE run_id=? AND work_item_id IS NOT NULL LIMIT 1").get(target.runId) as { work_item_id: string } | undefined
+          ?? db.prepare("SELECT d.work_item_id AS work_item_id FROM delegation_runs r JOIN delegations d ON d.id=r.delegation_id WHERE r.run_id=?").get(target.runId) as { work_item_id: string } | undefined
         : undefined;
       const viaSession = row ? undefined
         : target.sessionId ? db.prepare("SELECT work_item_id FROM sessions WHERE id=? AND work_item_id IS NOT NULL").get(target.sessionId) as { work_item_id: string } | undefined : undefined;
