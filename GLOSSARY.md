@@ -471,6 +471,13 @@ The SHA-256 content digest addressing an exact configuration. Documents referenc
 other by digest of exact bytes.
 _Avoid_: hash, checksum, version
 
+**Skill**:
+A release document of instructions an agent pins by digest. When a task names one of its
+trigger words the Governor loads its text into the agent's instructions for that job.
+Text only: it never adds a tool, permission or effect class, and compiling rejects one
+that tries, carries a secret or is too large.
+_Avoid_: plugin, ability, native skill
+
 **Draft**:
 An editable, versioned bundle of configuration documents awaiting validation and
 publication.

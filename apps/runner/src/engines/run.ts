@@ -19,6 +19,11 @@ export function selectEngine(configured: string | undefined, toolBindings: reado
   }
 }
 
+/** An agent's instructions followed by each skill the task loaded, under its own heading. */
+export function instructionsWithSkills(instructions: string, skills: ReadonlyArray<{ id: string; text: string }>): string {
+  return skills.length === 0 ? instructions : `${[instructions.trimEnd(), ...skills.map((skill) => `## Skill: ${skill.id}\n\n${skill.text.trimEnd()}`)].join("\n\n")}\n`;
+}
+
 /**
  * The engine prompt of a workflow-driven agent step: the Governor-built context
  * pack (when the step serves a work item) followed by the task. Nothing else is

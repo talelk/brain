@@ -8,6 +8,7 @@ import { payloadValidator, validate } from "@brain/contracts/validate";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { mergePolicyFloor, type PolicySpec } from "./policy-floor";
+import { compileSkill, MAX_AGENT_SKILL_BYTES, type CompiledSkill } from "./skills";
 
 export interface SourceDoc { readonly path: string; readonly text: string }
 export interface AgentInstruction { readonly agentId: string; readonly path: string; readonly text: string }
@@ -19,11 +20,13 @@ export interface CompiledRelease {
   readonly agents: Readonly<Record<string, Agent>>;
   readonly plays: Readonly<Record<string, Play>>;
   readonly evaluators: Readonly<Record<string, Evaluator>>;
+  /** Skill documents by id, with the text a task that names one of their triggers adds to an agent's instructions. */
+  readonly skills: Readonly<Record<string, CompiledSkill>>;
   readonly tools: readonly { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; testEntrypoint?: string; testEntrypointDigest?: string; description?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[];
   readonly documents: readonly { kind: string; id: string; digest: string }[];
 }
 
-const KINDS = new Set(["BrainConfig", "WorkspaceType", "Workspace", "RunnerGroup", "Agent", "Tool", "Policy", "Workflow", "Pack", "Connector", "Evaluator", "Schedule", "Play"]);
+const KINDS = new Set(["BrainConfig", "WorkspaceType", "Workspace", "RunnerGroup", "Agent", "Tool", "Policy", "Workflow", "Pack", "Connector", "Evaluator", "Schedule", "Play", "Skill"]);
 
 export function parseRestrictedYaml(text: string, path: string): Record<string, unknown> {
   if (Buffer.byteLength(text, "utf8") > 256 * 1024) throw new BrainDomainError("INVALID_CONTRACT", `${path}: definition too large`);
@@ -231,6 +234,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
   const agents: Record<string, Agent> = {};
   const evaluators: Record<string, Evaluator> = {};
   const plays: Record<string, Play> = {};
+  const skills: Record<string, CompiledSkill> = {};
   const entries: { kind: string; id: string; digest: string; bytes: number; path: string }[] = [];
   const tools: { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; description?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[] = [];
   const seenIds = new Set<string>();
@@ -282,6 +286,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
       if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", `${path}: ${check.errors.join("; ")}`);
       evaluators[id] = raw as unknown as Evaluator;
     }
+    if (kind === "Skill") skills[id] = compileSkill(raw, path, id, sha256Digest(new TextEncoder().encode(text)));
     if (kind === "BrainConfig") {
       const ui = spec?.["ui"] as Record<string, unknown> | undefined;
       if (!ui) throw new BrainDomainError("INVALID_CONTRACT", `${path}: BrainConfig.spec.ui required`);
@@ -346,6 +351,17 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     if (step.kind !== "eval") continue;
     if (!evaluators[step.evaluator.id] || !entries.some((entry) => entry.kind === "Evaluator" && entry.id === step.evaluator.id && entry.digest === step.evaluator.digest)) throw new BrainDomainError("INVALID_CONTRACT", `evaluator ${step.evaluator.id} must match an immutable document in this release`);
   }
+  // An agent pins each skill it may load by digest, as a workflow pins an agent; a skill adds text and never a tool.
+  for (const agent of Object.values(agents)) {
+    let bytes = 0;
+    for (const ref of agent.spec.skills ?? []) {
+      if (!skills[ref.id] || !entries.some((entry) => entry.kind === "Skill" && entry.id === ref.id && entry.digest === ref.digest)) {
+        throw new BrainDomainError("INVALID_CONTRACT", `Agent ${agent.metadata.id}: skill ${ref.id} must match an immutable document in this release`);
+      }
+      bytes += Buffer.byteLength(skills[ref.id]!.text, "utf8");
+    }
+    if (bytes > MAX_AGENT_SKILL_BYTES) throw new BrainDomainError("PAYLOAD_TOO_LARGE", `skills of agent ${agent.metadata.id} exceed ${MAX_AGENT_SKILL_BYTES / 1024} KiB`);
+  }
   // Conversation inference is allowed before task confirmation. Its reserved
   // helper must therefore stay tool-free with only independent read validation.
   const guide = workflows["task-guide"];
@@ -370,7 +386,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     return {
       id: agent.metadata.id,
       digest: entries.find((entry) => entry.kind === "Agent" && entry.id === agent.metadata.id)!.digest,
-      engine: agent.spec.engine, tools: agent.spec.tools,
+      engine: agent.spec.engine, tools: agent.spec.tools, ...((agent.spec.skills ?? []).length > 0 ? { skills: agent.spec.skills } : {}),
       maxTokens: agent.spec.maxTokens, maxMicroUsd: agent.spec.maxMicroUsd,
       maxTurns: agent.spec.maxTurns, maxChildren: agent.spec.maxChildren, maxDepth: agent.spec.maxDepth,
       instructions: { path: instruction.path, digest: sha256Digest(bytes), bytes: bytes.length },
@@ -419,7 +435,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     tools: tools as unknown as JsonValue,
   };
   const digest = domainDigest("brain:config-release:v1", manifest);
-  return { digest, manifest, workflows, agents, evaluators, plays, tools, schemas: schemaMap, documents: entries };
+  return { digest, manifest, workflows, agents, evaluators, plays, skills, tools, schemas: schemaMap, documents: entries };
 }
 
 export function resolveBinding(bindings: Readonly<Record<string, unknown>>, input: JsonValue, outputs: Readonly<Record<string, JsonValue>>): Record<string, JsonValue> {

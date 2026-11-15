@@ -2,7 +2,7 @@
 
 ## Canonical documents
 
-All definitions use `apiVersion: brain.keyrus/v1`, a `kind`, immutable logical metadata and a typed `spec`. Supported kinds are BrainConfig, WorkspaceType, Workspace, RunnerGroup, Agent, Tool, Policy, Workflow, Pack, Connector, Evaluator and Schedule. Operational registry bindings, credentials and observed inventory are not declarations. `TOOL.md` and agent Markdown embed the same validated metadata in frontmatter; their instruction body is included in the release digest.
+All definitions use `apiVersion: brain.keyrus/v1`, a `kind`, immutable logical metadata and a typed `spec`. Supported kinds are BrainConfig, WorkspaceType, Workspace, RunnerGroup, Agent, Tool, Policy, Workflow, Pack, Connector, Evaluator, Skill and Schedule. A Skill (ADR 0036) holds `description`, `triggers` and `text` only; an Agent lists the skills it may load in `spec.skills` by id and digest. Operational registry bindings, credentials and observed inventory are not declarations. `TOOL.md` and agent Markdown embed the same validated metadata in frontmatter; their instruction body is included in the release digest.
 
 The machine schemas cover executable baseline configuration; kinds introduced by later tasks must receive schema, fixtures and semantic validation before activation. No undefined kind is accepted just because this document names it. Extensions are deferred in V1 to keep unknown-field rejection meaningful.
 

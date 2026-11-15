@@ -15,7 +15,7 @@ import { DurableEventSpool } from "./spool-durable";
 import { GovernorClient, GovernorProtocolError } from "./governor-client";
 import { LauncherClient } from "./launcher-client";
 import { payloadValidator } from "@brain/contracts/validate";
-import { promptWithContext, runAgentExecution, selectEngine } from "./engines/run";
+import { instructionsWithSkills, promptWithContext, runAgentExecution, selectEngine } from "./engines/run";
 import { advertisedCapabilities, advertisedIsolationModes, engineIsolation } from "./engines/isolation";
 import type { HostedRoute } from "./engines/pi";
 
@@ -186,7 +186,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
   const ack = await client.ack(offer.attemptId, ackBody);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
   const artifactBytes = await client.executionArtifact(offer.attemptId, offer.execution.artifact.digest, offer.execution.artifact.bytes);
-  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; modelRoute?: Parameters<typeof hostedRouteOf>[0]; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> } };
+  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; modelRoute?: Parameters<typeof hostedRouteOf>[0]; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> }; skills?: Array<{ id: string; digest: string; text: string }> };
   // The execution deadline is the lease: a monotonic clock (performance.now)
   // is armed from the ack's server lease expiry and refreshed by every
   // successful renewal, so wall-clock adjustments cannot extend the window.
@@ -299,7 +299,13 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       const ref = step.uses?.release;
       if (!ref) throw new Error("agent job has no pinned agent release");
       const asset = await client.agentInstructions(offer.configDigest, ref.id, ref.digest);
-      const instructions = asset.instructions;
+      // Skills the Governor loaded for this task are the agent's own pinned documents, added to its instructions as text; they carry no tools.
+      const skills = payload.skills ?? [];
+      for (const skill of skills) {
+        if (!asset.agent.spec.skills?.some((pinned) => pinned.id === skill.id && pinned.digest === skill.digest)) throw new Error(`skill ${skill.id} is not pinned by agent ${ref.id}`);
+      }
+      const instructions = instructionsWithSkills(asset.instructions, skills);
+      if (skills.length > 0) await emit("progress", { phase: "skills-loaded", skills: skills.map((skill) => ({ id: skill.id, digest: skill.digest })), instructionsDigest: sha256Digest(new TextEncoder().encode(instructions)) });
       const configured = cfg.engines ?? [process.env["BRAIN_RUNNER_ENGINE"] ?? "fixture"];
       // The engine must be configured here and provide the isolation this step's placement requires (ADR 0035): an engine that cannot is never used,
       // even when the runner also has one that can.
