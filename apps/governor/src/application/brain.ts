@@ -389,6 +389,9 @@ export class Brain {
   runFailed(input: { organizationId: string; workspaceId: string; runId: string; diagnostic: string }): void {
     this.missions.recordRunFailure(input.organizationId, input.workspaceId, input.runId, input.diagnostic);
   }
+  cancelUnclaimedJobs(runId: string): void {
+    this.jobProtocol.cancelForRun(runId);
+  }
   runSucceeded(input: { organizationId: string; workspaceId: string; runId: string }): void {
     this.missions.recordRunSuccess(input.organizationId, input.workspaceId, input.runId);
     // The finished item frees a member slot: the next ready task may start.
@@ -1241,6 +1244,11 @@ export class Brain {
       // the same execution key after a crash rather than create a second job.
       for (const run of ws.prepare("SELECT DISTINCT r.id FROM workflow_runs r JOIN evidence_bundles b ON json_extract(b.manifest_json,'$.workflowRunId')=r.id WHERE r.state IN ('running','suspended') AND b.state='submitted' ORDER BY r.id LIMIT 100").all() as Array<{id:string}>) {
         this.workflows.evidenceSubmitted(workspace.organization_id,workspace.id,run.id);
+      }
+      // A crash can fall between a step's completion and the admission of what it unblocked. A run with steps left to start and nothing
+      // in flight is given its ready steps again; admission is idempotent per step, so none starts twice (ADR 0043).
+      for (const run of ws.prepare("SELECT r.id FROM workflow_runs r WHERE r.state IN ('running','suspended') AND EXISTS (SELECT 1 FROM workflow_steps p WHERE p.run_id=r.id AND p.state='pending') AND NOT EXISTS (SELECT 1 FROM workflow_steps a WHERE a.run_id=r.id AND a.state IN ('running','waiting')) ORDER BY r.id LIMIT 100").all() as Array<{id:string}>) {
+        this.workflows.recoverRun(workspace.organization_id,workspace.id,run.id);
       }
     }
     return done;
