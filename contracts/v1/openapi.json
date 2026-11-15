@@ -9813,6 +9813,65 @@
        "maxItems": 100
       }
      },
+     "toolMcp": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "url",
+        "tool",
+        "toolListDigest",
+        "maxOutputBytes",
+        "host"
+       ],
+       "properties": {
+        "url": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 2048
+        },
+        "tool": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 256
+        },
+        "toolListDigest": {
+         "$ref": "#/components/schemas/Digest"
+        },
+        "headers": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+           "secretRef"
+          ],
+          "properties": {
+           "secretRef": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+           },
+           "prefix": {
+            "type": "string",
+            "maxLength": 64
+           }
+          }
+         }
+        },
+        "maxOutputBytes": {
+         "type": "integer",
+         "minimum": 1
+        },
+        "host": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 300
+        }
+       }
+      }
+     },
      "egressHosts": {
       "type": "array",
       "items": {
