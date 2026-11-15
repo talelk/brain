@@ -566,7 +566,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
       const reason = failureReasonOf(output);
       recordAttemptFailure(s, attemptId, Number(row["last_event_seq"]), reason);
       // The step may be offered again (its retry, ADR 0046); the job then waits in the queue and the run does not hear of the failure.
-      jobState = retryFailedAttempt(s, { jobId: String(row["job_id"]), attemptId, reason }) ? "queued" : "failed";
+      jobState = retryFailedAttempt(s, { jobId: String(row["job_id"]), reason }) ? "queued" : "failed";
       if (jobState === "failed") transitionState(s.control, "job", String(row["job_id"]), "failed", { bumpVersion: true });
       attemptFailed = true;
     }
@@ -723,7 +723,7 @@ export function expireAttemptDeadlines(s: Store, deps: { completeStep: (organiza
       } else {
         transitionState(s.control, "attempt", item.attemptId, "failed");
         recordAttemptFailure(s, item.attemptId, row.lastSeq, message);
-        if (!retryFailedAttempt(s, { jobId: item.jobId, attemptId: item.attemptId, reason: message })) {
+        if (!retryFailedAttempt(s, { jobId: item.jobId, reason: message })) {
           transitionState(s.control, "job", item.jobId, "failed", { bumpVersion: true });
           failures.push({ due: item, message });
         }
@@ -735,7 +735,7 @@ export function expireAttemptDeadlines(s: Store, deps: { completeStep: (organiza
     });
     if (!ended) continue;
     count++;
-    s.emit(s.control, { organizationId: item.organizationId, workspaceId: item.workspaceId, aggregateType: "job", aggregateId: item.jobId, eventType: "job.updated", payload: { attemptId: item.attemptId, timedOut: true }, destinations: [`workspace:${item.workspaceId}`] });
+    s.emit(s.control, { organizationId: item.organizationId, workspaceId: item.workspaceId, aggregateType: "job", aggregateId: item.jobId, eventType: "job.updated", payload: { attemptId: item.attemptId, jobState: (s.control.prepare("SELECT state FROM jobs WHERE id=?").get(item.jobId) as { state: string }).state, timedOut: true }, destinations: [`workspace:${item.workspaceId}`] });
   }
   for (const { due: item, message } of failures) deps.completeStep(item.organizationId, item.workspaceId, item.runId, item.stepId, { error: message, code: "STEP_TIMEOUT" } as unknown as JsonValue, false);
   return count;

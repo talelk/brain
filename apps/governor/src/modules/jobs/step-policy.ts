@@ -27,6 +27,18 @@ export function heldEffect(s: Store, attemptId: string): boolean {
   return row.n > 0;
 }
 
+/**
+ * Whether any attempt of the job took a permit or a lease or proposed a change: an earlier attempt's held change may already have been
+ * carried out (ADR 0028), so a later attempt that held nothing does not make the target untouched.
+ */
+function jobTouchedTarget(s: Store, jobId: string): boolean {
+  const row = s.control.prepare(`SELECT
+    (SELECT COUNT(*) FROM effect_permits p JOIN job_attempts a ON a.id=p.attempt_id WHERE a.job_id=?)
+    + (SELECT COUNT(*) FROM resource_leases l JOIN job_attempts a ON a.id=l.attempt_id WHERE a.job_id=?)
+    + (SELECT COUNT(*) FROM effect_calls c JOIN job_attempts a ON a.id=c.attempt_id WHERE a.job_id=?) AS n`).get(jobId, jobId, jobId) as { n: number };
+  return row.n > 0;
+}
+
 /** Sets the attempt's deadline when it starts running, from the step's `timeoutSeconds`; a step declaring none has no deadline. */
 export function stampAttemptDeadline(s: Store, jobId: string, attemptId: string): void {
   const { timeoutSeconds } = stepPolicy(s, jobId);
@@ -40,14 +52,14 @@ export function stampAttemptDeadline(s: Store, jobId: string, attemptId: string)
  * effect permit or lease (the target may have changed), a step whose retry does not name the class that fits its effect, and a
  * step that used its attempts. Returns true when the job was queued again; the caller then fails the job otherwise.
  */
-export function retryFailedAttempt(s: Store, input: { jobId: string; attemptId: string; reason: string | undefined }): boolean {
+export function retryFailedAttempt(s: Store, input: { jobId: string; reason: string | undefined }): boolean {
   s.control.prepare("UPDATE jobs SET step_failures=step_failures+1 WHERE id=?").run(input.jobId);
   const { retry, effectClass } = stepPolicy(s, input.jobId);
   if (!retry) return false;
   const { step_failures: failures } = s.control.prepare("SELECT step_failures FROM jobs WHERE id=?").get(input.jobId) as { step_failures: number };
   if (failures >= retry.maxAttempts) return false;
   if (input.reason && quotaLike(input.reason)) return false;
-  if (heldEffect(s, input.attemptId)) return false;
+  if (jobTouchedTarget(s, input.jobId)) return false;
   if (!retry.classes.includes(effectClass === "read" ? "transient-read" : "target-proven-absent")) return false;
   const delayMs = Math.min(retry.maxDelayMs, retry.initialDelayMs * 2 ** (failures - 1));
   transitionState(s.control, "job", input.jobId, "queued", { set: { queue_reason: "RETRYING_STEP", ready_at_ms: s.now() + delayMs }, bumpVersion: true });
