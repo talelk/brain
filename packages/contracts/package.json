@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./validate": "./src/validate.ts",
-    "./machines": "./src/machines.ts"
+    "./machines": "./src/machines.ts",
+    "./openapi.json": "./src/openapi.json"
   },
   "dependencies": {
     "ajv": "8.20.0",

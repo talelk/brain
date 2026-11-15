@@ -24,8 +24,7 @@ describe("endpoint surface conformance (T02)", () => {
   it("every registered route is declared in OpenAPI and declared GETs respond", async () => {
     const appSource = readFileSync(join(ROOT, "apps/governor/src/http/app.ts"), "utf8");
     const openapi = JSON.parse(readFileSync(join(ROOT, "contracts/v1/openapi.json"), "utf8")) as { paths: Record<string, unknown> };
-    const extensions = JSON.parse(readFileSync(join(ROOT, "docs/api-extensions.json"), "utf8")) as { routes: Array<{ path: string }> };
-    const declaredPaths = new Set([...Object.keys(openapi.paths), ...extensions.routes.map((r) => r.path)]);
+    const declaredPaths = new Set(Object.keys(openapi.paths));
     const routes = routesFrom(appSource).filter((r) => !r.path.startsWith("/api/auth") && r.path !== "/*" && !r.path.includes("*"));
     expect(routes.length).toBeGreaterThan(20);
     const undeclared = routes.filter((r) => !declaredPaths.has(r.path.replace(/:([A-Za-z]+)/g, "{$1}")));

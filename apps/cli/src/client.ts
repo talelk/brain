@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { collectRelease } from "./release.ts";
 import { credentialStore, readSetupCredential, validCredential } from "./credentials.ts";
 import { prompt } from "./prompt.ts";
+import { operate } from "./operate.ts";
 
 export interface CliOptions {
   readonly env?: NodeJS.ProcessEnv;
@@ -64,7 +65,7 @@ export async function runCli(argv: string[], options: CliOptions = {}): Promise<
       case "command": {
         const command = JSON.parse(rest.filter((a) => a !== "--json").join(" ") || "{}") as { commandType?: string };
         if (command.commandType === "approval.decision") {
-          stderr("Approval decisions require interactive human review in the web UI.\n");
+          stderr("Approval decisions need step-up evidence: use brain approval decide <id> --decision approve|reject|request-changes.\n");
           return 2;
         }
         const r = await call("/v1/commands", command);
@@ -101,6 +102,8 @@ export async function runCli(argv: string[], options: CliOptions = {}): Promise<
         if (result.status >= 400) return print(result.json, result.status);
         credentials.clear(); return print({ signedOut: true }, 200);
       }
+      case "mission": case "play": case "session": case "approval":
+        return await operate(cmd, rest, { env, call: async (path, body) => { const { status, json } = await call(path, body); return { status, json }; }, stdout, stderr, ask });
       case "runner": {
         if (rest[0] === "token" && rest[1] === "create") {
           const group = rest[rest.indexOf("--group") + 1] ?? "fixture-tools";
@@ -168,7 +171,7 @@ export async function runCli(argv: string[], options: CliOptions = {}): Promise<
         return 2;
       }
       default:
-        stderr("usage: brain <login|logout|doctor|query|command|setup|runner|config|workflow|workspace|backup> [--json]\n");
+        stderr("usage: brain <login|logout|doctor|mission|play|session|approval|query|command|setup|runner|config|workflow|workspace|backup> [--json]\n");
         return cmd ? 2 : 0;
     }
   } catch (e) {
