@@ -394,7 +394,7 @@ export class Brain {
     void this.autoStart.sweep(input.organizationId, input.workspaceId).catch(() => undefined);
   }
   /**
-   * Resume (ADR 0043): a new run of the source run's workflow and input, its continuing step pinned to the runner holding the saved engine
+   * Resume (ADR 0044): a new run of the source run's workflow and input, its continuing step pinned to the runner holding the saved engine
    * state, linked to the task. A run that cannot be linked is cancelled, never left queued for a runner.
    */
   private startResumedRun(actor: ActorContext, workspaceId: string, input: { sourceRunId: string; stepId: string; workItemId: string; executionKey: string; resume: { runnerId: string; engineId: string; engineState: ArtifactRef; fromSessionId: string } }): string {
