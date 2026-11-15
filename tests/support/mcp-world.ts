@@ -6,7 +6,7 @@ import type { AddressInfo } from "node:net";
 import { sha256Digest } from "../../packages/contracts/src/index.ts";
 import { startEgressProxy, writeEgressGrant, type EgressProxy } from "../../apps/launcher/src/egress-proxy";
 import { buildMcpToolFiles, mcpClientScript, type ListedTool } from "../../apps/cli/src/mcp";
-import { fixtureStarter } from "./starter";
+import { editedStarter } from "./starter";
 
 const tmp = process.env["TMPDIR"] ?? "/tmp";
 
@@ -92,8 +92,9 @@ export async function listTools(url: string, headers: Record<string, string> = {
 
 /** The fixture starter with the given external MCP tools registered as governed Tool documents and given to the SRE operator agent. */
 export function mcpStarter(server: FakeMcp, classes: Record<string, string>, extra: { headers?: Record<string, { secretRef: string; prefix?: string }>; maxOutputBytes?: number; listing: Awaited<ReturnType<typeof listTools>> }) {
-  const bundle = fixtureStarter();
   const { toolIds, files } = buildMcpToolFiles({ serverId: "fake", url: server.url, listing: extra.listing, classes, ...(extra.headers ? { headers: extra.headers } : {}), ...(extra.maxOutputBytes ? { maxOutputBytes: extra.maxOutputBytes } : {}) });
+  // The shipped policy allows only the operations it lists: the admin who registers an MCP tool allows its operation, as here.
+  const bundle = editedStarter({ "operations-policy.yaml": (policy) => { const spec = policy["spec"] as { allowedOperations: string[] }; spec.allowedOperations = [...spec.allowedOperations, ...toolIds].sort(); } });
   const digests: Record<string, string> = {};
   for (const file of files) {
     if (file.path.startsWith("config/")) { bundle.documents.push({ path: file.path, text: file.text }); digests[file.path.slice("config/".length, -".yaml".length)] = sha256Digest(new TextEncoder().encode(file.text)); }
