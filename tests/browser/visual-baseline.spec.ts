@@ -26,6 +26,7 @@ const SCREENS: Array<{ id: string; route: (demo: Awaited<ReturnType<typeof seedB
   { id: "approvals", route: () => "/approvals", heading: "Approvals" },
   { id: "approval-review", route: (d) => `/approvals/${d.seed.approvalId}`, heading: "Approval review" },
   { id: "runners", route: () => "/runners", heading: "Runners" },
+  { id: "runner-detail", route: (d) => `/runners/${d.seed.runnerId}`, heading: "runner-demo" },
   { id: "settings-setup", route: () => "/settings?tab=setup", heading: "Setup" },
   { id: "settings-work", route: () => "/settings?tab=work", heading: "How work runs" },
   { id: "settings-egress", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { const egress = page.locator("[data-work-egress]"); await expect(egress).toBeVisible(); await egress.scrollIntoViewIfNeeded(); } },

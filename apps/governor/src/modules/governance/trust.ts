@@ -25,7 +25,7 @@ export function verifyTrustDomain(
     if (!runner || runner.organization_id !== operator.organizationId) throw new BrainDomainError("NOT_FOUND", "runner not found");
     expiresAtMs = s.now() + 24 * 3600_000;
     s.control.prepare("INSERT OR REPLACE INTO runner_capabilities(runner_id, capability, verified, source, observed_at_ms, expires_at_ms) VALUES (?,?,1,?,?,?)")
-      .run(input.runnerId, capability, "governor-verifier", s.now(), expiresAtMs);
+      .run(input.runnerId, capability, "admin-attestation", s.now(), expiresAtMs);
     s.emit(s.control, {
       organizationId: operator.organizationId, aggregateType: "runner", aggregateId: input.runnerId,
       eventType: "runner.trust.verified", payload: { capability, reason: input.reason.trim(), operatorId: operator.actorId, expiresAtMs },
@@ -46,7 +46,7 @@ export function revokeTrustDomain(
   s.inTx(s.control, () => {
     const runner = s.control.prepare("SELECT organization_id FROM runners WHERE id=?").get(input.runnerId) as { organization_id: string } | undefined;
     if (!runner || runner.organization_id !== operator.organizationId) throw new BrainDomainError("NOT_FOUND", "runner not found");
-    const changed = s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=? AND capability=? AND source='governor-verifier'")
+    const changed = s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=? AND capability=? AND source='admin-attestation'")
       .run(input.runnerId, `trust:domain:${input.domain}`);
     if (changed.changes === 0) throw new BrainDomainError("NOT_FOUND", "no verified trust domain to revoke");
     s.emit(s.control, {

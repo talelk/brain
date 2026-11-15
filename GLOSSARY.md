@@ -248,7 +248,9 @@ _Avoid_: snapshot, savepoint, resume point, verified checkpoint
 
 **Runner**:
 A separate outbound executable that executes agent and validator jobs, enrolled by
-group with declared capabilities and engines.
+group with declared capabilities and engines. What it reports about itself (engine
+version, adapter digest, when it observed a capability) is shown exactly as reported
+and left out when not reported; Brain never fills it in.
 _Avoid_: worker, agent (an agent is a definition, a runner executes it), worker pool
 
 **Mission branch**:
@@ -476,6 +478,13 @@ _Avoid_: version, build, bundle
 The SHA-256 content digest addressing an exact configuration. Documents reference each
 other by digest of exact bytes.
 _Avoid_: hash, checksum, version
+
+**Skill**:
+A release document of instructions an agent pins by digest. When a task names one of its
+trigger words the Governor loads its text into the agent's instructions for that job.
+Text only: it never adds a tool, permission or effect class, and compiling rejects one
+that tries, carries a secret or is too large.
+_Avoid_: plugin, ability, native skill
 
 **Draft**:
 An editable, versioned bundle of configuration documents awaiting validation and

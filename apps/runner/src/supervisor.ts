@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { cpus, freemem } from "node:os";
 import { join } from "node:path";
 import { domainDigest, sha256Digest } from "@brain/contracts";
-import type { ArtifactRef, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
+import type { ArtifactRef, EngineInfo, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
 import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
 import { brokerRead } from "./tools/broker-read";
@@ -15,7 +15,7 @@ import { DurableEventSpool } from "./spool-durable";
 import { GovernorClient, GovernorProtocolError } from "./governor-client";
 import { LauncherClient } from "./launcher-client";
 import { payloadValidator } from "@brain/contracts/validate";
-import { promptWithContext, runAgentExecution, selectEngine } from "./engines/run";
+import { instructionsWithSkills, promptWithContext, runAgentExecution, selectEngine } from "./engines/run";
 import { advertisedCapabilities, advertisedIsolationModes, engineIsolation } from "./engines/isolation";
 import type { HostedRoute } from "./engines/pi";
 
@@ -96,15 +96,22 @@ export function loadOrCreateKeys(stateDir: string): { publicKeyPem: string; priv
   return { publicKeyPem, privateKeyPem };
 }
 
-async function availableEngines(cfg: RunnerConfig) {
-  const available = [];
+/** The engines that answered their probe, and when the probing finished: the time every observation made from it carries. */
+async function availableEngines(cfg: RunnerConfig): Promise<{ engines: EngineInfo[]; probedAt: string }> {
+  const engines: EngineInfo[] = [];
   for (const id of cfg.engines ?? ["fixture"]) {
     const engine = selectEngine(id);
     if (!engine) continue;
     const info = await engine.probe();
-    if (info.features.includes("sessions")) available.push(info);
+    if (info.features.includes("sessions")) engines.push(info);
   }
-  return available;
+  return { engines, probedAt: new Date().toISOString() };
+}
+
+/** What this runner observes about itself, each dated by the probe that produced it (never by when the message is assembled). */
+function observedCapabilities(cfg: RunnerConfig, probed: { engines: readonly EngineInfo[]; probedAt: string }) {
+  const expiresAt = new Date(Date.parse(probed.probedAt) + 5 * 60_000).toISOString();
+  return advertisedCapabilities(cfg.capabilities, probed.engines).map((capability) => ({ capability, observedAt: probed.probedAt, source: "runner-probe" as const, verified: true, expiresAt }));
 }
 
 /**
@@ -115,12 +122,12 @@ async function challengeHello(cfg: RunnerConfig, credential: string, bootNonce =
   const keys = loadOrCreateKeys(cfg.stateDir);
   const client = new GovernorClient(cfg);
   const { challengeId, nonce } = await client.challenge(cfg.runnerId, credential);
-  const engines = await availableEngines(cfg);
-  const capabilities = advertisedCapabilities(cfg.capabilities, engines);
+  const probed = await availableEngines(cfg);
+  const { engines } = probed;
   const helloBody = {
     contractVersion: "brain.runner/v1", runnerId: cfg.runnerId, bootNonce, runtimeVersion: "brain-runner/0.1.0",
     configDigest: `sha256:${"0".repeat(64)}`,
-    capabilities: capabilities.map((capability) => ({ capability, observedAt: new Date().toISOString(), source: "runner-probe", verified: true, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() })),
+    capabilities: observedCapabilities(cfg, probed),
     engines,
     capacity: runnerCapacity(),
     isolationModes: advertisedIsolationModes(engines),
@@ -186,7 +193,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
   const ack = await client.ack(offer.attemptId, ackBody);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
   const artifactBytes = await client.executionArtifact(offer.attemptId, offer.execution.artifact.digest, offer.execution.artifact.bytes);
-  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; modelRoute?: Parameters<typeof hostedRouteOf>[0]; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> } };
+  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; modelRoute?: Parameters<typeof hostedRouteOf>[0]; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> }; skills?: Array<{ id: string; digest: string; text: string }> };
   // The execution deadline is the lease: a monotonic clock (performance.now)
   // is armed from the ack's server lease expiry and refreshed by every
   // successful renewal, so wall-clock adjustments cannot extend the window.
@@ -299,7 +306,13 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       const ref = step.uses?.release;
       if (!ref) throw new Error("agent job has no pinned agent release");
       const asset = await client.agentInstructions(offer.configDigest, ref.id, ref.digest);
-      const instructions = asset.instructions;
+      // Skills the Governor loaded for this task are the agent's own pinned documents, added to its instructions as text; they carry no tools.
+      const skills = payload.skills ?? [];
+      for (const skill of skills) {
+        if (!asset.agent.spec.skills?.some((pinned) => pinned.id === skill.id && pinned.digest === skill.digest)) throw new Error(`skill ${skill.id} is not pinned by agent ${ref.id}`);
+      }
+      const instructions = instructionsWithSkills(asset.instructions, skills);
+      if (skills.length > 0) await emit("progress", { phase: "skills-loaded", skills: skills.map((skill) => ({ id: skill.id, digest: skill.digest })), instructionsDigest: sha256Digest(new TextEncoder().encode(instructions)) });
       const configured = cfg.engines ?? [process.env["BRAIN_RUNNER_ENGINE"] ?? "fixture"];
       // The engine must be configured here and provide the isolation this step's placement requires (ADR 0035): an engine that cannot is never used,
       // even when the runner also has one that can.
@@ -544,7 +557,7 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
   const launcherCheck = launcherHealthCheck();
   const heartbeatTimer = setInterval(() => {
     seq += 1;
-    void Promise.all([availableEngines(cfg), launcherCheck()]).then(([engines, health]) => client.heartbeat({
+    void Promise.all([availableEngines(cfg), launcherCheck()]).then(([probed, health]) => client.heartbeat({
       // Full RunnerHeartbeat body: command delivery sits on the declared shape.
       runnerId: cfg.runnerId,
       runnerEpoch: session.epoch,
@@ -558,8 +571,8 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
       },
       activeAttemptIds: [...controls.activeAttemptIds],
       observedAt: new Date().toISOString(),
-      capabilities: advertisedCapabilities(cfg.capabilities, engines)
-        .map((capability) => ({ capability, verified: true, source: "runner-probe", observedAt: new Date().toISOString(), expiresAt: new Date(Date.now()+300000).toISOString() })),
+      capabilities: observedCapabilities(cfg, probed),
+      engines: probed.engines,
     })).then((ack) => {
       // At-most-once delivery: the Governor deleted the control rows when it
       // built this ack. Stop joins the watchdog path; steer waits in the

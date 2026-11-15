@@ -6,6 +6,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { putBytes, readVerified } from "../artifacts/index";
 import { requireConfigurationAdmin } from "./activation";
+import type { CompiledSkill } from "./skills";
 import { compileRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "./compiler";
 
 /**
@@ -28,6 +29,7 @@ export interface StoredRelease {
   agents?: Record<string, Agent>;
   evaluators?: Record<string, Evaluator>;
   plays?: Record<string, Play>;
+  skills?: Record<string, CompiledSkill>;
   tools?: unknown;
   schemas?: Record<string, JsonValue>;
 }
@@ -143,7 +145,7 @@ export function stageRelease(store: Store, actor: ActorContext, docs: readonly S
   s.inTx(s.control, () => {
     const compilerDigest = (compiled.manifest as { compilerDigest?: string }).compilerDigest ?? compiled.digest;
     s.control.prepare("INSERT OR IGNORE INTO config_releases(digest, organization_id, source_revision, compiler_digest, source_documents_json, manifest_json, created_at_ms) VALUES (?,?,?,?,?,?,?)")
-      .run(compiled.digest, actor.organizationId, sourceRevision, compilerDigest, JSON.stringify(docs), JSON.stringify({ manifest: compiled.manifest, workflows: compiled.workflows, agents: compiled.agents, evaluators: compiled.evaluators, plays: compiled.plays, tools: compiled.tools, schemas: compiled.schemas }), s.now());
+      .run(compiled.digest, actor.organizationId, sourceRevision, compilerDigest, JSON.stringify(docs), JSON.stringify({ manifest: compiled.manifest, workflows: compiled.workflows, agents: compiled.agents, evaluators: compiled.evaluators, plays: compiled.plays, skills: compiled.skills, tools: compiled.tools, schemas: compiled.schemas }), s.now());
     for (const script of scripts ?? []) {
       const bytes = new Uint8Array(Buffer.from(script.bytesBase64, "base64"));
       const digest = putBytes(s, bytes);

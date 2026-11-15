@@ -1320,6 +1320,15 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 1000000000
+            },
+            "skills": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ReleaseRef"
+              },
+              "minItems": 0,
+              "maxItems": 8,
+              "uniqueItems": true
             }
           },
           "required": [
@@ -1626,6 +1635,60 @@
             "tool",
             "requiredChecks",
             "independence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "additionalProperties": false
+    },
+    "Skill": {
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "type": "string",
+          "const": "brain.keyrus/v1"
+        },
+        "kind": {
+          "type": "string",
+          "const": "Skill"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "triggers": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 64
+              },
+              "minItems": 1,
+              "maxItems": 16,
+              "uniqueItems": true
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "description",
+            "triggers",
+            "text"
           ],
           "additionalProperties": false
         }
@@ -2295,7 +2358,6 @@
       },
       "required": [
         "id",
-        "version",
         "adapterDigest",
         "features"
       ],
@@ -2556,6 +2618,14 @@
           },
           "minItems": 0,
           "maxItems": 200
+        },
+        "engines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EngineInfo"
+          },
+          "minItems": 0,
+          "maxItems": 20
         }
       },
       "required": [

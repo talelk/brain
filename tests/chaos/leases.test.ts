@@ -42,7 +42,7 @@ describe("lease contention across processes (T18)", () => {
           contractVersion: "brain.runner/v1", runnerId, bootNonce: `boot-${runnerId}`, configDigest: DIGEST_A,
           capacity: { cpuMillicores: 4000, memoryMb: 8192, diskMb: 20480, slots: 1 },
           capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", "engine-isolation:fixture:ephemeral-container"]
-            .map((capability) => ({ capability, verified: true, source: "runner-probe" })),
+            .map((capability) => ({ capability, verified: true, source: "runner-probe", observedAt: new Date().toISOString() })),
         };
         const helloDigest = domainDigest("brain:runner-hello:v1", body as unknown as JsonValue);
         const signed = JSON.stringify({ challengeId: chal.challengeId, nonce: chal.nonce, runnerId, bootNonce: body["bootNonce"], helloDigest });

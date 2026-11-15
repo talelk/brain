@@ -16,7 +16,7 @@ function enrolled(w: TestWorld, runnerId = "runner-sec"): { credential: string; 
     const body: Record<string, unknown> = {
       contractVersion: "brain.runner/v1", runnerId, bootNonce, configDigest: DIGEST_A,
       capacity: { cpuMillicores: 4000, memoryMb: 8192, diskMb: 20480, slots: 1 },
-      capabilities: [{ capability: "os:linux", verified: true, source: "runner-probe" }, { capability: "privileged:root", verified: true, source: "hello" }],
+      capabilities: [{ capability: "os:linux", verified: true, source: "runner-probe", observedAt: new Date().toISOString() }, { capability: "privileged:root", verified: true, source: "hello", observedAt: new Date().toISOString() }],
     };
     mutate?.(body);
     const helloDigest = domainDigest("brain:runner-hello:v1", body as unknown as JsonValue);

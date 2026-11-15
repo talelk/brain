@@ -23,7 +23,7 @@ export class FixtureEngine implements EngineAdapter {
   constructor(private readonly toolBindings: readonly EngineToolBinding[] = []) {}
 
   async probe() {
-    return { id: "fixture", version: "1", adapterDigest: sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url)))), features: ["sessions", "steer"] };
+    return { id: "fixture", adapterDigest: sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url)))), features: ["sessions", "steer"] };
   }
 
   private push(kind: EngineEvent["kind"], payload: EngineEvent["payload"]): void {

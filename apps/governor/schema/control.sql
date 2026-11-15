@@ -115,6 +115,7 @@ CREATE TABLE runners (
   disk_reserved INTEGER NOT NULL DEFAULT 0 CHECK(disk_reserved >= 0 AND disk_reserved <= disk_capacity),
   slots_reserved INTEGER NOT NULL DEFAULT 0 CHECK(slots_reserved >= 0 AND slots_reserved <= slot_capacity),
   deregistered_at_ms INTEGER,
+  engines_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(engines_json)),
   UNIQUE(id, organization_id)
 ) STRICT;
 CREATE TABLE runner_capabilities (
