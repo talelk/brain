@@ -3,7 +3,7 @@ import {
   beginDecision, beginRecovery, returnToReview, settleDecision, type ApprovalState,
 } from "../../apps/web/src/ui/approval-controller";
 import { framesAfter } from "../../apps/web/src/ui/logs/frames";
-import { dragTargets, nextActionOf, workGraph } from "../../apps/web/src/ui/work/work-model";
+import { dateFromDueAt, dragTargets, dueAtFromDate, nextActionOf, priorityRank, tagsOf, workGraph } from "../../apps/web/src/ui/work/work-model";
 import type { WorkItem } from "@brain/contracts";
 import { shareStructure } from "../../apps/web/src/data/share";
 import { EventSpool } from "../../apps/runner/src/spool";
@@ -86,7 +86,7 @@ describe("web and runner unit mechanisms", () => {
   it("the mission board offers a drag only for plain governed transitions", () => {
     const item = (id: string, state: WorkItem["state"], extra: Partial<WorkItem> = {}): WorkItem => ({
       workItemId: id, missionId: "m", planVersionId: "p", planTaskId: id, workspaceId: "w", title: id, state, criteria: [], dependsOn: [],
-      nextAction: "", version: 1, createdAt: "", updatedAt: "", failedAttempts: 0, parked: false, ...extra,
+      nextAction: "", version: 1, createdAt: "", updatedAt: "", failedAttempts: 0, parked: false, priority: "normal", tags: [], ...extra,
     });
     const items = [item("a", "done", { evidenceDigest: "sha256:x" }), item("b", "in-progress"), item("c", "review"), item("d", "ready"), item("e", "blocked", { dependsOn: ["b"] }), item("f", "blocked")];
     const find = (id: string) => items.find((entry) => entry.workItemId === id)!;
@@ -100,6 +100,21 @@ describe("web and runner unit mechanisms", () => {
     expect(nextActionOf(find("c"), true, true)?.kind).toBe("handoff");
     expect(nextActionOf(find("c"), false, true)?.kind).toBe("review");
     expect(nextActionOf(find("d"), false, false)).toBeUndefined();
+  });
+
+  it("priority, tags and due dates read the same on every view (#116)", () => {
+    const item = (id: string, priority: WorkItem["priority"], tags: string[]): WorkItem => ({
+      workItemId: id, missionId: "m", planVersionId: "p", planTaskId: id, workspaceId: "w", title: id, state: "ready", criteria: [], dependsOn: [],
+      nextAction: "", version: 1, createdAt: "", updatedAt: "", failedAttempts: 0, parked: false, priority, tags,
+    });
+    expect(["low", "urgent", "normal", "high"].map((p) => priorityRank(p as WorkItem["priority"]))).toEqual([3, 0, 2, 1]);
+    expect(tagsOf([item("a", "low", ["ops", "docs"]), item("b", "high", ["ops"]), item("c", "normal", [])])).toEqual(["docs", "ops"]);
+    // A due date is a calendar day: it survives the round trip through the timestamp the Governor stores, and is the day's last moment.
+    const dueAt = dueAtFromDate("2099-05-01")!;
+    expect(dateFromDueAt(dueAt)).toBe("2099-05-01");
+    expect(new Date(dueAt).getHours()).toBe(23);
+    expect(dueAtFromDate("")).toBeNull();
+    expect(dateFromDueAt(undefined)).toBe("");
   });
 
   it("the roadmap stages work by its longest dependency chain and finds the critical path", () => {

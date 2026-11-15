@@ -502,11 +502,10 @@ CREATE TABLE session_controls (
  id TEXT PRIMARY KEY, session_id TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL,
  created_at_ms INTEGER NOT NULL
 ) STRICT;
--- Workflow engine state: dispatch input, step outputs, child links, durable waits.
+-- Workflow engine state: dispatch input, step outputs, child links, durable waits. run_inputs.priority (0 low .. 3 urgent) is that of the work item the run was dispatched for; every job of the run is created with it, and work with no item is normal (1).
 CREATE TABLE run_inputs (
  run_id TEXT PRIMARY KEY, input_json TEXT NOT NULL, workflow_json TEXT NOT NULL,
  actor_id TEXT NOT NULL, runner_id TEXT,
- -- The priority (0 low .. 3 urgent) of the work item the run was dispatched for; every job of the run is created with it. Work with no item is normal (1).
  priority INTEGER NOT NULL DEFAULT 1 CHECK(priority BETWEEN 0 AND 3)
 ) STRICT;
 CREATE TABLE step_outputs (
