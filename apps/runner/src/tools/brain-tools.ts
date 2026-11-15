@@ -75,6 +75,9 @@ function payloadOf(toolId: string, input: Readonly<Record<string, unknown>>, gra
       const { summary, decisions, openQuestions, nextAction, referencedOutputs } = input;
       return { workItemId: grant.workItemId, notes: defined({ summary: summary as JsonValue, decisions: decisions as JsonValue | undefined, openQuestions: openQuestions as JsonValue | undefined, nextAction: nextAction as JsonValue | undefined, referencedOutputs: referencedOutputs as JsonValue | undefined }) };
     }
+    case "mission.delegate":
+      // The Governor takes the parent from the attempt's own session: the model names the sub-task, never a session.
+      return defined({ missionId: grant.missionId, task: text("task") ?? "", memberId: text("memberId") });
     case "mission.comment": {
       const workItemId = text("workItemId") ?? grant.workItemId;
       if (!workItemId) return "this session serves no task: name the work item to comment on";

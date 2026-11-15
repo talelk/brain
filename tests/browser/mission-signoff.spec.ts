@@ -182,16 +182,20 @@ test("with a hosted model the judge's opinions appear beside the evidence, marke
   // The administrator turns the hosted model on through the settings form.
   await page.goto(`${governor.url}/settings?tab=work&w=ws-judge`);
   const hosted = page.locator("[data-work-hosted]");
-  await expect(hosted).toContainText("Off", { timeout: 30_000 });
+  await expect(hosted.locator("[data-work-routes-empty]")).toBeVisible({ timeout: 30_000 });
   await expect(hosted).toContainText("advisory model judge");
-  await hosted.getByRole("checkbox", { name: "Use a hosted model for this workspace" }).check();
-  await hosted.getByLabel("Vendor", { exact: true }).fill("Acme");
-  await hosted.getByLabel("Model", { exact: true }).fill("acme-judge");
-  await hosted.getByLabel("Address", { exact: true }).fill("https://judge.acme.example/v1");
-  await hosted.getByLabel("Input price (USD per million tokens)").fill("0.15");
-  await hosted.getByLabel("Output price (USD per million tokens)").fill("0.6");
+  await hosted.getByRole("button", { name: "Add a route", exact: true }).click();
+  const route = hosted.locator("[data-work-route='1']");
+  await route.getByRole("checkbox", { name: "Use this route (route 1)" }).check();
+  await route.getByLabel("Route name (route 1)").fill("judge");
+  await route.getByLabel("API key reference (route 1)").fill("acme-judge");
+  await route.getByLabel("Vendor (route 1)").fill("Acme");
+  await route.getByLabel("Model (route 1)").fill("acme-judge");
+  await route.getByLabel("Address (route 1)").fill("https://judge.acme.example/v1");
+  await route.getByLabel("Input price (USD per million tokens) (route 1)").fill("0.15");
+  await route.getByLabel("Output price (USD per million tokens) (route 1)").fill("0.6");
   await hosted.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(hosted.getByRole("status")).toHaveText("The hosted model setting was saved.");
+  await expect(hosted.getByRole("status")).toHaveText("The model routes were saved.");
 
   // The person finishes the mission; the sign-off view appears and the judge reads the evidence.
   const missionId = await seedFinishedMission(brain, actor, cookie, "ws-judge", "judged");
@@ -243,8 +247,8 @@ test("a hosted model that does not answer leaves no opinion and does not stop th
   }) as typeof fetch;
   const scoped: ActorContext = (await brain.resolveActor(new Headers({ cookie }), "ws-outage")).actor;
   const set = await brain.executeCommand(scoped, {
-    contractVersion: "brain.command/v1", commandId: "cmd-hosted", commandType: "workspace.hostedModel.set", workspaceId: "ws-outage", idempotencyKey: "hosted",
-    payload: { enabled: true, vendor: "Acme", model: "acme-judge", baseUrl: "https://judge.acme.example/v1", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 },
+    contractVersion: "brain.command/v1", commandId: "cmd-hosted", commandType: "workspace.modelRoutes.set", workspaceId: "ws-outage", idempotencyKey: "hosted",
+    payload: { routes: [{ routeId: "judge", enabled: true, vendor: "Acme", keyRef: "acme-judge", costTier: "standard", model: "acme-judge", baseUrl: "https://judge.acme.example/v1", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 }] },
   } as never, "hosted");
   expect(set.receipt.accepted).toBe(true);
   const missionId = await seedFinishedMission(brain, actor, cookie, "ws-outage", "outage");

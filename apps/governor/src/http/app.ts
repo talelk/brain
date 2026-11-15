@@ -1013,6 +1013,8 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     try { brain.jobProtocol.dispatchAutomations(); } catch { /* a bad automation must not break expiry */ }
     // T66: pending mission wakes start at most one coordinator run per mission.
     try { brain.missions.pumpCoordinators(); } catch { /* a coordinator failure must not break expiry */ }
+    // Delegated child sessions whose run has not started (a restart came between the command and its run) start now.
+    try { brain.delegationRuns.sweepAll(); } catch { /* a delegation failure must not break expiry */ }
     // Auto-start: ready work of missions in auto mode starts; also the crash-recovery backstop.
     void brain.autoStart.sweepAll().catch(() => undefined);
     // #50: requested challenges start their reviewer run and finished ones are collected.

@@ -1,7 +1,7 @@
-import { domainDigest } from "@brain/contracts";
+import { domainDigest, roleScopes } from "@brain/contracts";
 import type { AcceptedDecision, ActorContext, AutonomyPolicy, AutonomyPreset, ExecutionLink, JsonValue, Mission, MissionBrief, MissionOutcome, OutputInput, PlanAssignment, PlanOperation, PlanTask, PlanVersion, TeamMember, WorkItem, WorkItemPriority, WorkItemState } from "@brain/contracts";
 import type { Store } from "../../application/store";
-import { requireWorkspaceRead } from "../../application/authz";
+import { hasWorkspaceMembership, requireWorkspaceRead, scopesForPrincipal } from "../../application/authz";
 import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
 import { assertPlanTasks } from "../../domain/work-plan";
 import { JOB_PRIORITY, normalizeTags } from "../../domain/work-priority";
@@ -26,7 +26,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, QUOTA_MAX_WAITS, REMEDY, classifyFailure, lessonText, quotaWaitMs, waitWords, type FailureClass } from "../../domain/failure";
 import { GENERAL_TASK_WORKFLOW } from "../workflows/index";
-import { hostedConfig, hostedUsable } from "../jobs/index";
+import { modelRoutesUsable } from "../jobs/index";
 import { missionTimeline } from "./timeline";
 import { observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
@@ -65,6 +65,9 @@ const CHECK_WORDS: Readonly<Record<string, string>> = {
   "criteria-met": "not every acceptance criterion is answered, with evidence",
 };
 /** The team member a task is assigned to, when it is assigned to an agent; the machine principal of its sessions is that member's (ADR 0032). */
+/** The mission and member of a delegated child's run (ADR 0053), which is no task's run; undefined for any other run. */
+const delegatedRunOf = (db: ReturnType<Store["workspaceDb"]>, runId: string): { missionId: string; memberId: string | null } | undefined =>
+  db.prepare("SELECT mission_id AS missionId, member_id AS memberId FROM delegation_runs WHERE run_id=?").get(runId) as { missionId: string; memberId: string | null } | undefined;
 const memberOf = (assignmentJson: string | null): string | null => {
   const assignment = assignmentJson ? JSON.parse(assignmentJson) as PlanAssignment : undefined;
   return assignment?.kind === "agent" ? assignment.id : null;
@@ -248,6 +251,7 @@ export class MissionService {
       case "mission.policy.set": return this.setPolicy(actor, workspaceId, command.payload, command.expectedVersion);
       case "mission.message.send": return this.message(actor, workspaceId, command.payload);
       case "mission.question.ask": return this.ask(actor, workspaceId, command.payload);
+      case "mission.owner.transfer": return this.transferOwner(actor, workspaceId, command.payload, command.expectedVersion);
       case "mission.budget.set": return this.setBudget(actor, workspaceId, command.payload, command.expectedVersion);
       case "workspace.spendCap.set": return this.setSpendCap(actor, workspaceId, command.payload);
       case "workItem.spendCap.raise": return this.raiseTaskCap(actor, workspaceId, command.payload);
@@ -738,6 +742,12 @@ export class MissionService {
   sessionBinding(organizationId: string, workspaceId: string, runId: string): { missionId: string; memberId: string | null; actingFor: string; workItemId?: string } | undefined {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const task = db.prepare("SELECT l.mission_id AS missionId, l.work_item_id AS workItemId, w.assignment_json AS assignment FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? ORDER BY l.created_at_ms DESC LIMIT 1").get(runId) as { missionId: string; workItemId: string; assignment: string | null } | undefined;
+    // A delegated child acts as the member it was given, on no task of its own: its tools must not default to its parent's task (ADR 0053).
+    const delegated = task ? undefined : delegatedRunOf(db, runId);
+    if (delegated) {
+      const owner = db.prepare("SELECT owner_id AS owner FROM missions WHERE id=?").get(delegated.missionId) as { owner: string } | undefined;
+      return owner ? { missionId: delegated.missionId, memberId: delegated.memberId, actingFor: owner.owner } : undefined;
+    }
     const coordinating = task ? undefined : db.prepare("SELECT mission_id AS missionId FROM mission_runs WHERE run_id=? AND purpose='coordinator'").get(runId) as { missionId: string } | undefined;
     const missionId = task?.missionId ?? coordinating?.missionId;
     if (!missionId) return undefined;
@@ -766,6 +776,58 @@ export class MissionService {
     return workspaceId;
   }
 
+  /**
+   * The mission's owner hands it to another workspace member (ownership is the person a mission and its sessions act for).
+   * Only the current owner or a workspace administrator may. The new owner must be an active human member who holds what the mission's sessions
+   * need from the person they act for: the agent-session scopes, plus dispatch while the mission starts its own tasks. Attention items and
+   * notifications read the owner at the time they are derived, so they follow at once. The mission's session principals are re-pointed in the
+   * same step; running attempts keep their credentials and fences, and their principal now acts for the new owner.
+   */
+  private transferOwner(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only humans hand a mission to another owner");
+    const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
+    assertExpectedVersion(mission.version, expectedVersion);
+    assertNotClosed(mission);
+    if (actor.actorId !== mission.owner_id && !actor.scopes.includes("workspace:admin")) throw new BrainDomainError("FORBIDDEN", "only the mission's owner or a workspace administrator hands it over");
+    const newOwnerId = String(payload["newOwnerId"]);
+    if (newOwnerId === mission.owner_id) throw new BrainDomainError("INVALID_ARGUMENT", "the mission already belongs to that person");
+    const person = this.store.control.prepare("SELECT 1 FROM principals WHERE id=? AND organization_id=? AND kind='human' AND disabled_at_ms IS NULL").get(newOwnerId, actor.organizationId);
+    if (!person || !hasWorkspaceMembership(this.store, newOwnerId, actor.organizationId, workspaceId)) throw new BrainDomainError("NOT_FOUND", "the new owner must be an active member of this workspace");
+    const missing = this.missingForOwner(newOwnerId, actor.organizationId, workspaceId, mission.auto_start === 1);
+    if (missing.length > 0) throw new BrainDomainError("FORBIDDEN", `the new owner could not stand behind this mission's sessions: missing ${missing.join(", ")}`);
+    const db = this.db(actor, workspaceId);
+    this.store.inTx(db, () => {
+      db.prepare("UPDATE missions SET owner_id=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?").run(newOwnerId, this.store.now(), mission.id, mission.version);
+      this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.ownerChanged", payload: { missionId: mission.id, from: mission.owner_id, to: newOwnerId, by: actor.actorId } });
+    });
+    // The sessions of the mission act for whoever owns it now: running attempts keep their credential and fence, the principal behind them is re-pointed.
+    this.store.control.prepare("UPDATE agent_principals SET acting_for=? WHERE mission_id=? AND acting_for<>?").run(newOwnerId, mission.id, newOwnerId);
+    this.store.emit(this.store.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "mission", aggregateId: mission.id, eventType: "mission.ownerTransferred",
+      payload: { actorId: actor.actorId, missionId: mission.id, from: mission.owner_id, to: newOwnerId, message: `Handed over from ${this.nameOf(mission.owner_id)} to ${this.nameOf(newOwnerId)}` }, destinations: [`workspace:${workspaceId}`] });
+    return mission.id;
+  }
+
+  /** The scopes a person lacks to stand behind a mission's sessions: the agent-session role, plus dispatch while the mission starts its own tasks. */
+  private missingForOwner(principalId: string, organizationId: string, workspaceId: string, autoStart: boolean): string[] {
+    const held = new Set(scopesForPrincipal(this.store, principalId, organizationId, workspaceId));
+    return [...roleScopes("agent-session"), ...(autoStart ? ["workflow:dispatch"] : [])].filter((scope) => !held.has(scope));
+  }
+
+  /** The active people who could take a mission over (what the hand-over dialog offers): members of the workspace who hold what its sessions need. */
+  ownerCandidates(actor: ActorContext, workspaceId: string): JsonValue {
+    this.db(actor, workspaceId);
+    const rows = this.store.control.prepare(`SELECT DISTINCT m.principal_id AS id, u.name AS name, u.email AS email FROM workspace_memberships m JOIN principals p ON p.id=m.principal_id AND p.organization_id=m.organization_id
+      LEFT JOIN "user" u ON u.id=p.auth_subject_id WHERE m.workspace_id=? AND m.organization_id=? AND m.revoked_at_ms IS NULL AND p.kind='human' AND p.disabled_at_ms IS NULL ORDER BY m.principal_id`).all(workspaceId, actor.organizationId) as Array<{ id: string; name: string | null; email: string | null }>;
+    return { items: rows.filter((row) => this.missingForOwner(row.id, actor.organizationId, workspaceId, false).length === 0)
+      .map((row) => ({ principalId: row.id, displayName: (row.name || row.id).slice(0, 256), ...(row.email ? { email: row.email.slice(0, 320) } : {}) })) } as unknown as JsonValue;
+  }
+
+  /** A person as the audit trail reads them: the sign-in account's name, the id only when there is none. */
+  private nameOf(principalId: string): string {
+    const row = this.store.control.prepare('SELECT u.name AS name FROM principals p JOIN "user" u ON u.id=p.auth_subject_id WHERE p.id=?').get(principalId) as { name: string } | undefined;
+    return (row?.name || principalId).slice(0, 120);
+  }
+
   /** A human sets the mission's budget (the note names what changed); raising it is what lifts a budget pause on resume. */
   private setBudget(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
     if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only humans set a mission budget");
@@ -788,7 +850,9 @@ export class MissionService {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const work = db.prepare("SELECT mission_id FROM execution_links WHERE run_id=? LIMIT 1").get(runId) as { mission_id: string } | undefined;
     const coordinatorRun = work ? undefined : db.prepare("SELECT mission_id FROM mission_runs WHERE run_id=?").get(runId) as { mission_id: string } | undefined;
-    const link = work ?? coordinatorRun;
+    // A delegated child is admitted like any member's attempt: it counts toward the member cap and spends the mission's budget (ADR 0053).
+    const delegatedRun = work || coordinatorRun ? undefined : delegatedRunOf(db, runId);
+    const link = work ?? coordinatorRun ?? (delegatedRun ? { mission_id: delegatedRun.missionId } : undefined);
     if (!link) {
       // A challenge's reviewer run is bound to no work item but is charged to the mission it reviews. It is found by its execution key
       // (the command id `challenge-<id>`), which exists before the challenge learns the run id.
@@ -1559,7 +1623,7 @@ export class MissionService {
     if (queryType === "missionMessages.list") return { items: listMessages(this.store, db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "missions.timeline") return missionTimeline(this.store, db, actor.organizationId, workspaceId, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) as unknown as JsonValue;
     if (queryType === "handoffs.forWorkItem") return { items: dependencyHandoffs(db, this.workItemRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
-    if (queryType === "missionBundles.latest") return (latestMissionBundle(db, this.missionRow(actor, workspaceId, String(resourceId)).id, hostedUsable(hostedConfig(this.store, workspaceId))) ?? null) as unknown as JsonValue;
+    if (queryType === "missionBundles.latest") return (latestMissionBundle(db, this.missionRow(actor, workspaceId, String(resourceId)).id, modelRoutesUsable(this.store, workspaceId)) ?? null) as unknown as JsonValue;
     if (queryType === "missions.forSubject") {
       const rows = db.prepare("SELECT m.* FROM mission_subjects s JOIN missions m ON m.id=s.mission_id WHERE s.subject_id=? ORDER BY m.created_at_ms DESC LIMIT ?").all(String(resourceId), limit) as MissionRow[];
       return { items: rows.map((row) => this.mission(workspaceId, row)) } as unknown as JsonValue;

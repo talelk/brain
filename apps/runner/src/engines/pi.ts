@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { sha256Digest } from "@brain/contracts";
+import { modelKeyEnvName, resolveModelKey, sha256Digest } from "@brain/contracts";
 import type { ArtifactRef, Checkpoint, EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
 import { engineFailureDetail, QUOTA_TEXT } from "./failure-detail";
@@ -15,7 +15,16 @@ import { GovernedToolCalls } from "./tool-calls";
  * and is never part of any job. Only an attempt the Governor routed (a check or a second attempt after a model slip) carries one, with the
  * model's prices: the attempt's spend is its tokens times those prices, so it reaches the dollar caps.
  */
-export interface HostedRoute extends HostedPrices { readonly baseUrl: string; readonly model: string }
+export interface HostedRoute extends HostedPrices {
+  readonly routeId: string;
+  readonly baseUrl: string;
+  readonly model: string;
+  /** The key's reference (ADR 0055): resolved from this runner's environment as BRAIN_MODEL_KEY_<REFERENCE>, never carried in a job. */
+  readonly keyRef: string;
+}
+
+/** What an attempt is told when this runner has no key for a route: the route is skipped, nothing was sent anywhere. */
+export const missingKeyMessage = (keyRef: string): string => `The model route needs its API key on this runner (${modelKeyEnvName(keyRef)}); the attempt was not sent anywhere`;
 
 type PiSession = { dispose: () => void; abort: () => Promise<void>; abortRetry: () => void; getSessionStats: () => { assistantMessages: number; tokens: { input: number; output: number; cacheRead: number; total: number }; cost: number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; agent: { onPayload?: (payload: unknown, model: unknown) => Promise<unknown> | unknown }; readonly isStreaming: boolean };
 
@@ -78,8 +87,8 @@ export class PiEngine implements EngineAdapter {
     mkdirSync(agentDir, { recursive: true });
     mkdirSync(this.sessionsDir(), { recursive: true });
     // A routed attempt reads its own models file, named explicitly, so it can never change which model another attempt of this process uses.
-    const hostedKey = this.route ? process.env["BRAIN_HOSTED_MODEL_API_KEY"] : undefined;
-    if (this.route && !hostedKey) throw Object.assign(new Error("The hosted model needs its API key on this runner (BRAIN_HOSTED_MODEL_API_KEY); the attempt was not sent anywhere"), { code: "UNSUPPORTED_CAPABILITY" });
+    const hostedKey = this.route ? resolveModelKey(this.route.keyRef) : undefined;
+    if (this.route && !hostedKey) throw Object.assign(new Error(`${missingKeyMessage(this.route.keyRef)}`), { code: "UNSUPPORTED_CAPABILITY" });
     const providerId = this.route ? "hosted-model" : "local-qwen";
     const modelsFile = join(agentDir, this.route ? `models-hosted-${spec.jobId}.json` : "models.json");
     writeFileSync(modelsFile, JSON.stringify({

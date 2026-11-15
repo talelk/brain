@@ -13,7 +13,7 @@ import { evaluateRunner, type RunnerView } from "../../domain/placement";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 import { isDraining } from "./drain";
-import { heldForHostedModel, modelRouteFor } from "./model-route";
+import { modelRoutesForJob, settleRouteReport } from "./model-route";
 import { effectOutcomesFor, executionArtifactId, HOLD_REASON } from "./effect-hold";
 import { ensureSkills, promptTaskText, skillTokens } from "./skill-selection";
 import { heldEffect, retryFailedAttempt, stampAttemptDeadline, stepPolicy } from "./step-policy";
@@ -130,8 +130,8 @@ export function claim(s: Store, deps: {
           // Host tools (host.*) run only on a runner group the owner marked for them and bound to this workspace (ADR 0024).
           if (jobUsesHostTools(s, runner.organizationId, job, hostJobs) && !hostGroupFor(s, runner.organizationId, view.groupId, String(job["workspace_id"]))) continue;
           if (!evaluateRunner(placement, demand, view, s.now()).eligible || !deps.isEvaluatorEligible(runner.runnerId, String(job["id"]))) continue;
-          // A check or second attempt that would run on a hosted model that is down waits for it (ADR 0023); nothing else is held.
-          if (heldForHostedModel(s, runner.organizationId, String(job["workspace_id"]), String(job["workflow_run_id"]), () => (s.control.prepare("SELECT kind FROM job_payloads WHERE job_id=?").get(String(job["id"])) as { kind: string } | undefined)?.kind ?? "")) continue;
+          // A check or second attempt whose every route is down or out of quota waits for one (ADR 0023, ADR 0055); nothing else is held.
+          if (modelRoutesForJob(s, String(job["id"])).held) continue;
           eligible.push(job);
           found++;
         }
@@ -354,11 +354,11 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
   if (!row) throw new BrainDomainError("NOT_FOUND", "attempt not found");
   const payloadRow = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(String(row["job_id"])) as { kind: string; payload_json: string } | undefined;
   let artifactText = payloadRow?.payload_json ?? "{}";
-  // The hosted-model route is decided once, when the job is first offered, and stored with the payload so every later offer pins the same bytes.
+  // The model routes are decided once, when the job is first offered, and stored with the payload so every later offer pins the same bytes.
   if (!s.control.prepare("SELECT 1 FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(`exec-${String(row["job_id"])}`, String(row["organization_id"]))) {
-    const route = modelRouteFor(s, String(row["organization_id"]), String(row["workspace_id"]), String(row["workflow_run_id"]), payloadRow?.kind ?? "");
-    if (route) {
-      artifactText = JSON.stringify({ ...(JSON.parse(artifactText) as Record<string, JsonValue>), modelRoute: route as unknown as JsonValue });
+    const { routes } = modelRoutesForJob(s, String(row["job_id"]));
+    if (routes.length > 0) {
+      artifactText = JSON.stringify({ ...(JSON.parse(artifactText) as Record<string, JsonValue>), modelRoutes: routes as unknown as JsonValue });
       s.control.prepare("UPDATE job_payloads SET payload_json=? WHERE job_id=?").run(artifactText, String(row["job_id"]));
     }
   }
@@ -587,6 +587,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
       attemptFailed = true;
     }
     if (cleanup === 1) releaseReservation(s, attemptId);
+    settleRouteReport(s, { attemptId, jobId, workspaceId, report: body["modelRoutes"] });
     endAttemptSession(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, failed: attemptFailed });
     // An engine that can resume leaves its saved conversation on this runner; the session records that it is the holder (ADR 0045).
     if (body["checkpoint"] !== undefined) recordAttemptCheckpoint(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, checkpoint: body["checkpoint"] });

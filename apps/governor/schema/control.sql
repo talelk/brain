@@ -493,12 +493,26 @@ CREATE TABLE workspace_way_of_working (
   workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workflow_id TEXT NOT NULL,
   required_tools_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(required_tools_json)), updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
--- Hosted model per workspace (ADR 0023): off by default; evaluator and second attempt only. The API key is never stored here (host environment of the runner).
--- The two prices (micro-USD per million tokens) are what makes hosted spend real: an enabled model always has both.
-CREATE TABLE workspace_hosted_model (
-  workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
-  vendor TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', base_url TEXT NOT NULL DEFAULT '', updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL,
-  input_micro_usd_per_mtok INTEGER NOT NULL DEFAULT 0, output_micro_usd_per_mtok INTEGER NOT NULL DEFAULT 0
+-- Model routes per workspace (ADR 0055, builds on ADR 0023): an ordered list of hosted models for the evaluator, the second attempt and the advisory judge.
+-- A route names its key by reference (`key_ref`), never the key: the caller resolves it from its own environment. Prices are micro-USD per million tokens.
+CREATE TABLE workspace_model_routes (
+  workspace_id TEXT NOT NULL, route_id TEXT NOT NULL, organization_id TEXT NOT NULL, position INTEGER NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)), vendor TEXT NOT NULL, key_ref TEXT NOT NULL, model TEXT NOT NULL, base_url TEXT NOT NULL,
+  cost_tier TEXT NOT NULL CHECK(cost_tier IN ('low','standard','premium')),
+  input_micro_usd_per_mtok INTEGER NOT NULL CHECK(input_micro_usd_per_mtok >= 1), output_micro_usd_per_mtok INTEGER NOT NULL CHECK(output_micro_usd_per_mtok >= 1),
+  updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(workspace_id, route_id)
+) STRICT;
+-- A route whose account ran out of quota or rate is left out of every offer until the provider's retry-after has passed: never a blind retry on the same route.
+CREATE TABLE model_route_cooldowns (
+  workspace_id TEXT NOT NULL, route_id TEXT NOT NULL, until_ms INTEGER NOT NULL, reason TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY(workspace_id, route_id)
+) STRICT;
+-- Which route served each attempt, and the routes it moved past on a quota failure (`outcome` served | quota | failed), in the order they were tried.
+CREATE TABLE attempt_model_routes (
+  attempt_id TEXT NOT NULL, position INTEGER NOT NULL, route_id TEXT NOT NULL, workspace_id TEXT NOT NULL, model TEXT NOT NULL,
+  outcome TEXT NOT NULL CHECK(outcome IN ('served','quota','failed')), recorded_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(attempt_id, position)
 ) STRICT;
 -- Latest result of each periodic check (model endpoint, hosted model per workspace, disk): Health reads these rows; a check that goes bad is also alerted once.
 CREATE TABLE service_probes (

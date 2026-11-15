@@ -25,13 +25,13 @@ describe("session command classification", () => {
   });
 
   it("admits exactly the commands behind the governed Brain tools, each open to the agent kind", () => {
-    expect([...SESSION_ADMITTED].sort()).toEqual(["handoff.submit", "mission.message.send", "mission.question.ask", "plan.propose", "workItem.comment"]);
+    expect([...SESSION_ADMITTED].sort()).toEqual(["handoff.submit", "mission.message.send", "mission.question.ask", "plan.propose", "session.delegate", "workItem.comment"]);
     expect([...SESSION_ADMITTED].sort()).toEqual(Object.values(BRAIN_TOOL_COMMANDS).sort());
     for (const type of SESSION_ADMITTED) expect(COMMANDS.get(type)?.actors, type).toContain("agent");
   });
 
   it("refuses every decision, verdict, closure, policy, brief, budget, confirmation and administration command", () => {
-    for (const type of ["workItem.transition", "mission.proposeCompletion", "decision.accept", "mission.verdict.record", "mission.close", "plan.confirm", "plan.reject", "mission.policy.set", "mission.brief.edit", "mission.budget.set", "approval.decision", "approval.request", "workspace.update", "member.grant", "config.activate"]) {
+    for (const type of ["workItem.transition", "mission.proposeCompletion", "decision.accept", "mission.verdict.record", "mission.close", "plan.confirm", "plan.reject", "mission.policy.set", "mission.brief.edit", "mission.budget.set", "mission.owner.transfer", "approval.decision", "approval.request", "workspace.update", "member.grant", "config.activate"]) {
       expect(SESSION_REFUSED_COMMANDS.has(type), type).toBe(true);
     }
   });

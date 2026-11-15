@@ -73,7 +73,7 @@ export class ReuseService {
         this.upsert(db, { ref: `output:${output.id}`, kind: "output", missionId, title: `${output.name} (from ${mission.title})`, body: this.preview(output.artifact_digest, output.name),
           sourceDigest: output.artifact_digest, verifiedAt: output.created_at_ms });
       }
-      const handoffs = db.prepare("SELECT h.id, h.facts_json, h.created_at_ms, w.title FROM handoffs h JOIN work_items w ON w.id=h.work_item_id WHERE h.mission_id=? AND h.superseded_by IS NULL AND h.facts_json IS NOT NULL ORDER BY h.id").all(missionId) as Array<{ id: string; facts_json: string; created_at_ms: number; title: string }>;
+      const handoffs = db.prepare("SELECT h.id, h.facts_json, h.created_at_ms, w.title FROM handoffs h JOIN work_items w ON w.id=h.work_item_id WHERE h.mission_id=? AND h.superseded_by IS NULL AND h.delegation_id IS NULL AND h.facts_json IS NOT NULL ORDER BY h.id").all(missionId) as Array<{ id: string; facts_json: string; created_at_ms: number; title: string }>;
       for (const handoff of handoffs) {
         this.upsert(db, { ref: `handoff:${handoff.id}`, kind: "handoff", missionId, title: `Findings of ${handoff.title}`, body: clip(handoff.facts_json, BODY_CHARS), sourceDigest: verified?.digest ?? null, verifiedAt });
       }

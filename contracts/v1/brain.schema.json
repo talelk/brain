@@ -1351,7 +1351,7 @@
             "maxDepth": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 2
+              "maximum": 3
             },
             "maxTokens": {
               "type": "integer",
@@ -1371,6 +1371,24 @@
               "minItems": 0,
               "maxItems": 8,
               "uniqueItems": true
+            },
+            "modelRoutes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+              },
+              "minItems": 0,
+              "maxItems": 8,
+              "uniqueItems": true
+            },
+            "costTier": {
+              "type": "string",
+              "enum": [
+                "low",
+                "standard",
+                "premium"
+              ]
             }
           },
           "required": [
@@ -7949,6 +7967,7 @@
             "missions.forSubject",
             "reuse.search",
             "reuse.forMission",
+            "missionOwnerCandidates.list",
             "contextPacks.forRun",
             "contextPacks.reference",
             "evalCases.list",
@@ -8044,6 +8063,7 @@
             "missions.forSubject",
             "reuse.search",
             "reuse.forMission",
+            "missionOwnerCandidates.list",
             "contextPacks.forRun",
             "contextPacks.reference",
             "evalCases.list",
@@ -8463,7 +8483,8 @@
           "$ref": "#/$defs/Id"
         },
         "agentId": {
-          "$ref": "#/$defs/ConfigId"
+          "type": "string",
+          "maxLength": 256
         },
         "task": {
           "type": "string",
@@ -8503,6 +8524,42 @@
         },
         "reviewedAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemTitle": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "memberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "delegatedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "run": {
+          "$ref": "#/$defs/DelegationRun"
+        },
+        "evidence": {
+          "$ref": "#/$defs/DelegationEvidence"
+        },
+        "review": {
+          "type": "object",
+          "description": "Whether the person asking can decide this review now, and the plain reason when not.",
+          "properties": {
+            "possible": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 400
+            }
+          },
+          "required": [
+            "possible"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -8518,7 +8575,12 @@
         "scope",
         "worktreeId",
         "state",
-        "createdAt"
+        "createdAt",
+        "missionId",
+        "workItemTitle",
+        "delegatedBy",
+        "run",
+        "review"
       ],
       "additionalProperties": false
     },
@@ -8702,14 +8764,15 @@
     },
     "SessionDelegateInput": {
       "type": "object",
+      "description": "A bounded sub-task for a child session of the same mission (ADR 0053). A session delegates from itself (its own attempt's session) and names only the task; a person names the parent session. Budget and scope default to what the parent still has, and the child can only narrow them.",
       "properties": {
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
         "parentSessionId": {
           "$ref": "#/$defs/Id"
         },
-        "agentId": {
-          "$ref": "#/$defs/ConfigId"
-        },
-        "engineId": {
+        "memberId": {
           "$ref": "#/$defs/ConfigId"
         },
         "task": {
@@ -8728,13 +8791,7 @@
         }
       },
       "required": [
-        "parentSessionId",
-        "agentId",
-        "engineId",
-        "task",
-        "budget",
-        "scope",
-        "worktreeId"
+        "task"
       ],
       "additionalProperties": false
     },
@@ -11707,6 +11764,9 @@
           "$ref": "#/$defs/MissionBudgetSetCommand"
         },
         {
+          "$ref": "#/$defs/MissionOwnerTransferCommand"
+        },
+        {
           "$ref": "#/$defs/WorkspaceSpendCapSetCommand"
         },
         {
@@ -11743,7 +11803,7 @@
           "$ref": "#/$defs/WorkspaceWayOfWorkingSetCommand"
         },
         {
-          "$ref": "#/$defs/WorkspaceHostedModelSetCommand"
+          "$ref": "#/$defs/WorkspaceModelRoutesSetCommand"
         },
         {
           "$ref": "#/$defs/PlatformDrainSetCommand"
@@ -23201,6 +23261,9 @@
         },
         "createdAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "delegationId": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -23620,6 +23683,22 @@
         },
         "checkpoint": {
           "$ref": "#/$defs/Checkpoint"
+        },
+        "delegations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Delegation"
+          },
+          "maxItems": 50,
+          "description": "The work this session's task delegated, with how each child's run stands, including a failure fact."
+        },
+        "delegatedHandoffs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Handoff"
+          },
+          "maxItems": 50,
+          "description": "What delegated children handed back: claims from their sessions, never the task's own handoff."
         }
       },
       "required": [
@@ -23737,6 +23816,56 @@
         "outputTokens",
         "cachedInputTokens",
         "estimated"
+      ],
+      "additionalProperties": false
+    },
+    "MissionOwnerTransferCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.owner.transfer"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "newOwnerId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "missionId",
+            "newOwnerId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
       ],
       "additionalProperties": false
     },
@@ -25821,74 +25950,6 @@
       ],
       "additionalProperties": false
     },
-    "WorkspaceHostedModelSetCommand": {
-      "type": "object",
-      "properties": {
-        "contractVersion": {
-          "type": "string",
-          "const": "brain.command/v1"
-        },
-        "commandId": {
-          "$ref": "#/$defs/Id"
-        },
-        "commandType": {
-          "type": "string",
-          "const": "workspace.hostedModel.set"
-        },
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "idempotencyKey": {
-          "$ref": "#/$defs/Id"
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "vendor": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 64
-            },
-            "model": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            },
-            "baseUrl": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 512
-            },
-            "inputMicroUsdPerMTok": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 1000000000
-            },
-            "outputMicroUsdPerMTok": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 1000000000
-            }
-          },
-          "required": [
-            "enabled"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "contractVersion",
-        "commandId",
-        "commandType",
-        "workspaceId",
-        "idempotencyKey",
-        "payload"
-      ],
-      "additionalProperties": false
-    },
     "PlatformDrainSetCommand": {
       "type": "object",
       "properties": {
@@ -27205,6 +27266,171 @@
         "subjectDigest",
         "expiresAt",
         "method"
+      ],
+      "additionalProperties": false
+    },
+    "DelegationRun": {
+      "type": "object",
+      "description": "Where a delegated child's own run stands: waiting to start, running, finished with a result handed back to the parent, or failed with a reason the parent is told.",
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "running",
+            "succeeded",
+            "failed"
+          ]
+        },
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "handoffId": {
+          "$ref": "#/$defs/Id"
+        },
+        "result": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "failure": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "DelegationEvidence": {
+      "type": "object",
+      "description": "The child's latest evidence bundle, which a delegation review decides on, and what an independent evaluator said of it.",
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "bundleState": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "rejected",
+            "incomplete"
+          ]
+        }
+      },
+      "required": [
+        "digest",
+        "bundleState"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceModelRoutesSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workspace.modelRoutes.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "routes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "routeId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,31}$"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "vendor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "keyRef": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,31}$"
+                  },
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 512
+                  },
+                  "costTier": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "standard",
+                      "premium"
+                    ]
+                  },
+                  "inputMicroUsdPerMTok": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000
+                  },
+                  "outputMicroUsdPerMTok": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000
+                  }
+                },
+                "required": [
+                  "routeId",
+                  "enabled",
+                  "vendor",
+                  "keyRef",
+                  "model",
+                  "baseUrl",
+                  "costTier",
+                  "inputMicroUsdPerMTok",
+                  "outputMicroUsdPerMTok"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 8
+            }
+          },
+          "required": [
+            "routes"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
       ],
       "additionalProperties": false
     },

@@ -1,8 +1,8 @@
-import type { ActorContext, JsonValue } from "@brain/contracts";
+import { COST_TIERS, MAX_MODEL_ROUTES, ROUTE_NAME, isKeyReference, type ActorContext, type CostTier, type JsonValue } from "@brain/contracts";
 import { BrainDomainError } from "../domain/errors";
 import { ceilingPreset } from "../domain/mission-policy";
 import { activeReleaseRecord } from "../modules/configuration/index";
-import { drainStatus, hostedConfig, queueLimitOf, setDraining, setQueueLimit } from "../modules/jobs/index";
+import { drainStatus, modelRoutesOf, modelRoutesUsable, queueLimitOf, routeCooldownUntil, routeProbeId, routeUsable, setDraining, setQueueLimit } from "../modules/jobs/index";
 import { wayOfWorking, workflowAgentTools } from "../modules/missions/index";
 import { readProbes } from "../modules/operations/index";
 import { effectAllowList, normalizeEgressHost } from "../modules/governance/index";
@@ -33,7 +33,7 @@ function usesHostTools(store: Store, organizationId: string, workspaceId: string
 }
 
 /**
- * Engine settings an owner makes: the workspace's default way of working (ADR 0022), its hosted model (ADR 0023), its queue limit (ADR 0040) and the platform's
+ * Engine settings an owner makes: the workspace's default way of working (ADR 0022), its model routes (ADR 0023, ADR 0055), its queue limit (ADR 0040) and the platform's
  * drain mode (deploys that do not interrupt work). All of them are control.db authority and commit with their receipt.
  */
 export function engineSettingsCommands(store: Store): CommandHandlers {
@@ -50,8 +50,8 @@ export function engineSettingsCommands(store: Store): CommandHandlers {
         if (have === undefined) throw new BrainDomainError("NOT_FOUND", `workflow ${workflowId} is not in the active release`);
         const missing = tools.filter((tool) => !have.includes(tool));
         if (missing.length > 0) throw new BrainDomainError("INVALID_ARGUMENT", `${workflowId} lacks ${missing.join(", ")}: its agent has ${have.join(", ") || "no tools"}`);
-        if (hostedConfig(s, workspaceId).enabled && (tools.some((tool) => HOST_TOOL.test(tool)) || have.some((tool) => HOST_TOOL.test(tool)))) {
-          throw new BrainDomainError("CONFLICT", "this workspace uses a hosted model; a way of working that reads hosts must stay self-hosted. Switch the hosted model off first");
+        if (modelRoutesUsable(s, workspaceId) && (tools.some((tool) => HOST_TOOL.test(tool)) || have.some((tool) => HOST_TOOL.test(tool)))) {
+          throw new BrainDomainError("CONFLICT", "this workspace uses model routes; a way of working that reads hosts must stay self-hosted. Switch its routes off first");
         }
         s.control.prepare(`INSERT INTO workspace_way_of_working(workspace_id,organization_id,workflow_id,required_tools_json,updated_by,updated_at_ms) VALUES (?,?,?,?,?,?)
           ON CONFLICT(workspace_id) DO UPDATE SET workflow_id=excluded.workflow_id,required_tools_json=excluded.required_tools_json,updated_by=excluded.updated_by,updated_at_ms=excluded.updated_at_ms`)
@@ -60,32 +60,45 @@ export function engineSettingsCommands(store: Store): CommandHandlers {
         return { resourceId: workspaceId };
       },
     },
-    "workspace.hostedModel.set": {
+    "workspace.modelRoutes.set": {
       kind: "control",
       handle: ({ actor, cmd, workspaceId }) => {
-        requireAdmin(actor, "the hosted model");
+        requireAdmin(actor, "the model routes");
         if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        const p = cmd.payload;
-        const prior = hostedConfig(s, workspaceId);
-        const enabled = p["enabled"] === true;
-        const vendor = String(p["vendor"] ?? prior.vendor).trim();
-        const model = String(p["model"] ?? prior.model).trim();
-        const baseUrl = p["baseUrl"] !== undefined ? hostedUrl(String(p["baseUrl"])) : prior.baseUrl;
-        const inputPrice = typeof p["inputMicroUsdPerMTok"] === "number" ? p["inputMicroUsdPerMTok"] : prior.inputMicroUsdPerMTok;
-        const outputPrice = typeof p["outputMicroUsdPerMTok"] === "number" ? p["outputMicroUsdPerMTok"] : prior.outputMicroUsdPerMTok;
-        if (enabled) {
-          if (!vendor || !model || !baseUrl) throw new BrainDomainError("INVALID_ARGUMENT", "Choose the vendor, the model and its address before switching the hosted model on");
-          // ADR 0023 limit: redaction of host output is pattern based, so a workspace that reads production hosts stays self-hosted.
-          if (usesHostTools(s, actor.organizationId, workspaceId)) throw new BrainDomainError("CONFLICT", "this workspace reads production hosts; it stays self-hosted");
+        const given = cmd.payload["routes"] as Array<Record<string, unknown>>;
+        if (given.length > MAX_MODEL_ROUTES) throw new BrainDomainError("INVALID_ARGUMENT", `A workspace holds at most ${MAX_MODEL_ROUTES} model routes`);
+        const seen = new Set<string>();
+        const routes = given.map((entry) => {
+          const routeId = String(entry["routeId"] ?? "").trim();
+          if (!ROUTE_NAME.test(routeId)) throw new BrainDomainError("INVALID_ARGUMENT", "A route's name is lowercase letters, digits and dashes, starting with a letter");
+          if (seen.has(routeId)) throw new BrainDomainError("INVALID_ARGUMENT", `Two routes are named ${routeId}`);
+          seen.add(routeId);
+          const keyRef = String(entry["keyRef"] ?? "").trim();
+          if (!isKeyReference(keyRef)) throw new BrainDomainError("INVALID_ARGUMENT", `Route ${routeId}: name the API key by a short reference such as acme-main, never the key itself; the key is set on the runner host as BRAIN_MODEL_KEY_<REFERENCE>`);
+          const costTier = String(entry["costTier"] ?? "") as CostTier;
+          if (!COST_TIERS.includes(costTier)) throw new BrainDomainError("INVALID_ARGUMENT", `Route ${routeId}: choose a cost tier (${COST_TIERS.join(", ")})`);
+          const route = {
+            routeId, enabled: entry["enabled"] === true, vendor: String(entry["vendor"] ?? "").trim(), keyRef, model: String(entry["model"] ?? "").trim(), baseUrl: hostedUrl(String(entry["baseUrl"] ?? "")), costTier,
+            inputMicroUsdPerMTok: Number(entry["inputMicroUsdPerMTok"]), outputMicroUsdPerMTok: Number(entry["outputMicroUsdPerMTok"]),
+          };
+          if (!route.vendor || !route.model) throw new BrainDomainError("INVALID_ARGUMENT", `Route ${routeId}: choose the vendor and the model`);
+          // A route is always priced: its spend must reach the mission and workspace dollar caps (ADR 0023).
+          if (!(route.inputMicroUsdPerMTok >= 1) || !(route.outputMicroUsdPerMTok >= 1)) throw new BrainDomainError("INVALID_ARGUMENT", `Route ${routeId}: set the input and output token prices (micro-USD per million tokens) so its spend counts against the dollar caps`);
+          return route;
+        });
+        // ADR 0023 limit: redaction of host output is pattern based, so a workspace that reads production hosts stays self-hosted.
+        if (routes.some((route) => route.enabled) && usesHostTools(s, actor.organizationId, workspaceId)) throw new BrainDomainError("CONFLICT", "this workspace reads production hosts; it stays self-hosted");
+        {
+          s.control.prepare("DELETE FROM workspace_model_routes WHERE workspace_id=?").run(workspaceId);
+          const insert = s.control.prepare(`INSERT INTO workspace_model_routes(workspace_id,route_id,organization_id,position,enabled,vendor,key_ref,model,base_url,cost_tier,input_micro_usd_per_mtok,output_micro_usd_per_mtok,updated_by,updated_at_ms)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+          routes.forEach((route, position) => { insert.run(workspaceId, route.routeId, actor.organizationId, position, route.enabled ? 1 : 0, route.vendor, route.keyRef, route.model, route.baseUrl, route.costTier, route.inputMicroUsdPerMTok, route.outputMicroUsdPerMTok, actor.actorId, s.now()); });
+          // A route that is gone loses its cooldown; one that stays keeps it (a reorder never forgives an account that is out of quota).
+          for (const row of s.control.prepare("SELECT route_id FROM model_route_cooldowns WHERE workspace_id=?").all(workspaceId) as Array<{ route_id: string }>) {
+            if (!seen.has(row.route_id)) s.control.prepare("DELETE FROM model_route_cooldowns WHERE workspace_id=? AND route_id=?").run(workspaceId, row.route_id);
+          }
         }
-        // A hosted model that is switched on or described is always priced: its spend must reach the mission and workspace dollar caps (ADR 0023).
-        // Switching one off by itself saves nothing new, so it never needs them.
-        const described = ["vendor", "model", "baseUrl"].some((key) => p[key] !== undefined);
-        if ((enabled || described) && (inputPrice < 1 || outputPrice < 1)) throw new BrainDomainError("INVALID_ARGUMENT", "Set the hosted model's input and output token prices (micro-USD per million tokens) so its spend counts against the dollar caps");
-        s.control.prepare(`INSERT INTO workspace_hosted_model(workspace_id,organization_id,enabled,vendor,model,base_url,input_micro_usd_per_mtok,output_micro_usd_per_mtok,updated_by,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?)
-          ON CONFLICT(workspace_id) DO UPDATE SET enabled=excluded.enabled,vendor=excluded.vendor,model=excluded.model,base_url=excluded.base_url,input_micro_usd_per_mtok=excluded.input_micro_usd_per_mtok,output_micro_usd_per_mtok=excluded.output_micro_usd_per_mtok,updated_by=excluded.updated_by,updated_at_ms=excluded.updated_at_ms`)
-          .run(workspaceId, actor.organizationId, enabled ? 1 : 0, vendor, model, baseUrl, inputPrice, outputPrice, actor.actorId, s.now());
-        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.hostedModelSet", payload: { workspaceId, enabled, vendor, model, inputMicroUsdPerMTok: inputPrice, outputMicroUsdPerMTok: outputPrice } });
+        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.modelRoutesSet", payload: { workspaceId, routes: routes.map((route) => ({ routeId: route.routeId, enabled: route.enabled, vendor: route.vendor, keyRef: route.keyRef, model: route.model, costTier: route.costTier, inputMicroUsdPerMTok: route.inputMicroUsdPerMTok, outputMicroUsdPerMTok: route.outputMicroUsdPerMTok })) } });
         return { resourceId: workspaceId };
       },
     },
@@ -153,15 +166,19 @@ export function engineSettingsCommands(store: Store): CommandHandlers {
 export function engineSettings(store: Store, actor: ActorContext, workspaceId: string): JsonValue {
   requireWorkspaceRead(store, actor, workspaceId);
   const defaults = wayOfWorking(store, workspaceId);
-  const hosted = hostedConfig(store, workspaceId);
-  const probe = readProbes(store).find((entry) => entry.id === `hosted:${workspaceId}`);
   const release = activeReleaseRecord(store, actor.organizationId)?.release;
   return {
     workspaceId,
     ...(defaults ? { wayOfWorking: { workflowId: defaults.workflowId, requiredTools: defaults.requiredTools } } : {}),
     // Workflows an owner may choose as the default way of working, each with the tools its agents have.
     workflows: Object.keys(release?.workflows ?? {}).sort().map((id) => ({ workflowId: id, tools: workflowAgentTools(store, actor.organizationId, id) ?? [] })),
-    hostedModel: { enabled: hosted.enabled, vendor: hosted.vendor, model: hosted.model, baseUrl: hosted.baseUrl, inputMicroUsdPerMTok: hosted.inputMicroUsdPerMTok, outputMicroUsdPerMTok: hosted.outputMicroUsdPerMTok, status: !hosted.enabled ? "off" : probe ? (probe.status === "unavailable" ? "down" : "up") : "unknown", roles: ["evaluator", "second-attempt"] },
+    // The ordered routes, each with its place in line, its health and whether its account is out of quota right now; a key is only ever named by reference.
+    modelRoutes: modelRoutesOf(store, workspaceId).map((route, index) => {
+      const probe = readProbes(store).find((entry) => entry.id === routeProbeId(workspaceId, route.routeId));
+      const cooldown = routeCooldownUntil(store, workspaceId, route.routeId);
+      return { ...route, position: index + 1, usable: routeUsable(route), status: !route.enabled ? "off" : cooldown !== undefined ? "quota" : probe ? (probe.status === "unavailable" ? "down" : "up") : "unknown", ...(cooldown !== undefined ? { quotaUntil: new Date(cooldown).toISOString() } : {}) };
+    }),
+    modelRouteRoles: ["evaluator", "second-attempt", "judge"],
     drain: drainStatus(store),
     queueLimit: queueLimitOf(store, workspaceId),
     autonomyCeiling: autonomyCeilingOf(store, workspaceId),
@@ -186,7 +203,8 @@ function liveWorkOf(store: Store, organizationId: string, workspaceId: string): 
   const sessionsOf = new Map<string, number>();
   let standalone = 0;
   for (const attempt of attempts) {
-    const mission = db.prepare("SELECT w.mission_id AS id FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? LIMIT 1").get(attempt.run_id) as { id: string } | undefined;
+    const mission = db.prepare("SELECT w.mission_id AS id FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? LIMIT 1").get(attempt.run_id) as { id: string } | undefined
+      ?? db.prepare("SELECT mission_id AS id FROM delegation_runs WHERE run_id=?").get(attempt.run_id) as { id: string } | undefined;
     if (mission) sessionsOf.set(mission.id, (sessionsOf.get(mission.id) ?? 0) + 1); else standalone++;
   }
   const active = db.prepare("SELECT id, title FROM missions WHERE state='active' ORDER BY created_at_ms, id").all() as Array<{ id: string; title: string }>;
