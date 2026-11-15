@@ -63,10 +63,10 @@ export function engineSandboxSupport(cfg: RunnerConfig): EngineSandboxSupport | 
  * Whether engines can run in sandboxes right now, which is what the runner may claim for them: it is set up for it, and its launcher answers with Docker
  * up and the engine image built. Used by the hello and every heartbeat; an attempt placed on the claim that cannot start its sandbox fails, it never runs in the runner.
  */
-export async function engineSandboxReady(cfg: RunnerConfig): Promise<boolean> {
+export async function engineSandboxReady(cfg: RunnerConfig, probe?: () => Promise<{ docker: boolean; missingImages?: readonly string[] }>): Promise<boolean> {
   const launcher = cfg.launcher ?? (LauncherClient.configured() ? LauncherClient.fromEnv() : undefined);
   if (!launcher || !cfg.engineStateDir) return false;
-  try { const health = await launcher.health(); return health.docker && !health.missingImages.includes(ENGINE_SANDBOX_IMAGE); } catch { return false; }
+  try { const health = await (probe ?? (() => launcher.health()))(); return health.docker && !(health.missingImages ?? []).includes(ENGINE_SANDBOX_IMAGE); } catch { return false; }
 }
 
 /** "host.read=srv+logs,csv.query=cv-data" -> tool id -> mount names. Malformed entries are ignored, never widened. */
@@ -601,7 +601,9 @@ export function launcherHealthCheck(env: NodeJS.ProcessEnv = process.env, probe:
     try {
       const result = await probe();
       // Docker answering is not enough: with a sandbox image never built here every sandboxed step fails on its first container, so the engine is unusable.
-      misses = result.docker && (result.missingImages ?? []).length === 0 ? 0 : misses + 1;
+      // The engine image matters only to a runner set up for engine sandboxes (ADR 0065); one that is not still runs tools and the fixture, and says so in its engine isolation.
+      const missing = (result.missingImages ?? []).filter((image) => image !== ENGINE_SANDBOX_IMAGE || Boolean(env["BRAIN_RUNNER_ENGINE_STATE_DIR"]));
+      misses = result.docker && missing.length === 0 ? 0 : misses + 1;
     } catch { misses += 1; }
     return misses === 0 ? "healthy" : misses === 1 ? "degraded" : "unhealthy";
   };
@@ -637,10 +639,16 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
   };
   let seq = 0;
   const controls = newRunnerControls();
-  const launcherCheck = launcherHealthCheck();
+  // One look at the launcher per heartbeat serves both its health and whether engine sandboxes can start.
+  let lastLook: { at: number; result: Promise<{ docker: boolean; missingImages: string[] }> } | undefined;
+  const launcherLook = () => {
+    if (!lastLook || Date.now() - lastLook.at > 2000) lastLook = { at: Date.now(), result: (cfg.launcher ?? LauncherClient.fromEnv()).health() };
+    return lastLook.result;
+  };
+  const launcherCheck = launcherHealthCheck(process.env, launcherLook);
   const heartbeatTimer = setInterval(() => {
     seq += 1;
-    void Promise.all([availableEngines(cfg), launcherCheck(), engineSandboxReady(cfg)]).then(([probed, health, sandboxAvailable]) => client.heartbeat({
+    void Promise.all([availableEngines(cfg), launcherCheck(), engineSandboxReady(cfg, launcherLook)]).then(([probed, health, sandboxAvailable]) => client.heartbeat({
       // Full RunnerHeartbeat body: command delivery sits on the declared shape.
       runnerId: cfg.runnerId,
       runnerEpoch: session.epoch,
