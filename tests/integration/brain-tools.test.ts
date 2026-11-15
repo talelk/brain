@@ -37,7 +37,7 @@ async function crew(options: { autonomy?: "supervised" | "standard" | "autonomou
   return { ...started, tasks, as };
 }
 
-const query = async <T>(w: World, queryType: string, resourceId?: string): Promise<T> => ((await w.brain.executeQuery(w.owner, { queryType, workspaceId: w.workspaceId, ...(resourceId ? { resourceId } : {}) } as never)) as unknown as { snapshot: T }).snapshot;
+const query = async <T>(w: World, queryType: string, resourceId?: string): Promise<T> => ((await w.brain.executeQuery(w.owner, { queryType, workspaceId: w.workspaceId, ...(resourceId ? (queryType === "workItems.list" ? { missionId: resourceId } : { resourceId }) : {}) } as never)) as unknown as { snapshot: T }).snapshot;
 const plan = (w: World, id: string) => query<PlanVersion>(w, "plans.get", id);
 const messages = async (w: World, missionId: string) => (await query<{ items: MissionMessage[] }>(w, "missionMessages.list", missionId)).items;
 const audit = async (w: World) => (await query<{ items: AuditEntry[] }>(w, "audit.list")).items;
