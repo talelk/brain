@@ -4,7 +4,7 @@ import { activeReleaseRecord } from "../modules/configuration/index";
 import { drainStatus, hostedConfig, setDraining } from "../modules/jobs/index";
 import { wayOfWorking, workflowAgentTools } from "../modules/missions/index";
 import { readProbes } from "../modules/operations/index";
-import { effectAllowList } from "../modules/governance/index";
+import { effectAllowList, normalizeEgressHost } from "../modules/governance/index";
 import { requireWorkspaceRead } from "./authz";
 import type { CommandHandlers } from "./command-funnel";
 import type { Store } from "./store";
@@ -98,10 +98,12 @@ export function engineSettingsCommands(store: Store): CommandHandlers {
         const containers = list("containers", prior.containers);
         const services = list("services", prior.services);
         const minutes = typeof cmd.payload["approvalMinutes"] === "number" ? cmd.payload["approvalMinutes"] : prior.approvalMinutes;
-        s.control.prepare(`INSERT INTO workspace_effect_policy(workspace_id,organization_id,containers_json,services_json,approval_minutes,updated_by,updated_at_ms) VALUES (?,?,?,?,?,?,?)
-          ON CONFLICT(workspace_id) DO UPDATE SET containers_json=excluded.containers_json,services_json=excluded.services_json,approval_minutes=excluded.approval_minutes,updated_by=excluded.updated_by,updated_at_ms=excluded.updated_at_ms`)
-          .run(workspaceId, actor.organizationId, JSON.stringify(containers), JSON.stringify(services), minutes, actor.actorId, s.now());
-        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.effectsSet", payload: { workspaceId, containers, services, approvalMinutes: minutes } });
+        // The hosts a sandboxed tool of this workspace may reach (ADR 0037): the whole list is replaced; an empty list means no network.
+        const egressHosts = [...new Set(((cmd.payload["egressHosts"] as string[] | undefined) ?? prior.egressHosts).map(normalizeEgressHost))].sort();
+        s.control.prepare(`INSERT INTO workspace_effect_policy(workspace_id,organization_id,containers_json,services_json,approval_minutes,egress_hosts_json,updated_by,updated_at_ms) VALUES (?,?,?,?,?,?,?,?)
+          ON CONFLICT(workspace_id) DO UPDATE SET containers_json=excluded.containers_json,services_json=excluded.services_json,approval_minutes=excluded.approval_minutes,egress_hosts_json=excluded.egress_hosts_json,updated_by=excluded.updated_by,updated_at_ms=excluded.updated_at_ms`)
+          .run(workspaceId, actor.organizationId, JSON.stringify(containers), JSON.stringify(services), minutes, JSON.stringify(egressHosts), actor.actorId, s.now());
+        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.effectsSet", payload: { workspaceId, containers, services, approvalMinutes: minutes, egressHosts } });
         return { resourceId: workspaceId };
       },
     },
@@ -152,13 +154,13 @@ export function engineSettings(store: Store, actor: ActorContext, workspaceId: s
   } as unknown as JsonValue;
 }
 
-/** effects.get: what this workspace's effect tools may touch and how long an approval waits. */
+/** effects.get: what this workspace's effect tools may touch, how long an approval waits and which hosts its sandboxed tools may reach. */
 export function effectSettings(store: Store, actor: ActorContext, workspaceId: string): JsonValue {
   requireWorkspaceRead(store, actor, workspaceId);
   const allow = effectAllowList(store, workspaceId);
   const groups = (store.control.prepare("SELECT group_id, host_tools, workspaces_json FROM runner_groups WHERE organization_id=? ORDER BY group_id").all(actor.organizationId) as Array<{ group_id: string; host_tools: number; workspaces_json: string }>)
     .filter((row) => (JSON.parse(row.workspaces_json) as string[]).includes(workspaceId));
-  return { workspaceId, containers: allow.containers, services: allow.services, approvalMinutes: allow.approvalMinutes, runnerGroups: groups.map((row) => ({ groupId: row.group_id, hostTools: row.host_tools === 1 })) } as unknown as JsonValue;
+  return { workspaceId, containers: allow.containers, services: allow.services, approvalMinutes: allow.approvalMinutes, egressHosts: allow.egressHosts, runnerGroups: groups.map((row) => ({ groupId: row.group_id, hostTools: row.host_tools === 1 })) } as unknown as JsonValue;
 }
 
 /** runnerGroups.list: the groups the owner set aside, with their workspaces and whether they carry host tools. */

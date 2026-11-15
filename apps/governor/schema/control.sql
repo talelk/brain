@@ -538,12 +538,14 @@ CREATE TABLE email_deliveries (
 CREATE INDEX email_deliveries_person ON email_deliveries(organization_id, principal_id, at_ms);
 
 -- Effect tools and permits per call (ADR 0024). The owner's allow-list of what an effect tool may touch in this workspace, and how long a
--- person has to answer an approval; an empty list means the tool refuses every call.
+-- person has to answer an approval; an empty list means the tool refuses every call. egress_hosts_json: the hosts a sandboxed
+-- tool of this workspace may reach through the egress proxy (ADR 0037); empty means no network.
 CREATE TABLE workspace_effect_policy (
   workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL,
   containers_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(containers_json)),
   services_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(services_json)),
   approval_minutes INTEGER NOT NULL DEFAULT 30 CHECK(approval_minutes BETWEEN 1 AND 1440),
+  egress_hosts_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(egress_hosts_json)),
   updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
 -- A runner group set aside for some workspaces (ADR 0024). A group with a row takes jobs of its listed workspaces only; host tools
