@@ -8,7 +8,7 @@ export { fleetOverview } from "./fleet";
 export { liveStatus, platformHealth, workspaceContext } from "./read";
 export { alertBadProbes, checkBackups, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, readProbes, recordProbe } from "./probes";
 export { metricsAuthorized, metricsToken, renderMetrics } from "./metrics";
-export { otelConfig, startTraceExport, traceStats, TraceExporter } from "./tracing";
+export { startTraceExport } from "./tracing";
 export { replicaConfig, replicateOnce, restoreFromReplica } from "./replica";
 export { channelsFor, notifyApprovers, notifyAttention, notificationsFor, sendDigests, watchCommands, type Sender } from "./attention-notify";
 export { composeMessage, smtpTarget, sendMail, validAddress } from "./smtp";
