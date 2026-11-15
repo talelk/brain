@@ -13,6 +13,6 @@ export { channelsFor, notifyApprovers, notifyAttention, notificationsFor, sendDi
 export { composeMessage, smtpTarget, sendMail, validAddress } from "./smtp";
 export { absoluteLink, emailContent, safeMailLink, sendEmail, preferencesView, sendWebhook, setPreferences as setNotificationPreferences, webhookBody, webhookTarget } from "./channels";
 export { missionLink, platformAlertLink, securitySettingsLink } from "./notification-links";
-export { handleInbound, type ChatStartInput, type ChatStartPort } from "./inbound";
+export { handleInbound, type ChatStartInput } from "./inbound";
 export { connectorsFromEnv, type Connectors } from "./connectors";
 export { diagnosticsBundle } from "./diagnostics";

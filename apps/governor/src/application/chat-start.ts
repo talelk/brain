@@ -3,7 +3,7 @@ import type { ActorContext, CommandReceipt } from "@brain/contracts";
 import { BrainDomainError } from "../domain/errors";
 import { activeReleaseRecord } from "../modules/configuration/index";
 import { principalForChat } from "../modules/identity/index";
-import type { ChatStartInput, ChatStartPort } from "../modules/operations/index";
+import type { ChatStartInput } from "../modules/operations/index";
 import { absoluteLink, missionLink } from "../modules/operations/index";
 import { scopesForPrincipal } from "./authz";
 import type { Store } from "./store";
@@ -84,4 +84,3 @@ export async function startFromChat(ports: Ports, input: ChatStartInput): Promis
   }
 }
 
-export type { ChatStartPort };
