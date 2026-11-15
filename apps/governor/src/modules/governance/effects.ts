@@ -323,7 +323,7 @@ export function startEffect(s: Store, deps: { auth: BrainAuth }, runner: Runner,
  * For effects the Governor itself performs (ticket, message, pull request: the credentials live here): the call must be started and its
  * permit current, and the run itself happens once. Returns what the connector needs.
  */
-export function beginGovernorRun(s: Store, deps: { auth: BrainAuth }, runner: Runner, attemptId: string, body: EffectRequestBody & { token?: unknown }): { organizationId: string; workspaceId: string; toolId: string; input: Input } {
+export function beginGovernorRun(s: Store, deps: { auth: BrainAuth }, runner: Runner, attemptId: string, body: EffectRequestBody & { token?: unknown }): { organizationId: string; workspaceId: string; toolId: string; input: Input; approvalId: string; invocationId: string; runId: string | undefined } {
   const { proposalId, tool, input } = parseBody(body);
   const context = attemptContext(s, runner, attemptId, tool);
   const bound = boundApproval(s, context, attemptId, proposalId, tool, input);
@@ -331,7 +331,10 @@ export function beginGovernorRun(s: Store, deps: { auth: BrainAuth }, runner: Ru
   if (!validatePermit(s, deps, String(body.token ?? ""), invocationId)) throw new BrainDomainError("APPROVAL_REQUIRED", "the permit is not current");
   const claimed = s.control.prepare("UPDATE effect_permits SET receipt_digest='running' WHERE invocation_id=? AND attempt_id=? AND state='started' AND receipt_digest IS NULL").run(invocationId, attemptId);
   if (claimed.changes !== 1) throw new BrainDomainError("CONFLICT", "this call was already performed or has not started");
-  return { organizationId: context.organizationId, workspaceId: context.workspaceId, toolId: tool.id, input };
+  // The run of the task that proposed the change: where the work item it serves is found.
+  const proposer = callOf(s, context, attemptId, proposalId)?.parent_job_id;
+  const run = proposer ? (s.control.prepare("SELECT workflow_run_id FROM jobs WHERE id=?").get(proposer) as { workflow_run_id: string } | undefined)?.workflow_run_id : undefined;
+  return { organizationId: context.organizationId, workspaceId: context.workspaceId, toolId: tool.id, input, approvalId: bound.approvalId, invocationId, runId: run };
 }
 
 export type EffectOutcome = "applied" | "absent" | "unknown";

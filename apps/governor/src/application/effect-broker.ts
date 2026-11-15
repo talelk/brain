@@ -1,6 +1,6 @@
 import type { JsonValue } from "@brain/contracts";
 import { BrainDomainError } from "../domain/errors";
-import type { IntegrationService } from "../modules/integrations/index";
+import type { IntegrationService, OpenedPullRequest } from "../modules/integrations/index";
 import type { Connectors } from "../modules/operations/index";
 
 type Input = Readonly<Record<string, unknown>>;
@@ -10,7 +10,10 @@ const text = (value: unknown, max: number): string => (typeof value === "string"
  * Performs an approved effect that needs the Governor's own credentials: a ticket, a team message or a pull request. By now the call
  * passed its approval, its single-use permit and the argument check; the connector holds the secret and the answer carries none.
  */
-export async function runGovernorEffect(ports: { connectors: Connectors; integrations: IntegrationService }, call: { organizationId: string; workspaceId: string; toolId: string; input: Input }): Promise<JsonValue> {
+export async function runGovernorEffect(
+  ports: { connectors: Connectors; integrations: IntegrationService; pullRequestOpened: (opened: OpenedPullRequest, title: string) => void },
+  call: { organizationId: string; workspaceId: string; toolId: string; input: Input },
+): Promise<JsonValue> {
   const { input } = call;
   switch (call.toolId) {
     case "ticket.create": {
@@ -26,6 +29,8 @@ export async function runGovernorEffect(ports: { connectors: Connectors; integra
     case "git.open-pr": {
       const files = (Array.isArray(input["files"]) ? input["files"] : []).map((file) => ({ path: text((file as Input)["path"], 300), content: text((file as Input)["content"], 100 * 1024) }));
       const opened = await ports.integrations.openPullRequest(call.organizationId, call.workspaceId, { title: text(input["title"], 200), body: text(input["body"], 4000), branch: text(input["branch"], 80), files });
+      // The request exists at the provider now: keep it as a record on the work item before the runner reports how the call ended.
+      ports.pullRequestOpened(opened, text(input["title"], 200));
       return { url: opened.url, number: opened.number, branch: opened.branch, commit: opened.commit } as unknown as JsonValue;
     }
     default:

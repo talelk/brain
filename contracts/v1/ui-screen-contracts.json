@@ -103,6 +103,7 @@
     "missions.sinceLastVisit",
     "missionMessages.list",
     "workItemComments.list",
+    "pullRequests.list",
     "missionOutputs.list",
     "missionBundles.latest",
     "plans.get",
@@ -139,6 +140,7 @@
     "workItem.transition",
     "workItem.comment",
     "workItem.details.set",
+    "pullRequest.refresh",
     "automation.upsert",
     "automation.control",
     "plan.propose",
@@ -443,11 +445,13 @@
   {
    "route": "/approvals/:id",
    "queries": [
-    "approval.get"
+    "approval.get",
+    "pullRequests.list"
    ],
    "actions": [
     "approval.decision",
     "approval.revoke",
+    "pullRequest.refresh",
     "approval.decision-status"
    ],
    "content": [

@@ -250,6 +250,26 @@ CREATE TABLE work_item_comments (
   created_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE INDEX work_item_comments_thread ON work_item_comments(work_item_id, created_at_ms, id);
+-- A pull request an approved git.open-pr call opened (#121, ADR 0043). Written once, from the answer the Governor itself got from the provider,
+-- and never edited: the provider and repository are copied here so a later change to the connection cannot rewrite what was opened. What
+-- a later look finds is a new pull_request_states row; the newest row is the current state. work_item_id/mission_id/run_id are empty for a
+-- run that serves no work item.
+CREATE TABLE pull_requests (
+  id TEXT PRIMARY KEY, approval_id TEXT NOT NULL UNIQUE, invocation_id TEXT NOT NULL, run_id TEXT, work_item_id TEXT REFERENCES work_items(id), mission_id TEXT,
+  connection_id TEXT NOT NULL, provider TEXT NOT NULL CHECK(provider IN ('github','github-enterprise','gitlab','gitea')), repository_key TEXT NOT NULL,
+  number INTEGER NOT NULL CHECK(number >= 0), url TEXT NOT NULL CHECK(url LIKE 'http://%' OR url LIKE 'https://%'), title TEXT NOT NULL, branch TEXT NOT NULL, base_branch TEXT NOT NULL,
+  commit_oid TEXT NOT NULL, opened_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX pull_requests_work_item ON pull_requests(work_item_id, opened_at_ms);
+CREATE TABLE pull_request_states (
+  id TEXT PRIMARY KEY, pull_request_id TEXT NOT NULL REFERENCES pull_requests(id), state TEXT NOT NULL CHECK(state IN ('open','merged','closed')),
+  source TEXT NOT NULL CHECK(source IN ('opened','refresh')), observed_by TEXT, observed_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX pull_request_states_latest ON pull_request_states(pull_request_id, observed_at_ms, id);
+CREATE TRIGGER pull_requests_never_edited BEFORE UPDATE ON pull_requests BEGIN SELECT RAISE(ABORT, 'a pull request record is never edited'); END;
+CREATE TRIGGER pull_requests_never_removed BEFORE DELETE ON pull_requests BEGIN SELECT RAISE(ABORT, 'a pull request record is never removed'); END;
+CREATE TRIGGER pull_request_states_never_edited BEFORE UPDATE ON pull_request_states BEGIN SELECT RAISE(ABORT, 'a pull request observation is never edited'); END;
+CREATE TRIGGER pull_request_states_never_removed BEFORE DELETE ON pull_request_states BEGIN SELECT RAISE(ABORT, 'a pull request observation is never removed'); END;
 CREATE TABLE workflow_runs (
   id TEXT PRIMARY KEY, execution_key TEXT NOT NULL UNIQUE, config_digest TEXT NOT NULL,
   workflow_digest TEXT NOT NULL, adapter_digest TEXT NOT NULL, engine_run_id TEXT NOT NULL UNIQUE,

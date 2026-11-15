@@ -7725,6 +7725,7 @@
             "handoffs.forWorkItem",
             "missionMessages.list",
             "workItemComments.list",
+            "pullRequests.list",
             "missionOutputs.list",
             "missionOutputs.get",
             "plans.get",
@@ -7814,6 +7815,7 @@
             "handoffs.forWorkItem",
             "missionMessages.list",
             "workItemComments.list",
+            "pullRequests.list",
             "missionOutputs.list",
             "missionOutputs.get",
             "plans.get",
@@ -11477,6 +11479,9 @@
         },
         {
           "$ref": "#/$defs/WorkItemDetailsSetCommand"
+        },
+        {
+          "$ref": "#/$defs/PullRequestRefreshCommand"
         },
         {
           "$ref": "#/$defs/KnowledgeWithdrawUnobservedCommand"
@@ -26125,6 +26130,168 @@
         "workspaceId",
         "idempotencyKey",
         "expectedVersion",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "PullRequestState": {
+      "type": "string",
+      "enum": [
+        "open",
+        "merged",
+        "closed"
+      ]
+    },
+    "PullRequestObservation": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/PullRequestState"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "opened",
+            "refresh"
+          ]
+        },
+        "observedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "observedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "state",
+        "source",
+        "observedAt"
+      ],
+      "additionalProperties": false
+    },
+    "PullRequest": {
+      "type": "object",
+      "properties": {
+        "pullRequestId": {
+          "$ref": "#/$defs/Id"
+        },
+        "approvalId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "provider": {
+          "$ref": "#/$defs/GitProvider"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^https?://"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "base": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "openedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "state": {
+          "$ref": "#/$defs/PullRequestState"
+        },
+        "stateObservedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PullRequestObservation"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "pullRequestId",
+        "approvalId",
+        "provider",
+        "repository",
+        "number",
+        "url",
+        "title",
+        "branch",
+        "base",
+        "openedAt",
+        "state",
+        "stateObservedAt",
+        "observations"
+      ],
+      "additionalProperties": false
+    },
+    "PullRequestRefreshCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "pullRequest.refresh"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "pullRequestId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "pullRequestId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
         "payload"
       ],
       "additionalProperties": false
