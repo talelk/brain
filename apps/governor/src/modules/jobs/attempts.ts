@@ -567,7 +567,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     }
     if (cleanup === 1) releaseReservation(s, attemptId);
     endAttemptSession(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, failed: jobState === "failed" });
-    // An engine that can resume leaves its saved conversation on this runner; the session records that it is the holder (ADR 0044).
+    // An engine that can resume leaves its saved conversation on this runner; the session records that it is the holder (ADR 0045).
     if (body["checkpoint"] !== undefined) recordAttemptCheckpoint(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, checkpoint: body["checkpoint"] });
     revokeSessionCredentials(s, attemptId);
     for (const keyRow of s.control.prepare("SELECT resource_key FROM resource_leases WHERE attempt_id=?").all(attemptId) as Array<{ resource_key: string }>) {

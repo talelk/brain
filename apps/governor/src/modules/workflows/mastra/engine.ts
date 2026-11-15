@@ -10,7 +10,7 @@ import { bulkTransition, transitionState } from "../../../domain/states";
 import { compileWorkflowGraph, releaseRecord, resolveBinding } from "../../configuration/index";
 import type { Store } from "../../../application/store";
 import type { RunResume, WorkflowEnginePort, WorkflowHost } from "../engine-port";
-import { admitEvaluations, admitStep, type AdmissionPorts, type AdmissionRun } from "../admission";
+import { admitEvaluations, admitReadySteps, readStepOutputs, type AdmissionPorts, type AdmissionRun } from "../admission";
 
 // Mastra-backed WorkflowEnginePort (T29/T30). Brain tables remain the
 // operational authority (workflow_runs/steps/outputs); Mastra owns run
@@ -20,6 +20,15 @@ import { admitEvaluations, admitStep, type AdmissionPorts, type AdmissionRun } f
 // fresh engine rehydrates the Mastra run by its deterministic runId and any
 // completion recorded before the step suspended is replayed from the durable
 // engine_resumes table (early-wake safe).
+//
+// Which steps run is decided in one place, admitReadySteps (admission.ts): all
+// steps whose needs are met are admitted together, so independent steps run
+// at the same time (ADR 0043). Mastra's chain is only the durable record of
+// where each suspended step waits; a completion that arrives out of chain
+// order is held in engine_resumes until the chain reaches that step, and the
+// Mastra steps never admit on their own.
+const TERMINAL_RUN_STATES: readonly string[] = ["succeeded", "failed", "cancelled", "partial"];
+
 interface MastraRun {
   start: (opts: { inputData: unknown }) => Promise<{ status: string }>;
   resume: (opts: { step: string; resumeData: unknown }) => Promise<{ status: string }>;
@@ -44,6 +53,8 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
   private sharedMastra?: Promise<SharedMastra>;
   private readonly loweredWorkflows = new Map<string, Promise<unknown>>();
   private readonly runScopes = new Map<string, { organizationId: string; workspaceId: string }>();
+  // Engine calls of one run never overlap: two parallel steps completing together resume the chain one after the other.
+  private readonly driving = new Map<string, Promise<void>>();
 
   constructor(
     private readonly store: Store,
@@ -115,12 +126,17 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     const ws = s.workspaceDb(workspaceId, organizationId);
     const row = ws.prepare("SELECT run_id, step_id FROM workflow_steps WHERE job_id=? AND state='waiting'").get(approvalId) as { run_id: string; step_id: string } | undefined;
     if (!row) return;
+    // A sibling branch may have failed or cancelled the run while this approval was pending: the decision stays recorded, the run does not move.
+    if (TERMINAL_RUN_STATES.includes(this.loadRun(workspaceId, organizationId, row.run_id).state)) return;
     this.recordResume(organizationId, workspaceId, row.run_id, row.step_id, { output: { approved }, ok: approved });
     s.inTx(ws, () => {
       ws.prepare("UPDATE workflow_steps SET state=? WHERE run_id=? AND step_id=?").run(approved ? "succeeded" : "failed", row.run_id, row.step_id);
       ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(row.run_id, row.step_id, JSON.stringify({ approved }));
-      transitionState(ws, "run", row.run_id, approved ? "running" : "failed", { bumpVersion: true });
+      // The run stays suspended while another gate of a parallel branch still waits.
+      const otherGateWaiting = ws.prepare("SELECT 1 FROM workflow_steps WHERE run_id=? AND state='waiting' AND step_id<>?").get(row.run_id, row.step_id);
+      if (!approved || !otherGateWaiting) transitionState(ws, "run", row.run_id, approved ? "running" : "failed", { bumpVersion: true });
     });
+    if (!approved) this.stopRun(organizationId, workspaceId, row.run_id);
     if (approved) this.admit(organizationId, workspaceId, row.run_id);
     this.track(this.drive(organizationId, workspaceId, row.run_id, "resume", row.step_id));
   }
@@ -142,7 +158,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     let failedNow = false;
     s.inTx(ws, () => {
       const run = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string } | undefined;
-      if (!run || ["cancelled", "failed", "succeeded", "partial"].includes(run.state)) return;
+      if (!run || TERMINAL_RUN_STATES.includes(run.state)) return;
       const prior = ws.prepare("SELECT state,output_digest FROM workflow_steps WHERE run_id=? AND step_id=?").get(runId, stepId) as { state: string; output_digest: string | null } | undefined;
       if (!prior) throw new BrainDomainError("NOT_FOUND", "workflow step not found");
       const digest = domainDigest("brain:step-output:v1", output);
@@ -154,44 +170,29 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       ws.prepare("UPDATE workflow_steps SET state=?,output_digest=? WHERE run_id=? AND step_id=?").run(ok ? "succeeded" : "failed", digest, runId, stepId);
       if (!ok) failedNow = transitionState(ws, "run", runId, "failed", { bumpVersion: true });
     });
-    if (failedNow) this.host.runFailed({ organizationId, workspaceId, runId, diagnostic: `Step ${stepId} failed` });
+    if (failedNow) {
+      this.stopRun(organizationId, workspaceId, runId);
+      this.host.runFailed({ organizationId, workspaceId, runId, diagnostic: `Step ${stepId} failed` });
+    }
   }
 
-  // Admit the next ready step (one active step at a time, deterministic
-  // order): create its Brain job/approval/child run synchronously. The
-  // Mastra step for it will find the admitted row and suspend.
+  // A run that failed runs nothing more (failFast): its steps not yet started are skipped and the
+  // jobs of its other branches that no runner holds yet are withdrawn. A branch a runner already holds
+  // runs to its end; its completion no longer moves the run.
+  private stopRun(organizationId: string, workspaceId: string, runId: string): void {
+    this.store.workspaceDb(workspaceId, organizationId).prepare("UPDATE workflow_steps SET state='skipped' WHERE run_id=? AND state='pending'").run(runId);
+    this.host.cancelUnclaimedJobs(runId);
+  }
+
+  // Admit every ready step (ADR 0043): the scheduler is admitReadySteps; this
+  // adds the run-level settlement once no step is left to run.
   private admit(organizationId: string, workspaceId: string, runId: string): void {
     const s = this.store;
     s.assertWorkspaceActive(workspaceId, organizationId);
     const ws = s.workspaceDb(workspaceId, organizationId);
     const run = this.admissionRun(organizationId, workspaceId, runId);
-    if (["succeeded", "failed", "cancelled", "partial"].includes(run.state)) return;
-    const { workflow } = run;
-    const order = compileWorkflowGraph(workflow, runId);
-    const steps = ws.prepare("SELECT step_id, state, job_id, output_digest FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ step_id: string; state: string; job_id: string | null; output_digest: string | null }>;
-    const byId = new Map(steps.map((r) => [r.step_id, r]));
-    const outputs = this.readOutputs(workspaceId, organizationId, runId);
-    for (const stepId of order) {
-      const row = byId.get(stepId);
-      const declared = workflow.spec.jobs[stepId];
-      if (!row || !declared) continue;
-      if (row.state === "succeeded") continue;
-      const needsDone = declared.needs.every((n) => byId.get(n)?.state === "succeeded");
-      const needsFailed = declared.needs.some((n) => ["failed", "cancelled", "skipped"].includes(byId.get(n)?.state ?? ""));
-      if (needsFailed && row.state === "pending") {
-        ws.prepare("UPDATE workflow_steps SET state='skipped' WHERE run_id=? AND step_id=?").run(runId, stepId);
-        byId.set(stepId, { ...row, state: "skipped" });
-        continue;
-      }
-      if (!needsDone) continue;
-      if (row.state !== "pending") continue;
-      if (declared.kind === "eval") continue; // admitted by evidenceSubmitted
-      const admitted = admitStep(s, this.admission, run, stepId, outputs);
-      byId.set(stepId, { ...row, state: admitted === "waiting" ? "running" : admitted });
-      // One active step at a time; a steer completes synchronously and
-      // admission moves on, a failed steer stops it.
-      if (admitted !== "succeeded") return;
-    }
+    if (TERMINAL_RUN_STATES.includes(run.state)) return;
+    admitReadySteps(s, this.admission, run);
     const refreshed = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ state: string }>;
     if (refreshed.length > 0 && refreshed.every((r) => r.state === "succeeded" || r.state === "skipped")) {
       const anySkipped = refreshed.some((r) => r.state === "skipped");
@@ -205,8 +206,12 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
   evidenceSubmitted(organizationId: string, workspaceId: string, runId: string): void {
     this.store.assertWorkspaceActive(workspaceId, organizationId);
     const run = this.admissionRun(organizationId, workspaceId, runId);
-    if (["cancelled", "failed", "succeeded", "partial"].includes(run.state)) return;
+    if (TERMINAL_RUN_STATES.includes(run.state)) return;
     admitEvaluations(this.store, this.host, run);
+  }
+
+  recoverRun(organizationId: string, workspaceId: string, runId: string): void {
+    this.admit(organizationId, workspaceId, runId);
   }
 
   private get admission(): AdmissionPorts {
@@ -260,12 +265,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
   }
 
   private readOutputs(workspaceId: string, organizationId: string, runId: string): Record<string, JsonValue> {
-    const ws = this.store.workspaceDb(workspaceId, organizationId);
-    const outputs: Record<string, JsonValue> = {};
-    for (const r of ws.prepare("SELECT step_id, output_json FROM step_outputs WHERE run_id=?").all(runId) as Array<{ step_id: string; output_json: string }>) {
-      outputs[r.step_id] = JSON.parse(r.output_json) as JsonValue;
-    }
-    return outputs;
+    return readStepOutputs(this.store.workspaceDb(workspaceId, organizationId), runId);
   }
 
   private applyResume(workspaceId: string, organizationId: string, runId: string, stepId: string, record: ResumeRecord): JsonValue {
@@ -286,10 +286,18 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     return record.output;
   }
 
-  private async drive(organizationId: string, workspaceId: string, runId: string, mode: "start" | "resume", stepId?: string): Promise<void> {
+  private drive(organizationId: string, workspaceId: string, runId: string, mode: "start" | "resume", stepId?: string): Promise<void> {
+    const next = (this.driving.get(runId) ?? Promise.resolve()).then(() => this.driveNow(organizationId, workspaceId, runId, mode, stepId));
+    this.driving.set(runId, next);
+    const settled = (): void => { if (this.driving.get(runId) === next) this.driving.delete(runId); };
+    void next.then(settled, settled);
+    return next;
+  }
+
+  private async driveNow(organizationId: string, workspaceId: string, runId: string, mode: "start" | "resume", stepId?: string): Promise<void> {
     try {
       const { state } = this.loadRun(workspaceId, organizationId, runId);
-      if (["succeeded", "failed", "cancelled", "partial"].includes(state)) {
+      if (TERMINAL_RUN_STATES.includes(state)) {
         // Synchronous admission may already have terminalized the run; still
         // fire parent-link resumption for subgraph children.
         await this.finalize(organizationId, workspaceId, runId, state === "succeeded" || state === "partial" ? "success" : "failed");
@@ -305,7 +313,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       // consume it when reached. Other failures block the run for diagnosis.
       if (mode === "resume") {
         const { state } = this.loadRun(workspaceId, organizationId, runId);
-        if (!["succeeded", "failed", "cancelled", "partial"].includes(state)) return;
+        if (!TERMINAL_RUN_STATES.includes(state)) return;
       }
       const ws = this.store.workspaceDb(workspaceId, organizationId);
       bulkTransition(ws, "run", "blocked", { and: { id: runId }, bumpVersion: true });
@@ -319,7 +327,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     if (!run) return;
     if (mastraStatus === "suspended") return; // waiting on a Brain job/approval
     let failed = false;
-    if (!["succeeded", "failed", "cancelled", "partial"].includes(run.state)) {
+    if (!TERMINAL_RUN_STATES.includes(run.state)) {
       if (mastraStatus === "success") {
         const steps = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ state: string }>;
         const anySkipped = steps.some((r) => r.state === "skipped");
@@ -329,7 +337,10 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
         failed = true;
       }
     }
-    if (failed) this.host.runFailed({ organizationId, workspaceId, runId, diagnostic: "The workflow run failed" });
+    if (failed) {
+      this.stopRun(organizationId, workspaceId, runId);
+      this.host.runFailed({ organizationId, workspaceId, runId, diagnostic: "The workflow run failed" });
+    }
     // Admission may have settled the run already; reporting is idempotent (only in-progress work moves).
     if ((ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string }).state === "succeeded") this.host.runSucceeded({ organizationId, workspaceId, runId });
     // Resume a parent subgraph step waiting on this child run.
@@ -405,14 +416,13 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     for (const stepId of order) {
       const declared = workflow.spec.jobs[stepId];
       if (!declared) throw new BrainDomainError("INVALID_CONTRACT", `missing step ${stepId}`);
-      const suspendable = declared.kind !== "steer";
       const step = createStep({
         id: stepId,
         inputSchema: loose(),
         outputSchema: loose(),
-        ...(suspendable ? { suspendSchema: z.object({ stepId: z.string() }), resumeSchema: z.looseObject({}) } : {}),
-        execute: async ({ resumeData, suspend, runId: executionRunId, getInitData }: {
-          resumeData?: ResumeRecord;
+        suspendSchema: z.object({ stepId: z.string() }),
+        resumeSchema: z.looseObject({}),
+        execute: async ({ suspend, runId: executionRunId, getInitData }: {
           suspend: (data: { stepId: string }) => Promise<never>;
           runId: string;
           getInitData: <T>() => T;
@@ -430,18 +440,20 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
           const ws = s.workspaceDb(workspaceId, organizationId);
           const runRow = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string } | undefined;
           if (runRow?.state === "cancelled") throw new BrainDomainError("CONFLICT", "run cancelled");
-          const run = this.admissionRun(organizationId, workspaceId, runId);
-          const outputs = this.readOutputs(workspaceId, organizationId, runId);
-          const resumed = resumeData ?? this.readResume(workspaceId, organizationId, runId, stepId);
+          // The completion recorded for this step is the only resume data trusted: a chain resumed for another
+          // step of a parallel branch must never hand its data to this one.
+          const resumed = this.readResume(workspaceId, organizationId, runId, stepId);
           if (resumed) return this.applyResume(workspaceId, organizationId, runId, stepId, resumed) as Record<string, JsonValue>;
-          // Admission is idempotent: Brain's scheduler normally admitted this
-          // step already, and this only observes the result.
-          const admitted = admitStep(s, this.admission, run, stepId, outputs);
-          // Admission may have skipped this step (a need failed/was skipped)
-          // before the Mastra chain reached it: pass through without effects.
-          if (admitted === "skipped") return {} as Record<string, JsonValue>;
-          if (admitted === "waiting") return suspend({ stepId });
-          return this.applyResume(workspaceId, organizationId, runId, stepId, { output: outputs[stepId] ?? null, ok: admitted === "succeeded" }) as Record<string, JsonValue>;
+          // The step only observes where it stands. One still pending is given to the scheduler (idempotent; the recovery path after a restart).
+          const stateNow = () => (ws.prepare("SELECT state FROM workflow_steps WHERE run_id=? AND step_id=?").get(runId, stepId) as { state: string } | undefined)?.state;
+          if (stateNow() === "pending") this.admit(organizationId, workspaceId, runId);
+          const state = stateNow();
+          // Skipped (a need failed or was skipped, or the run stopped) before the chain reached it: pass through without effects.
+          if (state === "skipped") return {} as Record<string, JsonValue>;
+          if (state === "succeeded" || state === "failed") {
+            return this.applyResume(workspaceId, organizationId, runId, stepId, { output: this.readOutputs(workspaceId, organizationId, runId)[stepId] ?? null, ok: state === "succeeded" }) as Record<string, JsonValue>;
+          }
+          return suspend({ stepId });
         },
       } as never);
       builder = (builder as { then: (s2: unknown) => unknown }).then(step);

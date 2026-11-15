@@ -1,4 +1,4 @@
-# 44. A checkpoint is resumed on the runner that holds it
+# 45. A checkpoint is resumed on the runner that holds it
 
 Status: accepted, 2026-11-15. Builds on ADR 0006 (an interrupted reasoning step restarts itself) and ADR 0030 (a finished answer is kept). Ticket #129 later moves checkpoints to the Governor so any runner can resume; this does not build that.
 

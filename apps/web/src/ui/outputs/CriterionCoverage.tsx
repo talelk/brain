@@ -1,7 +1,7 @@
 import { For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge } from "@talelk/newui-atoms";
-import type { CriterionCheck, CriterionCoverage as Coverage } from "@brain/contracts";
+import type { CriterionCheck, CriterionCoverage as Coverage, MissionJudge } from "@brain/contracts";
 import { t, tn } from "../../i18n";
 
 const OUTCOME = { passed: "signoff.check.passed", failed: "signoff.check.failed", incomplete: "signoff.check.incomplete" } as const;
@@ -10,9 +10,9 @@ const linked = (entry: Coverage): boolean => entry.checks.length > 0;
 /**
  * What proves each mission success criterion (ADR 0034), shown before anyone signs off: the work serving it and the verified checks that
  * name it. A criterion no check names is "not linked to a check" however many other checks passed, and the owner is told so up front.
- * Advisory checks are a model's opinion: shown apart, never counted as proof.
+ * Advisory checks are a model's opinion: shown apart, never counted as proof, and a criterion the judge read nothing about says so.
  */
-export function CriterionCoverage(props: { coverage: readonly Coverage[] }): JSX.Element {
+export function CriterionCoverage(props: { coverage: readonly Coverage[]; judge: MissionJudge }): JSX.Element {
   const unlinked = () => props.coverage.filter((entry) => !linked(entry)).length;
   const checkLine = (check: CriterionCheck) => t("signoff.criteria.check", { name: check.name, outcome: t(OUTCOME[check.outcome]) });
   return <Show when={props.coverage.length > 0}>
@@ -37,6 +37,9 @@ export function CriterionCoverage(props: { coverage: readonly Coverage[] }): JSX
           </p>
           <For each={entry.checks}>{(check) => <p class="m-0 break-words text-caption text-ink-gray-7" data-testid="signoff-criterion-check">{checkLine(check)}</p>}</For>
           <For each={entry.advisory}>{(check) => <p class="m-0 break-words text-caption text-ink-gray-6" data-testid="signoff-criterion-advisory">{t("signoff.criteria.advisory", { name: check.name, outcome: t(OUTCOME[check.outcome]) })}</p>}</For>
+          <Show when={props.judge.state === "done" && entry.advisory.length === 0}>
+            <p class="m-0 break-words text-caption text-ink-gray-6" data-testid="signoff-criterion-no-opinion">{t("signoff.criteria.noOpinion")}</p>
+          </Show>
         </li>}</For>
       </ul>
     </section>

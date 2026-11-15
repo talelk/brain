@@ -1,12 +1,12 @@
 import { domainDigest } from "@brain/contracts";
-import type { CriterionCoverage, Handoff, HandoffFacts, HandoffNotes, JsonValue, MissionEvidenceBundle, WorkItemState } from "@brain/contracts";
+import type { CriterionCoverage, Handoff, HandoffFacts, HandoffNotes, JsonValue, MissionEvidenceBundle, MissionJudge, WorkItemState } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 type HandoffRow = { id: string; mission_id: string; work_item_id: string; version: number; notes_json: string; facts_json: string | null; submitted_by: string; superseded_by: string | null; created_at_ms: number };
-type BundleRow = { digest: string; mission_id: string; state: MissionEvidenceBundle["state"]; manifest_json: string; findings_json: string; verdict_independence: "L3" | null; created_at_ms: number };
+export type BundleRow = { digest: string; mission_id: string; state: MissionEvidenceBundle["state"]; manifest_json: string; findings_json: string; verdict_independence: "L3" | null; created_at_ms: number };
 
 /** Member notes stay claims and stay small (issue #33). */
 const NOTES_CHAR_CAP = 6000;
@@ -154,11 +154,22 @@ export function recordMissionVerdict(store: Store, db: Db, input: { missionId: s
   store.emit(db, { aggregateType: "mission", aggregateId: input.missionId, eventType: "mission.verdictRecorded", payload: { missionId: input.missionId, digest: input.digest } });
 }
 
-function latestBundleRow(db: Db, missionId: string): BundleRow | undefined {
+export function latestBundleRow(db: Db, missionId: string): BundleRow | undefined {
   return db.prepare("SELECT * FROM mission_evidence_bundles WHERE mission_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get(missionId) as BundleRow | undefined;
 }
 
-export function latestMissionBundle(db: Db, missionId: string): MissionEvidenceBundle | undefined {
+/**
+ * What the advisory judge did for a bundle (#95, ADR 0023). A bundle with no request yet is pending while the workspace has a usable hosted
+ * model and has not been signed off, and otherwise "no judge ran": absence is never a pass.
+ */
+function judgeOf(db: Db, row: BundleRow, hostedOn: boolean): MissionJudge {
+  const stored = db.prepare("SELECT state, reason, detail, model FROM mission_bundle_judgements WHERE bundle_digest=?").get(row.digest) as { state: MissionJudge["state"]; reason: string; detail: string; model: string } | undefined;
+  if (!stored) return row.state === "submitted" && hostedOn ? { state: "pending" } : { state: "not-run", reason: hostedOn ? "too-late" : "hosted-off" };
+  return { state: stored.state, ...(stored.reason ? { reason: stored.reason as NonNullable<MissionJudge["reason"]> } : {}), ...(stored.model ? { model: stored.model } : {}), ...(stored.detail ? { detail: stored.detail } : {}) };
+}
+
+/** The mission's current bundle with its coverage and the judge's status; `hostedOn` is whether the workspace has a usable hosted model (it decides what an unjudged bundle says). */
+export function latestMissionBundle(db: Db, missionId: string, hostedOn = false): MissionEvidenceBundle | undefined {
   const row = latestBundleRow(db, missionId);
   if (!row) return undefined;
   const { assembledAt: _assembledAt, coverage: frozen, ...manifest } = JSON.parse(row.manifest_json) as Omit<MissionEvidenceBundle, "digest" | "state" | "findings" | "createdAt" | "coverage"> & { assembledAt: number; coverage: StoredCoverage[] };
@@ -169,7 +180,7 @@ export function latestMissionBundle(db: Db, missionId: string): MissionEvidenceB
   const named = (criterionId: string, advisory: boolean) => checks.filter((check) => check.criterionId === criterionId && check.advisory === advisory)
     .map((check) => ({ name: check.evaluator, outcome: check.outcome, evidenceDigest: check.evidenceDigest }));
   const coverage = frozen.map((entry) => ({ ...entry, checks: [...entry.checks, ...named(entry.criterionId, false)], advisory: named(entry.criterionId, true) }));
-  return { ...manifest, coverage, digest: row.digest, state: row.state, findings: JSON.parse(row.findings_json) as string[], checks, createdAt: iso(row.created_at_ms), ...(row.verdict_independence ? { independence: row.verdict_independence } : {}) };
+  return { ...manifest, coverage, digest: row.digest, state: row.state, findings: JSON.parse(row.findings_json) as string[], checks, judge: judgeOf(db, row, hostedOn), createdAt: iso(row.created_at_ms), ...(row.verdict_independence ? { independence: row.verdict_independence } : {}) };
 }
 
 /**

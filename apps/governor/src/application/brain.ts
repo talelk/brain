@@ -2,7 +2,7 @@ import { readRuntimeConfig, type RuntimeConfig } from "../runtime-config";
 import { join } from "node:path";
 import type { ActorContext, ArtifactRef, CommandReceipt, RedactedDiagnostics, HumanApprovalDecision, JsonValue, MemoryResult, Workflow, WorkflowCatalogEntry,
 } from "@brain/contracts";
-import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from "@brain/contracts";
+import { approvalSubjectDigest, domainDigest, isKnownQuery } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
 import { Store, type BrainOptions } from "./store";
@@ -21,7 +21,7 @@ import { knowledgeCommands, knowledgeExpired, LOCAL_ONLY_SOURCE_TYPES, MemorySto
 import { admitApprovalDecision, governanceCommands, StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
 import { localRunnerSettingsCurrent, quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
-import { EvidenceService } from "../modules/evidence/index";
+import { EvidenceService, recordBundleCheck } from "../modules/evidence/index";
 import { readReleaseAgentInstructions, readReleaseToolScript } from "../modules/configuration/index";
 import { acceptAttemptArtifact } from "../modules/evidence/index";
 import {
@@ -42,10 +42,12 @@ import { jobCommands, JobProtocol, runnerResumeReadiness, type CreateJobInput } 
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { beginGovernorRun, finishEffect, issueEffectPermit, requestEffect, startEffect, type EffectPorts } from "../modules/governance/index";
 import { runGovernorEffect } from "./effect-broker";
+import { pullRequestCommands } from "./pull-requests";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
-import { MissionService, ShareService, missionCommands } from "../modules/missions/index";
+import { MissionService, ShareService, missionCommands, recordPullRequest } from "../modules/missions/index";
 import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
 import { Challenges } from "./challenges";
+import { BundleJudge } from "./bundle-judge";
 import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualityBreakdown, qualitySummary } from "../modules/stream/index";
@@ -54,7 +56,7 @@ import { alertBadProbes, notifyApprovers, platformAlertLink, securitySettingsLin
 import { SessionService, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
-import { IntegrationService, integrationCommands } from "../modules/integrations/index";
+import { IntegrationService, integrationCommands, type OpenedPullRequest } from "../modules/integrations/index";
 import { ConfigurationDraftService } from "../modules/configuration/index";
 import { CapitalizationService, ToolTests, capitalizationCommands } from "../modules/capabilities/index";
 
@@ -82,6 +84,9 @@ export class Brain {
   readonly commands: CommandFunnel;
   readonly autoStart: AutoStart;
   readonly challenges: Challenges;
+  readonly bundleJudge: BundleJudge;
+  /** The network port for model calls the Governor makes itself (the advisory judge, the probes). Tests and the browser fixture replace it with a fake model. */
+  modelFetch: typeof fetch = fetch;
   readonly playProposals: PlayProposals;
   readonly starterPlays: StarterPlays;
   readonly shares: ShareService;
@@ -168,6 +173,7 @@ export class Brain {
         dispatch: (actor, command) => this.commands.run(actor, command as Parameters<CommandFunnel["run"]>[1]),
         catalog: (organizationId) => (releaseDefinitions(this.store, organizationId, "workflows") as unknown as { items: WorkflowCatalogEntry[] }).items,
       });
+      this.bundleJudge = new BundleJudge({ store: this.store, modelFetch: () => this.modelFetch });
       this.playProposals = new PlayProposals({
         store: this.store,
         createDraft: (actor, workspaceId, input) => this.drafts.apply(actor, { commandType: "configDraft.create", workspaceId, payload: input }),
@@ -185,6 +191,7 @@ export class Brain {
         sessionCommands(this.sessions),
         documentCommands(this.documents),
         integrationCommands(this.integrations),
+        pullRequestCommands({ store: this.store, integrations: this.integrations }),
         configurationCommands(this.store, this.drafts),
         capitalizationCommands(this.capitalization),
         jobCommands(this.store, this.jobProtocol),
@@ -263,7 +270,7 @@ export class Brain {
    * The checks below the application (free disk, the model endpoint, each enabled hosted model): their latest results are what Health
    * shows, and a check that turns bad alerts the workspace owner once (in-app, pushed on their channels).
    */
-  async runEngineProbes(fetchImpl: typeof fetch = fetch): Promise<void> {
+  async runEngineProbes(fetchImpl: typeof fetch = this.modelFetch): Promise<void> {
     checkDisk(this.store);
     checkReplica(this.store, this.replica);
     checkBackups(this.store);
@@ -388,13 +395,16 @@ export class Brain {
   runFailed(input: { organizationId: string; workspaceId: string; runId: string; diagnostic: string }): void {
     this.missions.recordRunFailure(input.organizationId, input.workspaceId, input.runId, input.diagnostic);
   }
+  cancelUnclaimedJobs(runId: string): void {
+    this.jobProtocol.cancelForRun(runId);
+  }
   runSucceeded(input: { organizationId: string; workspaceId: string; runId: string }): void {
     this.missions.recordRunSuccess(input.organizationId, input.workspaceId, input.runId);
     // The finished item frees a member slot: the next ready task may start.
     void this.autoStart.sweep(input.organizationId, input.workspaceId).catch(() => undefined);
   }
   /**
-   * Resume (ADR 0044): a new run of the source run's workflow and input, its continuing step pinned to the runner holding the saved engine
+   * Resume (ADR 0045): a new run of the source run's workflow and input, its continuing step pinned to the runner holding the saved engine
    * state, linked to the task. A run that cannot be linked is cancelled, never left queued for a runner.
    */
   private startResumedRun(actor: ActorContext, workspaceId: string, input: { sourceRunId: string; stepId: string; workItemId: string; executionKey: string; resume: { runnerId: string; engineId: string; engineState: ArtifactRef; fromSessionId: string } }): string {
@@ -570,6 +580,8 @@ export class Brain {
       // A revoked approval, or a cancelled task, withdraws the change that was held for it.
       if (outcome.receipt.accepted && (String(cmd.commandType).startsWith("approval.") || cmd.commandType === "workflow.cancel")) this.jobProtocol.settleEffects();
       // A requested challenge starts its reviewer run now; the maintenance pass collects the answer.
+      // A submitted mission evidence bundle asks the advisory judge for its opinion; the maintenance pass resumes it after a restart.
+      if (outcome.receipt.accepted && cmd.workspaceId && cmd.commandType === "mission.proposeCompletion") void this.bundleJudge.sweep().catch(() => undefined);
       if (outcome.receipt.accepted && cmd.workspaceId && cmd.commandType === "result.challenge") void this.challenges.sweep(actor.organizationId, cmd.workspaceId).catch(() => undefined);
       return outcome;
     });
@@ -644,7 +656,12 @@ export class Brain {
   /** Performs an effect that needs the Governor's own credentials (ticket, message, pull request), once, for a started call. */
   runEffect(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): Promise<JsonValue> {
     const begun = beginGovernorRun(this.store, { auth: this.auth }, runner, attemptId, body);
-    return runGovernorEffect({ connectors: this.connectors(), integrations: this.integrations }, begun);
+    const pullRequestOpened = (opened: OpenedPullRequest, title: string): void => {
+      recordPullRequest(this.store, this.store.workspaceDb(begun.workspaceId, begun.organizationId), {
+        organizationId: begun.organizationId, workspaceId: begun.workspaceId, approvalId: begun.approvalId, invocationId: begun.invocationId, runId: begun.runId, opened, title,
+      });
+    };
+    return runGovernorEffect({ connectors: this.connectors(), integrations: this.integrations, pullRequestOpened }, begun);
   }
 
   acceptAttemptArtifact(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, input: { digest: string; bytesBase64: string; mediaType?: string }): { artifactId: string; digest: string; bytes: number } {
@@ -883,65 +900,17 @@ export class Brain {
     if (changed.changes === 0) throw new BrainDomainError("CONFLICT", "remediation proposal not found or already decided");
   }
 
-  // Delivery dossier lifecycle (T44): explicit creation, rubric results only
-  // from real attempts, and an explicit finalize that computes the verdict
-  // deterministically — reads never transition state.
   /**
-   * An evaluator's check on a mission's current evidence bundle (T44). Checks
-   * inform the mission verdict; recording one never changes the bundle's
-   * state. Evidence must be a real artifact of the workspace.
+   * An evaluator's check on a mission's current evidence bundle (T44). Checks inform the mission verdict; recording one never changes the
+   * bundle's state. The advisory judge writes its own through its request (application/bundle-judge.ts), never through here.
    */
   recordBundleCheck(input: {
     actor: ActorContext; workspaceId: string; missionId: string;
     criterionId: string; evaluator: string; outcome: "passed" | "failed" | "incomplete"; evidenceDigest: string; advisory?: boolean;
   }): void {
-    const s = this.store;
-    requireWorkspaceRead(s, input.actor, input.workspaceId);
-    const ws = s.workspaceDb(input.workspaceId, input.actor.organizationId);
-    const bundle = ws.prepare("SELECT digest, state FROM mission_evidence_bundles WHERE mission_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get(input.missionId) as { digest: string; state: string } | undefined;
-    if (!bundle) throw new BrainDomainError("NOT_FOUND", "the mission has no evidence bundle");
-    if (bundle.state !== "submitted") throw new BrainDomainError("CONFLICT", `a ${bundle.state} mission evidence bundle takes no new checks`);
-    if (!ws.prepare("SELECT 1 FROM artifacts WHERE digest=?").get(input.evidenceDigest)) throw new BrainDomainError("EVIDENCE_MISSING", "check evidence artifact not found in workspace");
-    ws.prepare("INSERT OR REPLACE INTO mission_bundle_checks(bundle_digest, criterion_id, evaluator, outcome, evidence_digest, advisory, created_at_ms) VALUES (?,?,?,?,?,?,?)")
-      .run(bundle.digest, input.criterionId, input.evaluator, input.outcome, input.evidenceDigest, input.advisory ? 1 : 0, s.now());
-  }
-
-  // Optional calibrated judge (T44): assesses pinned evidence against the
-  // mission's criteria with the local model, stores each transcript as CAS
-  // evidence and records an advisory check. The judge is a recommendation:
-  // it never records a mission verdict, which stays a separate act.
-  async judgeMissionBundle(input: {
-    actor: ActorContext; workspaceId: string; missionId: string;
-    criteria: Array<{ criterionId: string; criterionText: string; evidenceDigest: string }>;
-  }): Promise<Array<{ criterionId: string; outcome: string; transcriptDigest: string }>> {
-    const s = this.store;
-    requireWorkspaceRead(s, input.actor, input.workspaceId);
-    const ws = s.workspaceDb(input.workspaceId, input.actor.organizationId);
-    const bundle = ws.prepare("SELECT state FROM mission_evidence_bundles WHERE mission_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get(input.missionId) as { state: string } | undefined;
-    if (!bundle) throw new BrainDomainError("NOT_FOUND", "the mission has no evidence bundle");
-    if (bundle.state !== "submitted") throw new BrainDomainError("CONFLICT", "the mission evidence bundle is already judged");
-    const { runLocalJudge, judgeModelId, JUDGE_PROMPT_VERSION } = await import("../modules/packs/index");
-    const out: Array<{ criterionId: string; outcome: string; transcriptDigest: string }> = [];
-    for (const criterion of input.criteria) {
-      const evidenceText = Buffer.from(readVerified(this.store, criterion.evidenceDigest)).toString("utf8").slice(0, 32_768);
-      let verdict;
-      try {
-        verdict = await runLocalJudge({ criterionText: criterion.criterionText, evidenceText });
-      } catch (e) {
-        throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", `judge model unavailable: ${(e as Error).message}`);
-      }
-      const transcript = Buffer.from(JSON.stringify({
-        promptVersion: JUDGE_PROMPT_VERSION, model: judgeModelId(), criterionId: criterion.criterionId,
-        criterionText: criterion.criterionText, evidenceDigest: criterion.evidenceDigest,
-        outcome: verdict.outcome, rationale: verdict.rationale, raw: verdict.raw.slice(0, 4096),
-      }), "utf8");
-      const digest = sha256Digest(transcript);
-      const up = this.initUpload(input.actor, { workspaceId: input.workspaceId, expectedDigest: digest, expectedBytes: transcript.length }) as unknown as { uploadId: string };
-      this.putUpload(input.actor, up.uploadId, transcript);
-      this.recordBundleCheck({ actor: input.actor, workspaceId: input.workspaceId, missionId: input.missionId, criterionId: criterion.criterionId, evaluator: `judge:${judgeModelId()}`, outcome: verdict.outcome, evidenceDigest: digest, advisory: true });
-      out.push({ criterionId: criterion.criterionId, outcome: verdict.outcome, transcriptDigest: digest });
-    }
-    return out;
+    requireWorkspaceRead(this.store, input.actor, input.workspaceId);
+    const { actor: _actor, workspaceId, ...check } = input;
+    recordBundleCheck(this.store, this.store.workspaceDb(workspaceId, input.actor.organizationId), check);
   }
 
   // --- queries ---
@@ -1084,7 +1053,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.jobProtocol.automations.query(actor, q.queryType, q.workspaceId, q.resourceId, limit, (raw as { search?: string }).search));
       }
-      case "missions.list": case "missions.get": case "missions.timeline": case "missions.forSubject": case "missions.brief": case "handoffs.forWorkItem": case "missionBundles.latest": case "missionOutputs.list": case "missionOutputs.get": case "missionMessages.list": case "workItemComments.list": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": case "usage.run": case "usage.task": case "usage.mission": case "usage.workspace": case "plans.estimate": case "evalCases.list": case "lessons.list": {
+      case "missions.list": case "missions.get": case "missions.timeline": case "missions.forSubject": case "missions.brief": case "handoffs.forWorkItem": case "missionBundles.latest": case "missionOutputs.list": case "missionOutputs.get": case "missionMessages.list": case "workItemComments.list": case "pullRequests.list": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": case "usage.run": case "usage.task": case "usage.mission": case "usage.workspace": case "plans.estimate": case "evalCases.list": case "lessons.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.missions.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }
@@ -1310,6 +1279,11 @@ export class Brain {
       // the same execution key after a crash rather than create a second job.
       for (const run of ws.prepare("SELECT DISTINCT r.id FROM workflow_runs r JOIN evidence_bundles b ON json_extract(b.manifest_json,'$.workflowRunId')=r.id WHERE r.state IN ('running','suspended') AND b.state='submitted' ORDER BY r.id LIMIT 100").all() as Array<{id:string}>) {
         this.workflows.evidenceSubmitted(workspace.organization_id,workspace.id,run.id);
+      }
+      // A crash can fall between a step's completion and the admission of what it unblocked. A run with steps left to start and nothing
+      // in flight is given its ready steps again; admission is idempotent per step, so none starts twice (ADR 0043).
+      for (const run of ws.prepare("SELECT r.id FROM workflow_runs r WHERE r.state IN ('running','suspended') AND EXISTS (SELECT 1 FROM workflow_steps p WHERE p.run_id=r.id AND p.state='pending') AND NOT EXISTS (SELECT 1 FROM workflow_steps a WHERE a.run_id=r.id AND a.state IN ('running','waiting')) ORDER BY r.id LIMIT 100").all() as Array<{id:string}>) {
+        this.workflows.recoverRun(workspace.organization_id,workspace.id,run.id);
       }
     }
     return done;

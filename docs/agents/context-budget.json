@@ -12,7 +12,7 @@
     ]
   },
   "onDemand": {
-    "ceilingTokens": 165000,
+    "ceilingTokens": 175000,
     "paths": [
       "GLOSSARY.md",
       "docs/functional-spec.md",
@@ -30,7 +30,7 @@
   "fileCeilingTokens": {
     "AGENTS.md": 900,
     "IMPLEMENTATION_PROMPT.md": 4300,
-    "GLOSSARY.md": 8000,
+    "GLOSSARY.md": 10000,
     "docs/implementation/23-runtime-status.md": 13800
   }
 }

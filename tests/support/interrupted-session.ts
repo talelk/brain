@@ -6,7 +6,7 @@ import { advertisedCapabilities } from "../../apps/runner/src/engines/isolation"
 import { observation, registerRunner } from "./runnerHello";
 
 /**
- * An agent's attempt that stopped before it finished and left a checkpoint on the runner that took it (ADR 0044), reached the way a real one is:
+ * An agent's attempt that stopped before it finished and left a checkpoint on the runner that took it (ADR 0045), reached the way a real one is:
  * through commands and the runner protocol (enroll, claim, ack, complete with the checkpoint), never through table writes.
  */
 const DIGEST = `sha256:${"a".repeat(64)}`;

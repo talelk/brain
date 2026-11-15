@@ -197,7 +197,7 @@ export class SessionService {
 
   /**
    * Whether a session can be resumed from its checkpoint, and why not when it cannot. A checkpoint is resumable only by the runner that holds
-   * it (ADR 0044), so the plan names that runner and refuses in plain words when it is gone, busy elsewhere or no longer offers the engine's
+   * it (ADR 0045), so the plan names that runner and refuses in plain words when it is gone, busy elsewhere or no longer offers the engine's
    * resume. Nothing is said when there is nothing to resume (no checkpoint, or the session is still working).
    */
   private resumePlan(actor: ActorContext, workspaceId: string, row: SessionRow): ResumePlan {

@@ -18,16 +18,20 @@ function wf(id: string, jobs: Record<string, unknown>): Workflow {
 const readJob = (needs: string[]) => ({ kind: "dispatch", needs, input: {}, effectClass: "read", uses: { type: "tool", release: { id: "fixture.echo", digest: DIGEST_A } }, runsOn: { group: "g", all: [], isolation: "ephemeral-container", resources: { cpuMillicores: 1, memoryMb: 1, diskMb: 1, slots: 1 } } });
 const gateJob = (needs: string[]) => ({ kind: "gate", needs, input: {}, proposalFrom: "x", expiresAfterSeconds: 3600 });
 
-function fakeHost(): WorkflowHost & { jobs: string[]; approvals: string[]; steers: number } {
+interface FakeHost extends WorkflowHost { jobs: string[]; approvals: string[]; steers: number }
+
+function fakeHost(): FakeHost {
   const host = {
     jobs: [] as string[], approvals: [] as string[], steers: 0,
     createJobForStep(input: { stepId: string }) { host.jobs.push(input.stepId); return `job-${input.stepId}-${host.jobs.length}`; },
+    runFailed() { /* the run's work item is not under test here */ },
+    cancelUnclaimedJobs() { /* no runners in the engine conformance harness */ },
     createApprovalForGate(input: { stepId: string }) { const id = `apr-${input.stepId}-${host.approvals.length + 1}`; host.approvals.push(id); return id; },
     loadWorkflow() { throw new Error("no child workflows in fake host"); },
     steerSession() { host.steers += 1; },
     runSucceeded() { /* no missions in the engine conformance harness */ },
   };
-  return host as unknown as WorkflowHost & { jobs: string[]; approvals: string[]; steers: number };
+  return host as unknown as FakeHost;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

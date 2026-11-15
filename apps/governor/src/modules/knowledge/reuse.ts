@@ -192,7 +192,7 @@ export class ReuseService {
   private evidenceOf(db: Db, missionId: string): { verdictDigest: string | undefined; digests: string[] } {
     const bundle = this.verifiedBundle(db, missionId);
     if (!bundle) return { verdictDigest: undefined, digests: [] };
-    const checks = db.prepare("SELECT DISTINCT evidence_digest FROM mission_bundle_checks WHERE bundle_digest=? ORDER BY evidence_digest LIMIT 19").all(bundle.digest) as Array<{ evidence_digest: string }>;
+    const checks = db.prepare("SELECT DISTINCT evidence_digest FROM mission_bundle_checks WHERE bundle_digest=? AND advisory=0 ORDER BY evidence_digest LIMIT 19").all(bundle.digest) as Array<{ evidence_digest: string }>;
     return { verdictDigest: bundle.digest, digests: [bundle.digest, ...checks.map((check) => check.evidence_digest)] };
   }
 

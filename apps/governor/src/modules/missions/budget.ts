@@ -40,10 +40,10 @@ export function unionMs(intervals: ReadonlyArray<readonly [number, number]>): nu
  * Working time of a mission (ADR 0016): the union of the intervals in which one of its attempts held a runner reservation, from its
  * ledger row to the release of its capacity (to now while it runs, and never past the lease of an attempt a restart left behind).
  * Waiting for a person, planning, queueing and Governor downtime with nothing in flight are not working time. Reviewer runs of
- * "Challenge this result" are charged to the mission but are not its work.
+ * "Challenge this result" and the advisory judge's model calls (attempt ids `judge:...`) are charged to the mission but are not its work.
  */
 export function workingMs(store: Store, db: Db, missionId: string, now: number): number {
-  const attempts = db.prepare(`SELECT attempt_id, created_at_ms FROM mission_spend WHERE mission_id=?
+  const attempts = db.prepare(`SELECT attempt_id, created_at_ms FROM mission_spend WHERE mission_id=? AND attempt_id NOT LIKE 'judge:%'
     AND run_id NOT IN (SELECT id FROM workflow_runs WHERE execution_key LIKE 'challenge-%')`).all(missionId) as Array<{ attempt_id: string; created_at_ms: number }>;
   const lookup = store.control.prepare(`SELECT a.lease_expires_at_ms AS lease, r.released_at_ms AS released FROM job_attempts a
     LEFT JOIN capacity_reservations r ON r.attempt_id=a.id WHERE a.id=?`);
@@ -229,4 +229,22 @@ export function admitChallenge(store: Store, db: Db, missionId: string): { admit
   const ceiling = row.budget_micro_usd === null ? null : row.budget_micro_usd - row.final_allowance_micro_usd;
   const out = (ceiling !== null && usage.settledMicroUsd + usage.reservedMicroUsd + reserve >= ceiling) || tokensExhausted(row, usage) || capReached(db, now, reserve);
   return out ? { admitted: false, reason: "budget", running: usage.runningMembers } : { admitted: true, reserve, running: usage.runningMembers };
+}
+
+/**
+ * Admission of the advisory judge's next model call (#95, ADR 0023): the call is spend, so the mission's money limit and the workspace
+ * caps stop it first. The mission is verifying, not active, and the judge is no work session: only money and the workspace caps apply.
+ */
+export function judgeAdmitted(store: Store, db: Db, missionId: string): boolean {
+  return !reachedLimits(store, db, missionId).some((limit) => limit === "money" || limit === "workspace cap");
+}
+
+/**
+ * Charges one finished judge call to its mission, settled at once: the ledger row has no runner attempt to wait for. `attemptId` is
+ * `judge:<bundle>:<criterion>`, so a replayed call is the same row and never charged twice.
+ */
+export function recordJudgeSpend(store: Store, db: Db, input: { missionId: string; attemptId: string; runId: string; microUsd: number; inputTokens: number; outputTokens: number; estimated: boolean }): void {
+  const now = store.now();
+  db.prepare(`INSERT OR IGNORE INTO mission_spend(attempt_id,mission_id,run_id,reserved_micro_usd,settled_micro_usd,reserved_tokens,input_tokens,output_tokens,cached_input_tokens,accounting,estimated,created_at_ms,settled_at_ms)
+    VALUES (?,?,?,0,?,0,?,?,0,'final-total',?,?,?)`).run(input.attemptId, input.missionId, input.runId, input.microUsd, input.inputTokens, input.outputTokens, input.estimated ? 1 : 0, now, now);
 }

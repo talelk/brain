@@ -5,15 +5,16 @@ import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { NORMAL_JOB_PRIORITY } from "../../domain/work-priority";
 import type { Db } from "../../infrastructure/persistence/open";
-import { resolveBinding } from "../configuration/index";
+import { compileWorkflowGraph, resolveBinding } from "../configuration/index";
 import { pinnedEvaluator } from "../evidence/index";
 import type { RunResume, WorkflowEnginePort, WorkflowHost } from "./engine-port";
 
 /**
- * Step admission: the single place that decides what admitting a step of
- * each kind does. Brain's synchronous scheduler and the Mastra step both call
- * it; it is idempotent on the step row, so whichever reaches a step second
- * only observes what the first did.
+ * Step admission: the single place that decides which steps run and what
+ * admitting a step of each kind does. `admitReadySteps` is the scheduler: every
+ * step whose needs are met is admitted in the same pass, so independent steps
+ * run at the same time (ADR 0043). It is idempotent on the step row, so whichever
+ * caller reaches a step second only observes what the first did.
  *
  * - dispatch: queues the step's job
  * - gate: requests the approval and suspends the run
@@ -63,6 +64,52 @@ function resumeFor(ws: Db, runId: string, stepId: string): RunResume | undefined
 function runPriority(ws: Db, runId: string): number {
   const row = ws.prepare("SELECT priority FROM run_inputs WHERE run_id=?").get(runId) as { priority: number } | undefined;
   return row?.priority ?? NORMAL_JOB_PRIORITY;
+}
+
+/** What the scheduler does with a pending step, from the states of its needs. */
+type Readiness = "ready" | "wait" | "skip";
+
+/** A step whose needs all succeeded is ready; one with a failed, cancelled or skipped need is skipped. */
+function readiness(step: Workflow["spec"]["jobs"][string], stateOf: (stepId: string) => string | undefined): Readiness {
+  if (step.needs.some((need) => ["failed", "cancelled", "skipped"].includes(stateOf(need) ?? ""))) return "skip";
+  return step.needs.every((need) => stateOf(need) === "succeeded") ? "ready" : "wait";
+}
+
+/** The outputs the run's steps have produced so far, by step id. */
+export function readStepOutputs(ws: Db, runId: string): Record<string, JsonValue> {
+  const outputs: Record<string, JsonValue> = {};
+  for (const r of ws.prepare("SELECT step_id, output_json FROM step_outputs WHERE run_id=?").all(runId) as Array<{ step_id: string; output_json: string }>) {
+    outputs[r.step_id] = JSON.parse(r.output_json) as JsonValue;
+  }
+  return outputs;
+}
+
+/**
+ * The run's scheduler: admits every pending step whose needs are met, in one
+ * pass and in the compiled order, and skips the pending steps a failed or
+ * skipped need rules out. A step that completes synchronously (steer) makes its
+ * dependents ready in the same pass; a failed step stops the pass. How many
+ * attempts may run at once is not decided here: each admitted job waits in the
+ * queue and the claim applies the mission's member cap and budget (ADR 0009, 0016).
+ */
+export function admitReadySteps(store: Store, ports: AdmissionPorts, run: AdmissionRun): void {
+  const ws = store.workspaceDb(run.workspaceId, run.organizationId);
+  const states = new Map((ws.prepare("SELECT step_id, state FROM workflow_steps WHERE run_id=?").all(run.runId) as Array<{ step_id: string; state: string }>).map((r) => [r.step_id, r.state]));
+  const outputs = readStepOutputs(ws, run.runId);
+  for (const stepId of compileWorkflowGraph(run.workflow, run.runId)) {
+    const declared = run.workflow.spec.jobs[stepId];
+    if (!declared || states.get(stepId) !== "pending") continue;
+    const verdict = readiness(declared, (id) => states.get(id));
+    if (verdict === "skip") {
+      ws.prepare("UPDATE workflow_steps SET state='skipped' WHERE run_id=? AND step_id=?").run(run.runId, stepId);
+      states.set(stepId, "skipped");
+      continue;
+    }
+    if (verdict === "wait" || declared.kind === "eval") continue; // an evaluation is admitted by the evidence it judges
+    const admitted = admitStep(store, ports, run, stepId, outputs);
+    states.set(stepId, admitted === "waiting" ? "running" : admitted);
+    if (admitted === "failed") return;
+  }
 }
 
 /**

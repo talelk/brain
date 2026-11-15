@@ -4,7 +4,7 @@ import { dirname, join, normalize } from "node:path";
 import http from "isomorphic-git/http/node";
 import { add, branch, checkout, clone, commit, push } from "isomorphic-git";
 import fs from "node:fs";
-import type { GitProvider } from "@brain/contracts";
+import type { GitProvider, PullRequestState } from "@brain/contracts";
 import type { GitCredentialMaterial } from "./crypto";
 import { gitProviderLabel } from "./git-provider";
 
@@ -15,8 +15,11 @@ import { gitProviderLabel } from "./git-provider";
 export interface ProposedFile { readonly path: string; readonly content: string }
 
 export interface PullRequestInput { provider: GitProvider; remoteUrl: string; credentials: GitCredentialMaterial; base: string; head: string; title: string; body: string }
+export interface PullRequestLookup { provider: GitProvider; remoteUrl: string; credentials: GitCredentialMaterial; number: number }
 export interface PullRequestApi {
   open(input: PullRequestInput): Promise<{ number: number; url: string }>;
+  /** Where the request stands at the provider now (a read; nothing is changed there). */
+  state(input: PullRequestLookup): Promise<PullRequestState>;
 }
 
 const MAX_FILES = 20;
@@ -80,7 +83,48 @@ export class HostedPullRequestApi implements PullRequestApi {
     return await expectJson(await this.fetchImpl(url, { method: "POST", signal: AbortSignal.timeout(20_000), headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) }), what);
   }
 
+  private async get(url: string, headers: Record<string, string>, what: string): Promise<Record<string, unknown>> {
+    return await expectJson(await this.fetchImpl(url, { method: "GET", signal: AbortSignal.timeout(20_000), headers }), what);
+  }
+
   async open(input: PullRequestInput): Promise<{ number: number; url: string }> {
+    const opened = await this.openAt(input);
+    // The address is what a person follows: an answer without one is not a usable request, however it was made.
+    if (!/^https?:\/\//u.test(opened.url)) throw new Error(`${gitProviderLabel(input.provider)} did not return the address of the request`);
+    return opened;
+  }
+
+  async state(input: PullRequestLookup): Promise<PullRequestState> {
+    const { origin, path } = repositoryPath(input.remoteUrl);
+    const token = input.credentials.token ?? "";
+    const label = gitProviderLabel(input.provider);
+    const number = encodeURIComponent(String(input.number));
+    switch (input.provider) {
+      case "github":
+      case "github-enterprise":
+      case "gitea": {
+        const github = input.provider !== "gitea";
+        const url = input.provider === "github" ? `https://api.github.com/repos/${path}/pulls/${number}` : github ? `${origin}/api/v3/repos/${path}/pulls/${number}` : `${origin}/api/v1/repos/${path}/pulls/${number}`;
+        const headers = github ? { accept: "application/vnd.github+json", "user-agent": "Brain", ...(token ? { authorization: `Bearer ${token}` } : {}) } : (token ? { authorization: `token ${token}` } : {});
+        const answer = await this.get(url, headers, label);
+        if (answer["merged"] === true || (typeof answer["merged_at"] === "string" && answer["merged_at"])) return "merged";
+        if (answer["state"] === "closed") return "closed";
+        if (answer["state"] === "open") return "open";
+        throw new Error(`${label} answered a pull request state Brain does not know`);
+      }
+      case "gitlab": {
+        const answer = await this.get(`${origin}/api/v4/projects/${encodeURIComponent(path)}/merge_requests/${number}`, token ? { "private-token": token } : {}, label);
+        // locked means the merge is in progress: not merged yet, so still open.
+        if (answer["state"] === "merged") return "merged";
+        if (answer["state"] === "closed") return "closed";
+        if (answer["state"] === "opened" || answer["state"] === "locked") return "open";
+        throw new Error(`${label} answered a merge request state Brain does not know`);
+      }
+      default: throw new Error(`pull requests are not supported for the Git provider "${String(input.provider).slice(0, 40)}"`);
+    }
+  }
+
+  private async openAt(input: PullRequestInput): Promise<{ number: number; url: string }> {
     const { origin, path } = repositoryPath(input.remoteUrl);
     const token = input.credentials.token ?? "";
     const label = gitProviderLabel(input.provider);
