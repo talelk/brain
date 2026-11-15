@@ -2052,5 +2052,8 @@ export const ar: Catalog = {
   "schedules.subject.plan-card-off": "تنتظر موافقتك كل مرة (التأكيد التلقائي متوقف)",
   "schedules.subject.run-now-note": "التشغيل الآن غير متاح: لا يبدأ المحفّز إلا عند وصول تذكرة أو حادثة جديدة.",
   "schedules.subject.review": "{title} · يبدأ الخطة الجاهزة {play}: {when}",
+  "mp.coordinator-badge.cd01": "المنسّق",
+  "mp.plans-the-mission.cd02": "يخطّط المهمة ويعيد تخطيطها",
+  "mp.coordinator-note.cd03": "يخطّط المنسّق ويعيد التخطيط ضمن سياسة استقلالية المهمة؛ وأي تغيير يتجاوزها ينتظر موافقتك. فهو لا يبدأ أي مهمة ولا يسجّل أي حكم ولا يؤكّد شيئًا بنفسه.",
   // @@END
 };

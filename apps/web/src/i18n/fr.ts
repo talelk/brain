@@ -1974,5 +1974,8 @@ export const fr: Catalog = {
   "schedules.subject.plan-card-off": "Attend votre accord à chaque fois (confirmation automatique désactivée)",
   "schedules.subject.run-now-note": "Exécuter maintenant n'est pas proposé : un déclencheur ne démarre qu'à l'arrivée d'un nouveau ticket ou incident.",
   "schedules.subject.review": "{title} · démarre le Play {play} : {when}",
+  "mp.coordinator-badge.cd01": "Coordinateur",
+  "mp.plans-the-mission.cd02": "Planifie et replanifie la mission",
+  "mp.coordinator-note.cd03": "Le coordinateur planifie et replanifie dans le cadre de l'autonomie de la mission ; un changement au-delà attend votre accord. Il ne lance aucune tâche, ne rend aucun verdict et ne confirme rien lui-même.",
   // @@END
 };

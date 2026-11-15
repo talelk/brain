@@ -64,6 +64,19 @@ async function planEditorRoute(demo: Demo, governor: Fixture): Promise<string> {
   return `/missions/${missionId}/plan`;
 }
 
+/** A mission from the coordinator Play with its starting plan confirmed, made when its screen is reached; the screen is its Team tab with the coordinator marked. */
+async function coordinatedTeamRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  const cmd = async (type: string, key: string, payload: Record<string, unknown>, expectedVersion?: number) => (await brain.executeCommand(demo.actor, {
+    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: type, workspaceId: demo.workspaceId, idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
+  } as never, key)).receipt;
+  const missionId = (await cmd("mission.create", "baseline-coordinator-create", { title: "Research the offsite venues", playId: "research-with-coordinator", autoStart: false })).resourceId ?? "";
+  const planId = (brain.store.workspaceDb(demo.workspaceId, demo.actor.organizationId).prepare("SELECT id FROM plan_versions WHERE mission_id=?").get(missionId) as { id: string }).id;
+  const version = ((await brain.executeQuery(demo.actor, { queryType: "missions.get", workspaceId: demo.workspaceId, resourceId: missionId })) as unknown as { snapshot: { version: number } }).snapshot.version;
+  await cmd("plan.confirm", "baseline-coordinator-confirm", { planVersionId: planId }, version);
+  return `/missions/${missionId}/team`;
+}
+
 const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Demo) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
@@ -101,6 +114,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "eval-cases", route: () => "/w/operations/quality/cases", heading: "Eval cases", prepare: seedEvalCases },
   // The plan editor open on a confirmed plan's team: its mission adds a work item only the screens after it could list.
   { id: "mission-plan-editor", route: planEditorRoute, heading: "Prepare the vendor review", after: async (page) => { await page.getByRole("button", { name: /^See the confirmed plan/ }).click(); await page.getByRole("button", { name: "Edit steps", exact: true }).first().click(); await expect(page.getByTestId("plan-team")).toBeVisible(); await expect(page.getByTestId("plan-step-assignment").first()).toBeVisible(); } },
+  // A mission from the coordinator Play (ticket #108): its Team tab marks the coordinator and says what it does not do.
+  { id: "mission-team-coordinator", route: coordinatedTeamRoute, heading: "Research the offsite venues", after: async (page) => { await expect(page.locator("[data-coordinator='lead']")).toBeVisible(); await page.locator("[data-coordinator-note]").evaluate((element) => element.scrollIntoView({ block: "end" })); } },
   // Last of all: the sign-off mission adds an attention item every earlier screen would count in its bell.
   { id: "mission-signoff", route: signOffRoute, heading: "Compile the quarterly report", waitFor: "mission-signoff" },
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.

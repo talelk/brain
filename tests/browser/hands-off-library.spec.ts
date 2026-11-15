@@ -117,7 +117,7 @@ test("Approve all verified on the Review inbox publishes the waiting write-ups",
   await expect(page.locator('[data-testid^="knowledge-proposal-"]').first()).toContainText("Published");
 });
 
-test("Add starter Plays: one click puts six ready-made Plays on Today and in the Library", async ({ page, governor }) => {
+test("Add starter Plays: one click puts seven ready-made Plays on Today and in the Library", async ({ page, governor }) => {
   test.setTimeout(180_000);
   await workspace(page, governor, { withPlays: false });
   await page.goto(`${governor.url}/w/ws-ho/today`);
@@ -125,11 +125,11 @@ test("Add starter Plays: one click puts six ready-made Plays on Today and in the
   await expect(chips.getByRole("button", { name: "Add starter Plays" })).toBeVisible();
   await shot(page, "6-today-no-plays");
   await chips.getByRole("button", { name: "Add starter Plays" }).click();
-  const titles = ["Write a checklist or runbook", "Compare options and recommend one", "Triage an incident", "Research and write a brief", "Draft a customer support reply", "Weekly status update"];
+  const titles = ["Write a checklist or runbook", "Compare options and recommend one", "Triage an incident", "Research and write a brief", "Research and write, planned by a coordinator", "Draft a customer support reply", "Weekly status update"];
   const phone = (page.viewportSize()?.width ?? 1440) < 640;
-  // A phone shows the first three behind "3 more Plays"; wider screens show all six.
+  // A phone shows the first three behind "4 more Plays"; wider screens show all seven.
   for (const [index, title] of titles.entries()) await expect(chips.getByRole("button", { name: title, exact: true })).toBeVisible({ visible: !phone || index < 3 });
-  if (phone) await expect(chips.getByRole("button", { name: "3 more Plays" })).toBeVisible();
+  if (phone) await expect(chips.getByRole("button", { name: "4 more Plays" })).toBeVisible();
   // The box stays blocked until the install is ready (no runners in this test), so the chips are shown but not usable yet.
   await shot(page, "7-today-plays");
 

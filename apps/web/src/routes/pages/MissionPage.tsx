@@ -294,7 +294,7 @@ function LiveTab(props: ActProps): JSX.Element {
       ]);
       const mine = items.snapshot.items.filter((item) => item.missionId === props.mission.missionId);
       const ids = new Set(mine.map((item) => item.workItemId));
-      return { snapshot: { members: [...(plan?.snapshot.team ?? [])], items: mine, sessions: sessions.snapshot.items.filter((session) => session.workItemId && ids.has(session.workItemId)) }, asOf: sessions.asOf, sourceWatermark: sessions.sourceWatermark };
+      return { snapshot: { members: [...(plan?.snapshot.team ?? [])], items: mine, sessions: sessions.snapshot.items.filter((session) => (session.workItemId && ids.has(session.workItemId)) || session.missionId === props.mission.missionId) }, asOf: sessions.asOf, sourceWatermark: sessions.sourceWatermark };
     },
   });
   const member = () => (typeof search.member === "string" ? search.member : "");
@@ -303,6 +303,8 @@ function LiveTab(props: ActProps): JSX.Element {
   /** Who wrote a message: a person by name, a team member's session by its role, or Brain itself. A raw principal id is never shown. */
   const senderName = (message: MissionMessage): string => (message.senderKind === "agent" ? t("plan.team-member-name.c101", { name: roleOfMember(message.senderMemberId) }) : message.senderKind === "system" ? "Brain" : app.personName(message.senderId));
   const memberOf = (session: BrainSession) => {
+    // A coordinator's wake serves no task: it belongs to the coordinator member.
+    if (!session.workItemId && session.missionId === props.mission.missionId) return props.mission.coordinatorMemberId ?? "";
     const item = team.state().data?.items.find((entry) => entry.workItemId === session.workItemId);
     return item?.assignment?.kind === "agent" ? item.assignment.id : "";
   };
@@ -421,9 +423,10 @@ function TeamTab(props: { mission: Mission }): JSX.Element {
     <ScreenRegion state={plan.state()} onRetry={() => void plan.refresh({ force: true })} emptyTitle={t("mp.no-team-yet.6fb4")} emptyDescription={t("mp.a-plan-version-with-a-team-is-pr.fcae")}>
       <table class="w-full text-start text-interface"><thead><tr><th>{t("mp.member.6853")}</th><th>{t("mp.role.c3f1")}</th><th>{t("mp.agent.5ce2")}</th><th>{t("mp.engine.c1f6")}</th><th>{t("mp.tasks.090e")}</th></tr></thead>
         <tbody><For each={plan.state().data?.team ?? []}>{(member) => <tr>
-          <td>{member.memberId}</td><td>{member.role}</td><td>{member.agentId}</td><td>{member.engine}</td>
-          <td>{(plan.state().data?.tasks ?? []).filter((task) => task.assignment?.kind === "agent" && task.assignment.id === member.memberId).map((task) => task.title).join(", ") || "—"}</td>
+          <td>{member.memberId}<Show when={member.memberId === props.mission.coordinatorMemberId}> <span class="rounded-full bg-surface-blue-1 px-2 py-0.5 text-caption text-ink-blue-8" data-coordinator={member.memberId}>{t("mp.coordinator-badge.cd01")}</span></Show></td><td>{member.role}</td><td>{member.agentId}</td><td>{member.engine}</td>
+          <td>{(plan.state().data?.tasks ?? []).filter((task) => task.assignment?.kind === "agent" && task.assignment.id === member.memberId).map((task) => task.title).join(", ") || (member.memberId === props.mission.coordinatorMemberId ? t("mp.plans-the-mission.cd02") : "—")}</td>
         </tr>}</For></tbody></table>
+      <Show when={props.mission.coordinatorMemberId}><p class="mt-3 text-caption text-ink-gray-6" data-coordinator-note>{t("mp.coordinator-note.cd03")}</p></Show>
     </ScreenRegion>
   </WorkspaceSection>;
 }
@@ -431,7 +434,8 @@ function TeamTab(props: { mission: Mission }): JSX.Element {
 /** Plan: a pending proposal (?proposal=) against the confirmed version, then the mission's work items (#37/#39/#43). */
 function PlanTab(props: ActProps): JSX.Element {
   const [search] = useSearchParams();
-  const proposalId = () => typeof search.proposal === "string" ? search.proposal : "";
+  // Before the first plan is confirmed, the version waiting for a person (a Play's starting plan) is the plan to read.
+  const proposalId = () => typeof search.proposal === "string" ? search.proposal : props.mission.activePlanVersionId ? "" : props.mission.pendingPlanVersionId ?? "";
   const estimated = () => proposalId() || props.mission.activePlanVersionId || "";
   return <PageStack>
     {/* The estimate arrives after the page: its slot is reserved so nothing below it jumps when it appears. */}

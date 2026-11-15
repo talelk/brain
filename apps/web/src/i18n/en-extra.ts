@@ -1528,5 +1528,8 @@ export const enExtra = {
   "schedules.subject.plan-card-off": "Waits for your OK each time (automatic confirmation is off)",
   "schedules.subject.run-now-note": "Run now is not offered: a trigger starts only when a new ticket or incident arrives.",
   "schedules.subject.review": "{title} · starts the Play {play}: {when}",
+  "mp.coordinator-badge.cd01": "Coordinator",
+  "mp.plans-the-mission.cd02": "Plans and re-plans the mission",
+  "mp.coordinator-note.cd03": "The coordinator plans and re-plans within the mission's autonomy policy; a change beyond it waits for you. It starts no task, records no verdict and confirms nothing itself.",
   // @@END
 } as const satisfies Record<string, string>;
