@@ -173,7 +173,8 @@ export function ConsoleToolbar(props: {
 
 /**
  * Exactly one suggested recovery operation, derived from server continuation facts. Resume from checkpoint is offered only when the Governor says
- * it can work (the engine can resume and the runner holding the checkpoint is online); a checkpoint that cannot be used is explained, never offered.
+ * it can work (the checkpoint artifact is stored and some eligible runner offers the engine's resume); a checkpoint that cannot be used is
+ * explained, never offered.
  */
 export function interruptionOperation(continuation: SessionContinuation): {
   operation: "resume-checkpoint" | "restart" | "reconcile" | "none";
@@ -192,7 +193,7 @@ export function interruptionOperation(continuation: SessionContinuation): {
     return {
       operation: "resume-checkpoint", command: "session.resume",
       label: t("console.resume.action"),
-      description: t("console.resume.description", { runner: continuation.resume.runnerId ?? "" }),
+      description: t("console.resume.description"),
     };
   }
   const unavailable = continuation.resume.reason;
@@ -348,7 +349,7 @@ export function ConsoleInspection(props: {
         <Show when={props.session?.resumedFrom}>{(from) => <>
           <dt class="text-ink-gray-6">{t("console.resume.startedFrom")}</dt>
           <dd class="min-w-0 break-words text-ink-gray-9" data-testid="resumed-from">
-            {t("console.resume.startedFromBody", { digest: from().checkpointDigest.slice(0, 19), runner: from().runnerId })}{" "}
+            {t("console.resume.startedFromBody", { digest: from().checkpointDigest.slice(0, 19) })}{" "}
             <CorrelationLink target={{ kind: "session", sessionId: from().sessionId }} label={t("console.resume.openEarlier")} icon="lucide-square-terminal" class="max-w-full" />
           </dd>
         </>}</Show>

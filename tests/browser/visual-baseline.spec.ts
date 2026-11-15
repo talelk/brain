@@ -210,10 +210,14 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "approval-review-pull-request", route: () => `/approvals/${pullRequestRecord!.approvalId}`, heading: "Approval review", after: async (page) => { const section = page.getByTestId("pull-requests"); await expect(section.getByTestId("pull-request-state")).toHaveText("Open"); await section.scrollIntoViewIfNeeded(); } },
   // An approval of a file change with its mission, task, run, diff and rollback (ticket #120): made here because its approval joins every later list.
   { id: "approval-review-change", route: () => `/approvals/${changeApproval!.approvalId}`, heading: "Approval review", prepare: seedChangeApprovalRecord, after: async (page) => { await expect(page.locator("[data-approval-diff]")).toContainText("+memory: 768m"); await expect(page.locator("[data-approval-rollback=declared]")).toBeVisible(); } },
-  // Resume from checkpoint (ticket #101), before the push screens (those stay last) because each screen adds a mission and a stopped task to the attention items: the failed session whose
-  // runner is online, the one whose runner is gone, and the new session that says which checkpoint it started from.
+  // Resume from checkpoint (tickets #101, #129), before the push screens (those stay last) because each screen adds a mission and a stopped task to the attention items: the failed session
+  // that any eligible runner could resume, the one no runner is left to resume, and the new session that says which checkpoint it started from.
   { id: "console-resume-offered", route: (d, g) => interruptedRoute(d, g, "runner-office", "vb-resume-offered"), heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByRole("button", { name: "Resume from checkpoint", exact: true })).toBeVisible(); } },
-  { id: "console-resume-unavailable", route: (d, g) => interruptedRoute(d, g, "runner-retired", "vb-resume-gone", async (sessionId) => { await command(g.app.brain, d.actor, d.workspaceId, "runner.control", "vb-resume-retire", { runnerId: "runner-retired", action: "deregister", reason: "retired" }); return sessionId; }), heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("resume-unavailable")).toBeVisible(); } },
+  { id: "console-resume-unavailable", route: (d, g) => interruptedRoute(d, g, "runner-retired", "vb-resume-gone", async (sessionId) => {
+    // Every runner this fleet has is taken out of service, the one that took the checkpoint included: nothing could continue it.
+    for (const { id } of g.app.brain.store.control.prepare("SELECT id FROM runners WHERE deregistered_at_ms IS NULL").all() as Array<{ id: string }>) await command(g.app.brain, d.actor, d.workspaceId, "runner.control", `vb-resume-retire-${id}`, { runnerId: id, action: "deregister", reason: "retired" });
+    return sessionId;
+  }), heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("resume-unavailable")).toBeVisible(); } },
   { id: "console-resumed", route: (d, g) => interruptedRoute(d, g, "runner-resumed", "vb-resumed", async (sessionId) => (await command(g.app.brain, d.actor, d.workspaceId, "session.resume", "vb-resume-now", { sessionId })).resourceId!), heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("resumed-from")).toBeVisible(); } },
   // A question a team member asked a person (ticket #109), before the push screens (those stay last) because it adds an attention item: the mission's Live tab, then the composer open on it.
   { id: "mission-question", route: questionRoute, heading: "Compile the quarterly report figures", waitFor: "mission-questions" },
@@ -354,7 +358,7 @@ test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(300_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const demo = await seedBrowserDemo(page, governor);
-  for (const screen of SCREENS.filter((entry) => !process.env["VB_ONLY"] || entry.id === process.env["VB_ONLY"])) {
+  for (const screen of SCREENS.filter((entry) => !process.env["VB_ONLY"] || process.env["VB_ONLY"].split(",").includes(entry.id))) {
     await screen.prepare?.(governor, page, demo);
     await page.goto(`${governor.url}${await screen.route(demo, governor)}`);
     const landmark = screen.testid

@@ -52,6 +52,8 @@ export interface AgentExecutionInput {
   modelId?: string | undefined;
   /** The saved engine state this attempt continues (a resumed session); an engine that cannot resume refuses it. */
   resumeFrom?: ArtifactRef;
+  /** The saved conversation `resumeFrom` names, downloaded from the Governor and verified by the caller; the engine checks it again before it starts. */
+  resumeBytes?: Uint8Array;
   timeoutMs: number;
   cleanupTimeoutMs?: number;
   maxTokens?: number;
@@ -86,6 +88,8 @@ export interface AgentExecutionResult {
   cleanupConfirmed?: boolean;
   /** What an engine that can resume saved when the attempt did not succeed: held on this runner, offered to the Governor so a person can resume from it. */
   checkpoint?: Checkpoint;
+  /** The bytes of the checkpoint's engine state, for the runner to upload to the Governor; absent when the engine cannot hand them over. */
+  checkpointBytes?: Uint8Array;
 }
 
 function decodedOutput(text: string): JsonValue {
@@ -159,6 +163,16 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
   }
   if (input.resumeFrom && !probe.features.includes("resume")) {
     return { ok: false, output: { error: `${engine.id} cannot resume a saved conversation, so the checkpoint was not used` }, outputText: "" };
+  }
+  if (input.resumeFrom) {
+    // The conversation comes from the Governor, not from this runner's disk: the engine verifies the downloaded bytes against the reference and
+    // refuses, with the reason, before any session starts.
+    try {
+      if (!engine.stageCheckpoint || !input.resumeBytes) throw new Error(`${engine.id} was given no saved conversation to continue, so the checkpoint was not used`);
+      await bounded(engine.stageCheckpoint(input.resumeFrom, input.resumeBytes));
+    } catch (e) {
+      return { ok: false, output: { error: (e instanceof Error ? e.message : "the checkpoint was not used").slice(0, ERROR_CHARS) }, outputText: "" };
+    }
   }
   checkpointable = probe.features.includes("checkpoint");
   const spec: EngineSessionSpec = {
@@ -259,8 +273,12 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
   clearTimeout(timer);
   // An attempt that did not finish leaves its engine's conversation behind, so a person can resume it instead of starting over. Best effort:
   // an engine that cannot save one never changes how the attempt ended.
-  const saved: { checkpoint?: Checkpoint } = {};
-  if (sessionId && checkpointable && !result.ok) await cleanup(async () => { saved.checkpoint = await engine.checkpoint(sessionId); });
+  const saved: { checkpoint?: Checkpoint; bytes?: Uint8Array } = {};
+  if (sessionId && checkpointable && !result.ok) await cleanup(async () => {
+    const taken = await engine.checkpoint(sessionId);
+    if (taken.engineState && engine.readCheckpoint) saved.bytes = await engine.readCheckpoint(taken.engineState);
+    saved.checkpoint = taken;
+  });
   // An endpoint that reports no usage must not leave the meter empty: charge a flagged estimate of 4 bytes per token.
   // A refusal for quota never reached the model: it spent nothing, so no estimate is charged for it.
   const refusedForQuota = engineError && QUOTA_TEXT.test(engineDetail);
@@ -281,7 +299,7 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
     const disposed = await cleanup(() => engine.dispose(sessionId));
     cleanupConfirmed = terminationConfirmed && disposed;
   }
-  return { ...result, ok: result.ok && cleanupConfirmed, cleanupConfirmed, ...(saved.checkpoint ? { checkpoint: saved.checkpoint } : {}) };
+  return { ...result, ok: result.ok && cleanupConfirmed, cleanupConfirmed, ...(saved.checkpoint ? { checkpoint: saved.checkpoint } : {}), ...(saved.bytes ? { checkpointBytes: saved.bytes } : {}) };
 }
 
 type UsageTotals = { inputTokens: number; outputTokens: number; cachedInputTokens: number; microUsd: number; estimated: boolean };
@@ -331,7 +349,7 @@ export async function runAgentExecution(input: AgentExecutionInput): Promise<Age
   const allowance = input.maxTokens !== undefined && input.maxTokens > 0 ? input.maxTokens : undefined;
   if (allowance !== undefined && used > allowance * 0.8) return first$;
   // The corrective session is a fresh one about the reply just written: it never continues a saved conversation.
-  const { resumeFrom: _resumed, ...fresh } = input;
+  const { resumeFrom: _resumed, resumeBytes: _bytes, ...fresh } = input;
   const second = await runAgentSession({
     ...fresh,
     ...(allowance !== undefined ? { maxTokens: allowance - used } : {}),

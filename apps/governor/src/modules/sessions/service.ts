@@ -66,24 +66,26 @@ export interface SessionMissionPort {
 }
 
 /**
- * What resuming a session needs from the jobs and workflow modules, bound at the composition root: whether the runner holding the saved
- * state can take it back, whether the task can take another run, and the new run itself (the source run's workflow and input again, its
- * continuing step pinned to that runner and carrying the saved state).
+ * What resuming a session needs from the artifact, jobs and workflow modules, bound at the composition root: whether the checkpoint artifact is
+ * still stored, whether any runner could continue it (placement, isolation, capability and the engine's resume feature), whether the task can
+ * take another run, and the new run itself (the source run's workflow and input again; its continuing step carries the saved state and is
+ * claimed by whichever eligible runner takes it).
  */
 export interface SessionResumePort {
-  runnerReadiness(runnerId: string, engineId: string): { ready: true } | { ready: false; reason: string };
+  /** Why the checkpoint artifact cannot be served (it is gone or changed); undefined when it is stored and verifies. */
+  checkpointBlocker(organizationId: string, engineState: ArtifactRef): string | undefined;
+  runnerReadiness(input: { organizationId: string; workspaceId: string; jobId: string; engineId: string }): { ready: true } | { ready: false; reason: string };
   /** Why the task cannot take a resumed run now (it is done, or a run for it is already going); undefined when it can. */
   taskBlocker(actor: ActorContext, workspaceId: string, workItemId: string): string | undefined;
   startRun(actor: ActorContext, workspaceId: string, input: {
     sourceRunId: string; stepId: string; workItemId: string; executionKey: string;
-    resume: { runnerId: string; engineId: string; engineState: ArtifactRef; fromSessionId: string };
+    resume: { engineId: string; engineState: ArtifactRef; fromSessionId: string };
   }): string;
 }
 
 /** Whether a session can be resumed from its checkpoint, with the facts a resume command acts on. */
 interface ResumePlan {
   possible: boolean;
-  runnerId?: string;
   reason?: string;
   /** Present only when possible. */
   source?: { runId: string; stepId: string; engineState: ArtifactRef; checkpointDigest: string; workItemId: string };
@@ -252,33 +254,34 @@ export class SessionService {
   }
 
   /**
-   * Whether a session can be resumed from its checkpoint, and why not when it cannot. A checkpoint is resumable only by the runner that holds
-   * it (ADR 0045), so the plan names that runner and refuses in plain words when it is gone, busy elsewhere or no longer offers the engine's
-   * resume. Nothing is said when there is nothing to resume (no checkpoint, or the session is still working).
+   * Whether a session can be resumed from its checkpoint, and why not when it cannot. The checkpoint is an artifact of the Governor (ADR 0063),
+   * so resuming needs it still stored and some eligible runner that offers the engine's resume; it names no runner. Nothing is said when there
+   * is nothing to resume (no checkpoint, or the session is still working).
    */
   private resumePlan(actor: ActorContext, workspaceId: string, row: SessionRow): ResumePlan {
     const checkpoint = this.checkpoint(row);
     if (!checkpoint) return { possible: false };
     const live = row.attempt_id ? this.store.control.prepare("SELECT 1 AS ok FROM job_attempts WHERE id=? AND state IN ('offered','running','uploading','cancelling')").get(row.attempt_id) : undefined;
     if (live || !["waiting", "stopped", "failed"].includes(row.state)) return { possible: false };
-    const refuse = (reason: string, runnerId?: string): ResumePlan => ({ possible: false, reason, ...(runnerId ? { runnerId } : {}) });
+    const refuse = (reason: string): ResumePlan => ({ possible: false, reason });
     if (!checkpoint.engineState) return refuse("This checkpoint saved no engine conversation, so there is nothing an engine could continue from.");
     if (!row.work_item_id || !row.job_id) return refuse("This session was not started by a run of its own, so there is no run to continue.");
-    const holder = this.store.control.prepare("SELECT runner_id FROM job_attempts WHERE id=?").get(checkpoint.attemptId ?? row.attempt_id ?? "") as { runner_id: string } | undefined;
-    if (!holder) return refuse("No runner is recorded as holding this checkpoint, so it cannot be resumed.");
-    if (!this.resumes) return refuse("Resuming is not wired in this Governor.", holder.runner_id);
-    const readiness = this.resumes.runnerReadiness(holder.runner_id, row.engine_id);
-    if (!readiness.ready) return refuse(readiness.reason, holder.runner_id);
+    if (!this.resumes) return refuse("Resuming is not wired in this Governor.");
+    const stored = this.resumes.checkpointBlocker(actor.organizationId, checkpoint.engineState);
+    if (stored) return refuse(stored);
+    const readiness = this.resumes.runnerReadiness({ organizationId: actor.organizationId, workspaceId, jobId: row.job_id, engineId: row.engine_id });
+    if (!readiness.ready) return refuse(readiness.reason);
     const blocker = this.resumes.taskBlocker(actor, workspaceId, row.work_item_id);
-    if (blocker) return refuse(blocker, holder.runner_id);
+    if (blocker) return refuse(blocker);
     const job = this.store.control.prepare("SELECT workflow_run_id, step_id FROM jobs WHERE id=?").get(row.job_id) as { workflow_run_id: string; step_id: string } | undefined;
-    if (!job) return refuse("The run this session belonged to is gone, so there is nothing to continue.", holder.runner_id);
-    return { possible: true, runnerId: holder.runner_id, source: { runId: job.workflow_run_id, stepId: job.step_id, engineState: checkpoint.engineState, checkpointDigest: checkpoint.digest, workItemId: row.work_item_id } };
+    if (!job) return refuse("The run this session belonged to is gone, so there is nothing to continue.");
+    return { possible: true, source: { runId: job.workflow_run_id, stepId: job.step_id, engineState: checkpoint.engineState, checkpointDigest: checkpoint.digest, workItemId: row.work_item_id } };
   }
 
   /**
-   * Resume: a new session continues the engine state a checkpoint saved, in a new run of the same workflow and input whose continuing step is
-   * pinned to the runner that holds that state. The caller chooses nothing; the source session fixes everything. Idempotent on the command id.
+   * Resume: a new session continues the engine state a checkpoint saved, in a new run of the same workflow and input whose continuing step any
+   * eligible runner may claim and then downloads the checkpoint from the Governor. The caller chooses nothing; the source session fixes
+   * everything. Idempotent on the command id.
    */
   resume(actor: ActorContext, workspaceId: string, commandId: string, payload: Readonly<Record<string, unknown>>): string {
     if (!this.resumes) throw new BrainDomainError("UNSUPPORTED_CAPABILITY", "resuming is not available");
@@ -287,14 +290,13 @@ export class SessionService {
     if (prior) return prior.sessionId;
     const source = this.row(actor, workspaceId, String(payload["sessionId"]));
     const plan = this.resumePlan(actor, workspaceId, source);
-    if (!plan.possible || !plan.source || !plan.runnerId) throw new BrainDomainError(plan.reason ? "CONFLICT" : "NOT_FOUND", plan.reason ?? "this session has no checkpoint to resume from");
+    if (!plan.possible || !plan.source) throw new BrainDomainError(plan.reason ? "CONFLICT" : "NOT_FOUND", plan.reason ?? "this session has no checkpoint to resume from");
     const runId = this.resumes.startRun(actor, workspaceId, {
       sourceRunId: plan.source.runId, stepId: plan.source.stepId, workItemId: plan.source.workItemId, executionKey: commandId,
-      resume: { runnerId: plan.runnerId, engineId: source.engine_id, engineState: plan.source.engineState, fromSessionId: source.id },
+      resume: { engineId: source.engine_id, engineState: plan.source.engineState, fromSessionId: source.id },
     });
     const id = this.store.id("ses");
-    const runnerId = plan.runnerId;
-    const from = JSON.stringify({ sessionId: source.id, checkpointDigest: plan.source.checkpointDigest, runnerId });
+    const from = JSON.stringify({ sessionId: source.id, checkpointDigest: plan.source.checkpointDigest });
     this.store.inTx(db, () => {
       const now = this.store.now();
       db.prepare(`INSERT INTO sessions(id,mode,work_item_id,parent_session_id,root_session_id,agent_id,task,engine_id,adapter_digest,state,delegation_depth,budget_json,scope_json,worktree_id,resumed_from_json,created_by,created_at_ms,updated_at_ms)
@@ -305,7 +307,7 @@ export class SessionService {
       const linked = db.prepare("UPDATE execution_links SET session_id=? WHERE work_item_id=? AND run_id=?").run(id, plan.source!.workItemId, runId);
       if (linked.changes !== 1) throw new BrainDomainError("CONFLICT", "the resumed run was not linked to its task");
       this.deliverAtStart(db, plan.source!.workItemId);
-      this.store.emit(db, { aggregateType: "session", aggregateId: id, eventType: "session.resumed", payload: { sessionId: id, workItemId: plan.source!.workItemId, resumeFromSessionId: source.id, checkpointDigest: plan.source!.checkpointDigest, runnerId } });
+      this.store.emit(db, { aggregateType: "session", aggregateId: id, eventType: "session.resumed", payload: { sessionId: id, workItemId: plan.source!.workItemId, resumeFromSessionId: source.id, checkpointDigest: plan.source!.checkpointDigest } });
     });
     return id;
   }
@@ -314,7 +316,7 @@ export class SessionService {
   continuation(actor: ActorContext, workspaceId: string, sessionId: string): SessionContinuation {
     const row = this.row(actor, workspaceId, sessionId);
     const plan = this.resumePlan(actor, workspaceId, row);
-    const resume = { possible: plan.possible, ...(plan.runnerId ? { runnerId: plan.runnerId } : {}), ...(plan.reason ? { reason: plan.reason } : {}) };
+    const resume = { possible: plan.possible, ...(plan.reason ? { reason: plan.reason } : {}) };
     return continuationFacts(this.store, { organizationId: actor.organizationId, workspaceId, sessionId }, resume);
   }
 
@@ -827,15 +829,23 @@ function stampedCheckpoint(db: ReturnType<Store["workspaceDb"]>, session: Sessio
 }
 
 /**
- * Keeps the checkpoint a runner took when an attempt ended (an engine's saved conversation, held on that runner) on the attempt's session. The
- * session keeps the state its attempt ended in; the runner that reported it is the holder, found through the attempt. A checkpoint that does not
- * belong to the attempt, or saved no engine state, is ignored: it never makes the attempt's own completion fail.
+ * Keeps the checkpoint a runner took when an attempt ended on the attempt's session. The engine's saved conversation is an artifact the runner
+ * uploaded to the Governor before it completed (ADR 0063), so the checkpoint outlives the runner. The session keeps the state its attempt ended
+ * in. A checkpoint that does not belong to the attempt, saved no engine state or names bytes this attempt did not upload is ignored: it never
+ * makes the attempt's own completion fail.
  */
 export function recordAttemptCheckpoint(store: Store, input: { organizationId: string; workspaceId: string; attemptId: string; checkpoint: unknown }): void {
   if (!validate("CheckpointInput", input.checkpoint).ok) return;
   const reported = input.checkpoint as CheckpointInput;
   if (reported.attemptId !== input.attemptId || !reported.engineState) return;
+  // The saved conversation is the Governor's own copy: the artifact this attempt uploaded, with the very digest and size the runner reports
+  // (ADR 0063). A reference to anything else, another attempt's or another workspace's bytes included, saves no checkpoint at all.
+  const state = reported.engineState;
+  const stored = store.control.prepare("SELECT digest, workspace_id, owner_kind, owner_id FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(state.artifactId, input.organizationId) as { digest: string; workspace_id: string; owner_kind: string; owner_id: string } | undefined;
+  if (!stored || stored.digest !== state.digest || stored.workspace_id !== input.workspaceId || stored.owner_kind !== "attempt" || stored.owner_id !== input.attemptId) return;
   const db = store.workspaceDb(input.workspaceId, input.organizationId);
+  const row = db.prepare("SELECT bytes FROM artifacts WHERE id=?").get(state.artifactId) as { bytes: number } | undefined;
+  if (!row || row.bytes !== state.bytes) return;
   const session = db.prepare("SELECT * FROM sessions WHERE attempt_id=?").get(input.attemptId) as SessionRow | undefined;
   if (!session) return;
   const checkpoint = stampedCheckpoint(db, session, { ...reported, worktreeId: session.worktree_id, eventSequence: Math.min(reported.eventSequence, session.event_sequence) });
@@ -862,8 +872,8 @@ export function engineFeaturesOf(raw: string | null | undefined): string[] {
 export interface SessionContinuation {
   /** Session is live on a runner (running/waiting with an active attempt). */
   reconnectable: boolean;
-  /** Whether the session can be resumed from its checkpoint now, on the runner holding it; `reason` says why not when a checkpoint exists that cannot be used. */
-  resume: { possible: boolean; runnerId?: string; reason?: string };
+  /** Whether the session can be resumed from its checkpoint now, on any eligible runner; `reason` says why not when a checkpoint exists that cannot be used. */
+  resume: { possible: boolean; reason?: string };
   /** The underlying work item can be dispatched again as a new run. */
   restartable: boolean;
   /** The job ended outcome_unknown with unresolved effects — reconcile first. */

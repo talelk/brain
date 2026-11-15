@@ -53,6 +53,16 @@ export interface EngineAdapter {
   toolResult?(sessionId: string, result: EngineToolExecutionResult): Promise<void>;
   cancel(sessionId: string, reason: string): Promise<{ terminationConfirmed: boolean }>;
   checkpoint(sessionId: string): Promise<Checkpoint>;
+  /**
+   * The bytes of the saved conversation a checkpoint just taken names, so the runner can upload them to the Governor (ADR 0063). Offered only
+   * by engines whose checkpoint is a warm-start artifact; an engine without it leaves no checkpoint a runner could share.
+   */
+  readCheckpoint?(state: ArtifactRef): Promise<Uint8Array>;
+  /**
+   * Makes a checkpoint downloaded from the Governor available to the next `start` with `resumeFrom`. Refuses, with the reason, bytes whose
+   * digest or size differ from the reference, before any session starts.
+   */
+  stageCheckpoint?(state: ArtifactRef, bytes: Uint8Array): Promise<void>;
   steer?(sessionId: string, messageId: string, message: string): Promise<void>;
   /**
    * Holds the session at its next turn boundary (before the next model request) and resolves once it is held; nothing is sent to the model

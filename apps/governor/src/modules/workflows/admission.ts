@@ -177,7 +177,7 @@ export function admitStep(store: Store, ports: AdmissionPorts, run: AdmissionRun
   const resume = step.kind === "dispatch" ? resumeFor(ws, runId, stepId) : undefined;
   const jobId = ports.host.createJobForStep({
     organizationId, workspaceId, runId, stepId,
-    executionKey: `${runId}:${stepId}`, configDigest: run.configDigest, runnerId: resume?.runnerId ?? runnerPin(ws, runId), resume,
+    executionKey: `${runId}:${stepId}`, configDigest: run.configDigest, runnerId: runnerPin(ws, runId), resume,
     placementJson: JSON.stringify(placement ?? {}),
     executionDigest, effectClass, kind: step.kind, priority: runPriority(ws, runId),
     payload: { step: step as unknown as JsonValue, input: bound as unknown as JsonValue },

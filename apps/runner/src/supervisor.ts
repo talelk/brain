@@ -384,11 +384,18 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           });
         }
       }, 500);
+      // A resumed attempt continues a conversation the Governor holds, not one on this runner's disk (ADR 0063): download and verify it first.
+      let resumeBytes: Uint8Array | undefined;
+      let resumeRefusal: string | undefined;
+      if (payload.resume) {
+        try { resumeBytes = await client.resumeCheckpoint(offer.attemptId, payload.resume.engineState); }
+        catch (e) { resumeRefusal = `The checkpoint could not be downloaded and verified, so this runner did not resume from it: ${e instanceof Error ? e.message : "unknown error"}`.slice(0, 500); }
+      }
       const agentInput: Omit<Parameters<typeof runAgentExecution>[0], "engine" | "modelId"> = {
         attemptId: offer.attemptId, jobFence: offer.jobFence, leaseId: offer.leaseId,
         runnerId: cfg.runnerId, runnerEpoch, organizationId: offer.organizationId ?? "", workspaceId: offer.workspaceId,
         jobId: offer.jobId, configDigest: offer.configDigest, sourceRevision: offer.sourceRevision ?? offer.configDigest,
-        instructions, task, ...(payload.resume ? { resumeFrom: payload.resume.engineState } : {}), timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
+        instructions, task, ...(payload.resume ? { resumeFrom: payload.resume.engineState } : {}), ...(resumeBytes ? { resumeBytes } : {}), timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
         maxTurns: asset.agent.spec.maxTurns, maxTokens: asset.agent.spec.maxTokens,
         outputCheck: outputContractCheck((payload as { outputSchema?: unknown }).outputSchema),
         maxMicroUsd: asset.agent.spec.maxMicroUsd, allowedTools: offeredTools,
@@ -442,8 +449,24 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
         emit, signal: controller.signal,
       };
       // Routed attempts move to the next route on a quota refusal (ADR 0055); an unrouted one runs on this runner's own model.
-      const agentResult = candidates.length > 0 ? await runAgentOnRoutes(agentInput, candidates) : await runAgentExecution({ ...agentInput, engine, modelId: process.env["BRAIN_LOCAL_MODEL_ID"] });
+      const agentResult = resumeRefusal !== undefined ? { ok: false, output: { error: resumeRefusal } as JsonValue, outputText: "" }
+        : candidates.length > 0 ? await runAgentOnRoutes(agentInput, candidates) : await runAgentExecution({ ...agentInput, engine, modelId: process.env["BRAIN_LOCAL_MODEL_ID"] });
       routeReport = (agentResult as { routes?: RouteReport[] }).routes ?? [];
+      // The conversation an unfinished attempt saved goes to the Governor as an artifact of this attempt, before the attempt completes, so any
+      // eligible runner can resume it later (ADR 0063). It is never an event and never evidence. A conversation that cannot be uploaded (too
+      // large, or the lease is gone) leaves no checkpoint rather than one nobody can use.
+      const taken = (agentResult as { checkpoint?: Checkpoint }).checkpoint;
+      const takenBytes = (agentResult as { checkpointBytes?: Uint8Array }).checkpointBytes;
+      if (taken) {
+        let shared: Checkpoint | undefined;
+        if (taken.engineState && takenBytes && !leaseLost) {
+          try {
+            const stored = await client.uploadArtifact(offer.attemptId, takenBytes, taken.engineState.mediaType);
+            shared = { ...taken, engineState: { ...taken.engineState, artifactId: stored.artifactId, digest: stored.digest, bytes: stored.bytes } };
+          } catch { shared = undefined; }
+        }
+        if (shared) (agentResult as { checkpoint?: Checkpoint }).checkpoint = shared; else delete (agentResult as { checkpoint?: Checkpoint }).checkpoint;
+      }
       if (agentResult.ok) {
         const outputBytes = new TextEncoder().encode(agentResult.outputText);
         const uploaded = await client.uploadArtifact(offer.attemptId, outputBytes, "text/plain");

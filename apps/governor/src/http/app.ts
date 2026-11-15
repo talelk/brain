@@ -770,6 +770,13 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return new Response(bytes as BodyInit, { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store" } });
     } catch (e) { return fail(c as never, e); }
   });
+  app.get("/runner/v1/attempts/:id/checkpoint", (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      const bytes = brain.jobProtocol.resumeCheckpoint(runner, c.req.param("id"));
+      return new Response(bytes as BodyInit, { status: 200, headers: { "content-type": "application/octet-stream", "cache-control": "no-store" } });
+    } catch (e) { return fail(c as never, e); }
+  });
   app.post("/runner/v1/attempts/:id/ack", async (c) => {
     try {
       const runner = brain.jobProtocol.authenticate(c.req.raw.headers);

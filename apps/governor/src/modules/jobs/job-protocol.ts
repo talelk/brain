@@ -2,7 +2,7 @@ import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, runnerChallenge, runnerHello, type HeartbeatCommand } from "./protocol";
 import { stopOverlongPauses } from "../sessions/index";
-import { ackAttempt, attemptEvents, claim, completeAttempt, expireAttemptDeadlines, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, type ContextPackPort, type SessionCredential } from "./attempts";
+import { ackAttempt, attemptEvents, claim, completeAttempt, expireAttemptDeadlines, expireLeases, readExecutionArtifact, readResumeCheckpoint, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, type ContextPackPort, type SessionCredential } from "./attempts";
 import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
 import { BrainDomainError } from "../../domain/errors";
 import { sweepStuckJobs } from "./watchdog";
@@ -137,6 +137,11 @@ export class JobProtocol {
 
   executionArtifact(runner: RunnerIdentity, attemptId: string): Uint8Array {
     return readExecutionArtifact(this.store, runner, attemptId);
+  }
+
+  /** The checkpoint artifact a resumed attempt continues; only the runner holding that attempt may read it. */
+  resumeCheckpoint(runner: RunnerIdentity, attemptId: string): Uint8Array {
+    return readResumeCheckpoint(this.store, runner, attemptId);
   }
 
   ack(runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {

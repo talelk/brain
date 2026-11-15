@@ -4,13 +4,15 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ArtifactRef, Checkpoint, EngineEvent, EngineSessionSpec } from "@brain/contracts";
+import { sha256Digest, type ArtifactRef, type Checkpoint, type EngineEvent, type EngineSessionSpec } from "@brain/contracts";
 import { PiEngine } from "../../apps/runner/src/engines/pi";
 import { FixtureEngine } from "../../apps/runner/src/engines/fixture";
 import { runAgentExecution } from "../../apps/runner/src/engines/run";
 
-// ADR 0045: a Pi attempt that did not finish leaves its conversation on the runner, and a later attempt on that runner starts from it. Driven
-// through the real Pi engine and the runner's own execution path against a fake model endpoint that records every request it was sent.
+// ADR 0063 (builds on 0045): a Pi attempt that did not finish hands its conversation to the runner, which uploads it to the Governor; a later
+// attempt on any runner downloads it, and the engine verifies it before it starts. Driven through the real Pi engine and the runner's own
+// execution path against a fake model endpoint that records every request it was sent. The Governor's side of the exchange is in
+// session-resume.test.ts.
 
 const DIGEST = `sha256:${"0".repeat(64)}`;
 const spec = (attemptId: string, extra: Partial<EngineSessionSpec> = {}): EngineSessionSpec => ({
@@ -64,35 +66,36 @@ async function drain(engine: PiEngine, sessionId: string): Promise<EngineEvent[]
   return events;
 }
 
-/** One finished attempt whose conversation was then checkpointed. */
-async function checkpointed(attemptId: string): Promise<Checkpoint> {
+/** One finished attempt whose conversation was then checkpointed: the reference and the bytes a runner would upload to the Governor. */
+async function checkpointed(attemptId: string): Promise<{ checkpoint: Checkpoint; state: ArtifactRef; bytes: Uint8Array }> {
   const first = new PiEngine();
   const { sessionId } = await first.start(spec(attemptId), new AbortController().signal);
   await drain(first, sessionId);
   const checkpoint = await first.checkpoint(sessionId);
+  const bytes = await first.readCheckpoint(checkpoint.engineState as ArtifactRef);
   await first.dispose(sessionId);
-  return checkpoint;
+  return { checkpoint, state: checkpoint.engineState as ArtifactRef, bytes };
 }
 
 const texts = (asked: Asked): string[] => asked.messages.map((message) => typeof message.content === "string" ? message.content : JSON.stringify(message.content));
 
-describe("an engine that can resume continues a saved conversation (ADR 0045)", () => {
-  it("starts a new session from the checkpoint: the model is asked with the earlier exchange, then the new task", async () => {
+describe("an engine that can resume continues a conversation downloaded from the Governor (ADR 0063)", () => {
+  it("starts a new session from the downloaded bytes on a runner that never held the conversation: the model is asked with the earlier exchange, then the new task", async () => {
     const model = await fakeModel({ text: "STORED", finish: "stop" });
     process.env["BRAIN_PI_AGENT_DIR"] = runnerDir();
-    const checkpoint = await checkpointed("att-first");
-    const state = checkpoint.engineState as ArtifactRef;
+    const { state, bytes } = await checkpointed("att-first");
     expect(state).toMatchObject({ mediaType: "application/x-ndjson", digest: expect.stringMatching(/^sha256:[0-9a-f]{64}$/) });
 
-    // A different process of the same runner (a fresh adapter, the same state folder) resumes it as a new session.
+    // Another runner: its own, empty state folder. It has only what the Governor served it.
+    process.env["BRAIN_PI_AGENT_DIR"] = runnerDir();
     const resumed = new PiEngine();
+    await resumed.stageCheckpoint(state, bytes);
     const { sessionId } = await resumed.start(spec("att-second", { resumeFrom: state, task: "What was the codeword?" }), new AbortController().signal);
     const events = await drain(resumed, sessionId);
     await resumed.dispose(sessionId);
     expect(events.at(-1)).toMatchObject({ kind: "session.stopped", payload: { reason: "completed" } });
 
-    const asked = model.asked.at(-1)!;
-    const said = texts(asked).join("\n");
+    const said = texts(model.asked.at(-1)!).join("\n");
     expect(said).toContain("Remember the codeword ZEPHYR-42");
     expect(said).toContain("STORED");
     expect(said).toContain("What was the codeword?");
@@ -106,25 +109,32 @@ describe("an engine that can resume continues a saved conversation (ADR 0045)", 
     expect(texts(model.asked.at(-1)!).join("\n")).not.toContain("ZEPHYR-42");
   }, 120_000);
 
-  it("refuses, with the reason, a checkpoint this runner does not hold, before anything starts", async () => {
+  it("refuses, with the reason, a checkpoint that was never downloaded to this runner, before anything starts", async () => {
     const model = await fakeModel({ text: "STORED", finish: "stop" });
     process.env["BRAIN_PI_AGENT_DIR"] = runnerDir();
-    const state = (await checkpointed("att-held")).engineState as ArtifactRef;
+    const { state } = await checkpointed("att-held");
     const before = model.asked.length;
 
-    // Another runner has its own state folder and no copy: the checkpoint is not on it.
     process.env["BRAIN_PI_AGENT_DIR"] = runnerDir();
-    await expect(new PiEngine().start(spec("att-elsewhere", { resumeFrom: state }), new AbortController().signal)).rejects.toThrow(/checkpoint is not on this runner/);
+    await expect(new PiEngine().start(spec("att-elsewhere", { resumeFrom: state }), new AbortController().signal)).rejects.toThrow(/was not downloaded to this runner/);
     // Nothing was asked of the model: the refusal came before any session started.
     expect(model.asked.length).toBe(before);
   }, 120_000);
 
-  it("refuses a saved conversation whose bytes no longer match the checkpoint", async () => {
-    await fakeModel({ text: "STORED", finish: "stop" });
+  it("refuses downloaded bytes that do not match the checkpoint, and keeps none of them", async () => {
+    const model = await fakeModel({ text: "STORED", finish: "stop" });
     process.env["BRAIN_PI_AGENT_DIR"] = runnerDir();
-    const state = (await checkpointed("att-tamper")).engineState as ArtifactRef;
-    await expect(new PiEngine().start(spec("att-tamper-size", { resumeFrom: { ...state, bytes: state.bytes + 1 } }), new AbortController().signal)).rejects.toThrow(/does not match the checkpoint/);
-    await expect(new PiEngine().start(spec("att-tamper-digest", { resumeFrom: { ...state, digest: `sha256:${"f".repeat(64)}` } }), new AbortController().signal)).rejects.toThrow(/checkpoint is not on this runner/);
+    const { state, bytes } = await checkpointed("att-tamper");
+    const before = model.asked.length;
+    const tampered = new Uint8Array(bytes);
+    tampered[tampered.length - 2] = tampered[tampered.length - 2]! ^ 1;
+    const engine = new PiEngine();
+    await expect(engine.stageCheckpoint(state, tampered)).rejects.toThrow(/does not match the checkpoint/);
+    await expect(engine.stageCheckpoint(state, bytes.subarray(0, bytes.length - 1))).rejects.toThrow(/does not match the checkpoint/);
+    await expect(engine.stageCheckpoint({ ...state, bytes: state.bytes + 1 }, bytes)).rejects.toThrow(/does not match the checkpoint/);
+    // Nothing was staged, so a start that names it is refused too.
+    await expect(new PiEngine().start(spec("att-tamper-start", { resumeFrom: state }), new AbortController().signal)).rejects.toThrow(/was not downloaded/);
+    expect(model.asked.length).toBe(before);
   }, 120_000);
 });
 
@@ -135,20 +145,42 @@ describe("the runner's attempt path (ADR 0045)", () => {
     emit: async () => undefined, signal: new AbortController().signal, ...extra,
   });
 
-  it("leaves a checkpoint behind when an attempt does not finish, and a resumed attempt on the same runner continues from it", async () => {
+  it("hands the conversation of an attempt that did not finish to the runner, and a resumed attempt on another runner continues from it", async () => {
     // The model is cut off before it answers: the attempt fails, but its conversation up to there is worth keeping.
     const model = await fakeModel({ text: "", finish: "length" });
     process.env["BRAIN_PI_AGENT_DIR"] = runnerDir();
     const failed = await runAgentExecution(input(new PiEngine(), "att-cut-off"));
     expect(failed.ok).toBe(false);
     expect(failed.checkpoint).toMatchObject({ contractVersion: "brain.checkpoint/v2", attemptId: "att-cut-off", engineState: { mediaType: "application/x-ndjson" } });
+    // The bytes the runner uploads are exactly what the checkpoint names.
+    expect(sha256Digest(failed.checkpointBytes!)).toBe(failed.checkpoint!.engineState!.digest);
+    expect(failed.checkpointBytes!.length).toBe(failed.checkpoint!.engineState!.bytes);
 
     const answering = await fakeModel({ text: "ZEPHYR-42", finish: "stop" });
-    const resumed = await runAgentExecution(input(new PiEngine(), "att-resumed", { task: "What was the codeword?", resumeFrom: failed.checkpoint!.engineState }));
+    // A different runner: its own state folder, and only the downloaded bytes.
+    process.env["BRAIN_PI_AGENT_DIR"] = runnerDir();
+    const resumed = await runAgentExecution(input(new PiEngine(), "att-resumed", { task: "What was the codeword?", resumeFrom: failed.checkpoint!.engineState, resumeBytes: failed.checkpointBytes }));
     expect(resumed).toMatchObject({ ok: true, outputText: "ZEPHYR-42" });
     expect(resumed.checkpoint).toBeUndefined();
     expect(texts(answering.asked.at(-1)!).join("\n")).toContain("Remember the codeword ZEPHYR-42");
     void model;
+  }, 120_000);
+
+  it("refuses downloaded bytes that do not match the checkpoint, and says why, before the model is asked", async () => {
+    const model = await fakeModel({ text: "", finish: "length" });
+    process.env["BRAIN_PI_AGENT_DIR"] = runnerDir();
+    const failed = await runAgentExecution(input(new PiEngine(), "att-cut-off-2"));
+    const asked = model.asked.length;
+    process.env["BRAIN_PI_AGENT_DIR"] = runnerDir();
+    const tampered = new Uint8Array(failed.checkpointBytes!);
+    tampered[0] = tampered[0]! ^ 1;
+    const refused = await runAgentExecution(input(new PiEngine(), "att-tampered", { resumeFrom: failed.checkpoint!.engineState, resumeBytes: tampered }));
+    expect(refused.ok).toBe(false);
+    expect(refused.output).toMatchObject({ error: expect.stringMatching(/does not match the checkpoint/) });
+    // No bytes at all is refused the same way.
+    const missing = await runAgentExecution(input(new PiEngine(), "att-missing", { resumeFrom: failed.checkpoint!.engineState }));
+    expect(missing.output).toMatchObject({ error: expect.stringMatching(/no saved conversation/) });
+    expect(model.asked.length).toBe(asked);
   }, 120_000);
 
   it("never saves a checkpoint for an attempt that finished", async () => {
