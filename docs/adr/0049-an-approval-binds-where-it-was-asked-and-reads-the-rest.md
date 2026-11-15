@@ -1,4 +1,4 @@
-# 48. An approval binds where it was asked, and reads the rest beside it
+# 49. An approval binds where it was asked, and reads the rest beside it
 
 Status: accepted, 2026-11-15. Builds on ADR 0024 (a permit per call) and ADR 0044.
 

@@ -18,7 +18,7 @@ const listed = async (world: EffectsWorld, approvalId: string): Promise<Approval
 /** Why a command was refused, in the funnel's own words. */
 const refusal = async (run: () => Promise<unknown>): Promise<string> => { try { await run(); return ""; } catch (error) { return error instanceof Error ? error.message : String(error); } };
 
-describe("an approval says which mission, task and run it belongs to, shows the change as a diff and names its rollback (#120, ADR 0048)", () => {
+describe("an approval says which mission, task and run it belongs to, shows the change as a diff and names its rollback (#120, ADR 0049)", () => {
   it("binds the run, task and mission of the proposing task, and reads their titles, the diff and the declared rollback beside the subject", async () => {
     const { world } = await pullRequestWorld(cleanup);
     const { missionId, workItemId } = await missionWithTask(world);

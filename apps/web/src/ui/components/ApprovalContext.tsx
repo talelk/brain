@@ -39,7 +39,7 @@ export function RollbackLine(props: { rollback?: { declared: boolean; action?: s
 
 /**
  * What an approval is about beyond the effect itself: the mission, task and run it was asked for, the change as a diff, and the rollback.
- * Read beside the approval, never part of what the decision binds (ADR 0048).
+ * Read beside the approval, never part of what the decision binds (ADR 0049).
  */
 export function ApprovalContextBlock(props: { approval: ApprovalRequest }): JSX.Element {
   const context = () => props.approval.context;

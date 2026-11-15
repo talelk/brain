@@ -4,7 +4,7 @@ import { seedBrowserDemo } from "../support/browserDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 
 /**
- * Approvals with context (#120, ADR 0048), walked like a first-time approver: from the navigation to the Approvals page, pick a change,
+ * Approvals with context (#120, ADR 0049), walked like a first-time approver: from the navigation to the Approvals page, pick a change,
  * read which mission, task and run it belongs to, the files it would commit as a diff (not JSON) and the rollback, then approve it.
  * An approval with no origin and no declared rollback says so in words. Runs at 390, 768 and 1440 px: approvals are a phone flow.
  */

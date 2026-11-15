@@ -240,7 +240,7 @@ export function requestEffect(s: Store, ports: EffectPorts, runner: Runner, atte
     // The approval names the held act job that will make this call (ADR 0028), the proposing attempt for the record, and the proposal.
     effectBounds: { summary, arguments: input as unknown as JsonValue, attemptId, actJobId, proposalId, once: true },
     expiresAt: iso(expiresAtMs), nonce: proposalId.slice(0, 120),
-    // Where the call was asked, bound with the rest (ADR 0048): the run of the proposing task and the work item and mission it serves.
+    // Where the call was asked, bound with the rest (ADR 0049): the run of the proposing task and the work item and mission it serves.
     origin: originOfRun(s.workspaceDb(context.workspaceId, context.organizationId), String((s.control.prepare("SELECT workflow_run_id FROM jobs WHERE id=?").get(parentJobId) as { workflow_run_id: string }).workflow_run_id)),
   };
   s.inTx(s.control, () => {
