@@ -19,6 +19,8 @@ import { seedBrowserDemo } from "../support/browserDemo";
 import { sendTaskBack } from "../support/evalCases";
 import { command, interruptedSession } from "../support/interrupted-session";
 import { seedPullRequest } from "../support/pullRequestDemo";
+import { seedChangeApproval } from "../support/changeApprovalDemo";
+import { seedQuestion } from "../support/question-demo";
 
 type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
 type Fixture = Parameters<typeof seedBrowserDemo>[1];
@@ -43,6 +45,13 @@ async function signOffRoute(demo: Demo, governor: Fixture): Promise<string> {
   return `/missions/${missionId}/outputs`;
 }
 
+/** A team member's question to a person (ticket #109), made when its screen is reached; both question screens show this one mission. */
+let questionMission: string | undefined;
+async function questionRoute(demo: Demo, governor: Fixture): Promise<string> {
+  questionMission ??= (await seedQuestion(governor.app.brain, demo.actor, demo.workspaceId, { key: "vb-question", title: "Compile the quarterly report figures", question: "Which quarter should the report cover?" })).missionId;
+  return `/missions/${questionMission}/live`;
+}
+
 /** A browser that can receive notifications (headless Chromium has permission denied and no push service): asked never, or turned on for this device. */
 async function pushDevice(page: Page, on: boolean): Promise<void> {
   await page.addInitScript((subscribed) => {
@@ -64,6 +73,19 @@ async function planEditorRoute(demo: Demo, governor: Fixture): Promise<string> {
   const version = ((await brain.executeQuery(demo.actor, { queryType: "missions.get", workspaceId: demo.workspaceId, resourceId: missionId })) as unknown as { snapshot: { version: number } }).snapshot.version;
   await cmd("plan.confirm", "baseline-team-confirm", { planVersionId: planId }, version);
   return `/missions/${missionId}/plan`;
+}
+
+/** A mission from the coordinator Play with its starting plan confirmed, made when its screen is reached; the screen is its Team tab with the coordinator marked. */
+async function coordinatedTeamRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  const cmd = async (type: string, key: string, payload: Record<string, unknown>, expectedVersion?: number) => (await brain.executeCommand(demo.actor, {
+    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: type, workspaceId: demo.workspaceId, idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
+  } as never, key)).receipt;
+  const missionId = (await cmd("mission.create", "baseline-coordinator-create", { title: "Research the offsite venues", playId: "research-with-coordinator", autoStart: false })).resourceId ?? "";
+  const planId = (brain.store.workspaceDb(demo.workspaceId, demo.actor.organizationId).prepare("SELECT id FROM plan_versions WHERE mission_id=?").get(missionId) as { id: string }).id;
+  const version = ((await brain.executeQuery(demo.actor, { queryType: "missions.get", workspaceId: demo.workspaceId, resourceId: missionId })) as unknown as { snapshot: { version: number } }).snapshot.version;
+  await cmd("plan.confirm", "baseline-coordinator-confirm", { planVersionId: planId }, version);
+  return `/missions/${missionId}/team`;
 }
 
 /** The Live console on a session that stopped and left a checkpoint on `runnerId`, made when its screen is reached (ticket #101); each adds a mission and a stopped task. */
@@ -113,16 +135,23 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "mission-plan-editor", route: planEditorRoute, heading: "Prepare the vendor review", after: async (page) => { await page.getByRole("button", { name: /^See the confirmed plan/ }).click(); await page.getByRole("button", { name: "Edit steps", exact: true }).first().click(); await expect(page.getByTestId("plan-team")).toBeVisible(); await expect(page.getByTestId("plan-step-assignment").first()).toBeVisible(); } },
   // The board across missions, after the plan-editor mission so it holds the work of several missions.
   { id: "workspace-board", route: () => "/w/operations/board", heading: "Board", after: async (page) => { await expect(page.getByTestId("work-board")).toBeVisible(); await expect(page.getByTestId("board-count")).toBeVisible(); } },
+  // A mission from the coordinator Play (ticket #108): its Team tab marks the coordinator and says what it does not do.
+  { id: "mission-team-coordinator", route: coordinatedTeamRoute, heading: "Research the offsite venues", after: async (page) => { await expect(page.locator("[data-coordinator='lead']")).toBeVisible(); await page.locator("[data-coordinator-note]").evaluate((element) => element.scrollIntoView({ block: "end" })); } },
   // Last of all: the sign-off mission adds an attention item every earlier screen would count in its bell.
   { id: "mission-signoff", route: signOffRoute, heading: "Compile the quarterly report", waitFor: "mission-signoff" },
   // A pull request an approved change opened, on its task and on its approval: made after the other screens but before the push ones (those stay last), because its approval and connection join earlier lists.
   { id: "mission-task-pull-request", route: (d) => `/missions/${d.seed.missionIds.active}/plan?item=${d.seed.workItems["review"]}`, heading: "Pull requests", prepare: seedPullRequestRecord, after: async (page) => { const section = page.getByTestId("pull-requests"); await expect(section.getByTestId("pull-request-state")).toHaveText("Open"); await section.scrollIntoViewIfNeeded(); } },
   { id: "approval-review-pull-request", route: () => `/approvals/${pullRequestRecord!.approvalId}`, heading: "Approval review", after: async (page) => { const section = page.getByTestId("pull-requests"); await expect(section.getByTestId("pull-request-state")).toHaveText("Open"); await section.scrollIntoViewIfNeeded(); } },
+  // An approval of a file change with its mission, task, run, diff and rollback (ticket #120): made here because its approval joins every later list.
+  { id: "approval-review-change", route: () => `/approvals/${changeApproval!.approvalId}`, heading: "Approval review", prepare: seedChangeApprovalRecord, after: async (page) => { await expect(page.locator("[data-approval-diff]")).toContainText("+memory: 768m"); await expect(page.locator("[data-approval-rollback=declared]")).toBeVisible(); } },
   // Resume from checkpoint (ticket #101), before the push screens (those stay last) because each screen adds a mission and a stopped task to the attention items: the failed session whose
   // runner is online, the one whose runner is gone, and the new session that says which checkpoint it started from.
   { id: "console-resume-offered", route: (d, g) => interruptedRoute(d, g, "runner-office", "vb-resume-offered"), heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByRole("button", { name: "Resume from checkpoint", exact: true })).toBeVisible(); } },
   { id: "console-resume-unavailable", route: (d, g) => interruptedRoute(d, g, "runner-retired", "vb-resume-gone", async (sessionId) => { await command(g.app.brain, d.actor, d.workspaceId, "runner.control", "vb-resume-retire", { runnerId: "runner-retired", action: "deregister", reason: "retired" }); return sessionId; }), heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("resume-unavailable")).toBeVisible(); } },
   { id: "console-resumed", route: (d, g) => interruptedRoute(d, g, "runner-resumed", "vb-resumed", async (sessionId) => (await command(g.app.brain, d.actor, d.workspaceId, "session.resume", "vb-resume-now", { sessionId })).resourceId!), heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("resumed-from")).toBeVisible(); } },
+  // A question a team member asked a person (ticket #109), before the push screens (those stay last) because it adds an attention item: the mission's Live tab, then the composer open on it.
+  { id: "mission-question", route: questionRoute, heading: "Compile the quarterly report figures", waitFor: "mission-questions" },
+  { id: "mission-question-answer", route: questionRoute, heading: "Compile the quarterly report figures", after: async (page) => { await page.getByTestId("mission-question").getByRole("button", { name: "Answer", exact: true }).click(); await expect(page.getByRole("dialog", { name: "Answer a question" })).toBeVisible(); } },
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
@@ -206,7 +235,13 @@ async function seedPullRequestRecord(governor: Parameters<typeof seedBrowserDemo
   pullRequestRecord = await seedPullRequest(governor.app.brain, demo.actor, demo.workspaceId, { runId: "demo-run-review", key: "vb-pr" });
 }
 
-test.afterEach(async () => { restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
+/** The approval of a file change the screen above shows: its task is the seeded one in progress, so the screen names a mission, a task and a run. */
+let changeApproval: Awaited<ReturnType<typeof seedChangeApproval>> | undefined;
+async function seedChangeApprovalRecord(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Demo): Promise<void> {
+  changeApproval = await seedChangeApproval(governor.app.brain, demo.actor, demo.workspaceId, { runId: "demo-run-progress", key: "vb-change" });
+}
+
+test.afterEach(async () => { questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(300_000);

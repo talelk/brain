@@ -24,7 +24,7 @@
           "type": "agent",
           "release": {
             "id": "sre-operator",
-            "digest": "sha256:4052deaff8138ffa2250c188cc6c13359b1f3f5a20bc5daf596f55be1928afea"
+            "digest": "sha256:8a98f2366fc095d03515dfb86fb41608721ab163b77427c1aed4d623936dafc3"
           }
         },
         "runsOn": {

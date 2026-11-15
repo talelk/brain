@@ -60,7 +60,9 @@ export interface ContextManifest {
   readonly contractVersion: "brain.context-manifest/v1";
   readonly runId: string;
   readonly jobId: string;
-  readonly workItemId: string;
+  /** The task the session serves; a coordinator's wake serves none and names its mission instead. */
+  readonly workItemId?: string;
+  readonly missionId?: string;
   readonly agentId: string;
   readonly budgetTokens: number;
   readonly estimatedTokens: number;
@@ -122,7 +124,7 @@ function render(sections: readonly PackSection[], modes: ReadonlyMap<string, Mod
 export function buildContextPack(input: {
   readonly sections: readonly PackSection[];
   readonly budgetTokens: number;
-  readonly identity: { readonly runId: string; readonly jobId: string; readonly workItemId: string; readonly agentId: string };
+  readonly identity: { readonly runId: string; readonly jobId: string; readonly workItemId?: string; readonly missionId?: string; readonly agentId: string };
 }): BuiltPack {
   const { sections, budgetTokens } = input;
   const modes = new Map<string, Mode>();

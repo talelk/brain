@@ -1,3 +1,4 @@
+import type { JSX } from "solid-js";
 import { Show, createEffect, createMemo, createSignal, createUniqueId, on, onCleanup } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Collapsible, Dialog } from "@talelk/newui-molecules";
@@ -58,6 +59,8 @@ export function ApprovalReview(props: {
   onOpenChange?: (open: boolean) => void;
   /** "decision" shows Approve and Deny as two plain buttons (the phone card); both open the same exact review, Deny with the reason field first. */
   triggers?: "decision";
+  /** Where the effect was asked (mission, task, run), the change as a diff and the rollback: read before the exact details. */
+  context?: JSX.Element;
   approvalId: string;
   targetLabel: string;
   exactContent: string;
@@ -140,6 +143,7 @@ export function ApprovalReview(props: {
         <Dialog.Header class="min-w-0"><Dialog.Title>{t("mp.authorize-action.6b84")}</Dialog.Title><Dialog.Description class="break-words [overflow-wrap:anywhere]">{reviewed().summary ?? reviewed().targetLabel}</Dialog.Description></Dialog.Header>
         <div class="my-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pe-1">
           <Show when={props.requestedBy || props.expiresAt}><p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-interface text-ink-gray-7"><Show when={props.requestedBy}><span>Asked by {props.requestedBy}</span></Show><ExpiryCountdown expiresAt={props.expiresAt} asOf={props.asOf} /></p></Show>
+          {props.context}
           <p class="text-interface text-ink-gray-7">Your decision binds this exact proposal, version {reviewed().expectedVersion}. Open the exact details to inspect it.</p>
           <Collapsible.Root class="min-w-0 rounded-control border border-outline-gray-1 p-card-pad-compact">
             <Collapsible.Trigger>{t("mp.exact-details.c992")}</Collapsible.Trigger>

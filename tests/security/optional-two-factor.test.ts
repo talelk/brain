@@ -31,7 +31,9 @@ describe("optional and required two-factor approval policy", () => {
       const challenge = w.brain.stepUp.createChallenge(identity, first, subjectDigest);
       const { evidenceId } = await w.brain.stepUp.verify(identity, challenge.challengeId, "", headers);
       const decision = { contractVersion: "brain.approval-decision/v1" as const, idempotencyKey: "optional-decision", decision: "approve" as const, subjectDigest, expectedVersion: 1, note: "reviewed", stepUpEvidenceId: evidenceId };
-      await expect(w.brain.decideApproval(identity, second, decision)).rejects.toThrow(/step-up evidence/);
+      // The gate stamps the run it waits in on the subject (ADR 0049), so its approval has its own digest.
+      const secondDigest = (w.brain.store.control.prepare("SELECT subject_digest FROM approval_requests WHERE id=?").get(second) as { subject_digest: string }).subject_digest;
+      await expect(w.brain.decideApproval(identity, second, { ...decision, subjectDigest: secondDigest })).rejects.toThrow(/step-up evidence/);
       expect((await w.brain.decideApproval(identity, first, decision)).state).toBe("approved");
       await expect(w.brain.stepUp.verify(identity, challenge.challengeId, "", headers)).rejects.toThrow(/already verified/);
       const bound = { approvalId: first, organizationId: w.org, workspaceId: w.workspaceId, subjectDigest };
