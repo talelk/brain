@@ -15,7 +15,7 @@ export type CommandKind =
   | "runner.control"
   | "mission.create" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "mission.watch" | "mission.seen"
   | "mission.brief.edit" | "decision.accept" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
-  | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise" | "workItem.details.set"
+  | "mission.budget.set" | "workspace.spendCap.set" | "workItem.spendCap.raise" | "workItem.details.set" | "pullRequest.refresh"
   | "workspace.wayOfWorking.set" | "workspace.hostedModel.set" | "workspace.effects.set" | "workspace.queueLimit.set" | "platform.drain.set" | "runnerGroup.set" | "identity.oidc.set"
   | "play.proposeFromMissions" | "knowledge.withdrawUnobserved"
   | "automation.upsert" | "automation.control"
@@ -44,6 +44,7 @@ export type PayloadFor<K extends CommandKind> =
     : K extends "workspace.spendCap.set" ? { dailyMicroUsd?: number; weeklyMicroUsd?: number }
     : K extends "workItem.spendCap.raise" ? { workItemId: string; maxTokens: number }
     : K extends "workItem.details.set" ? { workItemId: string; priority?: WorkItemPriority; tags?: string[]; dueAt?: string | null }
+    : K extends "pullRequest.refresh" ? { pullRequestId: string }
     : K extends "workspace.wayOfWorking.set" ? { workflowId: string; requiredTools?: string[] }
     : K extends "workspace.hostedModel.set" ? { enabled: boolean; vendor?: string; model?: string; baseUrl?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number }
     : K extends "workspace.queueLimit.set" ? { maxQueued: number }
