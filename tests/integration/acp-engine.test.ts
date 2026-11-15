@@ -211,27 +211,36 @@ describe("OpenCode starts with its native tools off and without any other config
   });
 });
 
-describe("a runner states the isolation each engine really provides (ADR 0035)", () => {
+describe("a runner states the isolation each engine really provides (ADR 0035, 0073)", () => {
   const probed = (...ids: string[]) => ids.map((id) => ({ id, features: ["sessions"] }));
 
-  it("states trusted-local for the ACP engines and ephemeral-container for the engines without native tools", () => {
-    const capabilities = advertisedCapabilities(["os:linux", "isolation:ephemeral-container"], probed("fixture", "pi", "claude", "acp", "opencode"));
+  it("states trusted-local for every engine that runs in the runner process, except the fixture that runs no model or tool", () => {
+    const capabilities = advertisedCapabilities(["os:linux", "isolation:ephemeral-container"], probed("fixture", "pi", "claude", "acp", "opencode"), false);
     expect(capabilities).toEqual(expect.arrayContaining([
-      "engine-isolation:fixture:ephemeral-container", "engine-isolation:pi:ephemeral-container", "engine-isolation:claude:ephemeral-container",
+      "engine-isolation:fixture:ephemeral-container", "engine-isolation:pi:trusted-local", "engine-isolation:claude:trusted-local",
       "engine-isolation:acp:trusted-local", "engine-isolation:opencode:trusted-local", "engine:opencode", "engine-feature:opencode:sessions", "os:linux",
     ]));
-    expect(engineIsolation("a-new-engine")).toBe("trusted-local");
+    expect(engineIsolation("a-new-engine", true)).toBe("trusted-local");
+  });
+
+  it("states ephemeral-container for every engine that runs in its own sandbox, ACP agents included", () => {
+    const capabilities = advertisedCapabilities(["os:linux"], probed("fixture", "pi", "claude", "acp", "opencode"), true);
+    expect(capabilities).toEqual(expect.arrayContaining([
+      "engine-isolation:fixture:ephemeral-container", "engine-isolation:pi:ephemeral-container", "engine-isolation:claude:ephemeral-container",
+      "engine-isolation:acp:ephemeral-container", "engine-isolation:opencode:ephemeral-container",
+    ]));
+    expect(capabilities.filter((capability) => capability.endsWith(":trusted-local"))).toEqual([]);
   });
 
   it("does not let an operator configure an engine's isolation, or an engine that was not probed", () => {
-    const capabilities = advertisedCapabilities(["os:linux", "engine-isolation:opencode:ephemeral-container", "engine:pi", "engine-feature:pi:sessions"], probed("opencode"));
+    const capabilities = advertisedCapabilities(["os:linux", "engine-isolation:opencode:ephemeral-container", "engine:pi", "engine-feature:pi:sessions"], probed("opencode"), false);
     expect(capabilities).toContain("engine-isolation:opencode:trusted-local");
     expect(capabilities).not.toContain("engine-isolation:opencode:ephemeral-container");
     expect(capabilities.filter((capability) => capability.startsWith("engine")).sort()).toEqual(["engine-feature:opencode:sessions", "engine-isolation:opencode:trusted-local", "engine:opencode"]);
   });
 
   it("lists the runner's isolation modes from what it runs", () => {
-    expect(advertisedIsolationModes(probed("fixture", "pi"))).toEqual(["ephemeral-container"]);
-    expect(advertisedIsolationModes(probed("pi", "opencode")).sort()).toEqual(["ephemeral-container", "trusted-local"]);
+    expect(advertisedIsolationModes(probed("fixture", "pi"), true)).toEqual(["ephemeral-container"]);
+    expect(advertisedIsolationModes(probed("pi", "opencode"), false).sort()).toEqual(["ephemeral-container", "trusted-local"]);
   });
 });

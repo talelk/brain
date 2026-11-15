@@ -1,5 +1,6 @@
 import { request as httpRequest } from "node:http";
 import { readFileSync } from "node:fs";
+import type { EngineChannel, EngineSandboxOpener, EngineSandboxRequest } from "./engines/sandboxed";
 
 /**
  * Client for the constrained launcher's Unix-socket HTTP API (doc 20).
@@ -9,7 +10,7 @@ import { readFileSync } from "node:fs";
  * token file is read from the socket directory unless BRAIN_LAUNCHER_TOKEN
  * is set explicitly.
  */
-export class LauncherClient {
+export class LauncherClient implements EngineSandboxOpener {
   private readonly token: string | undefined;
 
   constructor(private readonly socketPath: string) {
@@ -89,6 +90,47 @@ export class LauncherClient {
     const r = await this.call("POST", "/v1/host-commands/run", { command, args, allow, ...(invocationId ? { invocationId } : {}) }, 90_000);
     if (r.status !== 200) throw new Error(String(r.json["error"] ?? `host command refused (${r.status})`));
     return { exitCode: Number(r.json["exitCode"]), stdout: String(r.json["stdout"] ?? ""), stderr: String(r.json["stderr"] ?? ""), timedOut: r.json["timedOut"] === true };
+  }
+
+  /**
+   * Starts an engine's own container for one attempt (ADR 0073) and returns the channel to the engine host in it. The launcher alone decides
+   * the image, the argv, the mount and the network's form; this names the engine, the attempt, the reservation and the hosts. A container
+   * that does not come up rejects with the launcher's reason, and nothing else runs the engine.
+   */
+  async open(request: EngineSandboxRequest): Promise<EngineChannel> {
+    const created = await this.call("POST", "/v1/engine-sandboxes", {
+      engine: request.engine, attemptId: request.attemptId, requestId: request.requestId,
+      cpuMillicores: request.cpuMillicores, memoryMb: request.memoryMb, egressHosts: [...request.egressHosts],
+    }, 120_000);
+    if (created.status !== 201 && created.status !== 200) throw new Error(`engine sandbox create failed ${created.status}: ${String(created.json["error"] ?? "")}`);
+    const id = encodeURIComponent(String(created.json["sandboxId"]));
+    let ended = false;
+    return {
+      send: async (line) => {
+        const sent = await this.call("POST", `/v1/engine-sandboxes/${id}/input`, { lines: [line] }, 30_000);
+        if (sent.status !== 200) throw new Error(`engine sandbox exec failed ${sent.status} (input): ${String(sent.json["error"] ?? "")}`);
+      },
+      lines: () => {
+        const call = this.call.bind(this);
+        return (async function* (): AsyncGenerator<string> {
+          let after = 0;
+          while (!ended) {
+            const polled = await call("GET", `/v1/engine-sandboxes/${id}/output?after=${after}&waitMs=20000`, undefined, 45_000);
+            if (polled.status !== 200) throw new Error(`engine sandbox exec failed ${polled.status} (output): ${String(polled.json["error"] ?? "")}`);
+            const lines = Array.isArray(polled.json["lines"]) ? polled.json["lines"].map(String) : [];
+            after = Number(polled.json["next"] ?? after + lines.length);
+            yield* lines;
+            if (polled.json["closed"] === true) return;
+          }
+        })();
+      },
+      close: async () => {
+        ended = true;
+        const stopped = await this.call("POST", `/v1/engine-sandboxes/${id}/stop`, { graceMs: 3000 }, 60_000);
+        if (stopped.status !== 200) throw new Error(`engine sandbox stop failed ${stopped.status}`);
+        return { terminationConfirmed: stopped.json["terminationConfirmed"] === true };
+      },
+    };
   }
 
   async stop(sandboxId: string): Promise<{ terminationConfirmed: boolean }> {

@@ -241,9 +241,11 @@ describe("Codex is an ACP engine with the same deny-by-default rules", () => {
     expect(answers().map((entry) => entry.response.result.outcome.optionId)).toEqual(["reject"]);
   });
 
-  it("is selected by the runner as `codex` and states trusted-local isolation", () => {
+  it("is selected by the runner as `codex` and states trusted-local isolation unless sandboxed", () => {
     expect(selectEngine("codex", [BINDING])?.id).toBe("codex");
-    expect(engineIsolation("codex")).toBe("trusted-local");
-    expect(advertisedCapabilities([], [{ id: "codex", features: ["sessions"] }])).toEqual(expect.arrayContaining(["engine:codex", "engine-isolation:codex:trusted-local"]));
+    expect(engineIsolation("codex", false)).toBe("trusted-local");
+    expect(engineIsolation("codex", true)).toBe("ephemeral-container");
+    expect(advertisedCapabilities([], [{ id: "codex", features: ["sessions"] }], false)).toEqual(expect.arrayContaining(["engine:codex", "engine-isolation:codex:trusted-local"]));
+    expect(advertisedCapabilities([], [{ id: "codex", features: ["sessions"] }], true)).toEqual(expect.arrayContaining(["engine-isolation:codex:ephemeral-container"]));
   });
 });

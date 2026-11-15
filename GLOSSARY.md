@@ -529,8 +529,16 @@ _Avoid_: MCP server (the agent's own are not the bridge)
 **Engine isolation**:
 The isolation an engine really provides on a runner, stated by the runner per engine
 (`engine-isolation:<engine>:<mode>`); a step is placed on an engine only if it states
-the step's isolation. ACP engines are `trusted-local` until engines run sandboxed.
+the step's isolation. `ephemeral-container` is stated only for an engine in its engine
+sandbox (and the fixture, which runs no model or tool); else `trusted-local` (ADR 0073).
 _Avoid_: runner isolation (what the runner's tool sandboxes provide)
+
+**Engine sandbox**:
+The launcher container for one attempt's engine process: read-only, no capabilities,
+limits from the job's reservation, one mount (the attempt's state), network only through
+the egress proxy. If it cannot start the attempt fails; the engine never runs in the
+runner instead (ADR 0073).
+_Avoid_: tool sandbox (the launcher containers broker tools run in), engine container
 
 **Lease**:
 Time-boxed ownership of a resource by an attempt, carrying a fence. Lease expiry proves

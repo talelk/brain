@@ -22,6 +22,7 @@ Read `deploy/reference/README.md` for the current caveats before attempting a ru
   at the directory the proxy mounts (`BRAIN_EGRESS_GRANTS_DIR`), and build the proxy image
   with `scripts/build-sandbox-images.sh`. Do not expose local plaintext HTTP or the launcher
   socket to an untrusted network.
+- Engines run in per-attempt sandboxes (ADR 0073): set `BRAIN_LAUNCHER_ENGINE_STATE_ROOT` on the launcher (the runner mounts it as `BRAIN_RUNNER_ENGINE_STATE_DIR`), build `brain-sandbox-engine` with `scripts/build-sandbox-images.sh`, and see `deploy/reference/README.md`.
 - The Governor image carries the static web bundle and the reviewed UI foundation
   manifest; activation/readiness refuse a manifest digest mismatch.
 - TencentDB must be generated from pinned upstream manifests and adapted to private

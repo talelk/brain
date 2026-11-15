@@ -63,7 +63,7 @@ export interface JobOffer {
   /** The hosts this workspace lets a sandboxed tool reach through the egress proxy (ADR 0037); none means no network. */
   egressHosts?: string[];
   /** Where the step must run; `isolation` is what an engine has to provide (ADR 0035). */
-  placement?: { isolation?: string };
+  placement?: { isolation?: string; resources?: { cpuMillicores: number; memoryMb: number } };
   authorEvidence?: { toolReleases: { id: string; digest: string }[]; claimedChecks: unknown[] };
   execution: { kind: string; artifact: { artifactId: string; digest: string; bytes: number } };
 }

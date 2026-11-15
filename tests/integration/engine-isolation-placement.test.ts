@@ -62,7 +62,7 @@ describe("placement and the isolation an engine provides (ADR 0035)", () => {
   it("offers the step to a runner whose engine states the step's isolation, and to no runner whose engine states a weaker one or none", async () => {
     const { w, jobId } = await startedTask();
     // What the real runner states for an engine without native tools, and what a runner states for an engine that runs in its own process space.
-    const container = register(w, "runner-container", [...BASE, ...advertisedCapabilities([], [{ id: "fixture", features: ["sessions"] }])]);
+    const container = register(w, "runner-container", [...BASE, ...advertisedCapabilities([], [{ id: "fixture", features: ["sessions"] }], false)]);
     const local = register(w, "runner-trusted-local", [...BASE, ...ENGINE, "engine-isolation:fixture:trusted-local"]);
     const silent = register(w, "runner-silent", [...BASE, ...ENGINE]);
 

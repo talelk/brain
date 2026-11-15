@@ -22,7 +22,7 @@ export async function command(brain: Brain, actor: ActorContext, workspaceId: st
 /** A runner that states what its engine can do, as the real one does at hello. */
 export function enrolledRunner(brain: Brain, actor: ActorContext, runnerId: string) {
   const at = new Date().toISOString();
-  const capabilities = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", ...advertisedCapabilities([], [{ id: "fixture", features: RESUMABLE_FEATURES }])]
+  const capabilities = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", ...advertisedCapabilities([], [{ id: "fixture", features: RESUMABLE_FEATURES }], false)]
     .map((capability) => observation(capability, at, { expiresAt: new Date(Date.now() + 3_600_000).toISOString() }));
   return { ...registerRunner(brain, actor, runnerId, { capabilities }), organizationId: actor.organizationId };
 }
