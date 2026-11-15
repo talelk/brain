@@ -46,3 +46,11 @@ export function payloadValidator(schema: object): (value: unknown) => Validation
   const fn = compiler.compile(schema);
   return (value) => ({ ok: !!fn(value), errors: (fn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? e.keyword}`) });
 }
+
+/**
+ * The reason a tool input schema cannot be compiled the way a runner compiles it for an agent's calls (strict mode, no formats), or
+ * undefined when it can. An external server's schema usually carries keywords strict mode rejects; that must fail at registration, not at every call.
+ */
+export function strictSchemaProblem(schema: object): string | undefined {
+  try { new Ajv2020({ allErrors: true, strict: true }).compile(schema); return undefined; } catch (error) { return error instanceof Error ? error.message.slice(0, 200) : "the schema does not compile"; }
+}

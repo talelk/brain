@@ -408,6 +408,12 @@ The egress proxy gives each sandbox a grant of exactly those hosts; none means n
 (ADR 0037). Not the per-tool `allowedHosts` of the fetch broker.
 _Avoid_: firewall, whitelist, network policy
 
+**External MCP tool**:
+A tool of a third-party MCP server, registered as a Tool document with `spec.mcp`: the admin declares its effect
+class (read or write, never inferred) and pins the digest of the server's tool list. The pinned client runs it in
+the sandbox with a grant for that one host; a changed tool list is refused until registered again (ADR 0062).
+_Avoid_: MCP connector, plugin, MCP proxy
+
 **Queue limit**:
 How many of a workspace's jobs may wait for a runner (default 100, set by an administrator).
 At the limit a person's new work is refused with the reason; work already admitted carries

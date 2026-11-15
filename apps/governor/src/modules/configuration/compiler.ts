@@ -4,11 +4,12 @@ import type { Play } from "@brain/contracts";
 import { assertPlanTasks } from "../../domain/work-plan";
 import { assertServedCriteria, criteriaFromText } from "../../domain/criteria";
 import { assertTeamEligible } from "../../domain/mission-policy";
-import { payloadValidator, validate } from "@brain/contracts/validate";
+import { payloadValidator, strictSchemaProblem, validate } from "@brain/contracts/validate";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { mergePolicyFloor, type PolicySpec } from "./policy-floor";
 import { compileSkill, MAX_AGENT_SKILL_BYTES, type CompiledSkill } from "./skills";
+import { compileMcpSpec, type McpSpec } from "./mcp";
 
 export interface SourceDoc { readonly path: string; readonly text: string }
 export interface AgentInstruction { readonly agentId: string; readonly path: string; readonly text: string }
@@ -22,7 +23,7 @@ export interface CompiledRelease {
   readonly evaluators: Readonly<Record<string, Evaluator>>;
   /** Skill documents by id, with the text a task that names one of their triggers adds to an agent's instructions. */
   readonly skills: Readonly<Record<string, CompiledSkill>>;
-  readonly tools: readonly { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; compensatingAction?: string; testEntrypoint?: string; testEntrypointDigest?: string; description?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[];
+  readonly tools: readonly { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; compensatingAction?: string; testEntrypoint?: string; testEntrypointDigest?: string; description?: string; allowedHosts?: string[]; mcp?: McpSpec; entrypoint?: string; entrypointDigest?: string }[];
   readonly documents: readonly { kind: string; id: string; digest: string }[];
 }
 
@@ -277,7 +278,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
   const plays: Record<string, Play> = {};
   const skills: Record<string, CompiledSkill> = {};
   const entries: { kind: string; id: string; digest: string; bytes: number; path: string }[] = [];
-  const tools: { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; description?: string; compensatingAction?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[] = [];
+  const tools: { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; description?: string; compensatingAction?: string; allowedHosts?: string[]; mcp?: McpSpec; entrypoint?: string; entrypointDigest?: string }[] = [];
   const seenIds = new Set<string>();
   const policies: { name: string; spec: Record<string, unknown> }[] = [];
   let brainConfigUi: Record<string, unknown> | undefined;
@@ -343,7 +344,18 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     const docDigest = sha256Digest(new TextEncoder().encode(text));
     if (kind === "Tool") {
       const effectClass = String(spec?.["effectClass"] ?? "");
+      // An external MCP tool never gets an effect class by default or from the server's own hints: the admin declares it (ADR 0062).
+      if (spec?.["mcp"] !== undefined && !["read", "write", "privileged"].includes(effectClass)) throw new BrainDomainError("INVALID_CONTRACT", `${path}: an external MCP tool must declare its effect class (read or write); none is assumed`);
+      const mcp = spec?.["mcp"] !== undefined ? compileMcpSpec(spec, path, effectClass) : undefined;
+      if (mcp && spec?.["allowedHosts"] !== undefined && JSON.stringify(spec["allowedHosts"]) !== JSON.stringify([mcp.host])) throw new BrainDomainError("INVALID_CONTRACT", `${path}: an external MCP tool reaches only its server host ${mcp.host}; allowedHosts must be that host or absent`);
+      if (mcp && (spec?.["entrypoint"] !== "run.sh" || (scripts && !scripts.some((candidate) => candidate.toolId === id)))) throw new BrainDomainError("INVALID_CONTRACT", `${path}: an external MCP tool needs its pinned client script (entrypoint run.sh)`);
       const inputSchemaRef = String(spec?.["inputSchemaRef"] ?? "");
+      if (mcp) {
+        const schema = schemaMap[inputSchemaRef];
+        if (!schema || typeof schema !== "object" || Array.isArray(schema)) throw new BrainDomainError("INVALID_CONTRACT", `${path}: an external MCP tool needs its server's input schema staged at ${inputSchemaRef}`);
+        const problem = strictSchemaProblem(schema);
+        if (problem) throw new BrainDomainError("INVALID_CONTRACT", `${path}: the server's input schema cannot be used as it is (${problem}); remove what strict validation rejects (draft keywords such as $schema, unknown keywords) and register again`);
+      }
       const outputSchemaRef = String(spec?.["outputSchemaRef"] ?? "");
       if (!["read", "write", "privileged"].includes(effectClass) || !inputSchemaRef || !outputSchemaRef) throw new BrainDomainError("INVALID_CONTRACT", `${path}: Tool spec.effectClass/inputSchemaRef/outputSchemaRef required`);
       // T22: when entrypoint scripts are staged with the release, each tool is
@@ -359,7 +371,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
         allowedEnvironments: Array.isArray(spec?.["allowedEnvironments"]) ? (spec["allowedEnvironments"] as string[]) : [],
         ...(typeof spec?.["description"] === "string" ? { description: spec["description"] } : {}),
         ...(typeof spec?.["compensatingAction"] === "string" ? { compensatingAction: spec["compensatingAction"] } : {}),
-        ...(Array.isArray(spec?.["allowedHosts"]) ? { allowedHosts: spec["allowedHosts"] as string[] } : {}), ...(pin ?? {}) });
+        ...(mcp ? { allowedHosts: [mcp.host], mcp } : Array.isArray(spec?.["allowedHosts"]) ? { allowedHosts: spec["allowedHosts"] as string[] } : {}), ...(pin ?? {}) });
     }
     entries.push({ kind, id, digest: docDigest, bytes: Buffer.byteLength(text, "utf8"), path });
   }
