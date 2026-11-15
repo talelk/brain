@@ -19,6 +19,7 @@ import { seedBrowserDemo } from "../support/browserDemo";
 import { seedHuman } from "../helpers";
 import { sendTaskBack } from "../support/evalCases";
 import { command, interruptedSession } from "../support/interrupted-session";
+import { PAUSABLE_FEATURES, runnerReports, runningSession } from "../support/running-session";
 import { seedPullRequest } from "../support/pullRequestDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 import { seedQuestion } from "../support/question-demo";
@@ -150,6 +151,15 @@ async function standingPlanRoute(demo: Demo, governor: Fixture): Promise<string>
   return `/missions/${missionId}/plan`;
 }
 
+/** The Live console on a session a person paused at its turn boundary (ADR 0058), made when its screen is reached through commands and the runner protocol. */
+async function pausedSessionRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  const running = await runningSession(brain, demo.actor, demo.workspaceId, "runner-paused", "Draft the board summary", "vb-paused", PAUSABLE_FEATURES);
+  await command(brain, demo.actor, demo.workspaceId, "session.pause", "vb-pause-now", { sessionId: running.sessionId });
+  runnerReports(brain, running, "session-paused");
+  return `/w/operations/live?session=${running.sessionId}`;
+}
+
 const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Demo) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
@@ -224,6 +234,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "library-teams-form", route: () => "/w/operations/library/teams", heading: "Teams", prepare: seedStandingTeams, after: async (page) => { await page.getByRole("button", { name: "New team", exact: true }).first().click(); const sheet = page.getByRole("dialog"); await sheet.getByLabel(/^Name/).fill("Support rota"); await sheet.getByTestId("plan-team").getByLabel("Role", { exact: true }).fill("Triage"); await sheet.getByTestId("plan-team").getByRole("button", { name: "Add to team", exact: true }).click(); await expect(sheet.getByTestId("plan-team-member")).toHaveCount(1); } },
   { id: "mission-plan-standing-team", route: standingPlanRoute, heading: "Plan the offsite", prepare: seedStandingTeams, after: async (page) => { await page.getByRole("button", { name: "Edit steps", exact: true }).first().click(); const standing = page.getByRole("dialog").getByTestId("plan-standing-team"); await standing.getByLabel("Standing team", { exact: true }).click(); await page.getByRole("option", { name: /Research desk/ }).click(); await standing.getByRole("button", { name: "Add its members", exact: true }).click(); await expect(standing.getByTestId("plan-standing-done")).toBeVisible(); } },
   { id: "start-standing-team", route: () => "/w/operations/missions/new", heading: "New mission", prepare: seedStandingTeams, after: async (page) => { await page.getByRole("dialog").getByTestId("play-chips").getByRole("button").first().click(); await expect(page.getByTestId("start-standing-team")).toBeVisible(); } },
+  // A session a person paused (ADR 0058): it adds a running session, so it comes after the screens that list sessions and before the push screens (those stay last).
+  { id: "console-session-paused", route: pausedSessionRoute, heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("continue-session")).toBeVisible(); await expect(page.getByTestId("pause-note")).toBeVisible(); } },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];

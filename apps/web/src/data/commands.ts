@@ -11,7 +11,7 @@ import type { CommandReceipt, GitProvider, MissionBudget, OrganizationAdminComma
  * newer server state.
  */
 export type CommandKind =
-  | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.resume" | "delegation.review"
+  | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.pause" | "session.continue" | "session.resume" | "delegation.review"
   | "runner.control"
   | "mission.create" | "mission.owner.transfer" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.verdict.record" | "mission.watch" | "mission.seen"
   | "mission.brief.edit" | "decision.accept" | "standingTeam.create" | "standingTeam.update" | "standingTeam.archive" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
@@ -83,7 +83,7 @@ export type PayloadFor<K extends CommandKind> =
         : K extends "session.steer" ? { sessionId: string; message: string }
           : K extends "session.stop" ? { sessionId: string; reason: string }
           : K extends "delegation.review" ? { delegationId: string; decision: "accepted" | "rejected"; evidenceDigest: string }
-            : K extends "session.resume" ? { sessionId: string }
+            : K extends "session.pause" | "session.continue" | "session.resume" ? { sessionId: string }
                       : K extends "runner.control" ? { runnerId: string; action: "enable" | "disable" | "drain" | "quarantine" | "rotate" | "deregister"; reason: string }
                         : K extends "member.grant" ? { principalId: string; role: string; reason: string }
                         : K extends "member.revoke" ? { principalId: string; role: string; reason: string }

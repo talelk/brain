@@ -26,7 +26,7 @@ export interface HostedRoute extends HostedPrices {
 /** What an attempt is told when this runner has no key for a route: the route is skipped, nothing was sent anywhere. */
 export const missingKeyMessage = (keyRef: string): string => `The model route needs its API key on this runner (${modelKeyEnvName(keyRef)}); the attempt was not sent anywhere`;
 
-type PiSession = { dispose: () => void; abort: () => Promise<void>; abortRetry: () => void; getSessionStats: () => { assistantMessages: number; tokens: { input: number; output: number; cacheRead: number; total: number }; cost: number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; agent: { onPayload?: (payload: unknown, model: unknown) => Promise<unknown> | unknown }; readonly isStreaming: boolean };
+type PiSession = { dispose: () => void; abort: () => Promise<void>; abortRetry: () => void; getSessionStats: () => { assistantMessages: number; tokens: { input: number; output: number; cacheRead: number; total: number }; cost: number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; agent: { onPayload?: (payload: unknown, model: unknown) => Promise<unknown> | unknown; prepareNextTurnWithContext?: (turn: unknown, signal?: AbortSignal) => Promise<unknown> | unknown }; readonly isStreaming: boolean };
 
 type SessionEvent = { type: string; errorMessage?: string; message?: { role?: string; stopReason?: string; errorMessage?: string; content?: Array<{ type: string; text?: string }> } };
 
@@ -45,6 +45,13 @@ export class PiEngine implements EngineAdapter {
   private toolsEnded = false;
   private keepAnswer = false;
   private toolCalls: GovernedToolCalls | undefined;
+  /** A person asked to hold the session at its next turn boundary (ADR 0058). */
+  private pauseWanted = false;
+  /** The session is waiting at a boundary right now; `releaseGate` lets it go on. */
+  private held = false;
+  private releaseGate: (() => void) | undefined;
+  private holdWaiters: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
+  private finished = false;
   constructor(private readonly toolBindings: readonly EngineToolBinding[] = [], private readonly route?: HostedRoute) {}
 
   private agentDir(): string {
@@ -67,7 +74,7 @@ export class PiEngine implements EngineAdapter {
     return {
       id: "pi", ...(version ? { version } : {}),
       adapterDigest: sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url)))),
-      features: reachable ? ["sessions", "checkpoint", "resume", "steer"] : [],
+      features: reachable ? ["sessions", "checkpoint", "resume", "steer", "pause"] : [],
     };
   }
 
@@ -139,6 +146,7 @@ export class PiEngine implements EngineAdapter {
     this.session?.dispose();
     this.session = session as unknown as PiSession;
     this.guardRequests(this.session);
+    this.guardTurnBoundary(this.session);
     const mgr = manager as { getSessionId?: () => string; getSessionFile?: () => string | undefined };
     this.sessionId = mgr.getSessionId?.() ?? `pi-${Date.now().toString(36)}`;
     this.sessionFile = mgr.getSessionFile?.();
@@ -222,6 +230,38 @@ export class PiEngine implements EngineAdapter {
   }
 
   /**
+   * The turn boundary: after a turn has finished and before the loop builds the next request (the vendor loop's own hook, run after the
+   * vendor's session preparation). A pause asked for earlier is taken here, so a steering message sent while held is picked up by the loop
+   * right after this hook and goes out in the first request after the session continues. The session, its tools and its conversation stay alive.
+   */
+  private guardTurnBoundary(session: PiSession): void {
+    const inherited = session.agent.prepareNextTurnWithContext;
+    session.agent.prepareNextTurnWithContext = async (turn, signal) => {
+      await this.holdAtBoundary(signal);
+      return inherited?.(turn, signal);
+    };
+  }
+
+  private async holdAtBoundary(signal?: AbortSignal): Promise<void> {
+    if (!this.pauseWanted || signal?.aborted) return;
+    this.held = true;
+    for (const waiter of this.holdWaiters.splice(0)) waiter.resolve();
+    await new Promise<void>((resolve) => {
+      this.releaseGate = resolve;
+      signal?.addEventListener("abort", () => resolve(), { once: true });
+    });
+    this.held = false;
+    this.releaseGate = undefined;
+  }
+
+  /** The session is ending (or being cancelled): nothing may wait for a boundary or stay held. */
+  private endGate(reason: string): void {
+    this.pauseWanted = false;
+    for (const waiter of this.holdWaiters.splice(0)) waiter.reject(new Error(reason));
+    this.releaseGate?.();
+  }
+
+  /**
    * Takes the tools away and tells the model, once, exactly how many tokens are left: the next request carries no tools (see guardRequests) and
    * the message reaches the model at that turn boundary. The model has nothing left to call, so its next turn is the final answer.
    */
@@ -258,6 +298,8 @@ export class PiEngine implements EngineAdapter {
       });
       this.push("session.stopped", { reason: "error", terminationConfirmed: true });
     } finally {
+      this.finished = true;
+      this.endGate("the session finished before it reached a turn boundary");
       this.stream.close();
     }
   }
@@ -270,6 +312,7 @@ export class PiEngine implements EngineAdapter {
     this.tokensAtLastCheck = 0;
     this.toolsEnded = false;
     this.keepAnswer = false;
+    this.pauseWanted = false; this.held = false; this.releaseGate = undefined; this.holdWaiters = []; this.finished = false;
     this.stream = new EngineEventStream();
     mkdirSync(this.sessionsDir(), { recursive: true });
     const { SessionManager } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");
@@ -318,7 +361,30 @@ export class PiEngine implements EngineAdapter {
     }
   }
 
+  /**
+   * Pi pause: resolves once the session is held at a turn boundary, with no further request sent to the model until `continue`. Refused with the
+   * typed error when there is no live session, and rejected when the session ends before it reaches a boundary (an answer with no tool call
+   * has no boundary to hold at).
+   */
+  async pause(sessionId: string): Promise<void> {
+    if (!this.session || this.sessionId !== sessionId || this.finished) {
+      throw Object.assign(new Error(`Pi pause requires the live session, not ${sessionId}`), { code: "UNSUPPORTED_CAPABILITY" });
+    }
+    this.pauseWanted = true;
+    if (this.held) return;
+    await new Promise<void>((resolve, reject) => { this.holdWaiters.push({ resolve, reject }); });
+  }
+
+  /** Lets a held session go on, or cancels a pause not yet reached; nothing happens to a session that is not held. */
+  async continue(sessionId: string): Promise<void> {
+    if (this.sessionId !== sessionId) return;
+    this.pauseWanted = false;
+    for (const waiter of this.holdWaiters.splice(0)) waiter.reject(new Error("the pause was cancelled before it was reached"));
+    this.releaseGate?.();
+  }
+
   async cancel(_sessionId?: string, _reason?: string) {
+    this.endGate("the session was cancelled");
     this.toolCalls?.clear();
     await this.session?.abort();
     this.session?.dispose();
@@ -363,6 +429,7 @@ export class PiEngine implements EngineAdapter {
   }
 
   async dispose(_sessionId?: string) {
+    this.endGate("the session was disposed");
     this.session?.dispose();
     this.session = null;
     this.stream.close();

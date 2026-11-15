@@ -2848,6 +2848,8 @@
                 "enum": [
                   "stop-attempt",
                   "steer",
+                  "pause-attempt",
+                  "continue-attempt",
                   "drain",
                   "quarantine",
                   "refresh-inventory"
@@ -3720,6 +3722,8 @@
                 "session.stopped",
                 "session.usage",
                 "session.steered",
+                "session.paused",
+                "session.continued",
                 "session.checkpointed",
                 "session.created",
                 "session.resumed",
@@ -8427,6 +8431,9 @@
           ],
           "additionalProperties": false
         },
+        "pause": {
+          "$ref": "#/$defs/SessionPause"
+        },
         "activity": {
           "type": "object",
           "properties": {
@@ -10961,6 +10968,98 @@
       ],
       "additionalProperties": false
     },
+    "SessionPauseCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "session.pause"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "sessionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "idempotencyKey",
+        "payload",
+        "workspaceId"
+      ],
+      "additionalProperties": false
+    },
+    "SessionContinueCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "session.continue"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "sessionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "idempotencyKey",
+        "payload",
+        "workspaceId"
+      ],
+      "additionalProperties": false
+    },
     "ApprovalRequestCommand": {
       "type": "object",
       "properties": {
@@ -11638,6 +11737,12 @@
         },
         {
           "$ref": "#/$defs/SessionStopCommand"
+        },
+        {
+          "$ref": "#/$defs/SessionPauseCommand"
+        },
+        {
+          "$ref": "#/$defs/SessionContinueCommand"
         },
         {
           "$ref": "#/$defs/SessionCreateCommand"
@@ -12589,6 +12694,44 @@
       ],
       "additionalProperties": false
     },
+    "SessionPause": {
+      "type": "object",
+      "description": "Whether one session can be paused at its next turn boundary and where that stands. `supported` is false when the engine cannot stop at a turn boundary (then `reason` says so in plain words). A paused session keeps its fence, lease and runner slot; `stopsAt` is when Brain stops it if nobody continues it (the hold limit), so the slot is not held forever.",
+      "properties": {
+        "supported": {
+          "type": "boolean"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "running",
+            "pausing",
+            "paused",
+            "resuming"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "since": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "stopsAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "holdLimitMs": {
+          "$ref": "#/$defs/Counter"
+        }
+      },
+      "required": [
+        "supported",
+        "state",
+        "holdLimitMs"
+      ],
+      "additionalProperties": false
+    },
     "SessionDetail": {
       "type": "object",
       "description": "session.get snapshot: the BrainSession record extended with the execution-stream cursor and the interruption continuation facts.",
@@ -12702,6 +12845,9 @@
           ],
           "additionalProperties": false
         },
+        "pause": {
+          "$ref": "#/$defs/SessionPause"
+        },
         "version": {
           "$ref": "#/$defs/Counter"
         },
@@ -12741,7 +12887,8 @@
         "createdAt",
         "updatedAt",
         "streamCursor",
-        "continuation"
+        "continuation",
+        "pause"
       ],
       "additionalProperties": false
     },

@@ -151,6 +151,8 @@
     "plan.propose",
     "session.steer",
     "session.stop",
+    "session.pause",
+    "session.continue",
     "workflow.dispatch",
     "job.reconcile",
     "mission.reuse.decide",
@@ -368,6 +370,8 @@
    "actions": [
     "session.steer",
     "session.stop",
+    "session.pause",
+    "session.continue",
     "workflow.dispatch",
     "job.reconcile"
    ],
@@ -597,7 +601,9 @@
    ],
    "actions": [
     "session.steer",
-    "session.stop"
+    "session.stop",
+    "session.pause",
+    "session.continue"
    ],
    "content": [
     "console",

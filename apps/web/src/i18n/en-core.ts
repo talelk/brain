@@ -264,6 +264,7 @@ export const enCore = {
   "status.partial": "Partial",
   "status.passed": "Passed",
   "status.paused": "Paused",
+  "status.pausing": "Pausing",
   "status.pending": "Pending",
   "status.preparing": "Preparing",
   "status.proposed": "Proposed",

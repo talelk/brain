@@ -120,6 +120,24 @@
       ]
     },
     {
+      "type": "session.pause",
+      "schema": "SessionPauseCommand",
+      "scope": "session:steer",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "session.continue",
+      "schema": "SessionContinueCommand",
+      "scope": "session:steer",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "session.create",
       "schema": "SessionCreateCommand",
       "scope": "session:steer",
@@ -1266,6 +1284,18 @@
     },
     {
       "type": "session.steered",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "session.paused",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "session.continued",
       "envelope": "EventEnvelope",
       "payloadContract": "SessionEventPayload",
       "durable": true
