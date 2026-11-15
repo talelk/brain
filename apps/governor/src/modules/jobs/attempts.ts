@@ -16,6 +16,7 @@ import { isDraining } from "./drain";
 import { heldForHostedModel, modelRouteFor } from "./model-route";
 import { effectOutcomesFor, executionArtifactId, HOLD_REASON } from "./effect-hold";
 import { ensureSkills, promptTaskText, skillTokens } from "./skill-selection";
+import { heldEffect, retryFailedAttempt, stampAttemptDeadline, stepPolicy } from "./step-policy";
 import type { JobProtocolPorts } from "./job-protocol";
 
 /**
@@ -105,21 +106,21 @@ export function claim(s: Store, deps: {
     const eligible: Array<Record<string, unknown>> = [];
     const groups = new Map((s.control.prepare("SELECT group_id, workspaces_json FROM runner_groups WHERE organization_id=?").all(runner.organizationId) as Array<{ group_id: string; workspaces_json: string }>).map((row) => [row.group_id, JSON.parse(row.workspaces_json) as string[]] as const));
     const hostJobs = new Map<string, boolean>();
-    const queuedWorkspaces = (s.control.prepare(`SELECT DISTINCT workspace_id FROM jobs WHERE organization_id=? AND state='queued' AND deadline_ms>? AND EXISTS (SELECT 1 FROM workspaces w WHERE w.id=jobs.workspace_id AND w.organization_id=jobs.organization_id AND w.status='active')`)
-      .all(runner.organizationId, s.now()) as Array<{ workspace_id: string }>).map((row) => row.workspace_id);
+    const queuedWorkspaces = (s.control.prepare(`SELECT DISTINCT workspace_id FROM jobs WHERE organization_id=? AND state='queued' AND deadline_ms>? AND ready_at_ms<=? AND EXISTS (SELECT 1 FROM workspaces w WHERE w.id=jobs.workspace_id AND w.organization_id=jobs.organization_id AND w.status='active')`)
+      .all(runner.organizationId, s.now(), s.now()) as Array<{ workspace_id: string }>).map((row) => row.workspace_id);
     for (const workspaceId of queuedWorkspaces) {
       let after: { priority: number; created: number; id: string } | null = null;
       let found = 0;
       for (let page = 0; page < 10; page++) {
         const rows = (after === null
           ? s.control.prepare(`SELECT id, workspace_id, placement_json, version, workflow_run_id, step_id, config_digest, effect_class, priority, created_at_ms
-              FROM jobs WHERE organization_id=? AND workspace_id=? AND state='queued' AND deadline_ms>? ORDER BY priority DESC, created_at_ms ASC, id ASC LIMIT 100`)
-              .all(runner.organizationId, workspaceId, s.now())
+              FROM jobs WHERE organization_id=? AND workspace_id=? AND state='queued' AND deadline_ms>? AND ready_at_ms<=? ORDER BY priority DESC, created_at_ms ASC, id ASC LIMIT 100`)
+              .all(runner.organizationId, workspaceId, s.now(), s.now())
           : s.control.prepare(`SELECT id, workspace_id, placement_json, version, workflow_run_id, step_id, config_digest, effect_class, priority, created_at_ms
-              FROM jobs WHERE organization_id=? AND workspace_id=? AND state='queued' AND deadline_ms>?
+              FROM jobs WHERE organization_id=? AND workspace_id=? AND state='queued' AND deadline_ms>? AND ready_at_ms<=?
               AND (priority < ? OR (priority = ? AND created_at_ms > ?) OR (priority = ? AND created_at_ms = ? AND id > ?))
               ORDER BY priority DESC, created_at_ms ASC, id ASC LIMIT 100`)
-              .all(runner.organizationId, workspaceId, s.now(), after.priority, after.priority, after.created, after.priority, after.created, after.id)) as Array<Record<string, unknown>>;
+              .all(runner.organizationId, workspaceId, s.now(), s.now(), after.priority, after.priority, after.created, after.priority, after.created, after.id)) as Array<Record<string, unknown>>;
         if (rows.length === 0) break;
         for (const job of rows) {
           const placement = JSON.parse(String(job["placement_json"])) as import("@brain/contracts").Placement;
@@ -412,6 +413,7 @@ export function ackAttempt(s: Store, runner: { runnerId: string; epoch: number }
     const expires = s.now() + 60_000;
     transitionState(s.control, "attempt", attemptId, "running", { set: { lease_expires_at_ms: expires } });
     transitionState(s.control, "job", String(row["job_id"]), "running", { bumpVersion: true });
+    stampAttemptDeadline(s, String(row["job_id"]), attemptId);
     {
       const engine = body["engine"] as { id?: string; adapterDigest?: string; features?: unknown } | undefined;
       recordAttemptSession(s, {
@@ -519,7 +521,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
   if (!["succeeded","failed","unknown-outcome"].includes(result) || !Number.isSafeInteger(body["jobFence"]) || typeof body["cleanupConfirmed"] !== "boolean") throw new BrainDomainError("INVALID_CONTRACT", "completion requires a valid result, fence and cleanup status");
   const output = (body["output"] ?? null) as JsonValue;
   let jobState = "";
-  let runId = ""; let stepId = ""; let workspaceId = ""; let jobId = ""; let isAct = false;
+  let runId = ""; let stepId = ""; let workspaceId = ""; let jobId = ""; let isAct = false; let attemptFailed = false;
   s.inTx(s.control, () => {
     const row = loadAttempt(s, attemptId);
     runId = String(row["workflow_run_id"]); stepId = String(row["step_id"]); workspaceId = String(row["workspace_id"]); jobId = String(row["job_id"]);
@@ -561,12 +563,15 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
       }
     } else {
       transitionState(s.control, "attempt", attemptId, "failed", { set: { receipt_digest: receiptDigest, cleanup_confirmed: cleanup } });
-      transitionState(s.control, "job", String(row["job_id"]), "failed", { bumpVersion: true });
-      jobState = "failed";
-      recordAttemptFailure(s, attemptId, Number(row["last_event_seq"]), failureReasonOf(output));
+      const reason = failureReasonOf(output);
+      recordAttemptFailure(s, attemptId, Number(row["last_event_seq"]), reason);
+      // The step may be offered again (its retry, ADR 0046); the job then waits in the queue and the run does not hear of the failure.
+      jobState = retryFailedAttempt(s, { jobId: String(row["job_id"]), attemptId, reason }) ? "queued" : "failed";
+      if (jobState === "failed") transitionState(s.control, "job", String(row["job_id"]), "failed", { bumpVersion: true });
+      attemptFailed = true;
     }
     if (cleanup === 1) releaseReservation(s, attemptId);
-    endAttemptSession(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, failed: jobState === "failed" });
+    endAttemptSession(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, failed: attemptFailed });
     revokeSessionCredentials(s, attemptId);
     for (const keyRow of s.control.prepare("SELECT resource_key FROM resource_leases WHERE attempt_id=?").all(attemptId) as Array<{ resource_key: string }>) {
       void keyRow; // unresolved guards persist until reconciled; compute release is separate
@@ -689,5 +694,47 @@ export function expireLeases(s: Store): number {
       count++;
     }
   });
+  return count;
+}
+
+/**
+ * Ends the running attempts that passed the deadline their step's `timeoutSeconds` set when they started (ADR 0046). The runner finds its
+ * attempt fenced at its next lease renewal and stops. An attempt that took no effect permit or lease has changed nothing, so it fails
+ * like any failed attempt: the step may be offered again, else the step fails with a plain reason. One that may have changed a
+ * target is left outcome unknown for reconciliation, never retried. Idempotent: an ended attempt is no longer running.
+ */
+export function expireAttemptDeadlines(s: Store, deps: { completeStep: (organizationId: string, workspaceId: string, runId: string, stepId: string, output: JsonValue, ok: boolean) => void }): number {
+  const due = s.control.prepare(`SELECT a.id AS attemptId, a.job_id AS jobId, j.organization_id AS organizationId, j.workspace_id AS workspaceId, j.workflow_run_id AS runId, j.step_id AS stepId
+    FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE a.state='running' AND a.deadline_ms IS NOT NULL AND a.deadline_ms<=? ORDER BY a.deadline_ms, a.id LIMIT 200`).all(s.now()) as Array<{ attemptId: string; jobId: string; organizationId: string; workspaceId: string; runId: string; stepId: string }>;
+  let count = 0;
+  const failures: Array<{ due: (typeof due)[number]; message: string }> = [];
+  for (const item of due) {
+    const ended = s.inTx(s.control, () => {
+      const row = s.control.prepare("SELECT a.state, a.last_event_seq AS lastSeq, j.state AS jobState FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE a.id=?").get(item.attemptId) as { state: string; lastSeq: number; jobState: string } | undefined;
+      if (!row || row.state !== "running" || row.jobState !== "running") return false;
+      const seconds = stepPolicy(s, item.jobId).timeoutSeconds ?? 0;
+      const message = `The step timed out after ${seconds} seconds.`;
+      if (heldEffect(s, item.attemptId)) {
+        // It may have changed something: only reconciliation settles it (E056), as for a runner that vanished.
+        transitionState(s.control, "attempt", item.attemptId, "outcome_unknown");
+        transitionState(s.control, "job", item.jobId, "outcome_unknown", { bumpVersion: true });
+      } else {
+        transitionState(s.control, "attempt", item.attemptId, "failed");
+        recordAttemptFailure(s, item.attemptId, row.lastSeq, message);
+        if (!retryFailedAttempt(s, { jobId: item.jobId, attemptId: item.attemptId, reason: message })) {
+          transitionState(s.control, "job", item.jobId, "failed", { bumpVersion: true });
+          failures.push({ due: item, message });
+        }
+        releaseReservation(s, item.attemptId);
+      }
+      endAttemptSession(s, { organizationId: item.organizationId, workspaceId: item.workspaceId, attemptId: item.attemptId, failed: true });
+      revokeSessionCredentials(s, item.attemptId);
+      return true;
+    });
+    if (!ended) continue;
+    count++;
+    s.emit(s.control, { organizationId: item.organizationId, workspaceId: item.workspaceId, aggregateType: "job", aggregateId: item.jobId, eventType: "job.updated", payload: { attemptId: item.attemptId, timedOut: true }, destinations: [`workspace:${item.workspaceId}`] });
+  }
+  for (const { due: item, message } of failures) deps.completeStep(item.organizationId, item.workspaceId, item.runId, item.stepId, { error: message, code: "STEP_TIMEOUT" } as unknown as JsonValue, false);
   return count;
 }

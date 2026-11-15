@@ -195,9 +195,9 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     admitReadySteps(s, this.admission, run);
     const refreshed = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ state: string }>;
     if (refreshed.length > 0 && refreshed.every((r) => r.state === "succeeded" || r.state === "skipped")) {
-      const anySkipped = refreshed.some((r) => r.state === "skipped");
-      transitionState(ws, "run", runId, anySkipped ? "partial" : "succeeded", { bumpVersion: true });
-      if (!anySkipped) this.host.runSucceeded({ organizationId, workspaceId, runId });
+      // A step is skipped in a run that has not failed only because its `when` condition was false or a need was skipped (ADR 0046): a branch not taken, not a shortfall.
+      transitionState(ws, "run", runId, "succeeded", { bumpVersion: true });
+      this.host.runSucceeded({ organizationId, workspaceId, runId });
     }
   }
 
@@ -329,9 +329,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     let failed = false;
     if (!TERMINAL_RUN_STATES.includes(run.state)) {
       if (mastraStatus === "success") {
-        const steps = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ state: string }>;
-        const anySkipped = steps.some((r) => r.state === "skipped");
-        transitionState(ws, "run", runId, anySkipped ? "partial" : "succeeded", { bumpVersion: true });
+        transitionState(ws, "run", runId, "succeeded", { bumpVersion: true });
       } else {
         transitionState(ws, "run", runId, "failed", { bumpVersion: true });
         failed = true;

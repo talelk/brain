@@ -1,11 +1,11 @@
-import type { EvaluationAssignment, EvidenceBundle, JsonValue, Workflow } from "@brain/contracts";
+import type { EvaluationAssignment, EvidenceBundle, JsonValue, StepCondition, Workflow } from "@brain/contracts";
 import { domainDigest } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { NORMAL_JOB_PRIORITY } from "../../domain/work-priority";
 import type { Db } from "../../infrastructure/persistence/open";
-import { compileWorkflowGraph, resolveBinding } from "../configuration/index";
+import { compileWorkflowGraph, pointerGet, resolveBinding } from "../configuration/index";
 import { pinnedEvaluator } from "../evidence/index";
 import type { WorkflowEnginePort, WorkflowHost } from "./engine-port";
 
@@ -59,13 +59,27 @@ function runPriority(ws: Db, runId: string): number {
   return row?.priority ?? NORMAL_JOB_PRIORITY;
 }
 
-/** What the scheduler does with a pending step, from the states of its needs. */
+/** What the scheduler does with a pending step, from the states of its needs and its `when` condition. */
 type Readiness = "ready" | "wait" | "skip";
 
-/** A step whose needs all succeeded is ready; one with a failed, cancelled or skipped need is skipped. */
-function readiness(step: Workflow["spec"]["jobs"][string], stateOf: (stepId: string) => string | undefined): Readiness {
+/**
+ * A step whose needs all succeeded is ready, unless its `when` condition is false; one with a failed, cancelled or skipped need
+ * is skipped, so a skip runs down every chain below it (ADR 0046). The condition reads the output of one of the step's own
+ * ancestors, which is final once every need has succeeded.
+ */
+function readiness(step: Workflow["spec"]["jobs"][string], stateOf: (stepId: string) => string | undefined, outputs: Readonly<Record<string, JsonValue>>): Readiness {
   if (step.needs.some((need) => ["failed", "cancelled", "skipped"].includes(stateOf(need) ?? ""))) return "skip";
-  return step.needs.every((need) => stateOf(need) === "succeeded") ? "ready" : "wait";
+  if (!step.needs.every((need) => stateOf(need) === "succeeded")) return "wait";
+  return step.when && !conditionHolds(step.when, outputs) ? "skip" : "ready";
+}
+
+/** A condition holds when its pointer resolves in the step's output (no `equals`) or resolves to exactly the `equals` value. */
+function conditionHolds(condition: StepCondition, outputs: Readonly<Record<string, JsonValue>>): boolean {
+  const source = outputs[condition.step];
+  if (source === undefined) return false;
+  let found: JsonValue;
+  try { found = pointerGet(source, condition.pointer); } catch { return false; }
+  return condition.equals === undefined || domainDigest("brain:when:v1", found) === domainDigest("brain:when:v1", condition.equals);
 }
 
 /** The outputs the run's steps have produced so far, by step id. */
@@ -92,7 +106,7 @@ export function admitReadySteps(store: Store, ports: AdmissionPorts, run: Admiss
   for (const stepId of compileWorkflowGraph(run.workflow, run.runId)) {
     const declared = run.workflow.spec.jobs[stepId];
     if (!declared || states.get(stepId) !== "pending") continue;
-    const verdict = readiness(declared, (id) => states.get(id));
+    const verdict = readiness(declared, (id) => states.get(id), outputs);
     if (verdict === "skip") {
       ws.prepare("UPDATE workflow_steps SET state='skipped' WHERE run_id=? AND step_id=?").run(run.runId, stepId);
       states.set(stepId, "skipped");
