@@ -922,6 +922,8 @@
     "usage.task",
     "usage.mission",
     "usage.workspace",
+    "usage.agent",
+    "usage.member",
     "plans.estimate",
     "reuse.search",
     "reuse.forMission",

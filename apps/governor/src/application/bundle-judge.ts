@@ -89,7 +89,7 @@ export class BundleJudge {
       }
       // Nothing below waits: the bundle is checked and the opinion written in one step, so a verdict recorded meanwhile leaves no late opinion on it.
       const tokens = verdict.usage ?? { inputTokens: Math.ceil((text.length + entry.text.length + 400) / 4), outputTokens: Math.ceil(verdict.raw.length / 4) };
-      recordJudgeSpend(store, db, { missionId, attemptId: `judge:${bundleDigest}:${entry.criterionId}`, runId: `judge:${bundleDigest}`, microUsd: judgeCostMicroUsd(config, tokens), ...tokens, estimated: verdict.usage === undefined });
+      recordJudgeSpend(store, db, { missionId, attemptId: `judge:${bundleDigest}:${entry.criterionId}`, runId: `judge:${bundleDigest}`, model: config.model, microUsd: judgeCostMicroUsd(config, tokens), ...tokens, estimated: verdict.usage === undefined });
       const transcript = Buffer.from(JSON.stringify({
         promptVersion: JUDGE_PROMPT_VERSION, model: config.model, criterionId: entry.criterionId, criterionText: entry.text, evidence: text,
         outcome: verdict.outcome, rationale: verdict.rationale, raw: verdict.raw.slice(0, 4096),

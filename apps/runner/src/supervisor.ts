@@ -217,7 +217,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
   // The engine that actually executes the attempt; reported with the event
   // batches so the Governor's session view names the real adapter and its
   // probe features, not a guess.
-  let engineInfo: { id: string; adapterDigest: string; features: string[] } | undefined;
+  let engineInfo: { id: string; adapterDigest: string; features: string[]; model?: string } | undefined;
   // A failed events POST leaves the journal untouched: the same batch replays
   // on the next flush, in order, after the Governor acknowledges the batch.
   const flushEvents = async (): Promise<void> => {
@@ -242,7 +242,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     if (kind === "engine") {
       const event = eventPayload as { kind?: string; payload?: { engine?: { id: string; adapterDigest: string; features?: string[] } } };
       if (event.kind === "session.started" && event.payload?.engine) {
-        engineInfo = { id: event.payload.engine.id, adapterDigest: event.payload.engine.adapterDigest, features: event.payload.engine.features ?? [] };
+        engineInfo = { id: event.payload.engine.id, adapterDigest: event.payload.engine.adapterDigest, features: event.payload.engine.features ?? [], ...(engineInfo?.model ? { model: engineInfo.model } : {}) };
       }
     }
     eventSeq += 1;
@@ -334,7 +334,10 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       const engine = selectEngine(engineConfigured, offeredBindings, route);
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner with the ${required} isolation this step requires`);
       const engineProbe = await engine.probe();
-      engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features] };
+      // The model this attempt runs on, as the usage ledger attributes spend (#111): the hosted route's, else the runner's configured one, else the
+      // engine's own default. An engine that names none (an ACP agent picks its own) reports none: nothing is invented.
+      const modelId = route?.model ?? process.env["BRAIN_LOCAL_MODEL_ID"] ?? engine.defaultModelId;
+      engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features], ...(modelId ? { model: modelId } : {}) };
       const task = promptWithContext(step.task ?? JSON.stringify(payload.input ?? {}), payload.contextPack) + settledEffectsNote(settledEffects) + (payload.resume ? RESUME_NOTE : "");
       const launcher = cfg.launcher ?? (LauncherClient.configured() ? LauncherClient.fromEnv() : undefined);
       const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
@@ -359,7 +362,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
         engine, attemptId: offer.attemptId, jobFence: offer.jobFence, leaseId: offer.leaseId,
         runnerId: cfg.runnerId, runnerEpoch, organizationId: offer.organizationId ?? "", workspaceId: offer.workspaceId,
         jobId: offer.jobId, configDigest: offer.configDigest, sourceRevision: offer.sourceRevision ?? offer.configDigest,
-        instructions, task, ...(payload.resume ? { resumeFrom: payload.resume.engineState } : {}), modelId: route?.model ?? process.env["BRAIN_LOCAL_MODEL_ID"], timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
+        instructions, task, ...(payload.resume ? { resumeFrom: payload.resume.engineState } : {}), modelId, timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
         maxTurns: asset.agent.spec.maxTurns, maxTokens: asset.agent.spec.maxTokens,
         outputCheck: outputContractCheck((payload as { outputSchema?: unknown }).outputSchema),
         maxMicroUsd: asset.agent.spec.maxMicroUsd, allowedTools: offeredTools,

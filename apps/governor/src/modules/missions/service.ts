@@ -12,7 +12,7 @@ import { repeatGate, type RepeatPlan, type RepeatSchedule } from "./repeat";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
 import { admit, admitChallenge, admitOutsideMission, budgetOf, DEFAULT_MISSION_BUDGET, hasHeadroom, limitChangeNote, minutesWord, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
 import { missionTaskTrust } from "./task-trust";
-import { capReached, missionUsage, outsideMissionsUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
+import { agentUsage, capReached, memberUsage, missionBreakdown, missionUsage, outsideMissionsUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
 import { planEstimate, planWallLimit } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listComments, recordComment } from "./comments";
@@ -800,8 +800,10 @@ export class MissionService {
     return row.n === 1;
   }
 
-  recordReservation(organizationId: string, workspaceId: string, input: { missionId?: string; runId: string; attemptId: string; microUsd: number }): void {
-    reserveSpend(this.store, this.store.workspaceDb(workspaceId, organizationId), input);
+  recordReservation(organizationId: string, workspaceId: string, input: { missionId?: string; runId: string; attemptId: string; microUsd: number; agentId?: string }): void {
+    // The team member is the one the session's machine principal is bound to (ADR 0032), so spend and authority name the same member.
+    const memberId = input.missionId ? this.sessionBinding(organizationId, workspaceId, input.runId)?.memberId : undefined;
+    reserveSpend(this.store, this.store.workspaceDb(workspaceId, organizationId), { ...input, ...(memberId ? { memberId } : {}) });
   }
 
   /** Governor-internal: an attempt produced a version of a named output its plan task declares. */
@@ -1539,7 +1541,15 @@ export class MissionService {
     if (queryType === "usage.mission") {
       const mission = this.missionRow(actor, workspaceId, String(resourceId));
       settleAll(this.store, db);
-      return { scope: "mission", id: mission.id, usage: missionUsage(db, String(resourceId)) } as unknown as JsonValue;
+      return { scope: "mission", id: mission.id, usage: missionUsage(db, mission.id), breakdown: missionBreakdown(db, mission.id) } as unknown as JsonValue;
+    }
+    if (queryType === "usage.agent") { settleAll(this.store, db); return { scope: "agent", id: String(resourceId), ...agentUsage(db, String(resourceId)) } as unknown as JsonValue; }
+    if (queryType === "usage.member") {
+      // One member of one mission: `<missionId>:<memberId>` (a member id is a plan's own label, a mission id never ends in one).
+      const [missionPart, memberId = ""] = String(resourceId).split(/:(?=[^:]*$)/u);
+      const mission = this.missionRow(actor, workspaceId, missionPart ?? "");
+      settleAll(this.store, db);
+      return { scope: "member", id: String(resourceId), ...memberUsage(db, mission.id, memberId) } as unknown as JsonValue;
     }
     if (queryType === "usage.workspace") { settleAll(this.store, db); return { scope: "workspace", id: workspaceId, usage: workspaceUsage(db), outsideMissions: outsideMissionsUsage(db), spendCap: spendCapOf(db, this.store.now()) } as unknown as JsonValue; }
     if (queryType === "plans.estimate") return planEstimate(this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))), db) as unknown as JsonValue;
