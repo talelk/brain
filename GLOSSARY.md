@@ -15,6 +15,13 @@ outlives any single run or session and may last minutes or weeks. It owns its pl
 versions, mission team, work items and outputs.
 _Avoid_: objective, goal, target, epic, project
 
+**Command palette**:
+The Control/Command-K dialog. It searches the Missions and Work items (by title) of the workspaces the
+person can read, plus runs, sessions, approvals, outputs and release documents, and lists actions the
+keyboard can run (new mission, open approvals, open Live, open Board, go to a mission view).
+A hit opens its own place; a Work item opens inside its mission (`?item=`).
+_Avoid_: quick switcher, global search (the query is `search.global`)
+
 **Success criterion**:
 One outcome a mission must reach, with a stable id (`c1`, `c2`: by position at creation,
 never renumbered or reused) that plan versions and brief versions keep. Covered when at

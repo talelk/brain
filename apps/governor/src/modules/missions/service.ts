@@ -1608,6 +1608,21 @@ export class MissionService {
     throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `unsupported work query ${queryType}`);
   }
 
+  /**
+   * search.global: the workspace's Missions and Work items whose title matches. Reads through `db()`, so only a workspace
+   * the caller may read is searched; a work item opens inside its mission (`missionId`). Abandoned work stays out.
+   */
+  searchTitles(actor: ActorContext, workspaceId: string, matches: (value: unknown) => boolean): Array<Record<string, JsonValue>> {
+    const db = this.db(actor, workspaceId);
+    const missions = (db.prepare("SELECT id, title, state, updated_at_ms FROM missions ORDER BY updated_at_ms DESC, id LIMIT 200").all() as Array<{ id: string; title: string; state: string; updated_at_ms: number }>)
+      .filter((row) => matches(row.title))
+      .map((row): Record<string, JsonValue> => ({ category: "mission", title: row.title, reason: row.state, resourceId: row.id, missionId: row.id, workspaceId, updatedAt: iso(row.updated_at_ms) }));
+    const items = (db.prepare("SELECT w.id, w.mission_id, w.title, w.state, w.updated_at_ms, m.title AS mission_title FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.state!='abandoned' ORDER BY w.updated_at_ms DESC, w.id LIMIT 500").all() as Array<{ id: string; mission_id: string; title: string; state: string; updated_at_ms: number; mission_title: string }>)
+      .filter((row) => matches(row.title))
+      .map((row): Record<string, JsonValue> => ({ category: "workItem", title: row.title, reason: `${row.state} · in ${row.mission_title}`, resourceId: row.id, missionId: row.mission_id, workspaceId, updatedAt: iso(row.updated_at_ms) }));
+    return [...missions, ...items];
+  }
+
   /** Lessons from healed or parked failures that have not expired, newest first: what the planner is told. */
   lessons(db: ReturnType<Store["workspaceDb"]>, limit: number): Array<{ lessonId: string; failureClass: FailureClass; outcome: "healed" | "parked"; taskTitle: string; lesson: string; createdAt: string; expiresAt: string }> {
     return (db.prepare("SELECT id, failure_class, outcome, task_title, lesson, created_at_ms, expires_at_ms FROM lessons WHERE expires_at_ms>? ORDER BY created_at_ms DESC, id LIMIT ?").all(this.store.now(), limit) as Array<{ id: string; failure_class: FailureClass; outcome: "healed" | "parked"; task_title: string; lesson: string; created_at_ms: number; expires_at_ms: number }>)
