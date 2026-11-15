@@ -6,7 +6,7 @@ import { command } from "./reuse";
 export interface SeededCheck { readonly criterionId: string; readonly checkId: string; readonly status: "passed" | "failed" }
 
 /**
- * Finishes a confirmed plan task the way a person does: start, review, then Done on verified evidence of its own run, through commands.
+ * Finishes a confirmed plan task the way a person does: start (unless a run already did), review, then Done on verified evidence of its own run, through commands.
  * The one exception is the evidence itself: a verified bundle and its accepted verdict are seeded as rows, because producing them needs a
  * real run on a runner (the browser specs walk that). `checks` are what the seeded evaluator reported; by default one check that names
  * the task's own criterion, as a workflow's checks do not name a mission's success criteria. `summary` is what the handoff says (default: "<task> finished").
@@ -15,7 +15,7 @@ export async function finishTask(w: TestWorld, missionId: string, taskId: string
   const current = async () => (await workView(w)).items.find((entry) => entry.missionId === missionId && entry.planTaskId === taskId && entry.state !== "abandoned")!;
   const agent: ActorContext = { ...w.owner, kind: "agent" };
   const digest = `sha256:${digestChar.repeat(64)}`;
-  await command(w, w.owner, "workItem.transition", `${missionId}-${taskId}-start`, { workItemId: (await current()).workItemId, state: "in-progress" }, (await current()).version);
+  if ((await current()).state !== "in-progress") await command(w, w.owner, "workItem.transition", `${missionId}-${taskId}-start`, { workItemId: (await current()).workItemId, state: "in-progress" }, (await current()).version);
   await command(w, w.owner, "workItem.transition", `${missionId}-${taskId}-review`, { workItemId: (await current()).workItemId, state: "review" }, (await current()).version);
   const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
   const reported = (checks ?? [{ criterionId: `${taskId}-done`, checkId: `c-${taskId}`, status: "passed" as const }]).map((check) => ({ ...check, oracleDigest: DIGEST_A, artifacts: [], detail: "seeded" }));

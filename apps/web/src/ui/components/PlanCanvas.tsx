@@ -204,7 +204,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     <Show when={serves(task).length}><ul class="flex flex-col gap-0.5 text-caption text-ink-gray-7" aria-label={t("plan.serves.label")} data-testid="plan-step-serves"><For each={serves(task)}>{(criterion) => <li class="flex items-start gap-1" data-criterion-id={criterion.criterionId}><span class="lucide-target mt-0.5 size-3 shrink-0 text-ink-gray-6" aria-hidden="true" /><span class="min-w-0 break-words">{criterion.text}</span></li>}</For></ul></Show>
     <p class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-6">
       <Show when={member(task)}>{(name) => <span class="inline-flex items-center gap-1"><span class="lucide-bot size-3.5" aria-hidden="true" />{name()}</span>}</Show>
-      <Show when={task.estimatedMinutes}>{(minutes) => <span class="inline-flex items-center gap-1"><span class="lucide-clock size-3.5" aria-hidden="true" />{minutesText(minutes())}</span>}</Show>
+      <Show when={task.estimatedMinutes}>{(minutes) => <span class="inline-flex items-center gap-1" title="Estimate declared by the planner"><span class="lucide-clock size-3.5" aria-hidden="true" />{minutesText(minutes())}</span>}</Show>
       <Show when={task.optional}><span>{t("plan.optional.0c6c")}</span></Show>
     </p>
   </div>;
@@ -221,7 +221,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
         <Show when={plan.summary}><p class="brain-prose text-interface text-ink-gray-7"><InlineMarkdown text={plan.summary ?? ""} /></p></Show>
         <p class="flex flex-wrap gap-x-4 gap-y-1 text-caption text-ink-gray-6">
           <span class="inline-flex items-center gap-1"><span class="lucide-list-checks size-3.5" aria-hidden="true" />{editedTasks().length} {editedTasks().length === 1 ? "step" : "steps"}</span>
-          <Show when={estimate() > 0}><span class="inline-flex items-center gap-1"><span class="lucide-clock size-3.5" aria-hidden="true" />About {minutesText(estimate())} of estimated work</span></Show>
+          <Show when={estimate() > 0}><span class="inline-flex items-center gap-1"><span class="lucide-clock size-3.5" aria-hidden="true" />The planner declared about {minutesText(estimate())}</span></Show>
           <Show when={editedTeam().length}><span class="inline-flex items-center gap-1" data-testid="plan-team-line"><span class="lucide-users size-3.5" aria-hidden="true" />Team: {editedTeam().map((entry) => `${entry.memberId} (${entry.role})`).join(", ")}</span></Show>
         </p>
         <Show when={diff(plan)}>{(text) => <p class="text-interface text-ink-gray-7">{text()}</p>}</Show>

@@ -1655,7 +1655,7 @@ export class MissionService {
       return { scope: "member", id: String(resourceId), ...memberUsage(db, mission.id, memberId) } as unknown as JsonValue;
     }
     if (queryType === "usage.workspace") { settleAll(this.store, db); return { scope: "workspace", id: workspaceId, usage: workspaceUsage(db), outsideMissions: outsideMissionsUsage(db), spendCap: spendCapOf(db, this.store.now()) } as unknown as JsonValue; }
-    if (queryType === "plans.estimate") return planEstimate(this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))), db) as unknown as JsonValue;
+    if (queryType === "plans.estimate") return planEstimate(this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))), this.store, db, workspaceId) as unknown as JsonValue;
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "workItems.list") {
       // Every filter narrows in SQL before the page limit, so the board of a busy workspace never loses older matching work behind newer work.

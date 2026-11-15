@@ -3,12 +3,13 @@ import { t } from "../../i18n";
 import type { JSX } from "solid-js";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog } from "@talelk/newui-molecules";
-import type { BudgetUsage, Mission, UsageSummary, UsageView } from "@brain/contracts";
+import type { BudgetUsage, Mission, PlanEstimate, UsageSummary, UsageView } from "@brain/contracts";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { useApp } from "../app-context";
 import { count, formatTokens, formatUsd } from "../format";
 import { Meter } from "../viz/Meter";
+import { basisWords, minutesText } from "./estimate-words";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 type Figures = Pick<UsageSummary, "settledMicroUsd" | "reservedMicroUsd" | "settledTokens" | "reservedTokens" | "inputTokens" | "outputTokens" | "cachedInputTokens" | "estimated"> & { attempts?: number; openAttempts?: number };
@@ -153,6 +154,27 @@ export function WorkspaceUsage(props: { onChanged?: () => void }): JSX.Element {
 }
 
 /**
+ * What past runs suggest for the limits being edited (#132): the Governor offers a dollar budget and a time limit only when history informs
+ * the plan's estimate. Taking one only fills the field; nothing changes until a person saves the limits.
+ */
+function SuggestedLimits(props: { planVersionId: string | undefined; onDollars: (micro: number) => void; onMinutes: (minutes: number) => void }): JSX.Element {
+  const app = useApp();
+  const estimate = createScopedRead<PlanEstimate | null>({
+    scope: app.scope,
+    load: async (scope, signal) => {
+      if (!props.planVersionId) return { snapshot: null, asOf: new Date().toISOString(), sourceWatermark: 0 };
+      const response = await query<Envelope<PlanEstimate>>({ queryType: "plans.estimate", workspaceId: scope.workspaceId, resourceId: props.planVersionId }, signal);
+      return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+  });
+  return <Show when={estimate.state().data?.suggestedMicroUsd !== undefined || estimate.state().data?.suggestedWallClockMs !== undefined ? estimate.state().data : undefined}>{(plan) => <div class="flex min-w-0 flex-col gap-1 rounded-card border border-outline-gray-1 bg-surface-gray-1 p-2" data-testid="suggested-limits">
+    <p class="m-0 text-caption text-ink-gray-7">Suggested from past runs. Nothing changes until you save the limits.</p>
+    <Show when={plan().suggestedMicroUsd}>{(micro) => <div class="flex flex-wrap items-center justify-between gap-2" data-testid="suggested-dollars"><span class="text-interface">Dollar budget: {formatUsd(micro())} <span class="text-caption text-ink-gray-6">({basisWords(plan().costBasis)}, high end of the typical range plus the final allowance{plan().unknownCostTasks > 0 ? `; covers ${plan().taskCount - plan().unknownCostTasks} of ${plan().taskCount} tasks` : ""})</span></span><Button size="sm" variant="outline" onClick={() => props.onDollars(micro())}>Use suggested</Button></div>}</Show>
+    <Show when={plan().suggestedWallClockMs}>{(ms) => <div class="flex flex-wrap items-center justify-between gap-2" data-testid="suggested-minutes"><span class="text-interface">Time limit: {minutesText(Math.round(ms() / 60_000))} <span class="text-caption text-ink-gray-6">({basisWords(plan().timeBasis)}, three times the high end of the typical range{plan().unknownMinutesTasks > 0 ? `; covers ${plan().taskCount - plan().unknownMinutesTasks} of ${plan().taskCount} tasks` : ""})</span></span><Button size="sm" variant="outline" onClick={() => props.onMinutes(Math.round(ms() / 60_000))}>Use suggested</Button></div>}</Show>
+  </div>}</Show>;
+}
+
+/**
  * The mission's spend and limits: tokens and dollars with the token ceiling,
  * and a dialog to change them. For a mission paused by budget the same dialog
  * raises the limits and resumes in one step, as an audited command pair.
@@ -198,6 +220,7 @@ export function MissionUsage(props: { mission: Mission; /** The per-task token c
       <Dialog.Content size="md">
         <Dialog.Header><Dialog.Title>{budgetPaused() ? "Raise this mission's limits" : "Mission limits"}</Dialog.Title><Dialog.Description>{budgetPaused() ? "This mission paused because a limit was reached (its time limit, its dollar budget, its token ceiling or the workspace spend cap). Raise what was reached, then resume." : "Brain stops starting new work when these are reached. Leave a field empty for no limit."}</Dialog.Description></Dialog.Header>
         <div class="flex flex-col gap-3 py-2">
+          <Show when={editing()}><SuggestedLimits planVersionId={props.mission.pendingPlanVersionId ?? props.mission.activePlanVersionId} onDollars={(micro) => setDollars(toDollars(micro))} onMinutes={(value) => setMinutes(String(value))} /></Show>
           <TextInput label="Token ceiling (tokens)" inputMode="numeric" value={tokens()} onInput={(event) => setTokens(event.currentTarget.value)} />
           <TextInput label="Dollar budget (US dollars)" inputMode="decimal" value={dollars()} onInput={(event) => setDollars(event.currentTarget.value)} />
           <TextInput label="Time limit (minutes of working time, not counting waiting for a person)" inputMode="numeric" value={minutes()} onInput={(event) => setMinutes(event.currentTarget.value)} />

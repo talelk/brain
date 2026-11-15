@@ -7,14 +7,13 @@ import { query } from "../../data/client";
 import { useApp } from "../app-context";
 import { t } from "../../i18n";
 import { count, formatTokens, formatUsd } from "../format";
+import { basisWords, minutesText, rangeWords } from "./estimate-words";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
-const minutesText = (minutes: number): string => (minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ""}`);
-
 /**
- * Plan-time estimates (#54). The Governor computes every total; this only
- * words them. A task without an estimate counts as unknown, never as zero,
+ * Plan-time estimates (#54, #132). The Governor computes every figure and its basis (the median of past runs, what the planner declared, or
+ * unknown); this only words them. A task without an estimate counts as unknown, never as zero,
  * and the ceiling is the mission budget exactly as admission enforces it.
  */
 export function PlanEstimate(props: { planVersionId: string; compact?: boolean }): JSX.Element {
@@ -28,7 +27,7 @@ export function PlanEstimate(props: { planVersionId: string; compact?: boolean }
   });
   return <Show when={estimate.state().data}>{(plan) => {
     const known = (kind: "minutes" | "cost") => plan().taskCount - (kind === "minutes" ? plan().unknownMinutesTasks : plan().unknownCostTasks);
-    const unknownNote = (unknown: number) => (unknown > 0 ? ` (${count(unknown, "task")} without an estimate not included)` : "");
+    const unknownNote = (unknown: number) => (unknown > 0 ? `; ${count(unknown, "task")} without an estimate not included` : "");
     const limits = () => [
       plan().ceilingMicroUsd !== undefined ? formatUsd(plan().ceilingMicroUsd) : undefined,
       plan().ceilingTokens !== undefined ? `${formatTokens(plan().ceilingTokens)} tokens` : undefined,
@@ -40,7 +39,7 @@ export function PlanEstimate(props: { planVersionId: string; compact?: boolean }
     // With no estimate at all (neither time nor cost), a card of "unknown" lines says nothing: show only the limit that stops the plan.
     const noEstimates = () => plan().totalEstimatedMinutes === undefined && plan().totalMicroUsd === undefined;
     if (props.compact || noEstimates()) return <div class="flex min-w-0 flex-col gap-1" data-testid="plan-estimate">
-      <p class="m-0 text-caption text-ink-gray-7" data-testid="estimate-ceiling"><Show when={stops()} fallback={t("plan.estimate.ceilingNone")}>This plan stops at {limits().join(" or ")}{limits().length > 1 ? ", whichever comes first" : ""}.</Show>{plan().totalEstimatedMinutes !== undefined ? ` Estimated: about ${minutesText(plan().totalEstimatedMinutes ?? 0)}.` : ""}</p>
+      <p class="m-0 text-caption text-ink-gray-7" data-testid="estimate-ceiling"><Show when={stops()} fallback={t("plan.estimate.ceilingNone")}>This plan stops at {limits().join(" or ")}{limits().length > 1 ? ", whichever comes first" : ""}.</Show>{plan().totalEstimatedMinutes !== undefined ? ` Estimated: about ${minutesText(plan().totalEstimatedMinutes ?? 0)} (${basisWords(plan().timeBasis)}${rangeWords(plan().timeBasis, "minutes")}).` : ""}</p>
       <p class="m-0 text-caption text-ink-gray-7" data-testid="estimate-task-cap">{t("plan.estimate.taskCap", { cap: formatTokens(plan().taskTokenCap) })}</p>
       {warning}
     </div>;
@@ -49,12 +48,12 @@ export function PlanEstimate(props: { planVersionId: string; compact?: boolean }
       <ul class="flex flex-col gap-1 text-interface text-ink-gray-8">
         <li data-testid="estimate-time">
           <Show when={plan().totalEstimatedMinutes !== undefined} fallback="Time: unknown. No task has a time estimate.">
-            Time: about {minutesText(plan().totalEstimatedMinutes ?? 0)} across {count(known("minutes"), "task")}{unknownNote(plan().unknownMinutesTasks)}.
+            Time: about {minutesText(plan().totalEstimatedMinutes ?? 0)} across {count(known("minutes"), "task")} (<span data-testid="estimate-time-basis">{basisWords(plan().timeBasis)}</span>{rangeWords(plan().timeBasis, "minutes")}{unknownNote(plan().unknownMinutesTasks)}).
           </Show>
         </li>
         <li data-testid="estimate-cost">
           <Show when={plan().totalMicroUsd !== undefined} fallback={t("plan.estimate.costNoDollar")}>
-            Cost: up to {formatUsd(plan().totalMicroUsd)} across {count(known("cost"), "task")}{unknownNote(plan().unknownCostTasks)}.
+            Cost: {plan().costBasis.kind === "declared" ? "up to" : "about"} {formatUsd(plan().totalMicroUsd)} across {count(known("cost"), "task")} (<span data-testid="estimate-cost-basis">{basisWords(plan().costBasis)}</span>{rangeWords(plan().costBasis, "usd")}{unknownNote(plan().unknownCostTasks)}).
           </Show>
         </li>
         <li data-testid="estimate-ceiling">
@@ -67,7 +66,7 @@ export function PlanEstimate(props: { planVersionId: string; compact?: boolean }
       {warning}
       <details class="min-w-0"><summary class="cursor-pointer text-caption text-ink-gray-7">Estimate for each task</summary>
         <ul class="mt-1 flex flex-col gap-0.5 text-caption text-ink-gray-7" aria-label="Estimates by task">
-          <For each={plan().tasks}>{(task) => <li>{task.title}: {task.estimatedMinutes !== undefined ? `about ${minutesText(task.estimatedMinutes)}` : "time unknown"} · {task.maxMicroUsd !== undefined ? `up to ${formatUsd(task.maxMicroUsd)}` : "cost unknown"}</li>}</For>
+          <For each={plan().tasks}>{(task) => <li>{task.title}: {task.estimatedMinutes !== undefined ? `about ${minutesText(task.estimatedMinutes)} (${basisWords(task.timeBasis)})` : "time unknown"} · {task.microUsd !== undefined ? `${task.costBasis?.kind === "declared" ? "up to" : "about"} ${formatUsd(task.microUsd)} (${basisWords(task.costBasis)})` : "cost unknown"}</li>}</For>
         </ul>
       </details>
     </section>;

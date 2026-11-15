@@ -42,7 +42,7 @@ test("usage: tokens and dollars at run, task, mission and workspace level; token
   await page.goto(`${governor.url}/missions/${missionId}/plan?w=ws-usage&proposal=${planId}`);
   const estimate = page.getByTestId("plan-estimate");
   await expect(estimate).toBeVisible({ timeout: 15_000 });
-  await expect(estimate.getByTestId("estimate-time")).toContainText("about 10 min across 1 task (1 task without an estimate not included)");
+  await expect(estimate.getByTestId("estimate-time")).toContainText("about 10 min across 1 task (declared by the planner; 1 task without an estimate not included)");
   await expect(estimate.getByTestId("estimate-cost")).toContainText("up to $0.30 across 1 task");
   await expect(estimate.getByTestId("estimate-ceiling")).toContainText("1k tokens");
   await estimate.screenshot({ path: testInfo.outputPath("plan-estimate.png") });

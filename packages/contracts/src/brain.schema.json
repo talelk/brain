@@ -25099,10 +25099,16 @@
                 "minimum": 1,
                 "maximum": 10080
               },
-              "maxMicroUsd": {
+              "microUsd": {
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 9007199254740991
+              },
+              "timeBasis": {
+                "$ref": "#/$defs/EstimateBasis"
+              },
+              "costBasis": {
+                "$ref": "#/$defs/EstimateBasis"
               }
             },
             "required": [
@@ -25159,6 +25165,22 @@
         },
         "timeLimitBelowEstimate": {
           "type": "boolean"
+        },
+        "timeBasis": {
+          "$ref": "#/$defs/EstimateBasis"
+        },
+        "costBasis": {
+          "$ref": "#/$defs/EstimateBasis"
+        },
+        "suggestedMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "suggestedWallClockMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
         }
       },
       "required": [
@@ -25167,7 +25189,9 @@
         "taskCount",
         "unknownMinutesTasks",
         "unknownCostTasks",
-        "taskTokenCap"
+        "taskTokenCap",
+        "timeBasis",
+        "costBasis"
       ],
       "additionalProperties": false
     },
@@ -27423,6 +27447,47 @@
         "workspaceId",
         "idempotencyKey",
         "payload"
+      ],
+      "additionalProperties": false
+    },
+    "EstimateBasis": {
+      "type": "object",
+      "description": "Where an estimate figure comes from: the median of past runs (history), what the planner declared, or neither (unknown). A plan total over tasks with different bases is mixed. low and high are the 25th and 75th percentile of past runs when the sample is large enough, summed over tasks for a plan total.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "history",
+            "declared",
+            "mixed",
+            "unknown"
+          ]
+        },
+        "runs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "play-task",
+            "workflow"
+          ]
+        },
+        "low": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "high": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind"
       ],
       "additionalProperties": false
     }
