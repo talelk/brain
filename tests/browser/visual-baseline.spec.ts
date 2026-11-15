@@ -78,6 +78,15 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
+  // A ticket trigger on the Schedules screen: its card, then the editor with the subject choice and the plan explanation (ticket #122).
+  { id: "schedules-subject-trigger", route: () => "/w/operations/schedules", heading: "Schedules", prepare: seedSubjectTrigger, after: async (page) => { await expect(page.locator("article").filter({ hasText: "Draft a reply to every new ticket" }).getByTestId("subject-plan-summary")).toBeVisible(); } },
+  { id: "schedules-subject-editor", route: () => "/w/operations/schedules", heading: "Schedules", after: async (page) => {
+    await page.getByRole("button", { name: "New schedule", exact: true }).click();
+    const sheet = page.getByRole("dialog");
+    await sheet.getByLabel("Trigger", { exact: true }).click();
+    await page.getByRole("option", { name: "When a new ticket or incident arrives", exact: true }).click();
+    await expect(sheet.getByTestId("subject-plan")).toBeVisible();
+  } },
 ];
 
 /** Health with a fresh backup and a passed restore test, recorded the way the host's jobs record them; `restoreBackupRecords` puts the environment back. */
@@ -111,6 +120,14 @@ async function seedTaskComments(governor: Parameters<typeof seedBrowserDemo>[1],
   const comment = async (key: string, payload: Record<string, unknown>): Promise<string> => (await brain.executeCommand(actor, { contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workItem.comment", workspaceId: "operations", idempotencyKey: key, payload: { workItemId, ...payload } } as never, key)).receipt.resourceId ?? "";
   const first = await comment("vb-comment-1", { text: "Use the existing sessions table, not a new one." });
   await comment("vb-comment-2", { text: "Use the existing sessions table and keep its index; do not add a new one.", correctionOf: first });
+}
+
+/** A ticket trigger, made through the command the Schedules screen sends. */
+async function seedSubjectTrigger(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Demo): Promise<void> {
+  await governor.app.brain.executeCommand(demo.actor, {
+    contractVersion: "brain.command/v1", commandId: "cmd-vb-subject-trigger", commandType: "automation.upsert", workspaceId: demo.workspaceId, idempotencyKey: "vb-subject-trigger",
+    payload: { title: "Draft a reply to every new ticket", target: { kind: "play", id: "support-reply-draft" }, trigger: { kind: "subject", subjectKind: "ticket" } },
+  } as never, "vb-subject-trigger");
 }
 
 async function seedEvalCases(governor: Parameters<typeof seedBrowserDemo>[1], page: Page): Promise<void> {
