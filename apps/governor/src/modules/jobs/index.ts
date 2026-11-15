@@ -22,3 +22,4 @@ export { runContext } from "./run-context";
 export { drainStatus, isDraining, setDraining } from "./drain";
 export { hostedConfig, modelRouteFor } from "./model-route";
 export { createActJob, effectResultFor } from "./effect-hold";
+export { assertQueueAdmits, queueLimitOf, setQueueLimit } from "./queue-limit";

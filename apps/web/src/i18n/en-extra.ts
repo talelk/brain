@@ -1325,5 +1325,12 @@ export const enExtra = {
   "work.egress.none": "No host is allowed: this workspace's tools run without a network.",
   "work.egress.invalid": "Not a host the proxy can allow: {entries}.",
   "work.egress.saved": "The allowed hosts were saved.",
+  "work.queue.title": "Queue limit",
+  "work.queue.description": "How many tasks of this workspace may wait for a runner. Past it, new work a person starts is refused with the reason; work already started carries on.",
+  "work.queue.current": "{queued} waiting now, limit {max}.",
+  "work.queue.default": "This is the default.",
+  "work.queue.max": "Most tasks waiting",
+  "work.queue.hint": "From 1 to 10000. The default is 100.",
+  "work.queue.saved": "The queue limit was saved.",
   // @@END
 } as const satisfies Record<string, string>;

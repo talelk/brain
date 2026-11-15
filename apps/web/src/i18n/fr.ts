@@ -1729,5 +1729,12 @@ export const fr: Catalog = {
   "work.egress.none": "Aucun hôte n'est autorisé : les outils de cet espace de travail s'exécutent sans réseau.",
   "work.egress.invalid": "Pas un hôte que le proxy peut autoriser : {entries}.",
   "work.egress.saved": "Les hôtes autorisés ont été enregistrés.",
+  "work.queue.title": "Limite de la file d'attente",
+  "work.queue.description": "Combien de tâches de cet espace de travail peuvent attendre un exécuteur. Au-delà, le nouveau travail lancé par une personne est refusé avec la raison ; le travail déjà lancé continue.",
+  "work.queue.current": "{queued} en attente, limite {max}.",
+  "work.queue.default": "C'est la valeur par défaut.",
+  "work.queue.max": "Nombre maximal de tâches en attente",
+  "work.queue.hint": "De 1 à 10000. La valeur par défaut est 100.",
+  "work.queue.saved": "La limite de la file d'attente a été enregistrée.",
   // @@END
 };

@@ -1,7 +1,7 @@
 import type { ActorContext, JsonValue } from "@brain/contracts";
 import { BrainDomainError } from "../domain/errors";
 import { activeReleaseRecord } from "../modules/configuration/index";
-import { drainStatus, hostedConfig, setDraining } from "../modules/jobs/index";
+import { drainStatus, hostedConfig, queueLimitOf, setDraining, setQueueLimit } from "../modules/jobs/index";
 import { wayOfWorking, workflowAgentTools } from "../modules/missions/index";
 import { readProbes } from "../modules/operations/index";
 import { effectAllowList, normalizeEgressHost } from "../modules/governance/index";
@@ -32,7 +32,7 @@ function usesHostTools(store: Store, organizationId: string, workspaceId: string
 }
 
 /**
- * Engine settings an owner makes: the workspace's default way of working (ADR 0022), its hosted model (ADR 0023) and the platform's
+ * Engine settings an owner makes: the workspace's default way of working (ADR 0022), its hosted model (ADR 0023), its queue limit (ADR 0038) and the platform's
  * drain mode (deploys that do not interrupt work). All of them are control.db authority and commit with their receipt.
  */
 export function engineSettingsCommands(store: Store): CommandHandlers {
@@ -107,6 +107,17 @@ export function engineSettingsCommands(store: Store): CommandHandlers {
         return { resourceId: workspaceId };
       },
     },
+    "workspace.queueLimit.set": {
+      kind: "control",
+      handle: ({ actor, cmd, workspaceId }) => {
+        requireAdmin(actor, "the queue limit");
+        if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        const maxQueued = cmd.payload["maxQueued"] as number;
+        setQueueLimit(s, { organizationId: actor.organizationId, workspaceId, maxQueued, actorId: actor.actorId });
+        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.queueLimitSet", payload: { workspaceId, maxQueued } });
+        return { resourceId: workspaceId };
+      },
+    },
     "runnerGroup.set": {
       kind: "control",
       handle: ({ actor, cmd }) => {
@@ -151,6 +162,7 @@ export function engineSettings(store: Store, actor: ActorContext, workspaceId: s
     workflows: Object.keys(release?.workflows ?? {}).sort().map((id) => ({ workflowId: id, tools: workflowAgentTools(store, actor.organizationId, id) ?? [] })),
     hostedModel: { enabled: hosted.enabled, vendor: hosted.vendor, model: hosted.model, baseUrl: hosted.baseUrl, inputMicroUsdPerMTok: hosted.inputMicroUsdPerMTok, outputMicroUsdPerMTok: hosted.outputMicroUsdPerMTok, status: !hosted.enabled ? "off" : probe ? (probe.status === "unavailable" ? "down" : "up") : "unknown", roles: ["evaluator", "second-attempt"] },
     drain: drainStatus(store),
+    queueLimit: queueLimitOf(store, workspaceId),
   } as unknown as JsonValue;
 }
 
