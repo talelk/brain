@@ -116,6 +116,8 @@ describe("plays (T63)", () => {
     expect(w.brain.missions.pumpCoordinators()).toBe(1);
     const runs = db.prepare("SELECT run_id FROM mission_runs WHERE mission_id=?").all(id) as Array<{ run_id: string }>;
     expect(runs).toHaveLength(1);
+    // The coordinator's run starts as the coordinator member's machine principal, acting for the owner (ADR 0032), not as the owner.
+    expect(db.prepare("SELECT actor_id FROM run_inputs WHERE run_id=?").get(runs[0]!.run_id)).toEqual({ actor_id: `agent:${id}:lead` });
     await run(w, "mission.message.send", "coord-msg", { missionId: id, recipient: { kind: "mission" }, body: "Prioritise the login flow" });
     await run(w, "mission.message.send", "coord-msg-2", { missionId: id, recipient: { kind: "mission" }, body: "And keep the API stable" });
     expect(w.brain.missions.pumpCoordinators()).toBe(0);

@@ -1,9 +1,10 @@
 import { domainDigest } from "@brain/contracts";
-import type { ActorContext, GitConnection, GitProposal, IntegrationRepository, JsonValue, RepositoryBinding } from "@brain/contracts";
+import type { ActorContext, GitConnection, GitProposal, GitProvider, IntegrationRepository, JsonValue, RepositoryBinding } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { decryptGitCredentials, encryptGitCredentials } from "./crypto";
+import { checkProviderFitsHost, gitProviderLabel, parseGitProvider } from "./git-provider";
 import { protocolClient, type RemoteSnapshot } from "./providers";
 import { HostedPullRequestApi, pushProposalBranch, type ProposedFile, type PullRequestApi } from "./pull-request";
 
@@ -14,7 +15,7 @@ export interface IntegrationCommand {
 }
 
 type ConnectionRow = {
-  id: string; organization_id: string; name: string; provider: "git";
+  id: string; organization_id: string; name: string; provider: GitProvider;
   base_url: string; encrypted_credentials: string; status: GitConnection["status"]; detail: string | null;
   repositories_json: string; remote_refs_json: string; created_by: string; created_at_ms: number; updated_at_ms: number; last_verified_at_ms: number | null;
 };
@@ -54,12 +55,12 @@ export class IntegrationService {
   constructor(private readonly store: Store) {}
 
   private pullRequestApi: PullRequestApi = new HostedPullRequestApi();
-  /** Tests and embedders point the provider call somewhere else; production reads the provider from the remote's address. */
+  /** Tests and embedders point the provider call somewhere else; production calls the API of the connection's own Git provider. */
   usePullRequestApi(api: PullRequestApi): void { this.pullRequestApi = api; }
 
   /** The newest verified write binding of a project repository of this workspace: where a pull request may be opened. */
-  private pullRequestBinding(organizationId: string, workspaceId: string): (BindingRow & { base_url: string; encrypted_credentials: string; connection_id: string; repositories_json: string }) | undefined {
-    return this.store.control.prepare(`SELECT b.*, c.base_url, c.encrypted_credentials, c.repositories_json FROM repository_bindings b JOIN git_connections c ON c.id=b.connection_id
+  private pullRequestBinding(organizationId: string, workspaceId: string): (BindingRow & { provider: GitProvider; base_url: string; encrypted_credentials: string; connection_id: string; repositories_json: string }) | undefined {
+    return this.store.control.prepare(`SELECT b.*, c.provider, c.base_url, c.encrypted_credentials, c.repositories_json FROM repository_bindings b JOIN git_connections c ON c.id=b.connection_id
       WHERE c.organization_id=? AND b.workspace_id=? AND b.kind='project' AND b.access='write' AND b.status='verified' AND c.status='verified' ORDER BY b.created_at_ms DESC LIMIT 1`).get(organizationId, workspaceId) as never;
   }
 
@@ -81,7 +82,7 @@ export class IntegrationService {
     const base = repositories.find((repository) => repository.repositoryKey === binding.repository_key)?.defaultBranch ?? "main";
     try {
       const pushed = await pushProposalBranch(binding.repository_key, credentials, { base, head: input.branch, message: input.title, files: input.files });
-      const opened = await this.pullRequestApi.open({ remoteUrl: binding.repository_key, credentials, base, head: input.branch, title: input.title, body: input.body });
+      const opened = await this.pullRequestApi.open({ provider: binding.provider, remoteUrl: binding.repository_key, credentials, base, head: input.branch, title: input.title, body: input.body });
       return { url: opened.url, number: opened.number, branch: input.branch, commit: pushed.commitOid };
     } catch (error) {
       throw new BrainDomainError("INTERNAL_ERROR", scrub(error instanceof Error ? error.message : "the pull request could not be opened").slice(0, 300));
@@ -93,14 +94,14 @@ export class IntegrationService {
     type Step = { id: string; title: string; state: "done" | "todo" | "failed"; advice: string };
     const steps: Step[] = [];
     if (!connectionId) {
-      steps.push({ id: "connect", title: "Add a Git connection", state: "todo", advice: "Enter the repository address (https), a user name if your Git host asks for one, and an access token with permission to push branches and open pull requests. The token is stored encrypted and is never shown again." });
+      steps.push({ id: "connect", title: "Add a Git connection", state: "todo", advice: "Choose the Git provider (GitHub, GitHub Enterprise, GitLab or Gitea), enter the repository address (https), a user name if your Git host asks for one, and an access token with permission to push branches and open pull requests. The token is stored encrypted and is never shown again." });
       return { ready: false, steps } as unknown as JsonValue;
     }
     const connection = this.connection(actor, connectionId);
     const repositories = JSON.parse(connection.repositories_json) as IntegrationRepository[];
     const bindings = (this.store.control.prepare("SELECT b.* FROM repository_bindings b WHERE b.connection_id=?").all(connectionId) as BindingRow[]);
     const verified = connection.status === "verified";
-    steps.push({ id: "connect", title: "Git connection added", state: "done", advice: `Connected to ${connection.base_url}.` });
+    steps.push({ id: "connect", title: "Git connection added", state: "done", advice: `Connected to ${connection.base_url} as ${gitProviderLabel(connection.provider)}; pull requests are opened through its API.` });
     steps.push({
       id: "verify", title: "Brain can reach the repository and the token is accepted",
       state: verified ? "done" : connection.status === "failed" ? "failed" : "todo",
@@ -117,8 +118,6 @@ export class IntegrationService {
       state: writeBinding?.status === "verified" ? "done" : writeBinding?.status === "failed" ? "failed" : "todo",
       advice: writeBinding?.status === "verified" ? "A workspace may open pull requests in this repository." : writeBinding ? `The binding is ${writeBinding.status}${writeBinding.detail ? `: ${writeBinding.detail}` : ""}.` : "Bind the repository to the workspace as a project with write access; that is what lets an approved call open a pull request.",
     });
-    const hosted = /^https:\/\/(github\.com|[^/]*gitlab[^/]*)\//u.test(connection.base_url);
-    steps.push({ id: "provider", title: "Pull requests can be opened on this host", state: hosted ? "done" : "todo", advice: hosted ? "Brain recognises this host and opens the request through its API." : "Brain opens requests through the GitHub or GitLab API. For another Git host the branch is pushed but no request is opened." });
     return { connectionId, ready: steps.every((step) => step.state === "done"), steps } as unknown as JsonValue;
   }
 
@@ -128,7 +127,7 @@ export class IntegrationService {
 
   private static connectionView(row: ConnectionRow): GitConnection {
     return {
-      connectionId: row.id, organizationId: row.organization_id, name: row.name, repositoryUrl: row.base_url,
+      connectionId: row.id, organizationId: row.organization_id, name: row.name, provider: row.provider, repositoryUrl: row.base_url,
       status: row.status, ...(row.detail ? { detail: row.detail } : {}), createdBy: row.created_by,
       createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
       ...(row.last_verified_at_ms ? { lastVerifiedAt: iso(row.last_verified_at_ms) } : {}),
@@ -156,14 +155,16 @@ export class IntegrationService {
 
   private connect(actor: ActorContext, payload: Readonly<Record<string, unknown>>): string {
     const id = this.store.id("git");
+    const provider = parseGitProvider(payload["provider"]);
     const url = remoteUrl(String(payload["repositoryUrl"] ?? ""));
+    checkProviderFitsHost(provider, new URL(url));
     const username = optionalSecret(payload["username"], "username", 1);
     const token = optionalSecret(payload["token"], "token", 8);
     const encrypted = encryptGitCredentials(this.store.pepper, actor.organizationId, id, { ...(username ? { username } : {}), ...(token ? { token } : {}) });
     this.store.inTx(this.store.control, () => {
       const now = this.store.now();
       this.store.control.prepare(`INSERT INTO git_connections(id,organization_id,name,provider,base_url,encrypted_credentials,status,repositories_json,remote_refs_json,created_by,created_at_ms,updated_at_ms)
-        VALUES (?,?,?,'git',?,?,'pending','[]','{}',?,?,?)`).run(id, actor.organizationId, String(payload["name"]), url, encrypted, actor.actorId, now, now);
+        VALUES (?,?,?,?,?,?,'pending','[]','{}',?,?,?)`).run(id, actor.organizationId, String(payload["name"]), provider, url, encrypted, actor.actorId, now, now);
       this.store.emit(this.store.control, { organizationId: actor.organizationId, aggregateType: "integration", aggregateId: id, eventType: "integration.connected", payload: { connectionId: id } });
     });
     this.queueVerification(actor, id);

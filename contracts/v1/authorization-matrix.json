@@ -86,6 +86,14 @@
         "tool:publish"
       ],
       "grantScope": "organization"
+    },
+    "agent-session": {
+      "scopes": [
+        "workspace:read",
+        "mission:write",
+        "workflow:dispatch"
+      ],
+      "grantScope": "mission-session"
     }
   },
   "specialEndpoints": {

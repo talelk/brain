@@ -4,6 +4,7 @@ import { releaseRecord, releaseToolAllowedHosts, releaseToolPins } from "../conf
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
 import { putBytes, readVerified, registerArtifact } from "../artifacts/index";
 import { endAttemptSession, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
+import { ensureAgentPrincipal, issueSessionCredential, revokeSessionCredentials } from "../identity/index";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { failureCode, failureReasonOf, redactFailureOutput } from "../../domain/failure-reason";
@@ -14,6 +15,7 @@ import { isDraining } from "./drain";
 import { heldForHostedModel, modelRouteFor } from "./model-route";
 import { effectOutcomesFor, executionArtifactId, HOLD_REASON } from "./effect-hold";
 import { ensureSkills, promptTaskText, skillTokens } from "./skill-selection";
+import type { JobProtocolPorts } from "./job-protocol";
 
 /**
  * Job/attempt lifecycle: fair claim, offers as pinned execution artifacts,
@@ -298,6 +300,24 @@ export function ensureExecutionArtifact(s: Store, jobId: string, organizationId:
   return { artifactId, digest, bytes: bytes.length };
 }
 
+/** See JobProtocol.sessionCredential. Only a running attempt of an agent step that belongs to a mission acts as a session. */
+export function sessionCredential(s: Store, binding: JobProtocolPorts["sessionBinding"], runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): { principalId: string; credential: string; expiresAt: string } {
+  const row = loadAttempt(s, attemptId);
+  if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
+  assertAttemptLive(s, runner, row);
+  if (String(row["state"]) !== "running") throw new BrainDomainError("CONFLICT", "only a running attempt acts as a session");
+  const payload = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(String(row["job_id"])) as { kind: string; payload_json: string } | undefined;
+  const usesAgent = payload && payload.kind !== "eval" && payload.kind !== "merge" && (JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string } } }).step?.uses?.type === "agent";
+  if (!usesAgent) throw new BrainDomainError("FORBIDDEN", "only an agent step acts as a session");
+  const organizationId = String(row["organization_id"]);
+  const workspaceId = String(row["workspace_id"]);
+  const bound = binding?.(organizationId, workspaceId, String(row["workflow_run_id"]));
+  if (!bound) throw new BrainDomainError("FORBIDDEN", "this attempt belongs to no mission, so it has no machine principal");
+  const principal = ensureAgentPrincipal(s, { organizationId, workspaceId, ...bound });
+  const { credential, expiresAtMs } = issueSessionCredential(s, { principalId: principal.principalId, organizationId, attemptId, jobFence: Number(row["job_fence"]) });
+  return { principalId: principal.principalId, credential, expiresAt: iso(expiresAtMs) };
+}
+
 export function readExecutionArtifact(s: Store, runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): Uint8Array {
   const row = loadAttempt(s, attemptId);
   if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
@@ -539,6 +559,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     }
     if (cleanup === 1) releaseReservation(s, attemptId);
     endAttemptSession(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, failed: jobState === "failed" });
+    revokeSessionCredentials(s, attemptId);
     for (const keyRow of s.control.prepare("SELECT resource_key FROM resource_leases WHERE attempt_id=?").all(attemptId) as Array<{ resource_key: string }>) {
       void keyRow; // unresolved guards persist until reconciled; compute release is separate
     }
@@ -653,6 +674,7 @@ export function expireLeases(s: Store): number {
     for (const a of running) {
       // The runner stopped renewing the lease: its process was replaced or the Governor was down. That is the platform's doing.
       markPlatformInterruption(s, a.id);
+      revokeSessionCredentials(s, a.id);
       transitionState(s.control, "attempt", a.id, "outcome_unknown");
       transitionState(s.control, "job", a.job_id, "outcome_unknown", { bumpVersion: true });
       restartInterruptedReadJob(s, a.job_id, a.id);

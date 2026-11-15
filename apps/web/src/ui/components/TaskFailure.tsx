@@ -9,11 +9,11 @@ import type { FailureClass, Remedy } from "../../data/engine";
 
 const FAILURE_KEYS: Readonly<Record<FailureClass, MessageKey>> = {
   "missing-tool": "failure.class.missing-tool", "unmeetable-criterion": "failure.class.unmeetable-criterion", "model-slip": "failure.class.model-slip",
-  "tool-outage": "failure.class.tool-outage", budget: "failure.class.budget", unclassified: "failure.class.unclassified",
+  "tool-outage": "failure.class.tool-outage", quota: "failure.class.quota", budget: "failure.class.budget", unclassified: "failure.class.unclassified",
 };
 const REMEDY_KEYS: Readonly<Record<Remedy, MessageKey>> = {
   "switch-way-of-working": "failure.remedy.switch-way-of-working", "stronger-model": "failure.remedy.stronger-model", "ask-one-question": "failure.remedy.ask-one-question",
-  "wait-and-retry": "failure.remedy.wait-and-retry", "park-budget": "failure.remedy.park-budget", retry: "failure.remedy.retry",
+  "wait-and-retry": "failure.remedy.wait-and-retry", "wait-for-quota": "failure.remedy.wait-for-quota", "park-budget": "failure.remedy.park-budget", retry: "failure.remedy.retry",
 };
 /** One plain sentence for a failure class (the Quality page and the task use the same words). */
 export const failureSentence = (failureClass: FailureClass): string => t(FAILURE_KEYS[failureClass]);

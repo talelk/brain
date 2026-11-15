@@ -365,6 +365,15 @@
         },
         "runId": {
           "$ref": "#/$defs/RunId"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "memberId": {
+          "$ref": "#/$defs/Id"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -7003,6 +7012,7 @@
             "unmeetable-criterion",
             "model-slip",
             "tool-outage",
+            "quota",
             "budget",
             "unclassified"
           ]
@@ -7014,6 +7024,7 @@
             "stronger-model",
             "ask-one-question",
             "wait-and-retry",
+            "wait-for-quota",
             "park-budget",
             "retry"
           ]
@@ -9307,6 +9318,15 @@
       ],
       "additionalProperties": false
     },
+    "GitProvider": {
+      "type": "string",
+      "enum": [
+        "github",
+        "github-enterprise",
+        "gitlab",
+        "gitea"
+      ]
+    },
     "GitConnection": {
       "type": "object",
       "properties": {
@@ -9320,6 +9340,9 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 128
+        },
+        "provider": {
+          "$ref": "#/$defs/GitProvider"
         },
         "repositoryUrl": {
           "type": "string",
@@ -9355,6 +9378,7 @@
         "connectionId",
         "organizationId",
         "name",
+        "provider",
         "repositoryUrl",
         "status",
         "createdBy",
@@ -9538,6 +9562,10 @@
           "minLength": 1,
           "maxLength": 128
         },
+        "provider": {
+          "type": "string",
+          "maxLength": 64
+        },
         "repositoryUrl": {
           "type": "string",
           "minLength": 1,
@@ -9556,6 +9584,7 @@
       },
       "required": [
         "name",
+        "provider",
         "repositoryUrl"
       ],
       "additionalProperties": false
@@ -15841,6 +15870,7 @@
           "enum": [
             "sandbox-image-missing",
             "sandbox-unavailable",
+            "quota",
             "model-unreachable",
             "timeout",
             "other"
@@ -18260,6 +18290,9 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 200
+        },
+        "actingFor": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -23460,6 +23493,7 @@
                       "unmeetable-criterion",
                       "model-slip",
                       "tool-outage",
+                      "quota",
                       "budget",
                       "unclassified"
                     ]
