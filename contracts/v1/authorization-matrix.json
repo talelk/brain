@@ -784,6 +784,16 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
+    "missions.timeline": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "run.toolCalls": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
     "challenges.list": {
       "scope": "workspace:read",
       "scopeMode": "workspace",

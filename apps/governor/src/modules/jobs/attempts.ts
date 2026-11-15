@@ -304,8 +304,11 @@ export function ensureExecutionArtifact(s: Store, jobId: string, organizationId:
   return { artifactId, digest, bytes: bytes.length };
 }
 
+/** What a runner needs to act as a session: the credential, and the ids the model cannot know (the mission, the member and the task this attempt serves). */
+export interface SessionCredential { principalId: string; credential: string; expiresAt: string; workspaceId: string; missionId: string; memberId?: string; workItemId?: string }
+
 /** See JobProtocol.sessionCredential. Only a running attempt of an agent step that belongs to a mission acts as a session. */
-export function sessionCredential(s: Store, binding: JobProtocolPorts["sessionBinding"], runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): { principalId: string; credential: string; expiresAt: string } {
+export function sessionCredential(s: Store, binding: JobProtocolPorts["sessionBinding"], runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): SessionCredential {
   const row = loadAttempt(s, attemptId);
   if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
   assertAttemptLive(s, runner, row);
@@ -319,7 +322,7 @@ export function sessionCredential(s: Store, binding: JobProtocolPorts["sessionBi
   if (!bound) throw new BrainDomainError("FORBIDDEN", "this attempt belongs to no mission, so it has no machine principal");
   const principal = ensureAgentPrincipal(s, { organizationId, workspaceId, ...bound });
   const { credential, expiresAtMs } = issueSessionCredential(s, { principalId: principal.principalId, organizationId, attemptId, jobFence: Number(row["job_fence"]) });
-  return { principalId: principal.principalId, credential, expiresAt: iso(expiresAtMs) };
+  return { principalId: principal.principalId, credential, expiresAt: iso(expiresAtMs), workspaceId, missionId: bound.missionId, ...(bound.memberId ? { memberId: bound.memberId } : {}), ...(bound.workItemId ? { workItemId: bound.workItemId } : {}) };
 }
 
 export function readExecutionArtifact(s: Store, runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): Uint8Array {

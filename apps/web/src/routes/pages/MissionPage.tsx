@@ -3,14 +3,14 @@ import type { JSX } from "solid-js";
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog, Dropdown, Select, TabButtons } from "@talelk/newui-molecules";
-import type { BrainSession, ExecutionLink, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
+import type { BrainSession, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { ScreenRegion } from "../../ui/screen-region";
 import { FormSheet } from "../../ui/components/BrainForm";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
-import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
+import { WorkspaceSection } from "../../ui/components/Domain";
 import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
 import { MissionCriteria } from "../../ui/components/MissionCriteria";
 import { isStoppedForRetry } from "../../ui/work/work-model";
@@ -29,11 +29,12 @@ import { MissionOutputs } from "../../ui/outputs/MissionOutputs";
 import { MissionUsage, reportsNoCost } from "../../ui/usage/Usage";
 import { PlanEstimate } from "../../ui/usage/PlanEstimate";
 import { ReusedInBrief } from "../../ui/components/Reuse";
+import { MissionTimeline } from "../../ui/timeline/MissionTimeline";
 
 const TAB_KEYS: Readonly<Record<MissionTab, MessageKey>> = {
-  live: "mission.tab.live", team: "mission.tab.team", plan: "mission.tab.plan", brief: "mission.tab.brief", logs: "mission.tab.logs", outputs: "mission.tab.outputs",
+  live: "mission.tab.live", team: "mission.tab.team", plan: "mission.tab.plan", brief: "mission.tab.brief", timeline: "mission.tab.timeline", outputs: "mission.tab.outputs",
 };
-const TABS: readonly { id: MissionTab }[] = (["live", "team", "plan", "brief", "logs", "outputs"] as const).map((id) => ({ id }));
+const TABS: readonly { id: MissionTab }[] = (["live", "team", "plan", "brief", "timeline", "outputs"] as const).map((id) => ({ id }));
 const tabLabel = (id: MissionTab): string => t(TAB_KEYS[id]);
 
 /** The views a person needs day to day; the rest sit under "More views". */
@@ -147,7 +148,7 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
 }
 
 /**
- * One mission (#43): Live is the default view; Team, Plan, Brief, Logs and
+ * One mission (#43): Live is the default view; Team, Plan, Brief, Timeline and
  * Outputs are places within it. Every view reads Governor state; nothing here
  * confirms, approves or verifies by itself.
  */
@@ -246,7 +247,7 @@ export default function MissionPage(): JSX.Element {
             <Match when={tab() === "team"}><TeamTab mission={m()} /></Match>
             <Match when={tab() === "plan"}><PlanTab mission={m()} onAct={act} busy={busy()} /></Match>
             <Match when={tab() === "brief"}><BriefTab mission={m()} onAct={act} busy={busy()} /></Match>
-            <Match when={tab() === "logs"}><LogsTab mission={m()} items={items.state().data ?? []} /></Match>
+            <Match when={tab() === "timeline"}><MissionTimeline mission={m()} /></Match>
             <Match when={tab() === "outputs"}><MissionOutputs mission={m()} onChanged={() => void act(async () => undefined)} /></Match>
           </Switch>
         </>}</Show>
@@ -297,6 +298,10 @@ function LiveTab(props: ActProps): JSX.Element {
     },
   });
   const member = () => (typeof search.member === "string" ? search.member : "");
+  /** A team member by its role, as a person reads it; the id only when the plan no longer lists the member. */
+  const roleOfMember = (memberId: string | undefined): string => (team.state().data?.members ?? []).find((entry) => entry.memberId === memberId)?.role ?? memberId ?? "";
+  /** Who wrote a message: a person by name, a team member's session by its role, or Brain itself. A raw principal id is never shown. */
+  const senderName = (message: MissionMessage): string => (message.senderKind === "agent" ? t("plan.team-member-name.c101", { name: roleOfMember(message.senderMemberId) }) : message.senderKind === "system" ? "Brain" : app.personName(message.senderId));
   const memberOf = (session: BrainSession) => {
     const item = team.state().data?.items.find((entry) => entry.workItemId === session.workItemId);
     return item?.assignment?.kind === "agent" ? item.assignment.id : "";
@@ -382,7 +387,7 @@ function LiveTab(props: ActProps): JSX.Element {
         </FormSheet>
         <ScreenRegion state={messages.state()} onRetry={() => void messages.refresh({ force: true })} emptyTitle={t("mp.no-messages.6f77")} emptyDescription={t("mp.messages-you-send-appear-here-wi.c1d0")}>
           <ul class="mt-3 flex flex-col gap-2"><For each={(messages.state().data ?? []).slice(0, 5)}>{(message) => <li class="rounded-control border border-outline-gray-1 p-2">
-            <p class="break-words text-interface">{message.body}</p><p class="text-caption text-ink-gray-6">{message.recipient.kind === "member" ? `to ${message.recipient.memberId} · ` : ""}{message.senderId} · {message.delivery} · {formatDateTime(message.createdAt)}</p></li>}</For></ul>
+            <p class="break-words text-interface">{message.body}</p><p class="text-caption text-ink-gray-6">{message.recipient.kind === "member" ? `to ${roleOfMember(message.recipient.memberId)} · ` : ""}<span data-message-sender>{senderName(message)}</span> · {message.delivery} · {formatDateTime(message.createdAt)}</p></li>}</For></ul>
         </ScreenRegion>
       </WorkspaceSection>
     </div>
@@ -454,6 +459,7 @@ function MissionSchedules(props: { missionId: string }): JSX.Element {
 
 /** Brief: human-owned intent and constraints, immutable accepted decisions, derived progress (#34). */
 function BriefTab(props: ActProps): JSX.Element {
+  const [search] = useSearchParams();
   const app = useApp();
   const brief = useMissionRead<MissionBrief>(props.mission.missionId, "missions.brief", (raw) => raw as MissionBrief);
   const [intent, setIntent] = createSignal<string | undefined>();
@@ -480,7 +486,7 @@ function BriefTab(props: ActProps): JSX.Element {
         </FormSheet>
       </WorkspaceSection>
       <WorkspaceSection title={t("mp.accepted-decisions.aba3")} description={t("mp.immutable-entries-a-later-decisi.414a")} actions={<Button variant="outline" iconLeft="lucide-plus" onClick={() => setDecideOpen(true)}>{t("mp.accept-a-decision.1bd6")}</Button>}>
-        <ul class="flex flex-col gap-2"><For each={b().decisions}>{(entry) => <li class={entry.supersededBy ? "text-ink-gray-5 line-through" : ""}>
+        <ul class="flex flex-col gap-2"><For each={b().decisions}>{(entry) => <li id={`decision-${entry.decisionId}`} data-decision={entry.decisionId} aria-current={search.decision === entry.decisionId ? "true" : undefined} class={`${entry.supersededBy ? "text-ink-gray-5 line-through" : ""} ${search.decision === entry.decisionId ? "rounded-control bg-surface-blue-2 px-2 py-1" : ""}`}>
           {entry.statement} <span class="text-caption text-ink-gray-6">· {entry.source.kind} · accepted by {entry.acceptedBy} in v{entry.introducedInVersion}</span></li>}</For></ul>
         <FormSheet open={decideOpen()} onClose={() => setDecideOpen(false)} title={t("mp.accept-a-decision.1bd6")} centered description={t("mp.decisions-are-immutable-a-later.2f26")} submit={t("mp.accept-decision.26a3")} busy={props.busy} disabled={!decision().trim()} onSubmit={() => { if (decision().trim() && !props.busy) return acceptDecision(b()); }}>
           <TextInput label={t("mp.new-decision.5e24")} required value={decision()} onInput={(event) => setDecision(event.currentTarget.value)} />
@@ -507,27 +513,5 @@ function BriefTab(props: ActProps): JSX.Element {
       </WorkspaceSection>
     </PageStack>}</Show>
   </ScreenRegion>;
-}
-
-/** Logs: the mission's runs, each opening the Log Explorer filtered to it. */
-function LogsTab(props: { mission: Mission; items: WorkItem[] }): JSX.Element {
-  const app = useApp();
-  const navigate = useNavigate();
-  const links = createScopedRead<ExecutionLink[]>({
-    scope: app.scope, load: async (scope, signal) => {
-      const response = await query<Envelope<{ items: ExecutionLink[] }>>({ queryType: "executionLinks.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
-      return { snapshot: response.snapshot.items.filter((link) => link.missionId === props.mission.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
-    },
-    isEmpty: (items) => items.length === 0,
-  });
-  return <WorkspaceSection title={t("mp.mission-runs.1ac4")} description={t("mp.every-run-linked-to-this-mission.1cae")}>
-    <ScreenRegion state={links.state()} onRetry={() => void links.refresh({ force: true })} emptyTitle={t("mp.no-runs-yet.578f")} emptyDescription={t("mp.runs-appear-once-work-is-dispatc.b993")}>
-      <div class="brain-queue"><For each={links.state().data ?? []}>{(link, index) => {
-        const task = () => props.items.find((item) => item.workItemId === link.workItemId)?.title;
-        return <QueueRow title={task() ?? `Run ${(links.state().data ?? []).length - index()}`} description={task() ? t("mp.open-this-task-s-run-in-the-log.7a39") : t("mp.task-details-are-no-longer-liste.d07d")} icon="lucide-scroll-text"
-        meta={<span>{formatDateTime(link.createdAt)}</span>} label={`Open logs for ${task() ?? "this run"}`} onClick={() => void navigate(`/w/${app.workspaceId()}/logs?run=${encodeURIComponent(link.runId)}`)} />;
-      }}</For></div>
-    </ScreenRegion>
-  </WorkspaceSection>;
 }
 

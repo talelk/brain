@@ -16,6 +16,8 @@ export interface RepeatSchedule {
   readonly sourceMissionId?: string;
   /** The person's switch: "Confirm the plan automatically each time". */
   readonly autoConfirm: boolean;
+  /** Set when a new ticket or incident started the run (a subject trigger), so a held plan names that instead of a missing repeat. */
+  readonly subjectKind?: "ticket" | "incident";
 }
 
 export type RepeatVerdict = { readonly ok: true } | { readonly ok: false; readonly reason: string; readonly diff?: PlanDiff };
@@ -74,7 +76,7 @@ export function describeDiff(diff: PlanDiff): string {
 export function repeatGate(store: Store, db: Db, input: { organizationId: string; workspaceId: string; schedule: RepeatSchedule; missionId: string; proposed: RepeatPlan }): RepeatVerdict {
   const { schedule, proposed } = input;
   if (!schedule.autoConfirm) return { ok: false, reason: "this schedule is set to ask you each time" };
-  if (!schedule.sourceMissionId) return { ok: false, reason: "the schedule names no confirmed mission to repeat" };
+  if (!schedule.sourceMissionId) return { ok: false, reason: schedule.subjectKind ? `a new ${schedule.subjectKind} started this mission and the trigger names no confirmed mission to repeat` : "the schedule names no confirmed mission to repeat" };
   const source = db.prepare("SELECT m.state, m.outcome, p.tasks_json AS tasks, p.team_json AS team FROM missions m LEFT JOIN plan_versions p ON p.id=m.active_plan_version_id WHERE m.id=?")
     .get(schedule.sourceMissionId) as { state: string; outcome: string | null; tasks: string | null; team: string | null } | undefined;
   if (!source || source.tasks === null) return { ok: false, reason: "the mission it repeats has no confirmed plan" };

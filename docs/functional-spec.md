@@ -157,6 +157,9 @@ Open a run from Today activity, the Activity list, an item page, or global searc
 - **Summary**: structured step outputs, schema-validated.
 - **Timeline**: engine events, including governed tool-call events (`tool.proposed`,
   permit checks, receipts).
+- **Tool calls**: every tool call the run made, in order, with its outcome, the approval
+  it proposed and a plain-words diagnosis of a failure. The mission's Timeline links each
+  run to this tab.
 - **Evidence**: the independent validation verdict and artifact links. A model
   response alone never means success.
 
@@ -279,6 +282,9 @@ invocations from the same model.
 1. Create an automation: target (workflow id or work item), trigger (recurring cron
    with an IANA timezone, one-off delayed, or manual), overlap policy
    (skip / queue-one) and misfire policy (skip / coalesce).
+   A **subject trigger** (a new ticket or incident) starts a Play, one mission per subject;
+   overlap and misfire do not apply, Run now is not offered, and its plan waits for a person
+   unless it repeats an achieved mission of that Play under the ADR 0017 conditions.
 2. Next occurrences are computed server-side and previewed; the browser never
    computes schedules.
 3. **Pause** stops fires; **Resume** applies the misfire policy to the missed window —

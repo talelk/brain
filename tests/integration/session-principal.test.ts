@@ -1,81 +1,13 @@
-import { generateKeyPairSync, sign } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { domainDigest, type AuditEntry, type CommandReceipt, type JsonValue, type Mission, type PlanTask } from "@brain/contracts";
-import { Brain } from "../../apps/governor/src/application/brain";
-import { advertisedCapabilities } from "../../apps/runner/src/engines/isolation";
-import { setupWorld, DIGEST_A } from "../helpers";
-import { fixtureStarter } from "../support/starter";
+import type { AuditEntry } from "@brain/contracts";
+import { DIGEST_A } from "../helpers";
+import { advance, bearer, closeWorlds, command, currentTimeMs, missionOf, register, run, running, startedMission as started, type World } from "../support/machine-session";
 
 // ADR 0032: a session acts as its own machine principal, recorded as acting for the mission owner. The credential lives as long as the
 // attempt that holds it. Everything here is reached through commands and the runner protocol, never through table writes.
 
-type World = ReturnType<typeof setupWorld>;
-type Runner = { runnerId: string; epoch: number; organizationId: string };
-type Offer = { jobId: string; attemptId: string; leaseId: string; jobFence: number };
+afterEach(closeWorlds);
 
-let now = Date.now();
-const clock = { nowMs: () => now, monotonicMs: () => now };
-const dirs: string[] = [];
-const worlds: World[] = [];
-afterEach(() => { for (const w of worlds.splice(0)) w.brain.close(); for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
-
-async function run(w: World, commandType: string, key: string, payload: Record<string, unknown>, expectedVersion?: number): Promise<CommandReceipt> {
-  return (await w.brain.executeCommand(w.owner, {
-    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType, workspaceId: w.workspaceId,
-    idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
-  } as never, key)).receipt;
-}
-const missionOf = async (w: World, id: string) => ((await w.brain.executeQuery(w.owner, { queryType: "missions.get", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: Mission }).snapshot;
-const task = (id: string, extra: Partial<PlanTask> = {}): PlanTask => ({ id, title: `Task ${id}`, criteria: [`${id} is done`], dependsOn: [], assignment: { kind: "agent", id: "pi", role: "specialist" }, ...extra });
-
-/** A runner that enrolls and says hello with these capabilities, as the real runner does. */
-function register(w: World, runnerId: string): Runner {
-  const protocol = w.brain.jobProtocol;
-  const { token } = protocol.issueEnrollment(w.owner, "agents");
-  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
-  const { credential } = protocol.enrollRunner({ token, publicKeyPem: publicKey.export({ type: "spki", format: "pem" }).toString(), runnerId });
-  const challenge = protocol.challenge(runnerId, credential);
-  const capabilities = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", ...advertisedCapabilities([], [{ id: "fixture", features: ["sessions"] }])];
-  const body: Record<string, unknown> = {
-    contractVersion: "brain.runner/v1", runnerId, bootNonce: `boot-${runnerId}`, runtimeVersion: "test", configDigest: DIGEST_A,
-    capacity: { cpuMillicores: 16000, memoryMb: 32768, diskMb: 40960, slots: 4 }, engines: [], isolationModes: ["ephemeral-container"],
-    capabilities: capabilities.map((capability) => ({ capability, verified: true, source: "runner-probe", observedAt: new Date(now).toISOString(), expiresAt: new Date(now + 600_000).toISOString() })),
-  };
-  const helloDigest = domainDigest("brain:runner-hello:v1", body as unknown as JsonValue);
-  const signed = JSON.stringify({ challengeId: challenge.challengeId, nonce: challenge.nonce, runnerId, bootNonce: body["bootNonce"], helloDigest });
-  const { epoch } = protocol.hello({ ...body, proof: { challengeId: challenge.challengeId, signatureBase64url: sign(null, Buffer.from(signed, "utf8"), privateKey).toString("base64url") } });
-  return { runnerId, epoch, organizationId: w.org };
-}
-
-/** A confirmed mission whose only task is assigned to the team member "pi": auto-start dispatches it, as the member's principal. */
-async function started(): Promise<{ w: World; missionId: string; runner: Runner; workItemId: string }> {
-  const dir = mkdtempSync(join(tmpdir(), "brain-test-session-principal-"));
-  dirs.push(dir);
-  const w = setupWorld(new Brain({ dataDir: dir, allowTestActor: true, clock }));
-  worlds.push(w);
-  const bundle = fixtureStarter();
-  w.brain.activateRelease(w.owner, w.brain.stageRelease(w.owner, bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas).digest);
-  const missionId = (await run(w, "mission.create", "m-create", { title: "Principals", intent: "Check who acts", successCriteria: ["done"] })).resourceId ?? "";
-  const planId = (await run(w, "plan.propose", "m-plan", { missionId, origin: "manual", tasks: [task("a")] })).resourceId ?? "";
-  await run(w, "plan.confirm", "m-confirm", { planVersionId: planId }, (await missionOf(w, missionId)).version);
-  const workItemId = (w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT id FROM work_items WHERE mission_id=?").get(missionId) as { id: string }).id;
-  return { w, missionId, runner: register(w, "runner-principal"), workItemId };
-}
-
-/** The runner claims the job and starts its attempt; the attempt is running and holds its lease. */
-function running(w: World, runner: Runner, key: string): Offer {
-  const offer = w.brain.jobProtocol.claim(runner, `claim-${key}`) as unknown as Offer;
-  expect(offer, "the runner was offered the task").toBeTruthy();
-  w.brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence, engine: { id: "fixture", adapterDigest: DIGEST_A, features: ["sessions"] } });
-  return offer;
-}
-
-const bearer = (credential: string) => new Headers({ authorization: `Bearer ${credential}` });
-const command = (w: World, commandType: string, key: string, payload: Record<string, unknown>, workspaceId = w.workspaceId) =>
-  ({ contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType, workspaceId, idempotencyKey: key, payload }) as never;
 const audit = async (w: World): Promise<AuditEntry[]> =>
   ((await w.brain.executeQuery(w.owner, { queryType: "audit.list", workspaceId: w.workspaceId })) as unknown as { snapshot: { items: AuditEntry[] } }).snapshot.items;
 const startedBy = (w: World) => (w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT actor_id FROM run_inputs ORDER BY rowid LIMIT 1").get() as { actor_id: string }).actor_id;
@@ -151,7 +83,7 @@ describe("a session acts as its own machine principal (ADR 0032)", () => {
     await expect(w.brain.resolveActor(bearer(credential), w.workspaceId)).resolves.toBeTruthy();
     w.brain.jobProtocol.complete(runner, offer.attemptId, { result: "failed", jobFence: offer.jobFence, cleanupConfirmed: true, output: { reason: "stopped for the test" } });
     await expect(w.brain.resolveActor(bearer(credential), w.workspaceId)).rejects.toThrow(/ended|revoked/u);
-    expect(w.brain.store.control.prepare("SELECT revoked_at_ms FROM machine_sessions").all()).toEqual([{ revoked_at_ms: now }]);
+    expect(w.brain.store.control.prepare("SELECT revoked_at_ms FROM machine_sessions").all()).toEqual([{ revoked_at_ms: currentTimeMs() }]);
     expect(() => w.brain.jobProtocol.sessionCredential(runner, offer.attemptId)).toThrow();
   });
 
@@ -160,7 +92,7 @@ describe("a session acts as its own machine principal (ADR 0032)", () => {
     const first = running(w, runner, "fence-1");
     const old = w.brain.jobProtocol.sessionCredential(runner, first.attemptId);
     // The runner stops renewing; the lease lapses and the platform takes the attempt back, so the job is offered again under a new fence.
-    now += 61_000;
+    advance(61_000);
     w.brain.jobProtocol.heartbeat(runner, { sequence: 1, health: "healthy" });
     await expect(w.brain.resolveActor(bearer(old.credential), w.workspaceId)).rejects.toThrow(/ended|revoked/u);
     w.brain.jobProtocol.expireLeases();

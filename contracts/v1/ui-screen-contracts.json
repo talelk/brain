@@ -101,6 +101,7 @@
     "missions.get",
     "missions.brief",
     "missions.sinceLastVisit",
+    "missions.timeline",
     "missionMessages.list",
     "workItemComments.list",
     "pullRequests.list",
@@ -157,7 +158,7 @@
     "team",
     "plan",
     "brief",
-    "logs",
+    "timeline",
     "outputs"
    ],
    "owner": "T64",
@@ -472,6 +473,7 @@
     "usage.run",
     "job.get",
     "job.explain",
+    "run.toolCalls",
     "contextPacks.forRun",
     "contextPacks.reference"
    ],
@@ -482,6 +484,7 @@
    "content": [
     "state",
     "attempts",
+    "tool-calls",
     "blocker",
     "evidence",
     "context"
