@@ -242,25 +242,6 @@ function SessionConsole(props: {
   const canSteer = () => live() && canOperate() && ((detail()?.engine.features ?? []).includes("steer") || Boolean(facts().missionId));
   const reply = () => (canSteer() ? () => setSteerRequest((value) => value + 1) : undefined);
 
-  function resumePayload(current: SessionDetail) {
-    // session.create requires the full prior-session authority; resume only
-    // adds resumeFromSessionId (not a single-field call — plan §1).
-    return {
-      workItemId: current.workItemId!,
-      agentId: current.agentId,
-      engineId: current.engine.id,
-      task: current.task,
-      budget: { maxTokens: current.budget.maxTokens, maxMicroUsd: current.budget.maxMicroUsd, maxTurns: current.budget.maxTurns },
-      scope: {
-        allowedPaths: [...current.scope.allowedPaths],
-        prohibitedPaths: [...current.scope.prohibitedPaths],
-        allowedTools: [...current.scope.allowedTools],
-      },
-      worktreeId: current.worktreeId,
-      resumeFromSessionId: current.sessionId,
-    };
-  }
-
   const center = <div class="flex min-h-0 flex-1 flex-col">
     <ConsoleToolbar workspaceId={props.workspaceId} sessionId={props.sessionId}
       session={detail()} canOperate={canOperate()} feedback={feedback()} steerRequest={steerRequest()}
@@ -322,8 +303,8 @@ function SessionConsole(props: {
         onDecide={facts().missionId ? () => void navigate(missionHref(props.workspaceId, facts().missionId!, "plan")) : undefined}
         onResume={async () => {
           try {
-            const result = await app.run("session.create", resumePayload(current));
-            setFeedback(result.detail);
+            const result = await app.run("session.resume", { sessionId: current.sessionId });
+            setFeedback(result.accepted ? t("console.resume.started") : result.detail);
             if (result.resourceId) props.onSessionChange(result.resourceId);
           } catch (e) { setFeedback(e instanceof Error ? e.message : "The resume was refused."); }
         }}

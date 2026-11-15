@@ -297,6 +297,7 @@ CREATE TABLE job_projection (
   source_cursor INTEGER NOT NULL CHECK(source_cursor >= 0), state TEXT NOT NULL,
   queue_reason TEXT, updated_at_ms INTEGER NOT NULL
 ) STRICT;
+-- sessions.resumed_from_json: the checkpoint a resumed session started from and the runner that held it (a session's own checkpoint is checkpoint_digest and checkpoint_json).
 CREATE TABLE sessions (
   id TEXT PRIMARY KEY, job_id TEXT, attempt_id TEXT,
   mode TEXT NOT NULL DEFAULT 'native' CHECK(mode IN ('native','managed')),
@@ -306,6 +307,7 @@ CREATE TABLE sessions (
   engine_features TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(engine_features)),
   state TEXT NOT NULL CHECK(state IN ('starting','running','waiting','stopping','stopped','failed')),
   checkpoint_digest TEXT, checkpoint_json TEXT CHECK(checkpoint_json IS NULL OR json_valid(checkpoint_json)),
+  resumed_from_json TEXT DEFAULT NULL CHECK(resumed_from_json IS NULL OR json_valid(resumed_from_json)),
   event_sequence INTEGER NOT NULL DEFAULT 0 CHECK(event_sequence >= 0),
   delegation_depth INTEGER NOT NULL DEFAULT 0 CHECK(delegation_depth BETWEEN 0 AND 3),
   budget_json TEXT NOT NULL DEFAULT '{"maxTokens":100000,"maxMicroUsd":0,"maxTurns":10}' CHECK(json_valid(budget_json)),
@@ -531,9 +533,11 @@ CREATE TABLE session_controls (
  created_at_ms INTEGER NOT NULL
 ) STRICT;
 -- Workflow engine state: dispatch input, step outputs, child links, durable waits. run_inputs.priority (0 low .. 3 urgent) is that of the work item the run was dispatched for; every job of the run is created with it, and work with no item is normal (1).
+-- run_inputs.resume_json: set on a run started by resuming a session; the one step that continues the saved engine state is the only job pinned to the runner holding it.
 CREATE TABLE run_inputs (
  run_id TEXT PRIMARY KEY, input_json TEXT NOT NULL, workflow_json TEXT NOT NULL,
  actor_id TEXT NOT NULL, runner_id TEXT,
+ resume_json TEXT DEFAULT NULL CHECK(resume_json IS NULL OR json_valid(resume_json)),
  priority INTEGER NOT NULL DEFAULT 1 CHECK(priority BETWEEN 0 AND 3)
 ) STRICT;
 CREATE TABLE step_outputs (

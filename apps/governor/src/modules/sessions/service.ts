@@ -1,6 +1,7 @@
 import { criteriaText } from "../../domain/criteria";
 import { domainDigest } from "@brain/contracts";
-import type { ActorContext, BrainSession, ContextManifest, ContextPackView, Checkpoint, CheckpointInput, Delegation, JsonValue, MissionBrief, MissionMessage, SessionBudget, SessionContext, SessionScope } from "@brain/contracts";
+import { validate } from "@brain/contracts/validate";
+import type { ActorContext, ArtifactRef, BrainSession, ContextManifest, ContextPackView, Checkpoint, CheckpointInput, Delegation, JsonValue, MissionBrief, MissionMessage, SessionBudget, SessionContext, SessionScope } from "@brain/contracts";
 import { dependencyHandoffs } from "../evidence/index";
 import { senderOf } from "../identity/index";
 import type { Store } from "../../application/store";
@@ -31,7 +32,7 @@ type SessionRow = {
   work_item_id: string | null; parent_session_id: string | null; root_session_id: string | null;
   agent_id: string; task: string; engine_id: string; adapter_digest: string; engine_features: string | null;
   state: BrainSession["state"];
-  checkpoint_digest: string | null; checkpoint_json: string | null; event_sequence: number;
+  checkpoint_digest: string | null; checkpoint_json: string | null; resumed_from_json: string | null; event_sequence: number;
   delegation_depth: number; budget_json: string; scope_json: string; worktree_id: string;
   created_by: string; version: number; created_at_ms: number; updated_at_ms: number;
 };
@@ -49,6 +50,30 @@ export interface SessionMissionPort {
   brief(actor: ActorContext, workspaceId: string, missionId: string): MissionBrief;
 }
 
+/**
+ * What resuming a session needs from the jobs and workflow modules, bound at the composition root: whether the runner holding the saved
+ * state can take it back, whether the task can take another run, and the new run itself (the source run's workflow and input again, its
+ * continuing step pinned to that runner and carrying the saved state).
+ */
+export interface SessionResumePort {
+  runnerReadiness(runnerId: string, engineId: string): { ready: true } | { ready: false; reason: string };
+  /** Why the task cannot take a resumed run now (it is done, or a run for it is already going); undefined when it can. */
+  taskBlocker(actor: ActorContext, workspaceId: string, workItemId: string): string | undefined;
+  startRun(actor: ActorContext, workspaceId: string, input: {
+    sourceRunId: string; stepId: string; workItemId: string; executionKey: string;
+    resume: { runnerId: string; engineId: string; engineState: ArtifactRef; fromSessionId: string };
+  }): string;
+}
+
+/** Whether a session can be resumed from its checkpoint, with the facts a resume command acts on. */
+interface ResumePlan {
+  possible: boolean;
+  runnerId?: string;
+  reason?: string;
+  /** Present only when possible. */
+  source?: { runId: string; stepId: string; engineState: ArtifactRef; checkpointDigest: string; workItemId: string };
+}
+
 const ACTIVE_SESSION_STATES = new Set(["starting", "running", "waiting", "stopping"]);
 const ZERO_DIGEST = `sha256:${"0".repeat(64)}`;
 
@@ -58,10 +83,6 @@ function budgetOf(payload: Readonly<Record<string, unknown>>): SessionBudget {
 
 function scopeOf(payload: Readonly<Record<string, unknown>>): SessionScope {
   return payload["scope"] as unknown as SessionScope;
-}
-
-function sameJson(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function assertSubset(child: readonly string[], parent: readonly string[], label: string): void {
@@ -77,7 +98,7 @@ function assertBudgetWithin(child: SessionBudget, available: SessionBudget): voi
 }
 
 export class SessionService {
-  constructor(private readonly store: Store, private readonly missions?: SessionMissionPort) {}
+  constructor(private readonly store: Store, private readonly missions?: SessionMissionPort, private readonly resumes?: SessionResumePort) {}
 
   private db(actor: ActorContext, workspaceId: string) {
     requireWorkspaceRead(this.store, actor, workspaceId);
@@ -96,7 +117,7 @@ export class SessionService {
     return row;
   }
 
-  private checkpoint(row: SessionRow): Checkpoint | undefined {
+  private checkpoint(row: SessionRow): (Checkpoint & { digest: string }) | undefined {
     if (!row.checkpoint_json) return undefined;
     return { ...(JSON.parse(row.checkpoint_json) as Omit<Checkpoint, "digest">), digest: row.checkpoint_digest ?? ZERO_DIGEST };
   }
@@ -115,7 +136,7 @@ export class SessionService {
       state: row.state, usedTokens: 0, usedMicroUsd: Number(budget?.settled_micro_usd ?? 0), reservedMicroUsd: Number(budget?.micro_usd ?? 0),
       lastEventSequence: row.event_sequence, delegationDepth: row.delegation_depth,
       budget: JSON.parse(row.budget_json) as SessionBudget, scope: JSON.parse(row.scope_json) as SessionScope,
-      worktreeId: row.worktree_id, ...(checkpoint ? { checkpoint } : {}), ...(activity ? { activity } : {}),
+      worktreeId: row.worktree_id, ...(checkpoint ? { checkpoint } : {}), ...(row.resumed_from_json ? { resumedFrom: JSON.parse(row.resumed_from_json) as NonNullable<BrainSession["resumedFrom"]> } : {}), ...(activity ? { activity } : {}),
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }
@@ -152,36 +173,93 @@ export class SessionService {
 
   private create(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
     const db = this.db(actor, workspaceId);
-    const resumeId = payload["resumeFromSessionId"] ? String(payload["resumeFromSessionId"]) : "";
-    const source = resumeId ? this.row(actor, workspaceId, resumeId) : undefined;
-    const checkpoint = source ? this.checkpoint(source) : undefined;
-    if (source && (!checkpoint || !["waiting", "stopped", "failed"].includes(source.state))) {
-      throw new BrainDomainError("CONFLICT", "resume requires a checkpoint from a session with no active writer");
-    }
-    const workItemId = source?.work_item_id ?? String(payload["workItemId"]);
+    const workItemId = String(payload["workItemId"]);
     if (!db.prepare("SELECT 1 FROM work_items WHERE id=? AND state!='abandoned'").get(workItemId)) throw new BrainDomainError("NOT_FOUND", "work item not found");
-    const agentId = source?.agent_id ?? String(payload["agentId"]);
-    const task = checkpoint?.nextAction ?? String(payload["task"]);
-    const budget = source ? JSON.parse(source.budget_json) as SessionBudget : budgetOf(payload);
-    const scope = source ? JSON.parse(source.scope_json) as SessionScope : scopeOf(payload);
-    const worktreeId = source?.worktree_id ?? String(payload["worktreeId"]);
-    if (source && (workItemId !== String(payload["workItemId"]) || agentId !== String(payload["agentId"]) || task !== String(payload["task"]) || worktreeId !== String(payload["worktreeId"]) || !sameJson(budget, budgetOf(payload)) || !sameJson(scope, scopeOf(payload)))) {
-      throw new BrainDomainError("FORBIDDEN", "resume cannot expand or replace checkpoint authority");
-    }
+    const agentId = String(payload["agentId"]);
+    const task = String(payload["task"]);
+    const budget = budgetOf(payload);
+    const scope = scopeOf(payload);
+    const worktreeId = String(payload["worktreeId"]);
     const id = this.store.id("ses");
     this.store.inTx(db, () => {
-      this.assertWorktreeAvailable(db, worktreeId, source?.root_session_id ?? id);
+      this.assertWorktreeAvailable(db, worktreeId, id);
       const now = this.store.now();
       db.prepare(`INSERT INTO sessions(id,mode,work_item_id,parent_session_id,root_session_id,agent_id,task,engine_id,adapter_digest,state,delegation_depth,budget_json,scope_json,worktree_id,created_by,created_at_ms,updated_at_ms)
         VALUES (?,'managed',?,?,?,?,?,? ,?,'waiting',?,?,?,?,?,?,?)`).run(
-        id, workItemId, source?.id ?? null, source?.root_session_id ?? id, agentId, task, String(payload["engineId"]), ZERO_DIGEST,
-        source?.delegation_depth ?? 0, JSON.stringify(budget), JSON.stringify(scope), worktreeId, actor.actorId, now, now,
+        id, workItemId, null, id, agentId, task, String(payload["engineId"]), ZERO_DIGEST,
+        0, JSON.stringify(budget), JSON.stringify(scope), worktreeId, actor.actorId, now, now,
       );
-      if (source && checkpoint) db.prepare("UPDATE sessions SET checkpoint_digest=?,checkpoint_json=? WHERE id=?").run(checkpoint.digest, JSON.stringify(checkpoint), id);
       this.deliverAtStart(db, workItemId);
-      this.store.emit(db, { aggregateType: "session", aggregateId: id, eventType: source ? "session.resumed" : "session.created", payload: { sessionId: id, workItemId, ...(source ? { resumeFromSessionId: source.id } : {}) } });
+      this.store.emit(db, { aggregateType: "session", aggregateId: id, eventType: "session.created", payload: { sessionId: id, workItemId } });
     });
     return id;
+  }
+
+  /**
+   * Whether a session can be resumed from its checkpoint, and why not when it cannot. A checkpoint is resumable only by the runner that holds
+   * it (ADR 0045), so the plan names that runner and refuses in plain words when it is gone, busy elsewhere or no longer offers the engine's
+   * resume. Nothing is said when there is nothing to resume (no checkpoint, or the session is still working).
+   */
+  private resumePlan(actor: ActorContext, workspaceId: string, row: SessionRow): ResumePlan {
+    const checkpoint = this.checkpoint(row);
+    if (!checkpoint) return { possible: false };
+    const live = row.attempt_id ? this.store.control.prepare("SELECT 1 AS ok FROM job_attempts WHERE id=? AND state IN ('offered','running','uploading','cancelling')").get(row.attempt_id) : undefined;
+    if (live || !["waiting", "stopped", "failed"].includes(row.state)) return { possible: false };
+    const refuse = (reason: string, runnerId?: string): ResumePlan => ({ possible: false, reason, ...(runnerId ? { runnerId } : {}) });
+    if (!checkpoint.engineState) return refuse("This checkpoint saved no engine conversation, so there is nothing an engine could continue from.");
+    if (!row.work_item_id || !row.job_id) return refuse("This session was not started by a run of its own, so there is no run to continue.");
+    const holder = this.store.control.prepare("SELECT runner_id FROM job_attempts WHERE id=?").get(checkpoint.attemptId ?? row.attempt_id ?? "") as { runner_id: string } | undefined;
+    if (!holder) return refuse("No runner is recorded as holding this checkpoint, so it cannot be resumed.");
+    if (!this.resumes) return refuse("Resuming is not wired in this Governor.", holder.runner_id);
+    const readiness = this.resumes.runnerReadiness(holder.runner_id, row.engine_id);
+    if (!readiness.ready) return refuse(readiness.reason, holder.runner_id);
+    const blocker = this.resumes.taskBlocker(actor, workspaceId, row.work_item_id);
+    if (blocker) return refuse(blocker, holder.runner_id);
+    const job = this.store.control.prepare("SELECT workflow_run_id, step_id FROM jobs WHERE id=?").get(row.job_id) as { workflow_run_id: string; step_id: string } | undefined;
+    if (!job) return refuse("The run this session belonged to is gone, so there is nothing to continue.", holder.runner_id);
+    return { possible: true, runnerId: holder.runner_id, source: { runId: job.workflow_run_id, stepId: job.step_id, engineState: checkpoint.engineState, checkpointDigest: checkpoint.digest, workItemId: row.work_item_id } };
+  }
+
+  /**
+   * Resume: a new session continues the engine state a checkpoint saved, in a new run of the same workflow and input whose continuing step is
+   * pinned to the runner that holds that state. The caller chooses nothing; the source session fixes everything. Idempotent on the command id.
+   */
+  resume(actor: ActorContext, workspaceId: string, commandId: string, payload: Readonly<Record<string, unknown>>): string {
+    if (!this.resumes) throw new BrainDomainError("UNSUPPORTED_CAPABILITY", "resuming is not available");
+    const db = this.db(actor, workspaceId);
+    const prior = db.prepare("SELECT l.session_id AS sessionId FROM workflow_runs r JOIN execution_links l ON l.run_id=r.id WHERE r.execution_key=? AND l.session_id IS NOT NULL").get(commandId) as { sessionId: string } | undefined;
+    if (prior) return prior.sessionId;
+    const source = this.row(actor, workspaceId, String(payload["sessionId"]));
+    const plan = this.resumePlan(actor, workspaceId, source);
+    if (!plan.possible || !plan.source || !plan.runnerId) throw new BrainDomainError(plan.reason ? "CONFLICT" : "NOT_FOUND", plan.reason ?? "this session has no checkpoint to resume from");
+    const runId = this.resumes.startRun(actor, workspaceId, {
+      sourceRunId: plan.source.runId, stepId: plan.source.stepId, workItemId: plan.source.workItemId, executionKey: commandId,
+      resume: { runnerId: plan.runnerId, engineId: source.engine_id, engineState: plan.source.engineState, fromSessionId: source.id },
+    });
+    const id = this.store.id("ses");
+    const runnerId = plan.runnerId;
+    const from = JSON.stringify({ sessionId: source.id, checkpointDigest: plan.source.checkpointDigest, runnerId });
+    this.store.inTx(db, () => {
+      const now = this.store.now();
+      db.prepare(`INSERT INTO sessions(id,mode,work_item_id,parent_session_id,root_session_id,agent_id,task,engine_id,adapter_digest,state,delegation_depth,budget_json,scope_json,worktree_id,resumed_from_json,created_by,created_at_ms,updated_at_ms)
+        VALUES (?,'managed',?,NULL,?,?,?,?,?,'starting',?,?,?,?,?,?,?,?)`).run(
+        id, plan.source!.workItemId, source.root_session_id ?? source.id, source.agent_id, source.task, source.engine_id, ZERO_DIGEST,
+        source.delegation_depth, source.budget_json, source.scope_json, source.worktree_id, from, actor.actorId, now, now,
+      );
+      const linked = db.prepare("UPDATE execution_links SET session_id=? WHERE work_item_id=? AND run_id=?").run(id, plan.source!.workItemId, runId);
+      if (linked.changes !== 1) throw new BrainDomainError("CONFLICT", "the resumed run was not linked to its task");
+      this.deliverAtStart(db, plan.source!.workItemId);
+      this.store.emit(db, { aggregateType: "session", aggregateId: id, eventType: "session.resumed", payload: { sessionId: id, workItemId: plan.source!.workItemId, resumeFromSessionId: source.id, checkpointDigest: plan.source!.checkpointDigest, runnerId } });
+    });
+    return id;
+  }
+
+  /** The interruption facts of one session: what the console may offer and, for a checkpoint it cannot use, why. */
+  continuation(actor: ActorContext, workspaceId: string, sessionId: string): SessionContinuation {
+    const row = this.row(actor, workspaceId, sessionId);
+    const plan = this.resumePlan(actor, workspaceId, row);
+    const resume = { possible: plan.possible, ...(plan.runnerId ? { runnerId: plan.runnerId } : {}), ...(plan.reason ? { reason: plan.reason } : {}) };
+    return continuationFacts(this.store, { organizationId: actor.organizationId, workspaceId, sessionId }, resume);
   }
 
   private saveCheckpoint(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
@@ -190,16 +268,11 @@ export class SessionService {
     const input = payload["checkpoint"] as unknown as CheckpointInput;
     if (input.worktreeId !== session.worktree_id || input.eventSequence > session.event_sequence) throw new BrainDomainError("CONFLICT", "checkpoint does not match the session's worktree or committed event cursor");
     const db = this.db(actor, workspaceId);
-    // The Governor, not the agent, stamps what the work consumed and which brief it worked from.
-    const stamped = session.work_item_id ? db.prepare("SELECT m.brief_version AS briefVersion FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.id=?").get(session.work_item_id) as { briefVersion: number } | undefined : undefined;
-    const consumed = session.work_item_id ? (db.prepare("SELECT DISTINCT output_version_id AS id FROM work_item_inputs WHERE work_item_id=? ORDER BY output_version_id").all(session.work_item_id) as Array<{ id: string }>).map((row) => row.id) : [];
-    const body: Omit<Checkpoint, "digest"> = { ...input, ...(consumed.length > 0 ? { consumedOutputs: consumed } : {}), ...(stamped ? { briefVersion: stamped.briefVersion } : {}) };
-    const digest = domainDigest("brain:session-checkpoint:v2", { sessionId: session.id, ...body } as unknown as JsonValue);
-    const checkpoint: Checkpoint = { ...body, digest };
+    const checkpoint = stampedCheckpoint(db, session, input);
     this.store.inTx(db, () => {
       db.prepare("UPDATE sessions SET checkpoint_digest=?,checkpoint_json=?,state='waiting',version=version+1,updated_at_ms=? WHERE id=? AND version=?")
-        .run(digest, JSON.stringify(checkpoint), this.store.now(), session.id, session.version);
-      this.store.emit(db, { aggregateType: "session", aggregateId: session.id, eventType: "session.checkpointed", payload: { sessionId: session.id, checkpointDigest: digest } });
+        .run(checkpoint.digest, JSON.stringify(checkpoint), this.store.now(), session.id, session.version);
+      this.store.emit(db, { aggregateType: "session", aggregateId: session.id, eventType: "session.checkpointed", payload: { sessionId: session.id, checkpointDigest: checkpoint.digest } });
     });
     return session.id;
   }
@@ -594,6 +667,31 @@ export function endAttemptSession(store: Store, input: { organizationId: string;
     .prepare("UPDATE sessions SET state=?, updated_at_ms=? WHERE attempt_id=?").run(input.failed ? "failed" : "stopped", store.now(), input.attemptId);
 }
 
+/** The Governor, not the agent or runner, stamps what the work consumed and which brief it worked from. */
+function stampedCheckpoint(db: ReturnType<Store["workspaceDb"]>, session: SessionRow, input: CheckpointInput): Checkpoint & { digest: string } {
+  const stamped = session.work_item_id ? db.prepare("SELECT m.brief_version AS briefVersion FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.id=?").get(session.work_item_id) as { briefVersion: number } | undefined : undefined;
+  const consumed = session.work_item_id ? (db.prepare("SELECT DISTINCT output_version_id AS id FROM work_item_inputs WHERE work_item_id=? ORDER BY output_version_id").all(session.work_item_id) as Array<{ id: string }>).map((row) => row.id) : [];
+  const body: Omit<Checkpoint, "digest"> = { ...input, ...(consumed.length > 0 ? { consumedOutputs: consumed } : {}), ...(stamped ? { briefVersion: stamped.briefVersion } : {}) };
+  return { ...body, digest: domainDigest("brain:session-checkpoint:v2", { sessionId: session.id, ...body } as unknown as JsonValue) };
+}
+
+/**
+ * Keeps the checkpoint a runner took when an attempt ended (an engine's saved conversation, held on that runner) on the attempt's session. The
+ * session keeps the state its attempt ended in; the runner that reported it is the holder, found through the attempt. A checkpoint that does not
+ * belong to the attempt, or saved no engine state, is ignored: it never makes the attempt's own completion fail.
+ */
+export function recordAttemptCheckpoint(store: Store, input: { organizationId: string; workspaceId: string; attemptId: string; checkpoint: unknown }): void {
+  if (!validate("CheckpointInput", input.checkpoint).ok) return;
+  const reported = input.checkpoint as CheckpointInput;
+  if (reported.attemptId !== input.attemptId || !reported.engineState) return;
+  const db = store.workspaceDb(input.workspaceId, input.organizationId);
+  const session = db.prepare("SELECT * FROM sessions WHERE attempt_id=?").get(input.attemptId) as SessionRow | undefined;
+  if (!session) return;
+  const checkpoint = stampedCheckpoint(db, session, { ...reported, worktreeId: session.worktree_id, eventSequence: Math.min(reported.eventSequence, session.event_sequence) });
+  db.prepare("UPDATE sessions SET checkpoint_digest=?,checkpoint_json=?,version=version+1,updated_at_ms=? WHERE id=?").run(checkpoint.digest, JSON.stringify(checkpoint), store.now(), session.id);
+  store.emit(db, { aggregateType: "session", aggregateId: session.id, eventType: "session.checkpointed", payload: { sessionId: session.id, checkpointDigest: checkpoint.digest } });
+}
+
 /** Engine feature advertisement persisted by the runner's event batches. */
 export function engineFeaturesOf(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -607,36 +705,30 @@ export function engineFeaturesOf(raw: string | null | undefined): string[] {
  * Interruption semantics (read model): exactly which operation applies after
  * an interruption. These facts are not interchangeable — the console renders
  * one suggested operation and enables only commands that exist:
- * reconnect → session.steer; resume checkpoint / continue native →
- * session.create(resumeFromSessionId); restart → workflow.dispatch;
- * reconcile → job.reconcile.
+ * reconnect → session.steer; resume from checkpoint → session.resume;
+ * restart → workflow.dispatch; reconcile → job.reconcile.
  */
 export interface SessionContinuation {
   /** Session is live on a runner (running/waiting with an active attempt). */
   reconnectable: boolean;
-  /** A verified checkpoint exists and no active writer holds the session. */
-  resumable: boolean;
-  /** The engine advertises native resume (continue the same session). */
-  continueNative: boolean;
+  /** Whether the session can be resumed from its checkpoint now, on the runner holding it; `reason` says why not when a checkpoint exists that cannot be used. */
+  resume: { possible: boolean; runnerId?: string; reason?: string };
   /** The underlying work item can be dispatched again as a new run. */
   restartable: boolean;
   /** The job ended outcome_unknown with unresolved effects — reconcile first. */
   reconcileRequired: boolean;
 }
 
-export function continuationFacts(store: Store, input: {
+function continuationFacts(store: Store, input: {
   organizationId: string; workspaceId: string; sessionId: string;
-}): SessionContinuation {
+}, resume: SessionContinuation["resume"]): SessionContinuation {
   const db = store.workspaceDb(input.workspaceId, input.organizationId);
   const row = db.prepare("SELECT * FROM sessions WHERE id=?").get(input.sessionId) as (SessionRow & Record<string, unknown>) | undefined;
   if (!row) throw new BrainDomainError("NOT_FOUND", "session not found");
-  const features = engineFeaturesOf(row.engine_features);
   const liveAttempt = row.attempt_id
     ? store.control.prepare("SELECT 1 AS ok FROM job_attempts WHERE id=? AND state IN ('offered','running','uploading','cancelling')").get(row.attempt_id)
     : undefined;
   const reconnectable = (row.state === "running" || row.state === "waiting") && liveAttempt !== undefined;
-  const resumable = !!row.checkpoint_digest && ["waiting", "stopped", "failed"].includes(row.state);
-  const continueNative = features.includes("resume");
   let restartable = false;
   if (row.work_item_id) {
     const item = db.prepare("SELECT state FROM work_items WHERE id=?").get(row.work_item_id) as { state: string } | undefined;
@@ -657,7 +749,7 @@ export function continuationFacts(store: Store, input: {
       reconcileRequired = unresolvedLease !== undefined || unresolvedPermit !== undefined;
     }
   }
-  return { reconnectable, resumable, continueNative, restartable, reconcileRequired };
+  return { reconnectable, resume, restartable, reconcileRequired };
 }
 
 /**

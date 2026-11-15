@@ -1,0 +1,17 @@
+# 45. A checkpoint is resumed on the runner that holds it
+
+Status: accepted, 2026-11-15. Builds on ADR 0006 (an interrupted reasoning step restarts itself) and ADR 0030 (a finished answer is kept). Ticket #129 later moves checkpoints to the Governor so any runner can resume; this does not build that.
+
+The console offered "Resume from checkpoint" and nothing could carry it out: `session.create` with a resume checkpoint inserted a waiting session row and started no job. Only the Pi engine can resume at all, and its checkpoint is a copy of its transcript on the disk of the runner that took it, not a source diff.
+
+## Decision
+1. **A runner leaves the checkpoint, the Governor records who holds it.** When an attempt of an engine that offers `checkpoint` does not succeed, the runner saves the engine's conversation and sends the checkpoint with its completion. The Governor keeps it on the attempt's session; the holder is the runner of the checkpoint's attempt. A finished attempt saves none, and a checkpoint with no engine state is not recorded: there is nothing for a runner to continue. The runner keeps its newest 50 saved conversations.
+2. **Resume is its own command.** `session.resume {sessionId}` replaces the resume branch of `session.create`, which no longer takes `resumeFromSessionId`: the caller chooses nothing, so nothing can be widened. It starts a new run of the source run's workflow and input (its pinned release), links it to the task and opens a new session with `resumedFrom` (source session, checkpoint digest, holder). The step that continues is the one the source job ran; only that job is pinned to the holder (`placement.runnerId`, engine and `resume` feature) and carries `resume` in its pinned execution artifact. Every other step, an independent evaluator above all, is placed as usual. Idempotent on the command id.
+3. **The engine starts from the checkpoint; it never reopens it.** `EngineSessionSpec.resumeFrom` makes the Pi engine fork the saved conversation into a new session; the stored file is untouched. An engine that cannot resume, a checkpoint this runner does not hold and one whose bytes differ are refused before a session starts, with the reason. The task text says the conversation is the agent's own earlier attempt.
+4. **Offered only when it can work.** `session.get` carries `continuation.resume`: `possible` is true when the holder is registered, enabled, answering, healthy and still states `engine-feature:<engine>:resume`, and the task takes a new run (mission active, task ready, in progress or stopped with no run going). A checkpoint that cannot be used says why in plain words and names the runner; with no checkpoint nothing is said. The command re-checks the same facts and refuses with the same sentence. The console then offers the existing fresh start instead.
+5. **A resume takes a stopped task over.** A task parked after repeated failures is released and starts in progress, as a person's retry would; a run already going refuses the resume.
+
+## Limits
+- A checkpoint is as durable as its runner's disk: a runner that is gone, wiped or past its newest 50 cannot resume it (#129).
+- Only Pi saves and resumes today; ACP, Claude and the fixture engine offer neither.
+- The Governor trusts the runner's report that it saved the conversation; a copy that is missing at start fails the new attempt with that reason rather than being found out earlier.

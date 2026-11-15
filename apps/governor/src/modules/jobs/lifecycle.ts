@@ -1,4 +1,4 @@
-import type { JsonValue, Placement } from "@brain/contracts";
+import type { ArtifactRef, JsonValue, Placement } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { releaseRecord } from "../configuration/index";
 import { BrainDomainError } from "../../domain/errors";
@@ -19,6 +19,8 @@ export interface CreateJobInput {
   executionDigest: string; effectClass: string; kind: string; payload: JsonValue;
   /** The runner the run was pinned to at dispatch, if any. */
   runnerId?: string | undefined;
+  /** The engine state this job continues (a resumed session): only an engine that can resume it, on the runner holding it, may take the job. */
+  resume?: { engineId: string; engineState: ArtifactRef; fromSessionId: string } | undefined;
   /** The priority of the work the run serves, 0 low .. 3 urgent: the claim sorts on it within a workspace (ADR 0041). */
   priority: number;
 }
@@ -35,9 +37,11 @@ function agentPlacement(s: Store, input: CreateJobInput): string {
   const agent = releaseRecord(s, input.organizationId, input.configDigest)?.release.agents?.[step.uses.release.id];
   if (!agent) throw new BrainDomainError("INVALID_CONTRACT", "agent is absent from pinned release");
   const placement = JSON.parse(input.placementJson) as Placement;
-  const anyOf = placement.engine ? agent.spec.engine.anyOf.filter((id) => placement.engine!.anyOf.includes(id)) : agent.spec.engine.anyOf;
-  if (!anyOf.length) throw new BrainDomainError("INVALID_CONTRACT", "agent and workflow engine requirements do not intersect");
-  return JSON.stringify({ ...placement, engine: { anyOf, features: [...new Set([...agent.spec.engine.features, ...(placement.engine?.features ?? [])])] } });
+  const compatible = placement.engine ? agent.spec.engine.anyOf.filter((id) => placement.engine!.anyOf.includes(id)) : agent.spec.engine.anyOf;
+  const anyOf = input.resume ? compatible.filter((id) => id === input.resume!.engineId) : compatible;
+  if (!anyOf.length) throw new BrainDomainError("INVALID_CONTRACT", input.resume ? `the agent no longer runs on ${input.resume.engineId}, so its saved state cannot be resumed` : "agent and workflow engine requirements do not intersect");
+  const features = [...agent.spec.engine.features, ...(placement.engine?.features ?? []), ...(input.resume ? ["resume"] : [])];
+  return JSON.stringify({ ...placement, engine: { anyOf, features: [...new Set(features)] } });
 }
 
 /** An agent step carries its output schema so the runner can tell the model exactly which violations to fix before the Governor rejects the reply. */
@@ -47,6 +51,12 @@ function withOutputSchema(s: Store, input: CreateJobInput): JsonValue {
   if (input.kind !== "dispatch" || step?.uses?.type !== "agent" || !step.outputSchemaRef) return input.payload;
   const schema = releaseRecord(s, input.organizationId, input.configDigest)?.release.schemas?.[step.outputSchemaRef];
   return schema ? { ...payload, outputSchema: schema as JsonValue } : input.payload;
+}
+
+/** A resumed step's payload names the saved engine state the runner starts from; it travels in the pinned execution artifact like the rest of the job. */
+function withResume(input: CreateJobInput, payload: JsonValue): JsonValue {
+  if (!input.resume) return payload;
+  return { ...(payload as Record<string, JsonValue>), resume: { engineState: input.resume.engineState as unknown as JsonValue, fromSessionId: input.resume.fromSessionId } };
 }
 
 /** Queues the job for one step; the execution key makes a repeat return the same job. */
@@ -61,7 +71,7 @@ export function createJobForStep(s: Store, input: CreateJobInput): string {
     s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, priority, created_at_ms, ready_at_ms, deadline_ms)
       VALUES (?,?,?,?,?,?,'queued',?,?,?,?,'WAITING_FOR_RUNNER',?,?,?,?)`)
       .run(jobId, input.organizationId, input.workspaceId, input.executionKey, input.runId, input.stepId, input.configDigest, placementJson, input.executionDigest, input.effectClass, input.priority, s.now(), s.now(), s.now() + 7 * 24 * 3600_000);
-    s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(jobId, input.kind, JSON.stringify(withOutputSchema(s, input)));
+    s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(jobId, input.kind, JSON.stringify(withResume(input, withOutputSchema(s, input))));
     s.emit(s.control, { organizationId: input.organizationId, workspaceId: input.workspaceId, aggregateType: "job", aggregateId: jobId, eventType: "job.queued", payload: { jobId, runId: input.runId, stepId: input.stepId }, destinations: [`workspace:${input.workspaceId}`] });
     return jobId;
   });
