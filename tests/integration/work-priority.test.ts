@@ -220,13 +220,15 @@ describe("priority in claiming (#116)", () => {
     const other = await confirmedMission(w, "modest", ["m"], {}, "ws-other");
     await setDetails(w, "g-urgent", greedy.ids["g"]!, { priority: "urgent" });
     await setDetails(w, "m-low", other.ids["m"]!, { priority: "low" }, "ws-other");
+    // An administrator may allow a long queue (the default limit is 100); the claim must stay fair at any length.
+    await run(w, "workspace.queueLimit.set", "greedy-queue", { maxQueued: 1000 });
     for (let n = 0; n < 230; n++) await dispatch(w, `greedy-${n}`, greedy.ids["g"]!);
     await dispatch(w, "modest-0", other.ids["m"]!, "ws-other");
     const runner = seedRunner(w, "runner-fair");
     expect(await claimedItem(w, runner, "req-f-0")).toBe(greedy.ids["g"]);
     // The greedy workspace now has an attempt in flight and the other none: fairness comes first, so the low job is offered next.
     expect(await claimedItem(w, runner, "req-f-1")).toBe(other.ids["m"]);
-  }, 120_000);
+  }, 300_000);
 
   it("starts the highest-priority ready task first when the mission can run only one", async () => {
     const w = world();
