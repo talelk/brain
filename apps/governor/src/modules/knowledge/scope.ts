@@ -48,10 +48,3 @@ export function visibleTo(viewer: MemoryViewer, scope: MemoryScope, workspaceId:
     case "private": return scope.workspaceId === workspaceId && viewer.ownerId !== null && viewer.ownerId === scope.ownerId;
   }
 }
-
-/** One knowledge asset of a workspace as a memory scope: a team is its mission's, a private asset its producer's. */
-export function scopeOfAsset(organizationId: string, workspaceId: string, asset: { scope: string; mission_id: string | null; producer_id: string | null }): MemoryScope | undefined {
-  if (asset.scope === "team") return asset.mission_id ? { organizationId, visibility: "team", teamId: asset.mission_id } : undefined;
-  if (asset.scope === "private") return asset.producer_id ? { organizationId, visibility: "private", workspaceId, ownerId: asset.producer_id } : undefined;
-  return { organizationId, visibility: "workspace", workspaceId };
-}
