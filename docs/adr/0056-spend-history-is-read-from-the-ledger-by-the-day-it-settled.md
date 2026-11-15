@@ -1,4 +1,4 @@
-# 53. Spend history is read from the ledger by the day it settled
+# 56. Spend history is read from the ledger by the day it settled
 
 Status: accepted, 2026-11-15.
 

@@ -2,7 +2,7 @@ import { test, expect } from "./fixtures";
 import { signUpOwner } from "../support/flow";
 import { fixtureStarter } from "../support/starter";
 
-// A first-time owner reads spend over time (#112, ADR 0053): the workspace usage block and a mission each open a daily chart whose values are
+// A first-time owner reads spend over time (#112, ADR 0056): the workspace usage block and a mission each open a daily chart whose values are
 // also a table, with its definition and the zero days in place; the workspace block also shows cost per verified task by agent and Play.
 const DAY = 86_400_000;
 

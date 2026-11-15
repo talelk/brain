@@ -3,7 +3,7 @@ import type { TeamMember, UsageSeries, UsageView, VerifiedCostReport } from "@br
 import { DIGEST_A } from "../helpers";
 import { advance, closeWorlds, currentTimeMs, running, startedMission, task, type Offer, type Runner, type World } from "../support/machine-session";
 
-// Spend history (#112, ADR 0053): a daily series per scope read from the same ledger rows as every total, and cost per verified task by agent
+// Spend history (#112, ADR 0056): a daily series per scope read from the same ledger rows as every total, and cost per verified task by agent
 // and Play with the Quality summary's arithmetic. Spend is reached through the runner protocol, never by writing ledger rows.
 const DAY = 86_400_000;
 const team: TeamMember[] = [
