@@ -159,7 +159,7 @@ CREATE TABLE plan_versions (
   created_at_ms INTEGER NOT NULL, confirmed_at_ms INTEGER,
   UNIQUE(mission_id,revision)
 ) STRICT;
--- work_items.required_tools_json (ADR 0022): at least one must have a successful recorded call before Done. failure_class: latest failure as a code. token_cap overrides the default per-task spend cap. retry_after_ms holds a wait-and-retry or wait-for-quota (ADR 0033).
+-- work_items.priority/tags_json/due_at_ms (#116): priority orders claiming within a workspace (ADR 0040), tags slice work, a past due date flags an open item and nothing more. work_items.required_tools_json (ADR 0022): at least one must have a successful recorded call before Done. failure_class: latest failure as a code. token_cap overrides the default per-task spend cap. retry_after_ms holds a wait-and-retry or wait-for-quota (ADR 0033).
 CREATE TABLE work_items (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   plan_version_id TEXT NOT NULL REFERENCES plan_versions(id), plan_task_id TEXT NOT NULL,
@@ -173,6 +173,8 @@ CREATE TABLE work_items (
   required_tools_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(required_tools_json)),
   failure_class TEXT DEFAULT NULL CHECK(failure_class IS NULL OR failure_class IN ('missing-tool','unmeetable-criterion','model-slip','tool-outage','quota','budget','unclassified')),
   token_cap INTEGER DEFAULT NULL CHECK(token_cap IS NULL OR token_cap > 0), retry_after_ms INTEGER DEFAULT NULL,
+  priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high','urgent')),
+  tags_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(tags_json)), due_at_ms INTEGER DEFAULT NULL,
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
   UNIQUE(plan_version_id,plan_task_id), CHECK(state != 'done' OR evidence_digest IS NOT NULL)
@@ -503,7 +505,9 @@ CREATE TABLE session_controls (
 -- Workflow engine state: dispatch input, step outputs, child links, durable waits.
 CREATE TABLE run_inputs (
  run_id TEXT PRIMARY KEY, input_json TEXT NOT NULL, workflow_json TEXT NOT NULL,
- actor_id TEXT NOT NULL, runner_id TEXT
+ actor_id TEXT NOT NULL, runner_id TEXT,
+ -- The priority (0 low .. 3 urgent) of the work item the run was dispatched for; every job of the run is created with it. Work with no item is normal (1).
+ priority INTEGER NOT NULL DEFAULT 1 CHECK(priority BETWEEN 0 AND 3)
 ) STRICT;
 CREATE TABLE step_outputs (
  run_id TEXT NOT NULL, step_id TEXT NOT NULL, output_json TEXT NOT NULL,

@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { JsonValue, Workflow } from "@brain/contracts";
 import { domainDigest } from "@brain/contracts";
 import { BrainDomainError } from "../../../domain/errors";
+import { NORMAL_JOB_PRIORITY } from "../../../domain/work-priority";
 import { bulkTransition, transitionState } from "../../../domain/states";
 import { compileWorkflowGraph, releaseRecord, resolveBinding } from "../../configuration/index";
 import type { Store } from "../../../application/store";
@@ -54,7 +55,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
 
   startRun(input: {
     organizationId: string; workspaceId: string; actorId: string;
-    workflowId: string; workflow: Workflow; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string;
+    workflowId: string; workflow: Workflow; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string; priority?: number;
   }): { runId: string } {
     // Synchronous admission (caller contract: a claim immediately after
     // dispatch sees the first job/approval). Admission is implemented here,
@@ -74,8 +75,8 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     s.inTx(ws, () => {
       ws.prepare(`INSERT INTO workflow_runs(id, execution_key, config_digest, workflow_digest, adapter_digest, engine_run_id, state, input_digest, created_at_ms)
         VALUES (?,?,?,?,?,?,?,?,?)`).run(runId, input.executionKey, input.configDigest, workflowDigest, domainDigest("brain:engine:v1", { engine: "mastra" }), runId, "running", inputDigest, s.now());
-      ws.prepare("INSERT INTO run_inputs(run_id, input_json, workflow_json, actor_id, runner_id) VALUES (?,?,?,?,?)")
-        .run(runId, JSON.stringify(input.runInput), JSON.stringify(input.workflow), input.actorId, input.runnerId ?? null);
+      ws.prepare("INSERT INTO run_inputs(run_id, input_json, workflow_json, actor_id, runner_id, priority) VALUES (?,?,?,?,?,?)")
+        .run(runId, JSON.stringify(input.runInput), JSON.stringify(input.workflow), input.actorId, input.runnerId ?? null, input.priority ?? NORMAL_JOB_PRIORITY);
       for (const stepId of order) {
         ws.prepare("INSERT INTO workflow_steps(run_id, step_id, execution_key, state) VALUES (?,?,?, 'pending')")
           .run(runId, stepId, `${input.executionKey}:${stepId}`);

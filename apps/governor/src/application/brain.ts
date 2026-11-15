@@ -16,7 +16,7 @@ import { completeUpload, completeUploadStream, initUpload, readVerified, readWor
 import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
 import { activateRelease, activeReleaseAssets, activeReleaseRecord, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
-import { MastraWorkflowEngine, readRun, workflowCommands, type WorkflowEnginePort } from "../modules/workflows/index";
+import { MastraWorkflowEngine, readRun, setRunPriority, workflowCommands, type WorkflowEnginePort } from "../modules/workflows/index";
 import { knowledgeCommands, knowledgeExpired, LOCAL_ONLY_SOURCE_TYPES, MemoryStore, ReuseService, TencentDbClient } from "../modules/knowledge/index";
 import { admitApprovalDecision, governanceCommands, StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
@@ -99,7 +99,9 @@ export class Brain {
           return this.workflows.startRun({ organizationId: input.organizationId, workspaceId: input.workspaceId, actorId: input.actorId, workflowId: input.workflowId, workflow, configDigest,
             runInput: MissionService.coordinatorInput(input.missionId, input.reasons), executionKey: input.executionKey });
         },
-      }, { requestMissionRun: (organizationId, workspaceId, missionId) => this.capitalization.requestMissionRun(organizationId, workspaceId, missionId) });
+      }, { requestMissionRun: (organizationId, workspaceId, missionId) => this.capitalization.requestMissionRun(organizationId, workspaceId, missionId) }, {
+        setRunPriority: (organizationId, workspaceId, runId, jobPriority) => { setRunPriority(this.store, organizationId, workspaceId, runId, jobPriority); this.jobProtocol.reprioritizeForRun(runId, jobPriority); },
+      });
       this.sessions = new SessionService(this.store, { brief: (actor, workspaceId, missionId) => this.missions.briefOf(actor, workspaceId, missionId) });
       this.stream = createStreamService(this.store);
       this.documents = new DocumentService(this.store);
@@ -185,6 +187,7 @@ export class Brain {
           loadWorkflow: (organizationId, workflowId) => this.loadWorkflow(organizationId, workflowId),
           sessionWorkItem: (actor, workspaceId, sessionId) => this.sessions.workItemForDispatch(actor, workspaceId, sessionId),
           linkExecution: (actor, workspaceId, workItemId, runId) => this.missions.linkExecution(actor, workspaceId, workItemId, runId),
+          workItemJobPriority: (actor, workspaceId, workItemId) => this.missions.jobPriorityOf(actor, workspaceId, workItemId),
           attachSessionRun: (actor, workspaceId, sessionId, runId) => this.sessions.attachRun(actor, workspaceId, sessionId, runId),
           cancelJobs: (runId) => this.jobProtocol.cancelForRun(runId),
         }),
