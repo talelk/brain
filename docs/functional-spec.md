@@ -276,6 +276,9 @@ invocations from the same model.
 1. Create an automation: target (workflow id or work item), trigger (recurring cron
    with an IANA timezone, one-off delayed, or manual), overlap policy
    (skip / queue-one) and misfire policy (skip / coalesce).
+   A **subject trigger** (a new ticket or incident) starts a Play, one mission per subject;
+   overlap and misfire do not apply, Run now is not offered, and its plan waits for a person
+   unless it repeats an achieved mission of that Play under the ADR 0017 conditions.
 2. Next occurrences are computed server-side and previewed; the browser never
    computes schedules.
 3. **Pause** stops fires; **Resume** applies the misfire policy to the missed window —

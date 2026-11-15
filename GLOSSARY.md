@@ -176,6 +176,12 @@ subject is owned by its pack and can have several missions over time; it is neit
 mission nor a work item.
 _Avoid_: case, intake item, work item (when meaning a ticket or incident)
 
+**Subject trigger**:
+A schedule that starts a Play for each new ticket or incident, one mission per subject. Its
+plan waits for a person unless it repeats an earlier achieved mission under the ADR 0017
+safety conditions.
+_Avoid_: webhook, event rule, listener
+
 **Execution link**:
 The record that joins a mission, and a work item when there is one, to the runs, jobs,
 attempts and sessions that served it. It is the boundary between the work side and the
