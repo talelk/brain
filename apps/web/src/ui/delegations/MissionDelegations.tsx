@@ -102,7 +102,7 @@ export function MissionDelegations(props: { mission: Mission; onChanged?: () => 
   const waiting = () => (read.state().data?.items ?? []).filter((entry) => delegationStatus(entry) === "to-review" && entry.review.possible).length;
   return <WorkspaceSection title={t("delegations.title")} description={t("delegations.description")}>
     <ScreenRegion state={read.state()} onRetry={() => void read.refresh({ force: true })} emptyTitle={t("delegations.empty.title")} emptyDescription={t("delegations.empty.description")}>
-      <div class="flex min-w-0 flex-col gap-3" data-delegations>
+      <div class="flex min-w-0 flex-col gap-3" data-delegations data-testid="delegations">
         <p class="m-0 text-interface text-ink-gray-7" role="status">{waiting() > 0 ? tn("delegations.waiting", waiting()) : t("delegations.none-waiting")}</p>
         <Show when={item()}>
           <p class="m-0 flex flex-wrap items-center gap-2 text-interface text-ink-gray-7">{t("delegations.filtered")}<Button size="sm" variant="ghost" onClick={() => setSearch({ item: undefined }, { replace: true })}>{t("delegations.show-all")}</Button></p>

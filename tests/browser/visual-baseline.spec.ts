@@ -21,6 +21,8 @@ import { command, interruptedSession } from "../support/interrupted-session";
 import { seedPullRequest } from "../support/pullRequestDemo";
 import { seedChangeApproval } from "../support/changeApprovalDemo";
 import { seedQuestion } from "../support/question-demo";
+import { delegationsOf, driveChildren, enrollChildRunners } from "../support/delegation-world";
+import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
 
 type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
 type Fixture = Parameters<typeof seedBrowserDemo>[1];
@@ -88,6 +90,35 @@ async function coordinatedTeamRoute(demo: Demo, governor: Fixture): Promise<stri
   return `/missions/${missionId}/team`;
 }
 
+/**
+ * Delegated work (ticket #110): a colleague handed three sub-tasks of one task to child sessions: one finished and checked, one failed and one
+ * still waiting for a free member. Made when its screen is reached, as fixture runners take the jobs, so no earlier screen changes.
+ */
+async function delegationsRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  const org = demo.actor.organizationId;
+  brain.ensurePrincipal(org, "colleague", "human");
+  brain.store.control.prepare("INSERT INTO workspace_memberships(workspace_id,organization_id,principal_id,role,version,granted_by,granted_at_ms) VALUES (?,?,?,'operator',1,?,?)").run(demo.workspaceId, org, "colleague", demo.actor.actorId, brain.store.now());
+  const colleague = { kind: "human" as const, actorId: "colleague", organizationId: org, workspaceId: demo.workspaceId, scopes: scopesForPrincipal(brain.store, "colleague", org, demo.workspaceId), authMethod: "session" as const, authGeneration: 1 };
+  const cmd = async (actor: typeof demo.actor, type: string, key: string, payload: Record<string, unknown>, expectedVersion?: number) => (await brain.executeCommand(actor, {
+    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: type, workspaceId: demo.workspaceId, idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
+  } as never, key)).receipt;
+  const missionId = (await cmd(demo.actor, "mission.create", "baseline-del-create", { title: "Choose a supplier", intent: "Pick the cheaper supplier", successCriteria: ["A supplier is chosen"], autoStart: false })).resourceId ?? "";
+  const planId = (await cmd(demo.actor, "plan.propose", "baseline-del-plan", { missionId, origin: "manual", tasks: [{ id: "compare", title: "Compare vendor prices", criteria: ["Prices are compared"], dependsOn: [], assignment: { kind: "agent", id: "pi", role: "specialist" } }] })).resourceId ?? "";
+  const version = ((await brain.executeQuery(demo.actor, { queryType: "missions.get", workspaceId: demo.workspaceId, resourceId: missionId })) as unknown as { snapshot: { version: number } }).snapshot.version;
+  await cmd(demo.actor, "plan.confirm", "baseline-del-confirm", { planVersionId: planId }, version);
+  const workItemId = (brain.store.workspaceDb(demo.workspaceId, org).prepare("SELECT id FROM work_items WHERE mission_id=?").get(missionId) as { id: string }).id;
+  const parent = (await cmd(colleague, "session.create", "baseline-del-parent", { workItemId, agentId: "task-worker", engineId: "fixture", task: "Compare vendor prices", budget: { maxTokens: 100000, maxMicroUsd: 0, maxTurns: 8 }, scope: { allowedPaths: [], prohibitedPaths: [], allowedTools: [] }, worktreeId: "wt-baseline" })).resourceId ?? "";
+  const done = (await cmd(colleague, "session.delegate", "baseline-del-a", { parentSessionId: parent, task: "Summarise the three cheapest vendors" })).resourceId ?? "";
+  const broken = (await cmd(colleague, "session.delegate", "baseline-del-b", { parentSessionId: parent, task: "Read the supplier register" })).resourceId ?? "";
+  const list = () => delegationsOf(brain, demo.actor, demo.workspaceId, missionId);
+  brain.workflows.completeStep(org, demo.workspaceId, (await list()).find((entry) => entry.delegationId === broken)!.run.runId!, "respond", { error: "The supplier register could not be reached" }, false);
+  const runners = await enrollChildRunners(brain, demo.actor, governor.url, "baseline-child");
+  await driveChildren(brain, runners, () => (brain.store.workspaceDb(demo.workspaceId, org).prepare("SELECT state FROM delegation_runs WHERE delegation_id=?").get(done) as { state: string }).state === "succeeded");
+  await cmd(colleague, "session.delegate", "baseline-del-c", { parentSessionId: parent, task: "Draft the supplier shortlist" });
+  return `/missions/${missionId}/delegations`;
+}
+
 /** The Live console on a session that stopped and left a checkpoint on `runnerId`, made when its screen is reached (ticket #101); each adds a mission and a stopped task. */
 async function interruptedRoute(demo: Demo, governor: Fixture, runnerId: string, key: string, then?: (sessionId: string) => Promise<string>): Promise<string> {
   const { sessionId } = await interruptedSession(governor.app.brain, demo.actor, demo.workspaceId, runnerId, "Summarise the board papers", key);
@@ -150,6 +181,7 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // A question a team member asked a person (ticket #109), before the push screens (those stay last) because it adds an attention item: the mission's Live tab, then the composer open on it.
   { id: "mission-question", route: questionRoute, heading: "Compile the quarterly report figures", waitFor: "mission-questions" },
   { id: "mission-question-answer", route: questionRoute, heading: "Compile the quarterly report figures", after: async (page) => { await page.getByTestId("mission-question").getByRole("button", { name: "Answer", exact: true }).click(); await expect(page.getByRole("dialog", { name: "Answer a question" })).toBeVisible(); } },
+  { id: "mission-delegations", route: delegationsRoute, heading: "Choose a supplier", waitFor: "delegations" },
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
@@ -245,7 +277,7 @@ test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(300_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const demo = await seedBrowserDemo(page, governor);
-  for (const screen of SCREENS) {
+  for (const screen of SCREENS.filter((entry) => !process.env["VB_ONLY"] || entry.id === process.env["VB_ONLY"])) {
     await screen.prepare?.(governor, page, demo);
     await page.goto(`${governor.url}${await screen.route(demo, governor)}`);
     const landmark = screen.testid
