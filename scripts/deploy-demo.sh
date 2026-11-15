@@ -190,9 +190,17 @@ fi
 
 # ---- sandbox images (for launcher-enforced isolation) ----
 echo "==> Ensuring sandbox images"
-if ! $SSH "docker images -q brain-sandbox-agent" | grep -q .; then
+if ! $SSH "docker images -q brain-sandbox-agent" | grep -q . || ! $SSH "docker images -q brain-sandbox-engine" | grep -q . || ! $SSH "docker images -q brain-egress-proxy" | grep -q .; then
   $SSH "cd $REMOTE_DIR/src && bash scripts/build-sandbox-images.sh >/dev/null 2>&1"
 fi
+
+# ---- engine sandboxes (ADR 0065): every engine runs in its own container, reaching a network only through the egress proxy ----
+# The engine state root is shared by the runners (their attempts' directories) and the launcher (which mounts one per attempt); the grants
+# directory is where the launcher writes each sandbox's allowed hosts for the proxy (ADR 0037). Idempotent on every deploy.
+echo "==> Engine sandboxes (state root, egress proxy)"
+$SSH "mkdir -p $REMOTE_DIR/run/engine-state $REMOTE_DIR/run/egress-grants && chmod 700 $REMOTE_DIR/run/engine-state $REMOTE_DIR/run/egress-grants"
+$SSH "docker network inspect brain-internal >/dev/null 2>&1 || docker network create --internal brain-internal >/dev/null"
+$SSH "docker inspect brain-egress-proxy >/dev/null 2>&1 || (docker run -d --restart unless-stopped --name brain-egress-proxy --read-only --cap-drop ALL --security-opt no-new-privileges:true --memory 256m --pids-limit 128 -v $REMOTE_DIR/run/egress-grants:/grants:ro brain-egress-proxy >/dev/null && docker network connect --alias brain-egress-proxy brain-internal brain-egress-proxy)"
 
 echo "==> Building the governor image (cached layers make repeat deploys fast)"
 $SSH "cd $REMOTE_DIR && docker compose build governor"
@@ -286,7 +294,7 @@ set_runner_env() { $SSH "f=$REMOTE_DIR/$1; [ -f \$f ] || exit 0; if grep -q '^$2
 # runner names (host.read); host.exec runs only the commands in host-commands.json, with fixed argv. Idempotent on every deploy.
 echo "==> Host access for the SRE tools (read-only /srv, named diagnostic commands)"
 rsync -az -e "ssh -p $PORT -o ConnectTimeout=15" scripts/demo/host-commands.json "$USER_SSH@$HOST:$REMOTE_DIR/host-commands.json"
-$SSH "printf '[Service]\nEnvironment=BRAIN_LAUNCHER_DATA_MOUNTS=srv=/srv\nEnvironment=BRAIN_LAUNCHER_HOST_COMMANDS=$REMOTE_DIR/host-commands.json\n' > /tmp/brain-host-access.conf && $SUDO mkdir -p /etc/systemd/system/brain-launcher.service.d && $SUDO cp /tmp/brain-host-access.conf /etc/systemd/system/brain-launcher.service.d/host-access.conf && $SUDO systemctl daemon-reload"
+$SSH "printf '[Service]\nEnvironment=BRAIN_LAUNCHER_DATA_MOUNTS=srv=/srv\nEnvironment=BRAIN_LAUNCHER_HOST_COMMANDS=$REMOTE_DIR/host-commands.json\nEnvironment=BRAIN_LAUNCHER_ENGINE_STATE_ROOT=$REMOTE_DIR/run/engine-state\nEnvironment=BRAIN_LAUNCHER_EGRESS_GRANTS_DIR=$REMOTE_DIR/run/egress-grants\n' > /tmp/brain-host-access.conf && $SUDO mkdir -p /etc/systemd/system/brain-launcher.service.d && $SUDO cp /tmp/brain-host-access.conf /etc/systemd/system/brain-launcher.service.d/host-access.conf && $SUDO systemctl daemon-reload"
 # host tools live only on the sre-host runner once it exists (scripts/enroll-sre-host-runner.sh); before that the agents runner keeps the mount
 if $SSH "test -f $REMOTE_DIR/runner-sre-host.env"; then set_runner_env runner-sre-host.env BRAIN_TOOL_DATA_MOUNTS host.read=srv; else set_runner_env runner-agents.env BRAIN_TOOL_DATA_MOUNTS host.read=srv; fi
 if ! $SSH "systemctl list-unit-files --type=service" 2>/dev/null | grep -q "brain-runner-agents.service"; then
@@ -360,6 +368,7 @@ EOF
 BRAIN_GOVERNOR_URL=http://127.0.0.1:3100
 BRAIN_LAUNCHER_SOCKET=/srv/demos/brain/run/launcher.sock
 BRAIN_RUNNER_STATE_DIR=/srv/demos/brain/run/runner-agents-1-state
+BRAIN_RUNNER_ENGINE_STATE_DIR=/srv/demos/brain/run/engine-state
 BRAIN_RUNNER_ID=runner-agents-1
 BRAIN_RUNNER_ENGINE=pi
 BRAIN_RUNNER_SLOTS=$AGENT_SLOTS
@@ -374,6 +383,7 @@ EOF
 BRAIN_GOVERNOR_URL=http://127.0.0.1:3100
 BRAIN_LAUNCHER_SOCKET=/srv/demos/brain/run/launcher.sock
 BRAIN_RUNNER_STATE_DIR=/srv/demos/brain/run/runner-evaluators-1-state
+BRAIN_RUNNER_ENGINE_STATE_DIR=/srv/demos/brain/run/engine-state
 BRAIN_RUNNER_ID=runner-evaluators-1
 BRAIN_RUNNER_ENGINE=claude
 BRAIN_RUNNER_SLOTS=$EVALUATOR_SLOTS

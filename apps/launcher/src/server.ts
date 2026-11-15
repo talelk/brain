@@ -5,19 +5,22 @@ import { dirname, resolve } from "node:path";
 import { execa } from "execa";
 import { loadHostCommands, resolveHostCommand, type HostCommandEffect } from "./host-commands";
 import { isEgressHost, pruneEgressGrants, removeEgressGrant, writeEgressGrant } from "./egress-proxy";
+import { ENGINE_IMAGE, EngineSandboxes } from "./engine-sandbox";
 
 interface Sandbox { id: string; containerId: string; profile: string; requestHash: string; grantId?: string }
 const sandboxes = new Map<string, Sandbox>();
 
 const PROFILES = new Set(["agent", "privileged-tool", "evaluator"]);
-const IMAGES = new Set(["brain-sandbox-agent", "brain-sandbox-tool", "brain-sandbox-evaluator"]);
+// The engine image only ever runs through the engine-sandbox routes; the tool profiles cannot name it.
+const TOOL_IMAGES = new Set(["brain-sandbox-agent", "brain-sandbox-tool", "brain-sandbox-evaluator"]);
+const IMAGES = new Set([...TOOL_IMAGES, ENGINE_IMAGE]);
 
-async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
+async function body(req: IncomingMessage, limit = 256 * 1024): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
   let total = 0;
   for await (const chunk of req) {
     total += (chunk as Buffer).length;
-    if (total > 256 * 1024) throw new Error("payload too large");
+    if (total > limit) throw new Error("payload too large");
     chunks.push(chunk as Buffer);
   }
   const text = Buffer.concat(chunks).toString("utf8");
@@ -87,6 +90,24 @@ export async function startLauncher(): Promise<void> {
   const egressGrantsDir = process.env["BRAIN_LAUNCHER_EGRESS_GRANTS_DIR"] ? resolve(process.env["BRAIN_LAUNCHER_EGRESS_GRANTS_DIR"]) : undefined;
   // Operator-owned allowlist of named host commands (ADR 0021): "name" -> fixed argv, never a caller-supplied command line.
   const hostCommands = loadHostCommands(process.env["BRAIN_LAUNCHER_HOST_COMMANDS"]);
+  // Whether the local image is the bytes pinned for it, when a pin is configured: the reason it may not run, or undefined.
+  const verifyPinned = async (image: string): Promise<string | undefined> => {
+    const pin = imagePins.get(image);
+    if (!pin) return undefined;
+    const inspect = await execa("docker", ["image", "inspect", image, "--format", "{{json .RepoDigests}}"], { timeout: 15_000, reject: false });
+    let digests: string[] = [];
+    try { digests = JSON.parse(String(inspect.stdout)) as string[]; } catch { digests = []; }
+    return inspect.exitCode !== 0 || !digests.some((d) => d.endsWith(pin)) ? `image ${image} does not match pinned ${pin}; refusing to run unpinned bytes` : undefined;
+  };
+  // Engine sandboxes (ADR 0065): the host directory holding every attempt's engine state, who the engine runs as there, and how long a
+  // sandbox may go unspoken to before it is stopped (a runner that died leaves no container holding a network grant).
+  const engineIdleMs = Number(process.env["BRAIN_LAUNCHER_ENGINE_IDLE_MS"] ?? 90_000);
+  const engineUser = process.env["BRAIN_LAUNCHER_ENGINE_USER"] ?? `${process.getuid?.() ?? 0}:${process.getgid?.() ?? 0}`;
+  if (!/^\d+:\d+$/u.test(engineUser)) throw new Error("BRAIN_LAUNCHER_ENGINE_USER must be uid:gid");
+  const engineSandboxes = new EngineSandboxes({
+    stateRoot: process.env["BRAIN_LAUNCHER_ENGINE_STATE_ROOT"] ? resolve(process.env["BRAIN_LAUNCHER_ENGINE_STATE_ROOT"]) : undefined,
+    egressGrantsDir, user: engineUser, idleMs: Number.isFinite(engineIdleMs) && engineIdleMs > 0 ? engineIdleMs : 90_000, verifyImage: verifyPinned,
+  });
   mkdirSync(dirname(socket), { recursive: true });
   // The single-use ledger of privileged invocations survives a restart of the launcher.
   const ledgerPath = `${socket}.effects`;
@@ -139,7 +160,7 @@ export async function startLauncher(): Promise<void> {
         const image = String(b["image"] ?? "");
         const requestId = String(b["requestId"] ?? "");
         if (!PROFILES.has(profile)) { json(res, 422, { error: "unknown profile" }); return; }
-        if (!IMAGES.has(image)) { json(res, 422, { error: "image not preinstalled" }); return; }
+        if (!TOOL_IMAGES.has(image)) { json(res, 422, { error: "image not preinstalled" }); return; }
         // No arbitrary argv/mounts/env: reject smuggled fields. toolsDir is the
         // one permitted tool mount (read-only at /tools); dataMounts may only
         // name an operator-declared path and is always mounted read-only.
@@ -164,16 +185,8 @@ export async function startLauncher(): Promise<void> {
         if (wantsNet !== (requestedHosts.length > 0)) { json(res, 422, { error: wantsNet ? "a sandbox with a network must name the egressHosts it may reach" : "egressHosts need network internal" }); return; }
         if (wantsNet && profile === "privileged-tool") { json(res, 422, { error: "a privileged tool never gets a network" }); return; }
         if (wantsNet && !egressGrantsDir) { json(res, 409, { error: "the egress proxy is not configured on this launcher (BRAIN_LAUNCHER_EGRESS_GRANTS_DIR)" }); return; }
-        const pin = imagePins.get(image);
-        if (pin) {
-          const inspect = await execa("docker", ["image", "inspect", image, "--format", "{{json .RepoDigests}}"], { timeout: 15_000, reject: false });
-          let digests: string[] = [];
-          try { digests = JSON.parse(String(inspect.stdout)) as string[]; } catch { digests = []; }
-          if (inspect.exitCode !== 0 || !digests.some((d) => d.endsWith(pin))) {
-            json(res, 409, { error: `image ${image} does not match pinned ${pin}; refusing to run unpinned bytes` });
-            return;
-          }
-        }
+        const unpinned = await verifyPinned(image);
+        if (unpinned) { json(res, 409, { error: unpinned }); return; }
         const prior = [...sandboxes.values()].find((s) => s.requestHash === requestId);
         if (prior) { json(res, 200, { sandboxId: prior.id, containerId: prior.containerId, profile: prior.profile, state: "running", terminationConfirmed: false, cleanupConfirmed: false }); return; }
         const name = `brain-${profile}-${Date.now().toString(36)}`;
@@ -196,6 +209,24 @@ export async function startLauncher(): Promise<void> {
         const containerId = String(created.stdout).trim();
         sandboxes.set(name, { id: name, containerId, profile, requestHash: requestId, ...(grant ? { grantId: grant.id } : {}) });
         json(res, 201, { sandboxId: name, containerId, profile, state: "running", terminationConfirmed: false, cleanupConfirmed: false });
+        return;
+      }
+      if (req.method === "POST" && url === "/v1/engine-sandboxes") {
+        const reply = await engineSandboxes.create(await body(req));
+        json(res, reply.status, reply.body);
+        return;
+      }
+      const engineUrl = new URL(url, "http://launcher");
+      const enginePath = engineUrl.pathname.split("/");
+      const engineMatch = enginePath.length === 5 && enginePath[1] === "v1" && enginePath[2] === "engine-sandboxes" && ["input", "output", "stop"].includes(enginePath[4] ?? "") ? [enginePath[3], enginePath[4]] : undefined;
+      if (engineMatch) {
+        const id = decodeURIComponent(engineMatch[0] ?? "");
+        const query = engineUrl.searchParams;
+        const reply = req.method === "POST" && engineMatch[1] === "input" ? engineSandboxes.input(id, await body(req, 4 * 1024 * 1024))
+          : req.method === "POST" && engineMatch[1] === "stop" ? await engineSandboxes.stop(id, Number((await body(req))["graceMs"] ?? 5000))
+          : req.method === "GET" && engineMatch[1] === "output" ? await engineSandboxes.output(id, Math.max(0, Number(query.get("after") ?? 0)), Number(query.get("waitMs") ?? 0))
+          : { status: 404, body: { error: "not found" } };
+        json(res, reply.status, reply.body);
         return;
       }
       const execMatch = url.match(/^\/v1\/sandboxes\/([^/]+)\/exec$/);
@@ -257,6 +288,8 @@ export async function startLauncher(): Promise<void> {
     }
   });
   await new Promise<void>((resolve) => server.listen(socket, resolve));
+  await engineSandboxes.removeLeftovers();
   await reconcileRegistry(egressGrantsDir);
+  engineSandboxes.startReaper();
   console.log(`Brain launcher listening on ${socket}`);
 }

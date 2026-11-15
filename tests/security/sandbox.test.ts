@@ -35,7 +35,7 @@ describe("launcher validation boundary (T21)", () => {
     const health = await unixJson(socket, "GET", "/v1/health", undefined, readFileSync(`${socket}.token`, "utf8").trim());
     expect(health.status).toBe(200);
     expect(health.json["profiles"]).toEqual(["agent", "privileged-tool", "evaluator"]);
-    expect(health.json["images"]).toEqual(["brain-sandbox-agent", "brain-sandbox-tool", "brain-sandbox-evaluator"]);
+    expect(health.json["images"]).toEqual(["brain-sandbox-agent", "brain-sandbox-tool", "brain-sandbox-evaluator", "brain-sandbox-engine"]);
   }, scaled(60_000));
 
   it("smuggled fields, unknown profiles and foreign images are 422 before docker", async () => {

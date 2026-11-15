@@ -82,6 +82,24 @@ describe("a failed attempt carries its reason", () => {
     }
   });
 
+  it("an attempt whose engine sandbox could not start fails with a sandbox failure code, never a silent downgrade (ADR 0065)", async () => {
+    const w = setupWorld();
+    try {
+      const codeOf = async (key: string, error: string): Promise<{ code: string | undefined; reason: string | undefined }> => {
+        const offer = await failedAttempt(w, key, error);
+        const view = (await w.brain.executeQuery(w.owner, { queryType: "job.get", workspaceId: w.workspaceId, resourceId: offer.jobId } as never)) as unknown as { snapshot: { attempts: Array<{ failureReason?: string; failureCode?: string }> } };
+        return { code: view.snapshot.attempts[0]?.failureCode, reason: view.snapshot.attempts[0]?.failureReason };
+      };
+      const image = await codeOf("sbx-1", "engine sandbox create failed 503: docker run failed: Unable to find image 'brain-sandbox-engine:latest' locally");
+      expect(image).toEqual({ code: "sandbox-image-missing", reason: expect.stringContaining("brain-sandbox-engine") });
+      const refused = await codeOf("sbx-2", "engine sandbox create failed: this runner has no launcher, and pi does not run in the runner itself");
+      expect(refused.code).toBe("sandbox-unavailable");
+      expect((await codeOf("sbx-3", "engine sandbox exec failed: the container ended before the step finished")).code).toBe("sandbox-unavailable");
+    } finally {
+      w.brain.close();
+    }
+  });
+
   it("an attempt that failed without an error says nothing it does not know", async () => {
     const w = setupWorld();
     try {

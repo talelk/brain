@@ -23,6 +23,9 @@ export interface HostedRoute extends HostedPrices {
   readonly keyRef: string;
 }
 
+/** Where Pi calls when the runner names no model address. */
+export const DEFAULT_LOCAL_MODEL_URL = "http://tntungx10:8000/v1";
+
 /** What an attempt is told when this runner has no key for a route: the route is skipped, nothing was sent anywhere. */
 export const missingKeyMessage = (keyRef: string): string => `The model route needs its API key on this runner (${modelKeyEnvName(keyRef)}); the attempt was not sent anywhere`;
 
@@ -59,7 +62,7 @@ export class PiEngine implements EngineAdapter {
   }
   private sessionsDir(): string { return join(this.agentDir(), "sessions"); }
   private checkpointsDir(): string { return join(this.agentDir(), "checkpoints"); }
-  private modelUrl(): string { return process.env["BRAIN_LOCAL_MODEL_URL"] ?? "http://tntungx10:8000/v1"; }
+  private modelUrl(): string { return process.env["BRAIN_LOCAL_MODEL_URL"] ?? DEFAULT_LOCAL_MODEL_URL; }
   private modelId(): string { return process.env["BRAIN_LOCAL_MODEL_ID"] ?? "qwen3.8-flash-next-a5b"; }
 
   async probe() {

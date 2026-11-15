@@ -38,7 +38,7 @@ async function mission(w: TestWorld, key: string, confirm: boolean): Promise<str
 /** A runner that enrolls through the runner protocol, reporting the fixture engine. */
 function runner(w: TestWorld, runnerId: string) {
   const at = new Date(Date.now() - 60_000).toISOString();
-  const caps = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", ...advertisedCapabilities([], [{ id: "fixture", features: ["sessions"] }])];
+  const caps = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", ...advertisedCapabilities([], [{ id: "fixture", features: ["sessions"] }], false)];
   const registered = registerRunner(w.brain, w.owner, runnerId, { capabilities: caps.map((capability) => observation(capability, at)) });
   return { ...registered, organizationId: w.org };
 }

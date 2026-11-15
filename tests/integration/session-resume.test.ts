@@ -24,7 +24,7 @@ function register(w: World, runnerId: string, features: readonly string[] = FEAT
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const { credential } = protocol.enrollRunner({ token, publicKeyPem: publicKey.export({ type: "spki", format: "pem" }).toString(), runnerId });
   const challenge = protocol.challenge(runnerId, credential);
-  const capabilities = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", ...advertisedCapabilities([], [{ id: "fixture", features: [...features] }])];
+  const capabilities = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", ...advertisedCapabilities([], [{ id: "fixture", features: [...features] }], false)];
   const at = clock.nowMs();
   const body: Record<string, unknown> = {
     contractVersion: "brain.runner/v1", runnerId, bootNonce: `boot-${runnerId}`, runtimeVersion: "test", configDigest: DIGEST_A,
@@ -63,7 +63,7 @@ let beat = 0;
 /** The runner's heartbeat, as the real one sends it: it is the proof the runner is still there, and may restate what its engine can do. */
 function heartbeat(w: World, runner: Runner, features: readonly string[] = FEATURES): void {
   const at = new Date(clock.nowMs()).toISOString();
-  const capabilities = ["os:linux", "isolation:ephemeral-container", "engine:fixture", ...advertisedCapabilities([], [{ id: "fixture", features: [...features] }])];
+  const capabilities = ["os:linux", "isolation:ephemeral-container", "engine:fixture", ...advertisedCapabilities([], [{ id: "fixture", features: [...features] }], false)];
   w.brain.jobProtocol.heartbeat(runner, { sequence: ++beat, health: "healthy", capabilities: capabilities.map((capability) => ({ capability, verified: true, source: "runner-probe", observedAt: at, expiresAt: new Date(clock.nowMs() + 3_600_000).toISOString() })) });
 }
 
