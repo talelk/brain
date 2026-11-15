@@ -838,6 +838,12 @@ missions; **Logs** and **Runners** sit under Administration. Inside a mission th
 ADR 0014). Screens use five words: **Mission**, **Plan**, **Task**, **Result** and **Check**; run, session, attempt and
 release appear under Details.
 
+**Route inventory** (`contracts/v1/api-routes.json`) is the one hand-kept list of Brain's public HTTP
+routes; the OpenAPI document (`contracts/v1/openapi.json`, served at `GET /v1/openapi.json` to any signed-in
+credential) is generated from it plus the schema, registry and authorization matrix. The `brain` CLI is a client
+of that HTTP API only: its `mission`, `session` and `approval` commands run the same commands and the same
+step-up as the app (an approval is decided only with fresh step-up evidence).
+
 **Build-process vocabulary is not domain vocabulary.** Task cards (`T01`–`T50`), gates
 (`G01`–`G08`), the implementation ledger and checkpoint and pack verifiers describe how
 Brain is built, not what Brain is, and have no place here. (A domain **checkpoint** is the
