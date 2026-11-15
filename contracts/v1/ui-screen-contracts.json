@@ -123,7 +123,8 @@
     "knowledgeAssets.list",
     "challenges.list",
     "playProposals.list",
-    "agents.list"
+    "agents.list",
+    "standingTeams.list"
    ],
    "actions": [
     "mission.policy.set",
@@ -222,6 +223,30 @@
    "task": "Start a mission from a play, run a single task, or describe the work",
    "title": "Plays",
    "area": "library"
+  },
+  {
+   "route": "/w/:id/library/teams",
+   "queries": [
+    "standingTeams.list",
+    "agents.list",
+    "library.summary"
+   ],
+   "actions": [
+    "standingTeam.create",
+    "standingTeam.update",
+    "standingTeam.archive"
+   ],
+   "content": [
+    "teams",
+    "members",
+    "coordinator"
+   ],
+   "owner": "T64",
+   "navigationGroup": "library",
+   "area": "library",
+   "icon": "lucide-users",
+   "task": "Name the teams you reuse: roles bound to agents and engines that plans and Plays can start from",
+   "title": "Teams"
   },
   {
    "route": "/plays/:id",
@@ -1166,6 +1191,11 @@
     "label": "Plays",
     "route": "/w/:id/plays",
     "icon": "lucide-book-open-check"
+   },
+   {
+    "label": "Teams",
+    "route": "/w/:id/library/teams",
+    "icon": "lucide-users"
    },
    {
     "label": "Knowledge",

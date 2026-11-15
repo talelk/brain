@@ -239,7 +239,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
           renderNode={(node, critical) => <Show when={editedTasks().find((task) => task.id === node.id)}>{(task) => stepCard(task(), critical)}</Show>} />
       </Show>
       <FormSheet size="xl" open={editOpen()} onClose={() => setEditOpen(false)} title={t("plan.edit-the-plan-steps.a8fd")} description={t("plan.edits-become-a-new-plan-revision.18a4")} submit={t("plan.keep-edits.2584")} icon="lucide-check" disabled={unfit().length > 0} onSubmit={() => { setEditOpen(false); }}>
-        <TeamSection team={editedTeam()} tasks={editedTasks()} agents={teamData.agents()} locked={teamData.lockedMembers()} onChange={changeTeam} />
+        <TeamSection team={editedTeam()} tasks={editedTasks()} agents={teamData.agents()} locked={teamData.lockedMembers()} standing={teamData.standingTeams() ?? []} onChange={changeTeam} />
         <For each={editedTasks()}>{(task, index) => <section class="flex flex-col gap-3 border-b border-outline-gray-1 pb-4" aria-label={`Step ${index() + 1}`}>
           <div class="flex flex-col gap-3"><TextInput label={`Step ${index() + 1} expected outcome`} value={task.title} onInput={(event) => updateTask(index(), "title", event.currentTarget.value)} />
             <TextInput label={t("plan.depends-on.8bfa")} value={task.dependsOn.join(", ")} description={t("plan.comma-separated-task-ids-no-depe.46ab")} onInput={(event) => updateTask(index(), "dependsOn", event.currentTarget.value)} /></div>

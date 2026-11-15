@@ -79,7 +79,7 @@
     },
     "missions": {
       "path": "apps/governor/src/modules/missions",
-      "owns": "Missions, mission briefs and accepted decisions, autonomy policies, mission budgets, plan versions with mission teams, work items and parking, handoff routing, execution links, mission messages and named outputs"
+      "owns": "Missions, mission briefs and accepted decisions, autonomy policies, mission budgets, plan versions with mission teams, standing teams, work items and parking, handoff routing, execution links, mission messages and named outputs"
     },
     "sessions": {
       "path": "apps/governor/src/modules/sessions",

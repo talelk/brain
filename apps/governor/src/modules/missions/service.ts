@@ -1,5 +1,5 @@
 import { domainDigest } from "@brain/contracts";
-import type { AcceptedDecision, ActorContext, AutonomyPolicy, AutonomyPreset, ExecutionLink, JsonValue, Mission, MissionBrief, MissionOutcome, OutputInput, PlanAssignment, PlanOperation, PlanTask, PlanVersion, TeamMember, WorkItem, WorkItemPriority, WorkItemState } from "@brain/contracts";
+import type { AcceptedDecision, ActorContext, AutonomyPolicy, AutonomyPreset, ExecutionLink, JsonValue, Mission, MissionBrief, MissionOutcome, OutputInput, PlanAssignment, PlanOperation, PlanTask, PlanVersion, StandingTeam, TeamMember, WorkItem, WorkItemPriority, WorkItemState } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
@@ -9,6 +9,7 @@ import { assertServedCriteria, criteriaFromText, criteriaCoverage, parseCriteria
 import { AUTONOMY_PRESETS, assertMembersBound, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
 import { repeatGate, type RepeatPlan, type RepeatSchedule } from "./repeat";
+import { addStandingMembers, applyStandingTeam, listStandingTeams, referenceStandingTeam, standingTeamCounts } from "./standing-teams";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
 import { admit, admitChallenge, admitOutsideMission, budgetOf, DEFAULT_MISSION_BUDGET, hasHeadroom, limitChangeNote, minutesWord, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
 import { missionTaskTrust } from "./task-trust";
@@ -122,6 +123,15 @@ export class MissionService {
   /** The current brief of a mission, as every session of it receives it. */
   briefOf(actor: ActorContext, workspaceId: string, missionId: string): MissionBrief {
     return this.brief(actor, workspaceId, this.missionRow(actor, workspaceId, missionId));
+  }
+
+  /** The workspace's standing teams (ADR 0056), active first. */
+  standingTeams(actor: ActorContext, workspaceId: string): { items: StandingTeam[] } {
+    return { items: listStandingTeams(this.db(actor, workspaceId)) };
+  }
+
+  standingTeamCount(actor: ActorContext, workspaceId: string): number {
+    return standingTeamCounts(this.db(actor, workspaceId)).active;
   }
 
   private db(actor: ActorContext, workspaceId: string) {
@@ -238,6 +248,8 @@ export class MissionService {
     if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
     switch (command.commandType) {
       case "mission.create": return this.createMission(actor, workspaceId, command.payload);
+      case "standingTeam.create": case "standingTeam.update": case "standingTeam.archive":
+        return applyStandingTeam(this.store, this.db(actor, workspaceId), workspaceId, actor, this.agentCapabilities(actor.organizationId), command);
       case "mission.pause": case "mission.resume": case "mission.proposeCompletion": case "mission.close":
         return this.changeState(actor, workspaceId, command.commandType, command.payload, command.expectedVersion);
       case "mission.brief.edit": return this.editBrief(actor, workspaceId, command.payload);
@@ -274,6 +286,7 @@ export class MissionService {
     assertBriefSize(intent, constraints, []);
     const preset = (payload["autonomy"] as AutonomyPreset | undefined) ?? play?.spec.autonomy ?? "standard";
     const policy = withinCeiling(policyFor(preset, 1), this.ceiling(workspaceId));
+    const standing = payload["standingTeamId"] ? this.startTeam(actor, workspaceId, String(payload["standingTeamId"]), play) : undefined;
     this.store.inTx(db, () => {
       const now = this.store.now();
       const budget = (payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap?: number; attemptReserveMicroUsd?: number; finalAllowanceMicroUsd?: number; maxTokens?: number; attemptReserveTokens?: number } | undefined) ?? play?.spec.budget ?? DEFAULT_MISSION_BUDGET;
@@ -291,11 +304,28 @@ export class MissionService {
         db.prepare("INSERT OR IGNORE INTO mission_subjects(mission_id,pack,kind,subject_id) VALUES (?,?,?,?)").run(id, subject.pack, subject.kind, subject.id);
       }
       if (play && release) db.prepare("UPDATE missions SET play_id=?,play_release_digest=?,coordinator_member_id=?,coordinator_workflow=?,final_allowance_micro_usd=? WHERE id=?")
-        .run(String(payload["playId"]), release.digest, play.spec.coordinator ?? null, play.spec.coordinatorWorkflow ?? null, budget.finalAllowanceMicroUsd ?? play.spec.budget?.finalAllowanceMicroUsd ?? 0, id);
+        .run(String(payload["playId"]), release.digest, standing ? standing.coordinator ?? null : play.spec.coordinator ?? null, play.spec.coordinatorWorkflow ?? null, budget.finalAllowanceMicroUsd ?? play.spec.budget?.finalAllowanceMicroUsd ?? 0, id);
       this.store.emit(db, { aggregateType: "mission", aggregateId: id, eventType: "mission.created", payload: { missionId: id } });
     });
-    if (play) this.proposePlan(actor, workspaceId, { missionId: id, origin: "template", summary: `From play ${String(payload["playId"])}`, tasks: play.spec.plan.tasks, team: play.spec.team });
+    if (play) this.proposePlan(actor, workspaceId, { missionId: id, origin: "template", summary: `From play ${String(payload["playId"])}`, tasks: standing?.tasks ?? play.spec.plan.tasks, team: standing?.team ?? play.spec.team });
     return id;
+  }
+
+  /**
+   * A Play started with a standing team (ADR 0056): the standing team's members, copied now, are the mission team in place of the Play's own.
+   * A Play task assigned to a member the standing team does not have is left unassigned (any member that covers it may take it); the
+   * coordinator is the one the standing team names, else the Play's when the standing team has it, and a Play that runs a coordinator
+   * needs one of them.
+   */
+  private startTeam(actor: ActorContext, workspaceId: string, standingTeamId: string, play: { spec: { team: readonly TeamMember[]; plan: { tasks: readonly PlanTask[] }; coordinator?: string | undefined; coordinatorWorkflow?: string | undefined } } | undefined): { team: TeamMember[]; tasks: PlanTask[]; coordinator: string | undefined } {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person starts a mission with a standing team");
+    if (!play) throw new BrainDomainError("INVALID_ARGUMENT", "a standing team is used with a Play, or in a plan; this mission has no Play");
+    const reference = referenceStandingTeam(this.db(actor, workspaceId), standingTeamId, this.agentCapabilities(actor.organizationId));
+    const ids = new Set(reference.members.map((member) => member.memberId));
+    const tasks = play.spec.plan.tasks.map((task): PlanTask => { if (task.assignment?.kind !== "agent" || ids.has(task.assignment.id)) return { ...task }; const { assignment: _dropped, ...rest } = task; return rest; });
+    const coordinator = reference.coordinatorMemberId ?? (play.spec.coordinator && ids.has(play.spec.coordinator) ? play.spec.coordinator : undefined);
+    if (play.spec.coordinatorWorkflow && !coordinator) throw new BrainDomainError("INVALID_ARGUMENT", "this Play runs a coordinator: choose a standing team that names one");
+    return { team: reference.members, tasks, coordinator };
   }
 
   /** The workspace's autonomy ceiling: no mission policy may grant more (#35). */
@@ -310,7 +340,12 @@ export class MissionService {
     assertNotClosed(mission);
     const tasks = payload["tasks"] as unknown as PlanTask[];
     // A session that does not name a team keeps the confirmed one: it cannot see the team, and leaving it out must not dissolve it.
-    const named = payload["team"] as TeamMember[] | undefined;
+    let named = payload["team"] as TeamMember[] | undefined;
+    if (payload["standingTeamId"]) {
+      if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person references a standing team");
+      // The members are copied into this version now; the standing team is not consulted again.
+      named = addStandingMembers(named ?? [], referenceStandingTeam(this.db(actor, workspaceId), String(payload["standingTeamId"]), this.agentCapabilities(actor.organizationId)).members);
+    }
     const team = named ?? (actor.kind === "agent" && mission.active_plan_version_id ? JSON.parse(this.planRow(actor, workspaceId, mission.active_plan_version_id).team_json) as TeamMember[] : []);
     assertPlanTasks(tasks);
     assertServedCriteria(tasks, new Set(parseCriteria(mission.success_criteria_json).map((criterion) => criterion.id)));

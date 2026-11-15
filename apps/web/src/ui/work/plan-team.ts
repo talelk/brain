@@ -70,3 +70,19 @@ export function assignmentChanges(before: { readonly tasks: readonly PlanTask[];
   for (const member of priorTeam) if (!team.some((entry) => entry.memberId === member.memberId)) lines.push(t("plan.team.change-removed", { member: memberLabel(member) }));
   return lines;
 }
+
+/**
+ * What using a standing team does to the team being edited: its members are copied in (a member already there with the same agent and engine
+ * is the same member), and one bound differently is a collision named for the person. This is the rule the Governor applies on a reference.
+ */
+export function copyStandingTeam(team: readonly TeamMember[], standing: readonly TeamMember[]): { team: TeamMember[]; added: TeamMember[]; collisions: Array<{ member: TeamMember; existing: TeamMember }> } {
+  const result = [...team];
+  const added: TeamMember[] = [];
+  const collisions: Array<{ member: TeamMember; existing: TeamMember }> = [];
+  for (const member of standing) {
+    const existing = result.find((entry) => entry.memberId === member.memberId);
+    if (!existing) { const copy = { memberId: member.memberId, role: member.role, agentId: member.agentId, engine: member.engine }; result.push(copy); added.push(copy); }
+    else if (existing.agentId !== member.agentId || existing.engine !== member.engine) collisions.push({ member, existing });
+  }
+  return { team: collisions.length ? [...team] : result, added: collisions.length ? [] : added, collisions };
+}
