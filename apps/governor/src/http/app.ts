@@ -826,7 +826,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return c.json({ data: brain.jobProtocol.toolRead(runner, c.req.param("id"), { tool: { id: body.tool.id, digest: body.tool.digest }, input: body.input }) } as never);
     } catch (e) { return fail(c as never, e); }
   });
-  // The runner of a running mission attempt asks for the credential the attempt's Brain tools act with (ADR 0041).
+  // The runner of a running mission attempt asks for the credential the attempt's Brain tools act with (ADR 0042).
   app.post("/runner/v1/attempts/:id/session-credential", (c) => {
     try {
       const runner = brain.jobProtocol.authenticate(c.req.raw.headers);

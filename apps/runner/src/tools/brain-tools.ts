@@ -4,7 +4,7 @@ import type { GovernorClient, SessionGrant } from "../governor-client";
 import type { BrokerResult } from "./brokers";
 
 /**
- * Governed Brain tools (ADR 0041): an agent reaches Brain through four operator-declared, release-pinned tools, each of which is exactly one
+ * Governed Brain tools (ADR 0042): an agent reaches Brain through four operator-declared, release-pinned tools, each of which is exactly one
  * Brain command run as the attempt's own machine principal (ADR 0032). The tool names no command type and no id it cannot know: the mission,
  * the member and the task this attempt serves come from the Governor with the credential. What the call may do is decided by the Governor's
  * authorization matrix and the principal's own-mission scope, never here; a refusal comes back as a failed tool call with its plain reason.

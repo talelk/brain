@@ -12,7 +12,7 @@ import { BRAIN_BROKERED, type BrainSession } from "./brain-tools";
  */
 export async function brokerRead(binding: EngineToolBinding, input: Readonly<Record<string, unknown>>, attemptId: string, client: Pick<GovernorClient, "toolRead">, launcher?: Pick<LauncherClient, "hostCommand">, outputs?: Pick<RunOutputDir, "write">, brain?: { session: BrainSession; proposalId: string }): Promise<BrokerResult | undefined> {
   const id = binding.release.id;
-  // A Brain tool is one Brain command run as the attempt's own principal (ADR 0041). Outside a mission session (a direct tool step, a tool test) there is none to act as.
+  // A Brain tool is one Brain command run as the attempt's own principal (ADR 0042). Outside a mission session (a direct tool step, a tool test) there is none to act as.
   if (BRAIN_BROKERED.has(id)) return brain ? brain.session.call(id, input, brain.proposalId) : { ok: false, error: "Brain tools work only inside a mission session; this call is not one" };
   if (OUTPUT_BROKERED.has(id)) return outputs ? outputs.write(input) : { ok: false, error: "this attempt has no output folder" };
   if (LAUNCHER_BROKERED.has(id)) return hostExec(input, launcher);

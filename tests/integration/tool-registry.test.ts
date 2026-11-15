@@ -39,7 +39,7 @@ describe("tool registry read (issue #84)", () => {
       expect(byId.get("files.write")).toEqual(expect.objectContaining({ allowedAgents: [], status: "trusted", effectClass: "read" }));
       expect(byId.get("knowledge.search")!.allowedAgents).toEqual(["sre-operator", "task-worker"]);
       expect(byId.get("task.validate")!.allowedAgents).toEqual([]);
-      // The Brain tools (ADR 0041) are the task worker's alone and declared read: they change only Brain, as the session principal.
+      // The Brain tools (ADR 0042) are the task worker's alone and declared read: they change only Brain, as the session principal.
       for (const id of ["mission.comment", "mission.message-member", "mission.propose-plan", "mission.submit-handoff"]) expect(byId.get(id)).toEqual(expect.objectContaining({ allowedAgents: ["task-worker"], status: "trusted", effectClass: "read" }));
       expect(byId.get("web.fetch")).toEqual(expect.objectContaining({ allowedHosts: expect.arrayContaining(["en.wikipedia.org"]), description: expect.stringContaining("plain GET") }));
       // Proof: the pinned script's own bytes and digest, not an empty list.

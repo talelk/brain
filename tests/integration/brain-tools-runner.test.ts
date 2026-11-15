@@ -11,7 +11,7 @@ import { brokerRead } from "../../apps/runner/src/tools/broker-read";
 import { setupWorld } from "../helpers";
 import { confirmedMission, stageStarter, task, type World } from "../support/machine-session";
 
-// ADR 0041, runner side: the Brain tools of an attempt are Brain commands made over HTTP with the credential the Governor gave that attempt.
+// ADR 0042, runner side: the Brain tools of an attempt are Brain commands made over HTTP with the credential the Governor gave that attempt.
 // The tool never names a command type or an id it cannot know; the Governor's authorization decides everything else.
 
 const tmp = process.env["TMPDIR"] ?? "/tmp";

@@ -604,7 +604,7 @@ _Avoid_: caller
 
 **Brain tool**:
 An operator-declared, release-pinned tool through which an agent acts on Brain itself: comment on a
-work item, message a team member, submit a handoff, propose a plan (ADR 0041). Each is one command run
+work item, message a team member, submit a handoff, propose a plan (ADR 0042). Each is one command run
 as the session principal, so the authorization matrix and the principal's own-mission scope decide. A
 plan proposal inside the autonomy policy is confirmed, outside it waits for a person; no Brain tool
 records a verdict, closes a mission, approves an effect or confirms beyond the policy.

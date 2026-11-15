@@ -256,7 +256,7 @@ export class GovernorClient {
     return (res.json as { data: unknown }).data;
   }
 
-  // --- Brain tools (ADR 0041) -------------------------------------------
+  // --- Brain tools (ADR 0042) -------------------------------------------
 
   /** The credential this running attempt acts with as its team member's machine principal, and the ids it acts on. Asking again replaces it. */
   async sessionCredential(attemptId: string): Promise<SessionGrant> {

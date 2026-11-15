@@ -287,7 +287,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     // Files an agent writes with files.write live in this attempt's own folder until the attempt ends well (run-output.ts); removed in every case.
     const outputs = new RunOutputDir(cfg.stateDir, offer.attemptId);
     const nestedToolReleases: ReleaseRef[] = [];
-    // The credential this attempt's Brain tools act with is asked for on the first such call and lives only here (ADR 0041).
+    // The credential this attempt's Brain tools act with is asked for on the first such call and lives only here (ADR 0042).
     const brainSession = new BrainSession(client, offer.attemptId);
     // What approved effect calls did, for the evidence bundle: each effect with its reconciled receipt, and the approvals it consumed.
     const nestedEffects: Array<{ invocationId: string; targetId: string; operation: string; outcome: "applied" | "absent" | "unknown"; receiptArtifact: ArtifactRef }> = [];

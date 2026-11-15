@@ -98,7 +98,7 @@ export interface MissionDeliveryPort {
 /** The blocked reason of a task stopped because its agent was interrupted too often; the interface offers Try again for it. */
 export const PARKED_INTERRUPTED_REASON = "Stopped: waiting for you to try again";
 
-/** Undelivered messages one team member's session may have waiting (ADR 0041). */
+/** Undelivered messages one team member's session may have waiting (ADR 0042). */
 const MAX_PENDING_TEAMMATE_MESSAGES = 5;
 
 export class MissionService {
@@ -821,7 +821,7 @@ export class MissionService {
   }
 
   /**
-   * A team member's session may tell another member something (ADR 0041). It names the member (never the mission, so it cannot wake the
+   * A team member's session may tell another member something (ADR 0042). It names the member (never the mission, so it cannot wake the
    * coordinator in a loop), never itself, never interrupts a running session, and at most MAX_PENDING_TEAMMATE_MESSAGES of its messages wait
    * undelivered. The message is a claim like any other: it authorizes nothing.
    */

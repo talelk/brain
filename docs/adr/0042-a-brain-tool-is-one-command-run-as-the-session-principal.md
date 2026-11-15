@@ -1,4 +1,4 @@
-# 41. A Brain tool is one command run as the session principal
+# 42. A Brain tool is one command run as the session principal
 
 Status: accepted, 2026-11-15. Builds on ADR 0021 and 0024 (agents reach Brain only through operator-declared, release-pinned tools) and ADR 0032 (a session acts as its own machine principal).
 

@@ -3,7 +3,7 @@ import type { ActorContext, AuditEntry, Handoff, Mission, MissionBrief, MissionM
 import { DIGEST_A } from "../helpers";
 import { bearer, closeWorlds, command, missionOf, run, running, startedMission, task, type Offer, type World } from "../support/machine-session";
 
-// ADR 0041: the Brain tools of a mission session are Brain commands run as its own machine principal. Here the credential is the one the runner
+// ADR 0042: the Brain tools of a mission session are Brain commands run as its own machine principal. Here the credential is the one the runner
 // obtains per attempt (JobProtocol.sessionCredential); the Governor's authorization decides, so these tests drive its command and query boundary.
 
 afterEach(closeWorlds);
