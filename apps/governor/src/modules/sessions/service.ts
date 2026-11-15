@@ -15,9 +15,16 @@ import { readableSources, toolAvailability } from "../resources/index";
 import { buildContextPack, type BuiltPack, type PackItem, type PackSection } from "./context-pack";
 
 /** What a steered session reads: a teammate's message says who wrote it, so it is never mistaken for the person's own instruction. */
-function steerText(store: Store, message: MessageRow): string {
+function steerText(store: Store, db: ReturnType<Store["workspaceDb"]>, message: MessageRow): string {
+  if (message.answers_question_id) return `${answerLead(db, message.answers_question_id)}${message.body}`;
   const member = senderOf(store, message.sender_id).senderMemberId;
   return member ? `From team member ${member}: ${message.body}` : message.body;
+}
+
+/** What a person's answer says it is: the answer to this member's own question, quoted, so the session knows which one it is. */
+function answerLead(db: ReturnType<Store["workspaceDb"]>, questionId: string): string {
+  const question = db.prepare("SELECT body FROM mission_questions WHERE id=?").get(questionId) as { body: string } | undefined;
+  return `A person's answer to your question${question ? ` "${question.body.replace(/\s+/gu, " ").slice(0, 200)}"` : ""}: `;
 }
 
 export interface SessionCommand {
@@ -43,7 +50,7 @@ type DelegationRow = {
   created_at_ms: number; reviewed_at_ms: number | null;
 };
 
-type MessageRow = { id: string; mission_id: string; recipient_kind: "mission" | "member"; recipient_member_id: string | null; work_item_id: string | null; sender_id: string; body: string; delivery: MissionMessage["delivery"]; correction_of: string | null; created_at_ms: number };
+type MessageRow = { id: string; mission_id: string; recipient_kind: "mission" | "member"; recipient_member_id: string | null; work_item_id: string | null; sender_id: string; body: string; delivery: MissionMessage["delivery"]; correction_of: string | null; answers_question_id: string | null; created_at_ms: number };
 
 /** What sessions need from the missions module, bound at the composition root. */
 export interface SessionMissionPort {
@@ -399,7 +406,7 @@ export class SessionService {
     }
     const steerable = sessions.filter((session) => session.state === "running" && (JSON.parse(session.engine_features ?? "[]") as string[]).includes("steer"));
     if (steerable.length === 0) return message.delivery;
-    for (const session of steerable) enqueueSessionControl(this.store, { organizationId, workspaceId, sessionId: session.id, kind: "session.steer", payload: { sessionId: session.id, message: steerText(this.store, message) } });
+    for (const session of steerable) enqueueSessionControl(this.store, { organizationId, workspaceId, sessionId: session.id, kind: "session.steer", payload: { sessionId: session.id, message: steerText(this.store, db, message) } });
     db.prepare("UPDATE mission_messages SET delivery='delivered-live' WHERE id=? AND delivery='pending'").run(messageId);
     return "delivered-live";
   }
@@ -463,8 +470,8 @@ export class SessionService {
     const where = `mission_id=? AND (work_item_id=? OR (recipient_kind='member' AND recipient_member_id=? AND work_item_id IS NULL))`;
     db.prepare(`UPDATE mission_messages SET delivery='delivered-at-session-start' WHERE delivery='pending' AND ${where}`).run(item.mission_id, item.id, member);
     // A person's work-item comment arrives as a message; the pack says which ones are comments (their own text, written by a person, never a command).
-    const messages = (db.prepare(`SELECT id, body, sender_id, EXISTS(SELECT 1 FROM work_item_comments WHERE message_id=mission_messages.id) AS comment FROM mission_messages
-      WHERE delivery IN ('delivered-at-session-start','delivered-live') AND ${where} ORDER BY created_at_ms DESC, id DESC LIMIT 20`).all(item.mission_id, item.id, member) as Array<{ id: string; body: string; sender_id: string; comment: number }>).reverse();
+    const messages = (db.prepare(`SELECT id, body, sender_id, answers_question_id, EXISTS(SELECT 1 FROM work_item_comments WHERE message_id=mission_messages.id) AS comment FROM mission_messages
+      WHERE delivery IN ('delivered-at-session-start','delivered-live') AND ${where} ORDER BY created_at_ms DESC, id DESC LIMIT 20`).all(item.mission_id, item.id, member) as Array<{ id: string; body: string; sender_id: string; answers_question_id: string | null; comment: number }>).reverse();
     const session = db.prepare("SELECT checkpoint_json FROM sessions WHERE work_item_id=? AND checkpoint_json IS NOT NULL ORDER BY updated_at_ms DESC, id DESC LIMIT 1").get(item.id) as { checkpoint_json: string } | undefined;
     const checkpoint = session ? JSON.parse(session.checkpoint_json) as Checkpoint : undefined;
     const failure = this.lastFailure(db, item.id, input.runId) ?? item.parked_diagnostic ?? undefined;
@@ -500,6 +507,7 @@ export class SessionService {
       { id: "messages", title: "Messages sent to this task", label: "claim", items: messages.map((row) => {
         // A teammate's message is a claim like any other message: the pack names who wrote it and it never authorizes anything.
         const member = senderOf(this.store, row.sender_id).senderMemberId;
+        if (row.answers_question_id) return prose(row.id, `- ${answerLead(db, row.answers_question_id)}${row.body}`, "A person's answer to your question");
         return row.comment === 1 ? prose(row.id, `- Comment: ${row.body}`, "A comment on this task")
           : member ? prose(row.id, `- From team member ${member}: ${row.body}`, "A message from a team member of this mission") : prose(row.id, `- ${row.body}`, "A message sent to this task");
       }) },

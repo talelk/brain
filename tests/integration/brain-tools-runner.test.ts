@@ -44,9 +44,9 @@ async function boot<T>(body: (context: { w: World; app: Awaited<ReturnType<typeo
 const query = async <T>(w: World, queryType: string, resourceId?: string): Promise<T> => ((await w.brain.executeQuery(w.owner, { queryType, workspaceId: w.workspaceId, ...(resourceId ? { resourceId } : {}) } as never)) as unknown as { snapshot: T }).snapshot;
 
 describe("the Brain tools table", () => {
-  it("maps four tools to four commands that only add notes, messages, handoffs and plan proposals", () => {
+  it("maps five tools to five commands that only add notes, messages, handoffs, questions and plan proposals", () => {
     expect(BRAIN_TOOL_COMMANDS).toEqual({
-      "mission.propose-plan": "plan.propose", "mission.message-member": "mission.message.send", "mission.submit-handoff": "handoff.submit", "mission.comment": "workItem.comment",
+      "mission.propose-plan": "plan.propose", "mission.message-member": "mission.message.send", "mission.submit-handoff": "handoff.submit", "mission.comment": "workItem.comment", "mission.ask": "mission.question.ask",
     });
     expect([...BRAIN_BROKERED].sort()).toEqual(Object.keys(BRAIN_TOOL_COMMANDS).sort());
     // Nothing that judges, closes, approves or confirms can be reached through a tool.
@@ -124,6 +124,30 @@ describe("a session's Brain tools, called as the runner makes them", () => {
       const texts = (await query<{ items: WorkItemComment[] }>(w, "workItemComments.list", own)).items.map((entry) => entry.text);
       expect(texts.filter((text) => text === "Once")).toHaveLength(1);
       void missionId; void workItemId; void other;
+    });
+  });
+
+  it("ask a person through mission.ask: the mission and member come from the credential, and the model is told the answer comes later", async () => {
+    await boot(async ({ w, cfg }) => {
+      const { missionId } = await confirmedMission(w, { tasks: [assigned("a", "writer"), assigned("b", "checker")], team });
+      const session = await enrollAndHello(cfg, w.brain.jobProtocol.issueEnrollment(w.owner, "agents").token);
+      const client = new GovernorClient(cfg);
+      client.setToken(session.sessionToken);
+      const offer = (await client.claim("claim-1"))!;
+      await client.ack(offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
+      const brain = new BrainSession(client, offer.attemptId);
+      const grant = await client.sessionCredential(offer.attemptId);
+      const asked = await brain.call("mission.ask", { question: "Which quarter should the report cover?", memberId: "checker", missionId: "mission-elsewhere" }, "ask1");
+      expect(asked).toMatchObject({ ok: true, data: { recorded: true, id: expect.stringMatching(/^question/u), outcome: expect.stringMatching(/Do not ask again.*carry on/su) } });
+      const rows = w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT mission_id, member_id, work_item_id, body FROM mission_questions").all();
+      expect(rows).toEqual([{ mission_id: missionId, member_id: grant.memberId, work_item_id: grant.workItemId, body: "Which quarter should the report cover?" }]);
+      // The cap is the Governor's: a fourth question in one session comes back as a refusal in plain words.
+      await brain.call("mission.ask", { question: "Second?" }, "ask2");
+      const refused = await brain.call("mission.ask", { question: "Third?" }, "ask3");
+      expect(refused).toMatchObject({ ok: false, error: expect.stringMatching(/still waiting for a person.*Do not retry/su) });
+      // The same proposal id is one question.
+      await brain.call("mission.ask", { question: "Which quarter should the report cover?" }, "ask1");
+      expect((w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT COUNT(*) AS n FROM mission_questions").get() as { n: number }).n).toBe(2);
     });
   });
 

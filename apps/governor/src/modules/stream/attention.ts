@@ -29,8 +29,8 @@ export function pendingApprovalItems(store: Store, organizationId: string, works
 /**
  * Attention items (#40): what needs a human, derived from current state and
  * never stored. Fixed tiers — approvals (nearest expiry first), stopped
- * missions, plan proposals and parked work, verdicts ready to close, routed
- * findings, then the non-blocking result-ready items (ADR 0005) — then the
+ * missions, plan proposals, parked work and agents' questions (tier 3), verdicts
+ * ready to close, routed findings, then the non-blocking result-ready items (ADR 0005) — then the
  * longest wait first. No model ranks anything.
  */
 export function attentionItems(store: Store, organizationId: string, workspaceIds: readonly string[]): AttentionItem[] {
@@ -82,6 +82,13 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
       const ended = row.dispatch_ref ? db.prepare("SELECT id, title FROM missions WHERE id=? AND state='closed' AND outcome='ended'").get(row.dispatch_ref) as { id: string; title: string } | undefined : undefined;
       if (ended) items.push({ id: `schedule:${row.id}`, workspaceId, missionId: ended.id, kind: "schedule-failed", tier: 2, title: `${ended.title} ended without reaching its goal`, detail: "Its schedule keeps running; open the mission to see why.", resourceId: row.id, waitingSince: iso(row.at_ms) });
     }
+    // A question a session asked a person stays blocking until an answer exists (ADR 0048); nothing about it is stored but the question and its answer.
+    for (const row of db.prepare(`SELECT q.id, q.mission_id, q.member_id, q.body, q.created_at_ms, m.title, m.active_plan_version_id FROM mission_questions q JOIN missions m ON m.id=q.mission_id
+      WHERE m.state!='closed' AND NOT EXISTS (SELECT 1 FROM mission_messages a WHERE a.answers_question_id=q.id)`).all() as Array<{ id: string; mission_id: string; member_id: string; body: string; created_at_ms: number; title: string; active_plan_version_id: string | null }>) {
+      const team = row.active_plan_version_id ? (db.prepare("SELECT team_json FROM plan_versions WHERE id=?").get(row.active_plan_version_id) as { team_json: string } | undefined) : undefined;
+      const role = (team ? (JSON.parse(team.team_json) as Array<{ memberId: string; role: string }>) : []).find((member) => member.memberId === row.member_id)?.role ?? row.member_id;
+      items.push({ id: `question:${row.id}`, workspaceId, missionId: row.mission_id, memberId: row.member_id, kind: "question", tier: 3, title: `${role} asks a question on ${row.title}`, detail: row.body.slice(0, 1024), resourceId: row.id, waitingSince: iso(row.created_at_ms) });
+    }
     for (const row of db.prepare(`SELECT w.id, w.mission_id, w.title, w.updated_at_ms, w.parked_diagnostic, w.blocked_reason,
       (SELECT COUNT(*) FROM work_item_dependencies d JOIN work_items x ON x.id=d.work_item_id WHERE d.depends_on_work_item_id=w.id AND x.state NOT IN ('done','abandoned')) AS waiting
       FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.parked=1 AND w.state NOT IN ('done','abandoned') AND m.state!='closed'`).all() as Array<{ id: string; mission_id: string; title: string; updated_at_ms: number; parked_diagnostic: string | null; blocked_reason: string | null; waiting: number }>) {
@@ -128,6 +135,7 @@ const NOTABLE: Readonly<Record<string, (payload: Record<string, unknown>, title:
   "mission.briefChanged": (payload) => `Brief updated to version ${String(payload["briefVersion"])}`,
   "mission.budgetChanged": (payload) => typeof payload["note"] === "string" ? payload["note"] : "Budget changed",
   "mission.verdictRecorded": () => "Mission verdict recorded",
+  "mission.questionAsked": () => "A team member asked you a question",
 };
 
 /**

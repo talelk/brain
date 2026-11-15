@@ -11,6 +11,7 @@ export const BRAIN_TOOL_COMMANDS = {
   "mission.message-member": "mission.message.send",
   "mission.submit-handoff": "handoff.submit",
   "mission.comment": "workItem.comment",
+  "mission.ask": "mission.question.ask",
 } as const;
 
 /** The commands a session credential is admitted to run: the ones behind its Brain tools. */
