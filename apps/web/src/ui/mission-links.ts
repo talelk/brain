@@ -24,3 +24,14 @@ export function sameTitleHints(missions: ReadonlyArray<{ missionId: string; titl
   for (const mission of missions) if ((groups.get(mission.title.trim().toLowerCase())?.length ?? 0) > 1) hints.set(mission.missionId, when(mission.createdAt));
   return hints;
 }
+
+/** A work item inside its mission: the Plan tab with the task open (`?item=`). */
+export function workItemHref(workspaceId: string, missionId: string, workItemId: string): string {
+  return `${missionHref(workspaceId, missionId, "plan")}&item=${encodeURIComponent(workItemId)}`;
+}
+
+/** The mission a path shows, when it is a mission page: `/missions/:id` or `/missions/:id/:tab`. */
+export function missionOfPath(pathname: string): { missionId: string; tab?: string } | undefined {
+  const [root, missionId, tab, ...rest] = pathname.split("/").filter(Boolean);
+  return root === "missions" && missionId && rest.length === 0 ? { missionId: decodeURIComponent(missionId), ...(tab ? { tab } : {}) } : undefined;
+}
