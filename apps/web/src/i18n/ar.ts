@@ -2078,5 +2078,18 @@ export const ar: Catalog = {
   "console.resume.startedFrom": "بدأت من",
   "console.resume.startedFromBody": "نقطة الحفظ {digest}… المحفوظة على المنفّذ {runner}، من الجلسة السابقة",
   "console.resume.openEarlier": "الجلسة السابقة",
+  "decision.kind.question": "سؤال",
+  "decision.question.answer": "أجب",
+  "mp.question.title": "أسئلة موجّهة إليك",
+  "mp.question.description": "ينتظر أحد أعضاء الفريق إجابتك. تصل إجابتك إلى هذا العضو كرسالة ولا توافق على أي شيء أبدًا.",
+  "mp.question.asks": "{name} يسأل",
+  "mp.question.answer": "أجب",
+  "mp.question.waiting": "في الانتظار منذ {when}",
+  "mp.question.answerTitle": "الإجابة عن سؤال",
+  "mp.question.answerDescription": "تُرسل إجابتك إلى {name} كرسالة منك. لا توافق على أي شيء ولا تغيّر أي شيء.",
+  "mp.question.theirQuestion": "سؤاله",
+  "mp.question.to": "إلى",
+  "mp.question.yourAnswer": "إجابتك",
+  "mp.question.send": "إرسال الإجابة",
   // @@END
 };

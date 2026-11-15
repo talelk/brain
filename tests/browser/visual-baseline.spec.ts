@@ -19,6 +19,7 @@ import { seedBrowserDemo } from "../support/browserDemo";
 import { sendTaskBack } from "../support/evalCases";
 import { command, interruptedSession } from "../support/interrupted-session";
 import { seedPullRequest } from "../support/pullRequestDemo";
+import { seedQuestion } from "../support/question-demo";
 
 type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
 type Fixture = Parameters<typeof seedBrowserDemo>[1];
@@ -41,6 +42,13 @@ async function signOffRoute(demo: Demo, governor: Fixture): Promise<string> {
   ws.prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE mission_id=?").run(evidence, missionId);
   await cmd("mission.proposeCompletion", "baseline-signoff-finish", { missionId }, await version(missionId));
   return `/missions/${missionId}/outputs`;
+}
+
+/** A team member's question to a person (ticket #109), made when its screen is reached; both question screens show this one mission. */
+let questionMission: string | undefined;
+async function questionRoute(demo: Demo, governor: Fixture): Promise<string> {
+  questionMission ??= (await seedQuestion(governor.app.brain, demo.actor, demo.workspaceId, { key: "vb-question", title: "Compile the quarterly report figures", question: "Which quarter should the report cover?" })).missionId;
+  return `/missions/${questionMission}/live`;
 }
 
 /** A browser that can receive notifications (headless Chromium has permission denied and no push service): asked never, or turned on for this device. */
@@ -119,6 +127,9 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "console-resume-offered", route: (d, g) => interruptedRoute(d, g, "runner-office", "vb-resume-offered"), heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByRole("button", { name: "Resume from checkpoint", exact: true })).toBeVisible(); } },
   { id: "console-resume-unavailable", route: (d, g) => interruptedRoute(d, g, "runner-retired", "vb-resume-gone", async (sessionId) => { await command(g.app.brain, d.actor, d.workspaceId, "runner.control", "vb-resume-retire", { runnerId: "runner-retired", action: "deregister", reason: "retired" }); return sessionId; }), heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("resume-unavailable")).toBeVisible(); } },
   { id: "console-resumed", route: (d, g) => interruptedRoute(d, g, "runner-resumed", "vb-resumed", async (sessionId) => (await command(g.app.brain, d.actor, d.workspaceId, "session.resume", "vb-resume-now", { sessionId })).resourceId!), heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("resumed-from")).toBeVisible(); } },
+  // A question a team member asked a person (ticket #109), before the push screens (those stay last) because it adds an attention item: the mission's Live tab, then the composer open on it.
+  { id: "mission-question", route: questionRoute, heading: "Compile the quarterly report figures", waitFor: "mission-questions" },
+  { id: "mission-question-answer", route: questionRoute, heading: "Compile the quarterly report figures", after: async (page) => { await page.getByTestId("mission-question").getByRole("button", { name: "Answer", exact: true }).click(); await expect(page.getByRole("dialog", { name: "Answer a question" })).toBeVisible(); } },
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
@@ -202,7 +213,7 @@ async function seedPullRequestRecord(governor: Parameters<typeof seedBrowserDemo
   pullRequestRecord = await seedPullRequest(governor.app.brain, demo.actor, demo.workspaceId, { runId: "demo-run-review", key: "vb-pr" });
 }
 
-test.afterEach(async () => { restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
+test.afterEach(async () => { questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(300_000);

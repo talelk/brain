@@ -2000,5 +2000,18 @@ export const fr: Catalog = {
   "console.resume.startedFrom": "Démarrée depuis",
   "console.resume.startedFromBody": "le point de sauvegarde {digest}… détenu par l'exécuteur {runner}, de la session précédente",
   "console.resume.openEarlier": "Session précédente",
+  "decision.kind.question": "Question",
+  "decision.question.answer": "Répondre",
+  "mp.question.title": "Questions pour vous",
+  "mp.question.description": "Un membre de l'équipe attend une réponse. Votre réponse lui est envoyée comme message et n'approuve jamais rien.",
+  "mp.question.asks": "{name} demande",
+  "mp.question.answer": "Répondre",
+  "mp.question.waiting": "En attente depuis {when}",
+  "mp.question.answerTitle": "Répondre à une question",
+  "mp.question.answerDescription": "Votre réponse est envoyée à {name} comme message de votre part. Elle n'approuve ni ne modifie rien.",
+  "mp.question.theirQuestion": "Sa question",
+  "mp.question.to": "À",
+  "mp.question.yourAnswer": "Votre réponse",
+  "mp.question.send": "Envoyer la réponse",
   // @@END
 };

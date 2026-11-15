@@ -1554,5 +1554,16 @@ export const enExtra = {
   "console.resume.startedFrom": "Started from",
   "console.resume.startedFromBody": "checkpoint {digest}… held on runner {runner}, of the earlier session",
   "console.resume.openEarlier": "Earlier session",
+  "mp.question.title": "Questions for you",
+  "mp.question.description": "A team member is waiting for an answer. Your answer goes to that member as a message and never approves anything.",
+  "mp.question.asks": "{name} asks",
+  "mp.question.answer": "Answer",
+  "mp.question.waiting": "Waiting since {when}",
+  "mp.question.answerTitle": "Answer a question",
+  "mp.question.answerDescription": "Your answer is sent to {name} as a message from you. It never approves or changes anything.",
+  "mp.question.theirQuestion": "Their question",
+  "mp.question.to": "To",
+  "mp.question.yourAnswer": "Your answer",
+  "mp.question.send": "Send answer",
   // @@END
 } as const satisfies Record<string, string>;
