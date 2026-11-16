@@ -1,11 +1,11 @@
 $ pnpm exec vitest run tests/probes/tencentdb/client.test.ts
-(cwd=/home/talel/dev/rd2026/brain)
+(cwd=/home/talel/.cache/brain-gates)
 
- RUN  v5.0.5 /home/talel/dev/rd2026/brain
+ RUN  v5.0.5 /home/talel/.cache/brain-gates
 
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  17:03:41
-   Duration  213ms (tests 67%, transform 18%, import 11%, worker 4%)
+   Start at  09:50:33
+   Duration  164ms (tests 58%, import 26%, transform 10%, worker 6%)
 

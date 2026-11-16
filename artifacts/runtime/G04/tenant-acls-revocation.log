@@ -1,11 +1,11 @@
 $ pnpm exec vitest run tests/security/authz.test.ts
-(cwd=/home/talel/dev/rd2026/brain)
+(cwd=/home/talel/.cache/brain-gates)
 
- RUN  v5.0.5 /home/talel/dev/rd2026/brain
+ RUN  v5.0.5 /home/talel/.cache/brain-gates
 
 
  Test Files  1 passed (1)
       Tests  4 passed (4)
-   Start at  17:03:42
-   Duration  1.64s (import 46%, tests 44%, transform 10%)
+   Start at  09:50:33
+   Duration  2.33s (tests 49%, import 39%, transform 12%)
 

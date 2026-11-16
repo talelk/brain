@@ -1,11 +1,11 @@
 $ pnpm exec vitest run tests/integration/mastra-conformance.test.ts
-(cwd=/home/talel/dev/rd2026/brain)
+(cwd=/home/talel/.cache/brain-gates)
 
- RUN  v5.0.5 /home/talel/dev/rd2026/brain
+ RUN  v5.0.5 /home/talel/.cache/brain-gates
 
 
  Test Files  1 passed (1)
       Tests  6 passed (6)
-   Start at  17:03:32
-   Duration  3.57s (tests 75%, import 21%, transform 4%)
+   Start at  09:50:22
+   Duration  4.46s (tests 77%, import 18%, transform 5%)
 

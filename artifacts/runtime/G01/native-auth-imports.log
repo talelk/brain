@@ -1,11 +1,11 @@
 $ pnpm exec vitest run tests/probes/dependencies
-(cwd=/home/talel/dev/rd2026/brain)
+(cwd=/home/talel/.cache/brain-gates)
 
- RUN  v5.0.5 /home/talel/dev/rd2026/brain
+ RUN  v5.0.5 /home/talel/.cache/brain-gates
 
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  17:03:06
-   Duration  1.20s (import 76%, tests 18%, transform 5%)
+   Start at  09:49:47
+   Duration  1.05s (import 73%, tests 21%, transform 5%)
 

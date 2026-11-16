@@ -13,17 +13,17 @@
     "pendingApprovals": 1000,
     "history10xRows": 1000000
   },
-  "coldStartMs": 2769,
+  "coldStartMs": 4673,
   "trialMs": 600000,
   "trialsCount": 3,
   "medians": {
-    "queryP95": 20.182,
-    "queryP99": 25.816,
-    "commandP95": 29.601,
-    "commandP99": 42.656,
-    "eventLoopP99": 49.381,
-    "rssMaxMb": 380,
-    "throughputPerSec": 24.96
+    "queryP95": 10.688,
+    "queryP99": 12.034,
+    "commandP95": 24.66,
+    "commandP99": 34.065,
+    "eventLoopP99": 49.283,
+    "rssMaxMb": 404,
+    "throughputPerSec": 25.07
   },
   "budgets": {
     "queryP95Ms": 150,
@@ -33,151 +33,216 @@
     "eventLoopP99Ms": 50,
     "rssMb": 1024
   },
+  "growth": {
+    "allowance": "event-loop p99 and command p95 within 1.5x + 5 ms (event-loop 1.5x + 10 ms) of trial 1; max RSS within 1.2x + 32 MB",
+    "trials": [
+      {
+        "trial": 2,
+        "eventLoopP99": {
+          "first": 40.6,
+          "now": 50.856,
+          "limit": 70.9
+        },
+        "commandP95": {
+          "first": 22.592,
+          "now": 27.827,
+          "limit": 38.9
+        },
+        "rssMaxMb": {
+          "first": 393,
+          "now": 404,
+          "limit": 504
+        }
+      },
+      {
+        "trial": 3,
+        "eventLoopP99": {
+          "first": 40.6,
+          "now": 49.283,
+          "limit": 70.9
+        },
+        "commandP95": {
+          "first": 22.592,
+          "now": 24.66,
+          "limit": 38.9
+        },
+        "rssMaxMb": {
+          "first": 393,
+          "now": 412,
+          "limit": 504
+        }
+      }
+    ]
+  },
   "trials": [
     {
       "label": "t1",
       "durationMs": 600000,
-      "ops": 14979,
+      "ops": 15042,
       "errors": 0,
-      "throughputPerSec": 24.96,
+      "throughputPerSec": 25.07,
       "query": {
-        "p50": 9.449,
-        "p95": 20.182,
-        "p99": 25.816,
-        "max": 123.612,
-        "n": 9986
+        "p50": 2.616,
+        "p95": 10.108,
+        "p99": 11.494,
+        "max": 98.926,
+        "n": 10028
       },
       "command": {
-        "p50": 7.375,
-        "p95": 29.601,
-        "p99": 42.656,
-        "max": 336.952,
-        "n": 4993
+        "p50": 12.875,
+        "p95": 22.592,
+        "p99": 28.171,
+        "max": 363.96,
+        "n": 5014
       },
       "eventLoopDelayMs": {
-        "p50": 10.084,
-        "p99": 49.381,
-        "max": 417.071
+        "p50": 10.093,
+        "p99": 40.6,
+        "max": 287.048
       },
       "cpuMs": {
-        "user": 78384,
-        "system": 32724
+        "user": 55088,
+        "system": 42812
       },
       "rssMb": {
-        "p50": 343,
-        "max": 373
+        "p50": 348,
+        "max": 393
       },
-      "walBytes": 43284752
+      "walBytes": 61425112,
+      "memory": {
+        "heapUsedMb": 85,
+        "externalMb": 6,
+        "arrayBuffersMb": 2,
+        "rssMb": 393
+      }
     },
     {
       "label": "t2",
       "durationMs": 600000,
-      "ops": 14924,
+      "ops": 15052,
       "errors": 0,
-      "throughputPerSec": 24.87,
+      "throughputPerSec": 25.09,
       "query": {
-        "p50": 9.392,
-        "p95": 23.56,
-        "p99": 30.943,
-        "max": 225.557,
-        "n": 9950
+        "p50": 4.248,
+        "p95": 10.688,
+        "p99": 12.129,
+        "max": 16.734,
+        "n": 10035
       },
       "command": {
-        "p50": 7.819,
-        "p95": 31.78,
-        "p99": 48.754,
-        "max": 112.35,
-        "n": 4974
+        "p50": 18.249,
+        "p95": 27.827,
+        "p99": 35.227,
+        "max": 57.501,
+        "n": 5017
       },
       "eventLoopDelayMs": {
-        "p50": 10.084,
-        "p99": 57.901,
-        "max": 756.548
+        "p50": 10.109,
+        "p99": 50.856,
+        "max": 90.046
       },
       "cpuMs": {
-        "user": 86520,
-        "system": 34459
+        "user": 71047,
+        "system": 55679
       },
       "rssMb": {
-        "p50": 357,
-        "max": 382
+        "p50": 398,
+        "max": 404
       },
-      "walBytes": 43284752
+      "walBytes": 61425112,
+      "memory": {
+        "heapUsedMb": 92,
+        "externalMb": 6,
+        "arrayBuffersMb": 2,
+        "rssMb": 404
+      }
     },
     {
       "label": "t3",
       "durationMs": 600000,
-      "ops": 15026,
+      "ops": 15040,
       "errors": 0,
-      "throughputPerSec": 25.04,
+      "throughputPerSec": 25.07,
       "query": {
-        "p50": 9.314,
-        "p95": 19.406,
-        "p99": 24.3,
-        "max": 102.395,
-        "n": 10018
+        "p50": 3.869,
+        "p95": 10.84,
+        "p99": 12.034,
+        "max": 39.779,
+        "n": 10027
       },
       "command": {
-        "p50": 6.968,
-        "p95": 24.931,
-        "p99": 36.191,
-        "max": 52.174,
-        "n": 5008
+        "p50": 18.546,
+        "p95": 24.66,
+        "p99": 34.065,
+        "max": 63.37,
+        "n": 5013
       },
       "eventLoopDelayMs": {
-        "p50": 10.084,
-        "p99": 46.989,
-        "max": 255.721
+        "p50": 10.109,
+        "p99": 49.283,
+        "max": 101.712
       },
       "cpuMs": {
-        "user": 73522,
-        "system": 31753
+        "user": 71781,
+        "system": 55376
       },
       "rssMb": {
-        "p50": 380,
-        "max": 380
+        "p50": 407,
+        "max": 412
       },
-      "walBytes": 43284752
+      "walBytes": 61425112,
+      "memory": {
+        "heapUsedMb": 78,
+        "externalMb": 6,
+        "arrayBuffersMb": 2,
+        "rssMb": 412
+      }
     }
   ],
   "trial10x": {
     "label": "x10",
     "durationMs": 30000,
-    "ops": 587,
+    "ops": 638,
     "errors": 0,
-    "throughputPerSec": 19.57,
+    "throughputPerSec": 21.27,
     "query": {
-      "p50": 60.085,
-      "p95": 101.92,
-      "p99": 142.39,
-      "max": 207.892,
-      "n": 392
+      "p50": 6.844,
+      "p95": 14.676,
+      "p99": 16.04,
+      "max": 22.707,
+      "n": 426
     },
     "command": {
-      "p50": 10.07,
-      "p95": 32.609,
-      "p99": 43.923,
-      "max": 132.506,
-      "n": 195
+      "p50": 104.54,
+      "p95": 119.793,
+      "p99": 128.768,
+      "max": 134.474,
+      "n": 212
     },
     "eventLoopDelayMs": {
-      "p50": 10.093,
-      "p99": 236.192,
-      "max": 684.72
+      "p50": 10.109,
+      "p99": 271.843,
+      "max": 9261.023
     },
     "cpuMs": {
-      "user": 8616,
-      "system": 9120
+      "user": 10254,
+      "system": 12091
     },
     "rssMb": {
-      "p50": 410,
-      "max": 418
+      "p50": 434,
+      "max": 434
     },
-    "walBytes": 411192512
+    "walBytes": 589127072,
+    "memory": {
+      "heapUsedMb": 80,
+      "externalMb": 6,
+      "arrayBuffersMb": 2,
+      "rssMb": 434
+    }
   },
   "faultLoad": {
-    "approvalWakeFanout100Ms": 35,
+    "approvalWakeFanout100Ms": 132,
     "errors": 0
   },
-  "at": "2026-11-09T16:35:46.367Z"
+  "at": "2026-11-16T09:22:59.743Z"
 }

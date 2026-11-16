@@ -2,10 +2,10 @@
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G06",
   "status": "passed",
-  "productFingerprint": "sha256:1e5c0733380925fed5bbdf4234252abb697f446c02a7d43abbd951fd74a71707",
-  "lockDigest": "sha256:b0c2a31e200910cf0f7ca3f0364e13098983468cf693ae0e93a2c8fc2c47a1c2",
-  "startedAt": "2026-11-09T16:04:27.887Z",
-  "finishedAt": "2026-11-09T16:04:44.835Z",
+  "productFingerprint": "sha256:4ceec7e0e25c51eaa38a6c77791412462b0bc58c504496d1a22b6574e2626665",
+  "lockDigest": "sha256:8028f52ea1c39f5793f0622cc0e79861ffe0c6b489e7a46102e628ba2b7334d7",
+  "startedAt": "2026-11-16T08:51:24.557Z",
+  "finishedAt": "2026-11-16T08:51:43.537Z",
   "commands": [
     {
       "argv": [
@@ -16,7 +16,7 @@
         "tests/probes/sandbox/launcher.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 4236
+      "durationMs": 4317
     },
     {
       "argv": [
@@ -27,7 +27,7 @@
         "tests/probes/sandbox/egress.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 9490
+      "durationMs": 10348
     },
     {
       "argv": [
@@ -38,7 +38,7 @@
         "tests/integration/scenarios3.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 3201
+      "durationMs": 4227
     }
   ],
   "checks": [
@@ -62,15 +62,15 @@
   "artifacts": [
     {
       "path": "artifacts/runtime/G06/fixed-profiles-and-denials.log",
-      "digest": "sha256:0c5705bb02493957421fa7a566d86f53746a97b6bc2ed88d6e56cc4576020708"
+      "digest": "sha256:4bb6c1d01b562ac1abbe2c9450f257a27e52f4015b0ff6d2bdeb5d4a7560c4d9"
     },
     {
       "path": "artifacts/runtime/G06/egress-denial.log",
-      "digest": "sha256:75caa718729dcbf7f7f3cc94ef3f48f0fe3b4eb71f13115f2c3e1d42aa0d31b5"
+      "digest": "sha256:80adee0123397de7c72a3a85e11ab93163802ae9a5bd5364b69f792762f30ee6"
     },
     {
       "path": "artifacts/runtime/G06/scenario-E066.log",
-      "digest": "sha256:983e9558587ffe04e89277149cd03e71312686dac4848b8a21f4ed643fd8c40d"
+      "digest": "sha256:cd27b06e8d8b8d4cfd8e3a4eeffa437cdfd209879127f46b14fea9e23ea46076"
     }
   ],
   "selectedScenarios": [

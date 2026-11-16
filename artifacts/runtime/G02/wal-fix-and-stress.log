@@ -1,11 +1,11 @@
 $ pnpm exec vitest run tests/integration/scenarios3.test.ts
-(cwd=/home/talel/dev/rd2026/brain)
+(cwd=/home/talel/.cache/brain-gates)
 
- RUN  v5.0.5 /home/talel/dev/rd2026/brain
+ RUN  v5.0.5 /home/talel/.cache/brain-gates
 
 
  Test Files  1 passed (1)
       Tests  9 passed (9)
-   Start at  17:03:28
-   Duration  2.72s (tests 56%, import 37%, transform 7%)
+   Start at  09:50:18
+   Duration  3.48s (tests 65%, import 27%, transform 8%)
 

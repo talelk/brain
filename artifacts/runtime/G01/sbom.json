@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-09T16:03:28.468Z",
-  "cohortDigest": "sha256:e42870b0266ef4f614da8c510c9c66fafd22e58821fcbbe231e5cb7d459b18f2",
-  "count": 813,
+  "generatedAt": "2026-11-16T08:50:17.816Z",
+  "cohortDigest": "sha256:018975ef49170456d011b1a52aa083a840ae69e5b777033944789ebbd0d8219f",
+  "count": 816,
   "packages": [
     {
       "name": "@a2a-js/sdk",
@@ -188,6 +188,12 @@
       "version": "3.972.41",
       "license": "Apache-2.0",
       "path": "node_modules/.pnpm/@aws-sdk+xml-builder@3.972.41/node_modules/@aws-sdk/xml-builder/package.json"
+    },
+    {
+      "name": "@axe-core/playwright",
+      "version": "4.11.0",
+      "license": "MPL-2.0",
+      "path": "node_modules/.pnpm/@axe-core+playwright@4.11.0_playwright-core@1.64.1/node_modules/@axe-core/playwright/package.json"
     },
     {
       "name": "@babel/code-frame",
@@ -449,9 +455,9 @@
     },
     {
       "name": "@esbuild/linux-x64",
-      "version": "0.18.20",
+      "version": "0.25.0",
       "license": "MIT",
-      "path": "node_modules/.pnpm/@esbuild+linux-x64@0.18.20/node_modules/@esbuild/linux-x64/package.json"
+      "path": "node_modules/.pnpm/@esbuild+linux-x64@0.25.0/node_modules/@esbuild/linux-x64/package.json"
     },
     {
       "name": "@esbuild/linux-x64",
@@ -602,6 +608,12 @@
       "version": "3.6.9",
       "license": "Apache-2.0",
       "path": "node_modules/.pnpm/@internationalized+number@3.6.9/node_modules/@internationalized/number/package.json"
+    },
+    {
+      "name": "@isaacs/nonrecursive-glob-match",
+      "version": "1.1.0",
+      "license": "BlueOak-1.0.0",
+      "path": "node_modules/.pnpm/@isaacs+nonrecursive-glob-match@1.1.0/node_modules/@isaacs/nonrecursive-glob-match/package.json"
     },
     {
       "name": "@isaacs/ttlcache",
@@ -1073,15 +1085,15 @@
     },
     {
       "name": "@talelk/newui-atoms",
-      "version": "1.3.0",
-      "license": "Apache-2.0",
-      "path": "node_modules/.pnpm/@talelk+newui-atoms@1.3.0_solid-js@1.9.17/node_modules/@talelk/newui-atoms/package.json"
-    },
-    {
-      "name": "@talelk/newui-atoms",
       "version": "1.4.0",
       "license": "Apache-2.0",
       "path": "node_modules/.pnpm/@talelk+newui-atoms@1.4.0_solid-js@1.9.17/node_modules/@talelk/newui-atoms/package.json"
+    },
+    {
+      "name": "@talelk/newui-charts",
+      "version": "1.1.0",
+      "license": "Apache-2.0",
+      "path": "node_modules/.pnpm/@talelk+newui-charts@1.1.0_solid-js@1.9.17/node_modules/@talelk/newui-charts/package.json"
     },
     {
       "name": "@talelk/newui-data",
@@ -1090,10 +1102,10 @@
       "path": "node_modules/.pnpm/@talelk+newui-data@1.1.0_solid-js@1.9.17/node_modules/@talelk/newui-data/package.json"
     },
     {
-      "name": "@talelk/newui-molecules",
-      "version": "2.3.0",
+      "name": "@talelk/newui-icons",
+      "version": "0.0.2",
       "license": "Apache-2.0",
-      "path": "node_modules/.pnpm/@talelk+newui-molecules@2.3.0_solid-js@1.9.17/node_modules/@talelk/newui-molecules/package.json"
+      "path": "node_modules/.pnpm/@talelk+newui-icons@0.0.2_solid-js@1.9.17/node_modules/@talelk/newui-icons/package.json"
     },
     {
       "name": "@talelk/newui-molecules",
@@ -1103,21 +1115,9 @@
     },
     {
       "name": "@talelk/newui-organisms",
-      "version": "2.2.0",
-      "license": "Apache-2.0",
-      "path": "node_modules/.pnpm/@talelk+newui-organisms@2.2.0_solid-js@1.9.17/node_modules/@talelk/newui-organisms/package.json"
-    },
-    {
-      "name": "@talelk/newui-organisms",
       "version": "2.3.0",
       "license": "Apache-2.0",
       "path": "node_modules/.pnpm/@talelk+newui-organisms@2.3.0_solid-js@1.9.17/node_modules/@talelk/newui-organisms/package.json"
-    },
-    {
-      "name": "@talelk/newui-tailwind",
-      "version": "1.0.2",
-      "license": "Apache-2.0",
-      "path": "node_modules/.pnpm/@talelk+newui-tailwind@1.0.2_tailwindcss@4.3.3/node_modules/@talelk/newui-tailwind/package.json"
     },
     {
       "name": "@talelk/newui-tailwind",
@@ -1127,21 +1127,9 @@
     },
     {
       "name": "@talelk/newui-templates",
-      "version": "1.1.5",
-      "license": "Apache-2.0",
-      "path": "node_modules/.pnpm/@talelk+newui-templates@1.1.5_solid-js@1.9.17/node_modules/@talelk/newui-templates/package.json"
-    },
-    {
-      "name": "@talelk/newui-templates",
       "version": "1.2.0",
       "license": "Apache-2.0",
       "path": "node_modules/.pnpm/@talelk+newui-templates@1.2.0_solid-js@1.9.17/node_modules/@talelk/newui-templates/package.json"
-    },
-    {
-      "name": "@talelk/newui-tokens",
-      "version": "0.1.1",
-      "license": "Apache-2.0",
-      "path": "node_modules/.pnpm/@talelk+newui-tokens@0.1.1/node_modules/@talelk/newui-tokens/package.json"
     },
     {
       "name": "@talelk/newui-tokens",
@@ -1780,6 +1768,12 @@
       "path": "node_modules/.pnpm/available-typed-arrays@1.0.7/node_modules/available-typed-arrays/package.json"
     },
     {
+      "name": "axe-core",
+      "version": "4.11.4",
+      "license": "MPL-2.0",
+      "path": "node_modules/.pnpm/axe-core@4.11.4/node_modules/axe-core/package.json"
+    },
+    {
       "name": "babel-plugin-jsx-dom-expressions",
       "version": "0.40.11",
       "license": "MIT",
@@ -2182,6 +2176,12 @@
       "path": "node_modules/.pnpm/ecdsa-sig-formatter@1.0.11/node_modules/ecdsa-sig-formatter/package.json"
     },
     {
+      "name": "echarts",
+      "version": "6.1.0",
+      "license": "Apache-2.0",
+      "path": "node_modules/.pnpm/echarts@6.1.0/node_modules/echarts/package.json"
+    },
+    {
       "name": "ee-first",
       "version": "1.1.1",
       "license": "MIT",
@@ -2267,9 +2267,9 @@
     },
     {
       "name": "esbuild",
-      "version": "0.18.20",
+      "version": "0.25.0",
       "license": "MIT",
-      "path": "node_modules/.pnpm/esbuild@0.18.20/node_modules/esbuild/package.json"
+      "path": "node_modules/.pnpm/esbuild@0.25.0/node_modules/esbuild/package.json"
     },
     {
       "name": "esbuild",
@@ -3634,6 +3634,12 @@
       "path": "node_modules/.pnpm/minimatch@10.2.6/node_modules/minimatch/package.json"
     },
     {
+      "name": "minimatch",
+      "version": "11.0.1",
+      "license": "BlueOak-1.0.0",
+      "path": "node_modules/.pnpm/minimatch@11.0.1/node_modules/minimatch/package.json"
+    },
+    {
       "name": "minimist",
       "version": "1.2.8",
       "license": "MIT",
@@ -3941,9 +3947,9 @@
     },
     {
       "name": "postcss-selector-parser",
-      "version": "6.0.10",
+      "version": "6.1.5",
       "license": "MIT",
-      "path": "node_modules/.pnpm/postcss-selector-parser@6.0.10/node_modules/postcss-selector-parser/package.json"
+      "path": "node_modules/.pnpm/postcss-selector-parser@6.1.5/node_modules/postcss-selector-parser/package.json"
     },
     {
       "name": "postcss",
@@ -4535,6 +4541,12 @@
     },
     {
       "name": "tslib",
+      "version": "2.3.0",
+      "license": "0BSD",
+      "path": "node_modules/.pnpm/tslib@2.3.0/node_modules/tslib/package.json"
+    },
+    {
+      "name": "tslib",
       "version": "2.8.1",
       "license": "0BSD",
       "path": "node_modules/.pnpm/tslib@2.8.1/node_modules/tslib/package.json"
@@ -4874,6 +4886,12 @@
       "version": "4.6.7",
       "license": "MIT",
       "path": "node_modules/.pnpm/zod@4.6.7/node_modules/zod/package.json"
+    },
+    {
+      "name": "zrender",
+      "version": "6.1.0",
+      "license": "BSD-3-Clause",
+      "path": "node_modules/.pnpm/zrender@6.1.0/node_modules/zrender/package.json"
     },
     {
       "name": "zwitch",
