@@ -106,8 +106,15 @@ describe("an engine's sandbox is shaped by the launcher alone (ADR 0073)", () =>
     expect(grantFiles).toHaveLength(1);
     const grant = JSON.parse(readFileSync(join(grants, grantFiles[0]!), "utf8")) as { token: string; hosts: string[] };
     expect(grant.hosts).toEqual(["api.example.com", "models.internal:8000"]);
-    const proxy = args.find((arg) => arg.startsWith("https_proxy="))!;
-    expect(proxy).toBe(`https_proxy=http://${grantFiles[0]!.replace(/\.json$/u, "")}:${grant.token}@brain-egress-proxy:18080`);
+    // The credentials are in a 0600 env file docker read at `run`, never in the argv (where ps and docker inspect show them); the file is gone after.
+    expect(args.join(" ")).not.toContain(grant.token);
+    expect(args.some((arg) => arg.startsWith("https_proxy=") || arg.startsWith("HTTPS_PROXY="))).toBe(false);
+    const envRuns = readFileSync(`${log}.envfile`, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as { path: string; mode: number; text: string });
+    expect(envRuns).toHaveLength(1);
+    expect(args[args.indexOf("--env-file") + 1]).toBe(envRuns[0]!.path);
+    expect(envRuns[0]!.mode).toBe(0o600);
+    expect(envRuns[0]!.text).toContain(`https_proxy=http://${grantFiles[0]!.replace(/\.json$/u, "")}:${grant.token}@brain-egress-proxy:18080`);
+    expect(existsSync(envRuns[0]!.path)).toBe(false);
     expect(args).toContain("NODE_USE_ENV_PROXY=1");
     expect(args).toContain(`brain.egress-grant=${grantFiles[0]!.replace(/\.json$/u, "")}`);
     // The engine to run is the launcher's own value, not a command the caller supplied.
@@ -228,6 +235,37 @@ describe("an engine's sandbox is shaped by the launcher alone (ADR 0073)", () =>
     expect(seen).toContain("echo:hello");
     expect((await channel.close()).terminationConfirmed).toBe(true);
     await expect(client.open({ engine: "claude", attemptId: "no-dir", requestId: "engine-no-dir-0", cpuMillicores: 1000, memoryMb: 512, egressHosts: [] })).rejects.toThrow(/engine sandbox create failed 409/u);
+  }, scaled(60_000));
+});
+
+describe("two creates of one request are one sandbox", () => {
+  it("starts one container and one grant when the same request id arrives while the first is still starting", async () => {
+    mkdirSync(join(stateRoot, "att-9"));
+    process.env["FAKE_DOCKER_RUN_DELAY_MS"] = "300";
+    try {
+      const sandboxes = new EngineSandboxes({ stateRoot: resolve(stateRoot), egressGrantsDir: grants, user: "1:1", idleMs: 60_000, verifyImage: async () => undefined });
+      const [first, second, third] = await Promise.all([sandboxes.create(create("att-9")), sandboxes.create(create("att-9")), sandboxes.create(create("att-9"))]);
+      expect(first.status).toBe(201);
+      expect(second.body["sandboxId"]).toBe(first.body["sandboxId"]);
+      expect(third.body["sandboxId"]).toBe(first.body["sandboxId"]);
+      expect(runCalls()).toHaveLength(1);
+      expect(readdirSync(grants)).toHaveLength(1);
+      await sandboxes.stop(String(first.body["sandboxId"]), 100);
+      expect(readdirSync(grants)).toEqual([]);
+    } finally { delete process.env["FAKE_DOCKER_RUN_DELAY_MS"]; }
+  }, scaled(60_000));
+
+  it("a failed start fails every waiting caller, leaves no grant, and a retry starts afresh", async () => {
+    mkdirSync(join(stateRoot, "att-10"));
+    process.env["FAKE_DOCKER_RUN_FAIL"] = "no image";
+    const sandboxes = new EngineSandboxes({ stateRoot: resolve(stateRoot), egressGrantsDir: grants, user: "1:1", idleMs: 60_000, verifyImage: async () => undefined });
+    const both = await Promise.all([sandboxes.create(create("att-10")), sandboxes.create(create("att-10"))]);
+    expect(both.map((reply) => reply.status)).toEqual([503, 503]);
+    expect(runCalls()).toHaveLength(1);
+    expect(readdirSync(grants)).toEqual([]);
+    delete process.env["FAKE_DOCKER_RUN_FAIL"];
+    expect((await sandboxes.create(create("att-10"))).status).toBe(201);
+    expect(runCalls()).toHaveLength(2);
   }, scaled(60_000));
 });
 
