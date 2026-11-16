@@ -45,6 +45,8 @@ export function proposedChange(toolId: string, args: JsonValue | undefined): Pro
  * diff, and the rollback the pinned Tool document declares. The digest covers the subject only, so none of this can change it.
  */
 export function approvalContext(s: Store, organizationId: string, workspaceId: string, subject: ActionSubject, releases: Map<string, ReleaseTools> = new Map()): ApprovalContext {
+  // An approval whose subject names no tool (a seeded or hand-made row) has nothing to describe: its context is empty, never an error.
+  if (!subject?.tool) return { rollback: { declared: false } };
   const origin = subject.origin ? describeOrigin(s.workspaceDb(workspaceId, organizationId), subject.origin) : undefined;
   const change = proposedChange(subject.tool.id, subject.effectBounds["arguments"]);
   const declared = declaredTool(s, organizationId, subject, releases)?.compensatingAction;
