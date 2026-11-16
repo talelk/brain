@@ -263,6 +263,14 @@ describe("the ticket webhook (#138)", () => {
     expect(db(w).prepare("SELECT state FROM plan_versions WHERE mission_id=?").get(occurrence!.dispatchRef)).toEqual({ state: "proposed" });
     expect(db(w).prepare("SELECT pack, kind FROM mission_subjects WHERE mission_id=?").get(occurrence!.dispatchRef)).toEqual({ pack: "sre", kind: "incident" });
 
+    // The same body sent again later is a new delivery (new id, new signed timestamp) and is handled; an exact replay, or a delivery with no id, is not.
+    const later = ticket(SECRET, "t-1b", record("incident", "opened", { severity: "critical" }), { ageSeconds: 30 });
+    expect(await post(path, later.body, later.headers)).toEqual({ status: 200, json: { status: "applied" } });
+    const replayedUnderFreshId = { ...later.headers, "x-brain-delivery": "t-1c" };
+    expect(await post(path, later.body, replayedUnderFreshId)).toEqual({ status: 200, json: { status: "duplicate" } });
+    const { "x-brain-delivery": _noId, ...withoutId } = ticket(SECRET, "t-1d", record("incident", "opened", { severity: "critical" })).headers;
+    expect((await post(path, later.body, withoutId)).status).toBe(400);
+
     for (const [delivery, event] of [["t-2", "closed"], ["t-3", "reopened"]] as const) {
       const next = ticket(SECRET, delivery, record("incident", event));
       await post(path, next.body, next.headers);

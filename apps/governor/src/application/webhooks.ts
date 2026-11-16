@@ -97,12 +97,15 @@ export function receiveWebhook(deps: { store: Store; endpoints: WebhookEndpoints
   if (!endpoint || !valid) return REFUSED;
 
   const parsed = parseDelivery(kind, headers, raw.toString("utf8"));
-  const digest = createHash("sha256").update(raw).digest("hex");
+  // The generic ticket webhook is the one provider whose signature covers a timestamp, so its replay digest covers it too: a legitimate
+  // repeat of an identical body arrives with a new timestamp and delivery id and is handled; only an exact replay is the same delivery.
+  if (kind === "ticket" && !parsed.deliveryId) return { status: 400, body: { error: "x-brain-delivery is required" } };
+  const digest = createHash("sha256").update(kind === "ticket" ? `${headers.get("x-brain-timestamp") ?? ""}.` : "").update(raw).digest("hex");
   const deliveryId = (parsed.deliveryId ?? `body-${digest}`).slice(0, 200);
   const db = store.workspaceDb(endpoint.workspaceId, endpoint.organizationId);
   const result: { applied?: Applied; again: Subject[] } = { again: [] };
   store.inTx(db, () => {
-    // The same delivery id, or the same bytes under a fresh id (a captured request replayed), is acknowledged and changes nothing.
+    // The same delivery id, or the same signed bytes under a fresh id (a captured request replayed), is acknowledged and changes nothing.
     const seen = db.prepare("SELECT fire_json FROM webhook_deliveries WHERE endpoint_id=? AND (delivery_id=? OR body_digest=?)").get(endpoint.id, deliveryId, digest) as { fire_json: string | null } | undefined;
     if (seen) { result.again = seen.fire_json ? JSON.parse(seen.fire_json) as Subject[] : []; return; }
     const outcome = apply(store, db, endpoint, parsed.outcome, deliveryId);
