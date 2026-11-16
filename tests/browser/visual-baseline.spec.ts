@@ -18,6 +18,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { seedBrowserDemo } from "../support/browserDemo";
 import { seedHuman } from "../helpers";
+import { signCompletions } from "../support/signed-completion";
 import { sendTaskBack } from "../support/evalCases";
 import { command, interruptedSession } from "../support/interrupted-session";
 import { PAUSABLE_FEATURES, runnerReports, runningSession } from "../support/running-session";
@@ -79,6 +80,29 @@ async function whyRoute(demo: Demo, governor: Fixture): Promise<string> {
   const scoped = { ...demo.actor, workspaceId: "why-baseline", scopes: scopesForPrincipal(brain.store, demo.actor.actorId, demo.actor.organizationId, "why-baseline") };
   const { jobId } = await seedWhyRun(governor as never, scoped, "why-baseline", "baseline-why");
   return `/runs/${jobId}?tab=placement&w=why-baseline`;
+}
+
+/**
+ * A run whose runner finished and signed its attempt (#153), made when its screen is reached: the run page open on its Evidence tab. The attempt is
+ * completed through the runner protocol with a receipt signed by a key the runner is enrolled with; the bundle it submitted is seeded as the evidence
+ * view reads it.
+ */
+async function receiptRoute(demo: Demo, governor: Fixture): Promise<string> {
+  const brain = governor.app.brain;
+  brain.createWorkspace(demo.actor, { workspaceId: "receipt-baseline", slug: "receipt-baseline" });
+  const scoped = { ...demo.actor, workspaceId: "receipt-baseline", scopes: scopesForPrincipal(brain.store, demo.actor.actorId, demo.actor.organizationId, "receipt-baseline") };
+  const { jobId, runId } = await seedWhyRun(governor as never, scoped, "receipt-baseline", "baseline-receipt");
+  const attempt = brain.store.control.prepare("SELECT id, runner_id, runner_epoch, lease_id, job_fence FROM job_attempts WHERE job_id=?").get(jobId) as { id: string; runner_id: string; runner_epoch: number; lease_id: string; job_fence: number };
+  const runner = { runnerId: attempt.runner_id, epoch: attempt.runner_epoch, organizationId: demo.actor.organizationId };
+  signCompletions(brain);
+  brain.jobProtocol.ack(runner, attempt.id, { leaseId: attempt.lease_id, jobFence: attempt.job_fence });
+  brain.jobProtocol.complete(runner, attempt.id, { result: "succeeded", output: { message: "Three venues compared" }, jobFence: attempt.job_fence, cleanupConfirmed: true });
+  const job = brain.store.control.prepare("SELECT config_digest FROM jobs WHERE id=?").get(jobId) as { config_digest: string };
+  const bundle = { contractVersion: "brain.evidence/v1", bundleId: "bundle-receipt-baseline", organizationId: demo.actor.organizationId, workspaceId: "receipt-baseline", workflowRunId: runId, jobId, attemptId: attempt.id, jobFence: attempt.job_fence,
+    sourceRevision: "baseline-revision", configDigest: job.config_digest, workflowDigest: job.config_digest, primitiveVersions: {}, toolReleases: [], artifacts: [], checks: [], approvalIds: [], effects: [], createdAt: new Date(brain.store.now()).toISOString() };
+  brain.store.workspaceDb("receipt-baseline", demo.actor.organizationId).prepare("INSERT INTO evidence_bundles(digest, bundle_id, job_id, attempt_id, state, manifest_json, created_at_ms) VALUES (?,?,?,?, 'submitted', ?,?)")
+    .run(`sha256:${"7".repeat(64)}`, bundle.bundleId, jobId, attempt.id, JSON.stringify(bundle), brain.store.now());
+  return `/runs/${jobId}?tab=evidence&w=receipt-baseline`;
 }
 
 /** A task run as three candidates (#127), made when its screen is reached: two finished (one verified), one failed; the task is open in its mission. */
@@ -330,6 +354,7 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // Administration > Integrations with signed webhook addresses and their last deliveries (ticket #138): status only, no secret.
   { id: "admin-webhooks", route: () => "/administration/integrations", heading: "Signed webhooks", prepare: seedWebhooks, waitFor: "webhooks", after: async (page) => { await expect(page.getByTestId("webhook-endpoint")).toHaveCount(2); await expect(page.getByTestId("webhook-deliveries").first()).toBeVisible(); } },
   { id: "run-why", route: whyRoute, heading: "Run inspector", waitFor: "why-choices" },
+  { id: "run-receipt", route: receiptRoute, heading: "Run inspector", waitFor: "run-receipt" },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];

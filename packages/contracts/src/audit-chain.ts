@@ -1,6 +1,7 @@
 import { createHash, createPublicKey, verify as edVerify, type KeyObject } from "node:crypto";
 import type { AuditCheckpoint, AuditEventRecord, AuditKey, Digest } from "./brain.generated";
 import { canonicalJsonBytes, domainDigest, sha256Digest } from "./hash";
+import { createReceiptCheck } from "./run-receipt";
 import type { JsonValue } from "./brain.generated";
 
 /**
@@ -192,7 +193,7 @@ export interface AuditExportInput {
 export interface AuditVerifyOptions {
   /** Keys the verifier is told to believe (for example from an earlier export). Without them the export's own keys are used. */
   readonly trustedKeys?: readonly Pick<AuditKey, "keyId" | "publicKey">[];
-  /** Plug-ins judged against every event whose position is sound (#153 run receipts). */
+  /** Extra checks judged against every event whose position is sound. Run receipts (ADR 0078) are always checked; these come after them. */
   readonly eventChecks?: readonly AuditEventCheck[];
 }
 export interface AuditChainResult { readonly scope: string; readonly verifiedEvents: number; readonly checkpointsVerified: number; readonly head: { readonly seq: number; readonly digest: Digest } | null }
@@ -212,8 +213,10 @@ export interface AuditVerifyResult {
  */
 export function verifyAuditExport(input: AuditExportInput, options: AuditVerifyOptions = {}): AuditVerifyResult {
   const ordered = [...input.chains].sort((a, b) => (a.scope === CONTROL_SCOPE ? 0 : 1) - (b.scope === CONTROL_SCOPE ? 0 : 1));
+  // One receipt check for the whole export: it learns the runner keys from the control chain, which is walked first.
+  const receipts = createReceiptCheck();
   const verifiers = ordered.map((chain) => {
-    const v = new AuditChainVerifier(input.organizationId, chain.scope, chain.checkpoints, options.eventChecks ?? []);
+    const v = new AuditChainVerifier(input.organizationId, chain.scope, chain.checkpoints, [receipts, ...(options.eventChecks ?? [])]);
     for (const event of chain.events) if (v.push(event)) break;
     return v;
   });

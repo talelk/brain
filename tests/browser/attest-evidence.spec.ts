@@ -3,6 +3,7 @@ import type { ActorContext, VerificationVerdict } from "@brain/contracts";
 import { seedHuman, goldenDocs } from "../helpers";
 import { enrollRunners, signUpOwner } from "../support/flow";
 import { bundleForAttempt } from "../support/evidence";
+import { signCompletions } from "../support/signed-completion";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
 
 /**
@@ -47,7 +48,7 @@ test("a person attests evidence as the independent evaluator: verified, rejected
     expect(receipt.accepted).toBe(true);
     const offer = brain.jobProtocol.claim(runner, `claim-${key}`) as unknown as { attemptId: string; leaseId: string; jobFence: number };
     brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
-    brain.jobProtocol.complete(runner, offer.attemptId, { result: "succeeded", output: { message: "Brain fixture", bytes: 13 }, jobFence: offer.jobFence, cleanupConfirmed: true });
+    signCompletions(brain).jobProtocol.complete(runner, offer.attemptId, { result: "succeeded", output: { message: "Brain fixture", bytes: 13 }, jobFence: offer.jobFence, cleanupConfirmed: true });
     const bundle = bundleForAttempt(brain, actor.organizationId, "ws-attest", offer.attemptId, `bundle-${key}`);
     const { digest } = brain.submitEvidence(runner, bundle) as { digest: string };
     return { runId: bundle.workflowRunId, digest };

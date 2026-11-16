@@ -4,6 +4,7 @@ import { JobProtocol } from "../../apps/governor/src/modules/jobs/index";
 import { QUOTA_MAX_WAIT_MS, QUOTA_MAX_WAITS } from "../../apps/governor/src/domain/failure";
 import { setupWorld, workView, DIGEST_A, type TestWorld } from "../helpers";
 import { command, getMission } from "../support/reuse";
+import { signProtocol } from "../support/signed-completion";
 
 // ADR 0033: a provider's quota or rate limit is its own failure class. It is stored with the class "quota", said so to the person (the task, the
 // run page), and its remedy waits for the provider's retry-after, bounded, without spending an attempt, then tries again.
@@ -43,10 +44,10 @@ async function failedAttempt(w: TestWorld, workItemId: string, key: string, erro
     payload: { workflow: { id: "fixture-workflow", digest: w.brain.activeRelease(w.org)!.digest }, input: { message: key } },
   }, key);
   const runner = seedRunner(w, `runner-${key}`);
-  const protocol = new JobProtocol(w.brain.store, {
+  const protocol = signProtocol(w.brain, new JobProtocol(w.brain.store, {
     completeStep: () => undefined, evaluatorEligible: () => true, runnerCurrent: () => true, activeRelease: () => undefined,
     resolveWorkflow: () => ({ workflow: {}, configDigest: `sha256:${"0".repeat(64)}` }), startRun: () => ({ runId: "unused" }),
-  });
+  }));
   const offer = protocol.claim(runner, `req-${key}`) as { attemptId: string; jobId: string; leaseId: string; jobFence: number };
   protocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
   protocol.complete(runner, offer.attemptId, { result: "failed", jobFence: offer.jobFence, cleanupConfirmed: true, output: { error } });

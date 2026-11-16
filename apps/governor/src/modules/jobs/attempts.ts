@@ -1,5 +1,5 @@
 import type { JsonValue } from "@brain/contracts";
-import { domainDigest, sha256Digest } from "@brain/contracts";
+import { domainDigest, RECEIPT_EVENT, receiptDigest as signedReceiptDigest, receiptShapeProblem, receiptSignatureOk, sha256Digest, type RunReceipt } from "@brain/contracts";
 import { releaseRecord, releaseToolAllowedHosts, releaseToolMcp, releaseToolPins } from "../configuration/index";
 import { workspaceEgressHosts } from "../governance/index";
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
@@ -465,6 +465,7 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
     contractVersion: "brain.job-offer/v1", jobId: String(row["job_id"]), workflowRunId: String(row["workflow_run_id"]), attemptId,
     runnerId: String(row["runner_id"]), runnerEpoch: Number(row["runner_epoch"]), leaseId: String(row["lease_id"]),
     jobFence: Number(row["job_fence"]), organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]),
+    stepId: String(row["step_id"]), executionDigest: (s.control.prepare("SELECT execution_digest FROM jobs WHERE id=?").get(String(row["job_id"])) as { execution_digest: string }).execution_digest,
     attemptNumber: Number(row["attempt_no"]), offerExpiresAt: iso(Number(row["offer_expires_at_ms"])),
     configDigest: String(row["config_digest"]), workflowDigest,
     placement: JSON.parse(String(row["placement_json"])),
@@ -479,7 +480,7 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
 }
 
 export function loadAttempt(s: Store, attemptId: string): Record<string, unknown> {
-  const row = s.control.prepare(`SELECT a.*, j.organization_id, j.workspace_id, j.workflow_run_id, j.step_id, j.job_fence AS current_job_fence,j.state AS job_state, j.version AS job_version
+  const row = s.control.prepare(`SELECT a.*, j.organization_id, j.workspace_id, j.workflow_run_id, j.step_id, j.config_digest, j.execution_digest, j.job_fence AS current_job_fence,j.state AS job_state, j.version AS job_version
     FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE a.id=?`).get(attemptId) as Record<string, unknown> | undefined;
   if (!row) throw new BrainDomainError("NOT_FOUND", "attempt not found");
   return row;
@@ -642,6 +643,9 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
       throw new BrainDomainError("IDEMPOTENCY_CONFLICT", "different receipt for completed attempt");
     }
     if (row["state"] !== "running" || row["job_state"] !== "running") throw new BrainDomainError("CONFLICT", "attempt cannot accept a new completion receipt");
+    // A completion is accepted only with the receipt the runner signed with its enrolled key (ADR 0078); there is no unsigned path.
+    const signed = verifySignedReceipt(s, runner, row, result, body);
+    storeSignedReceipt(s, row, signed);
     const cleanup = body["cleanupConfirmed"] === true ? 1 : 0;
     if (result === "unknown-outcome" || result === "unknown") {
       markPlatformInterruption(s, attemptId);
@@ -694,6 +698,39 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
   // A held act job belongs to no workflow step: its outcome reaches the task through the job that proposed it.
   if (jobState === "failed" && !isAct) deps.completeStep(runner.organizationId, workspaceId, runId, stepId, redactFailureOutput(output), false);
   return { attemptId, jobState, acceptedForVerification: jobState === "verifying" } as unknown as JsonValue;
+}
+
+/**
+ * Checks the receipt the runner signed against what the Governor itself knows of the attempt and against the runner's enrolled key. Refuses
+ * a missing signature, a receipt for another attempt, fence, run, step, configuration or execution, a result that differs from the
+ * receipt's outcome, a key that is not this runner's or was retired, and a signature that does not verify.
+ */
+function verifySignedReceipt(s: Store, runner: { runnerId: string; epoch: number }, row: Record<string, unknown>, result: string, body: Record<string, unknown>): { receipt: RunReceipt; signature: string; digest: string } {
+  const receipt = body["receipt"]; const signature = body["signature"];
+  if (receipt === undefined || typeof signature !== "string" || signature.length === 0) throw new BrainDomainError("INVALID_CONTRACT", "RECEIPT_UNSIGNED: a completion must carry the run receipt signed with the runner's enrolled key");
+  const shape = receiptShapeProblem(receipt);
+  if (shape) throw new BrainDomainError("INVALID_CONTRACT", `RECEIPT_INVALID: ${shape}`);
+  const r = receipt as RunReceipt;
+  const expected: Array<[string, unknown, unknown]> = [
+    ["attempt", r.attemptId, row["id"]], ["job", r.jobId, row["job_id"]], ["fence", r.jobFence, Number(row["job_fence"])], ["runner", r.runnerId, runner.runnerId],
+    ["runner epoch", r.runnerEpoch, runner.epoch], ["run", r.workflowRunId, row["workflow_run_id"]], ["step", r.stepId, row["step_id"]],
+    ["configuration", r.configDigest, row["config_digest"]], ["execution", r.executionDigest, row["execution_digest"]],
+  ];
+  for (const [what, claimed, actual] of expected) if (claimed !== actual) throw new BrainDomainError("FORBIDDEN", `RECEIPT_MISMATCH: the receipt names another ${what} than this attempt's`);
+  if (r.outcome !== result) throw new BrainDomainError("FORBIDDEN", "RECEIPT_MISMATCH: the receipt's outcome is not the result reported");
+  const key = s.control.prepare("SELECT public_key_spki_pem, runner_id, revoked_at_ms FROM runner_keys WHERE key_id=?").get(r.keyId) as { public_key_spki_pem: string; runner_id: string; revoked_at_ms: number | null } | undefined;
+  if (!key || key.runner_id !== runner.runnerId) throw new BrainDomainError("FORBIDDEN", "RECEIPT_KEY_UNKNOWN: the receipt is signed with a key this runner never enrolled");
+  if (key.revoked_at_ms !== null) throw new BrainDomainError("FORBIDDEN", "RECEIPT_KEY_REVOKED: the key that signed this receipt was rotated or retired");
+  if (!receiptSignatureOk(r, signature, key.public_key_spki_pem)) throw new BrainDomainError("FORBIDDEN", "RECEIPT_SIGNATURE_INVALID: the receipt's signature does not verify against the runner's enrolled key");
+  return { receipt: r, signature, digest: signedReceiptDigest(r) };
+}
+
+/** Keeps the signed receipt as it came and writes it into the audit chain, in the completion's own transaction. */
+function storeSignedReceipt(s: Store, row: Record<string, unknown>, signed: { receipt: RunReceipt; signature: string; digest: string }): void {
+  const attemptId = String(row["id"]);
+  s.control.prepare("INSERT INTO attempt_receipts(attempt_id, organization_id, workspace_id, job_id, runner_id, key_id, receipt_json, receipt_digest, signature, evidence_digest, recorded_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+    .run(attemptId, String(row["organization_id"]), String(row["workspace_id"]), String(row["job_id"]), signed.receipt.runnerId, signed.receipt.keyId, JSON.stringify(signed.receipt), signed.digest, signed.signature, signed.receipt.evidenceDigest, s.now());
+  s.emit(s.control, { organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]), aggregateType: "attempt", aggregateId: attemptId, eventType: RECEIPT_EVENT, payload: { receipt: signed.receipt as unknown as JsonValue, signature: signed.signature, receiptDigest: signed.digest } });
 }
 
 /**

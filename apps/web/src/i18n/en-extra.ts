@@ -2106,5 +2106,10 @@ export const enExtra = {
   "pr.check.skipped": "skipped",
   "pr.check.other": "finished",
   "health.service.audit": "Audit log",
+  "receipt.signed": "Signed by runner {runner}",
+  "receipt.verified": "verified",
+  "receipt.unverified": "does not verify",
+  "receipt.retired": "its key has since been rotated",
+  "receipt.digest": "Receipt digest",
   // @@END
 } as const satisfies Record<string, string>;

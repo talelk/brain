@@ -5,6 +5,7 @@ import type { ActorContext, ExecutionLink, WorkItem } from "../packages/contract
 import { Brain } from "../apps/governor/src/application/brain";
 import { scopesForPrincipal, type ResolvedActor } from "../apps/governor/src/application/authz";
 import { totpCode, newTotpSecret } from "./support/totp";
+import { signCompletions } from "./support/signed-completion";
 import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 const requireGovernor = createRequire(new URL("../apps/governor/package.json", import.meta.url));
@@ -38,7 +39,7 @@ export function setupCredential(brain: Brain): string {
 
 export function tempBrain(): { brain: Brain; dir: string } {
   const dir = mkdtempSync(join(tmpdir(), "brain-test-"));
-  return { brain: new Brain({ dataDir: dir, allowTestActor: true }), dir };
+  return { brain: signCompletions(new Brain({ dataDir: dir, allowTestActor: true })), dir };
 }
 
 export interface TestWorld {
@@ -63,7 +64,7 @@ export function goldenDocs(): { path: string; text: string }[] {
 }
 
 export function setupWorld(existing?: Brain): TestWorld {
-  const { brain, dir } = existing ? { brain: existing, dir: existing.store.dataDir } : tempBrain();
+  const { brain, dir } = existing ? { brain: signCompletions(existing), dir: existing.store.dataDir } : tempBrain();
   const org = "org-test";
   const boot = seedOrganization(brain, { organizationId: org, ownerId: "owner-1" });
   const actor = (principalId: string, workspaceId?: string): ActorContext => ({

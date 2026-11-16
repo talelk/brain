@@ -2,7 +2,7 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { cpus, freemem } from "node:os";
 import { join } from "node:path";
-import { domainDigest, isKeyReference, isolationSatisfies, sha256Digest } from "@brain/contracts";
+import { domainDigest, isKeyReference, isolationSatisfies, RUN_RECEIPT_VERSION, runnerKeyId, sha256Digest, signReceipt, type ReceiptUsage, type RunReceipt } from "@brain/contracts";
 import type { ArtifactRef, Checkpoint, EngineInfo, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
 import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
@@ -253,6 +253,9 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
   const engineSandboxes: SandboxedEngine[] = [];
   const spool = DurableEventSpool.load(join(cfg.stateDir, "spool", `${offer.attemptId}.jsonl`));
   let eventSeq = spool.stats().lastSequence;
+  // What the signed receipt states (ADR 0078): when the attempt started and, from the engine's own final totals, what it used.
+  const startedAt = new Date().toISOString();
+  let usage: ReceiptUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0 };
   // The engine that actually executes the attempt; reported with the event
   // batches so the Governor's session view names the real adapter and its
   // probe features, not a guess.
@@ -282,6 +285,13 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       const event = eventPayload as { kind?: string; payload?: { engine?: { id: string; adapterDigest: string; features?: string[] } } };
       if (event.kind === "session.started" && event.payload?.engine) {
         engineInfo = { id: event.payload.engine.id, adapterDigest: event.payload.engine.adapterDigest, features: event.payload.engine.features ?? [], ...(engineInfo?.model ? { model: engineInfo.model } : {}) };
+      }
+    }
+    if (kind === "engine") {
+      const event = eventPayload as { kind?: string; payload?: Record<string, unknown> };
+      if (event.kind === "usage" && event.payload?.["accounting"] === "final-total") {
+        const count = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.round(value) : 0);
+        usage = { inputTokens: count(event.payload["inputTokens"]), outputTokens: count(event.payload["outputTokens"]), cachedInputTokens: count(event.payload["cachedInputTokens"]), microUsd: count(event.payload["microUsd"]) };
       }
     }
     eventSeq += 1;
@@ -575,15 +585,9 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     }
     // An attempt that proposed changes ends here and says so: the Governor parks its job until they are settled (ADR 0028).
     const held = heldProposals > 0 && result.ok && !outcomeUnknown;
-    await client.complete(offer.attemptId, {
-      result: outcomeUnknown ? "unknown-outcome" : result.ok ? "succeeded" : "failed", output, jobFence: offer.jobFence, cleanupConfirmed: result.cleanupConfirmed ?? true,
-      ...(held ? { held: true } : {}),
-      ...(result.checkpoint ? { checkpoint: result.checkpoint } : {}),
-      ...(routeReport.length > 0 ? { modelRoutes: routeReport } : {}),
-    });
-    // A workflow with no evaluator (a tool test) claims no checks: there is nothing for a bundle to carry, and an empty one is refused.
-    if (result.ok && !held && (payload as { kind?: string }).kind !== "act" && !assignment && offer.authorEvidence && offer.authorEvidence.claimedChecks.length > 0 && offer.workflowRunId && artifact) {
-      const bundle = {
+    // A workflow with no evaluator (a tool test) claims no checks: there is nothing for a bundle to carry, and an empty one is refused. The bundle
+    // is built before the attempt completes so its digest can be signed into the receipt; it is submitted once the Governor has accepted that.
+    const bundle = result.ok && !held && !outcomeUnknown && (payload as { kind?: string }).kind !== "act" && !assignment && offer.authorEvidence && offer.authorEvidence.claimedChecks.length > 0 && offer.workflowRunId && artifact ? {
         contractVersion: "brain.evidence/v1",
         bundleId: `bundle-${offer.attemptId}`,
         organizationId: offer.organizationId ?? "",
@@ -602,7 +606,27 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
         approvalIds: [...nestedApprovalIds],
         effects: [...nestedEffects],
         createdAt: new Date().toISOString(),
-      };
+      } : undefined;
+    // The receipt: what this attempt was and did, signed with the key this runner enrolled with (ADR 0078). The Governor refuses a completion without it.
+    const keys = loadOrCreateKeys(cfg.stateDir);
+    const toolBroker = offer.execution.kind === "tool";
+    const served = routeReport.find((r) => r.outcome === "served") ?? routeReport[routeReport.length - 1];
+    const unsigned: RunReceipt = {
+      contractVersion: RUN_RECEIPT_VERSION, attemptId: offer.attemptId, jobId: offer.jobId, jobFence: offer.jobFence, runnerId: cfg.runnerId, runnerEpoch: offer.runnerEpoch ?? runnerEpoch,
+      workflowRunId: offer.workflowRunId ?? "", stepId: offer.stepId ?? "", configDigest: offer.configDigest, executionDigest: offer.executionDigest ?? "", keyId: runnerKeyId(keys.publicKeyPem),
+      engine: { id: engineInfo?.id ?? (toolBroker ? "tool-broker" : "unknown"), version: engineInfo?.adapterDigest ?? (toolBroker ? sha256Digest(new TextEncoder().encode("tool-broker:v1")) : null), route: served?.routeId ?? null },
+      startedAt, endedAt: new Date().toISOString(), outcome: outcomeUnknown ? "unknown-outcome" : result.ok ? "succeeded" : "failed", usage,
+      evidenceDigest: bundle ? domainDigest("brain:evidence-bundle:v1", bundle as unknown as JsonValue) : null,
+      artifactDigests: [...new Set([...(artifact ? [artifact.digest] : []), ...toolArtifacts.map((known) => known.digest)])].sort(),
+    };
+    await client.complete(offer.attemptId, {
+      result: unsigned.outcome, output, jobFence: offer.jobFence, cleanupConfirmed: result.cleanupConfirmed ?? true,
+      receipt: unsigned, signature: signReceipt(unsigned, keys.privateKeyPem),
+      ...(held ? { held: true } : {}),
+      ...(result.checkpoint ? { checkpoint: result.checkpoint } : {}),
+      ...(routeReport.length > 0 ? { modelRoutes: routeReport } : {}),
+    });
+    if (bundle) {
       const submitted = await client.submitEvidence(bundle);
       await emit("effect", { phase: "author-bundle-submitted", bundleId: bundle.bundleId, digest: submitted.digest });
     }

@@ -3,6 +3,7 @@ import { Brain } from "../../apps/governor/src/application/brain";
 import { attemptsOf, controlledClock, dispatchFixture, failAttempt, jobRow, policyWorld, readRetry, runStateOf, seedRunner, startAttempt, stepStatesOf, type World } from "../support/step-policy";
 import { settled } from "../support/parallel-workflow";
 import { scaled } from "../support/timing";
+import { signCompletions } from "../support/signed-completion";
 
 // A Governor killed while a step is being retried or timed out (ADR 0046): the step still has one job, an attempt that already failed
 // is not failed or requeued a second time, the backoff and the deadline are on record, and the step finishes once.
@@ -13,7 +14,7 @@ afterEach(() => { for (const brain of open.splice(0)) brain.close(); });
 function restart(w: World, clock: { nowMs: () => number; monotonicMs: () => number }): World {
   w.brain.close();
   open.splice(open.indexOf(w.brain), 1);
-  const brain = new Brain({ dataDir: w.dir, allowTestActor: true, clock });
+  const brain = signCompletions(new Brain({ dataDir: w.dir, allowTestActor: true, clock }));
   open.push(brain);
   return { ...w, brain };
 }

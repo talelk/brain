@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from "node:crypto";
 import { test, expect } from "./fixtures";
 import { goldenDocs } from "../helpers";
 const DIGEST_A = `sha256:${"a".repeat(64)}`;
@@ -75,7 +76,7 @@ test("operations: issue a one-use enrollment token and enroll an outbound runner
   await dialog.getByRole("button", { name: "Issue one-use token", exact: true }).click();
   const token = await dialog.getByLabel("One-use enrollment token", { exact: true }).inputValue();
   expect(token.length).toBeGreaterThan(20);
-  brain.jobProtocol.enrollRunner({ token, publicKeyPem: "-----BEGIN PUBLIC KEY-----\nbrowser-runner\n-----END PUBLIC KEY-----", runnerId: "runner-browser-enrolled" });
+  brain.jobProtocol.enrollRunner({ token, publicKeyPem: generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" }).toString(), runnerId: "runner-browser-enrolled" });
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(page.getByText("runner-browser-enrolled", { exact: true })).toBeVisible();

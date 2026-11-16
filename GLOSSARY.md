@@ -677,6 +677,14 @@ _Avoid_: snapshot, backup
 The Governor's ed25519 signing key for checkpoints. Private half owner-only in the data directory, public half published; rotation records the new key in the chain, signed by the old one, and old checkpoints stay verifiable.
 _Avoid_: signing secret
 
+**Run receipt**:
+What a runner states about one **attempt** when it ends, signed with the ed25519 key it enrolled with: the attempt, job, fence, run and step, configuration and execution digests, engine, version and model route, start and end, outcome, usage totals, the digest of the evidence bundle it submits and the digests of its artifacts. The Governor accepts a completion only with a receipt that verifies against that key, keeps it as signed, and records it in the **audit log**, so `brain audit verify` checks it offline against the **runner key**s the log recorded. A receipt proves who said it, not that it is true: the evaluator still judges the evidence.
+_Avoid_: completion report, attestation (that is a person's L3 verdict)
+
+**Runner key**:
+A public key a runner enrolled with, kept (and recorded in the **audit log**) for as long as receipts signed with it must verify. Rotation or deregistration ends it: a receipt signed with it after that is refused, one signed before stays valid.
+_Avoid_: runner credential (that is the secret used to start a session)
+
 **Evidence bundle**:
 The concrete, digest-addressed set of artifacts, checks, approvals and effect records
 that an evaluator judges.

@@ -1,6 +1,6 @@
 import type { ActorContext, JsonValue } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
-import { domainDigest } from "@brain/contracts";
+import { domainDigest, receiptDigest, receiptSignatureOk, type RunReceipt } from "@brain/contracts";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
@@ -158,6 +158,20 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
 }
 
 /** Pack detail reads: one ticket or incident, or an evidence bundle by digest. */
+/**
+ * The signed receipt of an attempt as stored, with the signature checked again now against the key it names (the key is kept after
+ * rotation, so an old receipt still verifies; `signedBy.verified` is false only if what is stored no longer matches its signature).
+ */
+function signedReceiptView(store: Store, attemptId: string): JsonValue | undefined {
+  const row = store.control.prepare(`SELECT r.receipt_json, r.receipt_digest, r.signature, r.key_id, r.runner_id, k.public_key_spki_pem, k.revoked_at_ms
+    FROM attempt_receipts r JOIN runner_keys k ON k.key_id=r.key_id WHERE r.attempt_id=?`).get(attemptId) as
+    | { receipt_json: string; receipt_digest: string; signature: string; key_id: string; runner_id: string; public_key_spki_pem: string; revoked_at_ms: number | null } | undefined;
+  if (!row) return undefined;
+  const receipt = JSON.parse(row.receipt_json) as RunReceipt;
+  const verified = receiptSignatureOk(receipt, row.signature, row.public_key_spki_pem) && receiptDigest(receipt) === row.receipt_digest;
+  return { signedBy: { runnerId: row.runner_id, keyId: row.key_id, verified, keyRetired: row.revoked_at_ms !== null }, digest: row.receipt_digest, signature: row.signature, receipt } as unknown as JsonValue;
+}
+
 export function getPack(store: Store, actor: ActorContext, queryType: string, workspaceId: string | undefined, resourceId: string): JsonValue {
   if (queryType === "evidence.get") {
     // resourceId is a bundle digest or bundle id; search caller workspaces.
@@ -168,7 +182,9 @@ export function getPack(store: Store, actor: ActorContext, queryType: string, wo
       if (row) {
         const verdict = ws.prepare("SELECT manifest_json FROM verification_verdicts WHERE bundle_digest=? ORDER BY created_at_ms DESC LIMIT 1").get(resourceId) as { manifest_json: string } | undefined;
         const trust = verdict ? trustForBundle(store, actor.organizationId, ws, resourceId) : undefined; // the verdict was found by digest, so resourceId is one
-        return { bundle: JSON.parse(row.manifest_json) as JsonValue, ...(verdict ? { verdict: JSON.parse(verdict.manifest_json) as JsonValue } : {}), ...(trust ? { trust } : {}) } as unknown as JsonValue;
+        const bundle = JSON.parse(row.manifest_json) as { attemptId?: string };
+        const receipt = signedReceiptView(store, String(bundle.attemptId ?? ""));
+        return { bundle: bundle as unknown as JsonValue, ...(verdict ? { verdict: JSON.parse(verdict.manifest_json) as JsonValue } : {}), ...(trust ? { trust } : {}), ...(receipt ? { receipt } : {}) } as unknown as JsonValue;
       }
     }
     throw new BrainDomainError("NOT_FOUND", "evidence not found");

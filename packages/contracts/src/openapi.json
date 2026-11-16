@@ -10516,6 +10516,14 @@
      "workspaceId": {
       "$ref": "#/components/schemas/Id"
      },
+     "stepId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+     },
+     "executionDigest": {
+      "$ref": "#/components/schemas/Digest"
+     },
      "attemptNumber": {
       "$ref": "#/components/schemas/Counter"
      },
@@ -13418,6 +13426,55 @@
      "checks",
      "acceptedBy",
      "createdAt"
+    ],
+    "additionalProperties": false
+   },
+   "SignedRunReceiptView": {
+    "type": "object",
+    "properties": {
+     "signedBy": {
+      "type": "object",
+      "properties": {
+       "runnerId": {
+        "$ref": "#/components/schemas/Id"
+       },
+       "keyId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "verified": {
+        "type": "boolean"
+       },
+       "keyRetired": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "runnerId",
+       "keyId",
+       "verified",
+       "keyRetired"
+      ],
+      "additionalProperties": false
+     },
+     "digest": {
+      "$ref": "#/components/schemas/Digest"
+     },
+     "signature": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+     },
+     "receipt": {
+      "$ref": "#/components/schemas/JsonValue"
+     }
+    },
+    "required": [
+     "signedBy",
+     "digest",
+     "signature",
+     "receipt"
     ],
     "additionalProperties": false
    },
@@ -22854,6 +22911,9 @@
          },
          "trust": {
           "$ref": "#/components/schemas/TrustRead"
+         },
+         "receipt": {
+          "$ref": "#/components/schemas/SignedRunReceiptView"
          }
         },
         "required": [

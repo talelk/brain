@@ -48,6 +48,9 @@ export interface JobOffer {
   workspaceId: string;
   organizationId?: string;
   workflowRunId?: string;
+  stepId?: string;
+  runnerEpoch?: number;
+  executionDigest?: string;
   attemptNumber?: number;
   sourceRevision?: string;
   leaseId: string;
