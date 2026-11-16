@@ -7,14 +7,20 @@
  *     --project=1440-light --project=768-light --project=390-dark --update-snapshots
  * and commit the new PNGs in tests/browser/visual-baseline.spec.ts-snapshots/ in the same change as
  * the UI work. Never refresh them just to make a red run green. Comparisons allow 2% of pixels to
- * differ (seeded timestamps and ids vary per run); they run on the seeded workspace from
+ * differ (anti-aliasing only: no screen widens that); they run on the seeded workspace from
  * tests/support/browserDemo.ts.
+ *
+ * Determinism (ticket #160): the Governor clock runs from a fixed day (pinClock) and the page clock is fixed to it before every
+ * navigation, in UTC; background auto-start is swept to rest before each screen; the page is shot only after the network is idle and
+ * the layout has stopped moving, scrolled with place() to a rounded pixel position; generated ids (trace id, webhook addresses, digests) and
+ * times of things made during the run are masked. The screens run in one test, in order, because later screens count what earlier ones made;
+ * a mismatch on one screen is recorded and the next screens still run.
  */
 import { createHmac } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { seedBrowserDemo } from "../support/browserDemo";
 import { seedHuman } from "../helpers";
@@ -31,6 +37,74 @@ import { autonomyContext, cleanMission, cleanPlayMissions } from "../support/aut
 import { delegationsOf, driveChildren, enrollChildRunners } from "../support/delegation-world";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
 import { seedWhyRun } from "../support/why-demo";
+
+test.use({ timezoneId: "UTC" });
+
+type Brain = Parameters<typeof seedBrowserDemo>[1]["app"]["brain"];
+
+/**
+ * The clock of this run: the Governor lives in this process, so its Date (and every timestamp the test helpers make) starts at a fixed midday (in the future, so session cookies the browser holds are never already expired)
+ * UTC date and runs on at the real rate, so dates, spend days and ages are the same on every run while leases and offers still expire.
+ */
+const CLOCK_START_MS = Date.parse("2035-06-13T12:00:00Z");
+const RealDate = Date;
+function pinClock(): () => number {
+  const realStart = RealDate.now();
+  const nowMs = () => CLOCK_START_MS + (RealDate.now() - realStart);
+  class PinnedDate extends RealDate {
+    constructor(...args: unknown[]) { if (args.length === 0) super(nowMs()); else super(...(args as [number])); }
+    static override now(): number { return nowMs(); }
+  }
+  globalThis.Date = PinnedDate as unknown as DateConstructor;
+  return nowMs;
+}
+
+/**
+ * Scrolls `element` to `block` of whatever scrolls it (like scrollIntoView, instantly), then rounds every scroll offset on the way to a whole
+ * pixel. The request is kept so settle() can place it again once the layout has stopped moving: a late-arriving section above it would
+ * otherwise leave the shot a few pixels off.
+ */
+function place(element: Element, block: string): void {
+  const state = window as unknown as { __vbPlace?: () => void };
+  const apply = () => {
+    if (!element.isConnected) return;
+    if (block === "ifneeded") {
+      const box = element.getBoundingClientRect();
+      if (box.top >= 0 && box.bottom <= window.innerHeight) return;
+    }
+    element.scrollIntoView({ block: block === "ifneeded" ? "nearest" : (block as ScrollLogicalPosition), behavior: "instant" });
+    for (let node: Element | null = element.parentElement; node; node = node.parentElement) if (node.scrollTop !== Math.round(node.scrollTop)) node.scrollTop = Math.round(node.scrollTop);
+    if (window.scrollY !== Math.round(window.scrollY)) window.scrollTo({ top: Math.round(window.scrollY), behavior: "instant" });
+  };
+  state.__vbPlace = apply;
+  apply();
+}
+
+/** Waits for the network to go idle and the page height to stay put for several frames, then places the last requested scroll again. */
+async function settle(page: Page): Promise<void> {
+  await page.waitForLoadState("networkidle");
+  await page.evaluate(async () => {
+    let last = "", same = 0;
+    for (let frames = 0; same < 6 && frames < 200; frames++) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 50)));
+      const height = `${document.documentElement.scrollHeight}:${document.body.scrollHeight}`;
+      same = height === last ? same + 1 : 0;
+      last = height;
+    }
+    (window as unknown as { __vbPlace?: () => void }).__vbPlace?.();
+  });
+}
+
+/** Background work (the auto-start timer) can move a count while a screen loads: it is run to rest before the page opens. */
+async function quiesce(brain: Brain): Promise<void> {
+  const jobs = () => JSON.stringify(brain.store.control.prepare("SELECT state, COUNT(*) AS n FROM jobs GROUP BY state").all());
+  for (let round = 0; round < 10; round++) {
+    const before = jobs();
+    await brain.autoStart.sweepAll();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    if (jobs() === before) return;
+  }
+}
 
 type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
 type Fixture = Parameters<typeof seedBrowserDemo>[1];
@@ -224,13 +298,13 @@ async function seedAutonomyRecords(governor: Fixture, _page: Page, demo: Demo): 
 /** The agent-activity mission, made once when the first agent screen is reached. */
 let agentActivity: Awaited<ReturnType<typeof seedAgentActivity>> | undefined;
 
-const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; /** A screen whose scroll lands one pixel either side from run to run (a centered or bottom-aligned region of a page whose height has fractions) allows the whole-page shift. */ shifts?: boolean; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Demo) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
+const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; /** Generated text (a trace id, an address with a random id and port, the minute a delivery arrived) that differs on every run: painted over in the shot. */ mask?: (page: Page) => Locator[]; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Demo) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
   { id: "missions", route: () => "/w/operations/missions", heading: "Missions" },
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
   { id: "mission-board", route: (d) => `/missions/${d.seed.missionIds.active}/plan?view=board`, heading: "Stabilize authentication", waitFor: "work-board", after: async (page) => { await expect(page.getByTestId("work-board")).toBeVisible(); await expect(page.getByTestId("work-overdue")).toBeVisible(); } },
   { id: "mission-live", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication" },
   // The Brief with its Trace id opened (ticket #143): the mission trace id a person copies to find the mission in a trace backend.
-  { id: "mission-brief-trace", route: (d) => `/missions/${d.seed.missionIds.active}/brief`, heading: "Stabilize authentication", after: async (page) => { await page.getByText("Trace id", { exact: true }).click(); await expect(page.getByRole("button", { name: "Copy full Trace id" })).toBeVisible(); await page.getByRole("button", { name: "Copy full Trace id" }).evaluate((element) => element.scrollIntoView({ block: "center" })); } },
+  { id: "mission-brief-trace", mask: (page) => [page.locator(".brain-digest code")], route: (d) => `/missions/${d.seed.missionIds.active}/brief`, heading: "Stabilize authentication", after: async (page) => { await page.getByText("Trace id", { exact: true }).click(); await expect(page.getByRole("button", { name: "Copy full Trace id" })).toBeVisible(); await page.getByRole("button", { name: "Copy full Trace id" }).evaluate(place, "center"); } },
   { id: "plays", route: () => "/w/operations/plays?mode=catalog", heading: "Plays" },
   { id: "live", route: () => "/w/operations/live", heading: "Sessions & runs", testid: "console-rail" },
   { id: "logs", route: () => "/w/operations/logs", heading: "Logs" },
@@ -238,20 +312,20 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "approvals", route: () => "/approvals", heading: "Approvals" },
   { id: "approval-review", route: (d) => `/approvals/${d.seed.approvalId}`, heading: "Approval review" },
   { id: "runners", route: () => "/runners", heading: "Runners" },
-  { id: "today-fleet", route: () => "/w/operations/today", heading: "Today", after: async (page) => { const fleet = page.getByTestId("fleet-overview"); await expect(fleet).toBeVisible(); await expect(page.getByTestId("fleet-spend-today")).toBeVisible(); await fleet.evaluate((element) => element.scrollIntoView({ block: "center" })); } },
+  { id: "today-fleet", route: () => "/w/operations/today", heading: "Today", after: async (page) => { const fleet = page.getByTestId("fleet-overview"); await expect(fleet).toBeVisible(); await expect(page.getByTestId("fleet-spend-today")).toBeVisible(); await fleet.evaluate(place, "center"); } },
   { id: "runner-detail", route: (d) => `/runners/${d.seed.runnerId}`, heading: "runner-demo" },
   { id: "settings-setup", route: () => "/settings?tab=setup", heading: "Setup" },
   { id: "settings-work", route: () => "/settings?tab=work", heading: "How work runs" },
   { id: "settings-health", route: () => "/settings?tab=health", heading: "Health", prepare: seedBackupRecords },
-  { id: "settings-egress", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { const egress = page.locator("[data-work-egress]"); await expect(egress).toBeVisible(); await egress.scrollIntoViewIfNeeded(); } },
-  { id: "settings-ceiling", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { const ceiling = page.locator("[data-work-ceiling]"); await expect(ceiling).toBeVisible(); await ceiling.scrollIntoViewIfNeeded(); } },
+  { id: "settings-egress", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { const egress = page.locator("[data-work-egress]"); await expect(egress).toBeVisible(); await egress.evaluate(place, "ifneeded"); } },
+  { id: "settings-ceiling", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { const ceiling = page.locator("[data-work-ceiling]"); await expect(ceiling).toBeVisible(); await ceiling.evaluate(place, "ifneeded"); } },
   { id: "settings-stop-all", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { await page.getByRole("button", { name: "Stop all sessions…", exact: true }).click(); await expect(page.getByRole("dialog").getByRole("heading", { name: "Stop all sessions?" })).toBeVisible(); } },
   { id: "knowledge", route: () => "/w/operations/knowledge", heading: "Knowledge" },
   { id: "integrations", route: () => "/administration/integrations", heading: "Integrations" },
   { id: "integrations-connect", route: () => "/administration/integrations", heading: "Integrations", after: async (page) => { await page.getByRole("button", { name: "Connect remote", exact: true }).first().click(); await expect(page.getByRole("dialog").getByLabel(/^Git provider/)).toBeVisible(); } },
-  { id: "mission-task-comments", route: (d) => `/missions/${d.seed.missionIds.active}/plan?item=${d.seed.workItems["in-progress"]}`, heading: "Comments", prepare: seedTaskComments, after: async (page) => { await page.getByRole("heading", { name: "Comments", level: 4 }).evaluate((element) => element.scrollIntoView({ block: "start" })); } },
-  { id: "mission-timeline", route: (d) => `/missions/${d.seed.missionIds.active}/timeline`, heading: "Stabilize authentication", prepare: seedTimelineEntries, after: async (page) => { const timeline = page.getByTestId("mission-timeline"); await expect(timeline).toBeVisible(); await timeline.evaluate((element) => element.scrollIntoView({ block: "start" })); } },
-  { id: "run-tool-calls", shifts: true, route: (d) => `/runs/${d.seed.run!.jobId}?tab=tool-calls`, heading: "Run inspector", prepare: seedRunToolCalls, waitFor: "run-tool-calls" },
+  { id: "mission-task-comments", route: (d) => `/missions/${d.seed.missionIds.active}/plan?item=${d.seed.workItems["in-progress"]}`, heading: "Comments", prepare: seedTaskComments, after: async (page) => { await page.getByRole("heading", { name: "Comments", level: 4 }).evaluate(place, "start"); } },
+  { id: "mission-timeline", route: (d) => `/missions/${d.seed.missionIds.active}/timeline`, heading: "Stabilize authentication", prepare: seedTimelineEntries, after: async (page) => { const timeline = page.getByTestId("mission-timeline"); await expect(timeline).toBeVisible(); await timeline.evaluate(place, "start"); } },
+  { id: "run-tool-calls", route: (d) => `/runs/${d.seed.run!.jobId}?tab=tool-calls`, heading: "Run inspector", prepare: seedRunToolCalls, waitFor: "run-tool-calls" },
   // A ticket trigger on the Schedules screen: its card, then the editor with the subject choice and the plan explanation (ticket #122).
   { id: "schedules-subject-trigger", route: () => "/w/operations/schedules", heading: "Schedules", prepare: seedSubjectTrigger, after: async (page) => { await expect(page.locator("article").filter({ hasText: "Draft a reply to every new ticket" }).getByTestId("subject-plan-summary")).toBeVisible(); } },
   { id: "schedules-subject-editor", route: () => "/w/operations/schedules", heading: "Schedules", after: async (page) => {
@@ -268,12 +342,12 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // The board across missions, after the plan-editor mission so it holds the work of several missions.
   { id: "workspace-board", route: () => "/w/operations/board", heading: "Board", after: async (page) => { await expect(page.getByTestId("work-board")).toBeVisible(); await expect(page.getByTestId("board-count")).toBeVisible(); } },
   // A mission from the coordinator Play (ticket #108): its Team tab marks the coordinator and says what it does not do.
-  { id: "mission-team-coordinator", shifts: true, route: coordinatedTeamRoute, heading: "Research the offsite venues", after: async (page) => { await expect(page.locator("[data-coordinator='lead']")).toBeVisible(); await page.waitForLoadState("networkidle"); await page.waitForTimeout(600); await page.locator("[data-coordinator-note]").evaluate((element) => element.scrollIntoView({ block: "end" })); } },
+  { id: "mission-team-coordinator", route: coordinatedTeamRoute, heading: "Research the offsite venues", after: async (page) => { await expect(page.locator("[data-coordinator='lead']")).toBeVisible(); await page.locator("[data-coordinator-note]").evaluate(place, "end"); } },
   // Last of all: the sign-off mission adds an attention item every earlier screen would count in its bell.
   { id: "mission-signoff", route: signOffRoute, heading: "Compile the quarterly report", waitFor: "mission-signoff" },
   // A pull request an approved change opened, on its task and on its approval: made after the other screens but before the push ones (those stay last), because its approval and connection join earlier lists.
-  { id: "mission-task-pull-request", route: (d) => `/missions/${d.seed.missionIds.active}/plan?item=${d.seed.workItems["review"]}`, heading: "Pull requests", prepare: seedPullRequestRecord, after: async (page) => { const section = page.getByTestId("pull-requests"); await expect(section.getByTestId("pull-request-state")).toHaveText("Open"); await section.scrollIntoViewIfNeeded(); } },
-  { id: "approval-review-pull-request", route: () => `/approvals/${pullRequestRecord!.approvalId}`, heading: "Approval review", after: async (page) => { const section = page.getByTestId("pull-requests"); await expect(section.getByTestId("pull-request-state")).toHaveText("Open"); await section.scrollIntoViewIfNeeded(); } },
+  { id: "mission-task-pull-request", route: (d) => `/missions/${d.seed.missionIds.active}/plan?item=${d.seed.workItems["review"]}`, heading: "Pull requests", prepare: seedPullRequestRecord, after: async (page) => { const section = page.getByTestId("pull-requests"); await expect(section.getByTestId("pull-request-state")).toHaveText("Open"); await section.evaluate(place, "ifneeded"); } },
+  { id: "approval-review-pull-request", route: () => `/approvals/${pullRequestRecord!.approvalId}`, heading: "Approval review", after: async (page) => { const section = page.getByTestId("pull-requests"); await expect(section.getByTestId("pull-request-state")).toHaveText("Open"); await section.evaluate(place, "ifneeded"); } },
   // An approval of a file change with its mission, task, run, diff and rollback (ticket #120): made here because its approval joins every later list.
   { id: "approval-review-change", route: () => `/approvals/${changeApproval!.approvalId}`, heading: "Approval review", prepare: seedChangeApprovalRecord, after: async (page) => { await expect(page.locator("[data-approval-diff]")).toContainText("+memory: 768m"); await expect(page.locator("[data-approval-rollback=declared]")).toBeVisible(); } },
   // Resume from checkpoint (tickets #101, #129), before the push screens (those stay last) because each screen adds a mission and a stopped task to the attention items: the failed session
@@ -288,19 +362,19 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // A question a team member asked a person (ticket #109), before the push screens (those stay last) because it adds an attention item: the mission's Live tab, then the composer open on it.
   { id: "mission-question", route: questionRoute, heading: "Compile the quarterly report figures", waitFor: "mission-questions" },
   { id: "mission-question-answer", route: questionRoute, heading: "Compile the quarterly report figures", after: async (page) => { await page.getByTestId("mission-question").getByRole("button", { name: "Answer", exact: true }).click(); await expect(page.getByRole("dialog", { name: "Answer a question" })).toBeVisible(); } },
-  { id: "mission-delegations", shifts: true, route: delegationsRoute, heading: "Choose a supplier", waitFor: "delegations" },
+  { id: "mission-delegations", route: delegationsRoute, heading: "Choose a supplier", waitFor: "delegations" },
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
   // Where a mission's usage went (#111): it adds spend to the active mission, which the screens before it would show in their totals.
-  { id: "mission-usage-breakdown", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedAttributedUsage, after: async (page) => { await page.getByTestId("usage-breakdown").getByText("Where the usage went", { exact: true }).click(); await expect(page.getByTestId("usage-by-member")).toContainText("writer"); await page.getByTestId("usage-breakdown").evaluate((element) => element.scrollIntoView({ block: "center" })); } },
+  { id: "mission-usage-breakdown", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedAttributedUsage, after: async (page) => { await page.getByTestId("usage-breakdown").getByText("Where the usage went", { exact: true }).click(); await expect(page.getByTestId("usage-by-member")).toContainText("writer"); await page.getByTestId("usage-breakdown").evaluate(place, "center"); } },
   // Spend over time (#112): earlier days of spend for the active mission, then the workspace chart with cost per verified task, and the mission's own chart.
-  { id: "missions-spend-history", route: () => "/w/operations/missions", heading: "Missions", prepare: seedSpendHistory, after: async (page) => { await page.getByTestId("workspace-spend-history").getByText("Spend over time", { exact: true }).click(); await expect(page.getByTestId("workspace-spend-history").getByTestId("daily-bar")).toHaveCount(30); await page.getByTestId("verified-cost").getByText("Cost per verified task", { exact: true }).click(); await expect(page.getByTestId("verified-by-agent")).toContainText("task-worker"); await page.getByTestId("workspace-spend-history").evaluate((element) => element.scrollIntoView({ block: "start" })); } },
-  { id: "mission-spend-history", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", after: async (page) => { await page.getByTestId("mission-spend-history").getByText("Spend over time", { exact: true }).click(); await expect(page.getByTestId("mission-spend-history").getByTestId("daily-bar")).toHaveCount(30); await page.getByTestId("mission-spend-history").evaluate((element) => element.scrollIntoView({ block: "center" })); } },
+  { id: "missions-spend-history", route: () => "/w/operations/missions", heading: "Missions", prepare: seedSpendHistory, after: async (page) => { await page.getByTestId("workspace-spend-history").getByText("Spend over time", { exact: true }).click(); await expect(page.getByTestId("workspace-spend-history").getByTestId("daily-bar")).toHaveCount(30); await page.getByTestId("verified-cost").getByText("Cost per verified task", { exact: true }).click(); await expect(page.getByTestId("verified-by-agent")).toContainText("task-worker"); await page.getByTestId("workspace-spend-history").evaluate(place, "start"); } },
+  { id: "mission-spend-history", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", after: async (page) => { await page.getByTestId("mission-spend-history").getByText("Spend over time", { exact: true }).click(); await expect(page.getByTestId("mission-spend-history").getByTestId("daily-bar")).toHaveCount(30); await page.getByTestId("mission-spend-history").evaluate(place, "center"); } },
   // Agent page and team-member panel (ticket #113): a runner took a two-member team's tasks, one attempt failed and one is working. The mission adds a parked task to Needs you, which the push screens after it count.
   { id: "agents-list", route: () => "/w/operations/library/agents", heading: "Agents", prepare: async (governor, _page, demo) => { agentActivity ??= await seedAgentActivity(governor.app.brain, demo.actor, demo.workspaceId, "vb-agents"); }, after: async (page) => { await expect(page.getByTestId("agent-list")).toBeVisible(); await expect(page.locator("[data-agent=task-worker]").getByTestId("activity-status")).toBeVisible(); } },
   { id: "agent-page", route: () => "/w/operations/library/agents/task-worker", heading: "Task worker", after: async (page) => { await expect(page.getByTestId("figure-cost-value")).toContainText("tokens"); await expect(page.getByTestId("recent-run").first()).toBeVisible(); } },
-  { id: "mission-team-member", route: () => `/missions/${agentActivity!.missionId}/team?member=writer`, heading: "Draft and review the vendor summary", after: async (page) => { await expect(page.getByTestId("member-panel")).toBeVisible(); await expect(page.getByTestId("figure-cost-value")).toContainText("tokens"); await page.getByTestId("member-panel").evaluate((element) => element.scrollIntoView({ block: "start" })); } },
+  { id: "mission-team-member", route: () => `/missions/${agentActivity!.missionId}/team?member=writer`, heading: "Draft and review the vendor summary", after: async (page) => { await expect(page.getByTestId("member-panel")).toBeVisible(); await expect(page.getByTestId("figure-cost-value")).toContainText("tokens"); await page.getByTestId("member-panel").evaluate(place, "start"); } },
   // Chat identities (ticket #123): who a signed chat message is from, linked to a member, under People.
-  { id: "settings-chat-identities", route: () => "/settings?tab=people", heading: "People", prepare: seedChatIdentities, after: async (page) => { const identities = page.locator("[data-chat-identities]"); await expect(identities).toBeVisible(); await expect(identities.locator("[data-chat-identity]")).toHaveCount(2); await identities.scrollIntoViewIfNeeded(); } },
+  { id: "settings-chat-identities", route: () => "/settings?tab=people", heading: "People", prepare: seedChatIdentities, after: async (page) => { const identities = page.locator("[data-chat-identities]"); await expect(identities).toBeVisible(); await expect(identities.locator("[data-chat-identity]")).toHaveCount(2); await identities.evaluate(place, "ifneeded"); } },
   // Handing a mission to a teammate (#117): the mission's menu, then the dialog with a teammate chosen. It adds one member, so it comes after every screen that lists people.
   { id: "mission-handover", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedTeammate, after: async (page) => { await page.getByRole("button", { name: "More", exact: true }).click(); await page.getByRole("menuitem", { name: "Hand this mission to someone else" }).click(); const dialog = page.getByRole("dialog", { name: "Hand this mission over" }); await dialog.getByRole("combobox", { name: "New owner" }).click(); await page.getByRole("option", { name: /Dana Cole/ }).click(); await expect(dialog.getByRole("button", { name: "Hand over", exact: true })).toBeEnabled(); } },
   // Knowledge whose source document got a newer version (#133): it says what changed and offers Re-confirm and Withdraw. It adds a document, so it comes before only the push screens.
@@ -309,7 +383,7 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
     const route = (routeId: string, extra: Record<string, unknown>) => ({ routeId, enabled: true, vendor: "Acme", keyRef: `${routeId}-key`, model: `${routeId}-large`, baseUrl: `https://${routeId}.acme.example/v1`, costTier: "standard", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000, ...extra });
     await governor.app.brain.executeCommand(demo.actor, { contractVersion: "brain.command/v1", commandId: "cmd-vb-routes", commandType: "workspace.modelRoutes.set", workspaceId: demo.workspaceId, idempotencyKey: "vb-routes",
       payload: { routes: [route("primary", { viaGateway: true }), route("backup", { costTier: "low", enabled: false, inputMicroUsdPerMTok: 50_000, outputMicroUsdPerMTok: 200_000 })] } } as never, "vb-routes");
-  }, after: async (page) => { const routes = page.locator("[data-work-hosted]"); await expect(routes.locator("[data-work-route='2']")).toBeVisible(); await routes.scrollIntoViewIfNeeded(); } },
+  }, after: async (page) => { const routes = page.locator("[data-work-hosted]"); await expect(routes.locator("[data-work-route='2']")).toBeVisible(); await routes.evaluate(place, "ifneeded"); } },
   // Standing teams (ticket #130), before the push screens (those stay last): the Library's Teams place, its create form, a plan editor using a team, and a Play start choosing one.
   { id: "library-teams", route: () => "/w/operations/library/teams", heading: "Teams", prepare: seedStandingTeams, after: async (page) => { await expect(page.getByTestId("standing-team")).toHaveCount(2); } },
   { id: "library-teams-form", route: () => "/w/operations/library/teams", heading: "Teams", prepare: seedStandingTeams, after: async (page) => { await page.getByRole("button", { name: "New team", exact: true }).first().click(); const sheet = page.getByRole("dialog"); await sheet.getByLabel(/^Name/).fill("Support rota"); await sheet.getByTestId("plan-team").getByLabel("Role", { exact: true }).fill("Triage"); await sheet.getByTestId("plan-team").getByRole("button", { name: "Add to team", exact: true }).click(); await expect(sheet.getByTestId("plan-team-member")).toHaveCount(1); } },
@@ -318,20 +392,20 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // A session a person paused (ADR 0058): it adds a running session, so it comes after the screens that list sessions and before the push screens (those stay last).
   { id: "console-session-paused", route: pausedSessionRoute, heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("continue-session")).toBeVisible(); await expect(page.getByTestId("pause-note")).toBeVisible(); } },
   // Best of several (#127): a task's candidates side by side, then the plan editor's candidates for a step. They add a mission and release, so they come after the screens that list missions and before the push screens.
-  { id: "mission-candidates", route: candidatesRoute, heading: "Write the one-page brief", after: async (page) => { const panel = page.getByTestId("work-candidates"); await expect(panel.getByTestId("work-candidate")).toHaveCount(3); await expect(panel).toContainText("Suggested"); await panel.scrollIntoViewIfNeeded(); } },
-  { id: "mission-plan-candidates", route: candidatePlanRoute, heading: "Compare three briefs, planned", after: async (page) => { await page.getByRole("button", { name: /^See the confirmed plan/ }).click(); await page.getByRole("button", { name: "Edit steps", exact: true }).first().click(); await expect(page.getByTestId("plan-step-candidates").first()).toContainText("Best of 3"); await page.getByTestId("plan-step-candidates").first().scrollIntoViewIfNeeded(); } },
+  { id: "mission-candidates", route: candidatesRoute, heading: "Write the one-page brief", after: async (page) => { const panel = page.getByTestId("work-candidates"); await expect(panel.getByTestId("work-candidate")).toHaveCount(3); await expect(panel).toContainText("Suggested"); await panel.evaluate(place, "ifneeded"); } },
+  { id: "mission-plan-candidates", route: candidatePlanRoute, heading: "Compare three briefs, planned", after: async (page) => { await page.getByRole("button", { name: /^See the confirmed plan/ }).click(); await page.getByRole("button", { name: "Edit steps", exact: true }).first().click(); await expect(page.getByTestId("plan-step-candidates").first()).toContainText("Best of 3"); await page.getByTestId("plan-step-candidates").first().evaluate(place, "ifneeded"); } },
   // Who can read what Brain learned (#135): the review inbox with a record for the workspace, one kept private with a request for the team and one the team reads. It adds knowledge, so it comes after every screen that counts it.
   { id: "knowledge-scopes", route: () => "/w/operations/knowledge/review", heading: "Review inbox", prepare: seedKnowledgeScopes, waitFor: "knowledge-inbox", after: async (page) => { await expect(page.getByTestId("knowledge-inbox")).toContainText("Readable by: Only its author"); } },
   // Autonomy suggestions (#158): a mission, a Play and the Quality page each show what a clean record earned, with its figures and definitions. They add finished missions, so they come after every screen that counts them and before the push screens.
-  { id: "mission-autonomy-suggestion", route: () => `/missions/${autonomyRecords!.missionId}/live`, heading: "Weekly vendor review", prepare: seedAutonomyRecords, after: async (page) => { const card = page.getByTestId("autonomy-suggestion"); await expect(card).toHaveCount(1); await expect(card.getByTestId("autonomy-figure")).toHaveCount(5); await card.evaluate((element) => element.scrollIntoView({ block: "start" })); } },
-  { id: "play-autonomy-suggestion", route: () => "/plays/checklist-runbook", heading: "Write a checklist or runbook", prepare: seedAutonomyRecords, after: async (page) => { const card = page.getByTestId("autonomy-suggestion"); await expect(card).toHaveCount(1); await card.evaluate((element) => element.scrollIntoView({ block: "start" })); } },
-  { id: "quality-autonomy-suggestion", route: () => "/quality", heading: "Quality", prepare: seedAutonomyRecords, after: async (page) => { await expect(page.getByTestId("autonomy-suggestion")).toHaveCount(2); await page.getByTestId("autonomy-suggestions").evaluate((element) => element.scrollIntoView({ block: "start" })); } },
+  { id: "mission-autonomy-suggestion", route: () => `/missions/${autonomyRecords!.missionId}/live`, heading: "Weekly vendor review", prepare: seedAutonomyRecords, after: async (page) => { const card = page.getByTestId("autonomy-suggestion"); await expect(card).toHaveCount(1); await expect(card.getByTestId("autonomy-figure")).toHaveCount(5); await card.evaluate(place, "start"); } },
+  { id: "play-autonomy-suggestion", route: () => "/plays/checklist-runbook", heading: "Write a checklist or runbook", prepare: seedAutonomyRecords, after: async (page) => { const card = page.getByTestId("autonomy-suggestion"); await expect(card).toHaveCount(1); await card.evaluate(place, "start"); } },
+  { id: "quality-autonomy-suggestion", route: () => "/quality", heading: "Quality", prepare: seedAutonomyRecords, after: async (page) => { await expect(page.getByTestId("autonomy-suggestion")).toHaveCount(2); await page.getByTestId("autonomy-suggestions").evaluate(place, "start"); } },
   // The run page's Why tab (ticket #144): it adds a mission, a run and a runner, so it comes after every screen that counts them and before the push screens (those stay last).
   // Administration > Integrations with signed webhook addresses and their last deliveries (ticket #138): status only, no secret.
-  { id: "admin-webhooks", route: () => "/administration/integrations", heading: "Signed webhooks", prepare: seedWebhooks, waitFor: "webhooks", after: async (page) => { await expect(page.getByTestId("webhook-endpoint")).toHaveCount(2); await expect(page.getByTestId("webhook-deliveries").first()).toBeVisible(); } },
+  { id: "admin-webhooks", mask: (page) => [page.getByTestId("webhook-url"), page.getByText(/· Added \d/), page.getByTestId("webhook-deliveries").locator("span.text-ink-gray-6")], route: () => "/administration/integrations", heading: "Signed webhooks", prepare: seedWebhooks, waitFor: "webhooks", after: async (page) => { await expect(page.getByTestId("webhook-endpoint")).toHaveCount(2); await expect(page.getByTestId("webhook-deliveries").first()).toBeVisible(); } },
   { id: "run-why", route: whyRoute, heading: "Run inspector", waitFor: "why-choices" },
-  { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
-  { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
+  { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.evaluate(place, "ifneeded"); } },
+  { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.evaluate(place, "ifneeded"); } },
 ];
 
 async function seedChatIdentities(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Demo): Promise<void> {
@@ -481,26 +555,35 @@ async function seedChangeApprovalRecord(governor: Parameters<typeof seedBrowserD
   changeApproval = await seedChangeApproval(governor.app.brain, demo.actor, demo.workspaceId, { runId: "demo-run-progress", key: "vb-change" });
 }
 
-test.afterEach(async () => { standingTeamsSeeded = false; webhooksSeeded = false; autonomyRecords = undefined; questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
+test.afterEach(async () => { globalThis.Date = RealDate; standingTeamsSeeded = false; webhooksSeeded = false; autonomyRecords = undefined; questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(900_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
+  const now = pinClock();
   const demo = await seedBrowserDemo(page, governor);
+  // One workspace is built up screen by screen (later screens count what earlier ones made), so the screens run in order in one test; a screen that does not match or cannot be reached is recorded and the rest still run.
   for (const screen of SCREENS.filter((entry) => !process.env["VB_ONLY"] || process.env["VB_ONLY"].split(",").includes(entry.id))) {
-    await screen.prepare?.(governor, page, demo);
-    await page.goto(`${governor.url}${await screen.route(demo, governor)}`);
-    const landmark = screen.testid
-      ? page.getByTestId(screen.testid).getByRole("heading", { name: screen.heading })
-      : page.getByRole("heading", { name: screen.heading }).first();
-    await expect(landmark.first()).toBeVisible({ timeout: 20_000 });
-    // A screen with a named region is shot scrolled to it, so the region itself is what the baseline holds.
-    if (screen.waitFor) {
-      await expect(page.getByTestId(screen.waitFor)).toBeVisible({ timeout: 20_000 });
-      await page.getByTestId(screen.waitFor).evaluate((element) => element.scrollIntoView({ block: "center" }));
+    try {
+      await screen.prepare?.(governor, page, demo);
+      await quiesce(governor.app.brain);
+      await page.clock.setFixedTime(now());
+      await page.goto(`${governor.url}${await screen.route(demo, governor)}`);
+      const landmark = screen.testid
+        ? page.getByTestId(screen.testid).getByRole("heading", { name: screen.heading })
+        : page.getByRole("heading", { name: screen.heading }).first();
+      await expect(landmark.first()).toBeVisible({ timeout: 20_000 });
+      // A screen with a named region is shot scrolled to it, so the region itself is what the baseline holds.
+      if (screen.waitFor) {
+        await expect(page.getByTestId(screen.waitFor)).toBeVisible({ timeout: 20_000 });
+        await page.getByTestId(screen.waitFor).evaluate(place, "center");
+      }
+      await screen.after?.(page);
+      await settle(page);
+    } catch (error) {
+      expect.soft(String(error instanceof Error ? error.message : error).split("\n")[0], `${screen.id} could not be reached`).toBe("");
+      continue;
     }
-    await screen.after?.(page);
-    await page.waitForTimeout(400);
-    await expect(page).toHaveScreenshot(`${screen.id}.png`, { maxDiffPixelRatio: screen.shifts ? 0.07 : 0.02, animations: "disabled", caret: "hide" });
+    await expect.soft(page, screen.id).toHaveScreenshot(`${screen.id}.png`, { ...(screen.mask ? { mask: screen.mask(page) } : {}), maxDiffPixelRatio: 0.02, animations: "disabled", caret: "hide" });
   }
 });
