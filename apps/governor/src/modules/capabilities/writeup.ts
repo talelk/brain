@@ -91,14 +91,16 @@ export interface Writeup {
  * the worker's own statement, or the mission verdict. Member notes, messages and transcripts are never read. Sections with
  * nothing to say are omitted. A mission below the substance threshold returns `skipped`.
  */
-export function buildWriteup(store: Store, db: Db, mission: { id: string; title: string; intent: string; success_criteria_json: string; active_ms: number }, verified: { digest: string; created_at_ms: number }, rejectedBundles: ReadonlyArray<{ digest: string; findings_json: string }>): Writeup {
+export function buildWriteup(store: Store, db: Db, mission: { id: string; title: string; intent: string; success_criteria_json: string; active_ms: number }, verified: { digest: string; created_at_ms: number; verdict_independence?: "L3" | null }, rejectedBundles: ReadonlyArray<{ digest: string; findings_json: string }>): Writeup {
   const checks = db.prepare("SELECT evaluator, outcome, advisory FROM mission_bundle_checks WHERE bundle_digest=? ORDER BY criterion_id, evaluator").all(verified.digest) as Array<{ evaluator: string; outcome: string; advisory: number }>;
   const independent = checks.filter((check) => check.advisory === 0 && check.outcome === "passed");
   const advisory = checks.filter((check) => check.advisory === 1);
   const verdictDay = new Date(verified.created_at_ms).toISOString().slice(0, 10);
+  // Only a person's verdict (independence L3) is a human sign-off; the Governor's hands-off verdict says no person signed off.
+  const recorder = verified.verdict_independence === "L3" ? "by a person" : "by Brain itself (no person signed off)";
   const basis = independent.length > 0
-    ? `verified: ${independent.length} independent check${independent.length === 1 ? "" : "s"} passed (${[...new Set(independent.map((check) => check.evaluator))].join(", ")}) and a mission verdict recorded by a person on ${verdictDay}${advisory.length ? `; ${advisory.length} advisory model-opinion check${advisory.length === 1 ? "" : "s"} did not decide the outcome` : ""}`
-    : `verified: human sign-off, mission verdict recorded by a person on ${verdictDay}`;
+    ? `verified: ${independent.length} independent check${independent.length === 1 ? "" : "s"} passed (${[...new Set(independent.map((check) => check.evaluator))].join(", ")}) and a mission verdict recorded ${recorder} on ${verdictDay}${advisory.length ? `; ${advisory.length} advisory model-opinion check${advisory.length === 1 ? "" : "s"} did not decide the outcome` : ""}`
+    : verified.verdict_independence === "L3" ? `verified: human sign-off, mission verdict recorded ${recorder} on ${verdictDay}` : `verified: mission verdict recorded ${recorder} on ${verdictDay}`;
   const reports = reportedResults(db, mission.id);
   const decisions = (db.prepare("SELECT statement, source_kind FROM accepted_decisions WHERE mission_id=? AND superseded_by IS NULL ORDER BY introduced_version, id").all(mission.id) as Array<{ statement: string; source_kind: string }>)
     .map((row) => `- ${row.statement} (accepted by a person; source: ${row.source_kind})`);

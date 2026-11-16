@@ -138,5 +138,26 @@ describe("mission sign-off (#92)", () => {
     const bundle = await latestBundle(w, id);
     expect(bundle.state).toBe("verified");
     expect(bundle.independence).toBeUndefined();
+    // Nobody signed this off: the verdict is the Governor's own principal's, never the owner's, and the owner still owns the mission.
+    expect(bundle.verdictBy).toBe("system:governor");
+    expect(bundle.verdictBy).not.toBe(w.owner.actorId);
+    expect(await getMission(w, id)).toMatchObject({ ownerId: w.owner.actorId });
+    const timeline = await query<{ items: Array<{ event: string; actorId?: string; independence?: string }> }>(w, "missions.timeline", id);
+    const entry = timeline.items.find((item) => item.event === "verdict.mission");
+    expect(entry).toMatchObject({ actorId: "system:governor" });
+    expect(entry?.independence).toBeUndefined();
+    // The state changes the Governor made on its own (verifying, closed) and the verdict event name a system principal acting for the owner, never the owner.
+    const events = w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT event_type, actor_id, acting_for FROM events WHERE aggregate_type='mission' AND aggregate_id=? AND event_type IN ('mission.stateChanged','mission.verdictRecorded') ORDER BY cursor").all(id) as Array<{ event_type: string; actor_id: string; acting_for: string | null }>;
+    expect(events.length).toBeGreaterThanOrEqual(3);
+    for (const event of events.slice(-3)) expect(event.actor_id).toMatch(/^system:/);
+  });
+
+  it("a person's sign-off records the person and independence L3, in the bundle and on the timeline", async () => {
+    world = setupWorld();
+    const w = world;
+    const id = await achievedMission(w, "person-signoff", { title: "Quarterly churn report", intent: "Analyse customer churn for the quarter and write a report" });
+    expect(await latestBundle(w, id)).toMatchObject({ independence: "L3", verdictBy: w.owner.actorId });
+    const timeline = await query<{ items: Array<{ event: string; actorId?: string; independence?: string }> }>(w, "missions.timeline", id);
+    expect(timeline.items.find((item) => item.event === "verdict.mission")).toMatchObject({ actorId: w.owner.actorId, independence: "L3" });
   });
 });

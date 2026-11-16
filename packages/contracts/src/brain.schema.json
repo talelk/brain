@@ -24073,6 +24073,9 @@
             "L3"
           ]
         },
+        "verdictBy": {
+          "$ref": "#/$defs/Id"
+        },
         "judge": {
           "$ref": "#/$defs/MissionJudge"
         }
@@ -27699,6 +27702,12 @@
         },
         "actorId": {
           "$ref": "#/$defs/Id"
+        },
+        "independence": {
+          "type": "string",
+          "enum": [
+            "L3"
+          ]
         },
         "memberId": {
           "$ref": "#/$defs/ConfigId"

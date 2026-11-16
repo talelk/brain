@@ -6,7 +6,7 @@ import { iso } from "../../domain/clock";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 type HandoffRow = { id: string; mission_id: string; work_item_id: string; version: number; notes_json: string; facts_json: string | null; submitted_by: string; superseded_by: string | null; created_at_ms: number; delegation_id: string | null };
-export type BundleRow = { digest: string; mission_id: string; state: MissionEvidenceBundle["state"]; manifest_json: string; findings_json: string; verdict_independence: "L3" | null; created_at_ms: number };
+export type BundleRow = { digest: string; mission_id: string; state: MissionEvidenceBundle["state"]; manifest_json: string; findings_json: string; verdict_by: string | null; verdict_independence: "L3" | null; created_at_ms: number };
 
 /** Member notes stay claims and stay small (issue #33). */
 const NOTES_CHAR_CAP = 6000;
@@ -208,7 +208,7 @@ export function latestMissionBundle(db: Db, missionId: string, hostedOn = false)
   const named = (criterionId: string, advisory: boolean) => checks.filter((check) => check.criterionId === criterionId && check.advisory === advisory)
     .map((check) => ({ name: check.evaluator, outcome: check.outcome, evidenceDigest: check.evidenceDigest }));
   const coverage = frozen.map((entry) => ({ ...entry, checks: [...entry.checks, ...named(entry.criterionId, false)], advisory: named(entry.criterionId, true) }));
-  return { ...manifest, coverage, digest: row.digest, state: row.state, findings: JSON.parse(row.findings_json) as string[], checks, judge: judgeOf(db, row, hostedOn), createdAt: iso(row.created_at_ms), ...(row.verdict_independence ? { independence: row.verdict_independence } : {}) };
+  return { ...manifest, coverage, digest: row.digest, state: row.state, findings: JSON.parse(row.findings_json) as string[], checks, judge: judgeOf(db, row, hostedOn), createdAt: iso(row.created_at_ms), ...(row.verdict_independence ? { independence: row.verdict_independence } : {}), ...(row.verdict_by ? { verdictBy: row.verdict_by } : {}) };
 }
 
 /**

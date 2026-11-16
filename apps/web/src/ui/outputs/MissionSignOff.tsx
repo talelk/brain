@@ -44,7 +44,7 @@ function JudgeNote(props: { judge: MissionJudge }): JSX.Element {
  * Sign-off (#92): when a mission's work is finished and its evidence bundle is submitted, a person records the mission verdict here:
  * verified (then the mission can close as achieved) or rejected with findings (the mission returns to work and the coordinator gets
  * the findings). Each success criterion is shown with the work serving it and the checks that name it, and one no check names is flagged
- * before the verdict buttons (ADR 0034). A person's verdict is an independent human check; no agent can record it. Nothing shows for a mission that is neither
+ * before the verdict buttons (ADR 0034). A person's verdict is an independent human check; no agent can record it. A closed mission reads as a record (who verified it, what names each criterion), never as pre-sign-off advice; one the Governor verified by itself says no person signed it off. Nothing shows for a mission that is neither
  * waiting for sign-off nor signed off.
  */
 export function MissionSignOff(props: { mission: Mission; onChanged: () => void }): JSX.Element {
@@ -61,6 +61,8 @@ export function MissionSignOff(props: { mission: Mission; onChanged: () => void 
   const waiting = () => props.mission.state === "verifying" && current()?.state === "submitted";
   const verified = () => props.mission.state === "verifying" && current()?.state === "verified";
   const signedOff = () => props.mission.state === "closed" && props.mission.outcome === "achieved" && current()?.state === "verified";
+  // Only a person's recorded verdict is independence L3; a mission Brain closed itself from its tasks' independent checks was signed off by nobody.
+  const byPerson = () => current()?.independence === "L3";
   const [rejecting, setRejecting] = createSignal(false);
   const [closing, setClosing] = createSignal(false);
   const [text, setText] = createSignal("");
@@ -93,14 +95,14 @@ export function MissionSignOff(props: { mission: Mission; onChanged: () => void 
 
   return <Show when={waiting() || verified() || signedOff()}>
     <WorkspaceSection title={t("signoff.title")} description={signedOff() ? t("signoff.description.done") : t("signoff.description")}>
-      <div class="flex min-w-0 flex-col gap-3" data-testid="mission-signoff" data-state={signedOff() ? "signed-off" : verified() ? "verified" : "waiting"}>
+      <div class="flex min-w-0 flex-col gap-3" data-testid="mission-signoff" data-state={signedOff() ? "signed-off" : verified() ? "verified" : "waiting"} data-signed-by={signedOff() ? (byPerson() ? "person" : "brain") : undefined}>
         <Show when={current()}>{(entry) => <p class="m-0 text-interface text-ink-gray-7" data-testid="signoff-facts">
           {tn("signoff.facts.tasks", entry().items.length)} · {tn("signoff.facts.outputs", entry().outputVersions.length)} · {t("signoff.facts.brief", { version: entry().briefVersion })}
         </p>}</Show>
         <Show when={current()}>{(entry) => <CriterionCoverage coverage={entry().coverage} judge={entry().judge} />}</Show>
         <Show when={current()}>{(entry) => <JudgeNote judge={entry().judge} />}</Show>
         <Show when={signedOff()}>
-          <p class="m-0 flex items-center gap-2 text-interface text-ink-gray-9" data-testid="signoff-done"><span class="lucide-badge-check size-4 shrink-0 text-ink-green-8" aria-hidden="true" />{t("signoff.done")}</p>
+          <p class="m-0 flex items-center gap-2 text-interface text-ink-gray-9" data-testid="signoff-done"><span class="lucide-badge-check size-4 shrink-0 text-ink-green-8" aria-hidden="true" />{byPerson() ? t("signoff.done", { name: app.personName(current()?.verdictBy) }) : t("signoff.done.brain")}</p>
         </Show>
         <Show when={waiting() || verified()}>
           <Show when={app.canDispatch()} fallback={<p class="m-0 text-caption text-ink-gray-7" data-testid="signoff-no-scope">{t("signoff.noScope")}</p>}>
@@ -121,7 +123,7 @@ export function MissionSignOff(props: { mission: Mission; onChanged: () => void 
               </Show>
             </Show>
             <Show when={verified()}>
-              <p class="m-0 flex flex-wrap items-center gap-2 text-interface text-ink-gray-9"><Badge size="sm" theme="green" label={t("signoff.badge.verified")} />{t("signoff.verified")}</p>
+              <p class="m-0 flex flex-wrap items-center gap-2 text-interface text-ink-gray-9"><Badge size="sm" theme="green" label={t("signoff.badge.verified")} />{byPerson() ? t("signoff.verified") : t("signoff.verified.brain")}</p>
               <div class="flex flex-wrap items-center gap-2">
                 <Show when={!closing()} fallback={<>
                   <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-badge-check" disabled={busy()} loading={busy()} onClick={() => void close()}>{t("decision.verdict.confirmed")}</Button>

@@ -67,6 +67,12 @@ raises a new one. A person answers it on the mission's Outputs tab with the miss
 verdict (independence L3); an agent never can.
 _Avoid_: approval (that gates an effect), review request
 
+**Verified by Brain**:
+A mission whose tasks all passed their own independent checks closes itself, and the Governor records the
+mission verdict under its own principal (`system:governor`, no independence). No person signed it off: only a
+person's verdict is independence L3, and every "signed off by" wording derives from that alone.
+_Avoid_: signed off by the owner, auto sign-off
+
 **Question**:
 A team member's session asks a person something it cannot decide, through the `mission.ask` Brain tool
 (ADR 0050). It is a record written once, and the blocking attention item "question" is derived while no

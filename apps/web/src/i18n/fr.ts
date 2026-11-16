@@ -1657,7 +1657,7 @@ export const fr: Catalog = {
   "signoff.facts.outputs_one": "{n} résultat vérifié",
   "signoff.facts.outputs_other": "{n} résultats vérifiés",
   "signoff.facts.brief": "version du brief {version}",
-  "signoff.done": "Validée par une personne : un contrôle humain indépendant.",
+  "signoff.done": "Validée par {name} : un contrôle humain indépendant.",
   "signoff.intro": "Le travail est terminé et ses preuves sont là. Votre validation est un contrôle humain indépendant : vérifiez la mission si son objectif est atteint, ou rejetez-la en disant quoi corriger.",
   "signoff.verify": "Vérifier la mission",
   "signoff.reject": "Rejeter avec des constats",
@@ -2614,5 +2614,8 @@ export const fr: Catalog = {
   "receipt.retired": "sa clé a été renouvelée depuis",
   "receipt.digest": "Empreinte du reçu",
   "receipt.noBundle": "aucun lot de preuves",
+  "signoff.done.brain": "Vérifiée par Brain à partir des contrôles indépendants des tâches. Aucune personne n'a validé cette mission.",
+  "timeline.verdict.mission.verifiedByBrain": "Vérifiée par Brain à partir des contrôles indépendants des tâches ; aucune personne n'a validé",
+  "signoff.verified.brain": "Brain a vérifié cette mission à partir des contrôles indépendants des tâches ; aucune personne ne l'a validée. Clôturez-la comme réussie pour terminer.",
   // @@END
 };

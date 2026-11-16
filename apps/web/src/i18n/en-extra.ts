@@ -1250,7 +1250,7 @@ export const enExtra = {
   "signoff.facts.outputs_one": "{n} verified output",
   "signoff.facts.outputs_other": "{n} verified outputs",
   "signoff.facts.brief": "brief version {version}",
-  "signoff.done": "Signed off by a person: an independent human check.",
+  "signoff.done": "Signed off by {name}: an independent human check.",
   "signoff.intro": "The work is finished and its evidence is in. Your sign-off is an independent human check: verify the mission if its goal is met, or reject it and say what to fix.",
   "signoff.verify": "Verify the mission",
   "signoff.reject": "Reject with findings",
@@ -2112,5 +2112,8 @@ export const enExtra = {
   "receipt.retired": "its key has since been rotated",
   "receipt.digest": "Receipt digest",
   "receipt.noBundle": "no evidence bundle",
+  "signoff.done.brain": "Verified by Brain from the tasks' independent checks. No person signed this mission off.",
+  "timeline.verdict.mission.verifiedByBrain": "Verified by Brain from the tasks' independent checks; no person signed off",
+  "signoff.verified.brain": "Brain verified this mission from the tasks' independent checks; no person signed it off. Close it as achieved to finish.",
   // @@END
 } as const satisfies Record<string, string>;

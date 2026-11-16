@@ -36,6 +36,9 @@ describe("a mission the Governor closed publishes its write-up on a single-owner
     expect(db.prepare("SELECT state, outcome FROM missions WHERE id=?").get(id)).toMatchObject({ state: "closed", outcome: "achieved" });
     const [asset] = await assets(w);
     expect(asset).toMatchObject({ state: "published", missionId: id, selfReviewed: true, autoPublished: true, reviewedBy: "owner-1" });
+    // The mission closed on the Governor's own verdict: its write-up never claims a person signed it off.
+    expect(asset!.content).toContain("mission verdict recorded by Brain itself (no person signed off)");
+    expect(asset!.content).not.toContain("recorded by a person");
     expect((await reuseSearch(w, "quarterly churn report")).some((hit) => hit.itemRef === `knowledge:${asset!.assetId}` && hit.selfReviewed === true)).toBe(true);
     expect(await summary(w)).toMatchObject({ awaitingReview: 0, needsPerson: { writeups: 0, tools: 0, plays: 0 }, publishedAutomatically: 1, publishedKnowledge: 1, learnedThisWeek: 1, learnedAutomatically: 1 });
 

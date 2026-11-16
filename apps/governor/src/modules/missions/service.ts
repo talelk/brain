@@ -118,6 +118,9 @@ export const PARKED_INTERRUPTED_REASON = "Stopped: waiting for you to try again"
 /** Undelivered messages one team member's session may have waiting (ADR 0042). */
 const MAX_PENDING_TEAMMATE_MESSAGES = 5;
 
+/** The Governor's own principal in a record it writes by itself (a hands-off mission verdict); it is never a person and claims no independence. */
+export const GOVERNOR_PRINCIPAL = systemActor("governor").principalId;
+
 export class MissionService {
   constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort, private readonly coordinatorPort?: CoordinatorPort, private readonly capitalization?: { requestMissionRun(organizationId: string, workspaceId: string, missionId: string): string }, private readonly runs?: RunPriorityPort) {
     // The engine's callbacks run inside whoever caused them (a runner's completion, a person's cancel); alone, they are the Governor's workflow.
@@ -1230,7 +1233,7 @@ export class MissionService {
     const findings = ((payload["findings"] as string[] | undefined) ?? []).map((finding) => finding.trim()).filter((finding) => finding.length > 0);
     if (outcome === "rejected" && findings.length === 0) throw new BrainDomainError("INVALID_ARGUMENT", "a rejected verdict needs findings: say what to fix");
     this.store.inTx(db, () => {
-      recordMissionVerdict(this.store, db, { missionId: mission.id, digest: String(payload["bundleDigest"]), outcome, findings, by: actor.actorId, ...(actor.kind === "human" ? { independence: "L3" as const } : {}) });
+      recordMissionVerdict(this.store, db, { missionId: mission.id, digest: String(payload["bundleDigest"]), outcome, findings, by: actor.kind === "human" ? actor.actorId : GOVERNOR_PRINCIPAL, ...(actor.kind === "human" ? { independence: "L3" as const } : {}) });
       // A rejected sign-off is a re-open: it becomes a regression case without anyone filing it (issue #64).
       if (outcome === "rejected") recordEvalCase(this.store, db, { workspaceId, source: `verdict:${String(payload["bundleDigest"])}`, kind: "rejected-verdict", missionId: mission.id, findings });
     });
@@ -1648,6 +1651,8 @@ export class MissionService {
       AND NOT EXISTS (SELECT 1 FROM mission_wakes k WHERE k.mission_id=m.id AND k.consumed_by_run IS NULL)
       AND NOT EXISTS (SELECT 1 FROM mission_runs r JOIN workflow_runs wr ON wr.id=r.run_id WHERE r.mission_id=m.id AND wr.state NOT IN ('succeeded','failed','cancelled','partial'))`).all() as MissionRow[];
     for (const mission of missions) {
+      // The actor stays the owner's seat for the workspace-membership reads; every record the Governor writes by itself names its own principal
+      // (the event actor is system:*, the verdict is GOVERNOR_PRINCIPAL's, see `verdict`), never the owner, who signed nothing.
       const actor: ActorContext = { kind: "workflow", actorId: mission.owner_id, organizationId, workspaceId, scopes: [], authMethod: "service-credential", authGeneration: 1 };
       try {
         this.changeState(actor, workspaceId, "mission.proposeCompletion", { missionId: mission.id });

@@ -1785,7 +1785,7 @@ export const ar: Catalog = {
   "signoff.facts.outputs_two": "مخرجان متحقَّق منهما",
   "signoff.facts.outputs_few": "{n} مخرجات متحقَّق منها",
   "signoff.facts.brief": "إصدار الموجز {version}",
-  "signoff.done": "اعتمدها شخص: فحص بشري مستقل.",
+  "signoff.done": "اعتمدها {name}: فحص بشري مستقل.",
   "signoff.intro": "انتهى العمل ووصلت أدلته. اعتمادك فحص بشري مستقل: تحقّق من المهمة إن تحقق هدفها، أو ارفضها واذكر ما يجب إصلاحه.",
   "signoff.verify": "التحقق من المهمة",
   "signoff.reject": "رفض مع الملاحظات",
@@ -2704,5 +2704,8 @@ export const ar: Catalog = {
   "receipt.retired": "جرى تدوير مفتاحه لاحقًا",
   "receipt.digest": "بصمة الإيصال",
   "receipt.noBundle": "لا توجد حزمة أدلة",
+  "signoff.done.brain": "تحقق Brain منها من الفحوص المستقلة للمهام. لم يعتمد أي شخص هذه المهمة.",
+  "timeline.verdict.mission.verifiedByBrain": "تحقق Brain من الفحوص المستقلة للمهام؛ لم يعتمد أي شخص",
+  "signoff.verified.brain": "تحقق Brain من هذه المهمة من الفحوص المستقلة للمهام؛ لم يعتمدها أي شخص. أغلقها كمُنجَزة لإنهائها.",
   // @@END
 };

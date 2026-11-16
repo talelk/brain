@@ -71,6 +71,10 @@ test("a person reads one timeline of the mission, filters it and follows an entr
 
   // The mission page offers the timeline under "More views".
   await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/outputs`);
+  const closedPanel = page.getByTestId("mission-signoff");
+  await expect(closedPanel).toHaveAttribute("data-signed-by", "brain", { timeout: 30_000 });
+  await expect(closedPanel.getByTestId("signoff-done")).toContainText("Verified by Brain from the tasks' independent checks. No person signed this mission off.");
+  await expect(closedPanel).not.toContainText("signed off by a person");
   await page.getByRole("button", { name: "More views", exact: true }).click();
   await page.getByRole("menuitem", { name: "Timeline", exact: true }).click();
   await expect(page).toHaveURL(/\/missions\/[^/]+\/timeline/);
@@ -83,7 +87,9 @@ test("a person reads one timeline of the mission, filters it and follows an entr
   await expect(timeline.getByText("A decision was accepted", { exact: true })).toBeVisible();
   await expect(timeline.getByText("A message was sent to Sign-in analyst", { exact: true })).toBeVisible();
   await expect(timeline.getByText("The independent check passed", { exact: true })).toBeVisible();
-  await expect(timeline.getByText("Signed off: the mission was verified", { exact: true })).toBeVisible();
+  // Nobody signed this mission off: the Governor verified it from the tasks' independent checks, and the timeline says so.
+  await expect(timeline.getByText("Verified by Brain from the tasks' independent checks; no person signed off", { exact: true })).toBeVisible();
+  await expect(timeline.getByText("Signed off: the mission was verified")).toHaveCount(0);
   expect((await kinds()).sort()).toEqual(["decision", "message", "plan", "run", "verdict"]);
   // Oldest first: the plan is proposed before the mission is signed off.
   const order = await entries.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-event")));

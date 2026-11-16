@@ -31705,6 +31705,9 @@
        "L3"
       ]
      },
+     "verdictBy": {
+      "$ref": "#/components/schemas/Id"
+     },
      "judge": {
       "$ref": "#/components/schemas/MissionJudge"
      }
@@ -35331,6 +35334,12 @@
      },
      "actorId": {
       "$ref": "#/components/schemas/Id"
+     },
+     "independence": {
+      "type": "string",
+      "enum": [
+       "L3"
+      ]
      },
      "memberId": {
       "$ref": "#/components/schemas/ConfigId"

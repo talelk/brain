@@ -64,6 +64,9 @@ export function entryWords(entry: MissionTimelineEntry, roleOf: (memberId: strin
       const key = BY_OUTCOME["effect.settled"]![outcome];
       return { ...base, title: key ? t(key) : t("timeline.effect.other", { outcome: tOr(`timeline.effect.${outcome}`, outcome) }) };
     }
+    // Only a person's recorded verdict (independence L3) is a sign-off; the Governor's own hands-off verdict says Brain verified it.
+    case "verdict.mission": if (outcome === "verified" && entry.independence !== "L3") return { ...base, title: t("timeline.verdict.mission.verifiedByBrain"), tone: "green" };
+      return { ...base, title: t(outcome === "rejected" ? "timeline.verdict.mission.rejected" : "timeline.verdict.mission.verified"), tone };
     case "verdict.submitted": return { ...base, title: t("timeline.verdict.submitted"), tone: "blue" };
     default: {
       const key = BY_OUTCOME[entry.event]?.[outcome];

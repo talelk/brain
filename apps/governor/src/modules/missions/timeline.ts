@@ -84,10 +84,10 @@ export function missionTimeline(store: Store, db: Db, organizationId: string, wo
     }
   }
   const mine = { kind: "mission" as const, id: missionId };
-  for (const row of db.prepare("SELECT digest, state, verdict_by, created_at_ms FROM mission_evidence_bundles WHERE mission_id=?").all(missionId) as Array<{ digest: string; state: string; verdict_by: string | null; created_at_ms: number }>) {
+  for (const row of db.prepare("SELECT digest, state, verdict_by, verdict_independence, created_at_ms FROM mission_evidence_bundles WHERE mission_id=?").all(missionId) as Array<{ digest: string; state: string; verdict_by: string | null; verdict_independence: string | null; created_at_ms: number }>) {
     add("verdict", row.created_at_ms, `${row.digest}:0`, { event: "verdict.submitted", source: mine });
     const recorded = db.prepare("SELECT created_at_ms FROM events WHERE event_type='mission.verdictRecorded' AND aggregate_type='mission' AND aggregate_id=? AND json_extract(payload_json,'$.digest')=? ORDER BY cursor DESC LIMIT 1").get(missionId, row.digest) as { created_at_ms: number } | undefined;
-    if (recorded && (row.state === "verified" || row.state === "rejected")) add("verdict", recorded.created_at_ms, `${row.digest}:1`, { event: "verdict.mission", outcome: row.state, ...(row.verdict_by ? { actorId: row.verdict_by } : {}), source: mine });
+    if (recorded && (row.state === "verified" || row.state === "rejected")) add("verdict", recorded.created_at_ms, `${row.digest}:1`, { event: "verdict.mission", outcome: row.state, ...(row.verdict_by ? { actorId: row.verdict_by } : {}), ...(row.verdict_independence === "L3" ? { independence: "L3" as const } : {}), source: mine });
   }
 
   for (const row of db.prepare(`SELECT v.id, v.state, v.verified, v.created_at_ms, v.work_item_id, o.id AS output_id, o.name, w.assignment_json FROM output_versions v JOIN mission_outputs o ON o.id=v.output_id

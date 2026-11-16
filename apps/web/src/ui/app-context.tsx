@@ -270,7 +270,7 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
     canPublish: () => identity()?.actor.kind === "human" && hasRole("operator"),
     personName: (actorId) => {
       if (!actorId) return "someone";
-      if (actorId === "system" || actorId === "governor") return "Brain";
+      if (actorId === "system" || actorId === "governor" || actorId.startsWith("system:")) return "Brain";
       if (actorId === identity()?.actor.actorId) return "you";
       // A team member's machine principal (ADR 0032) is named `agent:<mission>:<member>`; it is never a person in the workspace.
       if (actorId.startsWith("agent:")) return "an agent";

@@ -125,7 +125,11 @@ test("a finished mission waits for sign-off: reject with findings, finish again,
   await signOff.getByRole("button", { name: "Close as achieved", exact: true }).click();
   await signOff.getByRole("button", { name: "Yes, the goal is achieved", exact: true }).click();
   await expect(signOff).toHaveAttribute("data-state", "signed-off", { timeout: 30_000 });
-  await expect(signOff.getByTestId("signoff-done")).toContainText("Signed off by a person");
+  // A closed mission reads as a record in past tense: a person signed it off, and no pre-sign-off instruction is left.
+  await expect(signOff).toHaveAttribute("data-signed-by", "person");
+  await expect(signOff.getByTestId("signoff-done")).toContainText("Signed off by you: an independent human check");
+  await expect(signOff.getByTestId("signoff-unlinked-warning")).toHaveCount(0);
+  await expect(signOff).not.toContainText("before you sign off");
   expect(stateOf(missionId)).toEqual({ state: "closed", outcome: "achieved" });
   await shot("signoff-closed");
 

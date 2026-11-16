@@ -225,7 +225,7 @@ export class CapitalizationService {
     if (!mission || mission.state !== "closed" || mission.outcome !== "achieved") return undefined;
     // ADR 0022: only work that observed something is written up; a result that rests on the model's say-so is never knowledge.
     if (!missionObserved(this.store, db, missionId)) return undefined;
-    const bundles = db.prepare("SELECT digest, state, findings_json, created_at_ms FROM mission_evidence_bundles WHERE mission_id=? AND state IN ('verified','rejected') ORDER BY created_at_ms, rowid").all(missionId) as Array<{ digest: string; state: "verified" | "rejected"; findings_json: string; created_at_ms: number }>;
+    const bundles = db.prepare("SELECT digest, state, findings_json, verdict_independence, created_at_ms FROM mission_evidence_bundles WHERE mission_id=? AND state IN ('verified','rejected') ORDER BY created_at_ms, rowid").all(missionId) as Array<{ digest: string; state: "verified" | "rejected"; findings_json: string; verdict_independence: "L3" | null; created_at_ms: number }>;
     const verified = bundles.filter((bundle) => bundle.state === "verified").at(-1);
     if (!verified) return undefined;
     const writeup = buildWriteup(this.store, db, { ...mission, active_ms: workingMs(this.store, db, missionId, this.store.now()) }, verified, bundles.filter((bundle) => bundle.state === "rejected"));

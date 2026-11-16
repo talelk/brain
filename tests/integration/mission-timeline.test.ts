@@ -118,7 +118,10 @@ describe("mission timeline and run tool calls", () => {
     expect(shape(full.items)).toEqual(expect.arrayContaining(["verdict:verdict.task", "verdict:verdict.submitted", "verdict:verdict.mission", "output:output.recorded"]));
     const outputId = (db.prepare("SELECT output_id FROM output_versions LIMIT 1").get() as { output_id: string }).output_id;
     expect(full.items.find((entry) => entry.kind === "output")).toMatchObject({ outcome: "verified", source: { kind: "output", id: outputId } });
-    expect(full.items.find((entry) => entry.event === "verdict.mission")).toMatchObject({ outcome: "verified", source: { kind: "mission", id: missionId } });
+    // The mission closed itself on its tasks' independent checks: the verdict is the Governor's own principal's and claims no person's sign-off.
+    const verdict = full.items.find((entry) => entry.event === "verdict.mission");
+    expect(verdict).toMatchObject({ outcome: "verified", actorId: "system:governor", source: { kind: "mission", id: missionId } });
+    expect(verdict?.independence).toBeUndefined();
     // The first mission's approval and effect are not here: a timeline holds one mission's records only.
     expect(full.items.some((entry) => entry.kind === "approval" || entry.kind === "effect")).toBe(false);
 
