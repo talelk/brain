@@ -1,40 +1,29 @@
-# Domain Docs
+# Domain docs
 
-How the engineering skills should consume this repo's domain documentation when exploring the codebase.
+How engineering skills should use this repo's domain documentation.
 
 ## Before exploring, read these
 
-- **`GLOSSARY.md`** at the repo root.
-- **`docs/adr/`**: read ADRs that touch the area you're about to work in.
+- **`docs/model.md`**: the whole product model, on one page.
+- **`GLOSSARY.md`** at the repo root: the words, and the ones to avoid.
+- **`docs/architecture.md`**: how the model is built, when you are about to change code.
 
-If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
-
-## File structure
-
-This is a **single-context** repo: one domain vocabulary, one set of decisions.
-
-```
-/
-├── GLOSSARY.md
-├── docs/adr/
-│   ├── 0001-<decision>.md
-│   └── 0002-<decision>.md
-├── apps/        ← governor, runner, launcher, web
-└── packages/    ← contracts (shared DTOs only)
-```
-
-`apps/*` and `packages/contracts` are packaging boundaries, not separate bounded contexts. The architecture is a deliberate modular monolith — one Governor process, one domain — so a decision or term applies across the whole repo. Do not create per-package `GLOSSARY.md` files.
-
-Note: this repo's prose conventions also live under `docs/implementation/` and `contracts/v1/`. Those are the authoritative architecture and contract authorities; the glossary and ADRs record the vocabulary and decisions that those documents assume but never define.
+This is a single-context repo: one vocabulary and one model. `apps/*` and
+`packages/contracts` are packaging boundaries, not separate contexts. Do not create
+per-package glossaries.
 
 ## Use the glossary's vocabulary
 
-When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `GLOSSARY.md`. Don't drift to synonyms the glossary explicitly avoids.
+When your output names a domain concept (an issue title, a refactor proposal, a test
+name), use the term as defined in `GLOSSARY.md`, not a synonym it lists under _Avoid_.
 
-If the concept you need isn't in the glossary yet, that's a signal: either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/domain-modeling`).
+If the concept you need is not in the glossary, either you are inventing language the
+project does not use (reconsider), or the model has a real gap: say so, and change
+`docs/model.md` first.
 
-## Flag ADR conflicts
+## Decisions
 
-If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
-
-> _Contradicts ADR-0007 (event-sourced orders), but worth reopening because…_
+There is no ADR folder. A decision that changes the model is made by editing
+`docs/model.md` or `docs/architecture.md`, with the reason in the commit message. If
+your output contradicts one of those pages, say so explicitly instead of silently
+overriding it.
