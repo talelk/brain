@@ -60,7 +60,7 @@ export function authOptions(db: Db, opts: { secret: string; baseURL: string }): 
         const email = user.email.toLowerCase();
         const decision = decisions.get(email)?.decision;
         decisions.delete(email);
-        const settings = readOidcSettings(db);
+        const settings = decision ? readOidcSettings(db) : undefined;
         if (decision && settings) provisionUser(db, settings, { id: user.id, email }, decision);
       } } },
     },

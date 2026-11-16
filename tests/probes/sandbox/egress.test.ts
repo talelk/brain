@@ -1,6 +1,5 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { lookup } from "node:dns/promises";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,11 +28,10 @@ describe("G06 allowlist egress proxy, sandbox network denial (E067)", () => {
     const net = `brain-internal-test-${Date.now()}`;
     await docker(["network", "create", "--internal", net]);
     try {
-      const modelIp = (await lookup("tntungx10")).address;
       const grantsDir = mkdtempSync(join(tmpdir(), "brain-egress-probe-"));
-      const grant = writeEgressGrant(grantsDir, ["tntungx10:8000"]);
+      const grant = writeEgressGrant(grantsDir, ["example.com"]);
       const proxy = `http://${grant.id}:${grant.token}@brain-proxy-test:18080`;
-      await docker(["run", "-d", "--name", "brain-proxy-test", "--network", net, "--add-host", `tntungx10:${modelIp}`,
+      await docker(["run", "-d", "--name", "brain-proxy-test", "--network", net,
         "-v", `${process.cwd()}/apps/launcher/src/egress-proxy.ts:/app/egress-proxy.ts:ro`, "-v", `${grantsDir}:/grants:ro`,
         "-e", "BRAIN_EGRESS_GRANTS_DIR=/grants",
         "node:24-slim", "node", "/app/egress-proxy.ts"]);
@@ -45,7 +43,7 @@ describe("G06 allowlist egress proxy, sandbox network denial (E067)", () => {
       const allowed = await docker(["run", "--rm", "--network", net,
         "-e", `http_proxy=${proxy}`, "-e", `HTTP_PROXY=${proxy}`,
         "python:3.12-alpine", "python3", "-c",
-        "import urllib.request; print(urllib.request.urlopen('http://tntungx10:8000/v1/models', timeout=10).status)"]);
+        "import urllib.request; print(urllib.request.urlopen('http://example.com/', timeout=10).status)"]);
       expect(allowed.stdout).toContain("200");
 
       let deniedStatus = "";
@@ -53,7 +51,7 @@ describe("G06 allowlist egress proxy, sandbox network denial (E067)", () => {
         const denied = await docker(["run", "--rm", "--network", net,
           "-e", `http_proxy=${proxy}`, "-e", `HTTP_PROXY=${proxy}`,
           "python:3.12-alpine", "python3", "-c",
-          "import urllib.request; urllib.request.urlopen('http://example.com/', timeout=10)"]);
+          "import urllib.request; urllib.request.urlopen('http://example.org/', timeout=10)"]);
         deniedStatus = denied.stdout;
       } catch (e) {
         deniedStatus = String((e as { stderr?: string }).stderr ?? e);
@@ -64,7 +62,7 @@ describe("G06 allowlist egress proxy, sandbox network denial (E067)", () => {
       try {
         const out = await docker(["run", "--rm", "--network", net,
           "python:3.12-alpine", "python3", "-c",
-          "import urllib.request; print(urllib.request.urlopen('http://tntungx10:8000/v1/models', timeout=5).status)"], 30_000);
+          "import urllib.request; print(urllib.request.urlopen('http://example.com/', timeout=5).status)"], 30_000);
         direct = out.stdout;
       } catch (e) {
         direct = String((e as { stderr?: string }).stderr ?? e);
