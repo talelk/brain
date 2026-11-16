@@ -7429,6 +7429,120 @@
      }
     }
    }
+  },
+  "/v1/audit": {
+   "get": {
+    "operationId": "get_v1_audit",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "x-brain-operation": "audit.overview",
+    "responses": {
+     "200": {
+      "description": "Audit log overview: public audit keys and where each log stands",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AuditOverview"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/audit/export": {
+   "get": {
+    "operationId": "get_v1_audit_export",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "x-brain-operation": "audit.export",
+    "responses": {
+     "200": {
+      "description": "One page of an audit log with its checkpoints and keys, for offline verification",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AuditExportPage"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/audit/checkpoints": {
+   "post": {
+    "operationId": "post_v1_audit_checkpoints",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AuditCheckpointRequest"
+       }
+      }
+     }
+    },
+    "x-brain-operation": "audit.checkpoint",
+    "responses": {
+     "200": {
+      "description": "Signed checkpoints written now",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AuditCheckpointResult"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/audit/keys/rotate": {
+   "post": {
+    "operationId": "post_v1_audit_keys_rotate",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "x-brain-operation": "audit.rotate-key",
+    "responses": {
+     "200": {
+      "description": "Audit signing key rotated",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AuditKeyRotationResult"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
@@ -29472,6 +29586,32 @@
        ],
        "additionalProperties": false
       }
+     },
+     "audit": {
+      "type": "object",
+      "properties": {
+       "activeKeyId": {
+        "$ref": "#/components/schemas/Id"
+       },
+       "keys": {
+        "type": "array",
+        "items": {
+         "$ref": "#/components/schemas/AuditKey"
+        }
+       },
+       "scopes": {
+        "type": "array",
+        "items": {
+         "$ref": "#/components/schemas/AuditScopeStatus"
+        }
+       }
+      },
+      "required": [
+       "activeKeyId",
+       "keys",
+       "scopes"
+      ],
+      "additionalProperties": false
      }
     },
     "required": [
@@ -29488,7 +29628,8 @@
      "services",
      "runners",
      "backups",
-     "recentErrors"
+     "recentErrors",
+     "audit"
     ],
     "additionalProperties": false
    },
@@ -37582,6 +37723,422 @@
     "required": [
      "id",
      "kind"
+    ],
+    "additionalProperties": false
+   },
+   "AuditEventRecord": {
+    "type": "object",
+    "properties": {
+     "chainSeq": {
+      "oneOf": [
+       {
+        "type": "integer",
+        "minimum": 0
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "cursor": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "eventId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "organizationId": {
+      "oneOf": [
+       {
+        "$ref": "#/components/schemas/Id"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "workspaceId": {
+      "oneOf": [
+       {
+        "$ref": "#/components/schemas/Id"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "aggregateType": {
+      "type": "string",
+      "maxLength": 128
+     },
+     "aggregateId": {
+      "type": "string",
+      "maxLength": 256
+     },
+     "aggregateSeq": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "eventType": {
+      "type": "string",
+      "maxLength": 128
+     },
+     "payloadJson": {
+      "type": "string"
+     },
+     "payloadDigest": {
+      "$ref": "#/components/schemas/Digest"
+     },
+     "createdAtMs": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "actorId": {
+      "type": "string",
+      "maxLength": 256
+     },
+     "actorKind": {
+      "type": "string",
+      "maxLength": 32
+     },
+     "actorAttemptId": {
+      "oneOf": [
+       {
+        "type": "string",
+        "maxLength": 256
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "actingFor": {
+      "oneOf": [
+       {
+        "type": "string",
+        "maxLength": 256
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "prevDigest": {
+      "oneOf": [
+       {
+        "$ref": "#/components/schemas/Digest"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "chainDigest": {
+      "oneOf": [
+       {
+        "$ref": "#/components/schemas/Digest"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "chainSeq",
+     "cursor",
+     "eventId",
+     "organizationId",
+     "workspaceId",
+     "aggregateType",
+     "aggregateId",
+     "aggregateSeq",
+     "eventType",
+     "payloadJson",
+     "payloadDigest",
+     "createdAtMs",
+     "actorId",
+     "actorKind",
+     "actorAttemptId",
+     "actingFor",
+     "prevDigest",
+     "chainDigest"
+    ],
+    "additionalProperties": false
+   },
+   "AuditCheckpoint": {
+    "type": "object",
+    "properties": {
+     "checkpointId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "organizationId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "scope": {
+      "type": "string",
+      "maxLength": 160
+     },
+     "throughSeq": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "chainDigest": {
+      "$ref": "#/components/schemas/Digest"
+     },
+     "createdAtMs": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "reason": {
+      "enum": [
+       "schedule",
+       "demand",
+       "rotation"
+      ]
+     },
+     "keyId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "signature": {
+      "type": "string",
+      "maxLength": 200
+     }
+    },
+    "required": [
+     "checkpointId",
+     "organizationId",
+     "scope",
+     "throughSeq",
+     "chainDigest",
+     "createdAtMs",
+     "reason",
+     "keyId",
+     "signature"
+    ],
+    "additionalProperties": false
+   },
+   "AuditKey": {
+    "type": "object",
+    "properties": {
+     "keyId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "algorithm": {
+      "const": "ed25519"
+     },
+     "publicKey": {
+      "type": "string",
+      "maxLength": 200
+     },
+     "createdAtMs": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "retiredAtMs": {
+      "oneOf": [
+       {
+        "type": "integer",
+        "minimum": 0
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "keyId",
+     "algorithm",
+     "publicKey",
+     "createdAtMs",
+     "retiredAtMs"
+    ],
+    "additionalProperties": false
+   },
+   "AuditScopeStatus": {
+    "type": "object",
+    "properties": {
+     "scope": {
+      "type": "string",
+      "maxLength": 160
+     },
+     "workspaceId": {
+      "oneOf": [
+       {
+        "$ref": "#/components/schemas/Id"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "headSeq": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "lastCheckpoint": {
+      "oneOf": [
+       {
+        "$ref": "#/components/schemas/AuditCheckpoint"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "scope",
+     "workspaceId",
+     "headSeq",
+     "lastCheckpoint"
+    ],
+    "additionalProperties": false
+   },
+   "AuditOverview": {
+    "type": "object",
+    "properties": {
+     "format": {
+      "const": "brain.audit-overview/v1"
+     },
+     "organizationId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "activeKeyId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "keys": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/AuditKey"
+      }
+     },
+     "scopes": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/AuditScopeStatus"
+      }
+     }
+    },
+    "required": [
+     "format",
+     "organizationId",
+     "activeKeyId",
+     "keys",
+     "scopes"
+    ],
+    "additionalProperties": false
+   },
+   "AuditExportPage": {
+    "type": "object",
+    "properties": {
+     "format": {
+      "const": "brain.audit-export/v1"
+     },
+     "organizationId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "scope": {
+      "type": "string",
+      "maxLength": 160
+     },
+     "afterCursor": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "events": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/AuditEventRecord"
+      }
+     },
+     "nextAfterCursor": {
+      "oneOf": [
+       {
+        "type": "integer",
+        "minimum": 0
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "headSeq": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "checkpoints": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/AuditCheckpoint"
+      }
+     },
+     "keys": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/AuditKey"
+      }
+     }
+    },
+    "required": [
+     "format",
+     "organizationId",
+     "scope",
+     "afterCursor",
+     "events",
+     "nextAfterCursor",
+     "headSeq",
+     "checkpoints",
+     "keys"
+    ],
+    "additionalProperties": false
+   },
+   "AuditCheckpointRequest": {
+    "type": "object",
+    "properties": {
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     }
+    },
+    "required": [],
+    "additionalProperties": false
+   },
+   "AuditCheckpointResult": {
+    "type": "object",
+    "properties": {
+     "checkpoints": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/AuditCheckpoint"
+      }
+     }
+    },
+    "required": [
+     "checkpoints"
+    ],
+    "additionalProperties": false
+   },
+   "AuditKeyRotationResult": {
+    "type": "object",
+    "properties": {
+     "activeKeyId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "retiredKeyId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "keys": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/AuditKey"
+      }
+     }
+    },
+    "required": [
+     "activeKeyId",
+     "retiredKeyId",
+     "keys"
     ],
     "additionalProperties": false
    }

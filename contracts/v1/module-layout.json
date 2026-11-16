@@ -112,6 +112,10 @@
     "stream": {
       "path": "apps/governor/src/modules/stream",
       "owns": "Unified Execution Stream read model: watermark-guarded projection over the authoritative source logs, permission-scoped reads, FTS search, correlation context, attempt comparison, retention sweep and bounded sanitized export; attention items, seen cursors and since-last-visit summaries"
+    },
+    "audit": {
+      "path": "apps/governor/src/modules/audit",
+      "owns": "Hash-chain checkpoints, the audit signing key and its rotation, the audit export and the live self-verification of the event logs (ADR 0078)"
     }
   },
   "governorSharedFolders": {

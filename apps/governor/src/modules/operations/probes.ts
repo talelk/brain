@@ -106,7 +106,7 @@ export function alertBadProbes(s: Store): Array<{ organizationId: string; worksp
       ? s.control.prepare("SELECT id, organization_id, owner_id FROM workspaces WHERE id=? AND status='active' AND owner_id IS NOT NULL").all(probe.id.slice(7).split("/")[0])
       : s.control.prepare("SELECT id, organization_id, owner_id FROM workspaces WHERE status='active' AND owner_id IS NOT NULL").all()) as Array<{ id: string; organization_id: string; owner_id: string }>;
     const title = probe.id === "disk" ? "Disk is filling up" : probe.id === "model" ? "The model endpoint is down" : probe.id === "replica" ? "The database replica is behind"
-      : probe.id === "backup" ? "The last backup is stale" : probe.id === "restore-test" ? "The last restore test needs attention" : "A model route is down";
+      : probe.id === "backup" ? "The last backup is stale" : probe.id === "restore-test" ? "The last restore test needs attention" : probe.id === "audit" ? "The audit log needs attention" : "A model route is down";
     for (const workspace of workspaces) {
       const db = s.workspaceDb(workspace.id, workspace.organization_id);
       db.prepare("INSERT INTO attention_notifications(principal_id,item_id,mission_id,title,pushed,sent_at_ms) VALUES (?,?,NULL,?,0,?) ON CONFLICT(principal_id,item_id) DO UPDATE SET title=excluded.title,sent_at_ms=excluded.sent_at_ms,pushed=0")

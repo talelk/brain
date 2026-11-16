@@ -2697,5 +2697,6 @@ export const ar: Catalog = {
   "pr.check.neutral": "محايد",
   "pr.check.skipped": "تُخطّي",
   "pr.check.other": "انتهى",
+  "health.service.audit": "سجل التدقيق",
   // @@END
 };

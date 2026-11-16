@@ -68,7 +68,7 @@ function runnerInventory(s: Store, actor: ActorContext): RedactedDiagnostics["ru
   }));
 }
 
-export function diagnosticsBundle(s: Store, actor: ActorContext, workspaceId: string, correlationId: string, env: NodeJS.ProcessEnv = process.env): RedactedDiagnostics {
+export function diagnosticsBundle(s: Store, actor: ActorContext, workspaceId: string, correlationId: string, env: NodeJS.ProcessEnv, audit: RedactedDiagnostics["audit"]): RedactedDiagnostics {
   if (actor.kind !== "human" || !actor.scopes.includes("config:activate") || !actor.scopes.includes("runner:admin")) throw new BrainDomainError("FORBIDDEN", "Diagnostics export requires organization administration");
   const readiness = operationalReadiness(s, actor, workspaceId);
   const now = s.now();
@@ -86,5 +86,6 @@ export function diagnosticsBundle(s: Store, actor: ActorContext, workspaceId: st
     runners: runnerInventory(s, actor),
     backups: { backup: backupStatus(now, env), restoreTest: restoreTestStatus(now, env), replica: { status: lag.status, detail: sentence(lag.detail), lagSeconds: lag.lagSeconds } },
     recentErrors: recentErrors(s, actor.organizationId, workspaceId),
+    audit,
   };
 }

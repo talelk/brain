@@ -4,7 +4,8 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { JsonValue } from "@brain/contracts";
 import { withTrace } from "../domain/trace";
-import { domainDigest } from "@brain/contracts";
+import { CONTROL_SCOPE, auditChainDigest, auditGenesis, domainDigest, workspaceScope } from "@brain/contracts";
+import type { Digest } from "@brain/contracts";
 import type { Db } from "../infrastructure/persistence/open";
 import { initializeFresh, loadSchemaSql, openDb } from "../infrastructure/persistence/open";
 import { acquireDirectory, authorityKeys, durableWrite } from "../infrastructure/persistence/directory";
@@ -142,20 +143,42 @@ export class Store {
     const payload = withTrace(input.aggregateType, input.aggregateId, input.payload);
     const payloadJson = JSON.stringify(payload);
     const payloadDigest = domainDigest("brain:event:v1", payload);
-    const seqRow = db.prepare(
-      input.organizationId
-        ? "SELECT COALESCE(MAX(aggregate_seq),0) AS m FROM events WHERE organization_id=? AND aggregate_type=? AND aggregate_id=?"
-        : "SELECT COALESCE(MAX(aggregate_seq),0) AS m FROM events WHERE aggregate_type=? AND aggregate_id=?",
-    ).get(...(input.organizationId ? [input.organizationId, input.aggregateType, input.aggregateId] : [input.aggregateType, input.aggregateId])) as { m: number };
-    const seq = seqRow.m + 1;
-    const actorColumns = [actor?.principalId ?? UNATTRIBUTED, actor?.kind ?? "system", actor?.attemptId ?? null, actor?.actingFor ?? null];
-    if (input.organizationId) {
-      db.prepare(`INSERT INTO events(event_id, organization_id, workspace_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms, actor_id, actor_kind, actor_attempt_id, acting_for)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, input.organizationId, input.workspaceId ?? null, input.aggregateType, input.aggregateId, seq, input.eventType, payloadJson, payloadDigest, this.now(), ...actorColumns);
-    } else {
-      db.prepare(`INSERT INTO events(event_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms, actor_id, actor_kind, actor_attempt_id, acting_for)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, input.aggregateType, input.aggregateId, seq, input.eventType, payloadJson, payloadDigest, this.now(), ...actorColumns);
-    }
+    const at = this.now();
+    const actorColumns = [actor?.principalId ?? UNATTRIBUTED, actor?.kind ?? "system", actor?.attemptId ?? null, actor?.actingFor ?? null] as const;
+    // The chain position and the insert are one atomic step: the head is read and extended inside the same transaction, so two events
+    // never share a position and a rolled-back caller leaves no gap (ADR 0078).
+    const record = (): void => {
+      const seqRow = db.prepare(
+        input.organizationId
+          ? "SELECT COALESCE(MAX(aggregate_seq),0) AS m FROM events WHERE organization_id=? AND aggregate_type=? AND aggregate_id=?"
+          : "SELECT COALESCE(MAX(aggregate_seq),0) AS m FROM events WHERE aggregate_type=? AND aggregate_id=?",
+      ).get(...(input.organizationId ? [input.organizationId, input.aggregateType, input.aggregateId] : [input.aggregateType, input.aggregateId])) as { m: number };
+      const seq = seqRow.m + 1;
+      let organization = input.organizationId;
+      let scope = CONTROL_SCOPE;
+      if (!organization) {
+        if (!changed) throw new Error("event written to a workspace database the store did not open");
+        organization = this.workspaceOrganizations.get(changed);
+        scope = workspaceScope(changed);
+      }
+      const head = (input.organizationId
+        ? db.prepare("SELECT chain_seq AS seq, chain_digest AS digest FROM events WHERE organization_id=? AND chain_seq IS NOT NULL ORDER BY chain_seq DESC LIMIT 1").get(input.organizationId)
+        : db.prepare("SELECT chain_seq AS seq, chain_digest AS digest FROM events WHERE chain_seq IS NOT NULL ORDER BY chain_seq DESC LIMIT 1").get()) as { seq: number; digest: string } | undefined;
+      const prev = (head?.digest ?? auditGenesis(organization!, scope)) as Digest;
+      const chainSeq = (head?.seq ?? 0) + 1;
+      const chainDigest = auditChainDigest(prev, chainSeq, {
+        eventId, organizationId: input.organizationId ?? null, workspaceId: input.organizationId ? (input.workspaceId ?? null) : null, aggregateType: input.aggregateType, aggregateId: input.aggregateId, aggregateSeq: seq,
+        eventType: input.eventType, payloadDigest, createdAtMs: at, actorId: actorColumns[0], actorKind: actorColumns[1], actorAttemptId: actorColumns[2], actingFor: actorColumns[3],
+      });
+      if (input.organizationId) {
+        db.prepare(`INSERT INTO events(event_id, organization_id, workspace_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms, actor_id, actor_kind, actor_attempt_id, acting_for, chain_seq, prev_digest, chain_digest)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, input.organizationId, input.workspaceId ?? null, input.aggregateType, input.aggregateId, seq, input.eventType, payloadJson, payloadDigest, at, ...actorColumns, chainSeq, prev, chainDigest);
+      } else {
+        db.prepare(`INSERT INTO events(event_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms, actor_id, actor_kind, actor_attempt_id, acting_for, chain_seq, prev_digest, chain_digest)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, input.aggregateType, input.aggregateId, seq, input.eventType, payloadJson, payloadDigest, at, ...actorColumns, chainSeq, prev, chainDigest);
+      }
+    };
+    if (db.inTransaction) record(); else db.transaction(record).immediate();
     for (const dest of input.destinations ?? []) {
       db.prepare("INSERT INTO outbox_deliveries(event_id, destination, state, next_attempt_at_ms) VALUES (?,?, 'pending', ?)")
         .run(eventId, dest, this.now());

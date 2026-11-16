@@ -2105,5 +2105,6 @@ export const enExtra = {
   "pr.check.neutral": "neutral",
   "pr.check.skipped": "skipped",
   "pr.check.other": "finished",
+  "health.service.audit": "Audit log",
   // @@END
 } as const satisfies Record<string, string>;

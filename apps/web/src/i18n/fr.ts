@@ -2607,5 +2607,6 @@ export const fr: Catalog = {
   "pr.check.neutral": "neutre",
   "pr.check.skipped": "ignorée",
   "pr.check.other": "terminée",
+  "health.service.audit": "Journal d'audit",
   // @@END
 };

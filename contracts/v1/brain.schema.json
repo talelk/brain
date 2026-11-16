@@ -21982,6 +21982,32 @@
             ],
             "additionalProperties": false
           }
+        },
+        "audit": {
+          "type": "object",
+          "properties": {
+            "activeKeyId": {
+              "$ref": "#/$defs/Id"
+            },
+            "keys": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/AuditKey"
+              }
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/AuditScopeStatus"
+              }
+            }
+          },
+          "required": [
+            "activeKeyId",
+            "keys",
+            "scopes"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -21998,7 +22024,8 @@
         "services",
         "runners",
         "backups",
-        "recentErrors"
+        "recentErrors",
+        "audit"
       ],
       "additionalProperties": false
     },
@@ -30092,6 +30119,422 @@
       "required": [
         "id",
         "kind"
+      ],
+      "additionalProperties": false
+    },
+    "AuditEventRecord": {
+      "type": "object",
+      "properties": {
+        "chainSeq": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cursor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventId": {
+          "$ref": "#/$defs/Id"
+        },
+        "organizationId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workspaceId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "aggregateType": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "aggregateId": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "aggregateSeq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventType": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "payloadJson": {
+          "type": "string"
+        },
+        "payloadDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "createdAtMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "actorId": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "actorKind": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "actorAttemptId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 256
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "actingFor": {
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 256
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "prevDigest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chainDigest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "chainSeq",
+        "cursor",
+        "eventId",
+        "organizationId",
+        "workspaceId",
+        "aggregateType",
+        "aggregateId",
+        "aggregateSeq",
+        "eventType",
+        "payloadJson",
+        "payloadDigest",
+        "createdAtMs",
+        "actorId",
+        "actorKind",
+        "actorAttemptId",
+        "actingFor",
+        "prevDigest",
+        "chainDigest"
+      ],
+      "additionalProperties": false
+    },
+    "AuditCheckpoint": {
+      "type": "object",
+      "properties": {
+        "checkpointId": {
+          "$ref": "#/$defs/Id"
+        },
+        "organizationId": {
+          "$ref": "#/$defs/Id"
+        },
+        "scope": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "throughSeq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "chainDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "createdAtMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "enum": [
+            "schedule",
+            "demand",
+            "rotation"
+          ]
+        },
+        "keyId": {
+          "$ref": "#/$defs/Id"
+        },
+        "signature": {
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "checkpointId",
+        "organizationId",
+        "scope",
+        "throughSeq",
+        "chainDigest",
+        "createdAtMs",
+        "reason",
+        "keyId",
+        "signature"
+      ],
+      "additionalProperties": false
+    },
+    "AuditKey": {
+      "type": "object",
+      "properties": {
+        "keyId": {
+          "$ref": "#/$defs/Id"
+        },
+        "algorithm": {
+          "const": "ed25519"
+        },
+        "publicKey": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "createdAtMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retiredAtMs": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "keyId",
+        "algorithm",
+        "publicKey",
+        "createdAtMs",
+        "retiredAtMs"
+      ],
+      "additionalProperties": false
+    },
+    "AuditScopeStatus": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "workspaceId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "headSeq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastCheckpoint": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/AuditCheckpoint"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "scope",
+        "workspaceId",
+        "headSeq",
+        "lastCheckpoint"
+      ],
+      "additionalProperties": false
+    },
+    "AuditOverview": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "brain.audit-overview/v1"
+        },
+        "organizationId": {
+          "$ref": "#/$defs/Id"
+        },
+        "activeKeyId": {
+          "$ref": "#/$defs/Id"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AuditKey"
+          }
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AuditScopeStatus"
+          }
+        }
+      },
+      "required": [
+        "format",
+        "organizationId",
+        "activeKeyId",
+        "keys",
+        "scopes"
+      ],
+      "additionalProperties": false
+    },
+    "AuditExportPage": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "brain.audit-export/v1"
+        },
+        "organizationId": {
+          "$ref": "#/$defs/Id"
+        },
+        "scope": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "afterCursor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AuditEventRecord"
+          }
+        },
+        "nextAfterCursor": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "headSeq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checkpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AuditCheckpoint"
+          }
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AuditKey"
+          }
+        }
+      },
+      "required": [
+        "format",
+        "organizationId",
+        "scope",
+        "afterCursor",
+        "events",
+        "nextAfterCursor",
+        "headSeq",
+        "checkpoints",
+        "keys"
+      ],
+      "additionalProperties": false
+    },
+    "AuditCheckpointRequest": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "AuditCheckpointResult": {
+      "type": "object",
+      "properties": {
+        "checkpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AuditCheckpoint"
+          }
+        }
+      },
+      "required": [
+        "checkpoints"
+      ],
+      "additionalProperties": false
+    },
+    "AuditKeyRotationResult": {
+      "type": "object",
+      "properties": {
+        "activeKeyId": {
+          "$ref": "#/$defs/Id"
+        },
+        "retiredKeyId": {
+          "$ref": "#/$defs/Id"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AuditKey"
+          }
+        }
+      },
+      "required": [
+        "activeKeyId",
+        "retiredKeyId",
+        "keys"
       ],
       "additionalProperties": false
     }

@@ -68,6 +68,7 @@ import { IntegrationService, integrationCommands, type GitCredentialMaterial, ty
 import { actingAs, eventActorOf, runnerActor, scopeMethods, systemActor, type EventActor } from "./actor-context";
 import { EncryptedStoreAdapter, HostFileAdapter, SecretBroker, gitReference, revokeAttemptSecrets } from "../modules/secret-leases/index";
 import { ConfigurationDraftService } from "../modules/configuration/index";
+import { AuditService, auditConfig } from "../modules/audit/index";
 import { CapitalizationService, ToolTests, capitalizationCommands } from "../modules/capabilities/index";
 
 /** Reads that answer a whole history: a mission's timeline (its newest entries) and a run's tool calls. They return up to this many unless the caller asks for fewer. */
@@ -82,6 +83,8 @@ export class Brain {
   readonly stream: StreamService;
   readonly documents: DocumentService;
   readonly integrations: IntegrationService;
+  /** Tamper-evident audit (ADR 0078): the hash chains' checkpoints, keys, export and self-verification. */
+  readonly audit: AuditService;
   /** The secrets adapter port's broker (ADR 0070): short-lived, attempt-bound credentials for the secrets a job's tools need. */
   readonly secrets: SecretBroker;
   readonly drafts: ConfigurationDraftService;
@@ -141,6 +144,7 @@ export class Brain {
       this.stream = createStreamService(this.store);
       this.documents = new DocumentService(this.store);
       this.integrations = new IntegrationService(this.store);
+      this.audit = new AuditService(this.store, auditConfig());
       this.secrets = new SecretBroker(this.store, [new EncryptedStoreAdapter(this.store), new HostFileAdapter(process.env["BRAIN_TOOL_SECRETS_DIR"])]);
       this.drafts = new ConfigurationDraftService(this.store, {
         activeDocuments: (organizationId) => activeSourceDocuments(this.store, organizationId),
@@ -277,6 +281,7 @@ export class Brain {
     this.memoryProbeTimer = setInterval(() => this.probeMemoryService(), 10_000);
     this.memoryProbeTimer.unref();
     actingAs(systemActor("health-checks"), () => { checkDisk(this.store); checkReplica(this.store, this.replica); checkBackups(this.store); });
+    this.audit.pass();
     if (this.replica) {
       const config = this.replica;
       void this.replicate();
@@ -323,6 +328,7 @@ export class Brain {
     checkBackups(this.store);
     await checkModelEndpoint(this.store, fetchImpl);
     await checkHostedModels(this.store, fetchImpl);
+    this.audit.pass();
     for (const alert of alertBadProbes(this.store)) {
       const channels = channelsFor(this.store, alert.organizationId, alert.ownerId);
       if (channels.push || channels.webhook || channels.email) void this.deliver(alert.organizationId, alert.ownerId, { title: alert.title, body: alert.detail, url: platformAlertLink(), kind: "platform" }, channels).catch(() => undefined);
@@ -331,7 +337,7 @@ export class Brain {
 
   /** The redacted diagnostics bundle (Settings > Health > Download diagnostics); organization administrators only. */
   diagnostics(actor: ActorContext, workspaceId: string, correlationId: string): RedactedDiagnostics {
-    return diagnosticsBundle(this.store, actor, workspaceId, correlationId);
+    return diagnosticsBundle(this.store, actor, workspaceId, correlationId, process.env, this.audit.diagnostics(actor.organizationId));
   }
 
   close(): void {
@@ -376,6 +382,7 @@ export class Brain {
     scopeMethods(this.missions, { pumpCoordinators: systemActor("coordinator") });
     scopeMethods(this.stream, { projectAll: systemActor("projector"), sweep: systemActor("projector"), project: systemActor("projector") });
     scopeMethods(this.integrations, { verifyPending: systemActor("integrations") });
+    scopeMethods(this.audit, { pass: systemActor("audit"), checkpointNow: caller, rotateKey: caller });
     scopeMethods(this.drafts, { publishPending: systemActor("config-publisher") });
     // The engine's callbacks run inside whoever caused them; alone they are the Governor's workflow.
     scopeMethods(this, { runFailed: systemActor("workflow"), runSucceeded: systemActor("workflow"), createJobForStep: systemActor("workflow"), createApprovalForGate: systemActor("workflow"), steerSession: systemActor("workflow") }, { ifAbsent: true });
@@ -394,7 +401,7 @@ export class Brain {
 
   // --- bootstrap / directory ---
   bootstrap(raw: unknown, setupCredential: string): Promise<BootstrapResult> {
-    return bootstrapIdentity(this.store, this.auth, raw, setupCredential);
+    return bootstrapIdentity(this.store, this.auth, raw, setupCredential).then((result) => { this.audit.pass(); return result; });
   }
 
   resolveActor(headers: Headers, workspaceId?: string): Promise<ResolvedActor> {
