@@ -75,6 +75,8 @@ test("a person reads one timeline of the mission, filters it and follows an entr
   await expect(closedPanel).toHaveAttribute("data-signed-by", "brain", { timeout: 30_000 });
   await expect(closedPanel.getByTestId("signoff-done")).toContainText("Verified by Brain from the tasks' independent checks. No person signed this mission off.");
   await expect(closedPanel).not.toContainText("signed off by a person");
+  await expect(closedPanel.getByTestId("signoff-unlinked-warning")).toHaveCount(0);
+  await expect(closedPanel.getByTestId("signoff-unlinked-note")).toContainText("by design");
   await page.getByRole("button", { name: "More views", exact: true }).click();
   await page.getByRole("menuitem", { name: "Timeline", exact: true }).click();
   await expect(page).toHaveURL(/\/missions\/[^/]+\/timeline/);

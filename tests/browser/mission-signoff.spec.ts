@@ -92,7 +92,7 @@ test("a finished mission waits for sign-off: reject with findings, finish again,
   await expect(criterion).toContainText("Not linked to a check");
   await expect(criterion.getByTestId("signoff-criterion-work")).toContainText("Work: Summarize the incident log");
   await expect(signOff.getByTestId("signoff-criterion-check")).toHaveCount(0);
-  await expect(signOff.getByTestId("signoff-criteria-summary")).toHaveText("0 of 1 success criterion is linked to a check");
+  await expect(signOff.getByTestId("signoff-criteria-summary")).toHaveText("0 of 1 success criterion has a check that names it");
   const warning = signOff.getByTestId("signoff-unlinked-warning");
   await expect(warning).toContainText("1 success criterion is not linked to a check");
   const verifyButton = signOff.getByRole("button", { name: "Verify the mission", exact: true });
@@ -129,6 +129,8 @@ test("a finished mission waits for sign-off: reject with findings, finish again,
   await expect(signOff).toHaveAttribute("data-signed-by", "person");
   await expect(signOff.getByTestId("signoff-done")).toContainText("Signed off by you: an independent human check");
   await expect(signOff.getByTestId("signoff-unlinked-warning")).toHaveCount(0);
+  await expect(signOff.getByTestId("signoff-unlinked-note")).toContainText("the person who signed off judged them from the work itself");
+  await expect(signOff.getByTestId("signoff-criterion")).toContainText("No named check");
   await expect(signOff).not.toContainText("before you sign off");
   expect(stateOf(missionId)).toEqual({ state: "closed", outcome: "achieved" });
   await shot("signoff-closed");

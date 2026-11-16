@@ -9,6 +9,7 @@ import { ATTENTION_CHANGED } from "../attention";
 import { ActionFeedback } from "../components/ActionFeedback";
 import { WorkspaceSection } from "../components/Domain";
 import { CriterionCoverage } from "./CriterionCoverage";
+import { DateText } from "../screen-region";
 import { t, tn } from "../../i18n";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
@@ -99,10 +100,10 @@ export function MissionSignOff(props: { mission: Mission; onChanged: () => void 
         <Show when={current()}>{(entry) => <p class="m-0 text-interface text-ink-gray-7" data-testid="signoff-facts">
           {tn("signoff.facts.tasks", entry().items.length)} · {tn("signoff.facts.outputs", entry().outputVersions.length)} · {t("signoff.facts.brief", { version: entry().briefVersion })}
         </p>}</Show>
-        <Show when={current()}>{(entry) => <CriterionCoverage coverage={entry().coverage} judge={entry().judge} />}</Show>
+        <Show when={current()}>{(entry) => <CriterionCoverage coverage={entry().coverage} judge={entry().judge} record={signedOff() ? (byPerson() ? "person" : "brain") : undefined} />}</Show>
         <Show when={current()}>{(entry) => <JudgeNote judge={entry().judge} />}</Show>
         <Show when={signedOff()}>
-          <p class="m-0 flex items-center gap-2 text-interface text-ink-gray-9" data-testid="signoff-done"><span class="lucide-badge-check size-4 shrink-0 text-ink-green-8" aria-hidden="true" />{byPerson() ? t("signoff.done", { name: app.personName(current()?.verdictBy) }) : t("signoff.done.brain")}</p>
+          <p class="m-0 flex items-center gap-2 text-interface text-ink-gray-9" data-testid="signoff-done"><span class="lucide-badge-check size-4 shrink-0 text-ink-green-8" aria-hidden="true" />{byPerson() ? t("signoff.done", { name: app.personName(current()?.verdictBy) }) : t("signoff.done.brain")} <span class="text-caption text-ink-gray-6"><DateText value={props.mission.updatedAt} /></span></p>
         </Show>
         <Show when={waiting() || verified()}>
           <Show when={app.canDispatch()} fallback={<p class="m-0 text-caption text-ink-gray-7" data-testid="signoff-no-scope">{t("signoff.noScope")}</p>}>
