@@ -55,8 +55,8 @@ test("live: doing-now sentence, ETA band, Pause, Steer recorded in the brief, St
     VALUES ('wi-live','mis-live','pv-live','task-1','Research the market','in-progress','["Names three competitors"]','run', ?, ?)`).run(now, now);
   ws.prepare("INSERT INTO execution_links(mission_id, work_item_id, run_id, job_id, attempt_id, session_id, created_at_ms) VALUES ('mis-live','wi-live','run-live','job-live','att-live','ses-live',?)").run(now);
   const started = now - 4 * 60_000;
-  ws.prepare(`INSERT INTO sessions(id, job_id, attempt_id, mode, work_item_id, agent_id, task, engine_id, adapter_digest, engine_features, state, root_session_id, worktree_id, created_by, created_at_ms, updated_at_ms)
-    VALUES ('ses-live','job-live','att-live','managed','wi-live','task-worker','Research the market','fixture',?,'["sessions"]','running','ses-live','wt-live','runner',?,?)`)
+  ws.prepare(`INSERT INTO sessions(id, job_id, attempt_id, mode, work_item_id, agent_id, task, engine_id, adapter_digest, engine_features, state, root_session_id, created_by, created_at_ms, updated_at_ms)
+    VALUES ('ses-live','job-live','att-live','managed','wi-live','task-worker','Research the market','fixture',?,'["sessions"]','running','ses-live','runner',?,?)`)
     .run(`sha256:${"0".repeat(64)}`, started, now);
 
   // Structured events: two finished document reads and a third still running.

@@ -780,61 +780,6 @@
       ],
       "additionalProperties": false
     },
-    "MergeStep": {
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "merge"
-        },
-        "needs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/ConfigId"
-          },
-          "minItems": 0,
-          "maxItems": 100,
-          "uniqueItems": true
-        },
-        "input": {
-          "$ref": "#/$defs/Bindings"
-        },
-        "outputSchemaRef": {
-          "$ref": "#/$defs/SchemaRef"
-        },
-        "timeoutSeconds": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 86400
-        },
-        "retry": {
-          "$ref": "#/$defs/RetryPolicy"
-        },
-        "when": {
-          "$ref": "#/$defs/StepCondition"
-        },
-        "tool": {
-          "$ref": "#/$defs/ReleaseRef"
-        },
-        "runsOn": {
-          "$ref": "#/$defs/Placement"
-        },
-        "proposalFrom": {
-          "$ref": "#/$defs/Binding"
-        }
-      },
-      "required": [
-        "kind",
-        "needs",
-        "input",
-        "outputSchemaRef",
-        "tool",
-        "runsOn",
-        "proposalFrom",
-        "timeoutSeconds"
-      ],
-      "additionalProperties": false
-    },
     "SubgraphStep": {
       "type": "object",
       "properties": {
@@ -894,9 +839,6 @@
         },
         {
           "$ref": "#/$defs/SteerStep"
-        },
-        {
-          "$ref": "#/$defs/MergeStep"
         },
         {
           "$ref": "#/$defs/SubgraphStep"
@@ -1153,12 +1095,11 @@
                   "agent",
                   "tool",
                   "eval",
-                  "merge",
                   "house"
                 ]
               },
               "minItems": 1,
-              "maxItems": 5,
+              "maxItems": 4,
               "uniqueItems": true
             },
             "isolation": {
@@ -2995,7 +2936,6 @@
                 "agent",
                 "tool",
                 "eval",
-                "merge",
                 "house"
               ]
             },
@@ -4742,9 +4682,6 @@
           "minLength": 1,
           "maxLength": 80
         },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
-        },
         "configDigest": {
           "$ref": "#/$defs/Digest"
         },
@@ -4814,7 +4751,6 @@
         "instructionsDigest",
         "task",
         "sourceRevision",
-        "worktreeId",
         "configDigest",
         "allowedTools",
         "context",
@@ -6015,9 +5951,6 @@
           },
           "maxItems": 100
         },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
-        },
         "eventSequence": {
           "type": "integer",
           "minimum": 0,
@@ -6077,7 +6010,6 @@
         "sourceRevision",
         "completedCriteria",
         "failures",
-        "worktreeId",
         "eventSequence",
         "nextAction",
         "createdAt"
@@ -8165,6 +8097,7 @@
             "effects.get",
             "runnerGroups.list",
             "integrations.guide",
+            "webhooks.list",
             "identity.oidc.get",
             "quality.breakdown",
             "practices.list",
@@ -8267,6 +8200,7 @@
             "effects.get",
             "runnerGroups.list",
             "integrations.guide",
+            "webhooks.list",
             "identity.oidc.get",
             "quality.breakdown",
             "practices.list",
@@ -8566,10 +8500,6 @@
         "scope": {
           "$ref": "#/$defs/SessionScope"
         },
-        "worktreeId": {
-          "type": "string",
-          "maxLength": 512
-        },
         "checkpoint": {
           "$ref": "#/$defs/Checkpoint"
         },
@@ -8646,7 +8576,6 @@
         "delegationDepth",
         "budget",
         "scope",
-        "worktreeId",
         "version",
         "createdAt",
         "updatedAt"
@@ -8690,9 +8619,6 @@
         },
         "scope": {
           "$ref": "#/$defs/SessionScope"
-        },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
         },
         "state": {
           "type": "string",
@@ -8762,7 +8688,6 @@
         "depth",
         "budget",
         "scope",
-        "worktreeId",
         "state",
         "createdAt",
         "missionId",
@@ -8795,9 +8720,6 @@
         },
         "scope": {
           "$ref": "#/$defs/SessionScope"
-        },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -8806,8 +8728,7 @@
         "engineId",
         "task",
         "budget",
-        "scope",
-        "worktreeId"
+        "scope"
       ],
       "additionalProperties": false
     },
@@ -8974,9 +8895,6 @@
         },
         "scope": {
           "$ref": "#/$defs/SessionScope"
-        },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -11943,6 +11861,12 @@
           "$ref": "#/$defs/IntegrationBindCommand"
         },
         {
+          "$ref": "#/$defs/WebhookCreateCommand"
+        },
+        {
+          "$ref": "#/$defs/WebhookRotateCommand"
+        },
+        {
           "$ref": "#/$defs/DocumentUploadCommand"
         },
         {
@@ -13004,10 +12928,6 @@
         "scope": {
           "$ref": "#/$defs/SessionScope"
         },
-        "worktreeId": {
-          "type": "string",
-          "maxLength": 512
-        },
         "checkpoint": {
           "$ref": "#/$defs/Checkpoint"
         },
@@ -13065,7 +12985,6 @@
         "delegationDepth",
         "budget",
         "scope",
-        "worktreeId",
         "version",
         "createdAt",
         "updatedAt",
@@ -18568,9 +18487,6 @@
             "evaluator"
           ]
         },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
-        },
         "resources": {
           "$ref": "#/$defs/Resources"
         },
@@ -18582,7 +18498,6 @@
         "attempt",
         "imageDigest",
         "profileId",
-        "worktreeId",
         "resources",
         "requestId"
       ],
@@ -24268,9 +24183,6 @@
           },
           "maxItems": 100
         },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
-        },
         "eventSequence": {
           "type": "integer",
           "minimum": 0,
@@ -24316,7 +24228,6 @@
         "sourceRevision",
         "completedCriteria",
         "failures",
-        "worktreeId",
         "eventSequence",
         "nextAction",
         "createdAt"
@@ -27947,7 +27858,8 @@
           "type": "string",
           "enum": [
             "opened",
-            "refresh"
+            "refresh",
+            "webhook"
           ]
         },
         "observedBy": {
@@ -27960,6 +27872,36 @@
       "required": [
         "state",
         "source",
+        "observedAt"
+      ],
+      "additionalProperties": false
+    },
+    "PullRequestCheck": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "conclusion": {
+          "type": "string",
+          "enum": [
+            "success",
+            "failure",
+            "cancelled",
+            "neutral",
+            "skipped",
+            "other"
+          ]
+        },
+        "observedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "name",
+        "conclusion",
         "observedAt"
       ],
       "additionalProperties": false
@@ -28029,6 +27971,13 @@
             "$ref": "#/$defs/PullRequestObservation"
           },
           "maxItems": 100
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PullRequestCheck"
+          },
+          "maxItems": 50
         }
       },
       "required": [
@@ -29987,6 +29936,129 @@
         "tier",
         "reasons",
         "requires"
+      ],
+      "additionalProperties": false
+    },
+    "WebhookKind": {
+      "type": "string",
+      "enum": [
+        "github",
+        "gitlab",
+        "ticket"
+      ]
+    },
+    "WebhookCreateInput": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/WebhookKind"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "connectionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "secret": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "kind",
+        "workspaceId",
+        "secret"
+      ],
+      "additionalProperties": false
+    },
+    "WebhookRotateInput": {
+      "type": "object",
+      "properties": {
+        "endpointId": {
+          "$ref": "#/$defs/Id"
+        },
+        "secret": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "endpointId",
+        "secret"
+      ],
+      "additionalProperties": false
+    },
+    "WebhookCreateCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "webhook.create"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "$ref": "#/$defs/WebhookCreateInput"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "WebhookRotateCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "webhook.rotate"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "$ref": "#/$defs/WebhookRotateInput"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "idempotencyKey",
+        "payload"
       ],
       "additionalProperties": false
     },

@@ -276,6 +276,24 @@
       ]
     },
     {
+      "type": "webhook.create",
+      "schema": "WebhookCreateCommand",
+      "scope": "config:activate",
+      "authority": "organization",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "webhook.rotate",
+      "schema": "WebhookRotateCommand",
+      "scope": "config:activate",
+      "authority": "organization",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "document.upload",
       "schema": "DocumentUploadCommand",
       "scope": "mission:write",
@@ -1083,6 +1101,7 @@
     "effects.get",
     "runnerGroups.list",
     "integrations.guide",
+    "webhooks.list",
     "identity.oidc.get",
     "chatIdentities.list",
     "quality.breakdown",

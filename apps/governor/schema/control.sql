@@ -32,6 +32,14 @@ CREATE TABLE git_connections (
   created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
   last_verified_at_ms INTEGER, UNIQUE(organization_id,name)
 ) STRICT;
+-- A signed inbound webhook endpoint (ADR 0077): one URL per provider kind and workspace. The secret is stored encrypted under its own key label,
+-- is never read back, and is replaced by rotation; an endpoint belongs to one workspace, so what it receives can only reach that workspace.
+CREATE TABLE webhook_endpoints (
+  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id), workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  kind TEXT NOT NULL CHECK(kind IN ('github','gitlab','ticket')), connection_id TEXT REFERENCES git_connections(id),
+  encrypted_secret TEXT NOT NULL, created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL, rotated_at_ms INTEGER, rotated_by TEXT
+) STRICT;
+CREATE INDEX webhook_endpoints_org ON webhook_endpoints(organization_id, created_at_ms);
 CREATE TABLE repository_bindings (
   id TEXT PRIMARY KEY, connection_id TEXT NOT NULL REFERENCES git_connections(id),
   workspace_id TEXT NOT NULL REFERENCES workspaces(id),

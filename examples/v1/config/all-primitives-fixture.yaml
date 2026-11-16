@@ -150,35 +150,6 @@ spec:
       messageFrom:
         source: literal
         value: Report your checkpoint.
-    merge:
-      kind: merge
-      needs:
-      - approve
-      input:
-        proposal:
-          source: job
-          jobId: investigate
-          pointer: /proposal
-      outputSchemaRef: schemas/report.json
-      tool:
-        id: git.merge-approved
-        digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-      runsOn:
-        group: privileged
-        all:
-        - os:linux
-        - isolation:ephemeral-container
-        resources:
-          cpuMillicores: 1000
-          memoryMb: 1024
-          diskMb: 2048
-          slots: 1
-        isolation: ephemeral-container
-      proposalFrom:
-        source: job
-        jobId: investigate
-        pointer: /proposal
-      timeoutSeconds: 60
     child:
       kind: subgraph
       needs:

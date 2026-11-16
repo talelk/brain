@@ -56,7 +56,7 @@ function checkpointOf(w: World, runner: Runner, offer: Offer, withEngineState = 
   return {
     contractVersion: "brain.checkpoint/v2", attemptId: offer.attemptId, sourceRevision: DIGEST_A,
     ...(withEngineState ? { engineState: { artifactId: stored.artifactId, digest: stored.digest, bytes: stored.bytes, mediaType: "application/x-ndjson", classification: "internal" } } : {}),
-    completedCriteria: [], failures: [], worktreeId: "read-only:workspace", eventSequence: 0, ownedResources: [], nextAction: "continue the saved conversation", createdAt: new Date(clock.nowMs()).toISOString(),
+    completedCriteria: [], failures: [], eventSequence: 0, ownedResources: [], nextAction: "continue the saved conversation", createdAt: new Date(clock.nowMs()).toISOString(),
   };
 }
 

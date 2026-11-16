@@ -15,7 +15,7 @@ function spec(): EngineSessionSpec {
     runnerEpoch: 1, leaseId: "lease-pi", jobFence: 1,
     engine: { id: "pi", version: "1.4.0", adapterDigest: DIGEST, features: ["sessions", "checkpoint"] },
     modelId: "qwen3.8-flash-next-a5b", instructions: "Follow the task.", instructionsDigest: DIGEST,
-    task: "Reply with exactly: BRAIN_OK", sourceRevision: "sha256:" + "1".repeat(64), worktreeId: "wt-pi",
+    task: "Reply with exactly: BRAIN_OK", sourceRevision: "sha256:" + "1".repeat(64),
     configDigest: DIGEST, allowedTools: [],
     context: { artifactId: "ctx-pi", digest: DIGEST, bytes: 0, mediaType: "application/json", classification: "internal" },
     limits: { timeoutMs: 120_000, maxTokens: 8192, maxMicroUsd: 0, maxTurns: 8 },

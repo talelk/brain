@@ -47,7 +47,8 @@ export function PullRequests(props: { resourceId: string; workspaceId: string; k
       setError({ id: record.pullRequestId, reason: failure instanceof Error ? failure.message : t("pr.refresh-failed") });
     } finally { setBusy(""); }
   }
-  const who = (entry: PullRequest["observations"][number]): string => (entry.source === "opened" ? t("pr.when-opened") : t("pr.checked-by", { name: entry.observedBy ? app.personName(entry.observedBy) : "" }));
+  const who = (entry: PullRequest["observations"][number]): string => (entry.source === "opened" ? t("pr.when-opened") : entry.source === "webhook" ? t("pr.reported-by-webhook") : t("pr.checked-by", { name: entry.observedBy ? app.personName(entry.observedBy) : "" }));
+  const checks = (record: PullRequest): string => (record.checks ?? []).map((check) => `${check.name} ${t(`pr.check.${check.conclusion}` as "pr.check.success")}`).join(", ");
 
   return <Show when={(list.state().data ?? []).length > 0}>
     <section class="flex min-w-0 flex-col gap-3" aria-label={t("pr.title")} data-testid="pull-requests">
@@ -62,6 +63,7 @@ export function PullRequests(props: { resourceId: string; workspaceId: string; k
           </div>
           <p class="text-caption text-ink-gray-6">{t("pr.where", { provider: PROVIDERS[record.provider], number: String(record.number), branch: record.branch, base: record.base })}</p>
           <p class="text-caption text-ink-gray-6">{t("pr.opened-at", { when: formatDateTime(record.openedAt) })} · {t("pr.state-read", { when: formatDateTime(record.stateObservedAt) })}</p>
+          <Show when={(record.checks ?? []).length > 0}><p class="text-caption text-ink-gray-6" data-testid="pull-request-checks">{t("pr.checks", { list: checks(record) })}</p></Show>
           <div class="flex flex-wrap items-center gap-2">
             <Show when={props.canRefresh}><Button size="sm" variant="outline" iconLeft="lucide-refresh-cw" disabled={busy() !== ""} onClick={() => void refresh(record)}>{busy() === record.pullRequestId ? t("pr.refreshing") : t("pr.refresh")}</Button></Show>
             <Show when={props.kind === "work-item"}><A class="text-caption text-ink-blue-8 hover:underline" href={`/approvals/${encodeURIComponent(record.approvalId)}`}>{t("pr.see-approval")}</A></Show>

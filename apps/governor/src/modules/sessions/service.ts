@@ -44,7 +44,7 @@ type SessionRow = {
   agent_id: string; task: string; engine_id: string; adapter_digest: string; engine_features: string | null;
   state: BrainSession["state"];
   checkpoint_digest: string | null; checkpoint_json: string | null; resumed_from_json: string | null; event_sequence: number;
-  delegation_depth: number; budget_json: string; scope_json: string; worktree_id: string;
+  delegation_depth: number; budget_json: string; scope_json: string;
   created_by: string; version: number; created_at_ms: number; updated_at_ms: number; mission_id: string | null;
 };
 
@@ -154,7 +154,7 @@ export class SessionService {
       state: row.state, usedTokens: 0, usedMicroUsd: Number(budget?.settled_micro_usd ?? 0), reservedMicroUsd: Number(budget?.micro_usd ?? 0),
       lastEventSequence: row.event_sequence, delegationDepth: row.delegation_depth,
       budget: JSON.parse(row.budget_json) as SessionBudget, scope: JSON.parse(row.scope_json) as SessionScope,
-      worktreeId: row.worktree_id, ...(checkpoint ? { checkpoint } : {}), ...(row.resumed_from_json ? { resumedFrom: JSON.parse(row.resumed_from_json) as NonNullable<BrainSession["resumedFrom"]> } : {}), ...(activity ? { activity } : {}),
+      ...(checkpoint ? { checkpoint } : {}), ...(row.resumed_from_json ? { resumedFrom: JSON.parse(row.resumed_from_json) as NonNullable<BrainSession["resumedFrom"]> } : {}), ...(activity ? { activity } : {}),
       pause: pauseView(this.store, { state: row.state, attemptId: row.attempt_id, engineId: row.engine_id, engineFeatures: engineFeaturesOf(row.engine_features) }),
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
@@ -178,7 +178,7 @@ export class SessionService {
       workItemId: row.work_item_id, workItemTitle: item.title, agentId: child.agent_id, ...(run.member_id ? { memberId: run.member_id } : {}), delegatedBy: run.delegating_principal,
       task: child.task, depth: child.delegation_depth,
       budget: JSON.parse(child.budget_json) as SessionBudget, scope: JSON.parse(child.scope_json) as SessionScope,
-      worktreeId: child.worktree_id, state: row.state,
+      state: row.state,
       run: {
         state: run.state, ...(run.run_id ? { runId: run.run_id } : {}), ...(run.result_handoff_id ? { handoffId: run.result_handoff_id } : {}),
         ...(handoff ? { result: (JSON.parse(handoff.notes_json) as { summary: string }).summary.slice(0, 4000) } : {}), ...(run.failure_reason ? { failure: run.failure_reason } : {}),
@@ -238,15 +238,13 @@ export class SessionService {
     const task = String(payload["task"]);
     const budget = budgetOf(payload);
     const scope = scopeOf(payload);
-    const worktreeId = String(payload["worktreeId"]);
     const id = this.store.id("ses");
     this.store.inTx(db, () => {
-      this.assertWorktreeAvailable(db, worktreeId, id);
       const now = this.store.now();
-      db.prepare(`INSERT INTO sessions(id,mode,work_item_id,parent_session_id,root_session_id,agent_id,task,engine_id,adapter_digest,state,delegation_depth,budget_json,scope_json,worktree_id,created_by,created_at_ms,updated_at_ms)
-        VALUES (?,'managed',?,?,?,?,?,? ,?,'waiting',?,?,?,?,?,?,?)`).run(
+      db.prepare(`INSERT INTO sessions(id,mode,work_item_id,parent_session_id,root_session_id,agent_id,task,engine_id,adapter_digest,state,delegation_depth,budget_json,scope_json,created_by,created_at_ms,updated_at_ms)
+        VALUES (?,'managed',?,?,?,?,?,? ,?,'waiting',?,?,?,?,?,?)`).run(
         id, workItemId, null, id, agentId, task, String(payload["engineId"]), ZERO_DIGEST,
-        0, JSON.stringify(budget), JSON.stringify(scope), worktreeId, actor.actorId, now, now,
+        0, JSON.stringify(budget), JSON.stringify(scope), actor.actorId, now, now,
       );
       this.deliverAtStart(db, workItemId);
       this.store.emit(db, { aggregateType: "session", aggregateId: id, eventType: "session.created", payload: { sessionId: id, workItemId } });
@@ -300,10 +298,10 @@ export class SessionService {
     const from = JSON.stringify({ sessionId: source.id, checkpointDigest: plan.source.checkpointDigest });
     this.store.inTx(db, () => {
       const now = this.store.now();
-      db.prepare(`INSERT INTO sessions(id,mode,work_item_id,parent_session_id,root_session_id,agent_id,task,engine_id,adapter_digest,state,delegation_depth,budget_json,scope_json,worktree_id,resumed_from_json,created_by,created_at_ms,updated_at_ms)
-        VALUES (?,'managed',?,NULL,?,?,?,?,?,'starting',?,?,?,?,?,?,?,?)`).run(
+      db.prepare(`INSERT INTO sessions(id,mode,work_item_id,parent_session_id,root_session_id,agent_id,task,engine_id,adapter_digest,state,delegation_depth,budget_json,scope_json,resumed_from_json,created_by,created_at_ms,updated_at_ms)
+        VALUES (?,'managed',?,NULL,?,?,?,?,?,'starting',?,?,?,?,?,?,?)`).run(
         id, plan.source!.workItemId, source.root_session_id ?? source.id, source.agent_id, source.task, source.engine_id, ZERO_DIGEST,
-        source.delegation_depth, source.budget_json, source.scope_json, source.worktree_id, from, actor.actorId, now, now,
+        source.delegation_depth, source.budget_json, source.scope_json, from, actor.actorId, now, now,
       );
       const linked = db.prepare("UPDATE execution_links SET session_id=? WHERE work_item_id=? AND run_id=?").run(id, plan.source!.workItemId, runId);
       if (linked.changes !== 1) throw new BrainDomainError("CONFLICT", "the resumed run was not linked to its task");
@@ -325,7 +323,7 @@ export class SessionService {
     const session = this.row(actor, workspaceId, String(payload["sessionId"]));
     assertExpectedVersion(session.version, expectedVersion);
     const input = payload["checkpoint"] as unknown as CheckpointInput;
-    if (input.worktreeId !== session.worktree_id || input.eventSequence > session.event_sequence) throw new BrainDomainError("CONFLICT", "checkpoint does not match the session's worktree or committed event cursor");
+    if (input.eventSequence > session.event_sequence) throw new BrainDomainError("CONFLICT", "checkpoint does not match the session's committed event cursor");
     const db = this.db(actor, workspaceId);
     const checkpoint = stampedCheckpoint(db, session, input);
     this.store.inTx(db, () => {
@@ -394,7 +392,6 @@ export class SessionService {
     const childId = this.store.id("ses");
     const delegationId = this.store.id("del");
     const task = String(payload["task"]);
-    const worktreeId = typeof payload["worktreeId"] === "string" ? payload["worktreeId"] : `wt-${childId}`;
     this.store.inTx(db, () => {
       const siblings = db.prepare(`SELECT s.budget_json FROM delegations d JOIN sessions s ON s.id=d.child_session_id JOIN delegation_runs r ON r.delegation_id=d.id
         WHERE d.parent_session_id=? AND d.state IN ('active','accepted') AND r.state!='failed'`).all(parent.id) as Array<{ budget_json: string }>;
@@ -406,12 +403,11 @@ export class SessionService {
       // Without a stated budget the child takes half of what the parent still has, so a session cannot spend all of it on its first child.
       const childBudget: SessionBudget = payload["budget"] ? budgetOf(payload) : { maxTokens: Math.max(1, Math.floor(available.maxTokens / 2)), maxMicroUsd: Math.floor(available.maxMicroUsd / 2), maxTurns: Math.max(1, Math.floor(available.maxTurns / 2)) };
       assertBudgetWithin(childBudget, available);
-      this.assertWorktreeAvailable(db, worktreeId, parent.root_session_id ?? parent.id);
       const now = this.store.now();
-      db.prepare(`INSERT INTO sessions(id,mode,work_item_id,parent_session_id,root_session_id,agent_id,task,engine_id,adapter_digest,state,delegation_depth,budget_json,scope_json,worktree_id,created_by,created_at_ms,updated_at_ms)
-        VALUES (?,'managed',?,?,?,?,?,? ,?,'waiting',?,?,?,?,?,?,?)`).run(
+      db.prepare(`INSERT INTO sessions(id,mode,work_item_id,parent_session_id,root_session_id,agent_id,task,engine_id,adapter_digest,state,delegation_depth,budget_json,scope_json,created_by,created_at_ms,updated_at_ms)
+        VALUES (?,'managed',?,?,?,?,?,? ,?,'waiting',?,?,?,?,?,?)`).run(
         childId, parent.work_item_id, parent.id, parent.root_session_id ?? parent.id, member.agentId, task, "unbound", ZERO_DIGEST,
-        depth, JSON.stringify(childBudget), JSON.stringify(scope), worktreeId, actor.actorId, now, now,
+        depth, JSON.stringify(childBudget), JSON.stringify(scope), actor.actorId, now, now,
       );
       db.prepare("INSERT INTO delegations(id,parent_session_id,child_session_id,work_item_id,state,created_at_ms) VALUES (?,?,?,?,'active',?)")
         .run(delegationId, parent.id, childId, parent.work_item_id, now);
@@ -432,12 +428,6 @@ export class SessionService {
       throw new BrainDomainError("INVALID_ARGUMENT", `${named} is not a member of this mission's team: a child session is a team member's session`);
     }
     return { memberId, agentId: team.find((entry) => entry.memberId === memberId)?.agentId ?? memberId ?? "delegate" };
-  }
-
-  private assertWorktreeAvailable(db: ReturnType<Store["workspaceDb"]>, worktreeId: string, rootSessionId: string): void {
-    if (!worktreeId) throw new BrainDomainError("INVALID_ARGUMENT", "worktreeId required");
-    const conflict = db.prepare(`SELECT id FROM sessions WHERE root_session_id=? AND worktree_id=? AND state IN ('starting','running','stopping') LIMIT 1`).get(rootSessionId, worktreeId);
-    if (conflict) throw new BrainDomainError("CONFLICT", "active writers cannot share a worktree");
   }
 
   private review(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
@@ -787,10 +777,10 @@ export function recordAttemptSession(store: Store, input: {
   // What the agent declares is what its session may hand to children: its budget and its tools (ADR 0053); no agent, no authority to hand out.
   const budget = JSON.stringify(agent ? { maxTokens: agent.maxTokens, maxMicroUsd: agent.maxMicroUsd, maxTurns: agent.maxTurns } : { maxTokens: 100000, maxMicroUsd: 0, maxTurns: 10 });
   const scope = JSON.stringify({ allowedPaths: [], prohibitedPaths: [], allowedTools: [...new Set(agent?.tools ?? [])].slice(0, 64) });
-  db.prepare(`INSERT INTO sessions(id,job_id,attempt_id,work_item_id,mode,agent_id,task,engine_id,adapter_digest,engine_features,state,root_session_id,worktree_id,budget_json,scope_json,created_by,created_at_ms,updated_at_ms)
-    VALUES (?,?,?,?,'native',?,?, ?,?,?,'running',?,?,?,?,?, ?,?)
+  db.prepare(`INSERT INTO sessions(id,job_id,attempt_id,work_item_id,mode,agent_id,task,engine_id,adapter_digest,engine_features,state,root_session_id,budget_json,scope_json,created_by,created_at_ms,updated_at_ms)
+    VALUES (?,?,?,?,'native',?,?, ?,?,?,'running',?,?,?,?, ?,?)
     ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id,work_item_id=COALESCE(sessions.work_item_id,excluded.work_item_id),engine_id=excluded.engine_id,adapter_digest=excluded.adapter_digest,engine_features=excluded.engine_features,state='running',updated_at_ms=excluded.updated_at_ms`)
-    .run(id, input.jobId, input.attemptId, served?.id ?? null, agent?.id ?? "", served?.title ?? `job ${input.jobId}`, input.engineId, input.adapterDigest, features, id, `read-only:${input.workspaceId}`, budget, scope, "runner", now, now);
+    .run(id, input.jobId, input.attemptId, served?.id ?? null, agent?.id ?? "", served?.title ?? `job ${input.jobId}`, input.engineId, input.adapterDigest, features, id, budget, scope, "runner", now, now);
   // A coordinator's wake serves no work item: its session is bound to the mission it plans (a mission-level session).
   if (!served && input.runId) db.prepare("UPDATE sessions SET mission_id=(SELECT mission_id FROM mission_runs WHERE run_id=?), task='Coordinator session' WHERE id=? AND work_item_id IS NULL AND EXISTS (SELECT 1 FROM mission_runs WHERE run_id=?)").run(input.runId, id, input.runId);
 }
@@ -850,7 +840,7 @@ export function recordAttemptCheckpoint(store: Store, input: { organizationId: s
   if (!row || row.bytes !== state.bytes) return;
   const session = db.prepare("SELECT * FROM sessions WHERE attempt_id=?").get(input.attemptId) as SessionRow | undefined;
   if (!session) return;
-  const checkpoint = stampedCheckpoint(db, session, { ...reported, worktreeId: session.worktree_id, eventSequence: Math.min(reported.eventSequence, session.event_sequence) });
+  const checkpoint = stampedCheckpoint(db, session, { ...reported, eventSequence: Math.min(reported.eventSequence, session.event_sequence) });
   db.prepare("UPDATE sessions SET checkpoint_digest=?,checkpoint_json=?,version=version+1,updated_at_ms=? WHERE id=?").run(checkpoint.digest, JSON.stringify(checkpoint), store.now(), session.id);
   store.emit(db, { aggregateType: "session", aggregateId: session.id, eventType: "session.checkpointed", payload: { sessionId: session.id, checkpointDigest: checkpoint.digest } });
 }
@@ -896,9 +886,7 @@ function continuationFacts(store: Store, input: {
   if (row.work_item_id) {
     const item = db.prepare("SELECT state FROM work_items WHERE id=?").get(row.work_item_id) as { state: string } | undefined;
     if (item && item.state !== "abandoned" && item.state !== "done") {
-      const activeWriter = db.prepare("SELECT 1 AS ok FROM sessions WHERE root_session_id=? AND worktree_id=? AND state IN ('starting','running','stopping') LIMIT 1")
-        .get(row.root_session_id ?? row.id, row.worktree_id);
-      restartable = activeWriter === undefined;
+      restartable = !["starting", "running", "stopping"].includes(row.state);
     }
   }
   let reconcileRequired = false;

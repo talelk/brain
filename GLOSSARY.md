@@ -332,7 +332,7 @@ are terminal or transitional as declared.
 _Avoid_: workflow state, workflow run state
 
 **Step**:
-A node declared in a workflow definition — dispatch, gate, evaluation, steer, merge or
+A node declared in a workflow definition — dispatch, gate, evaluation, steer or
 subgraph. A step starts once every step it `needs` has succeeded, so steps with no need
 of each other run together up to the mission's member cap (ADR 0043); a job executes it.
 A step may declare a `when` condition (a pointer that exists or equals a value in an earlier
@@ -823,6 +823,13 @@ The pull request an approved change opened, kept once on its work item and its a
 address, the Git provider, and the state it had when opened. Never edited; where the request
 stands later is a new observation, read from the provider only when a person refreshes it.
 _Avoid_: PR status (a record has a history of states, not one mutable status)
+
+**Webhook endpoint**:
+A signed address under Administration > Integrations where GitHub, GitLab or a ticket system
+reports an issue, a pull request or a check to one workspace. It records what happened as a
+subject or on a pull request record, and can only ask subject triggers about a new subject; it
+never confirms a plan, approves an action or records a verdict.
+_Avoid_: inbound hook, callback URL, subject trigger (a trigger starts a Play; an endpoint only reports)
 
 **Diagnostics bundle**:
 The redacted file an administrator downloads from Health for support: versions, runner

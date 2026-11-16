@@ -20,7 +20,7 @@
 | Remote reference connector | GitLab REST API v4 issues/notes, direct bounded HTTP | Complete fixture adapter for local tests; real server URL/credential are operator inputs; no client-specific constants in core |
 | UI | NewUI public atomic packages, one Solid SPA served by Governor | AppShell/PaneLayout/AuthLayout; exact-source recipes and UI oracles; no extra UI backend |
 | TencentDB | Scoped private service behind MemoryGateway | Required memory capability remains blocked until G04; core startup may expose explicit degraded memory when config allows it |
-| Workflow engine | Mastra dynamic graph behind canonical Brain IR | All six primitives and durable waits must pass G03; if pinned API cannot express them, block that feature and report reproduction; do not invent a second engine |
+| Workflow engine | Mastra dynamic graph behind canonical Brain IR | All five primitives and durable waits must pass G03; if pinned API cannot express them, block that feature and report reproduction; do not invent a second engine |
 
 These decisions select target integrations; they do not certify vendor behavior. The machine record is [execution-plan.json](../../contracts/v1/execution-plan.json). Optional/deferred scope in document 15 remains optional/deferred. The implementation policy still excludes compatibility, historical migration and incremental delivery constraints.
 

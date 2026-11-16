@@ -81,7 +81,7 @@ describe("work-item comments (#100)", () => {
     // The member's next session (a managed session on this item) receives the corrected comment, not the superseded one.
     const sessionId = (await run(w, w.owner, "session.create", "n-session", {
       workItemId, agentId: "builder", engineId: "pi", task: "Implement", budget: { maxTokens: 1000, maxMicroUsd: 500, maxTurns: 4 },
-      scope: { allowedPaths: ["src"], prohibitedPaths: [], allowedTools: ["fixture.echo"] }, worktreeId: "wt-next",
+      scope: { allowedPaths: ["src"], prohibitedPaths: [], allowedTools: ["fixture.echo"] },
     })).resourceId!;
     const context = ((await w.brain.executeQuery(w.owner, { queryType: "sessions.context", workspaceId: w.workspaceId, resourceId: sessionId })) as unknown as { snapshot: { messages: MissionMessage[] } }).snapshot;
     expect(context.messages.map((entry) => [entry.body, entry.delivery])).toEqual([["Skip the migration, keep the schema", "delivered-at-session-start"]]);

@@ -64,12 +64,15 @@ export function parseRestrictedYaml(text: string, path: string): Record<string, 
   return value as Record<string, unknown>;
 }
 
+const STEP_KINDS: ReadonlySet<string> = new Set(["dispatch", "gate", "eval", "steer", "subgraph"]);
+
 export function compileWorkflowGraph(workflow: Workflow, label: string): readonly string[] {
   const steps = workflow.spec.jobs;
   const ids = Object.keys(steps);
   if (ids.length === 0) throw new BrainDomainError("INVALID_CONTRACT", `${label}: workflow has no steps`);
   if (ids.length > 100) throw new BrainDomainError("INVALID_CONTRACT", `${label}: workflow exceeds 100 steps`);
   for (const [id, step] of Object.entries(steps)) {
+    if (!STEP_KINDS.has(step.kind)) throw new BrainDomainError("INVALID_CONTRACT", `${label}: step ${id} has kind "${step.kind}", which is not a step kind (use dispatch, gate, eval, steer or subgraph; Brain does not host merging, ADR 0075)`);
     for (const need of step.needs) {
       if (!(need in steps)) throw new BrainDomainError("INVALID_CONTRACT", `${label}: step ${id} needs unknown step ${need}`);
     }
@@ -134,9 +137,6 @@ export function compileWorkflowGraph(workflow: Workflow, label: string): readonl
     const dominatedByGate = [...dominators].some((a) => a !== id && steps[a]?.kind === "gate");
     if (step.kind === "dispatch" && "effectClass" in step && (step as { effectClass: string }).effectClass !== "read") {
       if (!dominatedByGate) throw new BrainDomainError("INVALID_CONTRACT", `${label}: effect step ${id} has no dominating gate`);
-    }
-    if (step.kind === "merge" && !dominatedByGate) {
-      throw new BrainDomainError("INVALID_CONTRACT", `${label}: merge step ${id} has no dominating gate`);
     }
   }
   assertStepDeclarations(steps, order, label);

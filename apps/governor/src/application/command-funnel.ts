@@ -20,6 +20,16 @@ import type { Store } from "./store";
  */
 
 /** An admitted command as handlers see it. */
+/** Commands that carry a secret in their payload; the recorded request keeps the command but never the secret (the idempotency digest still covers it). */
+const SECRET_FIELDS: Readonly<Record<string, readonly string[]>> = { "webhook.create": ["secret"], "webhook.rotate": ["secret"], "integration.connect": ["token"] };
+function withoutSecrets<T extends { commandType: string; payload?: unknown }>(cmd: T): T {
+  const fields = SECRET_FIELDS[cmd.commandType];
+  if (!fields || !cmd.payload || typeof cmd.payload !== "object") return cmd;
+  const payload = { ...(cmd.payload as Record<string, unknown>) };
+  for (const field of fields) if (field in payload) payload[field] = "[not kept]";
+  return { ...cmd, payload };
+}
+
 export type Command = CommandEnvelope & { readonly workspaceId?: string; readonly expectedVersion?: number; readonly payload: Record<string, unknown> };
 
 export interface CommandCall {
@@ -119,7 +129,7 @@ export class CommandFunnel {
     if (actor.missionId) this.assertWithinMission(actor, cmd);
     assertSessionAdmits(actor, cmd.commandType);
     if (handler.kind === "workspace" && !workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-    const requestJson = JSON.stringify(cmd);
+    const requestJson = JSON.stringify(withoutSecrets(cmd));
     const admitted: Admitted = { cmd, handler, requestJson, requestDigest: domainDigest("brain:command:v1", cmd as unknown as JsonValue), ...(workspaceId ? { workspaceId } : {}) };
 
     const prior = this.priorReceipt(actor, admitted);

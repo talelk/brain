@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { ActionSubject, ActorContext, ArtifactRef, CommandReceipt, RedactedDiagnostics, HumanApprovalDecision, JsonValue, MemoryResult, Workflow, WorkflowCatalogEntry,
 } from "@brain/contracts";
 import { approvalSubjectDigest, domainDigest, isKnownQuery } from "@brain/contracts";
+import type { WebhookKind } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
 import { Store, type BrainOptions } from "./store";
@@ -62,6 +63,7 @@ import { startTraceExport, alertBadProbes, notifyApprovers, platformAlertLink, s
 import { SessionService, delegatedRunEnded, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
+import { receiveWebhook, type WebhookReply } from "./webhooks";
 import { IntegrationService, integrationCommands, type GitCredentialMaterial, type OpenedPullRequest } from "../modules/integrations/index";
 import { actingAs, eventActorOf, runnerActor, scopeMethods, systemActor, type EventActor } from "./actor-context";
 import { EncryptedStoreAdapter, HostFileAdapter, SecretBroker, gitReference, revokeAttemptSecrets } from "../modules/secret-leases/index";
@@ -618,6 +620,11 @@ export class Brain {
     return answer;
   }
 
+  /** A signed delivery from GitHub, GitLab or a ticket system (ADR 0077): checked, deduplicated and recorded as a subject by `receiveWebhook`. */
+  receiveWebhook(kind: WebhookKind, endpointId: string, headers: Headers, raw: Buffer): WebhookReply {
+    return receiveWebhook({ store: this.store, endpoints: this.integrations.webhooks, subjects: { fire: (organizationId, workspaceId, subject) => this.jobProtocol.automations.fireSubject(organizationId, workspaceId, subject) } }, { kind, endpointId, headers, raw });
+  }
+
   setNotificationPreferences(actor: ActorContext, input: { push?: unknown; webhook?: unknown; digest?: unknown; email?: unknown }): ReturnType<typeof preferencesView> {
     if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "notification preferences belong to a person");
     setNotificationPreferences(this.store, actor.organizationId, actor.actorId, input);
@@ -1126,7 +1133,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.drafts.query(actor, q.queryType, q.workspaceId, q.resourceId));
       }
-      case "integrations.list": case "integrations.repositories": case "integrations.guide": {
+      case "integrations.list": case "integrations.repositories": case "integrations.guide": case "webhooks.list": {
         return this.envelope(q.queryType, this.integrations.query(actor, q.queryType, q.resourceId));
       }
       case "documents.list": case "documents.get": case "documents.search": {

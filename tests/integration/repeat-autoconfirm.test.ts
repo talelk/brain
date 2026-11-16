@@ -186,16 +186,14 @@ describe("which workflow steps always need a person", () => {
     writes: workflow({ a: { kind: "dispatch", effectClass: "write" } }),
     privileged: workflow({ a: { kind: "dispatch", effectClass: "privileged" } }),
     gated: workflow({ g: { kind: "gate" } }),
-    merges: workflow({ m: { kind: "merge" } }),
     nested: workflow({ s: { kind: "subgraph", workflow: { id: "gated" } } }),
     loop: workflow({ s: { kind: "subgraph", workflow: { id: "loop" } } }),
   };
-  it("finds writes, privileged steps, approvals, merges and the same inside a subgraph; read-only work and a cycle pass", () => {
+  it("finds writes, privileged steps, approvals and the same inside a subgraph; read-only work and a cycle pass", () => {
     expect(effectfulStep(flows, "reads")).toBeUndefined();
     expect(effectfulStep(flows, "writes")).toMatch(/can write/u);
     expect(effectfulStep(flows, "privileged")).toMatch(/privileges/u);
     expect(effectfulStep(flows, "gated")).toMatch(/waits for an approval/u);
-    expect(effectfulStep(flows, "merges")).toMatch(/merges/u);
     expect(effectfulStep(flows, "nested")).toMatch(/waits for an approval/u);
     expect(effectfulStep(flows, "loop")).toBeUndefined();
     expect(effectfulStep(flows, "missing")).toMatch(/not in the active release/u);

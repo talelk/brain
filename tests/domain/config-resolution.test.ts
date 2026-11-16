@@ -98,6 +98,11 @@ describe("config resolution and compiler bounds (T09)", () => {
     expect(() => compileWorkflowGraph(ungated, "ungated")).toThrow(/no dominating gate/);
   });
 
+  it("a release whose workflow uses the removed merge step kind does not compile (ADR 0075)", () => {
+    const merge = { path: "config/merging.yaml", text: "apiVersion: brain.keyrus/v1\nkind: Workflow\nmetadata: {id: merging, version: 1.0.0}\nspec:\n  inputSchemaRef: s\n  outputSchemaRef: s\n  deadlineSeconds: 10\n  failFast: true\n  outputs: {}\n  jobs:\n    land:\n      kind: merge\n      needs: []\n      input: {}\n      outputSchemaRef: s\n      timeoutSeconds: 60\n" };
+    expect(() => compileRelease([...goldenDocs(), merge], "merge")).toThrow(/step land has kind "merge", which is not a step kind/);
+  });
+
   it("subgraph cycles, unknown refs and depth excess are rejected (E027)", () => {
     const docsFor = (n: number) => {
       const docs = [{ path: "config/brain.yaml", text: "apiVersion: brain.keyrus/v1\nkind: BrainConfig\nmetadata: {id: brain}\nspec:\n  ui: {foundation: newui, supportedLocales: [en], defaultLocale: en}\n" }];

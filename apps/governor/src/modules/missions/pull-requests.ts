@@ -1,4 +1,4 @@
-import type { GitProvider, PullRequest, PullRequestObservation, PullRequestState } from "@brain/contracts";
+import type { GitProvider, PullRequest, PullRequestCheck, PullRequestObservation, PullRequestState } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
@@ -9,7 +9,7 @@ type Row = {
   id: string; approval_id: string; invocation_id: string; run_id: string | null; work_item_id: string | null; mission_id: string | null; connection_id: string;
   provider: GitProvider; repository_key: string; number: number; url: string; title: string; branch: string; base_branch: string; commit_oid: string; opened_at_ms: number;
 };
-type StateRow = { pull_request_id: string; state: PullRequestState; source: "opened" | "refresh"; observed_by: string | null; observed_at_ms: number };
+type StateRow = { pull_request_id: string; state: PullRequestState; source: "opened" | "refresh" | "webhook"; observed_by: string | null; observed_at_ms: number };
 
 const WORDS: Readonly<Record<PullRequestState, string>> = { open: "open", merged: "merged", closed: "closed without merging" };
 
@@ -53,11 +53,11 @@ export function pullRequestRef(db: Db, pullRequestId: string): { connectionId: s
  * Adds what a look at the provider found. Earlier rows are never touched: the newest one is the current state and the first one stays
  * the state at the time it was opened. A change of state is also said in the approval's history; a look that found nothing new is not.
  */
-export function observePullRequest(store: Store, db: Db, input: { organizationId: string; workspaceId: string; pullRequestId: string; state: PullRequestState; observedBy: string }): { changed: boolean } {
+export function observePullRequest(store: Store, db: Db, input: { organizationId: string; workspaceId: string; pullRequestId: string; state: PullRequestState; observedBy: string; source?: "refresh" | "webhook" }): { changed: boolean } {
   const row = db.prepare("SELECT approval_id, url FROM pull_requests WHERE id=?").get(input.pullRequestId) as { approval_id: string; url: string } | undefined;
   if (!row) throw new BrainDomainError("NOT_FOUND", "pull request not found");
   const latest = db.prepare("SELECT state FROM pull_request_states WHERE pull_request_id=? ORDER BY observed_at_ms DESC, rowid DESC LIMIT 1").get(input.pullRequestId) as { state: PullRequestState } | undefined;
-  db.prepare("INSERT INTO pull_request_states(id,pull_request_id,state,source,observed_by,observed_at_ms) VALUES (?,?,?,'refresh',?,?)").run(store.id("prs"), input.pullRequestId, input.state, input.observedBy, store.now());
+  db.prepare("INSERT INTO pull_request_states(id,pull_request_id,state,source,observed_by,observed_at_ms) VALUES (?,?,?,?,?,?)").run(store.id("prs"), input.pullRequestId, input.state, input.source ?? "refresh", input.observedBy, store.now());
   const changed = latest?.state !== input.state;
   if (changed) {
     store.emit(store.control, {
@@ -75,10 +75,13 @@ export function listPullRequests(db: Db, key: string): PullRequest[] {
     const observations = (db.prepare("SELECT * FROM (SELECT *, rowid AS r FROM pull_request_states WHERE pull_request_id=? ORDER BY observed_at_ms DESC, rowid DESC LIMIT 100) ORDER BY observed_at_ms, r").all(row.id) as StateRow[])
       .map((entry): PullRequestObservation => ({ state: entry.state, source: entry.source, ...(entry.observed_by ? { observedBy: entry.observed_by } : {}), observedAt: iso(entry.observed_at_ms) }));
     const current = observations[observations.length - 1]!;
+    // The newest result per check name: a check that ran again replaces its earlier answer in this view; the older rows stay stored.
+    const checks = (db.prepare("SELECT name, conclusion, observed_at_ms FROM subject_checks WHERE pull_request_id=? ORDER BY observed_at_ms, rowid").all(row.id) as Array<{ name: string; conclusion: PullRequestCheck["conclusion"]; observed_at_ms: number }>)
+      .reduce((latest, entry) => latest.set(entry.name, { name: entry.name, conclusion: entry.conclusion, observedAt: iso(entry.observed_at_ms) }), new Map<string, PullRequestCheck>());
     return {
       pullRequestId: row.id, approvalId: row.approval_id, ...(row.work_item_id ? { workItemId: row.work_item_id } : {}), ...(row.mission_id ? { missionId: row.mission_id } : {}), ...(row.run_id ? { runId: row.run_id } : {}),
       provider: row.provider, repository: row.repository_key, number: row.number, url: row.url, title: row.title, branch: row.branch, base: row.base_branch, openedAt: iso(row.opened_at_ms),
-      state: current.state, stateObservedAt: current.observedAt, observations,
+      state: current.state, stateObservedAt: current.observedAt, observations, ...(checks.size ? { checks: [...checks.values()].slice(0, 50) } : {}),
     };
   });
 }

@@ -16,7 +16,7 @@ approval). Nothing here weakens any of them.
   switch on "Confirm the plan automatically each time". A step is supervised to standard, or standard to
   autonomous, and never beyond the workspace autonomy ceiling. A repeated plan is offered only when ADR 0017's
   static conditions already hold (source mission achieved with a verified bundle, standard or higher, and no
-  step that gates, merges, steers or acts with effects); the schedule's gate still judges every occurrence.
+  step that gates, steers or acts with effects); the schedule's gate still judges every occurrence.
 - **The record is counted from the last problem.** The counted period starts at the latest of: 30 days ago, the
   last rejected verdict, failed run, parked task, eval case or re-opened mission, and the last time a person
   accepted or dismissed a suggestion for the subject. A suggestion needs, in that period, at least 5 completed

@@ -37,8 +37,8 @@ function seedJob(w: TestWorld, jobId: string, runId: string, runnerId: string, a
 function seedSession(w: TestWorld, sessionId: string, jobId: string, attemptId: string, engineFeatures: string[]): void {
   const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
   const now = w.brain.store.now();
-  ws.prepare(`INSERT INTO sessions(id, job_id, attempt_id, mode, agent_id, task, engine_id, adapter_digest, engine_features, state, root_session_id, worktree_id, created_by, created_at_ms, updated_at_ms)
-    VALUES (?, ?, ?, 'managed', 'agent-fixture', 'inspect the failing diff', 'fixture', ?, ?, 'running', ?, 'wt-fixture', 'owner-1', ?, ?)`)
+  ws.prepare(`INSERT INTO sessions(id, job_id, attempt_id, mode, agent_id, task, engine_id, adapter_digest, engine_features, state, root_session_id, created_by, created_at_ms, updated_at_ms)
+    VALUES (?, ?, ?, 'managed', 'agent-fixture', 'inspect the failing diff', 'fixture', ?, ?, 'running', ?, 'owner-1', ?, ?)`)
     .run(sessionId, jobId, attemptId, `sha256:${"0".repeat(64)}`, JSON.stringify(engineFeatures), sessionId, now, now);
 }
 

@@ -6481,6 +6481,216 @@
     }
    }
   },
+  "/hooks/github/{endpointId}": {
+   "post": {
+    "operationId": "post_hooks_github_endpointId",
+    "summary": "signed GitHub webhook for one endpoint: issues, pull requests and check runs become subjects and pull request observations; replays are acknowledged and change nothing; never confirms a plan, approves an effect or records a verdict (ADR 0077)",
+    "security": [
+     {
+      "githubSignature": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "endpointId",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "endpointId",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Not signed in",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Too large",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/hooks/gitlab/{endpointId}": {
+   "post": {
+    "operationId": "post_hooks_gitlab_endpointId",
+    "summary": "signed GitLab webhook for one endpoint: issues, merge requests and pipelines become subjects and pull request observations; replays are acknowledged and change nothing; never confirms a plan, approves an effect or records a verdict (ADR 0077)",
+    "security": [
+     {
+      "gitlabToken": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "endpointId",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "endpointId",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Not signed in",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Too large",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/hooks/ticket/{endpointId}": {
+   "post": {
+    "operationId": "post_hooks_ticket_endpointId",
+    "summary": "signed generic ticket or incident webhook for one endpoint: opened, closed, reopened and labeled records become subjects that may start a subject trigger; replays are acknowledged and change nothing; never confirms a plan, approves an effect or records a verdict (ADR 0077)",
+    "security": [
+     {
+      "webhookSignature": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "endpointId",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "endpointId",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Not signed in",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Too large",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/runner/v1/attempts/{id}/effects": {
    "post": {
     "operationId": "post_runner_v1_attempts_id_effects",
@@ -7262,6 +7472,24 @@
     "type": "http",
     "scheme": "bearer",
     "description": "An attempt's model gateway token (ADR 0072): minted for one running attempt and its fence, shown once, revoked when the attempt ends."
+   },
+   "githubSignature": {
+    "type": "apiKey",
+    "in": "header",
+    "name": "X-Hub-Signature-256",
+    "description": "HMAC-SHA256 of the raw body keyed with the endpoint secret (ADR 0077); never a session."
+   },
+   "gitlabToken": {
+    "type": "apiKey",
+    "in": "header",
+    "name": "X-Gitlab-Token",
+    "description": "The endpoint secret, compared in constant time (ADR 0077); never a session."
+   },
+   "webhookSignature": {
+    "type": "apiKey",
+    "in": "header",
+    "name": "X-Brain-Signature",
+    "description": "Brain HMAC of '<timestamp>.<body>' inside a 5 minute window, with X-Brain-Timestamp and X-Brain-Delivery (ADR 0077); never a session."
    }
   },
   "schemas": {
@@ -8042,61 +8270,6 @@
     ],
     "additionalProperties": false
    },
-   "MergeStep": {
-    "type": "object",
-    "properties": {
-     "kind": {
-      "type": "string",
-      "const": "merge"
-     },
-     "needs": {
-      "type": "array",
-      "items": {
-       "$ref": "#/components/schemas/ConfigId"
-      },
-      "minItems": 0,
-      "maxItems": 100,
-      "uniqueItems": true
-     },
-     "input": {
-      "$ref": "#/components/schemas/Bindings"
-     },
-     "outputSchemaRef": {
-      "$ref": "#/components/schemas/SchemaRef"
-     },
-     "timeoutSeconds": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 86400
-     },
-     "retry": {
-      "$ref": "#/components/schemas/RetryPolicy"
-     },
-     "when": {
-      "$ref": "#/components/schemas/StepCondition"
-     },
-     "tool": {
-      "$ref": "#/components/schemas/ReleaseRef"
-     },
-     "runsOn": {
-      "$ref": "#/components/schemas/Placement"
-     },
-     "proposalFrom": {
-      "$ref": "#/components/schemas/Binding"
-     }
-    },
-    "required": [
-     "kind",
-     "needs",
-     "input",
-     "outputSchemaRef",
-     "tool",
-     "runsOn",
-     "proposalFrom",
-     "timeoutSeconds"
-    ],
-    "additionalProperties": false
-   },
    "SubgraphStep": {
     "type": "object",
     "properties": {
@@ -8156,9 +8329,6 @@
      },
      {
       "$ref": "#/components/schemas/SteerStep"
-     },
-     {
-      "$ref": "#/components/schemas/MergeStep"
      },
      {
       "$ref": "#/components/schemas/SubgraphStep"
@@ -8415,12 +8585,11 @@
           "agent",
           "tool",
           "eval",
-          "merge",
           "house"
          ]
         },
         "minItems": 1,
-        "maxItems": 5,
+        "maxItems": 4,
         "uniqueItems": true
        },
        "isolation": {
@@ -10257,7 +10426,6 @@
          "agent",
          "tool",
          "eval",
-         "merge",
          "house"
         ]
        },
@@ -12004,9 +12172,6 @@
       "minLength": 1,
       "maxLength": 80
      },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
-     },
      "configDigest": {
       "$ref": "#/components/schemas/Digest"
      },
@@ -12076,7 +12241,6 @@
      "instructionsDigest",
      "task",
      "sourceRevision",
-     "worktreeId",
      "configDigest",
      "allowedTools",
      "context",
@@ -13277,9 +13441,6 @@
       },
       "maxItems": 100
      },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
-     },
      "eventSequence": {
       "type": "integer",
       "minimum": 0,
@@ -13339,7 +13500,6 @@
      "sourceRevision",
      "completedCriteria",
      "failures",
-     "worktreeId",
      "eventSequence",
      "nextAction",
      "createdAt"
@@ -15427,6 +15587,7 @@
        "effects.get",
        "runnerGroups.list",
        "integrations.guide",
+       "webhooks.list",
        "identity.oidc.get",
        "quality.breakdown",
        "practices.list",
@@ -15529,6 +15690,7 @@
        "effects.get",
        "runnerGroups.list",
        "integrations.guide",
+       "webhooks.list",
        "identity.oidc.get",
        "quality.breakdown",
        "practices.list",
@@ -15828,10 +15990,6 @@
      "scope": {
       "$ref": "#/components/schemas/SessionScope"
      },
-     "worktreeId": {
-      "type": "string",
-      "maxLength": 512
-     },
      "checkpoint": {
       "$ref": "#/components/schemas/Checkpoint"
      },
@@ -15908,7 +16066,6 @@
      "delegationDepth",
      "budget",
      "scope",
-     "worktreeId",
      "version",
      "createdAt",
      "updatedAt"
@@ -15952,9 +16109,6 @@
      },
      "scope": {
       "$ref": "#/components/schemas/SessionScope"
-     },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
      },
      "state": {
       "type": "string",
@@ -16024,7 +16178,6 @@
      "depth",
      "budget",
      "scope",
-     "worktreeId",
      "state",
      "createdAt",
      "missionId",
@@ -16057,9 +16210,6 @@
      },
      "scope": {
       "$ref": "#/components/schemas/SessionScope"
-     },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
      }
     },
     "required": [
@@ -16068,8 +16218,7 @@
      "engineId",
      "task",
      "budget",
-     "scope",
-     "worktreeId"
+     "scope"
     ],
     "additionalProperties": false
    },
@@ -16236,9 +16385,6 @@
      },
      "scope": {
       "$ref": "#/components/schemas/SessionScope"
-     },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
      }
     },
     "required": [
@@ -19205,6 +19351,12 @@
       "$ref": "#/components/schemas/IntegrationBindCommand"
      },
      {
+      "$ref": "#/components/schemas/WebhookCreateCommand"
+     },
+     {
+      "$ref": "#/components/schemas/WebhookRotateCommand"
+     },
+     {
       "$ref": "#/components/schemas/DocumentUploadCommand"
      },
      {
@@ -20266,10 +20418,6 @@
      "scope": {
       "$ref": "#/components/schemas/SessionScope"
      },
-     "worktreeId": {
-      "type": "string",
-      "maxLength": 512
-     },
      "checkpoint": {
       "$ref": "#/components/schemas/Checkpoint"
      },
@@ -20327,7 +20475,6 @@
      "delegationDepth",
      "budget",
      "scope",
-     "worktreeId",
      "version",
      "createdAt",
      "updatedAt",
@@ -25830,9 +25977,6 @@
        "evaluator"
       ]
      },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
-     },
      "resources": {
       "$ref": "#/components/schemas/Resources"
      },
@@ -25844,7 +25988,6 @@
      "attempt",
      "imageDigest",
      "profileId",
-     "worktreeId",
      "resources",
      "requestId"
     ],
@@ -31530,9 +31673,6 @@
       },
       "maxItems": 100
      },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
-     },
      "eventSequence": {
       "type": "integer",
       "minimum": 0,
@@ -31578,7 +31718,6 @@
      "sourceRevision",
      "completedCriteria",
      "failures",
-     "worktreeId",
      "eventSequence",
      "nextAction",
      "createdAt"
@@ -35209,7 +35348,8 @@
       "type": "string",
       "enum": [
        "opened",
-       "refresh"
+       "refresh",
+       "webhook"
       ]
      },
      "observedBy": {
@@ -35222,6 +35362,36 @@
     "required": [
      "state",
      "source",
+     "observedAt"
+    ],
+    "additionalProperties": false
+   },
+   "PullRequestCheck": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+     },
+     "conclusion": {
+      "type": "string",
+      "enum": [
+       "success",
+       "failure",
+       "cancelled",
+       "neutral",
+       "skipped",
+       "other"
+      ]
+     },
+     "observedAt": {
+      "$ref": "#/components/schemas/Timestamp"
+     }
+    },
+    "required": [
+     "name",
+     "conclusion",
      "observedAt"
     ],
     "additionalProperties": false
@@ -35291,6 +35461,13 @@
        "$ref": "#/components/schemas/PullRequestObservation"
       },
       "maxItems": 100
+     },
+     "checks": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/PullRequestCheck"
+      },
+      "maxItems": 50
      }
     },
     "required": [
@@ -37252,6 +37429,129 @@
     ],
     "additionalProperties": false
    },
+   "WebhookKind": {
+    "type": "string",
+    "enum": [
+     "github",
+     "gitlab",
+     "ticket"
+    ]
+   },
+   "WebhookCreateInput": {
+    "type": "object",
+    "properties": {
+     "kind": {
+      "$ref": "#/components/schemas/WebhookKind"
+     },
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "connectionId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "secret": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 256
+     }
+    },
+    "required": [
+     "kind",
+     "workspaceId",
+     "secret"
+    ],
+    "additionalProperties": false
+   },
+   "WebhookRotateInput": {
+    "type": "object",
+    "properties": {
+     "endpointId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "secret": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 256
+     }
+    },
+    "required": [
+     "endpointId",
+     "secret"
+    ],
+    "additionalProperties": false
+   },
+   "WebhookCreateCommand": {
+    "type": "object",
+    "properties": {
+     "contractVersion": {
+      "type": "string",
+      "const": "brain.command/v1"
+     },
+     "commandId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "commandType": {
+      "type": "string",
+      "const": "webhook.create"
+     },
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "idempotencyKey": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "expectedVersion": {
+      "$ref": "#/components/schemas/Counter"
+     },
+     "payload": {
+      "$ref": "#/components/schemas/WebhookCreateInput"
+     }
+    },
+    "required": [
+     "contractVersion",
+     "commandId",
+     "commandType",
+     "idempotencyKey",
+     "payload"
+    ],
+    "additionalProperties": false
+   },
+   "WebhookRotateCommand": {
+    "type": "object",
+    "properties": {
+     "contractVersion": {
+      "type": "string",
+      "const": "brain.command/v1"
+     },
+     "commandId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "commandType": {
+      "type": "string",
+      "const": "webhook.rotate"
+     },
+     "workspaceId": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "idempotencyKey": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "expectedVersion": {
+      "$ref": "#/components/schemas/Counter"
+     },
+     "payload": {
+      "$ref": "#/components/schemas/WebhookRotateInput"
+     }
+    },
+    "required": [
+     "contractVersion",
+     "commandId",
+     "commandType",
+     "idempotencyKey",
+     "payload"
+    ],
+    "additionalProperties": false
+   },
    "EventActor": {
     "type": "object",
     "properties": {
@@ -37556,6 +37856,24 @@
   {
    "type": "integration.bind",
    "schema": "IntegrationBindCommand",
+   "scope": "config:activate",
+   "authority": "organization",
+   "actors": [
+    "human"
+   ]
+  },
+  {
+   "type": "webhook.create",
+   "schema": "WebhookCreateCommand",
+   "scope": "config:activate",
+   "authority": "organization",
+   "actors": [
+    "human"
+   ]
+  },
+  {
+   "type": "webhook.rotate",
+   "schema": "WebhookRotateCommand",
    "scope": "config:activate",
    "authority": "organization",
    "actors": [
@@ -38370,6 +38688,7 @@
   "effects.get",
   "runnerGroups.list",
   "integrations.guide",
+  "webhooks.list",
   "identity.oidc.get",
   "chatIdentities.list",
   "quality.breakdown",

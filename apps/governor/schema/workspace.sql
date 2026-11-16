@@ -295,13 +295,32 @@ CREATE TABLE pull_requests (
 CREATE INDEX pull_requests_work_item ON pull_requests(work_item_id, opened_at_ms);
 CREATE TABLE pull_request_states (
   id TEXT PRIMARY KEY, pull_request_id TEXT NOT NULL REFERENCES pull_requests(id), state TEXT NOT NULL CHECK(state IN ('open','merged','closed')),
-  source TEXT NOT NULL CHECK(source IN ('opened','refresh')), observed_by TEXT, observed_at_ms INTEGER NOT NULL
+  source TEXT NOT NULL CHECK(source IN ('opened','refresh','webhook')), observed_by TEXT, observed_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE INDEX pull_request_states_latest ON pull_request_states(pull_request_id, observed_at_ms, id);
 CREATE TRIGGER pull_requests_never_edited BEFORE UPDATE ON pull_requests BEGIN SELECT RAISE(ABORT, 'a pull request record is never edited'); END;
 CREATE TRIGGER pull_requests_never_removed BEFORE DELETE ON pull_requests BEGIN SELECT RAISE(ABORT, 'a pull request record is never removed'); END;
 CREATE TRIGGER pull_request_states_never_edited BEFORE UPDATE ON pull_request_states BEGIN SELECT RAISE(ABORT, 'a pull request observation is never edited'); END;
 CREATE TRIGGER pull_request_states_never_removed BEFORE DELETE ON pull_request_states BEGIN SELECT RAISE(ABORT, 'a pull request observation is never removed'); END;
+-- What a signed webhook delivered (ADR 0077), kept in the workspace it reached so the effect and the record of it commit together. A delivery id
+-- and a body digest each appear once per endpoint: a replay (even under a fresh delivery id) is acknowledged and changes nothing. Status only; the body is not kept.
+-- fire_json names the subject a new ticket or incident asked the triggers about, so a crash between this commit and the trigger is repaired by the replay.
+CREATE TABLE webhook_deliveries (
+  endpoint_id TEXT NOT NULL, delivery_id TEXT NOT NULL, body_digest TEXT NOT NULL,
+  event TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('applied','ignored')), detail TEXT NOT NULL DEFAULT '', received_at_ms INTEGER NOT NULL,
+  fire_json TEXT CHECK(fire_json IS NULL OR json_valid(fire_json)),
+  PRIMARY KEY(endpoint_id, delivery_id), UNIQUE(endpoint_id, body_digest)
+) STRICT;
+CREATE INDEX webhook_deliveries_recent ON webhook_deliveries(endpoint_id, received_at_ms);
+-- A check run or pipeline that finished, attached to the pull request record it belongs to (#121) or, when none is recorded, to the subject standing for that request.
+CREATE TABLE subject_checks (
+  id TEXT PRIMARY KEY, pull_request_id TEXT REFERENCES pull_requests(id), subject_id TEXT REFERENCES tickets(id), name TEXT NOT NULL,
+  conclusion TEXT NOT NULL CHECK(conclusion IN ('success','failure','cancelled','neutral','skipped','other')),
+  source TEXT NOT NULL, endpoint_id TEXT NOT NULL, delivery_id TEXT NOT NULL, observed_at_ms INTEGER NOT NULL,
+  CHECK((pull_request_id IS NULL) <> (subject_id IS NULL))
+) STRICT;
+CREATE INDEX subject_checks_pr ON subject_checks(pull_request_id, observed_at_ms);
+CREATE TRIGGER subject_checks_never_edited BEFORE UPDATE ON subject_checks BEGIN SELECT RAISE(ABORT, 'a check result is never edited'); END;
 CREATE TABLE workflow_runs (
   id TEXT PRIMARY KEY, execution_key TEXT NOT NULL UNIQUE, config_digest TEXT NOT NULL,
   workflow_digest TEXT NOT NULL, adapter_digest TEXT NOT NULL, engine_run_id TEXT NOT NULL UNIQUE,
@@ -336,7 +355,7 @@ CREATE TABLE sessions (
   delegation_depth INTEGER NOT NULL DEFAULT 0 CHECK(delegation_depth BETWEEN 0 AND 3),
   budget_json TEXT NOT NULL DEFAULT '{"maxTokens":100000,"maxMicroUsd":0,"maxTurns":10}' CHECK(json_valid(budget_json)),
   scope_json TEXT NOT NULL DEFAULT '{"allowedPaths":[],"prohibitedPaths":[],"allowedTools":[]}' CHECK(json_valid(scope_json)),
-  worktree_id TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL DEFAULT '',
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL DEFAULT 0,
   mission_id TEXT DEFAULT NULL REFERENCES missions(id)
@@ -523,6 +542,7 @@ CREATE TABLE tickets (
   version INTEGER NOT NULL DEFAULT 1 CHECK(version>0),
   priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high','urgent')),
   created_at_ms INTEGER NOT NULL DEFAULT 0,
+  labels_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(labels_json)),
   UNIQUE(connector_id,remote_id)
 ) STRICT;
 CREATE TABLE support_drafts (

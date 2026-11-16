@@ -36,7 +36,7 @@ Claim transaction rechecks runner epoch, job version, policy admission and reser
 
 ACK requires attempt/lease ID, epoch, job fence and unexpired offer. It changes offered → running and establishes execution expiry. Duplicate ACK returns existing lease. A decline with a reason releases only owned reservations and returns job to queue if safe. Expired offers are not external-effect attempts; they can requeue after cleanup/absence of spawn is established. Runner must not spawn before ACK succeeds.
 
-Resource conflicts for external operations are acquired at effect permit time, in sorted canonical resource-key order. Long analysis jobs do not hold production mutation locks. Git writer locks for a local worktree are local slot isolation; remote merge locks are global canonical repository/ref resources. Cross-workspace references to the same remote target must map to the same authoritative target ID so two differently named workspaces cannot bypass a merge lock.
+Resource conflicts for external operations are acquired at effect permit time, in sorted canonical resource-key order. Long analysis jobs do not hold production mutation locks. Locks on a remote repository or ref are global canonical repository/ref resources. Cross-workspace references to the same remote target must map to the same authoritative target ID so two differently named workspaces cannot bypass the lock.
 
 ## Fencing, stop and cleanup
 
