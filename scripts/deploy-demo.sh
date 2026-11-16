@@ -202,9 +202,10 @@ $SSH "mkdir -p $REMOTE_DIR/run/engine-state $REMOTE_DIR/run/egress-grants && chm
 $SSH "docker network inspect brain-internal >/dev/null 2>&1 || docker network create --internal brain-internal >/dev/null"
 # The proxy refuses private and Tailscale addresses unless the operator grants a host on purpose (BRAIN_EGRESS_ALLOW_INTERNAL, ADR 0072/0073 review fix):
 # the local model host is exactly that case. Docker's bridge DNS does not see Tailscale names, so the host is pinned to the address the server resolves.
+# The grants directory is mode 0700 owned by the deploy user, so the proxy runs as that uid (the image default, uid 1000, cannot read it).
 # `docker container inspect` (not `docker inspect`, which also matches the image of the same name and would skip starting the container).
 MODEL_HP="${MODEL_URL#*://}"; MODEL_HP="${MODEL_HP%%/*}"; MODEL_HOST="${MODEL_HP%%:*}"
-$SSH "docker container inspect brain-egress-proxy >/dev/null 2>&1 || (MIP=\$(getent hosts $MODEL_HOST | awk '{print \$1}' | head -1); docker run -d --restart unless-stopped --name brain-egress-proxy --read-only --cap-drop ALL --security-opt no-new-privileges:true --memory 256m --pids-limit 128 \${MIP:+--add-host $MODEL_HOST:\$MIP} -e BRAIN_EGRESS_ALLOW_INTERNAL=$MODEL_HP -v $REMOTE_DIR/run/egress-grants:/grants:ro brain-egress-proxy >/dev/null && docker network connect --alias brain-egress-proxy brain-internal brain-egress-proxy)"
+$SSH "docker container inspect brain-egress-proxy >/dev/null 2>&1 || (MIP=\$(getent hosts $MODEL_HOST | awk '{print \$1}' | head -1); docker run -d --restart unless-stopped --name brain-egress-proxy --user \"\$(id -u):\$(id -g)\" --read-only --cap-drop ALL --security-opt no-new-privileges:true --memory 256m --pids-limit 128 \${MIP:+--add-host $MODEL_HOST:\$MIP} -e BRAIN_EGRESS_ALLOW_INTERNAL=$MODEL_HP -v $REMOTE_DIR/run/egress-grants:/grants:ro brain-egress-proxy >/dev/null && docker network connect --alias brain-egress-proxy brain-internal brain-egress-proxy)"
 
 echo "==> Building the governor image (cached layers make repeat deploys fast)"
 $SSH "cd $REMOTE_DIR && docker compose build governor"
