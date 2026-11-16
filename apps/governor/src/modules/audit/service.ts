@@ -193,7 +193,9 @@ export class AuditService {
     else {
       const overdue = behind > 0 && latest !== undefined && now - latest.createdAtMs > 3 * this.config.checkpointMs;
       if (overdue) status = "degraded";
-      detail = `Audit log verified: ${verified} events in ${logs} ${logs === 1 ? "log" : "logs"}. ${checkpointWords}${overdue ? " Checkpoints are overdue." : ""}`;
+      // With no checkpoint only the hash chain was checked: say so, because a chain rebuilt from the start or a cut tail is found only through a signed checkpoint.
+      const scope = latest ? "Audit log verified" : "Audit log hash chain verified (no signed checkpoint exists, so a rebuilt chain or a cut tail would not be detected)";
+      detail = `${scope}: ${verified} events in ${logs} ${logs === 1 ? "log" : "logs"}. ${checkpointWords}${overdue ? " Checkpoints are overdue." : ""}`;
     }
     recordProbe(this.store, "audit", status, detail);
   }

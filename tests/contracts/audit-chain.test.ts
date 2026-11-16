@@ -55,6 +55,14 @@ describe("verifying an audit export", () => {
     expect(r.chains.find((c) => c.scope === CONTROL_SCOPE)?.head?.seq).toBe(6);
   });
 
+  it("says what a pass rests on: the chain alone, checkpoints under the export's own keys, or checkpoints under pinned keys", () => {
+    const { input } = good();
+    const bare = { ...input, chains: input.chains.map((chain) => ({ ...chain, checkpoints: [] })) };
+    expect(verifyAuditExport(bare)).toMatchObject({ ok: true, assurance: "chain-only", checkpointsVerified: 0 });
+    expect(verifyAuditExport(input)).toMatchObject({ ok: true, assurance: "checkpointed" });
+    expect(verifyAuditExport(input, { trustedKeys: [asKey(key1)] })).toMatchObject({ ok: true, assurance: "pinned" });
+  });
+
   it("finds an edited payload, an edited column and a payload digest rewritten to match", () => {
     const { control, input } = good();
     const edit = (patch: Partial<AuditEventRecord>) => verifyAuditExport(withEvents(input, CONTROL_SCOPE, control.map((e) => e.chainSeq === 3 ? { ...e, ...patch } : e)));

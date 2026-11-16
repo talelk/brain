@@ -39,6 +39,20 @@ describe("brain audit", () => {
     expect(JSON.parse(x.output())).toMatchObject({ ok: true, keysPinned: false });
   });
 
+  it("says plainly when only the hash chain was verified because no signed checkpoint exists", async () => {
+    const x = await fixture();
+    const file = join(x.root, "bare.json");
+    expect(await x.run(["audit", "export", "--out", file])).toBe(0);
+    const bare = JSON.parse(readFileSync(file, "utf8")) as { chains: Array<{ checkpoints: unknown[] }> };
+    for (const chain of bare.chains) chain.checkpoints = [];
+    writeFileSync(file, JSON.stringify(bare));
+    expect(await x.run(["audit", "verify", "--file", file])).toBe(0);
+    expect(x.output()).toMatch(/^OK \(hash chain only\): \d+ events in 2 logs .*NOT be detected/u);
+    expect(x.output()).not.toMatch(/signed checkpoints? hold/u);
+    expect(await x.run(["audit", "verify", "--file", file, "--json"])).toBe(0);
+    expect(JSON.parse(x.output())).toMatchObject({ ok: true, assurance: "chain-only", checkpointsVerified: 0 });
+  });
+
   it("exports to a private file that verifies offline, and an edit to that file is found where it is", async () => {
     const x = await fixture();
     await x.run(["audit", "checkpoint"]);
