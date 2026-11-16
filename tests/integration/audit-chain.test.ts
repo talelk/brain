@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { CONTROL_SCOPE, auditChainDigest, auditGenesis, auditKeyId, domainDigest, workspaceScope, type AuditExportPage, type AuditKey } from "@brain/contracts";
+import { AUTH_MATRIX, CONTROL_SCOPE, auditChainDigest, auditGenesis, auditKeyId, domainDigest, workspaceScope, type AuditExportPage, type AuditKey } from "@brain/contracts";
 import { actingAs, systemActor } from "../../apps/governor/src/application/actor-context";
 import { advance, closeWorlds, run, startedMission, type World } from "../support/machine-session";
 
@@ -207,6 +207,32 @@ describe("signed checkpoints and the audit key", () => {
     expect(events.map((e) => e.chainSeq)).toEqual(Array.from({ length: events.length }, (_, i) => i + 1));
     expect(pages[0]!.headSeq).toBe(events.length);
     expect(pages[0]!.keys).toEqual(w.brain.audit.keys.list());
+  });
+});
+
+describe("who may use the audit endpoints is what the authorization matrix says", () => {
+  it("each audit endpoint needs exactly the caller kind and scopes its matrix entry lists, and none is open to an agent", async () => {
+    const { w } = await busy();
+    const call: Record<string, (actor: typeof w.owner) => unknown> = {
+      "audit.overview": (actor) => w.brain.audit.overview(actor),
+      "audit.export": (actor) => w.brain.audit.exportPage(actor, { scope: CONTROL_SCOPE, afterCursor: 0, limit: 10 }),
+      "audit.checkpoint": (actor) => w.brain.audit.checkpointNow(actor),
+      "audit.rotate-key": (actor) => w.brain.audit.rotateKey(actor),
+    };
+    for (const endpoint of ["audit.overview", "audit.export", "audit.checkpoint"]) {
+      const policy = AUTH_MATRIX.specialEndpoints[endpoint]!;
+      const needed = [policy.scope, ...(policy.additionalScopes ?? [])].filter((scope) => !scope.startsWith("none:"));
+      expect(w.owner.scopes, endpoint).toEqual(expect.arrayContaining(needed));
+      expect(() => call[endpoint]!(w.owner), endpoint).not.toThrow();
+      // Taking away any one scope the matrix lists, or being an agent instead of a person, is refused.
+      for (const scope of needed) {
+        expect(() => call[endpoint]!({ ...w.owner, scopes: w.owner.scopes.filter((held) => held !== scope) }), `${endpoint} without ${scope}`).toThrow(/FORBIDDEN|audit log/u);
+      }
+      expect(() => call[endpoint]!({ ...w.owner, kind: "agent" }), `${endpoint} as an agent`).toThrow(/signed-in person/u);
+    }
+    const rotate = AUTH_MATRIX.specialEndpoints["audit.rotate-key"]!;
+    for (const scope of [rotate.scope, ...(rotate.additionalScopes ?? [])]) expect(() => call["audit.rotate-key"]!({ ...w.owner, scopes: w.owner.scopes.filter((held) => held !== scope) })).toThrow(/organization administration/u);
+    expect(() => call["audit.rotate-key"]!({ ...w.owner, kind: "agent" })).toThrow(/signed-in person/u);
   });
 });
 

@@ -1,5 +1,5 @@
 import {
-  AuditChainVerifier, AuditKeyTrust, createReceiptCheck, auditEventProblem, CONTROL_SCOPE, KEY_RECORDED_EVENT, checkpointSigningBytes, verifyAuditExport, workspaceScope,
+  AuditChainVerifier, AuditKeyTrust, meetsEndpointPolicy, createReceiptCheck, auditEventProblem, CONTROL_SCOPE, KEY_RECORDED_EVENT, checkpointSigningBytes, verifyAuditExport, workspaceScope,
   type ActorContext, type AuditCheckpoint, type AuditEventRecord, type AuditExportInput, type AuditExportPage, type AuditKey, type AuditOverview, type AuditScopeStatus, type AuditVerifyOptions, type AuditVerifyResult, type Digest,
 } from "@brain/contracts";
 import type { Store } from "../../application/store";
@@ -52,12 +52,10 @@ export class AuditService {
     this.keys = new AuditKeys(store);
   }
 
-  // --- who may ask ---
-  private requireHuman(actor: ActorContext): void {
+  // --- who may ask: the authorization matrix's rule for the endpoint (audit.overview, audit.export, audit.checkpoint, audit.rotate-key) ---
+  private authorize(actor: ActorContext, endpoint: "audit.overview" | "audit.export" | "audit.checkpoint" | "audit.rotate-key"): void {
     if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "The audit log is read by a signed-in person");
-  }
-  private requireAdmin(actor: ActorContext): void {
-    if (actor.kind !== "human" || !actor.scopes.includes("config:activate") || !actor.scopes.includes("runner:admin")) throw new BrainDomainError("FORBIDDEN", "The audit log needs organization administration");
+    if (!meetsEndpointPolicy(endpoint, actor)) throw new BrainDomainError("FORBIDDEN", "The audit log needs organization administration");
   }
 
   // --- scopes ---
@@ -203,7 +201,7 @@ export class AuditService {
   // --- on demand ---
   /** Signs a checkpoint of every log of the organization now (or of one workspace's log), after verifying each up to its head. A log that fails verification is never signed. */
   checkpointNow(actor: ActorContext, workspaceId?: string): AuditCheckpoint[] {
-    this.requireAdmin(actor);
+    this.authorize(actor, "audit.checkpoint");
     return this.checkpointAll(actor.organizationId, "demand", workspaceId);
   }
   private checkpointAll(organizationId: string, reason: AuditCheckpoint["reason"], workspaceId?: string): AuditCheckpoint[] {
@@ -226,7 +224,7 @@ export class AuditService {
 
   /** Retires the signing key and makes a new one. The old key signs a last checkpoint of every log and the hand-over to the new key, which is recorded in the chain. */
   rotateKey(actor: ActorContext): { activeKeyId: string; retiredKeyId: string; keys: AuditKey[] } {
-    this.requireAdmin(actor);
+    this.authorize(actor, "audit.rotate-key");
     if (!this.keys.problem()) this.checkpointAll(actor.organizationId, "rotation");
     const { retiredKeyId, active } = this.keys.rotate();
     this.recordKeys([actor.organizationId], eventActorOf(actor));
@@ -235,7 +233,7 @@ export class AuditService {
 
   // --- reads ---
   overview(actor: ActorContext): AuditOverview {
-    this.requireHuman(actor);
+    this.authorize(actor, "audit.overview");
     return { format: "brain.audit-overview/v1", organizationId: actor.organizationId, activeKeyId: this.keys.active().keyId, keys: this.keys.list(), scopes: this.scopeStatuses(actor.organizationId) };
   }
   scopeStatuses(organizationId: string): AuditScopeStatus[] {
@@ -244,7 +242,7 @@ export class AuditService {
 
   /** One page of a log in written order, with the log's checkpoints and the keys: everything an offline verifier needs. */
   exportPage(actor: ActorContext, input: { scope: string; afterCursor: number; limit: number }): AuditExportPage {
-    this.requireAdmin(actor);
+    this.authorize(actor, "audit.export");
     const t = this.targets(actor.organizationId).find((x) => x.scope === input.scope);
     if (!t) throw new BrainDomainError("NOT_FOUND", "audit log not found");
     const limit = Math.max(1, Math.min(5000, Math.floor(input.limit)));
