@@ -8270,61 +8270,6 @@
     ],
     "additionalProperties": false
    },
-   "MergeStep": {
-    "type": "object",
-    "properties": {
-     "kind": {
-      "type": "string",
-      "const": "merge"
-     },
-     "needs": {
-      "type": "array",
-      "items": {
-       "$ref": "#/components/schemas/ConfigId"
-      },
-      "minItems": 0,
-      "maxItems": 100,
-      "uniqueItems": true
-     },
-     "input": {
-      "$ref": "#/components/schemas/Bindings"
-     },
-     "outputSchemaRef": {
-      "$ref": "#/components/schemas/SchemaRef"
-     },
-     "timeoutSeconds": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 86400
-     },
-     "retry": {
-      "$ref": "#/components/schemas/RetryPolicy"
-     },
-     "when": {
-      "$ref": "#/components/schemas/StepCondition"
-     },
-     "tool": {
-      "$ref": "#/components/schemas/ReleaseRef"
-     },
-     "runsOn": {
-      "$ref": "#/components/schemas/Placement"
-     },
-     "proposalFrom": {
-      "$ref": "#/components/schemas/Binding"
-     }
-    },
-    "required": [
-     "kind",
-     "needs",
-     "input",
-     "outputSchemaRef",
-     "tool",
-     "runsOn",
-     "proposalFrom",
-     "timeoutSeconds"
-    ],
-    "additionalProperties": false
-   },
    "SubgraphStep": {
     "type": "object",
     "properties": {
@@ -8384,9 +8329,6 @@
      },
      {
       "$ref": "#/components/schemas/SteerStep"
-     },
-     {
-      "$ref": "#/components/schemas/MergeStep"
      },
      {
       "$ref": "#/components/schemas/SubgraphStep"
@@ -8643,12 +8585,11 @@
           "agent",
           "tool",
           "eval",
-          "merge",
           "house"
          ]
         },
         "minItems": 1,
-        "maxItems": 5,
+        "maxItems": 4,
         "uniqueItems": true
        },
        "isolation": {
@@ -10485,7 +10426,6 @@
          "agent",
          "tool",
          "eval",
-         "merge",
          "house"
         ]
        },
@@ -12232,9 +12172,6 @@
       "minLength": 1,
       "maxLength": 80
      },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
-     },
      "configDigest": {
       "$ref": "#/components/schemas/Digest"
      },
@@ -12304,7 +12241,6 @@
      "instructionsDigest",
      "task",
      "sourceRevision",
-     "worktreeId",
      "configDigest",
      "allowedTools",
      "context",
@@ -13505,9 +13441,6 @@
       },
       "maxItems": 100
      },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
-     },
      "eventSequence": {
       "type": "integer",
       "minimum": 0,
@@ -13567,7 +13500,6 @@
      "sourceRevision",
      "completedCriteria",
      "failures",
-     "worktreeId",
      "eventSequence",
      "nextAction",
      "createdAt"
@@ -16058,10 +15990,6 @@
      "scope": {
       "$ref": "#/components/schemas/SessionScope"
      },
-     "worktreeId": {
-      "type": "string",
-      "maxLength": 512
-     },
      "checkpoint": {
       "$ref": "#/components/schemas/Checkpoint"
      },
@@ -16138,7 +16066,6 @@
      "delegationDepth",
      "budget",
      "scope",
-     "worktreeId",
      "version",
      "createdAt",
      "updatedAt"
@@ -16182,9 +16109,6 @@
      },
      "scope": {
       "$ref": "#/components/schemas/SessionScope"
-     },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
      },
      "state": {
       "type": "string",
@@ -16254,7 +16178,6 @@
      "depth",
      "budget",
      "scope",
-     "worktreeId",
      "state",
      "createdAt",
      "missionId",
@@ -16287,9 +16210,6 @@
      },
      "scope": {
       "$ref": "#/components/schemas/SessionScope"
-     },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
      }
     },
     "required": [
@@ -16298,8 +16218,7 @@
      "engineId",
      "task",
      "budget",
-     "scope",
-     "worktreeId"
+     "scope"
     ],
     "additionalProperties": false
    },
@@ -16466,9 +16385,6 @@
      },
      "scope": {
       "$ref": "#/components/schemas/SessionScope"
-     },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
      }
     },
     "required": [
@@ -20495,10 +20411,6 @@
      "scope": {
       "$ref": "#/components/schemas/SessionScope"
      },
-     "worktreeId": {
-      "type": "string",
-      "maxLength": 512
-     },
      "checkpoint": {
       "$ref": "#/components/schemas/Checkpoint"
      },
@@ -20556,7 +20468,6 @@
      "delegationDepth",
      "budget",
      "scope",
-     "worktreeId",
      "version",
      "createdAt",
      "updatedAt",
@@ -26059,9 +25970,6 @@
        "evaluator"
       ]
      },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
-     },
      "resources": {
       "$ref": "#/components/schemas/Resources"
      },
@@ -26073,7 +25981,6 @@
      "attempt",
      "imageDigest",
      "profileId",
-     "worktreeId",
      "resources",
      "requestId"
     ],
@@ -31743,9 +31650,6 @@
       },
       "maxItems": 100
      },
-     "worktreeId": {
-      "$ref": "#/components/schemas/Id"
-     },
      "eventSequence": {
       "type": "integer",
       "minimum": 0,
@@ -31791,7 +31695,6 @@
      "sourceRevision",
      "completedCriteria",
      "failures",
-     "worktreeId",
      "eventSequence",
      "nextAction",
      "createdAt"

@@ -238,7 +238,7 @@ describe("command funnel through Brain", () => {
     const workItemId = (ws.prepare("SELECT id FROM work_items LIMIT 1").get() as { id: string }).id;
     const sessionId = (await run("session.create", "self-session", {
       workItemId, agentId: "agent", engineId: "pi", task: "Execute", budget: { maxTokens: 1000, maxMicroUsd: 500, maxTurns: 4 },
-      scope: { allowedPaths: ["src"], prohibitedPaths: [], allowedTools: ["fixture.echo"] }, worktreeId: "wt",
+      scope: { allowedPaths: ["src"], prohibitedPaths: [], allowedTools: ["fixture.echo"] },
     })).resourceId!;
 
     const dispatch = { workflow: { id: "fixture-workflow", digest: w.brain.activeRelease(w.org)!.digest }, input: { message: "Brain fixture" }, sessionId };

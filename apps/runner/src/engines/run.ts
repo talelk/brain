@@ -49,7 +49,6 @@ export interface AgentExecutionInput {
   jobId: string;
   configDigest: string;
   sourceRevision?: string;
-  worktreeId?: string;
   instructions?: string;
   task: string;
   modelId?: string | undefined;
@@ -185,7 +184,7 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
     runnerId: input.runnerId, runnerEpoch: input.runnerEpoch ?? 1, leaseId: input.leaseId, jobFence: input.jobFence,
     engine: probe, modelId: input.modelId ?? engine.defaultModelId ?? "fixture",
     instructions, instructionsDigest: sha256Digest(instructionsBytes), task: input.task,
-    sourceRevision: input.sourceRevision ?? input.configDigest, worktreeId: input.worktreeId ?? `read-only:${input.workspaceId}`,
+    sourceRevision: input.sourceRevision ?? input.configDigest,
     configDigest: input.configDigest, allowedTools: input.allowedTools ?? [],
     ...(input.resumeFrom ? { resumeFrom: input.resumeFrom } : {}),
     context: {

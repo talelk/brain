@@ -355,7 +355,7 @@ CREATE TABLE sessions (
   delegation_depth INTEGER NOT NULL DEFAULT 0 CHECK(delegation_depth BETWEEN 0 AND 3),
   budget_json TEXT NOT NULL DEFAULT '{"maxTokens":100000,"maxMicroUsd":0,"maxTurns":10}' CHECK(json_valid(budget_json)),
   scope_json TEXT NOT NULL DEFAULT '{"allowedPaths":[],"prohibitedPaths":[],"allowedTools":[]}' CHECK(json_valid(scope_json)),
-  worktree_id TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL DEFAULT '',
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL DEFAULT 0,
   mission_id TEXT DEFAULT NULL REFERENCES missions(id)

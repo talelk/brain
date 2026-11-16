@@ -4,7 +4,7 @@ import { delegatingStarter } from "../support/starter";
 import { closeWorlds, run, running, startedMission, type World } from "../support/machine-session";
 
 // Bounded delegation (T53, E106, ADR 0053). The parent is a person's view of a real running session (the first attempt of the mission's task);
-// a delegation of it is asked by a person naming that session, so scope, budget, worktree and depth are the Governor's, not the caller's.
+// a delegation of it is asked by a person naming that session, so scope, budget and depth are the Governor's, not the caller's.
 
 afterEach(closeWorlds);
 
@@ -20,7 +20,7 @@ const sessionOf = async (w: World, id: string): Promise<BrainSession> => ((await
 const childOf = async (w: World, delegationId: string): Promise<BrainSession> => sessionOf(w, (await delegations(w)).find((entry) => entry.delegationId === delegationId)!.childSessionId);
 
 describe("bounded delegation (T53, E106)", () => {
-  it("narrows scope to the parent's, reserves aggregate budget and prevents active writers sharing a worktree", async () => {
+  it("narrows scope to the parent's, reserves aggregate budget", async () => {
     const { w, parentId, parentSession } = await parent();
     const [tool] = parentSession.scope.allowedTools;
     expect(tool, "the session's scope is its agent's tools").toBeTruthy();
@@ -35,8 +35,6 @@ describe("bounded delegation (T53, E106)", () => {
     }));
     // The parent declared 100000 tokens: 60000 are reserved for the first child, so 50000 more do not fit.
     await expect(run(w, "session.delegate", "child-budget", { parentSessionId: parentId, task: "Too big", budget: { maxTokens: 50_000, maxMicroUsd: 0, maxTurns: 2 } })).rejects.toThrow(/unreserved budget/i);
-    // The parent's own worktree belongs to an active writer, so no child may take it.
-    await expect(run(w, "session.delegate", "shared-worktree", { parentSessionId: parentId, task: "Share it", worktreeId: parentSession.worktreeId, budget: { maxTokens: 1000, maxMicroUsd: 0, maxTurns: 1 } })).rejects.toThrow(/cannot share a worktree/i);
     expect(await delegations(w)).toHaveLength(1);
   });
 

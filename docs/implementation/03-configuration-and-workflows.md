@@ -42,7 +42,6 @@ Canonical shape is `spec.jobs.<jobId>` with `kind` and `needs`. Earlier `spec.no
 | `gate` | Exact operation proposal plus approval policy and binding | No runner; durable wait |
 | `eval` | Pinned evaluator and acceptance inputs | Separate evaluator job and group |
 | `steer` | Message to an identified running session | Control operation; requires live authorized session and negotiated feature |
-| `merge` | Exact repository/base/head and verified evidence | Pinned privileged tool, serialized merge resource |
 | `subgraph` | Pinned nested workflow reference and input bindings | No retained parent slot; children schedule independently |
 
 `runsOn` has group, all capabilities, optional anyOf alternatives, numeric resources, isolation and engine requirements. User-facing CPU is integer millicores in this pack; no mixed `cpu: 2` conversion. The same `Placement` DTO is used by the scheduler. An agent job has explicit engine alternatives and features; `anyOf` labels alone do not establish an engine ABI.

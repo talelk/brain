@@ -345,8 +345,8 @@ describe("missions (T51)", () => {
     const itemA = items.find((item) => item.planTaskId === "a") as WorkItem;
     const itemB = items.find((item) => item.planTaskId === "b") as WorkItem;
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
-    const seed = (sessionId: string, workItemId: string, features: string[]) => ws.prepare("INSERT INTO sessions(id,mode,work_item_id,root_session_id,engine_id,adapter_digest,engine_features,state,worktree_id,created_at_ms,updated_at_ms) VALUES (?,'managed',?,?,'pi',?, ?,'running',?,?,?)")
-      .run(sessionId, workItemId, sessionId, `sha256:${"0".repeat(64)}`, JSON.stringify(features), `wt-${sessionId}`, w.brain.store.now(), w.brain.store.now());
+    const seed = (sessionId: string, workItemId: string, features: string[]) => ws.prepare("INSERT INTO sessions(id,mode,work_item_id,root_session_id,engine_id,adapter_digest,engine_features,state,created_at_ms,updated_at_ms) VALUES (?,'managed',?,?,'pi',?, ?,'running',?,?)")
+      .run(sessionId, workItemId, sessionId, `sha256:${"0".repeat(64)}`, JSON.stringify(features), w.brain.store.now(), w.brain.store.now());
     seed("ses-steer", itemA.workItemId, ["start", "steer"]);
     seed("ses-acp", itemB.workItemId, ["start"]);
     const send = async (key: string, workItemId: string, body: string, interrupt = false) => (await run(w, w.owner, "mission.message.send", key, { missionId: id, recipient: { kind: "mission" }, workItemId, body, ...(interrupt ? { interrupt } : {}) })).resourceId ?? "";

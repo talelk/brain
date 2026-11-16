@@ -324,7 +324,7 @@ export class PiEngine implements EngineAdapter {
     this.stream = new EngineEventStream();
     mkdirSync(this.sessionsDir(), { recursive: true });
     const { SessionManager } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");
-    // A resumed session continues a conversation the runner downloaded from the Governor and staged: forked into this worktree, never opened as
+    // A resumed session continues a conversation the runner downloaded from the Governor and staged: forked into this session, never opened as
     // the staged file itself, and it is a new session with its own id. A checkpoint that was not staged is refused before anything starts.
     const manager = spec.resumeFrom ? SessionManager.forkFrom(this.stagedCheckpoint(spec.resumeFrom), process.cwd(), this.sessionsDir()) : SessionManager.create(process.cwd(), this.sessionsDir());
     if (spec.resumeFrom) rmSync(this.stagedPath(spec.resumeFrom), { force: true });
@@ -413,7 +413,7 @@ export class PiEngine implements EngineAdapter {
       // The Pi transcript is an engine warm-start artifact, not the source diff (#29). The runner uploads it to the Governor (ADR 0068), which
       // names the artifact; this id is only a placeholder until it does.
       engineState: { artifactId: `pi-checkpoint-${digest.slice(7, 23)}`, digest, bytes: bytes.length, mediaType: "application/x-ndjson", classification: "internal" },
-      completedCriteria: [], failures: [], worktreeId: this.spec.worktreeId, eventSequence: this.seq,
+      completedCriteria: [], failures: [], eventSequence: this.seq,
       ownedResources: [], nextAction: "resume Pi session from checkpoint artifact", createdAt: new Date().toISOString(),
     };
   }

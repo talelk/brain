@@ -780,61 +780,6 @@
       ],
       "additionalProperties": false
     },
-    "MergeStep": {
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "merge"
-        },
-        "needs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/ConfigId"
-          },
-          "minItems": 0,
-          "maxItems": 100,
-          "uniqueItems": true
-        },
-        "input": {
-          "$ref": "#/$defs/Bindings"
-        },
-        "outputSchemaRef": {
-          "$ref": "#/$defs/SchemaRef"
-        },
-        "timeoutSeconds": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 86400
-        },
-        "retry": {
-          "$ref": "#/$defs/RetryPolicy"
-        },
-        "when": {
-          "$ref": "#/$defs/StepCondition"
-        },
-        "tool": {
-          "$ref": "#/$defs/ReleaseRef"
-        },
-        "runsOn": {
-          "$ref": "#/$defs/Placement"
-        },
-        "proposalFrom": {
-          "$ref": "#/$defs/Binding"
-        }
-      },
-      "required": [
-        "kind",
-        "needs",
-        "input",
-        "outputSchemaRef",
-        "tool",
-        "runsOn",
-        "proposalFrom",
-        "timeoutSeconds"
-      ],
-      "additionalProperties": false
-    },
     "SubgraphStep": {
       "type": "object",
       "properties": {
@@ -894,9 +839,6 @@
         },
         {
           "$ref": "#/$defs/SteerStep"
-        },
-        {
-          "$ref": "#/$defs/MergeStep"
         },
         {
           "$ref": "#/$defs/SubgraphStep"
@@ -1153,12 +1095,11 @@
                   "agent",
                   "tool",
                   "eval",
-                  "merge",
                   "house"
                 ]
               },
               "minItems": 1,
-              "maxItems": 5,
+              "maxItems": 4,
               "uniqueItems": true
             },
             "isolation": {
@@ -2995,7 +2936,6 @@
                 "agent",
                 "tool",
                 "eval",
-                "merge",
                 "house"
               ]
             },
@@ -4742,9 +4682,6 @@
           "minLength": 1,
           "maxLength": 80
         },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
-        },
         "configDigest": {
           "$ref": "#/$defs/Digest"
         },
@@ -4814,7 +4751,6 @@
         "instructionsDigest",
         "task",
         "sourceRevision",
-        "worktreeId",
         "configDigest",
         "allowedTools",
         "context",
@@ -6015,9 +5951,6 @@
           },
           "maxItems": 100
         },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
-        },
         "eventSequence": {
           "type": "integer",
           "minimum": 0,
@@ -6077,7 +6010,6 @@
         "sourceRevision",
         "completedCriteria",
         "failures",
-        "worktreeId",
         "eventSequence",
         "nextAction",
         "createdAt"
@@ -8568,10 +8500,6 @@
         "scope": {
           "$ref": "#/$defs/SessionScope"
         },
-        "worktreeId": {
-          "type": "string",
-          "maxLength": 512
-        },
         "checkpoint": {
           "$ref": "#/$defs/Checkpoint"
         },
@@ -8648,7 +8576,6 @@
         "delegationDepth",
         "budget",
         "scope",
-        "worktreeId",
         "version",
         "createdAt",
         "updatedAt"
@@ -8692,9 +8619,6 @@
         },
         "scope": {
           "$ref": "#/$defs/SessionScope"
-        },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
         },
         "state": {
           "type": "string",
@@ -8764,7 +8688,6 @@
         "depth",
         "budget",
         "scope",
-        "worktreeId",
         "state",
         "createdAt",
         "missionId",
@@ -8797,9 +8720,6 @@
         },
         "scope": {
           "$ref": "#/$defs/SessionScope"
-        },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -8808,8 +8728,7 @@
         "engineId",
         "task",
         "budget",
-        "scope",
-        "worktreeId"
+        "scope"
       ],
       "additionalProperties": false
     },
@@ -8976,9 +8895,6 @@
         },
         "scope": {
           "$ref": "#/$defs/SessionScope"
-        },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -13005,10 +12921,6 @@
         "scope": {
           "$ref": "#/$defs/SessionScope"
         },
-        "worktreeId": {
-          "type": "string",
-          "maxLength": 512
-        },
         "checkpoint": {
           "$ref": "#/$defs/Checkpoint"
         },
@@ -13066,7 +12978,6 @@
         "delegationDepth",
         "budget",
         "scope",
-        "worktreeId",
         "version",
         "createdAt",
         "updatedAt",
@@ -18569,9 +18480,6 @@
             "evaluator"
           ]
         },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
-        },
         "resources": {
           "$ref": "#/$defs/Resources"
         },
@@ -18583,7 +18491,6 @@
         "attempt",
         "imageDigest",
         "profileId",
-        "worktreeId",
         "resources",
         "requestId"
       ],
@@ -24253,9 +24160,6 @@
           },
           "maxItems": 100
         },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
-        },
         "eventSequence": {
           "type": "integer",
           "minimum": 0,
@@ -24301,7 +24205,6 @@
         "sourceRevision",
         "completedCriteria",
         "failures",
-        "worktreeId",
         "eventSequence",
         "nextAction",
         "createdAt"

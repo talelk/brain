@@ -16,7 +16,7 @@ const DIGEST = `sha256:${"0".repeat(64)}`;
 const spec = (attemptId: string): EngineSessionSpec => ({
   contractVersion: "brain.engine/v1", organizationId: "org-h", workspaceId: "ws-h", dispatchId: "d-h", jobId: `job-${attemptId}`, attemptId, runnerId: "runner-h",
   runnerEpoch: 1, leaseId: "lease-h", jobFence: 1, engine: { id: "pi", version: "1.4.0", adapterDigest: DIGEST, features: ["sessions"] },
-  modelId: "acme-large", instructions: "Follow the task.", instructionsDigest: DIGEST, task: "Say OK.", sourceRevision: `sha256:${"1".repeat(64)}`, worktreeId: "wt-h", configDigest: DIGEST,
+  modelId: "acme-large", instructions: "Follow the task.", instructionsDigest: DIGEST, task: "Say OK.", sourceRevision: `sha256:${"1".repeat(64)}`, configDigest: DIGEST,
   allowedTools: [], context: { artifactId: "ctx-h", digest: DIGEST, bytes: 0, mediaType: "application/json", classification: "internal" },
   limits: { timeoutMs: 60_000, maxTokens: 100_000, maxMicroUsd: 0, maxTurns: 4 },
 } as EngineSessionSpec);

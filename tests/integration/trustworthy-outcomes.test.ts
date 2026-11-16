@@ -332,7 +332,7 @@ describe("model routes check results and take second attempts only, per workspac
     // Planning and non-agent kinds stay self-hosted; so does a first attempt.
     attempt(w, a.workItemId, "hm-1");
     expect(forJob(w, "hm-1", "dispatch")).toEqual([]);
-    expect(forJob(w, "hm-1", "merge")).toEqual([]);
+    expect(forJob(w, "hm-1", "tool")).toEqual([]);
     // After a model slip the next attempt (and only an agent step) is routed.
     ws(w).prepare("UPDATE work_items SET failed_attempts=1,failure_class='model-slip' WHERE id=?").run(a.workItemId);
     attempt(w, a.workItemId, "hm-2");

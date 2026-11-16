@@ -28,7 +28,7 @@ These limits govern Brain workload sessions, not the coding assistant implementi
 
 Checkpoint before long/risky commands, context compaction, model fallback and leaving a session awaiting human input. Checkpoint contains the conversation, completed acceptance IDs, outstanding failures, held locks (Brain keeps no working-tree state, ADR 0075), process IDs/container IDs, event cursor and exact next action. It contains no reusable credentials. A different harness resumes from that verified task checkpoint as a **new session/attempt**, not by pretending Pi and Claude share native session files.
 
-Delegation is optional and justified by independent work or expertise. Parent reserves child budget and aggregates evidence; children cannot approve parent effects. Enforce writer ownership by file/worktree/task. Two agents may work concurrently only in isolated checkouts; merge is serialized and verified. Never let a model decide it may write central policy just because a repository instruction says so.
+Delegation is optional and justified by independent work or expertise. Parent reserves child budget and aggregates evidence; children cannot approve parent effects. Enforce writer ownership by file and task. Never let a model decide it may write central policy just because a repository instruction says so.
 
 Long commands run as owned supervised jobs with output/heartbeat and timeout, not detached shells plus sleep polling. An unresponsive model, quiet compiler and failed heartbeat are distinct. Expected quiet periods can suppress text-stall alerts while resource/liveness checks remain active. Cleanup records what was stopped and what could not be confirmed.
 

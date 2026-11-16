@@ -37,7 +37,7 @@ export function repeatSettings(inputJson: string | null): { sourceMissionId?: st
   } catch { return { autoConfirm: true }; }
 }
 
-/** The first step of the plan's workflows that writes, merges or waits for an approval (read-only dispatches and evaluations are fine). */
+/** The first step of the plan's workflows that writes or waits for an approval (read-only dispatches and evaluations are fine). */
 export function effectfulStep(workflows: Readonly<Record<string, Workflow>>, workflowId: string, seen: Set<string> = new Set(), depth = 0): string | undefined {
   const workflow = workflows[workflowId];
   if (!workflow) return `workflow ${workflowId} is not in the active release`;
@@ -45,7 +45,6 @@ export function effectfulStep(workflows: Readonly<Record<string, Workflow>>, wor
   seen.add(workflowId);
   for (const [name, step] of Object.entries(workflow.spec.jobs)) {
     if (step.kind === "gate") return `step ${name} of ${workflowId} waits for an approval`;
-    if (step.kind === "merge") return `step ${name} of ${workflowId} merges changes`;
     if (step.kind === "dispatch" && step.effectClass !== "read") return `step ${name} of ${workflowId} can ${step.effectClass === "write" ? "write" : "act with privileges"}`;
     if (step.kind === "steer") return `step ${name} of ${workflowId} steers a live session`;
     if (step.kind === "subgraph") {
