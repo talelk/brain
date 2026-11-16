@@ -21,7 +21,6 @@
   },
   "modelId": "fixture-model",
   "sourceRevision": "sha1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "worktreeId": "tree_demo",
   "configDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "allowedTools": [],
   "context": {

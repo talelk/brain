@@ -72,8 +72,8 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
 
   // Three "simultaneously running" sessions: two steer-capable, one not.
   const ADAPTER = `sha256:${"0".repeat(64)}`;
-  const insertSession = ws.prepare(`INSERT INTO sessions(id, job_id, attempt_id, mode, work_item_id, agent_id, task, engine_id, adapter_digest, engine_features, state, root_session_id, worktree_id, created_by, created_at_ms, updated_at_ms)
-    VALUES (?,?,?, 'managed', ?, 'agent-review', ?, 'fixture', ?, ?, 'running', ?, 'wt-console', 'runner', ?, ?)`);
+  const insertSession = ws.prepare(`INSERT INTO sessions(id, job_id, attempt_id, mode, work_item_id, agent_id, task, engine_id, adapter_digest, engine_features, state, root_session_id, created_by, created_at_ms, updated_at_ms)
+    VALUES (?,?,?, 'managed', ?, 'agent-review', ?, 'fixture', ?, ?, 'running', ?, 'runner', ?, ?)`);
   insertSession.run("ses-plan", null, null, null, "Summarize the quarterly plan", ADAPTER, '["sessions","steer"]', "ses-plan", now, now);
   insertSession.run("ses-triage", null, null, null, "Triage the incident queue", ADAPTER, '["sessions","steer"]', "ses-triage", now, now);
   insertSession.run("ses-report", "job-console", "att-console", "wi-console", "Produce the deployment dossier", ADAPTER, '["sessions"]', "ses-report", now, now);

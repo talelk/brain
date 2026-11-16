@@ -49,7 +49,7 @@ export async function interruptedSession(brain: Brain, actor: ActorContext, work
     checkpoint: {
       contractVersion: "brain.checkpoint/v2", attemptId: offer.attemptId, sourceRevision: DIGEST,
       engineState: { artifactId: stored.artifactId, digest: stored.digest, bytes: stored.bytes, mediaType: "application/x-ndjson", classification: "internal" },
-      completedCriteria: [], failures: [], worktreeId: "read-only:workspace", eventSequence: 0, ownedResources: [], nextAction: "continue the saved conversation", createdAt: new Date().toISOString(),
+      completedCriteria: [], failures: [], eventSequence: 0, ownedResources: [], nextAction: "continue the saved conversation", createdAt: new Date().toISOString(),
     },
   });
   const sessions = ((await brain.executeQuery(actor, { queryType: "sessions.list", workspaceId } as never)) as unknown as { snapshot: { items: SessionDetail[] } }).snapshot.items;

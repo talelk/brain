@@ -18,7 +18,7 @@ const DIGEST = `sha256:${"0".repeat(64)}`;
 const spec = (attemptId: string, extra: Partial<EngineSessionSpec> = {}): EngineSessionSpec => ({
   contractVersion: "brain.engine/v1", organizationId: "org-r", workspaceId: "ws-r", dispatchId: "d-r", jobId: `job-${attemptId}`, attemptId, runnerId: "runner-r",
   runnerEpoch: 1, leaseId: "lease-r", jobFence: 1, engine: { id: "pi", version: "1.4.0", adapterDigest: DIGEST, features: ["sessions", "checkpoint", "resume"] },
-  modelId: "acme-large", instructions: "Follow the task.", instructionsDigest: DIGEST, task: "Remember the codeword ZEPHYR-42. Say STORED.", sourceRevision: `sha256:${"1".repeat(64)}`, worktreeId: "wt-r", configDigest: DIGEST,
+  modelId: "acme-large", instructions: "Follow the task.", instructionsDigest: DIGEST, task: "Remember the codeword ZEPHYR-42. Say STORED.", sourceRevision: `sha256:${"1".repeat(64)}`, configDigest: DIGEST,
   allowedTools: [], context: { artifactId: "ctx-r", digest: DIGEST, bytes: 0, mediaType: "application/json", classification: "internal" },
   limits: { timeoutMs: 60_000, maxTokens: 100_000, maxMicroUsd: 0, maxTurns: 4 }, ...extra,
 } as EngineSessionSpec);

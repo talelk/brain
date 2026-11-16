@@ -354,10 +354,9 @@
     {
       "component": "Git",
       "officialSources": [
-        "https://git-scm.com/docs/git-worktree",
         "https://git-scm.com/docs/git-push"
       ],
-      "decision": "Isolated writer checkouts, fixed arguments, target ref preconditions and serialized merge. Exact installed CLI behavior is G01 work.",
+      "decision": "Fixed arguments and target ref preconditions for the governed pull request path (ADR 0075). Exact installed CLI behavior is G01 work.",
       "reviewedAt": "2026-10-27",
       "verificationLevel": "documentation-review-only",
       "exactProductVersion": null,

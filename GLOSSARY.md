@@ -332,7 +332,7 @@ are terminal or transitional as declared.
 _Avoid_: workflow state, workflow run state
 
 **Step**:
-A node declared in a workflow definition — dispatch, gate, evaluation, steer, merge or
+A node declared in a workflow definition — dispatch, gate, evaluation, steer or
 subgraph. A step starts once every step it `needs` has succeeded, so steps with no need
 of each other run together up to the mission's member cap (ADR 0043); a job executes it.
 A step may declare a `when` condition (a pointer that exists or equals a value in an earlier

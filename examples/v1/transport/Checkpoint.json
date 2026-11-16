@@ -13,11 +13,8 @@
     "draft-valid"
   ],
   "failures": [],
-  "worktreeId": "tree_demo",
   "eventSequence": 2,
-  "ownedResources": [
-    "worktree/tree_demo"
-  ],
+  "ownedResources": [],
   "nextAction": "Run the independent fixture evaluator.",
   "createdAt": "2026-10-27T12:00:00Z"
 }

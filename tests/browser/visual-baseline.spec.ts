@@ -142,7 +142,7 @@ async function delegationsRoute(demo: Demo, governor: Fixture): Promise<string> 
   const version = ((await brain.executeQuery(demo.actor, { queryType: "missions.get", workspaceId: demo.workspaceId, resourceId: missionId })) as unknown as { snapshot: { version: number } }).snapshot.version;
   await cmd(demo.actor, "plan.confirm", "baseline-del-confirm", { planVersionId: planId }, version);
   const workItemId = (brain.store.workspaceDb(demo.workspaceId, org).prepare("SELECT id FROM work_items WHERE mission_id=?").get(missionId) as { id: string }).id;
-  const parent = (await cmd(colleague, "session.create", "baseline-del-parent", { workItemId, agentId: "task-worker", engineId: "fixture", task: "Compare vendor prices", budget: { maxTokens: 100000, maxMicroUsd: 0, maxTurns: 8 }, scope: { allowedPaths: [], prohibitedPaths: [], allowedTools: [] }, worktreeId: "wt-baseline" })).resourceId ?? "";
+  const parent = (await cmd(colleague, "session.create", "baseline-del-parent", { workItemId, agentId: "task-worker", engineId: "fixture", task: "Compare vendor prices", budget: { maxTokens: 100000, maxMicroUsd: 0, maxTurns: 8 }, scope: { allowedPaths: [], prohibitedPaths: [], allowedTools: [] }, })).resourceId ?? "";
   const done = (await cmd(colleague, "session.delegate", "baseline-del-a", { parentSessionId: parent, task: "Summarise the three cheapest vendors" })).resourceId ?? "";
   const broken = (await cmd(colleague, "session.delegate", "baseline-del-b", { parentSessionId: parent, task: "Read the supplier register" })).resourceId ?? "";
   const list = () => delegationsOf(brain, demo.actor, demo.workspaceId, missionId);

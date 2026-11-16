@@ -31,7 +31,6 @@ function sessionInput(workItemId: string, task = "Inspect the workspace"): Recor
     workItemId, agentId: "parent-agent", engineId: "pi", task,
     budget: { maxTokens: 1000, maxMicroUsd: 500, maxTurns: 4 },
     scope: { allowedPaths: ["src", "tests"], prohibitedPaths: ["secrets"], allowedTools: ["fixture.echo"] },
-    worktreeId: "wt-parent",
   };
 }
 
@@ -51,8 +50,7 @@ describe("native and managed BrainSessions (T53)", () => {
     expect(validate("SessionDetail", await session(w, parentId))).toEqual({ ok: true, errors: [] });
     const checkpoint = {
       contractVersion: "brain.checkpoint/v2", sourceRevision: "sha256:6dd84c7f907477ea38ad355392cf876b39c122adf8038762894d56cc160956b4",
-      diffDigest: `sha256:${"b".repeat(64)}`, completedCriteria: ["inspect"], failures: ["verification pending"],
-      worktreeId: "wt-parent", eventSequence: 0, nextAction: "Run the independent verification", createdAt: w.brain.store.nowIso(),
+      diffDigest: `sha256:${"b".repeat(64)}`, completedCriteria: ["inspect"], failures: ["verification pending"], eventSequence: 0, nextAction: "Run the independent verification", createdAt: w.brain.store.nowIso(),
     };
     await run(w, "session.checkpoint", "session-checkpoint", { sessionId: parentId, checkpoint }, w.owner, 1);
     const missionId = (await workView(w)).items.find((entry) => entry.workItemId === item)!.missionId;
@@ -61,7 +59,7 @@ describe("native and managed BrainSessions (T53)", () => {
     // Resuming is its own command (ADR 0045): a session that no run of its own produced has no run to continue, and says so.
     await expect(run(w, "session.resume", "resume-managed", { sessionId: parentId })).rejects.toThrow(/no engine conversation|no run to continue/i);
     // A session that starts afterwards receives the messages sent while none was working, once, with the correction in place of the original.
-    const nextId = (await run(w, "session.create", "session-next", { ...input, task: checkpoint.nextAction, worktreeId: "wt-next" })).resourceId!;
+    const nextId = (await run(w, "session.create", "session-next", { ...input, task: checkpoint.nextAction, })).resourceId!;
     expect(await session(w, nextId)).toEqual(expect.objectContaining({ mode: "managed", state: "waiting", task: checkpoint.nextAction, workItemId: item }));
     const context = ((await w.brain.executeQuery(w.owner, { queryType: "sessions.context", workspaceId: w.workspaceId, resourceId: nextId })) as { snapshot: SessionContext }).snapshot;
     expect(validate("SessionContext", context)).toEqual({ ok: true, errors: [] });

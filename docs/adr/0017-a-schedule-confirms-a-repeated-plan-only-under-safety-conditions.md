@@ -10,7 +10,7 @@ Live finding: "Repeat this" told the person "You confirm its plan, as you did th
 1. The schedule's switch "Confirm the plan automatically each time" is on (`input.autoConfirm`, default on).
 2. The mission it repeats is closed as achieved and its latest evidence bundle is verified.
 3. The plan the occurrence would run is identical to that mission's confirmed plan: the same tasks (title, criteria, dependencies, workflow, assignment, optional) and the same team, compared as canonical JSON. A Play that was re-planned since is therefore not identical.
-4. No step of any task's workflow (following subgraphs) waits for an approval (`gate`), merges, steers a live session, or dispatches with an effect class other than `read`. A workflow missing from the active release counts as not safe. Release compilation already forces a gate in front of effectful steps, so in practice an effectful task always stops here.
+4. No step of any task's workflow (following subgraphs) waits for an approval (`gate`), steers a live session, or dispatches with an effect class other than `read`. A workflow missing from the active release counts as not safe. Release compilation already forces a gate in front of effectful steps, so in practice an effectful task always stops here.
 5. The mission's autonomy preset is `standard` or `autonomous`.
 6. The new mission has headroom: no money, token, time or workspace-cap limit is already reached.
 7. The person who created the schedule is still an enabled human who holds `mission:write` in the workspace.

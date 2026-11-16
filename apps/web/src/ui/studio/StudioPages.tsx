@@ -211,7 +211,7 @@ export function StudioEditorPage(): JSX.Element {
             <Show when={mode() === "visual"} fallback={<Textarea label="Restricted YAML" value={content()} onInput={(event) => { setContent(event.currentTarget.value); setDirty(true); }} class="min-h-[28rem] min-w-0 max-w-full font-mono text-caption" />}>
               <div class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1"><For each={steps()}>{(step, index) => <div class="grid min-w-0 gap-2 py-3 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] lg:items-end">
                 <TextInput label="Step id" value={step.id} onInput={(event) => updateStep(index(), "id", event.currentTarget.value)} />
-                <Select label="Kind" value={step.kind} options={["dispatch", "gate", "eval", "merge", "subgraph", "steer"].map((value) => ({ value, label: value }))} onValueChange={(value) => updateStep(index(), "kind", value ?? "dispatch")} />
+                <Select label="Kind" value={step.kind} options={["dispatch", "gate", "eval", "subgraph", "steer"].map((value) => ({ value, label: value }))} onValueChange={(value) => updateStep(index(), "kind", value ?? "dispatch")} />
                 <TextInput label="Needs (comma separated)" value={step.needs} onInput={(event) => updateStep(index(), "needs", event.currentTarget.value)} />
                 <Button size="sm" class="justify-self-start" variant="ghost" theme="red" iconLeft="lucide-x" onClick={() => { setSteps((rows) => rows.filter((_row, position) => position !== index())); setDirty(true); }}>Remove step</Button>
               </div>}</For></div>

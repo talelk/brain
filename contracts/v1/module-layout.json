@@ -137,7 +137,6 @@
     "gate",
     "eval",
     "steer",
-    "merge",
     "subgraph"
   ],
   "fullFunctionalScopePreserved": true,

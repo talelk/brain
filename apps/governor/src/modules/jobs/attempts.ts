@@ -324,10 +324,10 @@ export function ensureExecutionArtifact(s: Store, jobId: string, organizationId:
   return { artifactId, digest, bytes: bytes.length };
 }
 
-/** The agent definition a job's pinned payload runs (an agent step names its release); none for an eval, merge or tool step. The model never names it. */
+/** The agent definition a job's pinned payload runs (an agent step names its release); none for an eval or tool step. The model never names it. */
 function pinnedAgentOf(s: Store, jobId: string): string | undefined {
   const row = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { kind: string; payload_json: string } | undefined;
-  if (!row || row.kind === "eval" || row.kind === "merge") return undefined;
+  if (!row || row.kind === "eval") return undefined;
   const uses = (JSON.parse(row.payload_json) as { step?: { uses?: { type?: string; release?: { id?: string } } } }).step?.uses;
   return uses?.type === "agent" && typeof uses.release?.id === "string" ? uses.release.id : undefined;
 }
@@ -342,7 +342,7 @@ export function sessionCredential(s: Store, binding: JobProtocolPorts["sessionBi
   assertAttemptLive(s, runner, row);
   if (String(row["state"]) !== "running") throw new BrainDomainError("CONFLICT", "only a running attempt acts as a session");
   const payload = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(String(row["job_id"])) as { kind: string; payload_json: string } | undefined;
-  const usesAgent = payload && payload.kind !== "eval" && payload.kind !== "merge" && (JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string } } }).step?.uses?.type === "agent";
+  const usesAgent = payload && payload.kind !== "eval" && (JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string } } }).step?.uses?.type === "agent";
   if (!usesAgent) throw new BrainDomainError("FORBIDDEN", "only an agent step acts as a session");
   const organizationId = String(row["organization_id"]);
   const workspaceId = String(row["workspace_id"]);
@@ -355,11 +355,11 @@ export function sessionCredential(s: Store, binding: JobProtocolPorts["sessionBi
 
 /**
  * The secrets a running attempt's tool declared (ADR 0070): the `secretRefs` of a privileged tool step's pinned input, nothing the runner or a
- * model names later. A held change (`act`), an evaluator, a merge and an agent step declare none, so no credential is ever minted for them.
+ * model names later. A held change (`act`), an evaluator and an agent step declare none, so no credential is ever minted for them.
  */
 function declaredSecretRefs(s: Store, jobId: string): { toolId: string; refs: Record<string, string> } | undefined {
   const row = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { kind: string; payload_json: string } | undefined;
-  if (!row || row.kind === "eval" || row.kind === "merge" || row.kind === "act") return undefined;
+  if (!row || row.kind === "eval" || row.kind === "act") return undefined;
   const payload = JSON.parse(row.payload_json) as { input?: { secretRefs?: unknown }; step?: { uses?: { type?: string; release?: { id?: string } }; effectClass?: string } };
   const refs = payload.input?.secretRefs;
   if (payload.step?.uses?.type !== "tool" || payload.step.effectClass !== "privileged" || !refs || typeof refs !== "object" || Array.isArray(refs)) return undefined;
@@ -458,7 +458,6 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
   } catch { /* direct jobs without a run keep the config digest */ }
   const parsedPayload = JSON.parse(artifactText) as { step?: { uses?: { type?: string } } };
   const kind = payloadRow?.kind === "eval" ? "eval"
-    : payloadRow?.kind === "merge" ? "merge"
     : parsedPayload.step?.uses?.type === "agent" ? "agent" : "tool";
   const toolPins = releaseToolPins(s, String(row["config_digest"]));
   const authorEvidence = authorEvidenceFor(s, String(row["organization_id"]), String(row["workspace_id"]), String(row["workflow_run_id"]), String(row["config_digest"]));

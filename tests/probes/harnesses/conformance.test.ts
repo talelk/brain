@@ -11,7 +11,7 @@ const SPEC = {
   leaseId: "lease-c", jobFence: 1,
   engine: { id: "fixture", version: "1", adapterDigest: `sha256:${"0".repeat(64)}`, features: [] },
   modelId: "qwen3.8-flash-next-a5b", instructions: "Follow the task.", instructionsDigest: `sha256:${"0".repeat(64)}`,
-  task: "Reply with exactly: BRAIN_OK", sourceRevision: "test", worktreeId: "wt-c",
+  task: "Reply with exactly: BRAIN_OK", sourceRevision: "test",
   configDigest: `sha256:${"0".repeat(64)}`, allowedTools: [],
   context: { artifactId: "ctx", digest: `sha256:${"0".repeat(64)}`, bytes: 0, mediaType: "application/json", classification: "internal" },
   limits: { timeoutMs: 120000, maxTokens: 4096, maxMicroUsd: 0, maxTurns: 3 },

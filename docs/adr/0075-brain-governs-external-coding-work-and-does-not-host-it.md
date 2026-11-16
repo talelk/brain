@@ -12,5 +12,5 @@ Earlier documents promised Brain-managed git state: a mission branch only a merg
 
 ## Consequences
 - GLOSSARY drops Mission branch, Work-item branch and Session branch, and the mission evidence bundle no longer lists branch heads.
-- The worktree and merge-controller prose in `docs/implementation` is reworded to the governed pull request path. The `merge` step kind in workflow definitions is unchanged by this decision.
+- The worktree and merge-controller prose in `docs/implementation` is reworded to the governed pull request path. Amended by #161: the `merge` step kind and `merge` job class, and the `worktreeId` on sessions, engine specs, checkpoints, delegations and launcher create requests, were removed with no replacement; a release that uses `merge` no longer compiles.
 - "Affected branch" in GLOSSARY means plan tasks, not git, and stays.

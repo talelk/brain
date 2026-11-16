@@ -165,7 +165,7 @@ export async function startLauncher(): Promise<void> {
         // one permitted tool mount (read-only at /tools); dataMounts may only
         // name an operator-declared path and is always mounted read-only.
         for (const k of Object.keys(b)) {
-          if (!["profile", "image", "requestId", "worktreeId", "cpuMillicores", "memoryMb", "network", "egressHosts", "toolsDir", "dataMounts"].includes(k)) { json(res, 422, { error: `field ${k} forbidden` }); return; }
+          if (!["profile", "image", "requestId", "cpuMillicores", "memoryMb", "network", "egressHosts", "toolsDir", "dataMounts"].includes(k)) { json(res, 422, { error: `field ${k} forbidden` }); return; }
         }
         const requestedMounts = Array.isArray(b["dataMounts"]) ? b["dataMounts"].map((m) => String(m)) : [];
         if (requestedMounts.length > 8) { json(res, 422, { error: "too many dataMounts" }); return; }
