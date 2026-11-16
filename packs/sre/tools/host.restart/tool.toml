@@ -1,0 +1,16 @@
+description = """
+Restarts ONE named container on this workspace's host. This is a change: the call stops \
+until a person approves exactly this call, which can take minutes, unless the workspace \
+holds a standing approval for that container. Call it only for a container whose check \
+you saw fail in this task, once, and one container at a time. If the answer says the call \
+is held, declined or refused, the container was NOT restarted: do not repeat the call or \
+look for another way. A restart interrupts whoever is using the service. Returns the \
+command's output as text; run the failed check again afterwards."""
+effect = "privileged"
+host_command = "host.restart"
+timeout_seconds = 90
+
+[inputs.container]
+type = "string"
+description = "The container's name, exactly as host.status prints it."
+required = true

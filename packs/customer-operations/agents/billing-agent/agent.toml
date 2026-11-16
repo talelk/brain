@@ -1,0 +1,9 @@
+description = "Drafts replies to billing requests (invoices, charges, refunds, plans) from the workspace's memory. Drafts only; promises nothing memory does not support."
+engine = ["pi", "claude"]
+native = "none"
+tools = ["memory.search", "task.note"]
+
+[limits]
+turns = 10
+tokens = 60000
+spend_usd = 0.25

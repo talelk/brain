@@ -1,0 +1,16 @@
+title = "Say hello"
+description = "One agent writes a short page describing what this workspace contains. Run it on a fresh install to see a task go from goal to checked result."
+
+[[step]]
+id = "describe"
+agent = "worker"
+goal = """
+Write a short page, at most 300 words, that describes what this workspace contains: its \
+agents, its tools and its Plays, each with one line saying what it is for.
+
+Use the description of the workspace in your context. Under `/work` you may also find \
+project folders; mention each project by name and say in one line what it is, from its \
+README. Describe only what you can see, and say plainly what you could not see. Do not \
+call task.ask or task.create for this.
+
+Save the page as `/out/workspace.md` and give the same page as your final answer."""

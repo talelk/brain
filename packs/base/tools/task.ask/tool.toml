@@ -1,0 +1,13 @@
+description = """
+Asks a person one question about your current task. The task then waits and shows as \
+needing a person until someone answers; you are run again with the answer in your context. \
+Ask only when you cannot decide yourself and a wrong guess would waste the work. Ask one \
+question that can be answered in a sentence, and give the options you see. After calling \
+it, end your turn and say what you are waiting for. Returns {"status": "waiting"}."""
+runs = "brain"
+effect = "read"
+
+[inputs.question]
+type = "string"
+description = "The question, with enough context to answer it without opening the task."
+required = true

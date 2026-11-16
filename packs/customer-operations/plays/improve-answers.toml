@@ -1,0 +1,38 @@
+title = "Improve our answers"
+description = "Every week, look for places where the workspace's memory failed or would fail the agents that answer customers, and propose memory entries for a person to accept."
+
+[trigger]
+schedule = "0 9 * * 1"
+
+[[step]]
+id = "gaps"
+agent = "generalist"
+goal = """
+Find up to five places where this workspace's memory failed, or would fail, an agent \
+answering a customer. Propose nothing in this step.
+
+Use the recent results and board notes in your context if there are any: drafts that the \
+quality reviewer sent back, and gaps the drafting agents recorded. Then search memory \
+itself for the common subjects (refund, invoice, plan change, cancellation, sign-in, \
+password, error, delivery, contact, tone) and look for a missing answer, two entries that \
+contradict each other, and an entry that is unclear or breaks the tone guide. If your \
+context held no recent results, say so: your findings then rest on memory alone.
+
+For each finding give: the subject, what is missing or wrong, the evidence (the entry \
+names, or the request it failed), and whether the right answer is known from your context \
+or must come from a person."""
+
+[[step]]
+id = "propose"
+agent = "generalist"
+goal = """
+From the findings in your context, propose at most three memory entries with \
+memory.propose, and only where the right answer is known: from a reply a person approved, \
+from an existing entry that needs to be made clear, or from two entries that can be merged \
+without changing what they say. Never invent a policy, a price or a deadline. One subject \
+per entry, a title a search would find, text that reads alone and follows the tone guide.
+
+In your result, list each proposal with its name and the reason for it, then list as \
+"Questions for a person" every finding whose answer is not known, each as one question \
+that can be answered in a sentence."""
+after = ["gaps"]

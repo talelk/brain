@@ -1,0 +1,9 @@
+description = """
+Lists every container on this workspace's host: name, image, state (running, exited, \
+restarting, unhealthy) and how long it has been in that state. Read-only, no inputs. Call \
+it once at the start of a task: it is the inventory the other host tools refer to, and the \
+container names it prints are the only ones they accept. The operator of the runner host \
+fixed the real command line; you cannot change it. Returns the command's output as text."""
+effect = "read"
+host_command = "host.status"
+timeout_seconds = 30

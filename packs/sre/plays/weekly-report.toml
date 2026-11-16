@@ -1,0 +1,33 @@
+title = "Weekly host report"
+description = "Every week, a report on the state of the host: what is unhealthy, what is trending badly, and the three most useful fixes."
+
+[trigger]
+schedule = "0 8 * * 1"
+
+[[step]]
+id = "collect"
+agent = "sre-operator"
+goal = """
+Collect this week's facts about the host and change nothing. Call host.status and \
+host.disk once each, find the services and their health addresses in the workspace's \
+runbook with memory.search, and run http.check on each address. Read the last 100 log \
+lines only of containers that are exited, restarting, unhealthy or failing their check, \
+and of containers that were restarted in the last seven days according to host.status. \
+Report: the number of containers by state; every exception by name with what the tool \
+returned; disk use per file system; each check with its status and response time."""
+
+[[step]]
+id = "report"
+agent = "incident-analyst"
+goal = """
+From the facts collected in your context, write the weekly report for the people who own \
+this host, at most 400 words:
+1. What is unhealthy now, with the evidence.
+2. What is trending badly: disks above 75 percent, slow checks (over two seconds), \
+containers that restarted this week, repeated errors in logs.
+3. The three most useful fixes, each with the reason, the exact step, its risk and how to \
+verify it.
+Report only what the collected facts show and mark as unknown what was not checked. If \
+everything is healthy, say so in two lines and skip the rest. Post the three fixes as one \
+note with task.note."""
+after = ["collect"]

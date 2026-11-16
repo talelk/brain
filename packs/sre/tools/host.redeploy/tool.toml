@@ -1,0 +1,17 @@
+description = """
+Redeploys ONE named stack on this workspace's host: pulls the images its definition names \
+and recreates its containers. This is a bigger change than a restart and it interrupts \
+every service of the stack. The call stops until a person approves exactly this call, \
+which can take minutes. Use it only when the evidence in this task shows a restart cannot \
+help (a container that no longer exists, a wrong image) and the runbook in memory names \
+the stack. If the answer says the call is held, declined or refused, nothing was \
+redeployed: do not repeat the call. Returns the command's output as text; run the checks \
+of every service of the stack afterwards."""
+effect = "privileged"
+host_command = "host.redeploy"
+timeout_seconds = 300
+
+[inputs.stack]
+type = "string"
+description = "The stack's name, as the workspace's runbook in memory gives it."
+required = true

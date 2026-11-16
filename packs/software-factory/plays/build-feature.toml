@@ -1,0 +1,49 @@
+title = "Build a feature"
+description = "A planner splits the feature into independent pieces, developers build them in parallel with a review of each, and one pull request goes to a person for sign-off."
+
+[inputs.feature]
+type = "string"
+required = true
+
+[[step]]
+id = "plan"
+agent = "planner"
+goal = """
+Split this feature into the smallest set of pieces that developers can build at the same \
+time: one to five tasks, each touching different files so that the changes do not collide, \
+each with its own tests. Every task is for the agent `developer` and has an empty `after`. \
+If the feature is small, one task is the right plan. State in each task's goal which files \
+or area it owns.
+
+Feature: {{feature}}"""
+
+[[step]]
+id = "build"
+agent = "developer"
+goal = """
+{{item.title}}
+
+{{item.goal}}
+
+This is one piece of a larger feature that other developers are building at the same time. \
+Stay inside the files and area this piece owns, add tests for it, run the project's tests \
+and report the commands and their outcome. Do not open a pull request; a later step does.
+
+The whole feature, for context: {{feature}}"""
+after = ["plan"]
+for_each = "steps.plan.result.tasks"
+review_by = "reviewer"
+max_rounds = 3
+
+[[step]]
+id = "release"
+agent = "release-manager"
+goal = """
+The working copy holds the reviewed pieces of this feature together. Open one pull request \
+for the whole feature, with a title and a description that follow the project's \
+conventions, list what each piece does, and say how each was verified. Give the pull \
+request's address in your result.
+
+Feature: {{feature}}"""
+after = ["build"]
+approve = true

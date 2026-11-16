@@ -1,0 +1,41 @@
+title = "Fix an issue"
+description = "Investigate an issue, change the code with a review of every round, and open a pull request that a person signs off."
+
+[inputs.issue]
+type = "string"
+required = true
+
+[[step]]
+id = "investigate"
+agent = "analyst"
+goal = """
+Find the cause of this issue and say exactly what must change to fix it. Name the project \
+it concerns, the files and lines that produce the behaviour, and the test that would prove \
+the fix.
+
+Issue: {{issue}}"""
+
+[[step]]
+id = "change"
+agent = "developer"
+goal = """
+Fix this issue in the working copy, following the investigation in your context. Add or \
+update a test that fails without the fix, then run the project's tests and report the \
+commands and their outcome. Do not open a pull request; a later step does.
+
+Issue: {{issue}}"""
+after = ["investigate"]
+review_by = "reviewer"
+max_rounds = 3
+
+[[step]]
+id = "release"
+agent = "release-manager"
+goal = """
+Open one pull request for the reviewed change in the working copy, with a title and a \
+description that follow the project's conventions and say how the fix was verified. \
+Give the pull request's address in your result.
+
+Issue: {{issue}}"""
+after = ["change"]
+approve = true

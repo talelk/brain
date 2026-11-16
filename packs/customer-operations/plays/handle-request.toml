@@ -1,0 +1,84 @@
+title = "Handle a customer request"
+description = "Route the request to the billing, technical or general agent, improve the draft with a quality reviewer until it scores at least 0.8, then post the reply to the team's channel once a person approves."
+
+[inputs.request]
+type = "string"
+required = true
+
+[inputs.customer]
+type = "string"
+required = true
+
+[[step]]
+id = "route"
+agent = "router"
+goal = """
+Classify this customer request.
+
+Customer: {{customer}}
+Request: {{request}}"""
+
+[[step]]
+id = "billing"
+agent = "billing-agent"
+goal = """
+Draft the reply to this billing request, from the workspace's memory.
+
+Customer: {{customer}}
+Urgency: {{steps.route.result.urgency}}
+What the router understood: {{steps.route.result.summary}}
+Request: {{request}}"""
+after = ["route"]
+when = 'steps.route.result.category == "billing"'
+review_by = "quality-reviewer"
+max_rounds = 3
+target_score = 0.8
+
+[[step]]
+id = "technical"
+agent = "technical-agent"
+goal = """
+Draft the reply to this technical request, from the workspace's memory.
+
+Customer: {{customer}}
+Urgency: {{steps.route.result.urgency}}
+What the router understood: {{steps.route.result.summary}}
+Request: {{request}}"""
+after = ["route"]
+when = 'steps.route.result.category == "technical"'
+review_by = "quality-reviewer"
+max_rounds = 3
+target_score = 0.8
+
+[[step]]
+id = "other"
+agent = "generalist"
+goal = """
+Draft the reply to this general request, from the workspace's memory. Do not send it.
+
+Customer: {{customer}}
+Urgency: {{steps.route.result.urgency}}
+What the router understood: {{steps.route.result.summary}}
+Request: {{request}}"""
+after = ["route"]
+when = 'steps.route.result.category == "other"'
+review_by = "quality-reviewer"
+max_rounds = 3
+target_score = 0.8
+
+[[step]]
+id = "send"
+agent = "generalist"
+goal = """
+Send the reviewed reply. Exactly one of the three drafting steps in your context produced \
+a draft; the other two were skipped. Take the Reply section of that draft, unchanged, and \
+post it to the team's channel with one message.send call, under this header line:
+
+Reply for {{customer}} ({{steps.route.result.category}}, urgency {{steps.route.result.urgency}}), ready to forward:
+
+Do not include the Notes for the team section in the message. If no step produced a \
+draft, send nothing and say so. In your result, say whether the message was sent, quote \
+it, and repeat the draft's Notes for the team so the person who signs off sees what the \
+reply depends on."""
+after = ["route", "billing", "technical", "other"]
+approve = true

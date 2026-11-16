@@ -1,0 +1,9 @@
+description = "Changes code in the working copy of a project, with tests, following the project's conventions. Leaves the change for review; never pushes."
+engine = ["pi", "claude"]
+native = "all"
+tools = ["git.open-pr", "task.note", "memory.search"]
+
+[limits]
+turns = 50
+tokens = 400000
+spend_usd = 2.00

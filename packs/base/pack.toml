@@ -1,0 +1,3 @@
+name = "base"
+description = "The task, memory, pull request and message tools, one web tool, and three agents: a planner, a checker and a general worker. Every workspace uses it."
+requires = []

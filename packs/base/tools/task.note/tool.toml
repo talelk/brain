@@ -1,0 +1,13 @@
+description = """
+Writes one note on the shared board of the goal you are working on. Every agent working \
+on the same goal reads the board, and so do the people following it. Use it for a fact \
+others need, a decision, an observation with its source, or a dead end. Keep a note short \
+and self-contained; never put a secret value in one. A note messages no one and approves \
+nothing. Returns {"id": "<note id>"}."""
+runs = "brain"
+effect = "read"
+
+[inputs.text]
+type = "string"
+description = "The note, in plain text or Markdown."
+required = true

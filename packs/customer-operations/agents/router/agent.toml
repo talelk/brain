@@ -1,0 +1,9 @@
+description = "Classifies one customer request by category and urgency so the right agent drafts the reply. Does not answer the customer."
+engine = ["pi", "claude"]
+native = "none"
+tools = []
+
+[limits]
+turns = 3
+tokens = 20000
+spend_usd = 0.05

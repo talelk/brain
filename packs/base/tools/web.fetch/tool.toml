@@ -1,0 +1,22 @@
+description = """
+Fetches one https address and returns its readable text (HTML is reduced to text). GET \
+only: it reads and never submits anything. It reaches only the hosts listed under \
+`network`, and this pack ships that list empty, so every fetch is refused until the \
+workspace replaces this tool file with its own copy that names the hosts it allows. A \
+refusal or an error is an answer, not something to work around. Returns {"url", \
+"final_url", "status", "content_type", "text", "truncated"}, or {"error": "<why>"}."""
+effect = "read"
+timeout_seconds = 30
+needs = ["bash", "python3"]
+network = []
+secrets = []
+
+[inputs.url]
+type = "string"
+description = "The full address, starting with https://. No user name or password in it."
+required = true
+
+[inputs.max_chars]
+type = "integer"
+description = "The most text to return, from 1 to 20000 characters. 8000 when left out."
+required = false

@@ -1,0 +1,20 @@
+description = """
+Returns the last lines of one container's log on this workspace's host. Read-only. Use it \
+on a container that host.status shows as exited, restarting or unhealthy, or whose check \
+failed, and read the lines before the first error rather than only the last one. Ask for \
+100 lines first and more only when the cause is not in them. The operator of the runner \
+host fixed the real command line; you supply only the container name and the number of \
+lines. Returns the log text. Never copy a secret value from a log into a note or a result."""
+effect = "read"
+host_command = "host.logs"
+timeout_seconds = 30
+
+[inputs.container]
+type = "string"
+description = "The container's name, exactly as host.status prints it."
+required = true
+
+[inputs.lines]
+type = "integer"
+description = "How many lines from the end of the log to return, from 1 to 500. 100 is the usual choice."
+required = true

@@ -1,0 +1,9 @@
+description = """
+Shows how full the disks of this workspace's host are: size, used, free and percentage per \
+file system. Read-only, no inputs. Check it whenever a container fails to start, writes \
+errors about space, or a database refuses writes, and in every routine health check: a \
+restart does not fix a full disk. The operator of the runner host fixed the real command \
+line; you cannot change it. Returns the command's output as text."""
+effect = "read"
+host_command = "host.disk"
+timeout_seconds = 30

@@ -1,0 +1,48 @@
+title = "Keep services healthy"
+description = "Every 15 minutes, check the host's containers and health addresses. Only when something is unhealthy: find the cause, then remediate with an evaluator verifying the result."
+
+[trigger]
+schedule = "*/15 * * * *"
+
+[[step]]
+id = "check"
+agent = "sre-operator"
+goal = """
+Run the routine health check and change nothing. Call host.status and host.disk once each, \
+find the services and their health addresses in the workspace's runbook with memory.search, \
+and run http.check on each address. Do not read logs in this step. A service is unhealthy \
+when its container is exited, restarting or reported unhealthy, when its check returns ok \
+false, or when a disk is more than 90 percent full. Write one note with task.note only if \
+something is unhealthy, naming each failed check and what it returned.
+
+Reply with one JSON object and nothing else, no code fence:
+{"healthy": true or false, "unhealthy": ["<container or address>", ...], "summary": "<what you checked and what failed, in two sentences>"}
+`healthy` is true only when every check you ran passed; `unhealthy` is then an empty list."""
+
+[[step]]
+id = "diagnose"
+agent = "incident-analyst"
+goal = """
+The routine health check found something unhealthy. Find the root cause of each failure \
+and recommend the smallest fix, saying for each whether a restart can help.
+
+What the check reported: {{steps.check.result.summary}}"""
+after = ["check"]
+when = "steps.check.result.healthy == false"
+
+[[step]]
+id = "remediate"
+agent = "sre-operator"
+goal = """
+Act on the diagnosis in your context, one unhealthy container at a time. First run the \
+failed check again: if it now passes, change nothing and say so. If it still fails and the \
+diagnosis says a restart can help, restart that one container with host.restart, wait for \
+the answer, then run the same check again. Note the state before and after on the board. \
+If a restart cannot help, or the call is declined or held, change nothing and write the \
+exact steps for a person, with the risk and how to undo them.
+
+What the check reported: {{steps.check.result.summary}}"""
+after = ["check", "diagnose"]
+when = "steps.check.result.healthy == false"
+review_by = "evaluator"
+max_rounds = 2

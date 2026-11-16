@@ -1,0 +1,29 @@
+title = "Check dependencies"
+description = "Every week, list the dependencies of each project that are outdated or have a known vulnerability, and say which to update first."
+
+[trigger]
+schedule = "0 7 * * 1"
+
+[[step]]
+id = "scan"
+agent = "developer"
+goal = """
+For each project under `/work`, run the dependency checks that its package manager \
+provides (for example the "outdated" and "audit" commands), using the commands the \
+project's conventions give when they give any. Change no file and open no pull request. \
+Report, per project: the commands you ran, and for each dependency that is behind or \
+flagged, its current version, the latest version, and the severity of any advisory. If a \
+command cannot run (no network to the registry, no lockfile), say so and report what the \
+manifest files show instead."""
+
+[[step]]
+id = "report"
+agent = "analyst"
+goal = """
+From the scan in your context, write the weekly dependency report: at most ten updates \
+worth doing, ordered by urgency (a known vulnerability first, then major versions behind, \
+then the rest), each with the project, the dependency, the versions, the reason and the \
+risk of updating, judged from where the code uses it. End with one line per project giving \
+the totals. Report only what the scan shows; mark as unknown what it could not check. \
+Post the top three as one note with task.note."""
+after = ["scan"]

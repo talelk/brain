@@ -1,0 +1,29 @@
+description = """
+Adds a sub-task under your current task and returns its id. This is the only way to hand \
+part of the work to another agent: you cannot start an agent directly. The sub-task starts \
+once the tasks it waits for are done, runs with its own agent, and is checked like any \
+other task. Write a goal that stands on its own, because the other agent sees the goal, \
+not your reasoning. Returns {"id": "<task id>"}."""
+runs = "brain"
+effect = "read"
+
+[inputs.title]
+type = "string"
+description = "A short name for the sub-task, at most ten words."
+required = true
+
+[inputs.goal]
+type = "string"
+description = "What the sub-task must achieve and what its result must contain, in a few self-contained sentences."
+required = true
+
+[inputs.agent]
+type = "string"
+description = "The name of the agent of this workspace that does the sub-task."
+required = true
+
+[inputs.after]
+type = "array"
+items = { type = "string" }
+description = "Ids of tasks the new sub-task waits for, as returned by earlier task.create calls. Leave out when it waits for nothing."
+required = false

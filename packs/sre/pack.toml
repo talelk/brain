@@ -1,0 +1,3 @@
+name = "sre"
+description = "Keeping a host's containers healthy: read-only host tools, a restart and a redeploy that a person approves, an operator, an incident analyst and an evaluator, with Plays for scheduled health checks, incident triage and a weekly report."
+requires = ["base"]

@@ -1,0 +1,41 @@
+title = "Review a pull request"
+description = "When a pull request is opened on one of the workspace's projects, a reviewer reads the change and a summary of the review is posted on the board."
+
+[inputs.delivery]
+type = "object"
+required = true
+
+[trigger]
+webhook = "github.pull_request.opened"
+
+[[step]]
+id = "review"
+agent = "reviewer"
+goal = """
+Review this pull request against the project's conventions. Fetch its diff from the diff \
+address, read the surrounding code in the working copy (which is at the project's branch, \
+without this change), and judge whether the change is correct, tested and complete for \
+what its description says it does. If the diff cannot be fetched, fail the review and say \
+so; do not review from the title alone.
+
+Repository: {{delivery.repository.full_name}}
+Pull request: #{{delivery.pull_request.number}} {{delivery.pull_request.title}}
+Address: {{delivery.pull_request.html_url}}
+Diff address: {{delivery.pull_request.diff_url}}
+From branch {{delivery.pull_request.head.ref}} into {{delivery.pull_request.base.ref}}
+
+Description given by its author:
+{{delivery.pull_request.body}}"""
+
+[[step]]
+id = "summarize"
+agent = "analyst"
+goal = """
+Post one note on the board with task.note that summarises the review in your context for \
+the people who follow this workspace: the verdict (pass or changes needed), the score, and \
+the findings as a short list with file and line, most serious first. Add nothing the \
+review does not say. Give the same text as your result.
+
+Pull request: #{{delivery.pull_request.number}} {{delivery.pull_request.title}}
+Address: {{delivery.pull_request.html_url}}"""
+after = ["review"]

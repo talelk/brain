@@ -1,0 +1,48 @@
+title = "Triage an incident"
+description = "From a description of what is wrong: observe the host, find the root cause, and remediate or hand a person the exact steps, verified by an evaluator and signed off by a person."
+
+[inputs.description]
+type = "string"
+required = true
+
+[[step]]
+id = "observe"
+agent = "sre-operator"
+goal = """
+Collect the facts about this incident and change nothing. Call host.status and host.disk, \
+find the affected service in the workspace's runbook with memory.search, run http.check on \
+its health address and on those of the services it depends on, and read the last 100 log \
+lines of each container involved. Note every observation on the board with the tool that \
+showed it and the time. Report what is failing, what is not, and since when if the logs \
+show it. Do not diagnose yet.
+
+Incident: {{description}}"""
+
+[[step]]
+id = "diagnose"
+agent = "incident-analyst"
+goal = """
+Find the root cause of this incident from the observations on the board and in your \
+context, making further observations where they are needed to confirm or rule out a \
+hypothesis. Recommend the smallest fix and say whether a restart can help.
+
+Incident: {{description}}"""
+after = ["observe"]
+
+[[step]]
+id = "respond"
+agent = "sre-operator"
+goal = """
+Act on the diagnosis in your context. Run the failed check again first. If it still fails \
+and the diagnosis says a restart can help, restart that one container with host.restart, \
+wait for the answer, and run the same check again. Use host.redeploy only if the diagnosis \
+names a stack that must be recreated. If no tool of yours can fix the cause, or the call \
+is declined or held, change nothing and write the exact steps for a person, with the risk \
+and how to undo them. Note the state before and after on the board. End with a short \
+incident summary: what happened, the cause, what was done, and what is still open.
+
+Incident: {{description}}"""
+after = ["diagnose"]
+review_by = "evaluator"
+max_rounds = 2
+approve = true

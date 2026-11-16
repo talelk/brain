@@ -1,0 +1,9 @@
+description = "Drafts replies to requests that are neither billing nor technical, sends an approved reply to the team's channel, and proposes improvements to the workspace's answers."
+engine = ["pi", "claude"]
+native = "none"
+tools = ["memory.search", "memory.propose", "task.note", "message.send"]
+
+[limits]
+turns = 12
+tokens = 80000
+spend_usd = 0.30

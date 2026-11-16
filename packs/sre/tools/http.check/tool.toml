@@ -1,0 +1,18 @@
+description = """
+Checks whether one http or https address answers: sends a single GET, follows no \
+redirect, and returns {"url", "ok", "status", "time_ms"}, plus "redirect" when the answer \
+points elsewhere and "error" when there was no answer at all (then status is 0). "ok" is \
+true for a status from 200 to 399. Read-only. It reaches only the hosts listed under \
+`network`, and this pack ships that list empty, so every check reports an error until the \
+workspace replaces this tool file with its own copy that names the hosts of its services. \
+Take the addresses to check from the runbook in memory."""
+effect = "read"
+timeout_seconds = 20
+needs = ["bash", "python3"]
+network = []
+secrets = []
+
+[inputs.url]
+type = "string"
+description = "The full address to check, starting with http:// or https://. No user name or password in it."
+required = true

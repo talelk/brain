@@ -1,0 +1,13 @@
+description = """
+Posts one message to this workspace's Teams channel, where its people read it. The call \
+stops until a person approves exactly this message, which can take minutes: wait for the \
+answer and do not send it again. If the answer says the call is held, declined or refused, \
+nothing was posted. Write the message so it can be read alone, and never include a secret \
+value. Returns {"sent": true}."""
+runs = "brain"
+effect = "write"
+
+[inputs.text]
+type = "string"
+description = "The message, in plain text or simple Markdown."
+required = true

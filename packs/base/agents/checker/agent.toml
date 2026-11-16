@@ -1,0 +1,9 @@
+description = "Checks a result against its goal using the recorded evidence. Fails a result that claims work it cannot show."
+engine = ["pi", "claude"]
+native = "read"
+tools = []
+
+[limits]
+turns = 10
+tokens = 60000
+spend_usd = 0.30

@@ -162,7 +162,8 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   last step, or the planner's summary step. A `failed` sub-task makes the parent
   `needs_you` with retry, edit or stop.
 - Each task receives as context: its goal, the results of the tasks it waits for, the
-  shared notes of its root, and the workspace's memory through `memory.search`.
+  shared notes of its root, the names and descriptions of the workspace's agents, tools
+  and Plays, and the workspace's memory through `memory.search`.
 - An attempt that fails for an infrastructure reason (runner lost, lease expired, model
   refusal) is retried up to three times with backoff before the task fails.
 
@@ -175,8 +176,9 @@ Brain-run tool), `secret` (lease a named secret for a tool), `model-token`, `com
 and `blobs/:digest` (snapshot manifest, prompts and tool files).
 
 - Enrolment: a one-use token; the runner registers a public key and proves it by
-  challenge. `hello` and `heartbeat` report capabilities (`bash`, `python3`, `docker`,
-  `native-tools`), engines, and free slots. There are no runner groups: any runner whose
+  challenge. `hello` and `heartbeat` report capabilities (plain names the operator
+  declares, such as `bash`, `python3`, `curl`, `docker`, plus `native-tools` when engines
+  run sandboxed), engines, and free slots. A tool's `needs` are matched against them. There are no runner groups: any runner whose
   capabilities and engines fit may take an attempt.
 - `claim` picks the oldest queued attempt this runner fits, fairest workspace first
   (fewest running), and refuses a workspace at its `running_tasks` limit or daily cap. It
@@ -219,7 +221,8 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   person must be a `member` or `admin` of the workspace.
 - **Brain-run tools** (`runs = "brain"`), executed by the Governor as the attempt:
   `task.create` (add a sub-task), `task.note` (write the shared board), `task.ask`
-  (question to a person; the task is `needs_you` until answered), `memory.search`,
+  (question to a person: it returns `{"status": "waiting"}`, the attempt ends, the task is
+  `needs_you`, and the answer is in the context of the next attempt), `memory.search`,
   `memory.propose`, `git.open-pr` (effect `write`), `message.send` (Teams; effect
   `write`).
 
@@ -235,9 +238,12 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   attempts/<attempt>/out/              files the agent wants kept as artifacts
 ```
 
-- On `ack` the runner fetches each project mirror, creates the working copy at the
-  recorded commit, applies the task's working-copy patch if one exists, and runs the
-  project's `setup` inside the sandbox.
+- On `ack` the runner fetches each project mirror and creates the working copy at the
+  recorded commit. It then applies, in order, the working-copy patches of the tasks this
+  one waits for and the task's own patch from an earlier attempt, and runs the project's
+  `setup` inside the sandbox. A patch that does not apply fails the attempt with the
+  conflicting paths, and the task needs a person.
+- Inside a sandbox the paths are `/work/<project>`, `/out` and `/state`.
 - The engine sandbox mounts `work/` (read-write for `native = "all"`, read-only for
   `"read"`, absent for `"none"`), `state/` and `out/`. Its network is the egress proxy
   with the model gateway, the project `network` hosts, and nothing else.
@@ -253,8 +259,10 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 - `[trigger] schedule = "<cron>"` starts the Play at each time (missed times are not
   replayed; an occurrence is skipped while the previous one is still running).
 - `[trigger] webhook = "github.<event>"` starts the Play for each matching delivery of a
-  project's repository, with the delivery as input. `POST /hooks/github/:workspace`
-  verifies the signature with the workspace's `[github] webhook_secret`.
+  project's repository, with the delivery as the Play input named `delivery`.
+  `POST /hooks/github/:workspace` verifies the signature with the workspace's
+  `[github] webhook_secret`. A task started by a pull request delivery works on that
+  pull request's head commit instead of the branch head.
 - `[teams] webhook` receives a card when a task needs a person and when a root task is
   done or failed; `message.send` posts to it.
 

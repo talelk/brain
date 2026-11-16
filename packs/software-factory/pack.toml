@@ -1,0 +1,3 @@
+name = "software-factory"
+description = "Changes to code, from issue to pull request: an analyst, a developer, a reviewer and a release manager, with Plays that plan the work, run developers in parallel, have every change reviewed and ask a person to sign off."
+requires = ["base"]

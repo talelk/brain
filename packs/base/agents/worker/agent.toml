@@ -1,0 +1,9 @@
+description = "A capable generalist: researches, writes, analyses and changes files in the working copy. Use it when no specialist fits."
+engine = ["pi", "claude"]
+native = "all"
+tools = ["task.note", "task.ask", "task.create", "memory.search", "memory.propose", "web.fetch"]
+
+[limits]
+turns = 30
+tokens = 200000
+spend_usd = 1.00

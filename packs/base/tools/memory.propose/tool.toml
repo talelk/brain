@@ -1,0 +1,23 @@
+description = """
+Proposes one new memory entry for this workspace. Nothing is saved until a person accepts \
+the proposal, which commits the entry as memory/<name>.md. Propose only what the workspace \
+will need again and what you verified in this task: a convention, a fix that worked, an \
+answer. Search memory first so you do not propose what is already there. One subject per \
+entry, written so it can be read alone. Returns {"id": "<proposal id>", "status": "proposed"}."""
+runs = "brain"
+effect = "read"
+
+[inputs.name]
+type = "string"
+description = "The file name of the entry without the extension: lowercase words joined by hyphens, for example release-checklist."
+required = true
+
+[inputs.title]
+type = "string"
+description = "The title line of the entry."
+required = true
+
+[inputs.text]
+type = "string"
+description = "The body of the entry, in Markdown, without the title line."
+required = true

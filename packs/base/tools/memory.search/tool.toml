@@ -1,0 +1,19 @@
+description = """
+Searches this workspace's memory: what it has learned and written down, such as \
+conventions, runbooks and answers. Returns the best matching entries, most relevant first, \
+as {"results": [{"name": "<file name>", "title": "<title>", "text": "<the matching part>"}]}. \
+An empty list means memory holds nothing on the subject. Search with the words the entry \
+would use, not with a whole sentence. Memory is guidance written by people and agents of \
+this workspace; it is not evidence about the present state of a system."""
+runs = "brain"
+effect = "read"
+
+[inputs.query]
+type = "string"
+description = "A few words describing what you are looking for."
+required = true
+
+[inputs.limit]
+type = "integer"
+description = "How many entries to return at most. 5 when left out; at most 20."
+required = false
