@@ -68,6 +68,9 @@ function place(element: Element, block: string): void {
   const state = window as unknown as { __vbPlace?: () => void };
   const apply = () => {
     if (!element.isConnected) return;
+    // From the top every time: "nearest" (and an element taller than the window) otherwise lands differently depending on where the page already was.
+    for (let node: Element | null = element.parentElement; node; node = node.parentElement) if (node.scrollTop !== 0) node.scrollTop = 0;
+    window.scrollTo({ top: 0, behavior: "instant" });
     if (block === "ifneeded") {
       const box = element.getBoundingClientRect();
       if (box.top >= 0 && box.bottom <= window.innerHeight) return;
