@@ -140,13 +140,13 @@ async function fetchMirror(request: WorkingCopyRequest, project: OfferProject, m
     }
     const secret = project.credential ? await request.credential(project) : undefined;
     const env = credentialEnv(project.repo, secret);
-    const fetched = await git(["-C", mirror, "fetch", "--quiet", "--prune", "--no-tags", project.repo, `+refs/heads/${project.branch}:refs/heads/${project.branch}`], { env, signal });
+    const fetched = await git(["-C", mirror, "fetch", "--quiet", "--prune", "--no-tags", "--depth", "50", project.repo, `+refs/heads/${project.branch}:refs/heads/${project.branch}`], { env, signal });
     if (!fetched.ok) throw new SetupError(`project ${project.name} could not be fetched from its repository (branch ${project.branch}): ${scrub(fetched.stderr, secret)}`, true);
     const has = async (commit: string): Promise<boolean> => (await git(["-C", mirror, "cat-file", "-e", `${commit}^{commit}`], { signal })).ok;
     if (project.baseCommit) {
       if (!/^[0-9a-f]{40,64}$/u.test(project.baseCommit)) throw new SetupError(`the base commit of project ${project.name} is not a commit id`);
       // A commit that is not on the branch (a pull request's head) is fetched by its id.
-      if (!(await has(project.baseCommit))) await git(["-C", mirror, "fetch", "--quiet", "--no-tags", project.repo, project.baseCommit], { env, signal });
+      if (!(await has(project.baseCommit))) await git(["-C", mirror, "fetch", "--quiet", "--no-tags", "--depth", "50", project.repo, project.baseCommit], { env, signal });
       if (!(await has(project.baseCommit))) throw new SetupError(`commit ${project.baseCommit.slice(0, 12)} of project ${project.name} is not in its repository`);
       return project.baseCommit;
     }
