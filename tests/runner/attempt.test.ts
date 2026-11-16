@@ -146,12 +146,13 @@ describe("a work attempt", () => {
     expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "failed", failure: { reason: "setup", infrastructure: false, detail: "the changes of prerequisite 2 of 2 do not apply to project app: conflict in a.txt" }, baseCommits: {} });
   });
 
-  it("fails in setup when the project's setup command fails", async () => {
+  it("carries on when the project's setup command fails, telling the agent and recording it", async () => {
     const { gov, runner } = await runnerWorld();
     const origin = bareRepository({ "a.txt": "one\n" });
     const offer = gov.offer({ agent: { native: "all" }, projects: [project(origin.repo, { setup: "echo no lockfile >&2; exit 3" })] });
     await runner.runOnce();
-    expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "failed", failure: { reason: "setup", infrastructure: false, detail: "the setup command of project app failed with exit code 3: no lockfile" } });
+    expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "succeeded" });
+    expect(gov.eventsOf(offer.attemptId, "status").map((event) => event.detail)).toContain("The setup command of project app (echo no lockfile >&2; exit 3) failed with exit code 3: no lockfile");
   });
 
   it("sends a result that is one JSON object as the structured output too", async () => {

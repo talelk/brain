@@ -197,19 +197,25 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
         if (!engine) throw new SetupError(`engine ${picked.id} is not known to this runner`, true);
       }
       // A project's setup command prepares the working copy for work on it, in the sandbox the agent will use; an agent that cannot write there has no use for it.
+      // A setup command that fails does not fail the attempt: the agent is told what failed, with the end of the output, and may retry or work around it.
+      const setupNotes: string[] = [];
       for (const project of offer.projects) {
         if (!project.setup || offer.agent.native !== "all") continue;
         emit({ kind: "status", phase: "setup", detail: `running the setup command of ${project.name}` });
         const ran = engine instanceof SandboxedEngine ? await engine.exec(project.setup, `${SANDBOX_PATHS.work}/${project.name}`, SETUP_TIMEOUT_MS)
           : cfg.unsandboxedForTests === true ? await setupDirectlyForTests(project.setup, join(attemptDir, "work", project.name), abort.signal) : undefined;
         if (!ran) emit({ kind: "status", phase: "setup", detail: `the setup command of ${project.name} was not run: the ${picked.id} engine runs outside a sandbox` });
-        else if (ran.timedOut || ran.exitCode !== 0) throw new SetupError(`the setup command of project ${project.name} ${ran.timedOut ? "ran too long and was stopped" : `failed with exit code ${ran.exitCode}`}: ${ran.output.trim().slice(-400)}`);
+        else if (ran.timedOut || ran.exitCode !== 0) {
+          const note = `The setup command of project ${project.name} (${project.setup}) ${ran.timedOut ? "ran too long and was stopped" : `failed with exit code ${ran.exitCode}`}: ${ran.output.trim().slice(-400)}`;
+          setupNotes.push(note);
+          emit({ kind: "status", phase: "setup", detail: note });
+        }
       }
 
       emit({ kind: "status", phase: "engine", detail: `${picked.id} runs agent ${offer.agent.name}` });
       const spec: EngineSessionSpec = {
         attemptId, instructions: prompt, model, native: offer.agent.native, outDir: paths.out, stateDir: paths.state,
-        task: composeTask(offer, { ...(seesFiles ? { work: paths.work } : {}), out: paths.out }, reviewed, reviewedFiles),
+        task: composeTask(offer, { ...(seesFiles ? { work: paths.work } : {}), out: paths.out }, reviewed, reviewedFiles) + (setupNotes.length > 0 ? `\n\n# Setup did not finish\n${setupNotes.join("\n")}\nDependencies may be missing; run what you need yourself, or say so in your result if you cannot.` : ""),
         ...(seesFiles ? { workDir: paths.work } : {}),
         tools: offer.tools.filter((tool) => offer.agent.tools.includes(tool.name)).map((tool) => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, effect: tool.effect })),
         limits: { timeoutMs: cfg.attemptTimeoutMs, maxTokens: offer.agent.limits.tokens, maxMicroUsd: offer.agent.limits.spendMicroUsd, maxTurns: offer.agent.limits.turns },
