@@ -163,7 +163,8 @@ else
   for kept in run .env docker-compose.yml host-commands.json runner-agents.env runner-evaluators.env runner-sre-host.env replica.env replica; do
     if [ -e "$REMOTE_DIR/$kept" ]; then
       mkdir -p "$ARCHIVE/config-$TS"
-      mv "$REMOTE_DIR/$kept" "$ARCHIVE/config-$TS/$kept"
+      as_root mv "$REMOTE_DIR/$kept" "$ARCHIVE/config-$TS/$kept"
+      as_root chown -R "$DEPLOY_USER" "$ARCHIVE/config-$TS"
     fi
   done
 
