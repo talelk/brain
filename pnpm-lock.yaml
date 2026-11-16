@@ -340,27 +340,12 @@ importers:
       '@talelk/newui-atoms':
         specifier: 1.4.0
         version: 1.4.0(solid-js@1.9.17)
-      '@talelk/newui-charts':
-        specifier: 1.1.0
-        version: 1.1.0(solid-js@1.9.17)
-      '@talelk/newui-data':
-        specifier: 1.1.0
-        version: 1.1.0(solid-js@1.9.17)
-      '@talelk/newui-icons':
-        specifier: 0.0.2
-        version: 0.0.2(solid-js@1.9.17)
       '@talelk/newui-molecules':
         specifier: 2.4.0
         version: 2.4.0(solid-js@1.9.17)
-      '@talelk/newui-organisms':
-        specifier: 2.3.0
-        version: 2.3.0(solid-js@1.9.17)
       '@talelk/newui-tailwind':
         specifier: 1.1.0
         version: 1.1.0(tailwindcss@4.3.3)
-      '@talelk/newui-templates':
-        specifier: 1.2.0
-        version: 1.2.0(solid-js@1.9.17)
       better-auth:
         specifier: 1.7.14
         version: 1.7.14(@opentelemetry/api@1.10.0)(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@libsql/client@0.18.0)(@opentelemetry/api@1.10.0)(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.7))(solid-js@1.9.17)(vitest@5.0.5(@opentelemetry/api@1.10.0)(@types/node@24.10.1)(vite@8.3.5(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.20.6)(yaml@2.9.1)))
@@ -2115,28 +2100,8 @@ packages:
     peerDependencies:
       solid-js: ^1.9.0
 
-  '@talelk/newui-charts@1.1.0':
-    resolution: {integrity: sha512-49Uw1jgXFhXLkyPhE6qcvb8rqJ12gQl5Kp31NXQCVYzHWusSBLzloxbAMBUoxI6M650wbLYOTAVUJF7J2lsVzg==}
-    peerDependencies:
-      solid-js: ^1.9.0
-
-  '@talelk/newui-data@1.1.0':
-    resolution: {integrity: sha512-MY0DieadDy2n1rMJ+HDR1w+EzUWhtpvl+D8VR7kq9wnHZ3GFy4/GiptFV3qzdFU2E62IkZV7P97EbguLuNfMQw==}
-    peerDependencies:
-      solid-js: ^1.9.0
-
-  '@talelk/newui-icons@0.0.2':
-    resolution: {integrity: sha512-twYQMPBg+XGZ5DypliKcpLSG47HuYT99SYJykz+jP1btK2GxMvF/s8Dmw2VDmVfRM44B0bdiR4g9CEz5VZDEug==}
-    peerDependencies:
-      solid-js: ^1.9.0
-
   '@talelk/newui-molecules@2.4.0':
     resolution: {integrity: sha512-pS3p4x5wTHPSsN+23tTkrsirxgtycH8ee4Ltey6nqyzqB5Fi1Zuo4HKgmMS1tQtSGfuXwvc3CNLvS0Iwl/fpjA==}
-    peerDependencies:
-      solid-js: ^1.9.0
-
-  '@talelk/newui-organisms@2.3.0':
-    resolution: {integrity: sha512-i3dsVsxLdiG+gkmIe2x1AQNhixs1t0OMO9ck4pXsRnQ5usbZE719KpCGx9RijzEwpix3x4Zxpc51SuVahp9h2Q==}
     peerDependencies:
       solid-js: ^1.9.0
 
@@ -2144,11 +2109,6 @@ packages:
     resolution: {integrity: sha512-YNYBncQ9aaFEBo7TanH7yaDINl0VA2BFf6b8rEPytIATCq6FEja4dic5dY9B7GHrN1oyxdMs8PU42Wda0/erDw==}
     peerDependencies:
       tailwindcss: ^4.0.0
-
-  '@talelk/newui-templates@1.2.0':
-    resolution: {integrity: sha512-r229Hqbbnrp/Bkz/dtZpgYh8nl74xKi/Dz+2Shgfy7KenU0/347hTmG9IRn8IQdvRq3IxaMAapjvIyuw1RzI8w==}
-    peerDependencies:
-      solid-js: ^1.9.0
 
   '@talelk/newui-tokens@0.2.0':
     resolution: {integrity: sha512-86PUP9hnLPwvIkRzImEZhqoJLk4DbVQII6KyHA52WISQ5zDSN/KJInnBY4WEnG24m/0hpimUcGyPcKVNCdeJyg==}
@@ -2165,44 +2125,18 @@ packages:
     resolution: {integrity: sha512-y/xtNPNt/YeyoVxE/JCx+T7yjEzpezmbb+toK8DDD1P4m7Kzs5YR956+7OKexG3f8aXgC3rLZl7b1V+yNUSy5w==}
     engines: {node: '>=18'}
 
-  '@tanstack/query-core@5.107.1':
-    resolution: {integrity: sha512-PSyAik11oQBEVOiVy5hjZWHmoUqOXqK1WYy4v55mcxozEfKaQgpUMsgnXhWjuESzSht8JfzqMS1m6M/9CpNgvg==}
-
   '@tanstack/solid-form@1.33.5':
     resolution: {integrity: sha512-azYHYzNwop64bedJRKgjCpi5w9cHu7cNz+dAdSXzaqy9M6JO+GlKNQn54VFhCLYJo45sgNjcdrnz4eyTmgzJ/w==}
     peerDependencies:
       solid-js: '>=1.9.9'
-
-  '@tanstack/solid-query@5.107.1':
-    resolution: {integrity: sha512-ZqwDSKk/DtKblv+09XUgrbHENvTzZvyEQK5E19j8QTrjcW2jw+bLitLdtfayC83rWNMQvkzsCqGnOj+SWnBD2w==}
-    peerDependencies:
-      solid-js: ^1.6.0
 
   '@tanstack/solid-store@0.11.2':
     resolution: {integrity: sha512-lscar3xeRKfs/RQBcZjR9NG55sfMP5Pb8S/URohUqcnSB8Yu19JLE/hPjfSd7pKmCpjYq1ZbjqtpIc5bDE1lAQ==}
     peerDependencies:
       solid-js: ^1.6.0
 
-  '@tanstack/solid-table@9.3.1':
-    resolution: {integrity: sha512-Y1qyK2R4Y65dUNS/flC9TpAcXx8EuN9eImi+QSmx7AyhyRv1xm7051FkmetCkKcpdK3aKOPxG+P1o4CpWsxoWw==}
-    engines: {node: '>=20'}
-    peerDependencies:
-      solid-js: '>=1.3'
-
-  '@tanstack/solid-virtual@3.13.49':
-    resolution: {integrity: sha512-r8x5QdNEY/rIk8Vlo7OIVa6koj4WPlneJxVPgRUJKPnal52A502BG5YjJo+eItnwiwAzxoxIuruKStx16nPbmQ==}
-    peerDependencies:
-      solid-js: ^1.3.0
-
   '@tanstack/store@0.11.2':
     resolution: {integrity: sha512-sJ4mjol8uQsHV0gOJzzjwXfh2Fwm+Sz0+8deqiTm4jGbMdjzNSW+xZCFm0kUa870uhd8yi+DpKnZb5Kc4apa0Q==}
-
-  '@tanstack/table-core@9.3.1':
-    resolution: {integrity: sha512-zQvlxSNi2qGM3L4jh85Z6hqMfdIR5qOfD9KHOU32nuKFJGN0RlJ7UvV1lsPb1fPVhpFYI0VP3jJGxLdLDpTKjQ==}
-    engines: {node: '>=20'}
-
-  '@tanstack/virtual-core@3.19.7':
-    resolution: {integrity: sha512-gxy5SvH0mFRJ0YujtrflB/1HAu9Wn1KGvL0bjZfQkYVVMsIpQiwcf1mR06/ViN4NjllUb4HNCjqE9FGwgTvMCQ==}
 
   '@tybys/wasm-util@0.10.4':
     resolution: {integrity: sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A==}
@@ -3033,9 +2967,6 @@ packages:
 
   ecdsa-sig-formatter@1.0.11:
     resolution: {integrity: sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==}
-
-  echarts@6.1.0:
-    resolution: {integrity: sha512-q0yaFPggC9FUdsWH4blavRWFmxdrIodbkoKNAjJudAI6CA9gNPxHtV2RcZNEepZVlk4yvBYkOkbk6HIVpIyHZA==}
 
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
@@ -4496,9 +4427,6 @@ packages:
   tslib@1.14.1:
     resolution: {integrity: sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg==}
 
-  tslib@2.3.0:
-    resolution: {integrity: sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg==}
-
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
@@ -4785,9 +4713,6 @@ packages:
 
   zod@4.6.7:
     resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
-
-  zrender@6.1.0:
-    resolution: {integrity: sha512-oEGMDB6pOP2S6OwRR4PdVv610zrjnA3Bh+JnSG12fYJlBKjtNAoEb5fSUoCOOINlH96I2fU38/A2UpRKs67xYQ==}
 
 snapshots:
 
@@ -6318,21 +6243,6 @@ snapshots:
       solid-js: 1.9.17
       tailwind-merge: 3.7.0
 
-  '@talelk/newui-charts@1.1.0(solid-js@1.9.17)':
-    dependencies:
-      echarts: 6.1.0
-      solid-js: 1.9.17
-
-  '@talelk/newui-data@1.1.0(solid-js@1.9.17)':
-    dependencies:
-      '@tanstack/solid-form': 1.33.5(solid-js@1.9.17)
-      '@tanstack/solid-query': 5.107.1(solid-js@1.9.17)
-      solid-js: 1.9.17
-
-  '@talelk/newui-icons@0.0.2(solid-js@1.9.17)':
-    dependencies:
-      solid-js: 1.9.17
-
   '@talelk/newui-molecules@2.4.0(solid-js@1.9.17)':
     dependencies:
       '@internationalized/date': 3.12.4
@@ -6360,26 +6270,10 @@ snapshots:
       '@zag-js/tree-view': 1.46.0
       solid-js: 1.9.17
 
-  '@talelk/newui-organisms@2.3.0(solid-js@1.9.17)':
-    dependencies:
-      '@talelk/newui-atoms': 1.4.0(solid-js@1.9.17)
-      '@talelk/newui-molecules': 2.4.0(solid-js@1.9.17)
-      '@tanstack/solid-form': 1.33.5(solid-js@1.9.17)
-      '@tanstack/solid-table': 9.3.1(solid-js@1.9.17)
-      '@tanstack/solid-virtual': 3.13.49(solid-js@1.9.17)
-      solid-js: 1.9.17
-
   '@talelk/newui-tailwind@1.1.0(tailwindcss@4.3.3)':
     dependencies:
       '@talelk/newui-tokens': 0.2.0
       tailwindcss: 4.3.3
-
-  '@talelk/newui-templates@1.2.0(solid-js@1.9.17)':
-    dependencies:
-      '@talelk/newui-atoms': 1.4.0(solid-js@1.9.17)
-      '@talelk/newui-molecules': 2.4.0(solid-js@1.9.17)
-      '@talelk/newui-organisms': 2.3.0(solid-js@1.9.17)
-      solid-js: 1.9.17
 
   '@talelk/newui-tokens@0.2.0': {}
 
@@ -6393,17 +6287,10 @@ snapshots:
 
   '@tanstack/pacer-lite@0.1.1': {}
 
-  '@tanstack/query-core@5.107.1': {}
-
   '@tanstack/solid-form@1.33.5(solid-js@1.9.17)':
     dependencies:
       '@tanstack/form-core': 1.33.5
       '@tanstack/solid-store': 0.11.2(solid-js@1.9.17)
-      solid-js: 1.9.17
-
-  '@tanstack/solid-query@5.107.1(solid-js@1.9.17)':
-    dependencies:
-      '@tanstack/query-core': 5.107.1
       solid-js: 1.9.17
 
   '@tanstack/solid-store@0.11.2(solid-js@1.9.17)':
@@ -6411,24 +6298,7 @@ snapshots:
       '@tanstack/store': 0.11.2
       solid-js: 1.9.17
 
-  '@tanstack/solid-table@9.3.1(solid-js@1.9.17)':
-    dependencies:
-      '@tanstack/store': 0.11.2
-      '@tanstack/table-core': 9.3.1
-      solid-js: 1.9.17
-
-  '@tanstack/solid-virtual@3.13.49(solid-js@1.9.17)':
-    dependencies:
-      '@tanstack/virtual-core': 3.19.7
-      solid-js: 1.9.17
-
   '@tanstack/store@0.11.2': {}
-
-  '@tanstack/table-core@9.3.1':
-    dependencies:
-      '@tanstack/store': 0.11.2
-
-  '@tanstack/virtual-core@3.19.7': {}
 
   '@tybys/wasm-util@0.10.4':
     dependencies:
@@ -7308,11 +7178,6 @@ snapshots:
   ecdsa-sig-formatter@1.0.11:
     dependencies:
       safe-buffer: 5.2.1
-
-  echarts@6.1.0:
-    dependencies:
-      tslib: 2.3.0
-      zrender: 6.1.0
 
   ee-first@1.1.1: {}
 
@@ -9041,8 +8906,6 @@ snapshots:
 
   tslib@1.14.1: {}
 
-  tslib@2.3.0: {}
-
   tslib@2.8.1: {}
 
   tsx@4.20.6:
@@ -9313,7 +9176,3 @@ snapshots:
       zod: 4.6.7
 
   zod@4.6.7: {}
-
-  zrender@6.1.0:
-    dependencies:
-      tslib: 2.3.0
