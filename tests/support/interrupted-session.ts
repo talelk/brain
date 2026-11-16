@@ -38,8 +38,17 @@ export async function interruptedSession(brain: Brain, actor: ActorContext, work
   await command(brain, actor, workspaceId, "plan.confirm", `${key}-confirm`, { planVersionId: planId }, version);
 
   const runner = enrolledRunner(brain, actor, runnerId);
-  const offer = brain.jobProtocol.claim(runner, `claim-${key}`) as unknown as { attemptId: string; leaseId: string; jobFence: number } | null;
+  // Every other queued job (a dispatched workflow, another mission's task) waits out the hour while this runner claims, so it is offered this mission's task and no other, whatever else the workspace has queued.
+  const ws = brain.store.workspaceDb(workspaceId, actor.organizationId);
+  const ours = () => (ws.prepare("SELECT l.run_id AS runId FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE w.mission_id=?").get(missionId) as { runId: string } | undefined)?.runId;
+  for (let waited = 0; !ours() && waited < 20_000; waited += 100) { await brain.autoStart.sweepAll(); await new Promise((resolve) => setTimeout(resolve, 100)); }
+  const aside = (brain.store.control.prepare("SELECT id FROM jobs WHERE state='queued' AND workflow_run_id<>?").all(ours() ?? "") as Array<{ id: string }>).map((row) => row.id);
+  const shift = (ms: number) => { for (const id of aside) brain.store.control.prepare("UPDATE jobs SET ready_at_ms=ready_at_ms+? WHERE id=?").run(ms, id); };
+  shift(3_600_000);
+  let offer: { attemptId: string; leaseId: string; jobFence: number; workflowRunId?: string } | null;
+  try { offer = brain.jobProtocol.claim(runner, `claim-${key}`) as unknown as typeof offer; } finally { shift(-3_600_000); }
   if (!offer) throw new Error("the runner was offered no task");
+  if (offer.workflowRunId !== ours()) throw new Error(`the runner was offered another run's task (${offer.workflowRunId}), not this mission's`);
   brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence, engine: { id: "fixture", adapterDigest: DIGEST, features: RESUMABLE_FEATURES } });
   // The engine's saved conversation goes to the Governor while the attempt is still running, as an artifact of that attempt.
   const conversation = new TextEncoder().encode(`{"type":"session","id":"${offer.attemptId}"}\n{"role":"user","content":"${title}"}\n`);
