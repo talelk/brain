@@ -103,3 +103,10 @@ describe("the fixture script language", () => {
     expect(events.at(-1)).toMatchObject({ kind: "stopped", reason: "cancelled" });
   });
 });
+
+import { engineFailure as classifyEngineFailure } from "../../apps/runner/src/engines/run";
+describe("engine failures that are tried again", () => {
+  it("a model that used its whole output limit before answering is retryable", () => {
+    expect(classifyEngineFailure("the model used its whole output limit before writing an answer")).toMatchObject({ reason: "engine", infrastructure: true });
+  });
+});

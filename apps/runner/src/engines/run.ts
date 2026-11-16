@@ -42,7 +42,8 @@ function failed(reason: AttemptFailure["reason"], detail: string, infrastructure
 export function engineFailure(detail: string): AttemptFailure {
   if (detail.includes(SANDBOX_REFUSAL)) return failed("runner", detail, true);
   const kind = failureKind(detail);
-  return kind === "model-refused" ? failed("model-refused", detail, true) : failed("engine", detail, kind === "endpoint");
+  // A model that spent its whole output allowance thinking is a flake of the model, not a fault of the task: the attempt is tried again.
+  return kind === "model-refused" ? failed("model-refused", detail, true) : failed("engine", detail, kind === "endpoint" || detail.includes("whole output limit"));
 }
 
 /** One engine session from start to its terminal event, with the agent's limits and the attempt's time limit enforced. */
