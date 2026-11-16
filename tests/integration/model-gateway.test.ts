@@ -184,6 +184,35 @@ describe("the model gateway (ADR 0072)", () => {
     expect(fake.seen).toHaveLength(1);
   });
 
+  it("reserves what a call could cost before it is sent, so parallel calls cannot all pass on what was spent before them", async () => {
+    const w = world();
+    const fake = upstream({ a: "ok" });
+    const release: Array<() => void> = [];
+    w.brain.modelFetch = ((input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((resolve) => { release.push(() => resolve(fake.fetch(input, init) as unknown as Response)); })) as unknown as typeof fetch;
+    await set(w, "p-1", [route("a")]);
+    const job = await secondAttempt(w, "p1");
+    const attempt = running(w, job.runner, "req-p1");
+    const version = ((await w.brain.executeQuery(w.owner, { queryType: "missions.get", workspaceId: w.workspaceId, resourceId: job.missionId })) as unknown as { snapshot: { version: number } }).snapshot.version;
+    // 1000 output tokens at $15/M is about 15,000 micro-USD: the budget covers one such call in flight but not two.
+    await command(w, w.owner, "mission.budget.set", "p-budget", { missionId: job.missionId, budget: { maxMicroUsd: 20_000, memberCap: 3, attemptReserveMicroUsd: 0 } }, version);
+    const body = { model: "x", max_tokens: 1000, messages: [{ role: "user", content: SENTINEL }] };
+    const first = call(w, attempt.token, "a", body);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(release).toHaveLength(1);
+    const second = await call(w, attempt.token, "a", body);
+    expect(second.status).toBe(403);
+    expect(release).toHaveLength(1);
+    release[0]!();
+    expect((await first).status).toBe(200);
+    await (await first).text();
+    // Its actual cost ($0.009) settled the reservation: nothing stays reserved, and a call that fits the rest of the budget is served.
+    const third = call(w, attempt.token, "a", { ...body, max_tokens: 100 });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(release).toHaveLength(2);
+    release[1]!();
+    expect((await third).status).toBe(200);
+  });
+
   it("stops every call of a workspace whose daily cap is used up", async () => {
     const w = world();
     const fake = upstream({ a: "ok" });
