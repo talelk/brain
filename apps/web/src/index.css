@@ -1,0 +1,576 @@
+@import "@talelk/newui-tailwind/style.css";
+@import "@fontsource-variable/bricolage-grotesque/opsz.css";
+@import "@fontsource-variable/hanken-grotesk/index.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-400.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-500.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+
+@source "../index.html";
+@source "./**/*.{ts,tsx}";
+@source "../node_modules/@talelk/newui-atoms/src/**/*.{ts,tsx}";
+@source not "../node_modules/@talelk/newui-atoms/src/**/*.test.{ts,tsx}";
+@source "../node_modules/@talelk/newui-molecules/src/**/*.{ts,tsx}";
+@source not "../node_modules/@talelk/newui-molecules/src/**/*.test.{ts,tsx}";
+
+/*
+ * Brain's palette, written once and wired through the design system's own variables.
+ *   ink      deep indigo, the text and the solid links of a finished record
+ *   paper    near-white lavender, the page
+ *   violet   the one colour of actions
+ *   lilac    selected and hover surfaces
+ *   ok       green: a checked result
+ *   needs    orange: something needs you. Never used for anything else.
+ * Contrast (WCAG): light ink/paper 16.3, ink-2/paper 8.3, ink-3/paper 5.2, violet text/paper 6.6, white/violet 6.1,
+ * ok/paper 5.1, needs text/paper 5.4, ink on needs 5.6. Dark ink/paper 16.6, ink-2 10.0, ink-3 6.3, violet text 8.8,
+ * paper on violet 7.7, ok 10.4, needs text 9.1.
+ */
+:root {
+  --on-needs: #1a1446;
+  --paper: #faf9ff;
+  --sheet: #ffffff;
+  --ink: #1a1446;
+  --ink-2: #4b4674;
+  --ink-3: #6a6591;
+  --lilac: #efebff;
+  --lilac-2: #e3dcff;
+  --rule: #e2def3;
+  --rule-2: #c9c3e6;
+  --violet: #5b3df5;
+  --violet-text: #5235e8;
+  --ok: #157a4c;
+  --ok-mark: #1e9b63;
+  --ok-soft: #e3f6ec;
+  --needs: #f4692a;
+  --needs-mark: #ea5a1b;
+  --needs-text: #b5400b;
+  --needs-soft: #ffefe6;
+  --needs-line: #f3a983;
+  --bad: #b4233f;
+  --bad-soft: #fdecef;
+  --added: #e3f6ec;
+  --removed: #fdecef;
+
+  --surface-base: var(--sheet);
+  --surface-canvas: var(--paper);
+  --surface-sidebar: var(--paper);
+  --surface-elevation-1: var(--sheet);
+  --surface-elevation-2: var(--sheet);
+  --surface-elevation-3: var(--sheet);
+  --surface-gray-1: #f7f5ff;
+  --surface-gray-2: #efebff;
+  --surface-gray-3: #e3dcff;
+  --surface-gray-4: #d2caf5;
+  --surface-gray-5: #b4addb;
+  --surface-gray-6: #8f89bd;
+  --surface-gray-7: #6a6591;
+  --surface-gray-8: #4b4674;
+  --surface-gray-9: #2e2859;
+  --surface-gray-10: #1a1446;
+  --ink-base: #ffffff;
+  --ink-gray-1: #e3dcff;
+  --ink-gray-2: #d2caf5;
+  --ink-gray-3: #b4addb;
+  --ink-gray-4: #8f89bd;
+  --ink-gray-5: #6a6591;
+  --ink-gray-6: #5a557f;
+  --ink-gray-7: #4b4674;
+  --ink-gray-8: #2a2456;
+  --ink-gray-9: #1a1446;
+  --outline-gray-1: #e2def3;
+  --outline-gray-2: #c9c3e6;
+  --outline-gray-3: #a8a1d0;
+  --outline-gray-4: #8f89bd;
+  --outline-gray-5: #6a6591;
+  --surface-blue-1: #f5f2ff;
+  --surface-blue-2: #ece7ff;
+  --surface-blue-3: #ddd5ff;
+  --surface-blue-4: #c3b6ff;
+  --surface-blue-5: #a08cff;
+  --surface-blue-6: #7c63fa;
+  --surface-blue-7: #6a4ef7;
+  --surface-blue-8: #5b3df5;
+  --surface-blue-9: #4a2de0;
+  --surface-blue-10: #3a21b8;
+  --ink-blue-1: #ece7ff;
+  --ink-blue-2: #ddd5ff;
+  --ink-blue-3: #c3b6ff;
+  --ink-blue-4: #a08cff;
+  --ink-blue-5: #7c63fa;
+  --ink-blue-6: #6a4ef7;
+  --ink-blue-7: #5b3df5;
+  --ink-blue-8: #5235e8;
+  --ink-blue-9: #3a21b8;
+  --ink-blue-link: #5235e8;
+  --outline-blue-1: #c3b6ff;
+  --outline-blue-2: #a08cff;
+  --outline-blue-3: #8a73fb;
+  --outline-blue-4: #7c63fa;
+  --outline-blue-5: #6a4ef7;
+  --focus-outline-default: 2px solid #5b3df5;
+  --focus-outline-blue: 2px solid #5b3df5;
+  --surface-scrim: rgb(26 20 70 / 0.32);
+}
+
+[data-theme="dark"] {
+  --on-needs: #0f0b2b;
+  --paper: #0f0b2b;
+  --sheet: #171240;
+  --ink: #f0edff;
+  --ink-2: #bdb7e3;
+  --ink-3: #958fc2;
+  --lilac: #231c5c;
+  --lilac-2: #2e2675;
+  --rule: #2a2363;
+  --rule-2: #40388a;
+  --violet: #a796ff;
+  --violet-text: #b3a5ff;
+  --ok: #56d69e;
+  --ok-mark: #2fb67c;
+  --ok-soft: #11362b;
+  --needs: #ff8749;
+  --needs-mark: #ff8749;
+  --needs-text: #ff9a66;
+  --needs-soft: #3b1e12;
+  --needs-line: #8a4a2a;
+  --bad: #ff8098;
+  --bad-soft: #3d1422;
+  --added: #123a2c;
+  --removed: #451827;
+
+  --surface-gray-1: #130e36;
+  --surface-gray-2: #231c5c;
+  --surface-gray-3: #2e2675;
+  --surface-gray-4: #40388a;
+  --surface-gray-5: #5a52a3;
+  --surface-gray-6: #7770b3;
+  --surface-gray-7: #958fc2;
+  --surface-gray-8: #bdb7e3;
+  --surface-gray-9: #dcd7f7;
+  --surface-gray-10: #f0edff;
+  --ink-base: #0f0b2b;
+  --ink-gray-1: #2a2363;
+  --ink-gray-2: #40388a;
+  --ink-gray-3: #5a52a3;
+  --ink-gray-4: #8079b8;
+  --ink-gray-5: #958fc2;
+  --ink-gray-6: #a9a3d3;
+  --ink-gray-7: #bdb7e3;
+  --ink-gray-8: #dcd7f7;
+  --ink-gray-9: #f0edff;
+  --outline-gray-1: #2a2363;
+  --outline-gray-2: #40388a;
+  --outline-gray-3: #5a52a3;
+  --outline-gray-4: #7770b3;
+  --outline-gray-5: #958fc2;
+  --surface-blue-1: #1b1550;
+  --surface-blue-2: #261e6b;
+  --surface-blue-3: #332989;
+  --surface-blue-4: #4536ad;
+  --surface-blue-5: #5c49d6;
+  --surface-blue-6: #7a66f5;
+  --surface-blue-7: #907dff;
+  --surface-blue-8: #a796ff;
+  --surface-blue-9: #bdb0ff;
+  --surface-blue-10: #d6ceff;
+  --ink-blue-1: #332989;
+  --ink-blue-2: #4536ad;
+  --ink-blue-3: #5c49d6;
+  --ink-blue-4: #7a66f5;
+  --ink-blue-5: #907dff;
+  --ink-blue-6: #a796ff;
+  --ink-blue-7: #b3a5ff;
+  --ink-blue-8: #c6bbff;
+  --ink-blue-9: #e1dcff;
+  --ink-blue-link: #b3a5ff;
+  --outline-blue-1: #332989;
+  --outline-blue-2: #4536ad;
+  --outline-blue-3: #5c49d6;
+  --outline-blue-4: #7a66f5;
+  --outline-blue-5: #907dff;
+  --focus-outline-default: 2px solid #a796ff;
+  --focus-outline-blue: 2px solid #a796ff;
+  --surface-scrim: rgb(5 3 20 / 0.7);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-lilac: var(--lilac);
+  --color-lilac-2: var(--lilac-2);
+  --color-rule: var(--rule);
+  --color-rule-2: var(--rule-2);
+  --color-violet: var(--violet);
+  --color-violet-text: var(--violet-text);
+  --color-ok: var(--ok);
+  --color-ok-mark: var(--ok-mark);
+  --color-ok-soft: var(--ok-soft);
+  --color-needs: var(--needs);
+  --color-needs-mark: var(--needs-mark);
+  --color-needs-text: var(--needs-text);
+  --color-needs-soft: var(--needs-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --font-display: "Bricolage Grotesque Variable", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Hanken Grotesk Variable", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  /* The design system's controls, one step larger so they sit with 15px text. */
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.125rem;
+  --text-sm-medium: 0.8125rem;
+  --text-sm-medium--line-height: 1.125rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.25rem;
+  --text-base-medium: 0.875rem;
+  --text-base-medium--line-height: 1.25rem;
+  --text-lg: 0.9375rem;
+  --text-lg--line-height: 1.375rem;
+  --text-lg-medium: 0.9375rem;
+  --text-lg-medium--line-height: 1.375rem;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-overlay: 14px;
+}
+
+/*
+ * Type scale. Display is Bricolage Grotesque (the goal box and titles), text is Hanken Grotesk, monospace is only for real code.
+ *   hero 2.125–3.5rem · title 1.75rem · head 1.1875rem · text 0.9375rem · small 0.8125rem
+ */
+@utility t-hero {
+  font-family: var(--font-display);
+  font-size: clamp(2.125rem, 1.4rem + 3.4vw, 3.5rem);
+  line-height: 1.04;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  font-variation-settings: "opsz" 96;
+}
+@utility t-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 1.3rem + 0.9vw, 1.875rem);
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  font-variation-settings: "opsz" 48;
+}
+@utility t-head {
+  font-family: var(--font-display);
+  font-size: 1.1875rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  font-variation-settings: "opsz" 24;
+}
+@utility t-goal {
+  font-family: var(--font-display);
+  font-size: clamp(1.125rem, 1rem + 0.5vw, 1.3125rem);
+  line-height: 1.4;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  font-variation-settings: "opsz" 24;
+}
+@utility t-text {
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+@utility t-small {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+@utility t-code {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  font-variation-settings: normal;
+}
+
+/* Unlayered, so it wins over the design system's own base rule for the page face. */
+html {
+  font-family: var(--font-sans);
+  background: var(--paper);
+  color: var(--ink);
+}
+html, body, button, p, span, div {
+  font-variation-settings: normal;
+}
+body {
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  min-height: 100dvh;
+  background: var(--paper);
+}
+
+@layer base {
+  /* Arabic letters join: tracking would break the words apart. Plex Arabic also wants more room between lines. */
+  :root[lang="ar"] * {
+    letter-spacing: 0 !important;
+  }
+  :root[lang="ar"] body {
+    line-height: 1.75;
+  }
+  ::selection {
+    background-color: color-mix(in oklab, var(--violet) 24%, transparent);
+  }
+  code, pre, kbd, samp {
+    font-family: var(--font-mono);
+  }
+  /* A text area grows with what is typed in it, up to most of the screen. */
+  textarea {
+    field-sizing: content;
+    max-height: 70vh;
+  }
+  ::placeholder {
+    color: color-mix(in oklab, var(--ink-3) 78%, transparent);
+    opacity: 1;
+  }
+  a {
+    color: inherit;
+  }
+}
+
+/* A link in running text: the violet of actions, underlined so colour is not the only sign. */
+@utility link {
+  color: var(--violet-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  border-radius: 3px;
+  &:hover {
+    text-decoration-thickness: 2px;
+  }
+}
+
+/* The goal box: one large link of the chain, drawn in ink. It is the hero of Today. */
+.goal-box {
+  background: var(--sheet);
+  border: 2px solid var(--ink);
+  border-radius: 28px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.goal-box:focus-within {
+  border-color: var(--violet);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--violet) 18%, transparent);
+}
+.goal-box textarea {
+  resize: none;
+  outline: none;
+  field-sizing: content;
+  min-height: 3.2em;
+  max-height: 40vh;
+}
+.goal-box textarea::placeholder {
+  color: var(--ink-3);
+  opacity: 1;
+}
+
+/*
+ * The chain: the record of a goal, drawn down the leading side of the Task page. Every sub-task is a link; the bar between two
+ * links passes through both. A check and an approval hang off their link as smaller links. Only a running link moves.
+ */
+.chain {
+  --rail: 3.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.chain-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+}
+/* The bar to the next link: it starts inside this link's hole and ends inside the next one's, behind both rings. */
+.chain-item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(var(--rail) / 2 - 3.5px);
+  top: 3rem;
+  bottom: -1.375rem;
+  width: 7px;
+  border-radius: 4px;
+  background: var(--rule-2);
+}
+.chain-item[data-solid="true"]:not(:last-child)::before {
+  background: var(--ink);
+}
+.chain-link {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 2.125rem;
+  height: 3.375rem;
+  margin: 0.5rem auto 0;
+}
+.chain-link svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+}
+.chain-link .ring {
+  stroke: var(--rule-2);
+  stroke-width: 5;
+}
+.chain-link[data-state="done"] .ring { stroke: var(--ink); }
+.chain-link[data-state="running"] .ring { stroke: var(--lilac-2); }
+.chain-link[data-state="ready"] .ring { stroke: var(--violet); stroke-dasharray: 0.1 6.15; stroke-linecap: round; }
+.chain-link[data-state="needs_you"] .ring { stroke: var(--needs-mark); }
+.chain-link[data-state="failed"] .ring { stroke: var(--bad); stroke-dasharray: 86 14; stroke-dashoffset: -32; }
+.chain-link[data-state="stopped"] .ring { stroke: var(--ink-3); }
+.chain-link .runner {
+  stroke: var(--violet);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 24 76;
+  animation: chain-run 1.8s linear infinite;
+}
+@keyframes chain-run {
+  to { stroke-dashoffset: -100; }
+}
+.chain-link .mark {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--ok-mark);
+}
+.chain-link .mark.dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: var(--needs-mark); }
+.chain-link[data-state="failed"] .mark { color: var(--bad); }
+.chain-link[data-state="stopped"] .mark { color: var(--ink-3); }
+/* A link inside a group (the copies of a for-each step) and a step of a Play in its form are a size smaller. */
+.chain .chain, .chain-plain { --rail: 2.25rem; }
+.chain .chain { margin-block: 0.25rem 0.5rem; }
+.chain .chain .chain-link, .chain-plain .chain-link { width: 1.375rem; height: 2.25rem; margin-top: 0.5rem; }
+.chain .chain .chain-item:not(:last-child)::before, .chain-plain .chain-item:not(:last-child)::before { top: 2.125rem; bottom: -1.125rem; width: 5px; inset-inline-start: calc(var(--rail) / 2 - 2.5px); }
+.chain .chain .chain-link .mark { width: 0.625rem; height: 0.625rem; }
+.chain-plain .chain-link .ring { stroke: var(--ink); }
+.chain-plain .chain-item:not(:last-child)::before { background: var(--ink); }
+
+.chain-row {
+  display: block;
+  width: 100%;
+  text-align: start;
+  padding: 0.625rem 0.75rem;
+  margin-block: 0.125rem;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.chain-row:hover { background: var(--lilac); }
+.chain-item[data-selected="true"] > div > .chain-row { background: var(--lilac); }
+
+/* Smaller links hanging off a link: its check and its approvals. */
+.chain-hangs {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  padding-inline-start: 0.75rem;
+}
+.chain-hang {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block: 0.1875rem;
+  color: var(--ink-2);
+}
+/* The hook from the chain's bar to the small link. */
+.chain-hang::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(-0.75rem - var(--rail) / 2 + 1px);
+  width: calc(var(--rail) / 2 + 0.625rem);
+  top: -0.5rem;
+  height: calc(50% + 0.5rem);
+  border-bottom: 2px solid var(--rule-2);
+  border-inline-start: 2px solid transparent;
+  border-end-start-radius: 10px;
+}
+.chain-hang .small-ring {
+  position: relative;
+  flex: none;
+  width: 0.6875rem;
+  height: 1.0625rem;
+  border-radius: 999px;
+  border: 2.5px solid var(--ink);
+}
+.chain-hang[data-tone="ok"] .small-ring { border-color: var(--ok-mark); }
+.chain-hang[data-tone="needs"] .small-ring { border-color: var(--needs-mark); }
+.chain-hang[data-tone="bad"] .small-ring { border-color: var(--bad); }
+.chain-hang[data-tone="quiet"] .small-ring { border-color: var(--rule-2); }
+
+/* Markdown a person reads: a result, findings, a prompt preview. */
+.prose-brain { max-width: 100%; color: var(--ink); font-size: 0.9375rem; line-height: 1.65; overflow-wrap: anywhere; }
+.prose-brain > :not(.prose-table):not(pre) { max-width: 68ch; }
+.prose-brain > :first-child { margin-top: 0; }
+.prose-brain > :last-child { margin-bottom: 0; }
+.prose-brain p { margin: 0 0 0.875rem; line-height: inherit; }
+.prose-brain h3, .prose-brain h4, .prose-brain h5, .prose-brain h6 { font-family: var(--font-display); font-weight: 600; line-height: 1.3; letter-spacing: -0.015em; margin: 1.5rem 0 0.5rem; }
+.prose-brain h3 { font-size: 1.25rem; }
+.prose-brain h4 { font-size: 1.0625rem; }
+.prose-brain h5, .prose-brain h6 { font-size: 0.9375rem; }
+.prose-brain ul, .prose-brain ol { margin: 0 0 0.875rem; padding-inline-start: 1.375rem; }
+.prose-brain ul { list-style: disc; }
+.prose-brain ol { list-style: decimal; }
+.prose-brain li { margin: 0.1875rem 0; }
+.prose-brain li::marker { color: var(--ink-3); }
+.prose-brain strong { font-weight: 650; }
+.prose-brain a { color: var(--violet-text); text-decoration: underline; text-underline-offset: 3px; }
+.prose-brain code { font-size: 0.8125rem; background: var(--lilac); border-radius: 5px; padding: 0.1em 0.35em; }
+.prose-brain pre { margin: 0 0 0.875rem; padding: 0.75rem 0.875rem; overflow-x: auto; border-radius: 10px; background: var(--lilac); font-size: 0.8125rem; line-height: 1.6; direction: ltr; text-align: left; }
+.prose-brain pre code { background: none; padding: 0; }
+.prose-brain blockquote { margin: 0 0 0.875rem; padding-inline-start: 0.875rem; border-inline-start: 3px solid var(--rule-2); color: var(--ink-2); }
+.prose-brain hr { border: 0; border-top: 1px solid var(--rule); margin: 1.5rem 0; }
+.prose-table { margin: 0 0 1rem; overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; }
+.prose-table table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.prose-table th { text-align: start; font-weight: 600; color: var(--ink-2); background: var(--lilac); white-space: nowrap; }
+.prose-table th, .prose-table td { padding: 0.4375rem 0.75rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.prose-table tr:last-child td { border-bottom: 0; }
+
+/* The mark of a `<details>`: points along the reading direction when closed, down when open. Only its own summary turns it. */
+.details-mark { transition: transform 120ms ease; }
+[dir="rtl"] .details-mark { transform: rotate(180deg); }
+details[open] > summary > .details-mark { transform: rotate(90deg); }
+
+/* Real code is always left to right, whatever the language of the interface. */
+.code-ltr { direction: ltr; text-align: left; unicode-bidi: isolate; }
+
+/* The plain file editor: line numbers beside a textarea that scrolls with them. */
+.editor {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  border: 1px solid var(--rule-2);
+  border-radius: 12px;
+  background: var(--sheet);
+  overflow: hidden;
+  direction: ltr;
+}
+.editor:focus-within { border-color: var(--violet); box-shadow: 0 0 0 3px color-mix(in oklab, var(--violet) 16%, transparent); }
+.editor .gutter {
+  padding: 0.75rem 0.625rem 0.75rem 0.875rem;
+  text-align: right;
+  color: var(--ink-3);
+  background: var(--paper);
+  border-right: 1px solid var(--rule);
+  user-select: none;
+  overflow: hidden;
+  white-space: pre;
+}
+.editor .gutter [data-problem="true"] { color: var(--bad); font-weight: 500; }
+.editor textarea {
+  padding: 0.75rem 0.875rem;
+  resize: none;
+  outline: none;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+  color: var(--ink);
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chain-link .runner { animation: none; stroke-dasharray: 100 0; opacity: 0.6; }
+}

@@ -1,14 +1,14 @@
 {
-  "name": "Keyrus Brain",
+  "name": "Brain",
   "short_name": "Brain",
-  "description": "Say what you want done; Brain plans it, asks for your OK, and tells you when it is finished.",
+  "description": "Brain runs agents on your projects and keeps a record you can trust: what ran, what it cost, what was checked, and who approved.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#faf9ff",
+  "theme_color": "#faf9ff",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }

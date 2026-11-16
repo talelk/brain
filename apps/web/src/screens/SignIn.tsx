@@ -1,0 +1,97 @@
+import { createSignal, Show, type JSX } from "solid-js";
+import { Button, TextInput } from "@talelk/newui-atoms";
+import { ApiFailure, command, useAction } from "../data/api";
+import { authClient } from "../data/auth-client";
+import { t } from "../i18n";
+import { Failure } from "../components/bits";
+
+/** better-auth answers `{message}` on a refusal; its routes are called directly so a second factor fits the same form. */
+async function auth<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`/api/auth${path}`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const answer = (await response.json().catch(() => ({}))) as T & { message?: string };
+  // A refused sign-in is said in the person's language; anything else keeps the server's own words.
+  if (!response.ok) throw new ApiFailure(response.status === 429 ? "CONFLICT" : "UNAUTHENTICATED", response.status === 429 ? t("signin.error.tooMany") : response.status === 401 ? t(path.startsWith("/two-factor") ? "signin.error.code" : "signin.error.refused") : answer.message ?? t("signin.error.refused"));
+  return answer;
+}
+
+/** The setup token may arrive in the address (`?token=` or `#token=`), as the install prints it. */
+function tokenFromAddress(): string {
+  return new URLSearchParams(location.search).get("token") ?? new URLSearchParams(location.hash.slice(1)).get("token") ?? "";
+}
+
+/** The company's mark. Its gradient is the mark's own; nothing else in the app borrows it. */
+const CompanyMark = (): JSX.Element => (
+  <p class="font-display text-[1.375rem] font-semibold tracking-tight text-ink" aria-label="Keyrus AI">
+    keyrus <span class="bg-linear-to-r from-[#5b3df5] to-[#f4692a] bg-clip-text text-transparent">Ai</span>
+  </p>
+);
+
+/** First-run setup, then sign-in with a password, a passkey and a second factor. */
+export function SignIn(props: { setupRequired: boolean; onDone: () => void }): JSX.Element {
+  const [token, setToken] = createSignal(tokenFromAddress());
+  const [name, setName] = createSignal("");
+  const [email, setEmail] = createSignal("");
+  const [password, setPassword] = createSignal("");
+  const [code, setCode] = createSignal("");
+  const [step, setStep] = createSignal<"password" | "code" | "recovery">("password");
+
+  const signIn = async (): Promise<void> => {
+    const answer = await auth<{ twoFactorRedirect?: boolean }>("/sign-in/email", { email: email(), password: password() });
+    if (answer.twoFactorRedirect) { setStep("code"); return; }
+    setPassword("");
+    props.onDone();
+  };
+  const submit = useAction(async () => {
+    if (step() !== "password") {
+      await auth(step() === "code" ? "/two-factor/verify-totp" : "/two-factor/verify-backup-code", { code: code().trim(), trustDevice: false });
+      setCode("");
+      props.onDone();
+    } else if (props.setupRequired) {
+      await command("setup.create", { token: token().trim(), name: name(), email: email(), password: password() });
+      // Setup signs the first person in: its answer carries the session.
+      history.replaceState(null, "", location.pathname);
+      setPassword("");
+      props.onDone();
+    } else await signIn();
+  });
+  const passkey = useAction(async () => {
+    const result = await authClient.signIn.passkey();
+    if (result?.error) throw new ApiFailure("UNAUTHENTICATED", result.error.message ?? t("signin.error.passkey"));
+    props.onDone();
+  });
+  const busy = (): boolean => submit.busy() || passkey.busy();
+  const title = (): string => (props.setupRequired ? t("setup.title") : step() === "password" ? t("signin.title") : step() === "code" ? t("signin.code.title") : t("signin.recovery.title"));
+  const text = (): string => (props.setupRequired ? t("setup.text") : step() === "password" ? t("signin.text") : step() === "code" ? t("signin.code.text") : t("signin.recovery.text"));
+
+  return (
+    <main class="mx-auto flex min-h-dvh max-w-[26rem] flex-col justify-center px-5 py-12">
+      <CompanyMark />
+      <h1 class="mt-10 t-hero text-ink">{title()}</h1>
+      <p class="mt-4 t-text text-ink-2">{text()}</p>
+      <form class="mt-8 flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void submit.run(); }}>
+        <Show when={step() === "password"} fallback={
+          <TextInput size="lg" label={step() === "code" ? t("signin.code.label") : t("signin.recovery.label")} value={code()} onInput={(event) => setCode(event.currentTarget.value)} required autofocus
+            autocomplete={step() === "code" ? "one-time-code" : "off"} inputmode={step() === "code" ? "numeric" : "text"} maxlength={step() === "code" ? 6 : 128} disabled={busy()} />
+        }>
+          <Show when={props.setupRequired}>
+            <TextInput size="lg" label={t("setup.token")} description={t("setup.token.help")} value={token()} onInput={(event) => setToken(event.currentTarget.value)} required autocomplete="off" disabled={busy()} class="t-code" />
+            <TextInput size="lg" label={t("setup.name")} value={name()} onInput={(event) => setName(event.currentTarget.value)} required maxlength={100} autocomplete="name" disabled={busy()} />
+          </Show>
+          <TextInput size="lg" type="email" label={t("signin.email")} value={email()} onInput={(event) => setEmail(event.currentTarget.value)} required autocomplete="username webauthn" disabled={busy()} />
+          <TextInput size="lg" type="password" label={t("signin.password")} description={props.setupRequired ? t("setup.password.help") : undefined} value={password()} onInput={(event) => setPassword(event.currentTarget.value)} required minlength={12} maxlength={128}
+            autocomplete={props.setupRequired ? "new-password" : "current-password webauthn"} disabled={busy()} />
+        </Show>
+        <Failure error={submit.error() ?? passkey.error()} />
+        <Button type="submit" variant="solid" theme="blue" size="lg" loading={submit.busy()} disabled={passkey.busy()}>
+          {props.setupRequired ? t("setup.submit") : step() === "password" ? t("signin.submit") : t("signin.code.submit")}
+        </Button>
+        <Show when={!props.setupRequired && step() === "password"}>
+          <Button variant="outline" size="lg" iconLeft="lucide-key-round" loading={passkey.busy()} disabled={submit.busy()} onClick={() => void passkey.run()}>{t("signin.passkey")}</Button>
+        </Show>
+        <Show when={step() !== "password"}>
+          <button type="button" class="link self-start t-small" onClick={() => { setCode(""); submit.clear(); setStep(step() === "code" ? "recovery" : "code"); }}>{step() === "code" ? t("signin.recovery.use") : t("signin.code.use")}</button>
+        </Show>
+      </form>
+    </main>
+  );
+}
