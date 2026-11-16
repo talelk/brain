@@ -1,11 +1,11 @@
 $ pnpm exec vitest run tests/chaos/recovery.test.ts
-(cwd=/home/talel/dev/rd2026/brain)
+(cwd=/home/talel/.cache/brain-gates)
 
- RUN  v5.0.5 /home/talel/dev/rd2026/brain
+ RUN  v5.0.5 /home/talel/.cache/brain-gates
 
 
  Test Files  1 passed (1)
       Tests  3 passed (3)
-   Start at  17:04:47
-   Duration  1.47s (tests 48%, import 44%, transform 8%)
+   Start at  09:51:47
+   Duration  2.27s (tests 49%, import 38%, transform 12%)
 

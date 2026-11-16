@@ -1,9 +1,9 @@
 $ pnpm exec tsx benchmarks/steady.ts
-(cwd=/home/talel/dev/rd2026/brain)
-[steady] seeded initial dataset in 2769ms; 3 trials x 600000ms
-[steady] trial 1 done {"q95":20.182,"c95":29.601,"eld99":49.381,"rssMax":373,"errors":0}
-[steady] trial 2 done {"q95":23.56,"c95":31.78,"eld99":57.901,"rssMax":382,"errors":0}
-[steady] trial 3 done {"q95":19.406,"c95":24.931,"eld99":46.989,"rssMax":380,"errors":0}
-[steady] 10x history trial done {"q95":101.92,"q99":142.39}
-[steady] RESULT {"queryP95":20.182,"queryP99":25.816,"commandP95":29.601,"commandP99":42.656,"eventLoopP99":49.381,"rssMaxMb":380,"throughputPerSec":24.96}
+(cwd=/home/talel/.cache/brain-gates)
+[steady] seeded initial dataset in 4673ms; 3 trials x 600000ms
+[steady] trial 1 done {"q95":10.108,"c95":22.592,"eld99":40.6,"rssMax":393,"mem":{"heapUsedMb":85,"externalMb":6,"arrayBuffersMb":2,"rssMb":393},"errors":0}
+[steady] trial 2 done {"q95":10.688,"c95":27.827,"eld99":50.856,"rssMax":404,"mem":{"heapUsedMb":92,"externalMb":6,"arrayBuffersMb":2,"rssMb":404},"errors":0}
+[steady] trial 3 done {"q95":10.84,"c95":24.66,"eld99":49.283,"rssMax":412,"mem":{"heapUsedMb":78,"externalMb":6,"arrayBuffersMb":2,"rssMb":412},"errors":0}
+[steady] 10x history trial done {"q95":14.676,"q99":16.04}
+[steady] RESULT {"queryP95":10.688,"queryP99":12.034,"commandP95":24.66,"commandP99":34.065,"eventLoopP99":49.283,"rssMaxMb":404,"throughputPerSec":25.07}
 [steady] ALL BUDGETS PASS

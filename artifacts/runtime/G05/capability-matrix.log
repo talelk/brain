@@ -1,11 +1,11 @@
 $ pnpm exec vitest run tests/probes/harnesses/conformance.test.ts
-(cwd=/home/talel/dev/rd2026/brain)
+(cwd=/home/talel/.cache/brain-gates)
 
- RUN  v5.0.5 /home/talel/dev/rd2026/brain
+ RUN  v5.0.5 /home/talel/.cache/brain-gates
 
 
  Test Files  1 passed (1)
       Tests  5 passed (5)
-   Start at  17:04:06
-   Duration  8.55s (tests 99%, import 1%)
+   Start at  09:51:01
+   Duration  6.80s (tests 98%, import 1%, transform 1%)
 

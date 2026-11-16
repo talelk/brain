@@ -2,10 +2,10 @@
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G02",
   "status": "passed",
-  "productFingerprint": "sha256:1e5c0733380925fed5bbdf4234252abb697f446c02a7d43abbd951fd74a71707",
-  "lockDigest": "sha256:b0c2a31e200910cf0f7ca3f0364e13098983468cf693ae0e93a2c8fc2c47a1c2",
-  "startedAt": "2026-11-09T16:03:28.505Z",
-  "finishedAt": "2026-11-09T16:03:31.756Z",
+  "productFingerprint": "sha256:4ceec7e0e25c51eaa38a6c77791412462b0bc58c504496d1a22b6574e2626665",
+  "lockDigest": "sha256:8028f52ea1c39f5793f0622cc0e79861ffe0c6b489e7a46102e628ba2b7334d7",
+  "startedAt": "2026-11-16T08:50:17.917Z",
+  "finishedAt": "2026-11-16T08:50:22.051Z",
   "commands": [
     {
       "argv": [
@@ -14,7 +14,7 @@
         "const p=require('better-sqlite3');const db=p(':memory:');const v=db.prepare('select sqlite_version() v').get().v;const o=db.prepare('pragma compile_options').all().map(r=>Object.values(r)[0]);if(!o.includes('ENABLE_FTS5'))throw new Error('FTS5 not compiled in');console.log('sqlite_version',v,'compile_options',o.join(','));"
       ],
       "exitCode": 0,
-      "durationMs": 34
+      "durationMs": 32
     },
     {
       "argv": [
@@ -25,7 +25,7 @@
         "tests/integration/scenarios3.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 3200
+      "durationMs": 4009
     }
   ],
   "checks": [
@@ -45,11 +45,11 @@
   "artifacts": [
     {
       "path": "artifacts/runtime/G02/embedded-engine-versions.log",
-      "digest": "sha256:f35c3c78ac61e5f7ee683b2fb5522d2dc4a2c42a55818dfebd62c4bca53184c3"
+      "digest": "sha256:136adc93199c1004353a1d82ff2e2ec7b0dd507142c446a044f2f2cf27492228"
     },
     {
       "path": "artifacts/runtime/G02/wal-fix-and-stress.log",
-      "digest": "sha256:29cc3734bf7444f92649e087cb18e4da7fa70d79dfa42480818eac46aa82a4b7"
+      "digest": "sha256:e9160a827053f400320b6ddad80167aff3d1027519a8f6c5c32a0681e056d930"
     }
   ],
   "selectedScenarios": [
