@@ -873,6 +873,11 @@
       "scopeMode": "organization",
       "redactPrivilegedDetails": false
     },
+    "webhooks.list": {
+      "scope": "platform:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
     "identity.oidc.get": {
       "scope": "identity:read",
       "scopeMode": "organization",

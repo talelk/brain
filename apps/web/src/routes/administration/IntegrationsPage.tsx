@@ -13,6 +13,7 @@ import { FormSheet } from "../../ui/components/BrainForm";
 import { IconTile } from "../../ui/components/primitives";import { WorkspaceSection } from "../../ui/components/Domain";
 import { StatGrid } from "@talelk/newui-organisms";
 import { GitGuideChecklist } from "../../ui/components/GitGuide";
+import { WebhookEndpoints } from "../../ui/components/WebhookEndpoints";
 import { t } from "../../i18n";
 /** The Git providers Brain can open pull requests with; the owner picks one per connection, it is never worked out from the address. */
 const PROVIDER_OPTIONS: ReadonlyArray<{ value: GitProvider; label: string }> = [
@@ -146,6 +147,7 @@ export default function IntegrationsPage(): JSX.Element {
           <Show when={integrations.state().data?.bindings.length} fallback={<EmptyState size="sm" icon="lucide-link" title={t("adm.no-repository-bindings.d92f")} description={t("adm.verify-a-connection-and-bind-a-r.101c")} />}><div class="brain-queue"><For each={integrations.state().data?.bindings}>{(binding) => <div class="min-w-0 border-b border-outline-gray-1 py-2.5"><div class="flex flex-wrap items-center justify-between gap-2"><strong class="min-w-0 break-all">{binding.repositoryKey}</strong><StatusBadge kind="connection" status={binding.status} /></div><p class="mt-1 break-words text-caption text-ink-gray-6">{binding.kind} · {binding.access} · {binding.workspaceId}</p><Show when={binding.detail}><p class="mt-1 break-words text-caption text-ink-red-7">{binding.detail}</p></Show></div>}</For></div></Show>
         </WorkspaceSection>
         <TechnicalDetails label={t("adm.git-ref-proposals.4e17")}><Show when={integrations.state().data?.proposals.length} fallback={<p>{t("adm.no-ref-change-proposals-yet.f15e")}</p>}><ul class="flex flex-col gap-2"><For each={integrations.state().data?.proposals}>{(proposal) => <li class="min-w-0 break-words text-caption"><strong>{proposal.kind} proposal</strong> · <span class="break-all">{proposal.sourceEventId}</span><p class="break-all text-ink-gray-6">{proposal.digest}</p></li>}</For></ul></Show></TechnicalDetails></Show>
+      <WebhookEndpoints />
       <FormSheet open={connectOpen()} onClose={() => setConnectOpen(false)} title={t("adm.connect-a-git-remote.a2d4")} centered description={t("adm.one-connection-per-remote-reposi.c69b")}
         submit={t("adm.connect-remote.d2cb")} icon="lucide-plus" busy={busy()} onSubmit={connect} error={error()} errorTitle={t("adm.connection-failed.202c")}>
         <TextInput label={t("adm.connection-name.5584")} value={name()} onInput={(event) => setName(event.currentTarget.value)} required error={attempted() && !name().trim() ? "Name this connection." : undefined} placeholder={t("adm.configuration-repository.6521")} />

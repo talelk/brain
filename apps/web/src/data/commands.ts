@@ -20,7 +20,7 @@ export type CommandKind =
   | "play.proposeFromMissions" | "knowledge.withdrawUnobserved"
   | "automation.upsert" | "automation.control"
   | "document.upload" | "document.revise" | "document.associate" | "document.delete"
-  | "integration.connect" | "integration.verify" | "integration.bind"
+  | "integration.connect" | "integration.verify" | "integration.bind" | "webhook.create" | "webhook.rotate"
   | "configDraft.create" | "configDraft.update" | "configDraft.validate" | "configDraft.test" | "configDraft.publish"
   | "member.grant" | "member.revoke" | "config.activate" | "memory.publish" | "memory.revoke"
   | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "knowledge.review" | "knowledge.scope.request" | "knowledge.scope.set" | "knowledge.approveVerified" | "library.settings.set" | "plays.addStarter" | "mission.reuse.decide" | "result.challenge" | "play.propose" | "play.proposal.review" | "approval.revoke" | "workspace.update" | "workspace.control" | "workspace.export" | "workspace.import"
@@ -113,6 +113,8 @@ export type PayloadFor<K extends CommandKind> =
                                                     : K extends "document.associate" ? { documentId: string; resource: { kind: "workItem" | "mission" | "session" | "run"; id: string } }
                                                       : K extends "document.delete" ? { documentId: string; reason: string }
                                                         : K extends "integration.connect" ? { name: string; provider: GitProvider; repositoryUrl: string; username?: string; token?: string }
+                                                          : K extends "webhook.create" ? { kind: "github" | "gitlab" | "ticket"; workspaceId: string; connectionId?: string; secret: string }
+                                                            : K extends "webhook.rotate" ? { endpointId: string; secret: string }
                                                           : K extends "integration.verify" ? { connectionId: string }
                                                             : K extends "integration.bind" ? { connectionId: string; workspaceId: string; kind: "configuration" | "project"; repositoryKey: string; access: "read" | "write" }
                                                               : K extends "configDraft.create" ? { title: string; kind?: string; bindingId?: string; documents?: Array<{ path: string; text: string }>; assets?: Array<{ path: string; text: string }>; sourceDefinition?: { kind: "Agent" | "Workflow" | "RunnerGroup" | "Policy" | "Tool"; id: string; mode: "edit" | "duplicate" } }

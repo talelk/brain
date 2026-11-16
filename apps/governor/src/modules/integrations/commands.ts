@@ -11,5 +11,7 @@ export function integrationCommands(integrations: IntegrationService): CommandHa
     "integration.connect": handler("applied"),
     "integration.verify": handler("applied"),
     "integration.bind": handler("applied"),
+    "webhook.create": handler("applied"),
+    "webhook.rotate": handler("applied"),
   };
 }

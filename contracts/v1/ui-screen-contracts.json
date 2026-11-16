@@ -1045,12 +1045,15 @@
    "queries": [
     "integrations.list",
     "integrations.repositories",
-    "integrations.guide"
+    "integrations.guide",
+    "webhooks.list"
    ],
    "actions": [
     "integration.connect",
     "integration.bind",
-    "integration.verify"
+    "integration.verify",
+    "webhook.create",
+    "webhook.rotate"
    ],
    "content": [
     "providers",
