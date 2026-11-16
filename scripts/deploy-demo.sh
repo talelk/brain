@@ -200,7 +200,11 @@ fi
 echo "==> Engine sandboxes (state root, egress proxy)"
 $SSH "mkdir -p $REMOTE_DIR/run/engine-state $REMOTE_DIR/run/egress-grants && chmod 700 $REMOTE_DIR/run/engine-state $REMOTE_DIR/run/egress-grants"
 $SSH "docker network inspect brain-internal >/dev/null 2>&1 || docker network create --internal brain-internal >/dev/null"
-$SSH "docker inspect brain-egress-proxy >/dev/null 2>&1 || (docker run -d --restart unless-stopped --name brain-egress-proxy --read-only --cap-drop ALL --security-opt no-new-privileges:true --memory 256m --pids-limit 128 -v $REMOTE_DIR/run/egress-grants:/grants:ro brain-egress-proxy >/dev/null && docker network connect --alias brain-egress-proxy brain-internal brain-egress-proxy)"
+# The proxy refuses private and Tailscale addresses unless the operator grants a host on purpose (BRAIN_EGRESS_ALLOW_INTERNAL, ADR 0072/0073 review fix):
+# the local model host is exactly that case. Docker's bridge DNS does not see Tailscale names, so the host is pinned to the address the server resolves.
+# `docker container inspect` (not `docker inspect`, which also matches the image of the same name and would skip starting the container).
+MODEL_HP="${MODEL_URL#*://}"; MODEL_HP="${MODEL_HP%%/*}"; MODEL_HOST="${MODEL_HP%%:*}"
+$SSH "docker container inspect brain-egress-proxy >/dev/null 2>&1 || (MIP=\$(getent hosts $MODEL_HOST | awk '{print \$1}' | head -1); docker run -d --restart unless-stopped --name brain-egress-proxy --read-only --cap-drop ALL --security-opt no-new-privileges:true --memory 256m --pids-limit 128 \${MIP:+--add-host $MODEL_HOST:\$MIP} -e BRAIN_EGRESS_ALLOW_INTERNAL=$MODEL_HP -v $REMOTE_DIR/run/egress-grants:/grants:ro brain-egress-proxy >/dev/null && docker network connect --alias brain-egress-proxy brain-internal brain-egress-proxy)"
 
 echo "==> Building the governor image (cached layers make repeat deploys fast)"
 $SSH "cd $REMOTE_DIR && docker compose build governor"
@@ -407,6 +411,9 @@ else
     set_runner_env runner-agents.env "BRAIN_RUNNER_$key" "$agents_value"
     set_runner_env runner-evaluators.env "BRAIN_RUNNER_$key" "$evaluators_value"
   done
+  # A runner claims ephemeral-container isolation for its engines only with the engine state directory (ADR 0073). Runners enrolled by an earlier
+  # release do not have it; without it every starter workflow finds no capable runner. Idempotent upsert for every runner env file that exists.
+  for f in runner-agents.env runner-evaluators.env runner-sre-host.env; do set_runner_env "$f" BRAIN_RUNNER_ENGINE_STATE_DIR "$REMOTE_DIR/run/engine-state"; done
   $SSH "$SUDO systemctl restart brain-launcher brain-runner-agents brain-runner-evaluators; systemctl cat brain-runner-sre-host >/dev/null 2>&1 && $SUDO systemctl restart brain-runner-sre-host || true"
 fi
 
