@@ -10,6 +10,7 @@
  * differ (seeded timestamps and ids vary per run); they run on the seeded workspace from
  * tests/support/browserDemo.ts.
  */
+import { createHmac } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -161,6 +162,24 @@ async function interruptedRoute(demo: Demo, governor: Fixture, runnerId: string,
 
 /** Two standing teams (ticket #130), made through the commands the Library sends; the three standing-team screens share them. */
 let standingTeamsSeeded = false;
+let webhooksSeeded = false;
+/** Two webhook addresses (GitHub, ticket system) with a few deliveries, reached the way the providers reach them: signed requests to the routes. */
+async function seedWebhooks(governor: Fixture, _page: Page, demo: Demo): Promise<void> {
+  if (webhooksSeeded) return;
+  webhooksSeeded = true;
+  const secret = "visual-baseline-secret-0123456789";
+  const create = async (key: string, kind: string) => (await governor.app.brain.executeCommand(demo.actor, { contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "webhook.create", idempotencyKey: key, payload: { kind, workspaceId: demo.workspaceId, secret } } as never, key)).receipt.resourceId!;
+  const github = await create("vb-hook-github", "github");
+  await create("vb-hook-ticket", "ticket");
+  const send = async (event: string, delivery: string, payload: unknown) => {
+    const body = JSON.stringify(payload);
+    await fetch(`${governor.url}/hooks/github/${github}`, { method: "POST", headers: { "content-type": "application/json", "x-github-event": event, "x-github-delivery": delivery, "x-hub-signature-256": `sha256=${createHmac("sha256", secret).update(body).digest("hex")}` }, body });
+  };
+  const repository = { full_name: "acme/app", html_url: "https://github.com/acme/app" };
+  await send("ping", "vb-1", { zen: "Design for failure." });
+  await send("issues", "vb-2", { action: "opened", repository, issue: { number: 12, title: "Sign-in fails", html_url: "https://github.com/acme/app/issues/12", labels: [] } });
+  await send("check_run", "vb-3", { action: "completed", repository, check_run: { name: "ci / test", conclusion: "success", pull_requests: [{ number: 9 }] } });
+}
 async function seedStandingTeams(governor: Fixture, _page: Page, demo: Demo): Promise<void> {
   if (standingTeamsSeeded) return;
   standingTeamsSeeded = true;
@@ -308,6 +327,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "play-autonomy-suggestion", route: () => "/plays/checklist-runbook", heading: "Write a checklist or runbook", prepare: seedAutonomyRecords, after: async (page) => { const card = page.getByTestId("autonomy-suggestion"); await expect(card).toHaveCount(1); await card.evaluate((element) => element.scrollIntoView({ block: "start" })); } },
   { id: "quality-autonomy-suggestion", route: () => "/quality", heading: "Quality", prepare: seedAutonomyRecords, after: async (page) => { await expect(page.getByTestId("autonomy-suggestion")).toHaveCount(2); await page.getByTestId("autonomy-suggestions").evaluate((element) => element.scrollIntoView({ block: "start" })); } },
   // The run page's Why tab (ticket #144): it adds a mission, a run and a runner, so it comes after every screen that counts them and before the push screens (those stay last).
+  // Administration > Integrations with signed webhook addresses and their last deliveries (ticket #138): status only, no secret.
+  { id: "admin-webhooks", route: () => "/administration/integrations", heading: "Signed webhooks", prepare: seedWebhooks, waitFor: "webhooks", after: async (page) => { await expect(page.getByTestId("webhook-endpoint")).toHaveCount(2); await expect(page.getByTestId("webhook-deliveries").first()).toBeVisible(); } },
   { id: "run-why", route: whyRoute, heading: "Run inspector", waitFor: "why-choices" },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
@@ -460,7 +481,7 @@ async function seedChangeApprovalRecord(governor: Parameters<typeof seedBrowserD
   changeApproval = await seedChangeApproval(governor.app.brain, demo.actor, demo.workspaceId, { runId: "demo-run-progress", key: "vb-change" });
 }
 
-test.afterEach(async () => { standingTeamsSeeded = false; autonomyRecords = undefined; questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
+test.afterEach(async () => { standingTeamsSeeded = false; webhooksSeeded = false; autonomyRecords = undefined; questionMission = undefined; restoreBackupRecords(); await pullRequestRecord?.cleanup(); pullRequestRecord = undefined; });
 
 test("key screens match their visual baselines", async ({ page, governor }) => {
   test.setTimeout(900_000);

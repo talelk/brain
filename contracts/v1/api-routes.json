@@ -46,6 +46,24 @@
    "type": "http",
    "scheme": "bearer",
    "description": "An attempt's model gateway token (ADR 0072): minted for one running attempt and its fence, shown once, revoked when the attempt ends."
+  },
+  "githubSignature": {
+   "type": "apiKey",
+   "in": "header",
+   "name": "X-Hub-Signature-256",
+   "description": "HMAC-SHA256 of the raw body keyed with the endpoint secret (ADR 0077); never a session."
+  },
+  "gitlabToken": {
+   "type": "apiKey",
+   "in": "header",
+   "name": "X-Gitlab-Token",
+   "description": "The endpoint secret, compared in constant time (ADR 0077); never a session."
+  },
+  "webhookSignature": {
+   "type": "apiKey",
+   "in": "header",
+   "name": "X-Brain-Signature",
+   "description": "Brain HMAC of '<timestamp>.<body>' inside a 5 minute window, with X-Brain-Timestamp and X-Brain-Delivery (ADR 0077); never a session."
   }
  },
  "routes": [
@@ -2914,6 +2932,135 @@
     "401",
     "403",
     "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/hooks/github/{endpointId}",
+   "summary": "signed GitHub webhook for one endpoint: issues, pull requests and check runs become subjects and pull request observations; replays are acknowledged and change nothing; never confirms a plan, approves an effect or records a verdict (ADR 0077)",
+   "auth": [
+    "githubSignature"
+   ],
+   "parameters": [
+    {
+     "name": "endpointId",
+     "in": "path",
+     "required": true,
+     "schema": {
+      "type": "string"
+     }
+    }
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "401",
+    "413"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/hooks/gitlab/{endpointId}",
+   "summary": "signed GitLab webhook for one endpoint: issues, merge requests and pipelines become subjects and pull request observations; replays are acknowledged and change nothing; never confirms a plan, approves an effect or records a verdict (ADR 0077)",
+   "auth": [
+    "gitlabToken"
+   ],
+   "parameters": [
+    {
+     "name": "endpointId",
+     "in": "path",
+     "required": true,
+     "schema": {
+      "type": "string"
+     }
+    }
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "401",
+    "413"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/hooks/ticket/{endpointId}",
+   "summary": "signed generic ticket or incident webhook for one endpoint: opened, closed, reopened and labeled records become subjects that may start a subject trigger; replays are acknowledged and change nothing; never confirms a plan, approves an effect or records a verdict (ADR 0077)",
+   "auth": [
+    "webhookSignature"
+   ],
+   "parameters": [
+    {
+     "name": "endpointId",
+     "in": "path",
+     "required": true,
+     "schema": {
+      "type": "string"
+     }
+    }
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "401",
+    "413"
    ]
   },
   {

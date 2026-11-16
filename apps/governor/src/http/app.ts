@@ -1,3 +1,4 @@
+import { WEBHOOK_MAX_BYTES } from "../modules/integrations/index";
 import { assertHumanIdentity } from "../modules/identity/index";
 import { OIDC_PROVIDER_ID, readOidcSettings } from "../modules/identity/index";
 import { TaskExperience } from "../modules/workflows/index";
@@ -691,6 +692,18 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return c.json(answer.body as never, answer.status as never);
     } catch (e) { return fail(c as never, e); }
   });
+
+  // --- signed webhooks that record subjects (ADR 0077): one route per provider kind, the endpoint id in the path names workspace and secret ---
+  const webhook = (kind: "github" | "gitlab" | "ticket") => async (c: { req: { raw: Request; param(name: string): string }; json: unknown }) => {
+    try {
+      const bytes = await bodies.read(c.req.raw, WEBHOOK_MAX_BYTES);
+      const answer = brain.receiveWebhook(kind, c.req.param("endpointId"), c.req.raw.headers, Buffer.from(bytes));
+      return (c as never as { json(body: unknown, status: number): Response }).json(answer.body, answer.status);
+    } catch (e) { return fail(c as never, e); }
+  };
+  app.post("/hooks/github/:endpointId", webhook("github") as never);
+  app.post("/hooks/gitlab/:endpointId", webhook("gitlab") as never);
+  app.post("/hooks/ticket/:endpointId", webhook("ticket") as never);
 
   // --- read-only share links for one result (ADR 0013) ---
   // Creating, listing and revoking need a signed-in person with mission:write. Viewing needs only the unguessable token: the public
