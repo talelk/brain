@@ -121,7 +121,7 @@ export async function egressDouble(): Promise<{ proxy: EgressProxy; log: string[
   const dir = mkdtempSync(join(tmp, "brain-mcp-grants-"));
   mkdirSync(dir, { recursive: true });
   const log: string[] = [];
-  const proxy = await startEgressProxy({ port: 0, grantsDir: dir, bindHost: "127.0.0.1", log: (line) => log.push(line) });
+  const proxy = await startEgressProxy({ port: 0, grantsDir: dir, bindHost: "127.0.0.1", allowInternal: ["127.0.0.1:*", "localhost:*"], log: (line) => log.push(line) });
   return {
     proxy, log,
     run: async (request, script, input) => {

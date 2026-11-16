@@ -21,7 +21,11 @@ Read `deploy/reference/README.md` for the current caveats before attempting a ru
   workspace's own hosts (ADR 0037). Point the launcher's `BRAIN_LAUNCHER_EGRESS_GRANTS_DIR`
   at the directory the proxy mounts (`BRAIN_EGRESS_GRANTS_DIR`), and build the proxy image
   with `scripts/build-sandbox-images.sh`. Do not expose local plaintext HTTP or the launcher
-  socket to an untrusted network.
+  socket to an untrusted network. The proxy resolves each listed name once, refuses loopback,
+  private, link-local (cloud metadata), unique-local and its own addresses (IPv4-mapped forms
+  included) and connects to the address it checked. An internal host is granted on purpose only
+  by listing it in the proxy's `BRAIN_EGRESS_ALLOW_INTERNAL` (comma-separated `host`,
+  `host:port`; empty by default); a workspace's grant must still name it.
 - Engines run in per-attempt sandboxes (ADR 0073): set `BRAIN_LAUNCHER_ENGINE_STATE_ROOT` on the launcher (the runner mounts it as `BRAIN_RUNNER_ENGINE_STATE_DIR`), build `brain-sandbox-engine` with `scripts/build-sandbox-images.sh`, and see `deploy/reference/README.md`.
 - The Governor image carries the static web bundle and the reviewed UI foundation
   manifest; activation/readiness refuse a manifest digest mismatch.
