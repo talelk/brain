@@ -8155,6 +8155,7 @@
             "effects.get",
             "runnerGroups.list",
             "integrations.guide",
+            "webhooks.list",
             "identity.oidc.get",
             "quality.breakdown",
             "practices.list",
@@ -8257,6 +8258,7 @@
             "effects.get",
             "runnerGroups.list",
             "integrations.guide",
+            "webhooks.list",
             "identity.oidc.get",
             "quality.breakdown",
             "practices.list",
@@ -11931,6 +11933,12 @@
         },
         {
           "$ref": "#/$defs/IntegrationBindCommand"
+        },
+        {
+          "$ref": "#/$defs/WebhookCreateCommand"
+        },
+        {
+          "$ref": "#/$defs/WebhookRotateCommand"
         },
         {
           "$ref": "#/$defs/DocumentUploadCommand"
@@ -27914,7 +27922,8 @@
           "type": "string",
           "enum": [
             "opened",
-            "refresh"
+            "refresh",
+            "webhook"
           ]
         },
         "observedBy": {
@@ -27927,6 +27936,36 @@
       "required": [
         "state",
         "source",
+        "observedAt"
+      ],
+      "additionalProperties": false
+    },
+    "PullRequestCheck": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "conclusion": {
+          "type": "string",
+          "enum": [
+            "success",
+            "failure",
+            "cancelled",
+            "neutral",
+            "skipped",
+            "other"
+          ]
+        },
+        "observedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "name",
+        "conclusion",
         "observedAt"
       ],
       "additionalProperties": false
@@ -27996,6 +28035,13 @@
             "$ref": "#/$defs/PullRequestObservation"
           },
           "maxItems": 100
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PullRequestCheck"
+          },
+          "maxItems": 50
         }
       },
       "required": [
@@ -29893,6 +29939,129 @@
         "commandId",
         "commandType",
         "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "WebhookKind": {
+      "type": "string",
+      "enum": [
+        "github",
+        "gitlab",
+        "ticket"
+      ]
+    },
+    "WebhookCreateInput": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/WebhookKind"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "connectionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "secret": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "kind",
+        "workspaceId",
+        "secret"
+      ],
+      "additionalProperties": false
+    },
+    "WebhookRotateInput": {
+      "type": "object",
+      "properties": {
+        "endpointId": {
+          "$ref": "#/$defs/Id"
+        },
+        "secret": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "endpointId",
+        "secret"
+      ],
+      "additionalProperties": false
+    },
+    "WebhookCreateCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "webhook.create"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "$ref": "#/$defs/WebhookCreateInput"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "WebhookRotateCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "webhook.rotate"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "$ref": "#/$defs/WebhookRotateInput"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
         "idempotencyKey",
         "payload"
       ],

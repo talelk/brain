@@ -6,6 +6,7 @@ import { iso } from "../../domain/clock";
 import { decryptGitCredentials, encryptGitCredentials, type GitCredentialMaterial } from "./crypto";
 import { checkProviderFitsHost, gitProviderLabel, parseGitProvider } from "./git-provider";
 import { protocolClient, type RemoteSnapshot } from "./providers";
+import { WebhookEndpoints } from "./webhooks";
 import { HostedPullRequestApi, pushProposalBranch, type ProposedFile, type PullRequestApi } from "./pull-request";
 
 /** What a provider answered when a pull request was opened, with the connection and repository it was opened through. */
@@ -55,7 +56,9 @@ export class IntegrationService {
     return row;
   }
 
-  constructor(private readonly store: Store) {}
+  /** The signed inbound webhook endpoints (ADR 0077), managed beside the Git connections. */
+  readonly webhooks: WebhookEndpoints;
+  constructor(private readonly store: Store) { this.webhooks = new WebhookEndpoints(store); }
 
   private pullRequestApi: PullRequestApi = new HostedPullRequestApi();
   /** Tests and embedders point the provider call somewhere else; production calls the API of the connection's own Git provider. */
@@ -170,6 +173,8 @@ export class IntegrationService {
       case "integration.connect": return this.connect(actor, command.payload);
       case "integration.verify": return this.queueVerification(actor, String(command.payload["connectionId"]));
       case "integration.bind": return this.bind(actor, command.payload);
+      case "webhook.create": return this.webhooks.create(actor, command.payload);
+      case "webhook.rotate": return this.webhooks.rotate(actor, command.payload);
       default: throw new BrainDomainError("INVALID_CONTRACT", `unsupported integration command ${command.commandType}`);
     }
   }
@@ -306,6 +311,7 @@ export class IntegrationService {
       }));
       return { connections, bindings, proposals } as unknown as JsonValue;
     }
+    if (queryType === "webhooks.list") return this.webhooks.list(actor);
     if (queryType === "integrations.guide") return this.guide(actor, resourceId);
     if (queryType === "integrations.repositories") {
       const connection = this.connection(actor, String(resourceId ?? ""));

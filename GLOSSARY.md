@@ -826,6 +826,13 @@ address, the Git provider, and the state it had when opened. Never edited; where
 stands later is a new observation, read from the provider only when a person refreshes it.
 _Avoid_: PR status (a record has a history of states, not one mutable status)
 
+**Webhook endpoint**:
+A signed address under Administration > Integrations where GitHub, GitLab or a ticket system
+reports an issue, a pull request or a check to one workspace. It records what happened as a
+subject or on a pull request record, and can only ask subject triggers about a new subject; it
+never confirms a plan, approves an action or records a verdict.
+_Avoid_: inbound hook, callback URL, subject trigger (a trigger starts a Play; an endpoint only reports)
+
 **Diagnostics bundle**:
 The redacted file an administrator downloads from Health for support: versions, runner
 inventory as the runners reported it, readiness, backup status and recent errors (as codes
