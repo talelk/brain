@@ -71,7 +71,10 @@ export function withSignedReceipt(brain: Brain, runner: { runnerId: string; epoc
 }
 
 /** Makes a job protocol's `complete` hand the Governor a signed receipt, for tests that complete attempts themselves. */
+const wrapped = new WeakSet<object>();
 export function signProtocol<P extends Brain["jobProtocol"]>(brain: Brain, protocol: P): P {
+  if (wrapped.has(protocol)) return protocol;
+  wrapped.add(protocol);
   const complete = protocol.complete.bind(protocol);
   protocol.complete = (runner, attemptId, body) => complete(runner, attemptId, withSignedReceipt(brain, runner, attemptId, body));
   return protocol;

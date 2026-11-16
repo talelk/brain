@@ -87,6 +87,8 @@ const ACTIONS: Record<string, string> = {
   "approval.decision": "recorded an approval decision",
   "output.versionRecorded": "saved a new version of an output",
   "runner.quarantined": "set the runner aside",
+  "runner.keyEnrolled": "enrolled the key it signs its receipts with",
+  "attempt.receipted": "handed in its signed receipt",
   "runner.draining": "is finishing its work before stopping",
   "workflow.succeeded": "finished the workflow successfully",
   "workflow.suspended": "paused the workflow",

@@ -10702,7 +10702,9 @@
      "placement",
      "execution",
      "grantRef",
-     "workflowRunId"
+     "workflowRunId",
+     "stepId",
+     "executionDigest"
     ],
     "additionalProperties": false
    },

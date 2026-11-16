@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { sha256Digest } from "@brain/contracts";
+import { receiptSignatureOk, runnerKeyId, sha256Digest, type RunReceipt } from "@brain/contracts";
 import { GovernorClient, GovernorProtocolError } from "../../apps/runner/src/governor-client";
-import { runOnce } from "../../apps/runner/src/supervisor";
+import { loadOrCreateKeys, runOnce } from "../../apps/runner/src/supervisor";
 import type { RunnerConfig } from "../../apps/runner/src/supervisor";
 
 interface FakeCall { method: string; path: string; body: unknown; auth: string | null }
@@ -144,8 +144,8 @@ describe("runOnce against a scripted Governor", () => {
     return {
       payloadBytes,
       offer: {
-        attemptId: "at-1", jobId: "job-1", workspaceId: "ws-1", leaseId: "lease-1", jobFence: 1,
-        configDigest: `sha256:${"1".repeat(64)}`,
+        attemptId: "at-1", jobId: "job-1", workspaceId: "ws-1", workflowRunId: "run-1", stepId: "echo", runnerId: "runner-1", runnerEpoch: 4, leaseId: "lease-1", jobFence: 1,
+        configDigest: `sha256:${"1".repeat(64)}`, executionDigest: `sha256:${"2".repeat(64)}`,
         execution: { kind: "tool", artifact: { artifactId: "art-in", digest: sha256Digest(payloadBytes), bytes: payloadBytes.length } },
       },
     };
@@ -171,6 +171,12 @@ describe("runOnce against a scripted Governor", () => {
       const complete = calls.find((c) => c.path === "/runner/v1/attempts/at-1/complete");
       expect(complete).toBeDefined();
       expect((complete!.body as { result: string }).result).toBe("failed"); // tool script missing, lease intact
+      // The completion carries the receipt of this attempt, signed with the key the runner keeps in its state directory (ADR 0078).
+      const { receipt, signature } = complete!.body as { receipt: RunReceipt; signature: string };
+      const keys = loadOrCreateKeys(root);
+      expect(receipt).toMatchObject({ contractVersion: "brain.run-receipt/v1", attemptId: "at-1", jobId: "job-1", jobFence: 1, runnerId: "runner-1", runnerEpoch: 4, workflowRunId: "run-1", stepId: "echo", outcome: "failed", evidenceDigest: null, keyId: runnerKeyId(keys.publicKeyPem), configDigest: `sha256:${"1".repeat(64)}`, executionDigest: `sha256:${"2".repeat(64)}` });
+      expect(receiptSignatureOk(receipt, signature, keys.publicKeyPem)).toBe(true);
+      expect(receiptSignatureOk({ ...receipt, outcome: "succeeded" }, signature, keys.publicKeyPem)).toBe(false);
       expect(calls.filter((c) => c.path.endsWith("/events")).length).toBeGreaterThan(0);
       expect(calls.every((c) => c.auth === "Bearer tok-1")).toBe(true);
     } finally { rmSync(root, { recursive: true, force: true }); }

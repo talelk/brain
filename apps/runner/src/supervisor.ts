@@ -612,8 +612,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     const toolBroker = offer.execution.kind === "tool";
     const served = routeReport.find((r) => r.outcome === "served") ?? routeReport[routeReport.length - 1];
     const unsigned: RunReceipt = {
-      contractVersion: RUN_RECEIPT_VERSION, attemptId: offer.attemptId, jobId: offer.jobId, jobFence: offer.jobFence, runnerId: cfg.runnerId, runnerEpoch: offer.runnerEpoch ?? runnerEpoch,
-      workflowRunId: offer.workflowRunId ?? "", stepId: offer.stepId ?? "", configDigest: offer.configDigest, executionDigest: offer.executionDigest ?? "", keyId: runnerKeyId(keys.publicKeyPem),
+      contractVersion: RUN_RECEIPT_VERSION, attemptId: offer.attemptId, jobId: offer.jobId, jobFence: offer.jobFence, runnerId: cfg.runnerId, runnerEpoch: offer.runnerEpoch,
+      workflowRunId: offer.workflowRunId ?? "", stepId: offer.stepId, configDigest: offer.configDigest, executionDigest: offer.executionDigest, keyId: runnerKeyId(keys.publicKeyPem),
       engine: { id: engineInfo?.id ?? (toolBroker ? "tool-broker" : "unknown"), version: engineInfo?.adapterDigest ?? (toolBroker ? sha256Digest(new TextEncoder().encode("tool-broker:v1")) : null), route: served?.routeId ?? null },
       startedAt, endedAt: new Date().toISOString(), outcome: outcomeUnknown ? "unknown-outcome" : result.ok ? "succeeded" : "failed", usage,
       evidenceDigest: bundle ? domainDigest("brain:evidence-bundle:v1", bundle as unknown as JsonValue) : null,
