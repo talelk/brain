@@ -1,15 +1,17 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { EngineToolBinding, JsonValue } from "@brain/contracts";
+import type { JsonValue } from "@brain/contracts";
+import type { EngineTool } from "./port";
+import { engineToolDescription } from "./tool-calls";
 
 /**
- * The MCP endpoint an ACP agent reaches Brain's broker tools through (ADR 0035). It lives in the runner, listens on loopback only, and is
- * authenticated by a token made for one attempt. It serves exactly the tools the attempt may use and nothing else; every call is handed to
- * `call`, which is the runner's governed tool-call path (permit, approval, receipt), so the bridge is never a way around it.
+ * The MCP endpoint an ACP agent reaches workspace tools through. It lives beside the agent (in the engine's process), listens on loopback
+ * only, and is authenticated by a token made for one session. It serves exactly the tools the agent may use and nothing else; every call is
+ * handed to `call`, which leads to the runner's tool path (validation, approval, sandbox), so the bridge is never a way around it.
  * Streamable HTTP in its plain form: one JSON-RPC message per POST, answered as JSON.
  */
-export interface BrokerBridgeTool { readonly name: string; readonly binding: EngineToolBinding }
+export interface BrokerBridgeTool { readonly name: string; readonly tool: EngineTool }
 
 const MAX_BODY_BYTES = 1_000_000;
 const PROTOCOL_VERSION = "2025-03-26";
@@ -17,10 +19,13 @@ const PROTOCOL_VERSION = "2025-03-26";
 export class BrokerBridge {
   readonly token = randomBytes(32).toString("hex");
   private server: Server | undefined;
-  private readonly tools: ReadonlyMap<string, EngineToolBinding>;
+  private markListed: () => void = () => undefined;
+  /** Resolves once the agent has read the tool list. */
+  readonly listed = new Promise<void>((resolve) => { this.markListed = resolve; });
+  private readonly tools: ReadonlyMap<string, EngineTool>;
 
   constructor(tools: readonly BrokerBridgeTool[], private readonly call: (name: string, input: JsonValue) => Promise<string>) {
-    this.tools = new Map(tools.map((tool) => [tool.name, tool.binding]));
+    this.tools = new Map(tools.map((entry) => [entry.name, entry.tool]));
   }
 
   /** The address the agent connects to, once listening. */
@@ -59,10 +64,10 @@ export class BrokerBridge {
     switch (message.method) {
       case "initialize": return reply({ protocolVersion: PROTOCOL_VERSION, capabilities: { tools: {} }, serverInfo: { name: "brain", version: "1" } });
       case "ping": return reply({});
-      case "tools/list": return reply({ tools: [...this.tools].map(([name, binding]) => ({ name, description: `Governed ${binding.effectClass} tool ${binding.release.id}; Brain validates and isolates every call.`, inputSchema: binding.inputSchema })) });
+      case "tools/list": this.markListed(); return reply({ tools: [...this.tools].map(([name, tool]) => ({ name, description: engineToolDescription(tool), inputSchema: tool.inputSchema })) });
       case "tools/call": {
         const name = message.params?.["name"];
-        // A tool this attempt does not declare is refused here, before anything reaches the governed path.
+        // A tool the agent may not use is refused here, before anything reaches the runner.
         if (typeof name !== "string" || !this.tools.has(name)) return fail(-32602, `unknown tool: ${typeof name === "string" ? name : "unnamed"}`);
         const input = (message.params?.["arguments"] ?? {}) as JsonValue;
         try { return reply({ content: [{ type: "text", text: await this.call(name, input) }] }); }

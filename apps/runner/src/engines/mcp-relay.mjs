@@ -1,5 +1,5 @@
-// Stdio side of the broker bridge (ADR 0035): an ACP agent starts this as its MCP server and it only pipes each JSON-RPC line to the
-// runner's loopback endpoint (BRAIN_MCP_URL, bearer BRAIN_MCP_TOKEN) and writes the answer back. It holds no tools and decides nothing.
+// Stdio side of the tool bridge: an ACP agent starts this as its MCP server and it only pipes each JSON-RPC line to the
+// engine's loopback endpoint (BRAIN_MCP_URL, bearer BRAIN_MCP_TOKEN) and writes the answer back. It holds no tools and decides nothing.
 import { createInterface } from "node:readline";
 
 const url = process.env.BRAIN_MCP_URL;

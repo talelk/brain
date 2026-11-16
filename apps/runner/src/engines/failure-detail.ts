@@ -1,7 +1,7 @@
 /**
- * What an engine failure is said to be. The vendor's own message is kept (the Governor redacts and cuts it before storing it) but is led by
- * a plain cause, so a person reading "agent ended with error" learns whether the conversation outgrew the model, the answer broke the
- * output contract, a tool failed, or the attempt was stopped.
+ * What an engine failure is said to be. The vendor's own message is kept but is led by a plain cause, so a person reading the failure of
+ * an attempt learns whether the conversation outgrew the model, the answer was not the required JSON, a tool failed, the model refused for
+ * quota, or the attempt was stopped.
  */
 /** The provider refused for quota or rate: HTTP 429, or its own words for it (OpenAI-compatible, Anthropic, Gemini and gateway spellings). */
 export const QUOTA_TEXT = /\b429\b|rate[ _-]?limit|too many requests|insufficient[_ ]quota|\bquota\b|resource[_ ]exhausted|(?:tokens|requests) per min|usage limit|server requested \d+s retry delay/iu;
@@ -9,9 +9,9 @@ const QUOTA_CAUSE = "quota or rate limit";
 
 const CAUSES: ReadonlyArray<readonly [RegExp, string]> = [
   [/context (?:length|window)|maximum context|too many (?:input )?tokens|prompt is too long|context_length_exceeded|exceeds? the context/iu, "context overflow"],
-  [/used its allowance|allowance is used|token budget|tool-call budget|turn budget/iu, "budget"],
-  [/schema|does not meet the required output|output contract|validation failed|not valid json|invalid json/iu, "schema mismatch"],
-  [/tool [\w.-]+ (?:failed|is not allowed|refused|error)|tool (?:call|input|execution)\b|governed broker/iu, "tool error"],
+  [/used its allowance|allowance is used|tool-call budget/iu, "limit"],
+  [/not valid json|invalid json|required json/iu, "answer format"],
+  [/tool [\w.-]+ (?:failed|is not allowed|refused|error)|tool (?:call|input|execution)\b/iu, "tool error"],
   [QUOTA_TEXT, QUOTA_CAUSE],
   [/abort|cancel|deadline exceeded|timed? ?out/iu, "stopped"],
   [/ECONN\w*|ENOTFOUND|fetch failed|socket|network|unreachable|overloaded|\b(?:502|503|504)\b/iu, "model endpoint"],
@@ -31,7 +31,7 @@ const unitMs = (unit: string): number | undefined => {
  * The wait a provider asked for, in milliseconds, from its own words: "Server requested 30s retry delay" (the Retry-After header, as Pi
  * reports it), "retry after 20 seconds", "try again in 1m30s", "retry in 24.5s". Undefined when it named none.
  */
-export function quotaRetryAfterMs(raw: string): number | undefined {
+function quotaRetryAfterMs(raw: string): number | undefined {
   const named = /server requested (\d+)s retry delay/iu.exec(raw);
   if (named) return Number(named[1]) * 1000;
   const lead = /(?:retry[- ]after|retry in|try again (?:in|after))[:= ]+/iu.exec(raw);
@@ -58,4 +58,10 @@ export function engineFailureDetail(raw: string): string {
     return `${QUOTA_CAUSE}${wait === undefined ? "" : ` (retry after ${Math.max(1, Math.ceil(wait / 1000))}s)`}: ${message}`;
   }
   return cause && !message.toLowerCase().startsWith(cause) ? `${cause}: ${message}` : message;
+}
+
+/** Whose failure it is: the model's account refused (`model-refused`), its endpoint did not answer (`endpoint`), or anything else. */
+export function failureKind(detail: string): "model-refused" | "endpoint" | "other" {
+  const cause = CAUSES.find(([pattern]) => pattern.test(detail))?.[1];
+  return cause === QUOTA_CAUSE ? "model-refused" : cause === "model endpoint" ? "endpoint" : "other";
 }

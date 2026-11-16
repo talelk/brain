@@ -1,9 +1,11 @@
+# The tool sandbox image: where a workspace tool's run.sh runs. The pack tools state what they need of it (packs/README.md, "Script
+# tools"): bash, python3 and curl. git is there because a tool may read the working copy, which is mounted read-only at /work.
+# The launcher runs it once per call with a read-only root, no capabilities, resource limits, the tool's files at /tools and a network
+# only through the egress proxy; nothing here may assume more.
+# Build from the repository root: docker build -f deploy/sandbox.Dockerfile -t brain-sandbox-tool .
 FROM python:3.12-slim
-# bash: tool scripts are bash entrypoints. duckdb: the read-only project tools
-# query the real warehouse/read-model parquet instead of inventing observations.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends bash ca-certificates \
- && rm -rf /var/lib/apt/lists/* \
- && pip install --no-cache-dir --quiet duckdb==2.0.0
+ && apt-get install -y --no-install-recommends bash ca-certificates curl git \
+ && rm -rf /var/lib/apt/lists/*
 WORKDIR /tmp
 CMD ["sleep", "infinity"]

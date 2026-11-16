@@ -1,0 +1,80 @@
+import { join } from "node:path";
+import { execa } from "execa";
+import { attemptFolder, egressHosts, hardening, isDirectory, network, refuse, type Reply, type SandboxOptions, slug } from "./sandbox-common";
+
+/**
+ * The tool sandbox: one container for one run of a tool's `run.sh`. It sees the tool's files read-only at `/tools`, the attempt's working
+ * copy read-only at `/work` (its working directory), and a small `/tmp`. Its network is the tool's own `network` hosts on the egress
+ * proxy, or none. The tool's leased secrets are environment variables of this one run: named on the docker command line, valued in the
+ * docker client's own environment, so they are never on an argv another process can read. The input is the script's standard input.
+ */
+export const TOOL_IMAGE = "brain-sandbox-tool";
+export const TOOL_LABEL = "brain.tool-run";
+export const TOOL_FIELDS = ["attemptId", "tool", "requestId", "egressHosts", "input", "timeoutMs", "secretEnv"] as const;
+const TOOL_CPU_MILLICORES = 1000;
+const TOOL_MEMORY_MB = 1024;
+const TOOL_PIDS = 128;
+
+export interface ToolSandboxShape {
+  readonly name: string;
+  readonly requestId: string;
+  /** The host folder of the tool's files and of the attempt's working copy, already checked to be under the operator's root. */
+  readonly toolDirectory: string;
+  readonly workDirectory: string;
+  readonly user: string;
+  readonly network: readonly string[];
+  readonly secretNames: readonly string[];
+}
+
+/** The `docker run` argv of a tool run: nothing in it comes from the caller except the values named in the shape. */
+export function toolSandboxArgs(shape: ToolSandboxShape): string[] {
+  return ["run", "-i", "--rm", "--name", shape.name, ...shape.network,
+    ...hardening(TOOL_CPU_MILLICORES, TOOL_MEMORY_MB, TOOL_PIDS, shape.user, 64),
+    "-v", `${shape.toolDirectory}:/tools:ro`, "-v", `${shape.workDirectory}:/work:ro`, "-w", "/work",
+    "-e", "HOME=/tmp", "-e", "TMPDIR=/tmp", "-e", "LANG=C.UTF-8", ...shape.secretNames.flatMap((name) => ["-e", name]),
+    "--label", `${TOOL_LABEL}=${shape.requestId}`,
+    TOOL_IMAGE, "/bin/bash", "/tools/run.sh"];
+}
+
+export async function runTool(options: SandboxOptions, body: Record<string, unknown>): Promise<Reply> {
+  for (const key of Object.keys(body)) if (!(TOOL_FIELDS as readonly string[]).includes(key)) return refuse(422, `field ${key} forbidden`);
+  const tool = String(body["tool"] ?? "");
+  if (tool.length > 80 || !tool.split(".").every((part) => /^[a-z][a-z0-9-]{0,62}$/u.test(part))) return refuse(422, "tool invalid");
+  const requestId = String(body["requestId"] ?? "");
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/u.test(requestId)) return refuse(422, "requestId invalid");
+  const input = String(body["input"] ?? "");
+  if (Buffer.byteLength(input, "utf8") > 64 * 1024) return refuse(413, "input too large");
+  const timeoutMs = Math.min(3_600_000, Math.max(1000, Number(body["timeoutMs"] ?? 60_000)));
+  const secretEnv = body["secretEnv"] ?? {};
+  if (typeof secretEnv !== "object" || secretEnv === null || Array.isArray(secretEnv) || Object.keys(secretEnv).length > 16) return refuse(422, "secretEnv must be an object of at most 16 values");
+  const secrets: Record<string, string> = {};
+  for (const [name, value] of Object.entries(secretEnv as Record<string, unknown>)) {
+    if (!/^[A-Z][A-Z0-9_]{0,63}$/u.test(name) || typeof value !== "string" || value.length === 0 || Buffer.byteLength(value, "utf8") > 8192) return refuse(422, `secretEnv ${name} is invalid`);
+    secrets[name] = value;
+  }
+  const hosts = egressHosts(body["egressHosts"], options.egressGrantsDir);
+  if (!hosts.ok) return hosts.reply;
+  const folder = attemptFolder(options.attemptsRoot, String(body["attemptId"] ?? ""));
+  if (!folder.ok) return folder.reply;
+  const toolDirectory = join(folder.directory, "tools", tool);
+  const workDirectory = join(folder.directory, "work");
+  if (!isDirectory(toolDirectory) || !isDirectory(workDirectory)) return refuse(409, "the tool's files or the working copy are absent in the attempt's folder");
+  const unverified = await options.verifyImage(TOOL_IMAGE);
+  if (unverified) return refuse(409, unverified);
+
+  const name = `brain-tool-${slug(requestId)}-${Date.now().toString(36)}`;
+  const net = await network(hosts.hosts, options.egressGrantsDir);
+  try {
+    const args = toolSandboxArgs({ name, requestId, toolDirectory, workDirectory, user: options.user, network: net.args, secretNames: Object.keys(secrets) });
+    const result = await execa("docker", args, {
+      input, timeout: timeoutMs, maxBuffer: 1024 * 1024, extendEnv: false, reject: false,
+      env: { PATH: process.env["PATH"] ?? "/usr/local/bin:/usr/bin:/bin", HOME: process.env["HOME"] ?? "/tmp", ...(process.env["DOCKER_HOST"] ? { DOCKER_HOST: process.env["DOCKER_HOST"] } : {}), ...secrets },
+    });
+    // A run that was cut short leaves its container behind; it goes with the run.
+    if (result.timedOut || result.exitCode === undefined) await execa("docker", ["rm", "-f", name], { timeout: 30_000, reject: false });
+    return { status: 200, body: { exitCode: result.exitCode ?? -1, stdout: String(result.stdout).slice(0, 1024 * 1024), stderr: String(result.stderr).slice(0, 16_384), timedOut: result.timedOut === true } };
+  } finally {
+    net.started();
+    net.release();
+  }
+}

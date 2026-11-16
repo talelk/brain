@@ -1,7 +1,8 @@
-import type { EngineEvent } from "@brain/contracts";
+import type { EngineEvent } from "./port";
 
+/** The events of one engine session: pushed by the adapter, read once by the runner, ended by `close`. */
 export class EngineEventStream {
-  private values: EngineEvent[] = [];
+  private readonly values: EngineEvent[] = [];
   private closed = false;
   private readonly waiters = new Set<() => void>();
 
@@ -35,14 +36,10 @@ export class EngineEventStream {
     });
   }
 
-  async *after(after: number, signal: AbortSignal): AsyncIterable<EngineEvent> {
-    let index = after;
+  async *read(signal: AbortSignal): AsyncIterable<EngineEvent> {
+    let index = 0;
     for (;;) {
-      while (index < this.values.length) {
-        const event = this.values[index];
-        index += 1;
-        if (event && event.sequence > after) yield event;
-      }
+      while (index < this.values.length) yield this.values[index++]!;
       if (this.closed || signal.aborted) return;
       await this.wait(signal);
     }

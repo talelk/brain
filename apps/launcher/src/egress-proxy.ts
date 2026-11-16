@@ -1,4 +1,4 @@
-// The egress proxy (ADR 0037): the only way a sandbox reaches a network. One process serves every workspace; what a request may reach is the
+// The egress proxy: the only way a sandbox reaches a network. One process serves every workspace; what a request may reach is the
 // grant its own credential names, never anything the request says. The launcher writes one grant per sandbox into a directory the proxy
 // reads, and deletes it when the sandbox stops. This file runs by itself in the proxy image (node strips the types), so it imports
 // nothing but node built-ins.

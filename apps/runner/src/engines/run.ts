@@ -1,429 +1,150 @@
-import type { ArtifactRef, Checkpoint, EngineAdapter, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue, ReleaseRef } from "@brain/contracts";
-import { sha256Digest } from "@brain/contracts";
-import { decodeModelJson } from "./json-reply";
-export { decodeModelJson, repairJsonStrings } from "./json-reply";
-import { FixtureEngine } from "./fixture";
-import { PiEngine, type HostedRoute } from "./pi";
-import { quotaRetryAfterMs, QUOTA_TEXT } from "./failure-detail";
-import { ClaudeEngine } from "./claude";
-import { AcpEngine } from "./acp";
-import { OpenCodeEngine } from "./opencode";
-import { CodexEngine } from "./codex";
+import type { AttemptEventBody, AttemptFailure, AttemptUsage, JsonValue } from "@brain/contracts";
+import { failureKind } from "./failure-detail";
+import { decodeModelJson, wholeJsonObject } from "./json-reply";
+import { overAllowanceReason } from "./limits";
+import type { EngineAdapter, EngineSessionSpec } from "./port";
+import { SANDBOX_REFUSAL } from "./sandboxed";
 
-export function selectEngine(configured: string | undefined, toolBindings: readonly EngineToolBinding[] = [], route?: HostedRoute): EngineAdapter | undefined {
-  switch (configured) {
-    case "fixture": return new FixtureEngine(toolBindings);
-    case "pi": return new PiEngine(toolBindings, route);
-    // The gateway speaks the OpenAI protocol only: the Anthropic-protocol engine cannot call a route through it (ADR 0072), so that route is not offered to it.
-    case "claude": return route?.gatewayToken ? undefined : new ClaudeEngine(toolBindings, route);
-    case "acp": return new AcpEngine({ toolBindings });
-    case "opencode": return new OpenCodeEngine(toolBindings);
-    case "codex": return new CodexEngine(toolBindings);
-    default: return undefined;
-  }
+/** Why the runner aborted an attempt; carried as the reason of its abort signal. */
+export type AbortCause = "stopped" | "lease" | "timeout";
+export const abortCause = (signal: AbortSignal): AbortCause | undefined => (signal.aborted ? (["stopped", "lease", "timeout"] as const).find((cause) => cause === signal.reason) ?? "stopped" : undefined);
+
+export interface SessionRequest {
+  readonly engine: EngineAdapter;
+  readonly spec: EngineSessionSpec;
+  /** Carries out a workspace or Brain-run tool call and returns the text the model is shown. */
+  readonly executeTool: (tool: string, input: JsonValue) => Promise<string>;
+  readonly emit: (event: AttemptEventBody) => void;
+  /** The attempt's abort signal; its reason is an `AbortCause`. */
+  readonly signal: AbortSignal;
+  /** What earlier sessions of this attempt used: usage is reported as the attempt's total. */
+  readonly usedBefore?: AttemptUsage & { readonly turns: number };
 }
 
-/** An agent's instructions followed by each skill the task loaded, under its own heading. */
-export function instructionsWithSkills(instructions: string, skills: ReadonlyArray<{ id: string; text: string }>): string {
-  return skills.length === 0 ? instructions : `${[instructions.trimEnd(), ...skills.map((skill) => `## Skill: ${skill.id}\n\n${skill.text.trimEnd()}`)].join("\n\n")}\n`;
+export interface SessionResult {
+  readonly ok: boolean;
+  /** The agent's answer: what it wrote as its final message. */
+  readonly text: string;
+  readonly usage: AttemptUsage & { readonly turns: number };
+  readonly failure?: AttemptFailure;
+  readonly output?: JsonValue;
 }
 
-/**
- * The engine prompt of a workflow-driven agent step: the Governor-built context
- * pack (when the step serves a work item) followed by the task. Nothing else is
- * added; the pack names its own sections and labels claims as claims.
- */
-export function promptWithContext(task: string, contextPack?: { text?: unknown }): string {
-  return typeof contextPack?.text === "string" && contextPack.text.length > 0 ? `${contextPack.text}\n\n# Task\n${task}` : task;
+const NO_USE = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0, turns: 0 };
+/** The Governor shows a failure's detail to a person; the runner never sends more than this of an engine's message. */
+const DETAIL_CHARS = 500;
+
+function failed(reason: AttemptFailure["reason"], detail: string, infrastructure = false): AttemptFailure {
+  return { reason, detail: detail.replace(/\s+/gu, " ").trim().slice(0, DETAIL_CHARS), infrastructure };
 }
 
-export interface AgentExecutionInput {
-  engine: EngineAdapter;
-  attemptId: string;
-  jobFence: number;
-  leaseId: string;
-  runnerId: string;
-  runnerEpoch?: number;
-  organizationId: string;
-  workspaceId: string;
-  jobId: string;
-  configDigest: string;
-  sourceRevision?: string;
-  instructions?: string;
-  task: string;
-  modelId?: string | undefined;
-  /** The saved engine state this attempt continues (a resumed session); an engine that cannot resume refuses it. */
-  resumeFrom?: ArtifactRef;
-  /** The saved conversation `resumeFrom` names, downloaded from the Governor and verified by the caller; the engine checks it again before it starts. */
-  resumeBytes?: Uint8Array;
-  timeoutMs: number;
-  cleanupTimeoutMs?: number;
-  maxTokens?: number;
-  maxMicroUsd?: number;
-  maxTurns?: number;
-  /**
-   * The violations of the step's output contract found in a decoded reply (empty when it conforms). A reply that parses but breaks the
-   * contract gets the one corrective session too, told exactly which violations to fix, instead of failing the whole step blind.
-   */
-  outputCheck?: ((output: JsonValue) => readonly string[]) | undefined;
-  allowedTools?: readonly ReleaseRef[];
-  executeTool?: (proposal: { proposalId: string; tool: ReleaseRef; input: JsonValue; target: { targetId: string; environmentId: string; preconditionDigest: string }; inputDigest: string }) => Promise<EngineToolExecutionResult>;
-  /**
-   * Called once the engine session exists: live controls (steer) bind to this
-   * handle. Steering is feature-gated on the adapter's probe features.
-   */
-  onSession?: (handle: {
-    sessionId: string; features: readonly string[]; steer: (messageId: string, message: string) => Promise<void>;
-    /** Holds the session at its next turn boundary; resolves once it is held. The execution deadline stops counting while it is held. */
-    pause: () => Promise<void>;
-    /** Lets a held session go on (or cancels a pause not yet reached) and starts the deadline counting again. */
-    continue: () => Promise<void>;
-  }) => void;
-  emit: (kind: string, payload: unknown) => Promise<void>;
-  signal: AbortSignal;
+/** What an engine's own failure is for the task: a model that refused or did not answer is not the task's doing, so the attempt may be retried as it is. */
+export function engineFailure(detail: string): AttemptFailure {
+  if (detail.includes(SANDBOX_REFUSAL)) return failed("runner", detail, true);
+  const kind = failureKind(detail);
+  return kind === "model-refused" ? failed("model-refused", detail, true) : failed("engine", detail, kind === "endpoint");
 }
 
-export interface AgentExecutionResult {
-  ok: boolean;
-  output: JsonValue;
-  outputText: string;
-  cleanupConfirmed?: boolean;
-  /** What an engine that can resume saved when the attempt did not succeed: held on this runner, offered to the Governor so a person can resume from it. */
-  checkpoint?: Checkpoint;
-  /** The bytes of the checkpoint's engine state, for the runner to upload to the Governor; absent when the engine cannot hand them over. */
-  checkpointBytes?: Uint8Array;
-}
-
-function decodedOutput(text: string): JsonValue {
-  return decodeModelJson(text)?.value ?? text.trim();
-}
-
-/** A reply that tried to be a JSON object but cannot be read as one: worth one corrective try. */
-function brokenJson(text: string, output: JsonValue): boolean {
-  if (typeof output !== "string") return false;
-  const head = text.trimStart();
-  return (head.startsWith("{") || head.slice(0, 20).toLowerCase().startsWith("```json") || head.startsWith("```")) && head.slice(0, 200).includes("{");
-}
-
-/** The Governor redacts and keeps at most 500 characters of an attempt's error; the runner never sends more than that. */
-const ERROR_CHARS = 500;
-const CORRECTION_CHARS = 30_000;
-function correctiveTask(previous: string): string {
-  return `Your previous reply was meant to be one JSON object but it is not valid JSON, so it could not be used. Reply again with only the corrected JSON object: the same content, valid JSON, with every double quote and backslash inside a string escaped, and no text, code fence or comment around it.\n\nYour previous reply:\n${previous.trim().slice(0, CORRECTION_CHARS)}`;
-}
-
-function violationTask(previous: string, violations: readonly string[]): string {
-  const listed = violations.slice(0, 8).map((violation) => `- ${violation.slice(0, 300)}`).join("\n");
-  return `Your previous reply is valid JSON but does not meet the required output contract, so it could not be used. Fix exactly these problems and change nothing else:\n${listed}\n\nReply again with only the complete corrected JSON object, with no text, code fence or comment around it.\n\nYour previous reply:\n${previous.trim().slice(0, CORRECTION_CHARS)}`;
-}
-
-async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecutionResult> {
-  const { engine } = input;
-  const deadline = new AbortController();
-  // A change an agent proposes is held by the Governor and made after the decision (ADR 0028): nothing here waits for a person.
-  // The deadline is working time: a session a person holds at a turn boundary is not running down its allowance (ADR 0058).
-  let remainingMs = Math.max(1, input.timeoutMs);
-  let armedAt = Date.now();
-  let timer = setTimeout(() => deadline.abort(new Error("agent execution deadline exceeded")), remainingMs);
-  let deadlineHeld = false;
-  const signal = AbortSignal.any([input.signal, deadline.signal]);
-  const bounded = <T>(operation: Promise<T>): Promise<T> => {
-    if (signal.aborted) return Promise.reject(signal.reason);
-    return new Promise<T>((resolve, reject) => {
-      const abort = () => reject(signal.reason ?? new Error("agent execution aborted"));
-      signal.addEventListener("abort", abort, { once: true });
-      void operation.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
-    });
+/** One engine session from start to its terminal event, with the agent's limits and the attempt's time limit enforced. */
+export async function runSession(request: SessionRequest): Promise<SessionResult> {
+  const { engine, spec, emit } = request;
+  const before = request.usedBefore ?? NO_USE;
+  let usage = before;
+  let text = "";
+  let failure: AttemptFailure | undefined;
+  let stopped: { reason: string; detail?: string } | undefined;
+  const session = new AbortController();
+  const onAbort = (): void => session.abort(request.signal.reason);
+  if (request.signal.aborted) onAbort(); else request.signal.addEventListener("abort", onAbort, { once: true });
+  const timer = setTimeout(() => session.abort("timeout" satisfies AbortCause), spec.limits.timeoutMs);
+  /** A session that is still working past the agent's limits is stopped; one whose answer is being written is not. */
+  const overLimit = (): boolean => {
+    const over = overAllowanceReason({ tokens: usage.inputTokens + usage.outputTokens + usage.cachedInputTokens, microUsd: usage.microUsd, turns: usage.turns }, spec.limits);
+    if (over && !failure) { failure = failed("limit", over); void engine.cancel().catch(() => undefined); }
+    return over !== undefined;
   };
-  const instructions = input.instructions ?? "";
-  const instructionsBytes = new TextEncoder().encode(instructions);
-  const taskBytes = new TextEncoder().encode(input.task);
-  let sessionId = "";
-  let startPending = false;
-  let outputText = "";
-  let terminalReason = "";
-  let terminalConfirmed = false;
-  let terminalOutput: { digest: string; bytes: number } | undefined;
-  let engineError = false;
-  let engineDetail = "";
-  let tokensReported = false;
-  let checkpointable = false;
-  const cleanup = async (operation: () => Promise<unknown>): Promise<boolean> => {
-    let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      return await Promise.race([
-        Promise.resolve().then(operation).then(() => true, () => false),
-        new Promise<boolean>((resolve) => { cleanupTimer = setTimeout(() => resolve(false), input.cleanupTimeoutMs ?? 2000); }),
-      ]);
-    } finally { if (cleanupTimer) clearTimeout(cleanupTimer); }
-  };
-  const execute = async (): Promise<AgentExecutionResult> => {
   try {
-  const probe = await bounded(engine.probe());
-  if (!probe.features.includes("sessions")) {
-    return { ok: false, output: { error: `${engine.id} is unavailable or its model is unreachable` }, outputText: "" };
-  }
-  if (input.resumeFrom && !probe.features.includes("resume")) {
-    return { ok: false, output: { error: `${engine.id} cannot resume a saved conversation, so the checkpoint was not used` }, outputText: "" };
-  }
-  if (input.resumeFrom) {
-    // The conversation comes from the Governor, not from this runner's disk: the engine verifies the downloaded bytes against the reference and
-    // refuses, with the reason, before any session starts.
-    try {
-      if (!engine.stageCheckpoint || !input.resumeBytes) throw new Error(`${engine.id} was given no saved conversation to continue, so the checkpoint was not used`);
-      await bounded(engine.stageCheckpoint(input.resumeFrom, input.resumeBytes));
-    } catch (e) {
-      return { ok: false, output: { error: (e instanceof Error ? e.message : "the checkpoint was not used").slice(0, ERROR_CHARS) }, outputText: "" };
-    }
-  }
-  checkpointable = probe.features.includes("checkpoint");
-  const spec: EngineSessionSpec = {
-    contractVersion: "brain.engine/v1",
-    organizationId: input.organizationId, workspaceId: input.workspaceId,
-    dispatchId: input.jobId, jobId: input.jobId, attemptId: input.attemptId,
-    runnerId: input.runnerId, runnerEpoch: input.runnerEpoch ?? 1, leaseId: input.leaseId, jobFence: input.jobFence,
-    engine: probe, modelId: input.modelId ?? engine.defaultModelId ?? "fixture",
-    instructions, instructionsDigest: sha256Digest(instructionsBytes), task: input.task,
-    sourceRevision: input.sourceRevision ?? input.configDigest,
-    configDigest: input.configDigest, allowedTools: input.allowedTools ?? [],
-    ...(input.resumeFrom ? { resumeFrom: input.resumeFrom } : {}),
-    context: {
-      artifactId: `ctx-${input.attemptId}`, digest: sha256Digest(taskBytes),
-      bytes: taskBytes.length, mediaType: "text/plain", classification: "internal",
-    },
-    limits: {
-      timeoutMs: input.timeoutMs, maxTokens: input.maxTokens ?? 100_000,
-      maxMicroUsd: input.maxMicroUsd ?? 0, maxTurns: input.maxTurns ?? 10,
-    },
-  };
-    startPending = true;
-    const pendingStart = engine.start(spec, signal);
-    // A non-cooperative adapter may finish starting after the deadline.
-    void pendingStart.then(async (started) => {
-      if (signal.aborted && !sessionId) {
-        await cleanup(() => engine.cancel(started.sessionId, "execution expired during start"));
-        await cleanup(() => engine.dispose(started.sessionId));
+    await engine.start(spec, session.signal);
+    for await (const event of engine.events(session.signal)) {
+      switch (event.kind) {
+        case "text": if (event.channel === "assistant") text += event.text; emit(event); break;
+        case "native.call": emit(event); overLimit(); break;
+        case "native.result": emit(event); break;
+        case "tool.request":
+          await engine.toolResult(event.callId, overLimit() ? JSON.stringify({ refused: true, error: "This attempt's allowance is used up." }) : await request.executeTool(event.tool, event.input));
+          break;
+        case "usage":
+          usage = { inputTokens: before.inputTokens + event.inputTokens, outputTokens: before.outputTokens + event.outputTokens, cachedInputTokens: before.cachedInputTokens + event.cachedInputTokens, microUsd: before.microUsd + event.microUsd, turns: before.turns + event.turns };
+          emit({ kind: "usage", inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, cachedInputTokens: usage.cachedInputTokens, microUsd: usage.microUsd });
+          break;
+        case "stopped": stopped = event; break;
       }
-    }, () => undefined);
-    const started = await bounded(pendingStart);
-    sessionId = started.sessionId;
-    startPending = false;
-    input.onSession?.({
-      sessionId,
-      features: probe.features,
-      steer: (messageId, message) => {
-        if (!engine.steer) return Promise.reject(Object.assign(new Error(`${engine.id} does not support steering`), { code: "UNSUPPORTED_CAPABILITY" }));
-        return engine.steer(sessionId, messageId, message);
-      },
-      pause: async () => {
-        if (!engine.pause) throw Object.assign(new Error(`${engine.id} cannot stop at a turn boundary`), { code: "UNSUPPORTED_CAPABILITY" });
-        await engine.pause(sessionId);
-        if (!deadlineHeld) { deadlineHeld = true; clearTimeout(timer); remainingMs = Math.max(1, remainingMs - (Date.now() - armedAt)); }
-      },
-      continue: async () => {
-        await engine.continue?.(sessionId);
-        if (deadlineHeld) {
-          deadlineHeld = false; armedAt = Date.now();
-          timer = setTimeout(() => deadline.abort(new Error("agent execution deadline exceeded")), remainingMs);
-        }
-      },
-    });
-    const events = engine.events(sessionId, 0, signal)[Symbol.asyncIterator]();
-    for (;;) {
-      const next = await bounded(events.next());
-      if (next.done) break;
-      const event = next.value;
-      await bounded(input.emit("engine", event as unknown as JsonValue));
-      if (event.kind === "usage") {
-        const reported = totalsOf(event.payload as unknown as Record<string, unknown>);
-        if (reported.inputTokens + reported.outputTokens + reported.cachedInputTokens > 0) tokensReported = true;
-      }
-      if (event.kind === "tool.proposed") {
-        if (!input.executeTool || !engine.toolResult) throw new Error("Agent proposed a tool without a governed broker");
-        const result = await bounded(input.executeTool(event.payload));
-        await bounded(engine.toolResult(sessionId, result));
-      }
-      if (event.kind === "error") { engineError = true; engineDetail ||= event.payload.error.detail.replace(/\s+/gu, " ").trim(); }
-      // Only what the model says as its answer counts: narration while it still calls tools, and engine notes, are on the diagnostic channel.
-      if (event.kind === "text" && event.payload.channel !== "diagnostic") outputText += event.payload.text;
-      if (event.kind === "session.stopped") {
-        terminalReason = event.payload.reason;
-        terminalConfirmed = event.payload.terminationConfirmed;
-        terminalOutput = event.payload.output;
-        break;
-      }
+      if (stopped) break;
     }
-    if (signal.aborted) {
-      return { ok: false, output: { error: "agent execution aborted; outcome unknown" }, outputText };
-    }
-    if (engineError || !terminalConfirmed || terminalReason !== "completed") {
-      // The engine said why (its error event); a bare "agent ended with error" tells nobody what to change.
-      const ended = terminalReason ? `agent ended with ${terminalReason}` : "agent event stream ended without a terminal result";
-      return { ok: false, output: { error: engineDetail ? `${ended}: ${engineDetail}`.slice(0, ERROR_CHARS) : ended }, outputText };
-    }
-    if (!outputText.trim()) return { ok: false, output: { error: "agent completed without output" }, outputText };
-    const bytes = new TextEncoder().encode(outputText);
-    if (!terminalOutput || terminalOutput.digest !== sha256Digest(bytes) || terminalOutput.bytes !== bytes.length) {
-      return { ok: false, output: { error: "terminal output digest does not match the captured output" }, outputText };
-    }
-    return { ok: true, output: decodedOutput(outputText), outputText };
-  } catch (e) {
-    return { ok: false, output: { error: (e instanceof Error ? e.message : "engine execution failed").slice(0, ERROR_CHARS) }, outputText };
+  } catch (error) {
+    failure ??= engineFailure(error instanceof Error ? error.message : "the engine failed");
+  } finally {
+    clearTimeout(timer);
+    request.signal.removeEventListener("abort", onAbort);
+    await Promise.race([engine.dispose().catch(() => undefined), new Promise((resolve) => { setTimeout(resolve, 2000).unref(); })]);
   }
-  };
-  const result = await execute();
-  clearTimeout(timer);
-  // An attempt that did not finish leaves its engine's conversation behind, so a person can resume it instead of starting over. Best effort:
-  // an engine that cannot save one never changes how the attempt ended.
-  const saved: { checkpoint?: Checkpoint; bytes?: Uint8Array } = {};
-  if (sessionId && checkpointable && !result.ok) await cleanup(async () => {
-    const taken = await engine.checkpoint(sessionId);
-    if (taken.engineState && engine.readCheckpoint) saved.bytes = await engine.readCheckpoint(taken.engineState);
-    saved.checkpoint = taken;
-  });
-  // An endpoint that reports no usage must not leave the meter empty: charge a flagged estimate of 4 bytes per token.
-  // A refusal for quota never reached the model: it spent nothing, so no estimate is charged for it.
-  const refusedForQuota = engineError && QUOTA_TEXT.test(engineDetail);
-  if (sessionId && !tokensReported && !refusedForQuota) {
-    const estimate = estimatedUsage(input.attemptId, sessionId, instructionsBytes.length + taskBytes.length, new TextEncoder().encode(outputText).length);
-    await Promise.resolve(input.emit("engine", estimate as unknown as JsonValue)).catch(() => undefined);
+  const cause = abortCause(session.signal);
+  if (cause === "timeout") failure = failed("timeout", `the attempt ran longer than ${Math.round(spec.limits.timeoutMs / 1000)} seconds and was stopped`);
+  else if (cause === "lease") failure = failed("runner", "the lease on the attempt was lost", true);
+  else if (cause === "stopped") failure = failed("stopped", "the attempt was stopped");
+  else if (!failure) {
+    if (!stopped) failure = failed("engine", "the engine's event stream ended without a result");
+    else if (stopped.reason === "limit") failure = failed("limit", stopped.detail ?? "the agent's limits were reached");
+    else if (stopped.reason === "timeout") failure = failed("timeout", stopped.detail ?? "the engine timed out");
+    else if (stopped.reason !== "completed") failure = engineFailure(stopped.detail ?? `the engine ended with ${stopped.reason}`);
+    else if (!text.trim()) failure = failed("engine", "the agent finished without writing an answer");
   }
-  let cleanupConfirmed = !sessionId && !startPending;
-  if (sessionId) {
-    let terminationConfirmed = terminalConfirmed;
-    if (!terminationConfirmed) {
-      const cancelled = await cleanup(async () => {
-        const cancellation = await engine.cancel(sessionId, "execution ended without confirmed termination");
-        terminationConfirmed = cancellation.terminationConfirmed;
-      });
-      terminationConfirmed = cancelled && terminationConfirmed;
-    }
-    const disposed = await cleanup(() => engine.dispose(sessionId));
-    cleanupConfirmed = terminationConfirmed && disposed;
-  }
-  return { ...result, ok: result.ok && cleanupConfirmed, cleanupConfirmed, ...(saved.checkpoint ? { checkpoint: saved.checkpoint } : {}), ...(saved.bytes ? { checkpointBytes: saved.bytes } : {}) };
+  return { ok: failure === undefined, text, usage, ...(failure ? { failure } : {}) };
 }
 
-type UsageTotals = { inputTokens: number; outputTokens: number; cachedInputTokens: number; microUsd: number; estimated: boolean };
-const totalsOf = (payload: Record<string, unknown>): UsageTotals => {
-  const n = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0);
-  return { inputTokens: n(payload["inputTokens"]), outputTokens: n(payload["outputTokens"]), cachedInputTokens: n(payload["cachedInputTokens"]), microUsd: n(payload["microUsd"]), estimated: payload["estimated"] === true };
-};
+/** The JSON a kind's final answer must be: how to say it to the agent, and what is wrong with a decoded value (nothing when it is right). */
+export interface AnswerFormat {
+  readonly shape: string;
+  readonly problems: (value: JsonValue) => readonly string[];
+}
 
-/** Tokens at 4 bytes each, rounded up; a model that wrote something is charged at least one output token. */
-const tokensOfBytes = (bytes: number): number => Math.ceil(bytes / 4);
-function estimatedUsage(attemptId: string, sessionId: string, promptBytes: number, outputBytes: number): Record<string, unknown> {
-  return {
-    contractVersion: "brain.engine-event/v1", eventId: `usage-estimate-${attemptId}`, sessionId, attemptId, sequence: 1_000_000,
-    occurredAt: new Date().toISOString(), kind: "usage",
-    payload: { usageId: `usage-estimate-${attemptId}`, inputTokens: tokensOfBytes(promptBytes), outputTokens: tokensOfBytes(outputBytes), cachedInputTokens: 0, microUsd: 0, accounting: "final-total", estimated: true },
-  };
+const CORRECTION_CHARS = 30_000;
+/** The first line of a corrective session's task; the fixture engine reads it to know it is asked for a correction. */
+export const CORRECTION_HEADER = "[correction of the final answer]";
+function correctiveTask(previous: string, format: AnswerFormat, problems: readonly string[]): string {
+  const listed = problems.slice(0, 8).map((problem) => `- ${problem.slice(0, 300)}`).join("\n");
+  return `${CORRECTION_HEADER}\nYour previous reply could not be used: the final answer of this task must be one JSON object of this form and nothing else:\n${format.shape}\n\nWhat is wrong with it:\n${listed}\n\nReply again with only the complete corrected JSON object: the same content, valid JSON, every double quote and backslash inside a string escaped, no text, code fence or comment around it.\n\nYour previous reply:\n${previous.trim().slice(0, CORRECTION_CHARS)}`;
+}
+
+function problemsOf(text: string, format: AnswerFormat): { value?: JsonValue; problems: readonly string[] } {
+  const decoded = decodeModelJson(text);
+  if (!decoded || decoded.value === null || typeof decoded.value !== "object" || Array.isArray(decoded.value)) return { problems: ["the reply is not a JSON object"] };
+  return { value: decoded.value, problems: format.problems(decoded.value) };
 }
 
 /**
- * Runs the agent step. Strings are repaired when decoding (see `decodeModelJson`); a reply that is still not valid JSON gets one
- * corrective second session that sees its own reply and the parse problem. Both sessions are charged: an engine that reports a final
- * total per session has the first session's total added to the second's, so "the last total wins" still counts everything.
+ * Runs the engine for an attempt. Without a format the answer is the result as written, and it is also the structured output when the
+ * whole of it is a JSON object. With a format (plan, check, judge) the answer must be that JSON: a reply that is not gets one corrective
+ * session, which sees its own reply and what is wrong with it and has no tools; if that does not produce it either, the attempt fails
+ * and says so. Both sessions count: usage is the attempt's total.
  */
-export async function runAgentExecution(input: AgentExecutionInput): Promise<AgentExecutionResult> {
-  let first: UsageTotals | undefined;
-  const first$ = await runAgentSession({
-    ...input,
-    emit: async (kind, payload) => {
-      const event = payload as { kind?: string; payload?: Record<string, unknown> };
-      if (kind === "engine" && event.kind === "usage" && event.payload?.["accounting"] === "final-total") first = totalsOf(event.payload);
-      await input.emit(kind, payload);
-    },
+export async function runEngine(request: SessionRequest, format?: AnswerFormat): Promise<SessionResult> {
+  const first = await runSession(request);
+  if (!first.ok) return first;
+  if (!format) { const output = wholeJsonObject(first.text); return output === undefined ? first : { ...first, output }; }
+  const judged = problemsOf(first.text, format);
+  if (judged.problems.length === 0) return { ...first, output: judged.value! };
+  const wrong = (problems: readonly string[]): AttemptFailure => failed("engine", `the agent's final answer is not the required JSON (${format.shape}): ${problems.join("; ")}`);
+  // The correction is part of the same allowance: with little of it left the first reply stands and the attempt fails on it.
+  const used = first.usage.inputTokens + first.usage.outputTokens + first.usage.cachedInputTokens;
+  const allowance = request.spec.limits.maxTokens;
+  if (request.signal.aborted || (allowance > 0 && used > allowance * 0.8)) return { ...first, ok: false, failure: wrong(judged.problems) };
+  const second = await runSession({
+    ...request, usedBefore: first.usage,
+    spec: { ...request.spec, task: correctiveTask(first.text, format, judged.problems), tools: [], native: "none" },
   });
-  if (!first$.ok || input.signal.aborted) return first$;
-  let violations: readonly string[] = [];
-  let corrective: string | undefined;
-  if (brokenJson(first$.outputText, first$.output)) corrective = correctiveTask(first$.outputText);
-  else if (input.outputCheck && first$.output !== null && typeof first$.output === "object") {
-    violations = input.outputCheck(first$.output);
-    if (violations.length > 0) corrective = violationTask(first$.outputText, violations);
-  }
-  if (!corrective) return first$;
-  const carried = first;
-  // The correction is part of the same allowance: with little of it left the first reply stands (and fails validation as before), and otherwise
-  // the correction gets only what is left, so a corrected attempt never costs twice what the agent may spend.
-  const used = carried ? carried.inputTokens + carried.outputTokens + carried.cachedInputTokens : 0;
-  const allowance = input.maxTokens !== undefined && input.maxTokens > 0 ? input.maxTokens : undefined;
-  if (allowance !== undefined && used > allowance * 0.8) return first$;
-  // The corrective session is a fresh one about the reply just written: it never continues a saved conversation.
-  const { resumeFrom: _resumed, resumeBytes: _bytes, ...fresh } = input;
-  const second = await runAgentSession({
-    ...fresh,
-    ...(allowance !== undefined ? { maxTokens: allowance - used } : {}),
-    task: corrective,
-    emit: async (kind, payload) => {
-      const event = payload as { kind?: string; payload?: Record<string, unknown> };
-      if (carried && kind === "engine" && event.kind === "usage" && event.payload?.["accounting"] === "final-total") {
-        const now = totalsOf(event.payload);
-        await input.emit(kind, { ...event, payload: { ...event.payload, usageId: `${String(event.payload["usageId"] ?? "usage")}-corrected`,
-          inputTokens: carried.inputTokens + now.inputTokens, outputTokens: carried.outputTokens + now.outputTokens,
-          cachedInputTokens: carried.cachedInputTokens + now.cachedInputTokens, microUsd: carried.microUsd + now.microUsd,
-          estimated: carried.estimated || event.payload["estimated"] === true } });
-        return;
-      }
-      await input.emit(kind, payload);
-    },
-  });
-  // A correction that is still not JSON, or whose session failed, changes nothing: the first reply stands and fails validation as before.
-  if (!second.ok || typeof second.output === "string" || second.output === null) return first$;
-  // A correction that breaks the contract in more places than the first reply did is no improvement.
-  if (violations.length > 0 && input.outputCheck && input.outputCheck(second.output).length > violations.length) return first$;
-  return second;
-}
-
-/** How one route went for an attempt: the Governor records the served one and leaves a route that refused for quota out of later offers. */
-export interface RouteReport { readonly routeId: string; readonly outcome: "served" | "quota" | "failed"; readonly retryAfterMs?: number }
-
-export interface RouteCandidate { readonly route: HostedRoute; readonly engine: EngineAdapter }
-
-const errorOf = (output: JsonValue): string => { const error = output !== null && typeof output === "object" && !Array.isArray(output) ? (output as { readonly error?: JsonValue }).error : undefined; return typeof error === "string" ? error : ""; };
-
-/**
- * Runs the agent step on the routes the Governor offered, in order (ADR 0055). A route that refuses for quota (or that this runner has no key
- * for) is left behind at once and the next one takes the step: never a blind retry on the same route. What failed routes spent is carried into the
- * usage the next one reports, so the attempt's total still counts everything. The first route that answers decides the attempt; when every route
- * refuses, the last refusal ends it and the Governor waits out the provider's retry-after.
- */
-export async function runAgentOnRoutes(input: Omit<AgentExecutionInput, "engine" | "modelId">, candidates: readonly RouteCandidate[]): Promise<AgentExecutionResult & { routes: RouteReport[] }> {
-  const routes: RouteReport[] = [];
-  let carried: UsageTotals | undefined;
-  let last: AgentExecutionResult | undefined;
-  for (const [index, candidate] of candidates.entries()) {
-    let finalTotal: UsageTotals | undefined;
-    const earlier = carried;
-    const result = await runAgentExecution({
-      ...input, engine: candidate.engine, modelId: candidate.route.model,
-      emit: async (kind, payload) => {
-        const event = payload as { kind?: string; payload?: Record<string, unknown> };
-        if (kind === "engine" && event.kind === "usage" && event.payload?.["accounting"] === "final-total") {
-          finalTotal = totalsOf(event.payload);
-          if (earlier) {
-            await input.emit(kind, { ...event, payload: { ...event.payload, usageId: `${String(event.payload["usageId"] ?? "usage")}-route-${index}`,
-              inputTokens: earlier.inputTokens + finalTotal.inputTokens, outputTokens: earlier.outputTokens + finalTotal.outputTokens,
-              cachedInputTokens: earlier.cachedInputTokens + finalTotal.cachedInputTokens, microUsd: earlier.microUsd + finalTotal.microUsd,
-              estimated: earlier.estimated || finalTotal.estimated } });
-            return;
-          }
-        }
-        await input.emit(kind, payload);
-      },
-    });
-    last = result;
-    const error = result.ok ? "" : errorOf(result.output);
-    const refused = !result.ok && QUOTA_TEXT.test(error);
-    const keyMissing = !result.ok && /needs its API key on this runner/u.test(error);
-    if (result.ok || input.signal.aborted || !(refused || keyMissing) || index === candidates.length - 1) {
-      routes.push({ routeId: candidate.route.routeId, outcome: result.ok ? "served" : refused ? "quota" : "failed", ...(refused && quotaRetryAfterMs(error) !== undefined ? { retryAfterMs: quotaRetryAfterMs(error)! } : {}) });
-      return { ...result, routes };
-    }
-    routes.push({ routeId: candidate.route.routeId, outcome: refused ? "quota" : "failed", ...(refused && quotaRetryAfterMs(error) !== undefined ? { retryAfterMs: quotaRetryAfterMs(error)! } : {}) });
-    const spent = finalTotal ?? { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0, estimated: false };
-    carried = earlier ? { inputTokens: earlier.inputTokens + spent.inputTokens, outputTokens: earlier.outputTokens + spent.outputTokens, cachedInputTokens: earlier.cachedInputTokens + spent.cachedInputTokens, microUsd: earlier.microUsd + spent.microUsd, estimated: earlier.estimated || spent.estimated } : spent;
-  }
-  return { ...(last ?? { ok: false, output: { error: "no model route could take this step" }, outputText: "" }), routes };
+  if (!second.ok) return second.failure?.reason === "engine" ? { ...second, text: first.text, failure: wrong(judged.problems) } : { ...second, text: first.text };
+  const corrected = problemsOf(second.text, format);
+  if (corrected.problems.length > 0) return { ...second, ok: false, text: first.text, failure: wrong(corrected.problems) };
+  return { ...second, output: corrected.value! };
 }

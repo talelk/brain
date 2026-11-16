@@ -1,374 +1,134 @@
-import { sha256Digest } from "@brain/contracts";
-import type { McpDeclaration } from "./tools/mcp";
-import type { Agent, EngineToolBinding, VerificationVerdict } from "@brain/contracts";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { RUNNER_ROUTES, sha256Digest } from "@brain/contracts";
+import type {
+  AckRequest, ApprovalPollResponse, ArtifactUpload, ArtifactUploadResponse, BlobRef, BrainToolRequest, BrainToolResponse, ChallengeRequest, ChallengeResponse, ClaimRequest,
+  ClaimResponse, CompleteRequest, CompleteResponse, EnrollRequest, EnrollResponse, EventsRequest, EventsResponse, Fenced, HeartbeatRequest, HeartbeatResponse, HelloRequest,
+  HelloResponse, LeaseResponse, ModelTokenRequest, ModelTokenResponse, SecretRequest, SecretResponse, ToolCallRequest, ToolCallResponse,
+} from "@brain/contracts";
 
 /**
- * Typed client for the Governor's `/runner/v1` protocol.
- *
- * Every round-trip the runner supervisor makes lives here: enrollment and
- * the challenge/hello handshake, the claim/ack/lease cycle, digest-pinned
- * artifact and release-asset fetches, permits, events, completion, evidence
- * and verdicts. The supervisor keeps only execution policy (sandbox, spool,
- * engine run, watchdog); this module owns the wire.
- *
- * Two adapters exercise this one interface: real HTTP in production, and a
- * scripted `transport` fake in tests — the protocol is testable without
- * booting a Governor.
- *
- * Digest verification is part of the protocol guarantee, not caller policy:
- * `executionArtifact`, `agentInstructions` and `toolScript` return verified
- * bytes or throw. There is no unverified-bytes escape hatch.
+ * The runner's side of the `/runner/v1` protocol (docs/architecture.md section 6): one method per route of `RUNNER_ROUTES`, with exactly
+ * the request and response types of protocol.ts. A request is JSON and is answered with the response type as JSON; a refusal is any other
+ * status with `{error: {code, message}}`. Everything after `hello` carries the session token as a bearer credential; a 401 asks the
+ * runner to say hello again, once, and repeats the request. Blobs are checked against their digest and size and kept on disk.
  */
-
 export interface GovernorClientConfig {
   readonly governorUrl: string;
-  /** Transport seam: production fetch by default, scripted fake in tests. */
+  /** Where verified blobs are kept, by digest. */
+  readonly blobDir: string;
+  /** Transport seam: the platform's fetch by default; tests hand in a Governor that runs in the same process. */
   readonly transport?: typeof fetch;
 }
 
-/** A non-OK HTTP answer from the Governor. Callers branch on `status` only
- * for declared control flow (401 stale session, 409/410 fenced attempt);
- * everything else aborts the current operation. */
-export class GovernorProtocolError extends Error {
-  readonly status: number;
-  readonly body: unknown;
-
-  constructor(label: string, status: number, body: unknown) {
-    super(`${label} failed ${status}: ${JSON.stringify(body)}`);
-    this.name = "GovernorProtocolError";
-    this.status = status;
-    this.body = body;
+/** A refusal from the Governor. `code` is the error code of its body when it has one. */
+export class GovernorError extends Error {
+  constructor(label: string, readonly status: number, readonly code: string | undefined, detail: string) {
+    super(`${label} was refused (${status}${code ? ` ${code}` : ""})${detail ? `: ${detail}` : ""}`);
+    this.name = "GovernorError";
   }
 }
 
-/** The offer shape `/runner/v1/claim` returns for a leased attempt. */
-export interface JobOffer {
-  attemptId: string;
-  jobId: string;
-  workspaceId: string;
-  organizationId?: string;
-  workflowRunId?: string;
-  stepId: string;
-  runnerEpoch: number;
-  executionDigest: string;
-  attemptNumber?: number;
-  sourceRevision?: string;
-  leaseId: string;
-  jobFence: number;
-  configDigest: string;
-  workflowDigest?: string;
-  primitiveVersions?: Record<string, string>;
-  toolPins?: Record<string, string>;
-  /** The hosts each tool of the job's release may reach, from the pinned tool definition. */
-  toolAllowedHosts?: Record<string, string[]>;
-  /** External MCP tools of the pinned release: server, tool, tool-list digest, header references (ADR 0064). */
-  toolMcp?: Record<string, McpDeclaration>;
-  /** The hosts this workspace lets a sandboxed tool reach through the egress proxy (ADR 0037); none means no network. */
-  egressHosts?: string[];
-  /** Where the step must run; `isolation` is what an engine has to provide (ADR 0035). */
-  placement?: { isolation?: string; resources?: { cpuMillicores: number; memoryMb: number } };
-  authorEvidence?: { toolReleases: { id: string; digest: string }[]; claimedChecks: unknown[] };
-  execution: { kind: string; artifact: { artifactId: string; digest: string; bytes: number } };
-}
+/** The fence moved: the attempt belongs to another lease now, and nothing more may be said about it. */
+export const isLeaseLost = (error: unknown): boolean => error instanceof GovernorError && error.code === "LEASE_LOST";
 
-export interface HeartbeatCommand {
-  type?: string;
-  commandId?: string;
-  attemptId?: string;
-  text?: string;
-}
-
-export interface HeartbeatAck {
-  commands?: HeartbeatCommand[];
-}
-
-export interface AgentInstructions {
-  agent: Agent;
-  toolBindings: EngineToolBinding[];
-  instructions: string;
-}
-
-export interface ToolScript {
-  entrypoint: string;
-  bytes: Uint8Array;
-}
-
-export interface UploadedArtifact {
-  artifactId: string;
-  digest: string;
-  bytes: number;
-}
-
-/** What the Governor hands a runner to act as one session: the credential (never logged, never shown to a model) and the ids it acts on. */
-export interface SessionGrant {
-  principalId: string;
-  credential: string;
-  expiresAt: string;
-  workspaceId: string;
-  missionId: string;
-  memberId?: string;
-  workItemId?: string;
-}
+const route = (template: string, params: Readonly<Record<string, string>> = {}): string => template.replace(/:([A-Za-z]+)/gu, (_all, name: string) => encodeURIComponent(params[name] ?? ""));
 
 export class GovernorClient {
   private token: string | undefined;
+  private renewing: Promise<void> | undefined;
+  /** Says hello again and sets the new token; set by the runner once it has a session. */
+  reauthenticate: (() => Promise<void>) | undefined;
 
   constructor(private readonly cfg: GovernorClientConfig) {}
 
-  /** Runtime session token; enrollment-time calls are unauthenticated. */
-  setToken(token: string | undefined): void {
-    this.token = token;
+  setToken(token: string): void { this.token = token; }
+
+  private async send(path: string, init: { method: "GET" | "POST"; body?: string | Uint8Array; contentType?: string; timeoutMs?: number }): Promise<Response> {
+    const once = (): Promise<Response> => (this.cfg.transport ?? fetch)(`${this.cfg.governorUrl.replace(/\/$/u, "")}${path}`, {
+      method: init.method,
+      headers: { ...(init.body === undefined ? {} : { "content-type": init.contentType ?? "application/json" }), ...(this.token ? { authorization: `Bearer ${this.token}` } : {}) },
+      ...(init.body === undefined ? {} : { body: init.body as BodyInit }),
+      signal: AbortSignal.timeout(init.timeoutMs ?? 30_000),
+    });
+    const first = await once();
+    if (first.status !== 401 || !this.token || !this.reauthenticate) return first;
+    // One hello serves every request that was refused with the old token.
+    this.renewing ??= this.reauthenticate().finally(() => { this.renewing = undefined; });
+    await this.renewing;
+    return once();
+  }
+
+  private async refuse(label: string, response: Response): Promise<never> {
+    const text = await response.text().catch(() => "");
+    let error: { code?: unknown; message?: unknown } = {};
+    try { error = ((JSON.parse(text) as { error?: typeof error }).error) ?? {}; } catch { /* not JSON: the status alone */ }
+    throw new GovernorError(label, response.status, typeof error.code === "string" ? error.code : undefined, typeof error.message === "string" ? error.message : "");
+  }
+
+  private async post<T>(label: string, path: string, body: unknown): Promise<T> {
+    const response = await this.send(path, { method: "POST", body: JSON.stringify(body) });
+    if (!response.ok) return this.refuse(label, response);
+    return await response.json() as T;
+  }
+
+  // --- enrolment and session ---
+
+  enroll(request: EnrollRequest): Promise<EnrollResponse> { return this.post("enroll", RUNNER_ROUTES.enroll, request); }
+  challenge(request: ChallengeRequest): Promise<ChallengeResponse> { return this.post("challenge", RUNNER_ROUTES.challenge, request); }
+  hello(request: HelloRequest): Promise<HelloResponse> { return this.post("hello", RUNNER_ROUTES.hello, request); }
+  heartbeat(request: HeartbeatRequest): Promise<HeartbeatResponse> { return this.post("heartbeat", RUNNER_ROUTES.heartbeat, request); }
+
+  // --- an attempt ---
+
+  claim(request: ClaimRequest): Promise<ClaimResponse> { return this.post("claim", RUNNER_ROUTES.claim, request); }
+  ack(attemptId: string, request: AckRequest): Promise<LeaseResponse> { return this.post("ack", route(RUNNER_ROUTES.ack, { id: attemptId }), request); }
+  renew(attemptId: string, request: Fenced): Promise<LeaseResponse> { return this.post("renew", route(RUNNER_ROUTES.renew, { id: attemptId }), request); }
+  events(attemptId: string, request: EventsRequest): Promise<EventsResponse> { return this.post("events", route(RUNNER_ROUTES.events, { id: attemptId }), request); }
+  toolCall(attemptId: string, request: ToolCallRequest): Promise<ToolCallResponse> { return this.post("tool-call", route(RUNNER_ROUTES.toolCall, { id: attemptId }), request); }
+  brainTool(attemptId: string, request: BrainToolRequest): Promise<BrainToolResponse> { return this.post("brain-tool", route(RUNNER_ROUTES.brainTool, { id: attemptId }), request); }
+  secret(attemptId: string, request: SecretRequest): Promise<SecretResponse> { return this.post("secret", route(RUNNER_ROUTES.secret, { id: attemptId }), request); }
+  modelToken(attemptId: string, request: ModelTokenRequest): Promise<ModelTokenResponse> { return this.post("model-token", route(RUNNER_ROUTES.modelToken, { id: attemptId }), request); }
+  complete(attemptId: string, request: CompleteRequest): Promise<CompleteResponse> { return this.post("complete", route(RUNNER_ROUTES.complete, { id: attemptId }), request); }
+
+  /** Where a pending approval stands. The fence travels in the query, as it does for an upload. */
+  async approval(attemptId: string, approvalId: string, request: Fenced): Promise<ApprovalPollResponse> {
+    const response = await this.send(`${route(RUNNER_ROUTES.approval, { id: attemptId, approvalId })}?fence=${request.fence}`, { method: "GET" });
+    if (!response.ok) return this.refuse("approval", response);
+    return await response.json() as ApprovalPollResponse;
+  }
+
+  /** Uploads bytes as an artifact of the attempt. The answer's digest must be the digest of what was sent. */
+  async uploadArtifact(attemptId: string, upload: ArtifactUpload, bytes: Uint8Array): Promise<ArtifactUploadResponse> {
+    const query = new URLSearchParams({ fence: String(upload.fence), name: upload.name, kind: upload.kind, mediaType: upload.mediaType });
+    const response = await this.send(`${route(RUNNER_ROUTES.artifacts, { id: attemptId })}?${query.toString()}`, { method: "POST", body: bytes, contentType: "application/octet-stream", timeoutMs: 120_000 });
+    if (!response.ok) return this.refuse("artifact upload", response);
+    const stored = await response.json() as ArtifactUploadResponse;
+    if (stored.digest !== sha256Digest(bytes) || stored.bytes !== bytes.length) throw new Error(`the Governor stored artifact ${upload.name} under another digest than the bytes sent`);
+    return stored;
   }
 
   /**
-   * Follows the supervisor's current session token. A session refresh replaces the token while attempts run; a request that was signed
-   * with the token of a moment ago and is answered 401 is repeated once with the current one, so a refresh never fails a running attempt.
+   * The bytes of a snapshot file (a prompt, a tool file) or of a patch, by digest. They come from the on-disk cache when it holds them,
+   * otherwise from the Governor; either way they are returned only when their digest (and their size, when the reference states one) is the one asked for.
    */
-  setTokenSource(source: () => string): void {
-    this.tokenSource = source;
-    this.token = source();
-  }
-  private tokenSource: (() => string) | undefined;
-  private async withCurrentToken<T extends { status: number }>(send: (token: string | undefined) => Promise<T>): Promise<T> {
-    const used = this.tokenSource ? this.tokenSource() : this.token;
-    const first = await send(used);
-    if (first.status !== 401 || !this.tokenSource) return first;
-    const current = this.tokenSource();
-    return current !== used ? send(current) : first;
-  }
-
-  private request(path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
-    return this.withCurrentToken(async (token) => {
-      const res = await (this.cfg.transport ?? fetch)(`${this.cfg.governorUrl.replace(/\/$/, "")}${path}`, {
-        method: body === undefined ? "GET" : "POST",
-        headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        signal: AbortSignal.timeout(30_000),
-      });
-      const text = await res.text();
-      return { status: res.status, json: text ? (JSON.parse(text) as unknown) : null };
-    });
-  }
-
-  private requestBytes(path: string): Promise<{ status: number; bytes: Uint8Array }> {
-    return this.withCurrentToken(async (token) => {
-      const res = await (this.cfg.transport ?? fetch)(`${this.cfg.governorUrl.replace(/\/$/, "")}${path}`, {
-        method: "GET",
-        headers: { authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(30_000),
-      });
-      return { status: res.status, bytes: new Uint8Array(await res.arrayBuffer()) };
-    });
-  }
-
-  private expect<T>(label: string, res: { status: number; json: unknown }, expected: number): T {
-    if (res.status !== expected) throw new GovernorProtocolError(label, res.status, res.json);
-    return res.json as T;
-  }
-
-  // --- enrollment and session -------------------------------------------
-
-  async enroll(enrollToken: string, publicKey: string, runnerId: string): Promise<{ credential: string }> {
-    return this.expect("enroll", await this.request("/runner/v1/enroll", { token: enrollToken, publicKey, runnerId }), 201);
-  }
-
-  async challenge(runnerId: string, credential: string): Promise<{ challengeId: string; nonce: string }> {
-    return this.expect("challenge", await this.request("/runner/v1/challenges", { runnerId, credential }), 201);
-  }
-
-  /** The hello body (capabilities, engines, capacity, proof) is assembled by
-   * the supervisor; the client owns the authenticated round-trip. */
-  async hello(body: unknown): Promise<{ sessionToken: string; epoch: number }> {
-    return this.expect("hello", await this.request("/runner/v1/hello", body), 200);
-  }
-
-  async heartbeat(body: unknown): Promise<HeartbeatAck> {
-    return this.expect("heartbeat", await this.request("/runner/v1/heartbeat", body), 200);
-  }
-
-  // --- attempt lifecycle --------------------------------------------------
-
-  /** 204 means no work; null is the typed form of that answer. */
-  async claim(requestId: string): Promise<JobOffer | null> {
-    const res = await this.request("/runner/v1/claim", { requestId });
-    if (res.status === 204) return null;
-    if (res.status !== 200) throw new GovernorProtocolError("claim", res.status, res.json);
-    return res.json as JobOffer;
-  }
-
-  async ack(attemptId: string, body: unknown): Promise<{ leaseExpiresAt?: string }> {
-    return this.expect("ack", await this.request(`/runner/v1/attempts/${attemptId}/ack`, body), 200);
-  }
-
-  /** Execution input travels as a digest-pinned CAS artifact, never inline;
-   * bytes are verified against the offer pin before they are returned. */
-  async executionArtifact(attemptId: string, expectedDigest: string, expectedBytes: number): Promise<Uint8Array> {
-    const res = await this.requestBytes(`/runner/v1/attempts/${attemptId}/artifact`);
-    if (res.status !== 200) throw new GovernorProtocolError("execution artifact fetch", res.status, null);
-    if (sha256Digest(res.bytes) !== expectedDigest || res.bytes.length !== expectedBytes) {
-      throw new Error("execution artifact digest/size mismatch; refusing to run");
+  async blob(ref: Pick<BlobRef, "digest"> & Partial<BlobRef>): Promise<Uint8Array> {
+    const matches = (bytes: Uint8Array): boolean => (ref.bytes === undefined || bytes.length === ref.bytes) && sha256Digest(bytes) === ref.digest;
+    if (!/^sha256:[0-9a-f]{64}$/u.test(ref.digest)) throw new Error(`${ref.digest} is not a digest`);
+    const cached = join(this.cfg.blobDir, ref.digest.slice("sha256:".length));
+    if (existsSync(cached)) {
+      const held = new Uint8Array(readFileSync(cached));
+      if (matches(held)) return held;
     }
-    return res.bytes;
-  }
-
-  /**
-   * The saved conversation a resumed attempt continues, downloaded from the Governor (ADR 0068) and checked against the reference the offer
-   * pinned: a copy with another digest or size is refused, so a resume never starts from bytes nobody vouched for.
-   */
-  async resumeCheckpoint(attemptId: string, expected: { digest: string; bytes: number }): Promise<Uint8Array> {
-    const res = await this.requestBytes(`/runner/v1/attempts/${attemptId}/checkpoint`);
-    if (res.status !== 200) throw new GovernorProtocolError("checkpoint download", res.status, null);
-    if (sha256Digest(res.bytes) !== expected.digest || res.bytes.length !== expected.bytes) {
-      throw new Error(`the downloaded checkpoint does not match ${expected.digest.slice(0, 19)}; refusing to resume from it`);
-    }
-    return res.bytes;
-  }
-
-  async events(attemptId: string, body: unknown): Promise<void> {
-    const res = await this.request(`/runner/v1/attempts/${attemptId}/events`, body);
-    if (res.status !== 200) throw new GovernorProtocolError("events", res.status, res.json);
-  }
-
-  async renew(attemptId: string, leaseId: string, jobFence: number): Promise<{ leaseExpiresAt?: string }> {
-    return this.expect("renew", await this.request(`/runner/v1/attempts/${attemptId}/renew`, { leaseId, jobFence }), 200);
-  }
-
-  async permit(attemptId: string, body: unknown): Promise<{ token: string; permitId: string; invocationId?: string }> {
-    return this.expect("effect permit", await this.request(`/runner/v1/attempts/${attemptId}/permit`, body), 200);
-  }
-
-  /** Broker-boundary re-check: any non-OK answer means not valid. */
-  async validatePermit(token: string, invocationId: string): Promise<boolean> {
-    const res = await this.request("/runner/v1/permits/validate", { token, invocationId });
-    return res.status === 200 && (res.json as { valid?: boolean }).valid === true;
-  }
-
-  // --- pinned release assets ----------------------------------------------
-
-  /** Fetches an agent's instructions and verifies the release identity and
-   * the instruction digest against the offer's pinned agent digest. */
-  async agentInstructions(configDigest: string, agentId: string, expectedAgentDigest: string): Promise<AgentInstructions> {
-    const res = await this.request(`/runner/v1/releases/${encodeURIComponent(configDigest)}/agents/${encodeURIComponent(agentId)}/instructions`);
-    if (res.status !== 200) throw new GovernorProtocolError("agent instruction fetch", res.status, res.json);
-    const asset = res.json as { agent: Agent; agentDigest: string; path: string; instructionsDigest: string; bytesBase64: string; toolBindings: EngineToolBinding[] };
-    if (asset.agentDigest !== expectedAgentDigest || asset.agent.metadata.id !== agentId || asset.path !== asset.agent.spec.instructionsPath) {
-      throw new Error("agent release identity does not match the job offer");
-    }
-    const bytes = new Uint8Array(Buffer.from(asset.bytesBase64, "base64"));
-    if (sha256Digest(bytes) !== asset.instructionsDigest) throw new Error("agent instruction digest mismatch");
-    return { agent: asset.agent, toolBindings: asset.toolBindings, instructions: new TextDecoder().decode(bytes) };
-  }
-
-  /** Fetches a pinned tool script and verifies it against the offer pin. */
-  async toolScript(configDigest: string, toolId: string, expectedDigest: string): Promise<ToolScript> {
-    const res = await this.request(`/runner/v1/releases/${encodeURIComponent(configDigest)}/tools/${encodeURIComponent(toolId)}`);
-    if (res.status !== 200) throw new GovernorProtocolError("tool script fetch", res.status, res.json);
-    const body = res.json as { entrypoint: string; entrypointDigest: string; bytesBase64: string };
-    if (body.entrypointDigest !== expectedDigest) throw new Error("release tool digest disagrees with the offer pin");
-    return { entrypoint: body.entrypoint, bytes: new Uint8Array(Buffer.from(body.bytesBase64, "base64")) };
-  }
-
-  /** Asks the Governor for the data a governed read tool needs; scope is rechecked there and a refusal comes back as an HTTP error. */
-  async toolRead(attemptId: string, request: { tool: { id: string; digest: string }; input: Record<string, unknown> }): Promise<unknown> {
-    const res = await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/tool-read`, request);
-    if (res.status !== 200) throw new GovernorProtocolError("tool read", res.status, res.json);
-    return (res.json as { data: unknown }).data;
-  }
-
-  /** Short-lived credentials for the secrets the attempt's own privileged tool declared (ADR 0070). The values are never logged or put in an error. */
-  async secretCredentials(attemptId: string): Promise<Array<{ id: string; envName: string; value: string; expiresAt: string }>> {
-    const res = await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/secret-credentials`, {});
-    if (res.status !== 200) throw new GovernorProtocolError("secret credentials", res.status, res.json);
-    return (res.json as { credentials: Array<{ id: string; envName: string; value: string; expiresAt: string }> }).credentials;
-  }
-
-  /** Immediately before use: the Governor refuses (and audits) a credential that expired, was revoked or lost its attempt's fence. */
-  async validateSecretCredentials(attemptId: string, ids: readonly string[]): Promise<void> {
-    const res = await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/secret-credentials/validate`, { ids });
-    if (res.status !== 200) throw new GovernorProtocolError("secret credential check", res.status, res.json);
-  }
-
-  // --- Brain tools (ADR 0042) -------------------------------------------
-
-  /** The credential this running attempt acts with as its team member's machine principal, and the ids it acts on. Asking again replaces it. */
-  async sessionCredential(attemptId: string): Promise<SessionGrant> {
-    return this.expect("session credential", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/session-credential`, {}), 200);
-  }
-
-  /** The token this running attempt calls the Governor's model gateway with (ADR 0072), and the base address of a route through it. Asking again replaces it. */
-  async modelGatewayToken(attemptId: string): Promise<{ token: string; expiresAt: string }> {
-    return this.expect("model gateway token", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/model-gateway-token`, {}), 200);
-  }
-
-  /** The address an OpenAI-compatible client uses for one model route through the Governor's gateway. */
-  gatewayBaseUrl(routeId: string): string {
-    return `${this.cfg.governorUrl.replace(/\/$/, "")}/model-gateway/v1/routes/${encodeURIComponent(routeId)}`;
-  }
-
-  /**
-   * One call to the Governor's public command or query endpoint as a session principal: the bearer is the attempt's credential, never this
-   * runner's own token, so the Governor's authorization decides exactly as it does for any actor and nothing here is a shortcut.
-   */
-  async actAs(credential: string, path: "/v1/commands" | "/v1/query", body: unknown): Promise<{ status: number; json: unknown }> {
-    const res = await (this.cfg.transport ?? fetch)(`${this.cfg.governorUrl.replace(/\/$/, "")}${path}`, {
-      method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${credential}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(30_000),
-    });
-    const text = await res.text();
-    return { status: res.status, json: text ? (JSON.parse(text) as unknown) : null };
-  }
-
-  // --- effect tools (ADR 0024) -------------------------------------------
-
-  /**
-   * Proposes an effect call; the Governor records the approval of exactly this call, holds the change as its own job and says where it
-   * stands. `held` is true while the change waits for a decision; `duplicate` marks a repeat of a change this task already proposed, with
-   * the first one's state (and its outcome once settled).
-   */
-  async effectRequest(attemptId: string, body: { proposalId: string; tool: { id: string; digest: string }; input: unknown }): Promise<{ approvalId: string; state: string; expiresAt: string; summary: string; held?: boolean; duplicate?: boolean; outcome?: string; result?: string }> {
-    return this.expect("effect request", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects`, body), 200);
-  }
-
-  async effectPermit(attemptId: string, body: { proposalId: string; tool: { id: string; digest: string }; input: unknown }): Promise<{ token: string; permitId: string; invocationId: string }> {
-    return this.expect("effect permit", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects/permit`, body), 200);
-  }
-
-  async effectStart(attemptId: string, body: { proposalId: string; tool: { id: string; digest: string }; input: unknown; token: string }): Promise<void> {
-    await this.expect("effect start", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects/start`, body), 200);
-  }
-
-  /** Asks the Governor to perform an approved effect that needs its credentials (ticket, message, pull request). */
-  async effectRun(attemptId: string, body: { proposalId: string; tool: { id: string; digest: string }; input: unknown; token: string }): Promise<unknown> {
-    const res = await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects/run`, body);
-    if (res.status !== 200) throw new GovernorProtocolError("effect run", res.status, res.json);
-    return (res.json as { data: unknown }).data;
-  }
-
-  async effectFinish(attemptId: string, body: { proposalId: string; outcome: "applied" | "absent" | "unknown"; receiptDigest: string }): Promise<void> {
-    await this.expect("effect finish", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects/finish`, body), 200);
-  }
-
-  // --- outputs -------------------------------------------------------------
-
-  /** Uploads bytes as a CAS artifact; the digest is computed here so an
-   * uploaded artifact is always self-consistent. */
-  async uploadArtifact(attemptId: string, bytes: Uint8Array, mediaType: string): Promise<UploadedArtifact> {
-    const res = await this.request(`/runner/v1/attempts/${attemptId}/artifacts`, {
-      digest: sha256Digest(bytes), mediaType, bytesBase64: Buffer.from(bytes).toString("base64"),
-    });
-    return this.expect("attempt artifact upload", res, 201);
-  }
-
-  async complete(attemptId: string, body: unknown): Promise<void> {
-    const res = await this.request(`/runner/v1/attempts/${attemptId}/complete`, body);
-    if (res.status !== 200) throw new GovernorProtocolError("complete", res.status, res.json);
-  }
-
-  async submitEvidence(bundle: unknown): Promise<{ digest?: string }> {
-    return this.expect("evidence submit", await this.request("/runner/v1/evidence", bundle), 201);
-  }
-
-  async submitVerdict(workspaceId: string, verdict: VerificationVerdict): Promise<void> {
-    const res = await this.request("/runner/v1/verdicts", { workspaceId, verdict });
-    if (res.status !== 200) throw new GovernorProtocolError("verdict not accepted", res.status, res.json);
+    const response = await this.send(route(RUNNER_ROUTES.blob, { digest: ref.digest }), { method: "GET", timeoutMs: 120_000 });
+    if (!response.ok) return this.refuse("blob", response);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (!matches(bytes)) throw new Error(`the bytes of blob ${ref.digest.slice(0, 19)} do not match its digest or size; they are not used`);
+    mkdirSync(this.cfg.blobDir, { recursive: true });
+    // Slots fill the cache at the same time: write beside the file and rename, so nothing ever reads half a blob.
+    const partial = `${cached}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+    writeFileSync(partial, bytes, { mode: 0o600 });
+    renameSync(partial, cached);
+    return bytes;
   }
 }

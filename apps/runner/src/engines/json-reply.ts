@@ -6,7 +6,7 @@ import type { JsonValue } from "@brain/contracts";
  * backslash the model meant; line breaks and tabs become their escapes. Text outside strings is untouched, and so is any valid escape,
  * so repairing text that already parses never changes its meaning.
  */
-export function repairJsonStrings(text: string): string {
+function repairJsonStrings(text: string): string {
   let out = "";
   let inString = false;
   for (let index = 0; index < text.length; index++) {
@@ -26,6 +26,9 @@ export function repairJsonStrings(text: string): string {
   }
   return out;
 }
+
+/** Whether a JSON value is an object (not a list, not null). */
+export const isJsonObject = (value: JsonValue | undefined): value is { readonly [key: string]: JsonValue } => value !== null && typeof value === "object" && !Array.isArray(value);
 
 function parseJson(text: string): { value: JsonValue } | undefined {
   try { return { value: JSON.parse(text) as JsonValue }; } catch { return undefined; }
@@ -53,4 +56,12 @@ export function decodeModelJson(text: string): { value: JsonValue; repaired: boo
 export function holdsCompleteObject(text: string): boolean {
   const decoded = decodeModelJson(text);
   return decoded !== undefined && decoded.value !== null && typeof decoded.value === "object" && !Array.isArray(decoded.value);
+}
+
+/** The JSON object a result is, when the whole answer parses as one (a code fence around it is removed); nothing for any other answer. */
+export function wholeJsonObject(text: string): JsonValue | undefined {
+  const trimmed = text.trim();
+  const body = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/iu)?.[1] ?? trimmed;
+  const parsed = parseJson(body);
+  return parsed && parsed.value !== null && typeof parsed.value === "object" && !Array.isArray(parsed.value) ? parsed.value : undefined;
 }

@@ -1,202 +1,204 @@
-import { readFileSync } from "node:fs";
-import { sha256Digest } from "@brain/contracts";
-import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult } from "@brain/contracts";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, resolve, sep } from "node:path";
+import type { JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
-
-/** Where the task starts when a Governor context pack precedes it in the prompt. */
-const TASK_MARK = "\n\n# Task\n";
-
-/**
- * Test hook for concurrency and long-attempt tests: when set, every fixture session waits for `hold` (keyed by its attempt) before it
- * answers, so a test decides how long each attempt runs. Unset in production, where the fixture answers at once.
- */
-export const fixtureGate: { hold?: (attemptId: string, signal: AbortSignal) => Promise<void> } = {};
-
-const isCoordinator = (instructions: string): boolean => instructions.includes("# Plan Coordinator");
+import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineUsage } from "./port";
+import { CORRECTION_HEADER } from "./run";
+import { engineToolName, ToolRequests } from "./tool-calls";
 
 /**
- * The fixture's coordinator, a stand-in for a model reading the Governor's coordinator pack (ADR 0048). A message to the mission may script
- * its calls as `FIXTURE_CALL_TOOL {...}` lines, exactly as a task's situation does for a worker. Without a script it plans like a careful
- * coordinator would, from the pack alone: it adds a source check after the last task, then a follow-up for the first task that was verified,
- * and it proposes nothing while a proposal of its own still waits for a person.
+ * The fixture engine: an engine without a model, for tests and for trying a workspace out. It does what a script tells it, and the
+ * script is written in the texts a real model would read: the agent's prompt (`prompt.md`) and the task text (the goal of a Play step,
+ * a note, an earlier result). Every line that starts with `FIXTURE` is one command; prompt lines run first, then task lines, in order.
+ *
+ *   FIXTURE [@<kind>] [#<round>] <command> <arguments>
+ *
+ * `@<kind>` keeps the line for attempts of that kind only (`@work`, `@plan`, `@check`, `@judge`). A goal is shown to the agent that
+ * checks the result as well, so a line in a goal that is meant for the worker is written `FIXTURE @work ...`.
+ * `@correction` keeps the line for the corrective session: a plan, check or judge answer that is not the required JSON gets one more
+ * session that must return it. That session sees the agent's prompt but not the goal, so a `@correction` line goes in the prompt; no
+ * `@<kind>` line applies in it.
+ * `#<round>` keeps the line for that round only; `#2+` for round 2 and every later one. Rounds start at 1.
+ *
+ * Commands:
+ *   reply <text>            The final answer. The last `reply` or `json` that applies wins.
+ *   json <json>             The final answer is this JSON value (a planner's plan, a checker's verdict, a router's answer).
+ *   write <path> <text>     Native tool: writes the file, relative to the working directory (`/work`). Needs `native = "all"`.
+ *   delete <path>           Native tool: removes the file. Needs `native = "all"`.
+ *   read <path>             Native tool: reads the file. Needs `native = "read"` or `"all"`.
+ *   out <name> <text>       Writes a file the agent wants kept (`/out`); the runner uploads it as an artifact.
+ *   tool <name> <json>      Calls the workspace or Brain-run tool `<name>` with that input, exactly as a model would.
+ *   usage <in> <out> [usd]  Adds input tokens, output tokens and micro-dollars to what the session reports (to reach a limit).
+ *   sleep <ms>              Waits (a long attempt, a stop, a lease renewal).
+ *   fail <reason>           Ends the session as an engine failure with that reason.
+ *
+ * In `<text>`, `\n` is a line break and `\\` a backslash; `{{last}}` is the text the last `tool` or `read` returned and `{{round}}`
+ * the round. `write`, `delete`, `read` and `tool` each count as one turn.
+ *
+ * Without a `reply` or `json` the answer depends on the kind: `fixture: done` for work (and for a correction, which therefore fails); a plan of one task for the workspace's
+ * `worker` agent (or its first agent) for plan; `{"pass": true, "score": 1, "findings": "fixture check"}` for check; and the first
+ * candidate for judge. The kind, the round, the agents and the candidates are read from the task text the runner composes
+ * (`task-text.ts`).
+ *
+ * Example, a Play step checked twice:
+ *   goal = """Write the note.
+ *   FIXTURE @work write notes/a.md round {{round}}
+ *   FIXTURE @work reply wrote the note
+ *   FIXTURE @check #1 json {"pass": false, "score": 0.3, "findings": "say more"}
+ *   FIXTURE @check #2+ json {"pass": true, "score": 0.9, "findings": "fine"}"""
  */
-function coordinatorCalls(task: string): Array<{ id: string; input: Record<string, unknown> }> {
-  const at = task.indexOf(TASK_MARK);
-  const pack = at >= 0 ? task.slice(0, at) : "";
-  const scripted = [...pack.matchAll(/FIXTURE_CALL_TOOL (\{.*\})/gu)].map((match) => JSON.parse(match[1]!) as { id: string; input: Record<string, unknown> });
-  if (scripted.length > 0) return scripted;
-  if (pack.includes("## Plan proposals waiting for a person")) return [];
-  const line = /^Tasks: (\[.*\])$/mu.exec(pack);
-  if (!line) return [];
-  const tasks = JSON.parse(line[1]!) as Array<{ id: string; title: string; dependsOn: string[]; criterionIds?: string[]; assignment?: unknown }>;
-  const reasons = ((): string[] => { try { return (JSON.parse(task.slice(at + TASK_MARK.length)) as { reasons?: string[] }).reasons ?? []; } catch { return []; } })();
-  const worker = /^- ([a-z][a-z0-9.-]*): .*\(agent (?!plan-coordinator)[a-z0-9.-]+,/mu.exec(pack)?.[1];
-  const criteria = [...pack.matchAll(/^(c[1-9][0-9]*): /gmu)].map((match) => match[1]!);
-  if (!worker) return [];
-  const assignment = { kind: "agent", id: worker, role: "specialist" };
-  const propose = (summary: string, added: unknown) => [{ id: "mission.propose-plan", input: { summary, tasks: [...tasks, added] } }];
-  if (!tasks.some((entry) => entry.id === "check-sources")) {
-    const leaves = tasks.filter((entry) => !tasks.some((other) => other.dependsOn.includes(entry.id))).map((entry) => entry.id);
-    return propose("Check every claim against its source before the mission is signed off", { id: "check-sources", title: "Check each claim in the brief against its source", criteria: ["Every claim has a source or is marked as an assumption"], dependsOn: leaves, ...(criteria.includes("c2") ? { criterionIds: ["c2"] } : {}), assignment });
+
+interface Command { readonly name: string; readonly args: string }
+
+const LINE = /^[ \t>*-]*FIXTURE[ \t]+(.*)$/gmu;
+const KINDS = new Set(["work", "plan", "check", "judge", "correction"]);
+
+/** The attempt's kind and round, as the first line of the composed task text states them. */
+export function attemptHeader(task: string): { kind: string; round: number } {
+  if (task.startsWith(CORRECTION_HEADER)) return { kind: "correction", round: 1 };
+  const header = /^\[(work|plan|check|judge) attempt, round (\d+)\]/mu.exec(task);
+  return { kind: header?.[1] ?? "work", round: header ? Number(header[2]) : 1 };
+}
+
+/** The commands of a text that apply to an attempt of this kind and round, in order. */
+export function fixtureCommands(text: string, kind: string, round: number): Command[] {
+  const commands: Command[] = [];
+  for (const match of text.matchAll(LINE)) {
+    let words = (match[1] ?? "").trim();
+    let applies = true;
+    for (;;) {
+      const scope = /^([@#])(\S+)[ \t]+/u.exec(words);
+      if (!scope) break;
+      words = words.slice(scope[0].length);
+      if (scope[1] === "@") applies &&= KINDS.has(scope[2]!) && scope[2] === kind;
+      else {
+        const wanted = /^(\d+)(\+?)$/u.exec(scope[2]!);
+        applies &&= wanted !== null && (wanted[2] ? round >= Number(wanted[1]) : round === Number(wanted[1]));
+      }
+    }
+    const space = words.search(/[ \t]/u);
+    const name = space < 0 ? words : words.slice(0, space);
+    if (applies && name) commands.push({ name, args: space < 0 ? "" : words.slice(space + 1).trim() });
   }
-  const verified = tasks.find((entry) => reasons.some((reason) => reason.startsWith("work-verified") && reason.endsWith(entry.title)));
-  if (verified && !tasks.some((entry) => entry.id === "follow-up")) {
-    return propose(`Follow up on what ${verified.id} found`, { id: "follow-up", title: "Resolve the open questions the finished work left", criteria: ["Each open question is answered or marked unresolved"], dependsOn: [verified.id], ...(criteria.includes("c3") ? { criterionIds: ["c3"] } : {}), assignment });
+  return commands;
+}
+
+const unescaped = (text: string): string => text.replace(/\\(n|\\)/gu, (_all, what: string) => (what === "n" ? "\n" : "\\"));
+const splitFirst = (args: string): [string, string] => { const space = args.search(/[ \t]/u); return space < 0 ? [args, ""] : [args.slice(0, space), args.slice(space + 1).trim()]; };
+
+function defaultAnswer(kind: string, task: string): string {
+  if (kind === "check") return JSON.stringify({ pass: true, score: 1, findings: "fixture check" });
+  if (kind === "judge") return JSON.stringify({ keep: /^## Candidate (\S+)/mu.exec(task)?.[1] ?? "", findings: "fixture judge" });
+  if (kind === "plan") {
+    const lines = task.split("\n");
+    const agents: string[] = [];
+    for (let at = lines.indexOf("## Agents") + 1; at > 0 && lines[at]?.startsWith("- "); at++) agents.push(lines[at]!.slice(2).split(":")[0]!);
+    const goal = /^# Goal\n+([^\n]*)/mu.exec(task)?.[1] ?? "the goal";
+    return JSON.stringify({ summary: "fixture plan", tasks: [{ title: goal.slice(0, 60) || "Do the work", goal, agent: agents.includes("worker") ? "worker" : agents[0] ?? "worker", after: [] }] });
   }
-  return [];
+  return "fixture: done";
 }
 
 export class FixtureEngine implements EngineAdapter {
   readonly id = "fixture";
-  private seq = 0;
-  private sessionId = "";
-  private attemptId = "";
   private stream = new EngineEventStream();
-  private pendingTool: ((result: EngineToolExecutionResult) => void) | undefined;
+  private requests: ToolRequests | undefined;
+  private abort: AbortController | undefined;
 
-  constructor(private readonly toolBindings: readonly EngineToolBinding[] = []) {}
+  async probe() { return { id: this.id, ready: true }; }
 
-  async probe() {
-    return { id: "fixture", adapterDigest: sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url)))), features: ["sessions", "steer"] };
+  async start(spec: EngineSessionSpec, signal: AbortSignal): Promise<void> {
+    const stream = new EngineEventStream();
+    const abort = new AbortController();
+    this.stream = stream;
+    this.abort = abort;
+    signal.addEventListener("abort", () => abort.abort(), { once: true });
+    this.requests = new ToolRequests(spec.tools, (event) => stream.push(event));
+    void this.run(spec, stream, abort.signal, this.requests);
   }
 
-  private push(kind: EngineEvent["kind"], payload: EngineEvent["payload"]): void {
-    this.seq += 1;
-    this.stream.push({
-      contractVersion: "brain.engine-event/v1", eventId: `fixture-evt-${this.seq}`,
-      sessionId: this.sessionId, attemptId: this.attemptId, sequence: this.seq,
-      occurredAt: new Date().toISOString(), kind, payload,
-    } as EngineEvent);
-  }
-
-  async start(spec: EngineSessionSpec, signal: AbortSignal) {
-    this.seq = 0;
-    this.stream = new EngineEventStream();
-    this.sessionId = `fixture-${spec.attemptId}`;
-    this.attemptId = spec.attemptId;
-    this.push( "session.started", { engine: await this.probe() });
-    void Promise.resolve().then(async () => {
-      let response: unknown = { text: "fixture complete" };
-      let indented = false;
-      try {
-        const input = JSON.parse(spec.task.includes(TASK_MARK) ? spec.task.slice(spec.task.indexOf(TASK_MARK) + TASK_MARK.length) : spec.task) as Record<string, unknown>;
-        if (typeof input["message"] === "string" && typeof input["tasks"] === "string") {
-          const tasks = JSON.parse(input["tasks"]) as { id: string }[];
-          const support = /support|reply|ticket|sign in/iu.test(input["message"]);
-          const selected = tasks.find((task) => task.id === (support ? "support-draft" : "operations-triage"));
-          response = { reply: "Fixture proposal: review the task inputs before starting.", workflowId: selected?.id ?? null, input: selected ? support ? { title: "Support request", body: input["message"] } : { situation: input["message"] } : {}, questions: [] };
-        }
-        if (typeof input["intent"] === "string" && Array.isArray(input["successCriteria"])) {
-          // The planner reads each criterion as "c1: words" and names the ids a task serves (ADR 0034): the fixture's last two steps serve them all.
-          const served = (input["successCriteria"] as unknown[]).map((entry) => /^(c[1-9][0-9]*): /u.exec(String(entry))?.[1]).filter((id): id is string => id !== undefined);
-          const serves = served.length > 0 ? { criterionIds: served } : {};
-          response = {
-            summary: "Fixture strategy: inspect first, then make and verify a bounded change.",
-            tasks: [
-              { id: "investigate", title: `Investigate: ${String(input["title"])}`, criteria: ["investigation-complete"], dependsOn: [], assignment: { kind: "agent", id: "fixture", role: "specialist" } },
-              { id: "implement", title: "Implement the reviewed change", criteria: ["change-verified"], dependsOn: ["investigate"], workflowId: "operations-triage", ...serves },
-              { id: "review", title: "Independently review the outcome", criteria: ["outcome-accepted"], dependsOn: ["implement"], assignment: { kind: "agent", id: "fixture", role: "reviewer" }, ...serves },
-            ],
-          };
-        }
-        if (typeof input["situation"] === "string" && (spec.instructions.includes("General Task Worker") || spec.instructions.includes("SRE Operator"))) {
-          // The general task worker: a written deliverable that answers every acceptance criterion of the brief.
-          const lines = input["situation"].split("\n");
-          const criteria = lines.slice(lines.indexOf("Acceptance criteria:") + 1).map((line) => /^\d+\. (.+)$/u.exec(line)?.[1]).filter((line): line is string => line !== undefined && lines.includes("Acceptance criteria:"));
-          const title = lines[0] ?? "Task";
-          // A model writes its JSON indented, so the raw text artifact and the normalised output artifact have different digests, as they do live.
-          indented = true;
-          response = {
-            summary: `Fixture result for: ${title}`,
-            deliverable: `# ${title}\n\n## Findings\n\nThe fixture worker reasoned about this task and wrote a short report so that the whole path from the brief to a verified deliverable can be exercised end to end without a model.\n\n| Option | Cost | Effort |\n| :--- | ---: | :---: |\n| Keep as is | **Low** | Small |\n| Rework | Medium | Large |\n\n- First point, with \`inline code\`\n- Second point\n  - A nested detail\n\n## Assumptions\n\nNo facts beyond the brief were available, so the fixture assumes the brief is complete and says so here.`,
-            criteria: criteria.map((criterion) => ({ criterion, met: true, evidence: "The Findings section of the deliverable addresses this criterion." })),
-            assumptions: ["The brief is complete"],
-          };
-        } else if (typeof input["situation"] === "string") response = { summary: `Fixture: ${input["situation"]}`, blockers: [], nextActions: ["Inspect diagnostic inputs"] };
-        if (isCoordinator(spec.instructions) && typeof input["missionId"] === "string") response = { summary: "Fixture coordinator: nothing to change." };
-        if (typeof input["title"] === "string" && typeof input["body"] === "string") response = { summary: `Fixture: ${input["title"]}`, missingInformation: [], risk: "low", proposedReply: `Fixture draft: ${input["body"]}` };
-      } catch { /* Plain-text engine conformance tasks use the default response. */ }
-      // Test hook for the governed tool broker: a situation holding `FIXTURE_CALL_TOOL {"id":"documents.read","input":{...}}` makes the fixture
-      // propose that tool exactly as a model would, wait for the broker's result and quote it in its deliverable.
-      // A situation may hold several such lines: the fixture proposes them one after the other, each waiting for its own answer.
-      let calls = 0;
-      for (const requested of this.requestedTools(spec.task, spec.instructions)) {
-        const binding = this.toolBindings.find((candidate) => candidate.release.id === requested.id);
-        if (!binding) continue;
-        calls += 1;
-        const proposalId = `fixture-call-${spec.attemptId}${calls > 1 ? `-${calls}` : ""}`;
-        const waited = new Promise<EngineToolExecutionResult>((resolve) => { this.pendingTool = resolve; });
-        this.push("tool.proposed", { proposalId, tool: binding.release, input: requested.input, target: binding.target, inputDigest: sha256Digest(new TextEncoder().encode(JSON.stringify(requested.input))) } as never);
-        const answered = await waited;
-        this.push("tool.result", { proposalId, invocationId: answered.invocationId, receipt: answered.receipt });
-        if (isCoordinator(spec.instructions) && response && typeof (response as { summary?: unknown }).summary === "string") {
-          const report = response as { summary: string };
-          report.summary = `Fixture coordinator: called ${requested.id}; ${JSON.stringify(answered.output).slice(0, 600)}`;
-        }
-        if (response && typeof response === "object" && typeof (response as { deliverable?: unknown }).deliverable === "string") {
-          const report = response as { summary: string; deliverable: string };
-          if (calls === 1) report.summary = `${report.summary} (used ${requested.id})`;
-          report.deliverable = `${report.deliverable}\n\nTool output (${requested.id}): ${JSON.stringify(answered.output).slice(0, 1500)}`;
+  private async run(spec: EngineSessionSpec, stream: EngineEventStream, signal: AbortSignal, requests: ToolRequests): Promise<void> {
+    const push = (event: EngineEvent): void => stream.push(event);
+    const { kind, round } = attemptHeader(spec.task);
+    let answer: string | undefined;
+    let last = "";
+    let native = 0;
+    const usage = { inputTokens: Math.ceil((spec.instructions.length + spec.task.length) / 4), outputTokens: 0, cachedInputTokens: 0, microUsd: 0, turns: 1 };
+    const report = (): void => push({ kind: "usage", ...usage } satisfies EngineEvent & EngineUsage);
+    const text = (raw: string): string => unescaped(raw).replaceAll("{{last}}", last).replaceAll("{{round}}", String(round));
+    /** A path of the script, kept inside the directory it is relative to. */
+    const inside = (root: string | undefined, path: string, what: string): string => {
+      if (!root) throw new Error(`the script uses ${what} but this attempt has no working copy`);
+      const target = resolve(root, path);
+      if (target !== root && !target.startsWith(root + sep)) throw new Error(`the script's ${what} path ${path} leaves the directory`);
+      return target;
+    };
+    const nativeCall = (name: string, input: JsonValue, needs: "read" | "all", run: () => string): void => {
+      if (spec.native === "none" || (needs === "all" && spec.native !== "all")) throw new Error(`the script uses ${name} but the agent's native tools are "${spec.native}"`);
+      const callId = `native-${++native}`;
+      push({ kind: "native.call", callId, name, input });
+      let ok = true;
+      let output: string;
+      try { output = run(); } catch (error) { ok = false; output = error instanceof Error ? error.message : String(error); }
+      push({ kind: "native.result", callId, ok, output });
+      last = output;
+      usage.turns += 1;
+      report();
+    };
+    try {
+      for (const command of [...fixtureCommands(spec.instructions, kind, round), ...fixtureCommands(spec.task, kind, round)]) {
+        if (signal.aborted) break;
+        const [first, rest] = splitFirst(command.args);
+        switch (command.name) {
+          case "reply": answer = text(command.args); break;
+          case "json": answer = JSON.stringify(JSON.parse(text(command.args)) as JsonValue); break;
+          case "write": nativeCall("write", { path: first, content: text(rest) }, "all", () => { const file = inside(spec.workDir, first, "write"); mkdirSync(dirname(file), { recursive: true }); writeFileSync(file, text(rest)); return `wrote ${first}`; }); break;
+          case "delete": nativeCall("delete", { path: first }, "all", () => { rmSync(inside(spec.workDir, first, "delete")); return `deleted ${first}`; }); break;
+          case "read": nativeCall("read", { path: first }, "read", () => readFileSync(inside(spec.workDir, first, "read"), "utf8")); break;
+          case "out": { const file = inside(spec.outDir, first, "out"); mkdirSync(dirname(file), { recursive: true }); writeFileSync(file, text(rest)); break; }
+          case "tool": {
+            push({ kind: "text", channel: "diagnostic", text: `calling ${first}` });
+            last = await requests.execute(engineToolName(first), (rest ? JSON.parse(text(rest)) : {}) as JsonValue);
+            usage.turns += 1;
+            report();
+            break;
+          }
+          case "usage": {
+            const [input = 0, output = 0, microUsd = 0] = command.args.split(/\s+/u).map(Number);
+            usage.inputTokens += input; usage.outputTokens += output; usage.microUsd += microUsd;
+            report();
+            break;
+          }
+          case "sleep": await new Promise<void>((done) => { const timer = setTimeout(done, Number(command.args) || 0); signal.addEventListener("abort", () => { clearTimeout(timer); done(); }, { once: true }); }); break;
+          case "fail": throw new Error(command.args || "the fixture script failed");
+          default: throw new Error(`unknown fixture command ${command.name}`);
         }
       }
-      await fixtureGate.hold?.(spec.attemptId, signal);
-      const text = spec.task.includes("BRAIN_OK") ? "BRAIN_OK" : JSON.stringify(response, null, indented ? 2 : 0);
-      const bytes = new TextEncoder().encode(text);
-      const artifact = {
-        artifactId: `fixture-output-${spec.attemptId}`, digest: sha256Digest(bytes), bytes: bytes.length,
-        mediaType: "text/plain", classification: "internal" as const,
-      };
-      this.push( "text", { text, channel: "assistant", provisional: true });
-      this.push( "artifact", { artifact, purpose: "output" });
-      this.push( "session.stopped", { reason: "completed", terminationConfirmed: true, output: artifact });
-      this.stream.close();
-    });
-    if (signal.aborted) await this.cancel(this.sessionId, "aborted before start");
-    return { sessionId: this.sessionId };
-  }
-
-  private requestedTools(task: string, instructions: string): Array<{ id: string; input: Record<string, unknown> }> {
-    if (isCoordinator(instructions)) return coordinatorCalls(task);
-    try {
-      // A resumed task carries a plain-words note of what became of its earlier proposals after the JSON brief (ADR 0028): the brief is what is parsed.
-      const brief = task.split("\n\n# Changes you proposed earlier")[0]!;
-      const body = JSON.parse(brief.includes(TASK_MARK) ? brief.slice(brief.indexOf(TASK_MARK) + TASK_MARK.length) : brief) as { situation?: unknown };
-      if (typeof body.situation !== "string") return [];
-      return [...body.situation.matchAll(/FIXTURE_CALL_TOOL (\{.*\})/gu)].map((match) => JSON.parse(match[1]!) as { id: string; input: Record<string, unknown> });
-    } catch { return []; }
-  }
-
-  async toolResult(_sessionId: string, result: EngineToolExecutionResult): Promise<void> {
-    if (!this.pendingTool) throw new Error("tool result does not match a pending proposal");
-    const resolve = this.pendingTool;
-    this.pendingTool = undefined;
-    resolve(result);
-  }
-
-  async *events(_sessionId: string, after: number, signal: AbortSignal): AsyncIterable<EngineEvent> {
-    yield* this.stream.after(after, signal);
-  }
-
-  async cancel(_sessionId?: string, _reason?: string) {
-    this.stream.close();
-    return { terminationConfirmed: true };
-  }
-
-  /**
-   * Fixture steering: a trivial append to the engine transcript. The message
-   * lands as a diagnostic text record so it never pollutes captured output;
-   * steering an unknown session is refused.
-   */
-  async steer(sessionId: string, messageId: string, message: string): Promise<void> {
-    if (this.sessionId !== sessionId) {
-      throw Object.assign(new Error(`Fixture steering requires the live session, not ${sessionId}`), { code: "UNSUPPORTED_CAPABILITY" });
+      if (signal.aborted) { push({ kind: "stopped", reason: "cancelled", detail: "the session was cancelled" }); return; }
+      const final = answer ?? defaultAnswer(kind, spec.task);
+      usage.outputTokens += Math.ceil(final.length / 4);
+      push({ kind: "text", channel: "assistant", text: final });
+      report();
+      push({ kind: "stopped", reason: "completed" });
+    } catch (error) {
+      report();
+      push({ kind: "stopped", reason: "error", detail: error instanceof Error ? error.message : String(error) });
+    } finally {
+      stream.close();
     }
-    this.push("text", { text: `[steer:${messageId}] ${message}`, channel: "diagnostic", provisional: true });
   }
 
-  async checkpoint(): Promise<never> {
-    throw Object.assign(new Error("Fixture checkpointing is unsupported"), { code: "UNSUPPORTED_CAPABILITY" });
+  events(signal: AbortSignal): AsyncIterable<EngineEvent> { return this.stream.read(signal); }
+
+  async toolResult(callId: string, text: string): Promise<void> {
+    if (!this.requests) throw new Error("no fixture session is running");
+    this.requests.complete(callId, text);
   }
 
-  async dispose(_sessionId?: string) { this.stream.close(); }
+  async cancel(): Promise<void> {
+    this.abort?.abort();
+    this.requests?.clear();
+  }
+
+  async dispose(): Promise<void> { await this.cancel(); this.stream.close(); }
 }
