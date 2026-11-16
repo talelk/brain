@@ -31,6 +31,8 @@ CREATE TABLE missions (
   active_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_ms >= 0), active_since_ms INTEGER,
   budget_wall_explicit INTEGER NOT NULL DEFAULT 0 CHECK(budget_wall_explicit IN (0,1)),
   wall_extended INTEGER NOT NULL DEFAULT 0 CHECK(wall_extended IN (0,1)),
+  -- Why an administrator stopped every session of the workspace (ADR 0047); a paused mission carrying it is "stopped" and clears it when resumed.
+  stop_note TEXT DEFAULT NULL CHECK(stop_note IS NULL OR length(stop_note) BETWEEN 1 AND 1000),
   policy_json TEXT NOT NULL DEFAULT '{"preset":"standard","operations":["conflictTask.create","decision.accept","member.addExistingRole","task.add","task.change","task.reassign","task.remove"],"version":1}' CHECK(json_valid(policy_json)),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
@@ -73,6 +75,7 @@ CREATE TABLE mission_spend (
   reserved_tokens INTEGER NOT NULL DEFAULT 0 CHECK(reserved_tokens >= 0),
   input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cached_input_tokens INTEGER NOT NULL DEFAULT 0,
   accounting TEXT DEFAULT NULL CHECK(accounting IS NULL OR accounting IN ('final-total','incremental')), estimated INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'attempt' CHECK(source IN ('attempt','judge')), agent_id TEXT DEFAULT NULL, member_id TEXT DEFAULT NULL, engine_id TEXT DEFAULT NULL, model_id TEXT DEFAULT NULL,
   created_at_ms INTEGER NOT NULL, settled_at_ms INTEGER
 ) STRICT;
 CREATE INDEX mission_spend_run ON mission_spend(run_id);
@@ -89,6 +92,7 @@ CREATE TABLE workspace_spend (
   reserved_tokens INTEGER NOT NULL DEFAULT 0 CHECK(reserved_tokens >= 0),
   input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cached_input_tokens INTEGER NOT NULL DEFAULT 0,
   accounting TEXT DEFAULT NULL CHECK(accounting IS NULL OR accounting IN ('final-total','incremental')), estimated INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'attempt' CHECK(source IN ('attempt','judge')), agent_id TEXT DEFAULT NULL, member_id TEXT DEFAULT NULL, engine_id TEXT DEFAULT NULL, model_id TEXT DEFAULT NULL,
   created_at_ms INTEGER NOT NULL, settled_at_ms INTEGER
 ) STRICT;
 CREATE INDEX workspace_spend_run ON workspace_spend(run_id);
@@ -116,24 +120,27 @@ CREATE TABLE output_versions (
   id TEXT PRIMARY KEY, output_id TEXT NOT NULL REFERENCES mission_outputs(id), work_item_id TEXT NOT NULL,
   artifact_digest TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('draft','final')),
   verified INTEGER NOT NULL DEFAULT 0 CHECK(verified IN (0,1)), created_at_ms INTEGER NOT NULL,
+  run_id TEXT DEFAULT NULL,
   CHECK(verified = 0 OR state = 'final')
 ) STRICT;
 CREATE TABLE work_item_inputs (
   work_item_id TEXT NOT NULL, run_id TEXT NOT NULL, output_version_id TEXT NOT NULL REFERENCES output_versions(id),
   artifact_digest TEXT NOT NULL, PRIMARY KEY(work_item_id, run_id, output_version_id)
 ) STRICT;
+-- handoffs.delegation_id names the delegation a handoff reports back for (ADR 0053): the result of a child session, never the current handoff of the work item itself.
 CREATE TABLE handoffs (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), work_item_id TEXT NOT NULL REFERENCES work_items(id),
   version INTEGER NOT NULL CHECK(version > 0), notes_json TEXT NOT NULL CHECK(json_valid(notes_json)),
   facts_json TEXT CHECK(facts_json IS NULL OR json_valid(facts_json)), submitted_by TEXT NOT NULL,
   superseded_by TEXT REFERENCES handoffs(id), created_at_ms INTEGER NOT NULL,
+  delegation_id TEXT DEFAULT NULL,
   UNIQUE(work_item_id, version)
 ) STRICT;
 CREATE TABLE mission_evidence_bundles (
   digest TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   state TEXT NOT NULL CHECK(state IN ('submitted','verified','rejected','incomplete')),
   manifest_json TEXT NOT NULL CHECK(json_valid(manifest_json)), findings_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(findings_json)),
-  verdict_by TEXT, created_at_ms INTEGER NOT NULL
+  verdict_by TEXT, verdict_independence TEXT DEFAULT NULL CHECK(verdict_independence IS NULL OR verdict_independence='L3'), created_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE mission_bundle_checks (
   bundle_digest TEXT NOT NULL REFERENCES mission_evidence_bundles(digest), criterion_id TEXT NOT NULL,
@@ -141,14 +148,34 @@ CREATE TABLE mission_bundle_checks (
   evidence_digest TEXT NOT NULL, advisory INTEGER NOT NULL CHECK(advisory IN (0,1)), created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(bundle_digest, criterion_id, evaluator)
 ) STRICT;
+-- The advisory judge's request for one submitted bundle (#95, ADR 0023): one row per bundle, never a verdict. tries counts model calls that failed.
+CREATE TABLE mission_bundle_judgements (
+  bundle_digest TEXT PRIMARY KEY REFERENCES mission_evidence_bundles(digest),
+  state TEXT NOT NULL CHECK(state IN ('pending','running','done','unavailable','not-run')),
+  reason TEXT NOT NULL DEFAULT '' CHECK(reason IN ('','hosted-off','budget','no-evidence','too-late','model-unavailable')),
+  detail TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', tries INTEGER NOT NULL DEFAULT 0,
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+-- A question a session asked a person (#109, ADR 0050). Written once and never edited: whether it is still open is derived from whether a person's
+-- answer (a mission message naming it) exists, never stored. attempt_id is the session's attempt, which the per-session cap counts against.
+CREATE TABLE mission_questions (
+  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), member_id TEXT NOT NULL, work_item_id TEXT, attempt_id TEXT NOT NULL,
+  asker_id TEXT NOT NULL, body TEXT NOT NULL, created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX mission_questions_mission ON mission_questions(mission_id, created_at_ms);
+CREATE INDEX mission_questions_attempt ON mission_questions(attempt_id);
+CREATE TRIGGER mission_questions_never_edited BEFORE UPDATE ON mission_questions BEGIN SELECT RAISE(ABORT, 'a question is never edited'); END;
+CREATE TRIGGER mission_questions_never_removed BEFORE DELETE ON mission_questions BEGIN SELECT RAISE(ABORT, 'a question is never removed'); END;
 CREATE TABLE mission_messages (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   recipient_kind TEXT NOT NULL CHECK(recipient_kind IN ('mission','member')), recipient_member_id TEXT,
   work_item_id TEXT, sender_id TEXT NOT NULL, body TEXT NOT NULL,
   delivery TEXT NOT NULL DEFAULT 'pending' CHECK(delivery IN ('pending','delivered-live','delivered-at-session-start','superseded')),
   correction_of TEXT REFERENCES mission_messages(id), created_at_ms INTEGER NOT NULL,
+  answers_question_id TEXT DEFAULT NULL REFERENCES mission_questions(id),
   CHECK((recipient_kind = 'member') = (recipient_member_id IS NOT NULL))
 ) STRICT;
+CREATE UNIQUE INDEX mission_messages_one_answer ON mission_messages(answers_question_id) WHERE answers_question_id IS NOT NULL;
 CREATE TABLE plan_versions (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   revision INTEGER NOT NULL CHECK(revision > 0), digest TEXT NOT NULL,
@@ -159,7 +186,7 @@ CREATE TABLE plan_versions (
   created_at_ms INTEGER NOT NULL, confirmed_at_ms INTEGER,
   UNIQUE(mission_id,revision)
 ) STRICT;
--- work_items.required_tools_json (ADR 0022): at least one must have a successful recorded call before Done. failure_class: latest failure as a code. token_cap overrides the default per-task spend cap. retry_after_ms holds a wait-and-retry.
+-- work_items.parent_id (#131, ADR 0057): the work item of the plan task this one is a subtask of; it follows the parent's replacement and never forms a chain. work_items.priority/tags_json/due_at_ms (#116): priority orders claiming within a workspace (ADR 0041), tags slice work, a past due date flags an open item and nothing more. work_items.required_tools_json (ADR 0022): at least one must have a successful recorded call before Done. failure_class: latest failure as a code. token_cap overrides the default per-task spend cap. retry_after_ms holds a wait-and-retry or wait-for-quota (ADR 0033).
 CREATE TABLE work_items (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   plan_version_id TEXT NOT NULL REFERENCES plan_versions(id), plan_task_id TEXT NOT NULL,
@@ -171,18 +198,23 @@ CREATE TABLE work_items (
   failed_attempts INTEGER NOT NULL DEFAULT 0 CHECK(failed_attempts >= 0),
   parked INTEGER NOT NULL DEFAULT 0 CHECK(parked IN (0,1)), parked_diagnostic TEXT,
   required_tools_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(required_tools_json)),
-  failure_class TEXT DEFAULT NULL CHECK(failure_class IS NULL OR failure_class IN ('missing-tool','unmeetable-criterion','model-slip','tool-outage','budget','unclassified')),
+  failure_class TEXT DEFAULT NULL CHECK(failure_class IS NULL OR failure_class IN ('missing-tool','unmeetable-criterion','model-slip','tool-outage','quota','budget','unclassified')),
   token_cap INTEGER DEFAULT NULL CHECK(token_cap IS NULL OR token_cap > 0), retry_after_ms INTEGER DEFAULT NULL,
+  priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high','urgent')),
+  tags_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(tags_json)), due_at_ms INTEGER DEFAULT NULL,
+  parent_id TEXT DEFAULT NULL REFERENCES work_items(id),
+  kept_run_id TEXT DEFAULT NULL, kept_by TEXT DEFAULT NULL, kept_at_ms INTEGER DEFAULT NULL,
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
   UNIQUE(plan_version_id,plan_task_id), CHECK(state != 'done' OR evidence_digest IS NOT NULL)
 ) STRICT;
 CREATE INDEX work_items_board ON work_items(state,updated_at_ms,id);
 CREATE INDEX work_items_mission ON work_items(mission_id,plan_version_id,plan_task_id);
+CREATE INDEX work_items_parent ON work_items(parent_id);
 -- One row per failed run of a task: makes failure handling idempotent per run and is the source of lessons and the class counts.
 CREATE TABLE task_failures (
   run_id TEXT NOT NULL, work_item_id TEXT NOT NULL REFERENCES work_items(id), mission_id TEXT NOT NULL,
-  failure_class TEXT NOT NULL CHECK(failure_class IN ('missing-tool','unmeetable-criterion','model-slip','tool-outage','budget','unclassified')),
+  failure_class TEXT NOT NULL CHECK(failure_class IN ('missing-tool','unmeetable-criterion','model-slip','tool-outage','quota','budget','unclassified')),
   remedy TEXT NOT NULL, diagnostic TEXT NOT NULL DEFAULT '', created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(run_id,work_item_id)
 ) STRICT;
@@ -190,7 +222,7 @@ CREATE INDEX task_failures_item ON task_failures(work_item_id,created_at_ms);
 -- Lessons from healed or parked failures, given to the planner. Never knowledge assets: they carry no observed-evidence claim.
 CREATE TABLE lessons (
   id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL, mission_id TEXT NOT NULL,
-  failure_class TEXT NOT NULL CHECK(failure_class IN ('missing-tool','unmeetable-criterion','model-slip','tool-outage','budget','unclassified')),
+  failure_class TEXT NOT NULL CHECK(failure_class IN ('missing-tool','unmeetable-criterion','model-slip','tool-outage','quota','budget','unclassified')),
   outcome TEXT NOT NULL CHECK(outcome IN ('healed','parked')), task_title TEXT NOT NULL, lesson TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL, expires_at_ms INTEGER NOT NULL,
   UNIQUE(work_item_id,outcome)
@@ -205,6 +237,8 @@ CREATE TABLE execution_links (
   mission_id TEXT NOT NULL REFERENCES missions(id),
   work_item_id TEXT NOT NULL REFERENCES work_items(id), run_id TEXT NOT NULL,
   job_id TEXT, attempt_id TEXT, session_id TEXT, created_at_ms INTEGER NOT NULL,
+  -- A best-of-N candidate (ADR 0071): the plan candidate this run is, the round of the fan-out it belongs to, and when it ended.
+  candidate_id TEXT DEFAULT NULL, candidate_round INTEGER DEFAULT NULL, finished_at_ms INTEGER DEFAULT NULL,
   PRIMARY KEY(work_item_id,run_id)
 ) STRICT;
 CREATE INDEX execution_links_run ON execution_links(run_id);
@@ -244,8 +278,49 @@ CREATE TABLE planning_requests (
 CREATE TABLE work_item_comments (
   id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL REFERENCES work_items(id),
   actor_id TEXT NOT NULL, body TEXT NOT NULL, correction_of TEXT REFERENCES work_item_comments(id),
+  message_id TEXT REFERENCES mission_messages(id) DEFAULT NULL,
   created_at_ms INTEGER NOT NULL
 ) STRICT;
+CREATE INDEX work_item_comments_thread ON work_item_comments(work_item_id, created_at_ms, id);
+-- A pull request an approved git.open-pr call opened (#121, ADR 0044). Written once, from the answer the Governor itself got from the provider,
+-- and never edited: the provider and repository are copied here so a later change to the connection cannot rewrite what was opened. What
+-- a later look finds is a new pull_request_states row; the newest row is the current state. work_item_id/mission_id/run_id are empty for a
+-- run that serves no work item.
+CREATE TABLE pull_requests (
+  id TEXT PRIMARY KEY, approval_id TEXT NOT NULL UNIQUE, invocation_id TEXT NOT NULL, run_id TEXT, work_item_id TEXT REFERENCES work_items(id), mission_id TEXT,
+  connection_id TEXT NOT NULL, provider TEXT NOT NULL CHECK(provider IN ('github','github-enterprise','gitlab','gitea')), repository_key TEXT NOT NULL,
+  number INTEGER NOT NULL CHECK(number >= 0), url TEXT NOT NULL CHECK(url LIKE 'http://%' OR url LIKE 'https://%'), title TEXT NOT NULL, branch TEXT NOT NULL, base_branch TEXT NOT NULL,
+  commit_oid TEXT NOT NULL, opened_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX pull_requests_work_item ON pull_requests(work_item_id, opened_at_ms);
+CREATE TABLE pull_request_states (
+  id TEXT PRIMARY KEY, pull_request_id TEXT NOT NULL REFERENCES pull_requests(id), state TEXT NOT NULL CHECK(state IN ('open','merged','closed')),
+  source TEXT NOT NULL CHECK(source IN ('opened','refresh','webhook')), observed_by TEXT, observed_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX pull_request_states_latest ON pull_request_states(pull_request_id, observed_at_ms, id);
+CREATE TRIGGER pull_requests_never_edited BEFORE UPDATE ON pull_requests BEGIN SELECT RAISE(ABORT, 'a pull request record is never edited'); END;
+CREATE TRIGGER pull_requests_never_removed BEFORE DELETE ON pull_requests BEGIN SELECT RAISE(ABORT, 'a pull request record is never removed'); END;
+CREATE TRIGGER pull_request_states_never_edited BEFORE UPDATE ON pull_request_states BEGIN SELECT RAISE(ABORT, 'a pull request observation is never edited'); END;
+CREATE TRIGGER pull_request_states_never_removed BEFORE DELETE ON pull_request_states BEGIN SELECT RAISE(ABORT, 'a pull request observation is never removed'); END;
+-- What a signed webhook delivered (ADR 0077), kept in the workspace it reached so the effect and the record of it commit together. A delivery id
+-- and a body digest each appear once per endpoint: a replay (even under a fresh delivery id) is acknowledged and changes nothing. Status only; the body is not kept.
+-- fire_json names the subject a new ticket or incident asked the triggers about, so a crash between this commit and the trigger is repaired by the replay.
+CREATE TABLE webhook_deliveries (
+  endpoint_id TEXT NOT NULL, delivery_id TEXT NOT NULL, body_digest TEXT NOT NULL,
+  event TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('applied','ignored')), detail TEXT NOT NULL DEFAULT '', received_at_ms INTEGER NOT NULL,
+  fire_json TEXT CHECK(fire_json IS NULL OR json_valid(fire_json)),
+  PRIMARY KEY(endpoint_id, delivery_id), UNIQUE(endpoint_id, body_digest)
+) STRICT;
+CREATE INDEX webhook_deliveries_recent ON webhook_deliveries(endpoint_id, received_at_ms);
+-- A check run or pipeline that finished, attached to the pull request record it belongs to (#121) or, when none is recorded, to the subject standing for that request.
+CREATE TABLE subject_checks (
+  id TEXT PRIMARY KEY, pull_request_id TEXT REFERENCES pull_requests(id), subject_id TEXT REFERENCES tickets(id), name TEXT NOT NULL,
+  conclusion TEXT NOT NULL CHECK(conclusion IN ('success','failure','cancelled','neutral','skipped','other')),
+  source TEXT NOT NULL, endpoint_id TEXT NOT NULL, delivery_id TEXT NOT NULL, observed_at_ms INTEGER NOT NULL,
+  CHECK((pull_request_id IS NULL) <> (subject_id IS NULL))
+) STRICT;
+CREATE INDEX subject_checks_pr ON subject_checks(pull_request_id, observed_at_ms);
+CREATE TRIGGER subject_checks_never_edited BEFORE UPDATE ON subject_checks BEGIN SELECT RAISE(ABORT, 'a check result is never edited'); END;
 CREATE TABLE workflow_runs (
   id TEXT PRIMARY KEY, execution_key TEXT NOT NULL UNIQUE, config_digest TEXT NOT NULL,
   workflow_digest TEXT NOT NULL, adapter_digest TEXT NOT NULL, engine_run_id TEXT NOT NULL UNIQUE,
@@ -265,6 +340,7 @@ CREATE TABLE job_projection (
   source_cursor INTEGER NOT NULL CHECK(source_cursor >= 0), state TEXT NOT NULL,
   queue_reason TEXT, updated_at_ms INTEGER NOT NULL
 ) STRICT;
+-- sessions.resumed_from_json: the checkpoint a resumed session started from and the runner that held it (a session's own checkpoint is checkpoint_digest and checkpoint_json).
 CREATE TABLE sessions (
   id TEXT PRIMARY KEY, job_id TEXT, attempt_id TEXT,
   mode TEXT NOT NULL DEFAULT 'native' CHECK(mode IN ('native','managed')),
@@ -274,13 +350,15 @@ CREATE TABLE sessions (
   engine_features TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(engine_features)),
   state TEXT NOT NULL CHECK(state IN ('starting','running','waiting','stopping','stopped','failed')),
   checkpoint_digest TEXT, checkpoint_json TEXT CHECK(checkpoint_json IS NULL OR json_valid(checkpoint_json)),
+  resumed_from_json TEXT DEFAULT NULL CHECK(resumed_from_json IS NULL OR json_valid(resumed_from_json)),
   event_sequence INTEGER NOT NULL DEFAULT 0 CHECK(event_sequence >= 0),
   delegation_depth INTEGER NOT NULL DEFAULT 0 CHECK(delegation_depth BETWEEN 0 AND 3),
   budget_json TEXT NOT NULL DEFAULT '{"maxTokens":100000,"maxMicroUsd":0,"maxTurns":10}' CHECK(json_valid(budget_json)),
   scope_json TEXT NOT NULL DEFAULT '{"allowedPaths":[],"prohibitedPaths":[],"allowedTools":[]}' CHECK(json_valid(scope_json)),
   created_by TEXT NOT NULL DEFAULT '',
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
-  created_at_ms INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL DEFAULT 0
+  created_at_ms INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL DEFAULT 0,
+  mission_id TEXT DEFAULT NULL REFERENCES missions(id)
 ) STRICT;
 CREATE INDEX sessions_job ON sessions(job_id,updated_at_ms);
 CREATE INDEX sessions_work_item ON sessions(work_item_id,updated_at_ms,id);
@@ -292,6 +370,17 @@ CREATE TABLE delegations (
   reviewer_id TEXT, evidence_digest TEXT, created_at_ms INTEGER NOT NULL, reviewed_at_ms INTEGER
 ) STRICT;
 CREATE INDEX delegations_parent ON delegations(parent_session_id,state,id);
+-- The own run of a delegated sub-task (ADR 0053): a run of the mission that is NOT a run of its work item, so it never moves the task.
+-- pending means no run yet: the pump starts it after the commit and again after a crash. The review state of the delegation stays in delegations.
+CREATE TABLE delegation_runs (
+  delegation_id TEXT PRIMARY KEY REFERENCES delegations(id), mission_id TEXT NOT NULL REFERENCES missions(id),
+  member_id TEXT DEFAULT NULL, delegating_principal TEXT NOT NULL, situation TEXT NOT NULL,
+  run_id TEXT DEFAULT NULL, state TEXT NOT NULL CHECK(state IN ('pending','running','succeeded','failed')),
+  result_handoff_id TEXT DEFAULT NULL REFERENCES handoffs(id), failure_reason TEXT DEFAULT NULL,
+  created_at_ms INTEGER NOT NULL, finished_at_ms INTEGER DEFAULT NULL
+) STRICT;
+CREATE UNIQUE INDEX delegation_runs_run ON delegation_runs(run_id) WHERE run_id IS NOT NULL;
+CREATE INDEX delegation_runs_state ON delegation_runs(state, created_at_ms);
 CREATE TABLE documents (
   id TEXT PRIMARY KEY, title TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('active','revoked')),
@@ -337,6 +426,13 @@ CREATE TABLE verification_verdicts (
   finalized_at_ms INTEGER,
   UNIQUE(bundle_digest,evaluator_attempt_id)
 ) STRICT;
+-- An independence-L3 evaluation waits for a person (ADR 0069): one row per eval step, written once with the step's pinned assignment and
+-- the attesters its workflow declared. It is open while its first bundle has no verdict; the verdict itself is the record of who attested.
+CREATE TABLE evaluation_attestations (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES workflow_runs(id), step_id TEXT NOT NULL,
+  assignment_json TEXT NOT NULL CHECK(json_valid(assignment_json)), attesters_json TEXT NOT NULL CHECK(json_valid(attesters_json)),
+  created_at_ms INTEGER NOT NULL, UNIQUE(run_id, step_id)
+) STRICT;
 CREATE TABLE connector_cursors (
   connector_id TEXT PRIMARY KEY, cursor_json TEXT NOT NULL CHECK(json_valid(cursor_json)),
   source_watermark TEXT, version INTEGER NOT NULL CHECK(version > 0), updated_at_ms INTEGER NOT NULL
@@ -360,7 +456,19 @@ CREATE TABLE knowledge_assets (
   reviewed_at_ms INTEGER DEFAULT NULL, rejection_reason TEXT DEFAULT NULL, content_digest TEXT DEFAULT NULL,
   superseded_by TEXT DEFAULT NULL, auto_published INTEGER NOT NULL DEFAULT 0 CHECK(auto_published IN (0,1)),
   expires_at_ms INTEGER DEFAULT NULL,
+  -- Memory scope (#135): who may read a published asset (team = the team of mission_id, private = producer_id), and the wider scope its author asked a reviewer for.
+  scope TEXT NOT NULL DEFAULT 'workspace' CHECK(scope IN ('private','team','workspace')),
+  scope_requested TEXT DEFAULT NULL CHECK(scope_requested IS NULL OR scope_requested IN ('team','workspace')),
+  -- Stale knowledge (#133): the sources the asset was built from and, once one changed, the mark that stays until a person re-confirms or revokes.
+  source_fingerprints_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(source_fingerprints_json)),
+  stale_at_ms INTEGER DEFAULT NULL, stale_changes_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(stale_changes_json)),
+  reconfirmed_at_ms INTEGER DEFAULT NULL,
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+-- What each task's last context pack said about each kept knowledge asset (#133), so the next pack lists only what changed since.
+CREATE TABLE knowledge_pack_seen (
+  work_item_id TEXT NOT NULL, asset_id TEXT NOT NULL, seen TEXT NOT NULL,
+  PRIMARY KEY(work_item_id, asset_id)
 ) STRICT;
 -- Library settings (row 47): one row at most; no row means the defaults (auto-publish on).
 CREATE TABLE library_settings (
@@ -413,8 +521,13 @@ CREATE TABLE events (
   aggregate_type TEXT NOT NULL, aggregate_id TEXT NOT NULL, aggregate_seq INTEGER NOT NULL CHECK(aggregate_seq > 0),
   event_type TEXT NOT NULL, payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
   payload_digest TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  actor_id TEXT NOT NULL DEFAULT 'system:unattributed', actor_kind TEXT NOT NULL DEFAULT 'system',
+  actor_attempt_id TEXT DEFAULT NULL, acting_for TEXT DEFAULT NULL,
+  -- The hash chain of this workspace's events (ADR 0078). NULL only on a row written outside the store, which the verifier reports.
+  chain_seq INTEGER DEFAULT NULL, prev_digest TEXT DEFAULT NULL, chain_digest TEXT DEFAULT NULL,
   UNIQUE(aggregate_type,aggregate_id,aggregate_seq)
 ) STRICT;
+CREATE UNIQUE INDEX events_chain ON events(chain_seq);
 CREATE INDEX events_type ON events(event_type, created_at_ms);
 CREATE TABLE outbox_deliveries (
   event_id TEXT NOT NULL REFERENCES events(event_id), destination TEXT NOT NULL,
@@ -432,6 +545,7 @@ CREATE TABLE tickets (
   version INTEGER NOT NULL DEFAULT 1 CHECK(version>0),
   priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high','urgent')),
   created_at_ms INTEGER NOT NULL DEFAULT 0,
+  labels_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(labels_json)),
   UNIQUE(connector_id,remote_id)
 ) STRICT;
 CREATE TABLE support_drafts (
@@ -498,10 +612,13 @@ CREATE TABLE session_controls (
  id TEXT PRIMARY KEY, session_id TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL,
  created_at_ms INTEGER NOT NULL
 ) STRICT;
--- Workflow engine state: dispatch input, step outputs, child links, durable waits.
+-- Workflow engine state: dispatch input, step outputs, child links, durable waits. run_inputs.priority (0 low .. 3 urgent) is that of the work item the run was dispatched for; every job of the run is created with it, and work with no item is normal (1).
+-- run_inputs.resume_json: set on a run started by resuming a session; the one step that continues the saved engine state is the only job pinned to the runner holding it.
 CREATE TABLE run_inputs (
  run_id TEXT PRIMARY KEY, input_json TEXT NOT NULL, workflow_json TEXT NOT NULL,
- actor_id TEXT NOT NULL, runner_id TEXT
+ actor_id TEXT NOT NULL, runner_id TEXT,
+ resume_json TEXT DEFAULT NULL CHECK(resume_json IS NULL OR json_valid(resume_json)),
+ priority INTEGER NOT NULL DEFAULT 1 CHECK(priority BETWEEN 0 AND 3)
 ) STRICT;
 CREATE TABLE step_outputs (
  run_id TEXT NOT NULL, step_id TEXT NOT NULL, output_json TEXT NOT NULL,
@@ -555,3 +672,23 @@ CREATE TABLE play_proposals (
  practice TEXT DEFAULT NULL, source_missions_json TEXT DEFAULT NULL
 ) STRICT;
 
+
+-- Standing teams (ADR 0056): named sets of roles bound to agent definitions and engines that plans and Plays reference. Referencing one COPIES its members into the plan version; editing or archiving a standing team never touches a plan version, a mission or work.
+CREATE TABLE standing_teams (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+  members_json TEXT NOT NULL CHECK(json_valid(members_json)), coordinator_member_id TEXT DEFAULT NULL,
+  state TEXT NOT NULL DEFAULT 'active' CHECK(state IN ('active','archived')),
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0), created_by TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+-- Autonomy suggestions (#158, ADR 0074): a suggestion is worked out on every read from existing records and never stored. Only a person's decision is:
+-- accepted (who, when and the figures at that time) or dismissed. Rows are never edited or removed; the latest accepted Play row is that Play's default preset.
+CREATE TABLE autonomy_decisions (
+  id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('play','mission','repeat')), subject_id TEXT NOT NULL,
+  decision TEXT NOT NULL CHECK(decision IN ('accepted','dismissed')),
+  from_value TEXT NOT NULL, to_value TEXT NOT NULL, figures_json TEXT NOT NULL CHECK(json_valid(figures_json)),
+  decided_by TEXT NOT NULL, decided_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX autonomy_decisions_subject ON autonomy_decisions(kind, subject_id, decided_at_ms);
+CREATE TRIGGER autonomy_decisions_never_edited BEFORE UPDATE ON autonomy_decisions BEGIN SELECT RAISE(ABORT, 'an autonomy decision is never edited'); END;
+CREATE TRIGGER autonomy_decisions_never_removed BEFORE DELETE ON autonomy_decisions BEGIN SELECT RAISE(ABORT, 'an autonomy decision is never removed'); END;

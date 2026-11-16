@@ -24,7 +24,7 @@ CREATE TABLE workspaces (
 ) STRICT;
 CREATE TABLE git_connections (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
-  name TEXT NOT NULL, provider TEXT NOT NULL CHECK(provider IN ('git')),
+  name TEXT NOT NULL, provider TEXT NOT NULL CHECK(provider IN ('github','github-enterprise','gitlab','gitea')),
   base_url TEXT NOT NULL, encrypted_credentials TEXT NOT NULL,
   status TEXT NOT NULL CHECK(status IN ('pending','verified','failed')), detail TEXT,
   repositories_json TEXT NOT NULL CHECK(json_valid(repositories_json)),
@@ -32,6 +32,14 @@ CREATE TABLE git_connections (
   created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
   last_verified_at_ms INTEGER, UNIQUE(organization_id,name)
 ) STRICT;
+-- A signed inbound webhook endpoint (ADR 0077): one URL per provider kind and workspace. The secret is stored encrypted under its own key label,
+-- is never read back, and is replaced by rotation; an endpoint belongs to one workspace, so what it receives can only reach that workspace.
+CREATE TABLE webhook_endpoints (
+  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id), workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  kind TEXT NOT NULL CHECK(kind IN ('github','gitlab','ticket')), connection_id TEXT REFERENCES git_connections(id),
+  encrypted_secret TEXT NOT NULL, created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL, rotated_at_ms INTEGER, rotated_by TEXT
+) STRICT;
+CREATE INDEX webhook_endpoints_org ON webhook_endpoints(organization_id, created_at_ms);
 CREATE TABLE repository_bindings (
   id TEXT PRIMARY KEY, connection_id TEXT NOT NULL REFERENCES git_connections(id),
   workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -115,6 +123,7 @@ CREATE TABLE runners (
   disk_reserved INTEGER NOT NULL DEFAULT 0 CHECK(disk_reserved >= 0 AND disk_reserved <= disk_capacity),
   slots_reserved INTEGER NOT NULL DEFAULT 0 CHECK(slots_reserved >= 0 AND slots_reserved <= slot_capacity),
   deregistered_at_ms INTEGER,
+  engines_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(engines_json)),
   UNIQUE(id, organization_id)
 ) STRICT;
 CREATE TABLE runner_capabilities (
@@ -123,6 +132,7 @@ CREATE TABLE runner_capabilities (
   observed_at_ms INTEGER NOT NULL, expires_at_ms INTEGER NOT NULL,
   PRIMARY KEY(runner_id, capability), CHECK(expires_at_ms > observed_at_ms)
 ) STRICT;
+-- jobs.step_failures: attempts that failed on their own account (not platform interruptions), what a step's retry count is measured against.
 CREATE TABLE jobs (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
   execution_key TEXT NOT NULL, workflow_run_id TEXT NOT NULL, step_id TEXT NOT NULL,
@@ -135,6 +145,7 @@ CREATE TABLE jobs (
   attempt_counter INTEGER NOT NULL DEFAULT 0 CHECK(attempt_counter >= 0),
   job_fence INTEGER NOT NULL DEFAULT 0 CHECK(job_fence >= 0),
   auto_retries INTEGER NOT NULL DEFAULT 0 CHECK(auto_retries >= 0),
+  step_failures INTEGER NOT NULL DEFAULT 0 CHECK(step_failures >= 0),
   UNIQUE(organization_id, execution_key),
   FOREIGN KEY(workspace_id, organization_id) REFERENCES workspaces(id, organization_id),
   FOREIGN KEY(organization_id, config_digest) REFERENCES config_releases(organization_id, digest)
@@ -146,6 +157,7 @@ CREATE INDEX jobs_scope_state ON jobs(organization_id, workspace_id, state);
 CREATE INDEX jobs_scope_created ON jobs(organization_id, workspace_id, created_at_ms DESC, id DESC);
 -- A run's jobs (job.get by run id, the run's engine events): without it each lookup scans every job of the organization.
 CREATE INDEX jobs_run ON jobs(organization_id, workflow_run_id, created_at_ms);
+-- job_attempts.deadline_ms: when the step's timeoutSeconds ends the attempt, set as it starts running; NULL when the step declares no timeout.
 CREATE TABLE job_attempts (
   id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES jobs(id),
   runner_id TEXT NOT NULL REFERENCES runners(id), runner_epoch INTEGER NOT NULL CHECK(runner_epoch > 0),
@@ -157,11 +169,24 @@ CREATE TABLE job_attempts (
   receipt_digest TEXT, cleanup_confirmed INTEGER NOT NULL DEFAULT 0 CHECK(cleanup_confirmed IN (0,1)),
   interruption TEXT DEFAULT NULL CHECK(interruption IS NULL OR interruption IN ('platform')),
   failure_reason TEXT DEFAULT NULL,
+  deadline_ms INTEGER DEFAULT NULL,
+  reported_engine TEXT DEFAULT NULL, reported_model TEXT DEFAULT NULL,
   UNIQUE(job_id, attempt_no), UNIQUE(job_id, job_fence)
 ) STRICT;
 CREATE UNIQUE INDEX one_active_attempt ON job_attempts(job_id)
 WHERE state IN ('offered','running','uploading','cancelling','verifying','outcome_unknown');
 CREATE INDEX attempts_expiry ON job_attempts(state, lease_expires_at_ms);
+CREATE INDEX attempts_deadline ON job_attempts(state, deadline_ms);
+-- attempt_pauses: one row per time a person held a running session at a turn boundary (ADR 0058). requested_at_ms: the pause command; paused_at_ms: the
+-- runner reported the engine held at a boundary; continue_requested_at_ms: the continue command; resumed_at_ms: the runner reported the engine running again.
+-- The attempt keeps its fence, lease and slot throughout. [paused_at_ms, resumed_at_ms) is not working time and does not run down the step deadline.
+CREATE TABLE attempt_pauses (
+  id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES job_attempts(id), requested_by TEXT NOT NULL,
+  requested_at_ms INTEGER NOT NULL, paused_at_ms INTEGER DEFAULT NULL,
+  continue_requested_at_ms INTEGER DEFAULT NULL, resumed_at_ms INTEGER DEFAULT NULL
+) STRICT;
+CREATE UNIQUE INDEX attempt_pauses_open ON attempt_pauses(attempt_id) WHERE resumed_at_ms IS NULL;
+CREATE INDEX attempt_pauses_attempt ON attempt_pauses(attempt_id, requested_at_ms);
 CREATE TABLE runner_claim_requests (
   runner_id TEXT NOT NULL REFERENCES runners(id), runner_epoch INTEGER NOT NULL CHECK(runner_epoch > 0),
   request_id TEXT NOT NULL, attempt_id TEXT REFERENCES job_attempts(id),
@@ -240,8 +265,13 @@ CREATE TABLE events (
   aggregate_type TEXT NOT NULL, aggregate_id TEXT NOT NULL, aggregate_seq INTEGER NOT NULL CHECK(aggregate_seq > 0),
   event_type TEXT NOT NULL, payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
   payload_digest TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  actor_id TEXT NOT NULL DEFAULT 'system:unattributed', actor_kind TEXT NOT NULL DEFAULT 'system',
+  actor_attempt_id TEXT DEFAULT NULL, acting_for TEXT DEFAULT NULL,
+  -- The hash chain (ADR 0078): one chain per organization. NULL only on a row written outside the store, which the verifier reports.
+  chain_seq INTEGER DEFAULT NULL, prev_digest TEXT DEFAULT NULL, chain_digest TEXT DEFAULT NULL,
   UNIQUE(organization_id,aggregate_type,aggregate_id,aggregate_seq)
 ) STRICT;
+CREATE UNIQUE INDEX events_chain ON events(organization_id, chain_seq);
 CREATE TABLE outbox_deliveries (
   event_id TEXT NOT NULL REFERENCES events(event_id), destination TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('pending','processing','delivered','parked')),
@@ -278,12 +308,30 @@ CREATE TABLE principals (
   auth_subject_id TEXT NOT NULL, disabled_at_ms INTEGER,
   UNIQUE(organization_id,kind,auth_subject_id), UNIQUE(id,organization_id)
 ) STRICT;
+-- A session credential (ADR 0032): minted for one running attempt and valid only while that attempt holds its fence.
 CREATE TABLE machine_sessions (
   token_digest TEXT PRIMARY KEY, principal_id TEXT NOT NULL, organization_id TEXT NOT NULL,
   expires_at_ms INTEGER NOT NULL, revoked_at_ms INTEGER, created_at_ms INTEGER NOT NULL,
+  attempt_id TEXT DEFAULT NULL, job_fence INTEGER DEFAULT NULL,
   FOREIGN KEY(principal_id,organization_id) REFERENCES principals(id,organization_id)
 ) STRICT;
 CREATE INDEX machine_sessions_expiry ON machine_sessions(expires_at_ms);
+CREATE INDEX machine_sessions_attempt ON machine_sessions(attempt_id);
+-- A short-lived secret credential (ADR 0070): the lease of one secret reference for one running attempt, minted through the secrets adapter port. It binds
+-- the attempt and the job fence it was minted under and never holds the value. It ends with the attempt, a moved fence, a stop-all, a quarantine or its expiry.
+CREATE TABLE secret_credentials (
+  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, attempt_id TEXT NOT NULL REFERENCES job_attempts(id), job_fence INTEGER NOT NULL,
+  ref TEXT NOT NULL, adapter TEXT NOT NULL, tool_id TEXT, created_at_ms INTEGER NOT NULL, expires_at_ms INTEGER NOT NULL,
+  revoked_at_ms INTEGER, revoked_reason TEXT
+) STRICT;
+CREATE INDEX secret_credentials_attempt ON secret_credentials(attempt_id);
+-- The machine principal of a mission team member (ADR 0032): bound to one workspace and mission, acting for the mission owner.
+CREATE TABLE agent_principals (
+  principal_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, mission_id TEXT NOT NULL,
+  member_id TEXT, acting_for TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  FOREIGN KEY(principal_id,organization_id) REFERENCES principals(id,organization_id),
+  FOREIGN KEY(workspace_id,organization_id) REFERENCES workspaces(id,organization_id)
+) STRICT;
 CREATE TABLE setup_intent (
   singleton INTEGER PRIMARY KEY CHECK(singleton=1), organization_id TEXT NOT NULL,
   email TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('pending','ready'))
@@ -331,6 +379,22 @@ CREATE TABLE runner_identity_credentials (
   runner_id TEXT PRIMARY KEY REFERENCES runners(id), public_key_spki_pem TEXT NOT NULL,
   credential_digest TEXT NOT NULL UNIQUE, expires_at_ms INTEGER NOT NULL, revoked_at_ms INTEGER
 ) STRICT;
+-- Every public key a runner enrolled with, kept after rotation (ADR 0078): a receipt names its key, and a key is believed only until the
+-- runner is rotated or deregistered. The same facts are recorded in the audit chain (runner.keyEnrolled / runner.rotated) for offline checks.
+CREATE TABLE runner_keys (
+  key_id TEXT PRIMARY KEY, runner_id TEXT NOT NULL REFERENCES runners(id), organization_id TEXT NOT NULL REFERENCES organizations(id),
+  public_key_spki_pem TEXT NOT NULL, enrolled_at_ms INTEGER NOT NULL, revoked_at_ms INTEGER
+) STRICT;
+CREATE INDEX runner_keys_runner ON runner_keys(runner_id);
+-- A run receipt as the runner signed it (ADR 0078): written once at completion, after the Governor verified the signature, never rewritten.
+CREATE TABLE attempt_receipts (
+  attempt_id TEXT PRIMARY KEY REFERENCES job_attempts(id), organization_id TEXT NOT NULL REFERENCES organizations(id), workspace_id TEXT NOT NULL,
+  job_id TEXT NOT NULL, runner_id TEXT NOT NULL, key_id TEXT NOT NULL REFERENCES runner_keys(key_id),
+  receipt_json TEXT NOT NULL CHECK(json_valid(receipt_json)), receipt_digest TEXT NOT NULL, signature TEXT NOT NULL,
+  evidence_digest TEXT, recorded_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TRIGGER attempt_receipts_immutable BEFORE UPDATE ON attempt_receipts BEGIN SELECT RAISE(ABORT, 'a signed receipt is never rewritten'); END;
+CREATE TRIGGER attempt_receipts_kept BEFORE DELETE ON attempt_receipts BEGIN SELECT RAISE(ABORT, 'a signed receipt is never removed'); END;
 CREATE TABLE runner_challenges (
   id TEXT PRIMARY KEY, runner_id TEXT NOT NULL REFERENCES runners(id),
   nonce TEXT NOT NULL UNIQUE, expires_at_ms INTEGER NOT NULL, consumed_at_ms INTEGER
@@ -352,6 +416,15 @@ CREATE TABLE step_up_evidence (
   method TEXT NOT NULL CHECK(method IN ('session','totp')), expires_at_ms INTEGER NOT NULL,
   decision_id TEXT UNIQUE REFERENCES approval_decisions(id), revoked_at_ms INTEGER,
   auth_session_id TEXT NOT NULL, auth_user_id TEXT NOT NULL, factor_digest TEXT, auth_generation INTEGER NOT NULL
+) STRICT;
+-- A fresh authentication for one administrative command (ADR 0047), bound to the person's session, the command, its workspace and the digest of its exact
+-- payload. Verifying it makes it evidence; the one command it names spends it.
+CREATE TABLE command_step_ups (
+  id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, auth_session_digest TEXT NOT NULL,
+  command_type TEXT NOT NULL, workspace_id TEXT NOT NULL, subject_digest TEXT NOT NULL,
+  expires_at_ms INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 5),
+  verified_at_ms INTEGER, method TEXT CHECK(method IS NULL OR method IN ('session','totp')),
+  auth_session_id TEXT NOT NULL, auth_user_id TEXT NOT NULL, factor_digest TEXT, auth_generation INTEGER NOT NULL, consumed_at_ms INTEGER, revoked_at_ms INTEGER
 ) STRICT;
 CREATE TABLE permit_credentials (
   permit_id TEXT PRIMARY KEY REFERENCES effect_permits(id), token_digest TEXT NOT NULL UNIQUE,
@@ -393,11 +466,21 @@ CREATE TABLE artifact_associations (
   FOREIGN KEY(workspace_id,organization_id) REFERENCES workspaces(id,organization_id)
 ) STRICT;
 CREATE INDEX artifact_association_digest ON artifact_associations(digest);
+-- Signed checkpoints of the event hash chains (ADR 0078): the control chain of the organization (scope 'control') and of each workspace
+-- database (scope 'workspace:<id>'). A checkpoint names the chain position (through_seq) and head digest it pins and is signed by an audit key.
 CREATE TABLE audit_checkpoints (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
   through_cursor INTEGER NOT NULL CHECK(through_cursor>=0), chain_digest TEXT NOT NULL,
   signature TEXT NOT NULL, key_id TEXT NOT NULL, off_host_receipt_digest TEXT,
-  created_at_ms INTEGER NOT NULL
+  created_at_ms INTEGER NOT NULL,
+  scope TEXT NOT NULL DEFAULT 'control', through_seq INTEGER NOT NULL DEFAULT 0, reason TEXT NOT NULL DEFAULT 'schedule'
+) STRICT;
+CREATE INDEX audit_checkpoints_scope ON audit_checkpoints(organization_id, scope, through_seq);
+-- Public halves of the Governor's audit signing keys. Append-only: a retired key stays so its checkpoints stay verifiable. The private
+-- half lives in the data directory (audit/<key id>.key, owner-only) and is deleted when the key is retired.
+CREATE TABLE audit_keys (
+  key_id TEXT PRIMARY KEY, public_key TEXT NOT NULL, created_at_ms INTEGER NOT NULL, retired_at_ms INTEGER DEFAULT NULL,
+  previous_key_id TEXT DEFAULT NULL, rotation_signature TEXT DEFAULT NULL
 ) STRICT;
 CREATE TABLE notification_subscriptions (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
@@ -431,6 +514,8 @@ CREATE TABLE execution_stream (
   ts_approximate INTEGER NOT NULL DEFAULT 0 CHECK(ts_approximate IN (0,1)),
   run_id TEXT, job_id TEXT, attempt_id TEXT, session_id TEXT, work_item_id TEXT,
   invocation_id TEXT, proposal_id TEXT,
+  actor_id TEXT NOT NULL DEFAULT 'system:unattributed', actor_kind TEXT NOT NULL DEFAULT 'system',
+  actor_attempt_id TEXT DEFAULT NULL, acting_for TEXT DEFAULT NULL,
   summary_json TEXT NOT NULL CHECK(json_valid(summary_json) AND length(summary_json) <= 4096),
   payload_ref_json TEXT NOT NULL CHECK(json_valid(payload_ref_json))
 ) STRICT;
@@ -467,11 +552,55 @@ CREATE TABLE workspace_way_of_working (
   workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workflow_id TEXT NOT NULL,
   required_tools_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(required_tools_json)), updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
--- Hosted model per workspace (ADR 0023): off by default; evaluator and second attempt only. The API key is never stored here (host environment of the runner).
-CREATE TABLE workspace_hosted_model (
-  workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
-  vendor TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', base_url TEXT NOT NULL DEFAULT '', updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+-- Model routes per workspace (ADR 0055, builds on ADR 0023): an ordered list of hosted models for the evaluator, the second attempt and the advisory judge.
+-- A route names its key by reference (`key_ref`), never the key: the caller resolves it from its own environment. Prices are micro-USD per million tokens.
+CREATE TABLE workspace_model_routes (
+  workspace_id TEXT NOT NULL, route_id TEXT NOT NULL, organization_id TEXT NOT NULL, position INTEGER NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)), vendor TEXT NOT NULL, key_ref TEXT NOT NULL, model TEXT NOT NULL, base_url TEXT NOT NULL,
+  cost_tier TEXT NOT NULL CHECK(cost_tier IN ('low','standard','premium')),
+  input_micro_usd_per_mtok INTEGER NOT NULL CHECK(input_micro_usd_per_mtok >= 1), output_micro_usd_per_mtok INTEGER NOT NULL CHECK(output_micro_usd_per_mtok >= 1),
+  -- Calls go through the Governor's model gateway (ADR 0072): the key is held on the Governor host and never reaches a runner. Off by default.
+  via_gateway INTEGER NOT NULL DEFAULT 0 CHECK(via_gateway IN (0,1)),
+  updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(workspace_id, route_id)
 ) STRICT;
+-- The credential of one running attempt for the model gateway (ADR 0072): only its digest is kept; it is bound to the attempt and the fence it was
+-- minted under and is alive only while that attempt runs under that fence.
+CREATE TABLE model_gateway_tokens (
+  token_digest TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, attempt_id TEXT NOT NULL, job_fence INTEGER NOT NULL,
+  created_at_ms INTEGER NOT NULL, expires_at_ms INTEGER NOT NULL, revoked_at_ms INTEGER
+) STRICT;
+CREATE INDEX model_gateway_tokens_attempt ON model_gateway_tokens(attempt_id);
+-- One row per call through the gateway: ids, status, token counts, byte counts and the price. Never a request or response body.
+CREATE TABLE model_gateway_calls (
+  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, attempt_id TEXT NOT NULL, route_id TEXT NOT NULL, model TEXT NOT NULL,
+  status INTEGER NOT NULL, outcome TEXT NOT NULL CHECK(outcome IN ('served','quota','failed','cancelled','refused')), input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0,
+  micro_usd INTEGER NOT NULL DEFAULT 0, request_bytes INTEGER NOT NULL DEFAULT 0, response_bytes INTEGER NOT NULL DEFAULT 0, duration_ms INTEGER NOT NULL DEFAULT 0, at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX model_gateway_calls_attempt ON model_gateway_calls(attempt_id);
+-- A route whose account ran out of quota or rate is left out of every offer until the provider's retry-after has passed: never a blind retry on the same route.
+CREATE TABLE model_route_cooldowns (
+  workspace_id TEXT NOT NULL, route_id TEXT NOT NULL, until_ms INTEGER NOT NULL, reason TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY(workspace_id, route_id)
+) STRICT;
+-- Which route served each attempt, and the routes it moved past on a quota failure (`outcome` served | quota | failed), in the order they were tried.
+CREATE TABLE attempt_model_routes (
+  attempt_id TEXT NOT NULL, position INTEGER NOT NULL, route_id TEXT NOT NULL, workspace_id TEXT NOT NULL, model TEXT NOT NULL,
+  outcome TEXT NOT NULL CHECK(outcome IN ('served','quota','failed')), recorded_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(attempt_id, position)
+) STRICT;
+-- Why the Governor chose what it chose (ADR 0065): one small row per choice, written at the moment it was made with every fact it judged by, never
+-- rewritten and never rebuilt from later state. `kind` is the choice (way-of-working | team-member | model-route); `subject_kind`/`subject_id` is what the
+-- choice was for (a dispatch command, a work item, a job or an attempt); `code` says what happened and `facts_json` holds the facts as they were then.
+CREATE TABLE choice_reasons (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK(kind IN ('way-of-working','team-member','model-route')),
+  subject_kind TEXT NOT NULL CHECK(subject_kind IN ('command','work-item','job','attempt')), subject_id TEXT NOT NULL,
+  code TEXT NOT NULL, facts_json TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(facts_json)), recorded_at_ms INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(subject_kind, subject_id, kind, code)
+) STRICT;
+CREATE INDEX choice_reasons_subject ON choice_reasons(subject_kind, subject_id);
+CREATE TRIGGER choice_reasons_immutable BEFORE UPDATE ON choice_reasons BEGIN SELECT RAISE(ABORT, 'a recorded reason is never rewritten'); END;
 -- Latest result of each periodic check (model endpoint, hosted model per workspace, disk): Health reads these rows; a check that goes bad is also alerted once.
 CREATE TABLE service_probes (
   id TEXT PRIMARY KEY, status TEXT NOT NULL CHECK(status IN ('healthy','degraded','unavailable','disabled')), detail TEXT NOT NULL DEFAULT '',
@@ -497,7 +626,10 @@ CREATE TABLE memory_assets (
  source_type TEXT NOT NULL DEFAULT 'wiki' CHECK(source_type IN ('chat','skill','wiki','codegraph','knowledge')),
  status TEXT NOT NULL DEFAULT 'unverified' CHECK(status IN ('reviewed','unverified')),
  title TEXT NOT NULL DEFAULT '', self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1)),
- revoked INTEGER NOT NULL DEFAULT 0, created_at_ms INTEGER NOT NULL
+ revoked INTEGER NOT NULL DEFAULT 0, created_at_ms INTEGER NOT NULL,
+ -- Memory scope (#135): who may read the asset. A team asset names the mission whose team may read it, a private asset the one author.
+ visibility TEXT NOT NULL DEFAULT 'workspace' CHECK(visibility IN ('global-approved','team','workspace','private')),
+ team_id TEXT DEFAULT NULL, owner_id TEXT DEFAULT NULL
 ) STRICT;
 CREATE UNIQUE INDEX memory_assets_source ON memory_assets(organization_id, COALESCE(workspace_id,''), source_id) WHERE revoked=0;
 CREATE VIRTUAL TABLE memory_fts USING fts5(asset_id UNINDEXED,title,body,tokenize='unicode61 remove_diacritics 2');
@@ -526,12 +658,20 @@ CREATE TABLE email_deliveries (
 CREATE INDEX email_deliveries_person ON email_deliveries(organization_id, principal_id, at_ms);
 
 -- Effect tools and permits per call (ADR 0024). The owner's allow-list of what an effect tool may touch in this workspace, and how long a
--- person has to answer an approval; an empty list means the tool refuses every call.
+-- person has to answer an approval; an empty list means the tool refuses every call. egress_hosts_json: the hosts a sandboxed
+-- tool of this workspace may reach through the egress proxy (ADR 0037); empty means no network.
 CREATE TABLE workspace_effect_policy (
   workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL,
   containers_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(containers_json)),
   services_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(services_json)),
   approval_minutes INTEGER NOT NULL DEFAULT 30 CHECK(approval_minutes BETWEEN 1 AND 1440),
+  egress_hosts_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(egress_hosts_json)),
+  updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+-- How many jobs of one workspace may wait for a runner before a person's new work is refused (ADR 0040). No row means the default.
+CREATE TABLE workspace_queue_limit (
+  workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL,
+  max_queued INTEGER NOT NULL CHECK(max_queued BETWEEN 1 AND 10000),
   updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
 -- A runner group set aside for some workspaces (ADR 0024). A group with a row takes jobs of its listed workspaces only; host tools
@@ -560,6 +700,17 @@ CREATE INDEX effect_calls_open ON effect_calls(created_at_ms) WHERE settled_at_m
 -- Inbound chat webhook requests already handled (ADR 0024): a retried signed request is acknowledged, never repeated.
 CREATE TABLE inbound_hook_events (
   remote_event_id TEXT PRIMARY KEY, received_at_ms INTEGER NOT NULL
+) STRICT;
+-- Who a chat user is in Brain (ADR 0011 amendment, spec #90 ticket #123): an administrator maps one chat identity (what the signed hook
+-- says about the sender) to one member. Chat starts work only for a mapped, active member; nothing is mapped by default.
+CREATE TABLE chat_identities (
+  organization_id TEXT NOT NULL REFERENCES organizations(id),
+  provider TEXT NOT NULL CHECK(provider IN ('slack','teams','brain')),
+  chat_user_id TEXT NOT NULL,
+  principal_id TEXT NOT NULL,
+  created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(organization_id, provider, chat_user_id),
+  FOREIGN KEY(principal_id, organization_id) REFERENCES principals(id, organization_id)
 ) STRICT;
 -- Single sign-on (ADR 0026): one OpenID Connect provider per Governor. The secret is only a reference, never a value.
 CREATE TABLE identity_provider (
