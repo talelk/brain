@@ -173,7 +173,7 @@ async function seedWebhooks(governor: Fixture, _page: Page, demo: Demo): Promise
   await create("vb-hook-ticket", "ticket");
   const send = async (event: string, delivery: string, payload: unknown) => {
     const body = JSON.stringify(payload);
-    await governor.app.fetch(new Request(`http://x/hooks/github/${github}`, { method: "POST", headers: { "content-type": "application/json", "x-github-event": event, "x-github-delivery": delivery, "x-hub-signature-256": `sha256=${createHmac("sha256", secret).update(body).digest("hex")}` }, body }));
+    await fetch(`${governor.url}/hooks/github/${github}`, { method: "POST", headers: { "content-type": "application/json", "x-github-event": event, "x-github-delivery": delivery, "x-hub-signature-256": `sha256=${createHmac("sha256", secret).update(body).digest("hex")}` }, body });
   };
   const repository = { full_name: "acme/app", html_url: "https://github.com/acme/app" };
   await send("ping", "vb-1", { zen: "Design for failure." });

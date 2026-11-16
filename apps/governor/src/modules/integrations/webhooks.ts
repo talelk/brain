@@ -9,7 +9,7 @@ const KINDS: readonly WebhookKind[] = ["github", "gitlab", "ticket"];
 type EndpointRow = { id: string; organization_id: string; workspace_id: string; kind: WebhookKind; connection_id: string | null; encrypted_secret: string; created_at_ms: number; rotated_at_ms: number | null };
 type DeliveryRow = { event: string; status: "applied" | "ignored"; detail: string; received_at_ms: number };
 
-export const webhookPath = (kind: WebhookKind, endpointId: string): string => `/hooks/${kind}/${endpointId}`;
+const webhookPath = (kind: WebhookKind, endpointId: string): string => `/hooks/${kind}/${endpointId}`;
 
 function secretOf(value: unknown): string {
   const secret = typeof value === "string" ? value : "";
