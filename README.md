@@ -1,4 +1,5 @@
 # Keyrus Brain
+> A simplified rewrite of Brain is in progress on the `simplify` branch.
 
 Brain helps teams investigate issues, draft support responses and advance work through
 reviewed workflows. Start with an outcome, follow progress and review the independently
