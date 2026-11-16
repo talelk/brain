@@ -383,6 +383,8 @@ export class Brain {
       projectOutbox: systemActor("outbox"), runCapitalization: systemActor("capitalization"), notifyAttention: systemActor("notifications"), notifyDigests: systemActor("notifications"),
       replicate: systemActor("replica"), runEngineProbes: systemActor("engine-probes"),
       bootstrap: systemActor("bootstrap"), inboundChat: systemActor("chat-inbound"),
+      // A signed delivery is the endpoint's own act: no person signed in, so the principal is named after the endpoint that received it.
+      receiveWebhook: (_kind: string, endpointId: string) => systemActor(`webhook:${endpointId}`),
       verifyTrustDomain: (identity: ResolvedActor) => eventActorOf(identity.actor), revokeTrustDomain: caller,
       createWorkspace: caller, stageRelease: caller, activateRelease: caller,
       issuePermit: runnerOf, requestEffect: runnerOf, issueEffectPermit: runnerOf, startEffect: runnerOf, finishEffect: runnerOf, runEffect: runnerOf,
