@@ -25,7 +25,10 @@ Read `deploy/reference/README.md` for the current caveats before attempting a ru
   private, link-local (cloud metadata), unique-local and its own addresses (IPv4-mapped forms
   included) and connects to the address it checked. An internal host is granted on purpose only
   by listing it in the proxy's `BRAIN_EGRESS_ALLOW_INTERNAL` (comma-separated `host`,
-  `host:port`; empty by default); a workspace's grant must still name it.
+  `host:port`; empty by default); a workspace's grant must still name it. A sandboxed engine
+  that reaches its model host on a Tailscale (100.64.0.0/10) or other private address is refused
+  until that host is listed in `BRAIN_EGRESS_ALLOW_INTERNAL` on the proxy (for example
+  `tntungx10:8000`) or the model is reached through the model gateway (ADR 0072) instead.
 - Engines run in per-attempt sandboxes (ADR 0073): set `BRAIN_LAUNCHER_ENGINE_STATE_ROOT` on the launcher (the runner mounts it as `BRAIN_RUNNER_ENGINE_STATE_DIR`), build `brain-sandbox-engine` with `scripts/build-sandbox-images.sh`, and see `deploy/reference/README.md`.
 - The Governor image carries the static web bundle and the reviewed UI foundation
   manifest; activation/readiness refuse a manifest digest mismatch.
