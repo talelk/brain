@@ -122,19 +122,19 @@ export class EngineSandboxes {
     return started;
   }
 
-  private async start(b: Record<string, unknown>): Promise<Reply> {
-    for (const key of Object.keys(b)) if (!(ENGINE_FIELDS as readonly string[]).includes(key)) return refuse(422, `field ${key} forbidden`);
-    const engine = String(b["engine"] ?? "");
+  private async start(body: Record<string, unknown>): Promise<Reply> {
+    for (const key of Object.keys(body)) if (!(ENGINE_FIELDS as readonly string[]).includes(key)) return refuse(422, `field ${key} forbidden`);
+    const engine = String(body["engine"] ?? "");
     if (!ENGINES.has(engine)) return refuse(422, "unknown engine");
-    const attemptId = String(b["attemptId"] ?? "");
+    const attemptId = String(body["attemptId"] ?? "");
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(attemptId) || attemptId.includes("..")) return refuse(422, "attemptId invalid");
-    const requestId = String(b["requestId"] ?? "");
+    const requestId = String(body["requestId"] ?? "");
     if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/u.test(requestId)) return refuse(422, "requestId invalid");
-    const cpu = b["cpuMillicores"];
-    const memory = b["memoryMb"];
+    const cpu = body["cpuMillicores"];
+    const memory = body["memoryMb"];
     if (typeof cpu !== "number" || !Number.isInteger(cpu) || cpu < 100 || cpu > 64_000) return refuse(422, "cpuMillicores must be an integer from 100 to 64000");
     if (typeof memory !== "number" || !Number.isInteger(memory) || memory < 128 || memory > 262_144) return refuse(422, "memoryMb must be an integer from 128 to 262144");
-    const hosts = Array.isArray(b["egressHosts"]) ? b["egressHosts"].map((host) => String(host)) : [];
+    const hosts = Array.isArray(body["egressHosts"]) ? body["egressHosts"].map((host) => String(host)) : [];
     if (hosts.length > 100 || hosts.some((host) => !isEgressHost(host))) return refuse(422, "egressHosts must be at most 100 lower-case host or host:port entries");
     const { stateRoot, egressGrantsDir } = this.options;
     if (!stateRoot) return refuse(409, "engine sandboxes are not configured on this launcher (BRAIN_LAUNCHER_ENGINE_STATE_ROOT)");

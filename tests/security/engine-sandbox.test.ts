@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startLauncher } from "../../apps/launcher/src/server";
-import { ENGINE_PIDS_LIMIT, EngineSandboxes } from "../../apps/launcher/src/engine-sandbox";
+import { ENGINE_PIDS_LIMIT, ENGINES, EngineSandboxes } from "../../apps/launcher/src/engine-sandbox";
+import { SANDBOXABLE } from "../../apps/runner/src/engines/isolation";
 import { LauncherClient } from "../../apps/runner/src/launcher-client";
 import { decodeFrame, encodeFrame, type HostFrame } from "../../apps/runner/src/engines/sandbox-protocol";
 import { scaled } from "../support/timing";
@@ -236,6 +237,13 @@ describe("an engine's sandbox is shaped by the launcher alone (ADR 0073)", () =>
     expect((await channel.close()).terminationConfirmed).toBe(true);
     await expect(client.open({ engine: "claude", attemptId: "no-dir", requestId: "engine-no-dir-0", cpuMillicores: 1000, memoryMb: 512, egressHosts: [] })).rejects.toThrow(/engine sandbox create failed 409/u);
   }, scaled(60_000));
+});
+
+describe("the launcher and the runner agree on which engines run in a sandbox", () => {
+  // The launcher is a separate trusted executable with no shared package, so its list is its own; this keeps the two from drifting.
+  it("hosts exactly the engines the runner sends to a sandbox", () => {
+    expect([...ENGINES].sort()).toEqual([...SANDBOXABLE].sort());
+  });
 });
 
 describe("two creates of one request are one sandbox", () => {

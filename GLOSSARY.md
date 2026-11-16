@@ -484,6 +484,10 @@ The egress proxy gives each sandbox a grant of exactly those hosts; none means n
 (ADR 0037). Not the per-tool `allowedHosts` of the fetch broker.
 _Avoid_: firewall, whitelist, network policy
 
+**Egress proxy**:
+The only way a sandbox reaches a network (ADR 0037). Each sandbox holds an **egress grant**: its own credential for the proxy and exactly the hosts of its **egress allowlist**, deleted when the sandbox ends. The proxy resolves a listed name once, refuses loopback, private, link-local (cloud metadata) and its own addresses, and connects to the address it checked; an internal host is reachable only when the operator lists it on the proxy.
+_Avoid_: firewall, NAT, gateway (the **model gateway** is another thing)
+
 **External MCP tool**:
 A tool of a third-party MCP server, registered as a Tool document with `spec.mcp`: the admin declares its effect
 class (read or write, never inferred) and pins the digest of the server's tool list. The pinned client runs it in

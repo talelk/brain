@@ -11,7 +11,7 @@ export type IsolationMode = Placement["isolation"];
  * states `ephemeral-container` with or without a sandbox. An engine not listed here is `trusted-local`: a new engine claims more only by
  * being named below.
  */
-const SANDBOXABLE: ReadonlySet<string> = new Set(["pi", "claude", "acp", "opencode", "codex"]);
+export const SANDBOXABLE: ReadonlySet<string> = new Set(["pi", "claude", "acp", "opencode", "codex"]);
 
 /** Where an engine runs: in its own sandbox, or in the runner process. The one answer both the statement and the selection read. */
 export type EngineHosting = "sandboxed" | "in-process";
