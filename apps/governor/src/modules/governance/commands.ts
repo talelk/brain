@@ -9,6 +9,7 @@ import { assertExpectedVersion, assertTransition, transitionState } from "../../
 import { assertHumanIdentity, type BrainAuth } from "../identity/index";
 import { originProblem } from "../missions/index";
 import { approvalPolicyProblem } from "./approval-policy";
+import { approversSoFar, assessRisk, riskProblem, withRisk } from "./risk";
 
 export interface GovernanceCommandPorts {
   readonly auth: BrainAuth;
@@ -55,11 +56,13 @@ export function governanceCommands(store: Store, ports: GovernanceCommandPorts):
       kind: "control",
       handle: ({ actor, cmd, workspaceId }) => {
         if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        const subject = cmd.payload["subject"] as unknown as ActionSubject;
-        if (subject.organizationId !== actor.organizationId || subject.workspaceId !== workspaceId) throw new BrainDomainError("FORBIDDEN", "subject scope mismatch");
+        const proposed = cmd.payload["subject"] as unknown as ActionSubject;
+        if (proposed.organizationId !== actor.organizationId || proposed.workspaceId !== workspaceId) throw new BrainDomainError("FORBIDDEN", "subject scope mismatch");
         // The origin is bound with the subject, so a caller cannot name a run, task or mission the Governor's own links do not support (ADR 0049).
-        const mismatch = subject.origin ? originProblem(s.workspaceDb(workspaceId, actor.organizationId), subject.origin) : undefined;
+        const mismatch = proposed.origin ? originProblem(s.workspaceDb(workspaceId, actor.organizationId), proposed.origin) : undefined;
         if (mismatch) throw new BrainDomainError("INVALID_ARGUMENT", mismatch);
+        // The risk tier is the Governor's to compute and is bound with the rest (ADR 0076): a proposal cannot name a lower one.
+        const subject = withRisk(s, proposed, { organizationId: actor.organizationId, workspaceId });
         const digest = approvalSubjectDigest(subject as unknown as JsonValue);
         // E083: one live request per exact subject signature — a repeated
         // request for the identical subject returns the existing approval
@@ -96,13 +99,25 @@ export function governanceCommands(store: Store, ports: GovernanceCommandPorts):
         if (!row) throw new BrainDomainError("NOT_FOUND", "approval not found");
         if (!hasWorkspaceMembership(s, actor.actorId, actor.organizationId, row.workspace_id)) throw new BrainDomainError("NOT_FOUND", "approval not found");
         assertExpectedVersion(row.version, body.expectedVersion);
+        const subject = JSON.parse(row.subject_json) as ActionSubject;
+        // The tier and its requirements are part of what the digest binds: a subject whose risk was edited after the request no longer matches it.
+        if (approvalSubjectDigest(subject as unknown as JsonValue) !== row.subject_digest) throw new BrainDomainError("CONFLICT", "approval subject was altered");
         if (row.subject_digest !== body.subjectDigest) throw new BrainDomainError("CONFLICT", "approval subject changed; refresh required");
         if (row.state === "pending" && row.expires_at_ms <= s.now()) {
           transitionState(s.control, "approval", approvalId, "expired", { bumpVersion: true });
           throw new BrainDomainError("APPROVAL_EXPIRED", "approval expired");
         }
+        // What the tier asked of this approval when it was requested holds, and nothing later lowers it (ADR 0076).
+        const risk = subject.risk ?? assessRisk(s, subject, { organizationId: actor.organizationId, workspaceId: row.workspace_id });
+        const prior = body.decision === "approve" ? approversSoFar(s, approvalId) : [];
+        if (body.decision === "approve") {
+          const problem = riskProblem(s, subject, { organizationId: actor.organizationId, workspaceId: row.workspace_id }, risk, { actorId: actor.actorId, requestedBy: row.requested_by, prior });
+          if (problem) throw new BrainDomainError(problem.code, problem.message);
+        }
+        // Another approver is still needed: this approval is recorded, the request stays pending and waits for a different person.
+        const partial = body.decision === "approve" && risk.requires.secondApprover && prior.length + 1 < 2;
         const newState = body.decision === "approve" ? "approved" : "rejected";
-        assertTransition("approval", row.state, newState);
+        if (!partial) assertTransition("approval", row.state, newState);
         // Separation of duties: author cannot approve own high-risk request.
         if (body.decision === "approve" && row.requested_by === actor.actorId) {
           throw new BrainDomainError("FORBIDDEN", "separation of duties: requester cannot approve own action");
@@ -110,14 +125,14 @@ export function governanceCommands(store: Store, ports: GovernanceCommandPorts):
         // The release policy asks more of the approver than the rule above: its layer and field are named in the refusal (ADR 0067).
         if (body.decision === "approve") {
           const kind = (s.control.prepare("SELECT kind FROM principals WHERE id=? AND organization_id=?").get(actor.actorId, actor.organizationId) as { kind: string } | undefined)?.kind ?? actor.kind;
-          const problem = approvalPolicyProblem(s, JSON.parse(row.subject_json) as ActionSubject, { actorId: actor.actorId, kind });
+          const problem = approvalPolicyProblem(s, subject, { actorId: actor.actorId, kind });
           if (problem) throw new BrainDomainError("FORBIDDEN", problem.message);
         }
         if (body.decision === "approve") {
           if (!body.stepUpEvidenceId) throw new BrainDomainError("APPROVAL_REQUIRED", "fresh step-up evidence required to approve");
           const ev = s.control.prepare("SELECT e.actor_id,e.auth_session_digest,e.subject_digest,e.expires_at_ms,e.decision_id,e.revoked_at_ms,e.auth_session_id,e.auth_user_id,e.factor_digest,e.auth_generation,e.method,c.approval_id FROM step_up_evidence e JOIN step_up_challenges c ON c.id=e.challenge_id WHERE e.id=?").get(body.stepUpEvidenceId) as
             | { actor_id: string; auth_session_digest: string; subject_digest: string; expires_at_ms: number; decision_id: string | null; revoked_at_ms: number | null; auth_session_id: string; auth_user_id: string; factor_digest: string | null; auth_generation: number; method: string; approval_id: string } | undefined;
-          if (!ev || ev.approval_id !== approvalId || (ports.auth.requireTwoFactor && ev.method !== "totp") || ev.revoked_at_ms || ev.expires_at_ms <= s.now() || ev.actor_id !== actor.actorId || ev.auth_session_digest !== identity.sessionDigest || ev.subject_digest !== body.subjectDigest || ev.decision_id || ev.auth_generation !== actor.authGeneration || !ports.auth.isSessionCurrent(ev.auth_user_id, ev.auth_session_id, s.now(), ev.factor_digest)) {
+          if (!ev || ev.approval_id !== approvalId || ((ports.auth.requireTwoFactor || risk.requires.stepUp) && ev.method !== "totp") || ev.revoked_at_ms || ev.expires_at_ms <= s.now() || ev.actor_id !== actor.actorId || ev.auth_session_digest !== identity.sessionDigest || ev.subject_digest !== body.subjectDigest || ev.decision_id || ev.auth_generation !== actor.authGeneration || !ports.auth.isSessionCurrent(ev.auth_user_id, ev.auth_session_id, s.now(), ev.factor_digest)) {
             throw new BrainDomainError("FORBIDDEN", "step-up evidence invalid, expired, or already used");
           }
         }
@@ -126,6 +141,11 @@ export function governanceCommands(store: Store, ports: GovernanceCommandPorts):
         s.control.prepare("INSERT INTO approval_decisions(id, approval_id, expected_version, actor_id, auth_evidence_ref, subject_digest, decision, note, created_at_ms) VALUES (?,?,?,?,?,?,?,?,?)")
           .run(decisionId, approvalId, body.expectedVersion, actor.actorId, body.stepUpEvidenceId ?? "session", body.subjectDigest, body.decision, body.note, s.now());
         if (body.stepUpEvidenceId) s.control.prepare("UPDATE step_up_evidence SET decision_id=? WHERE id=?").run(decisionId, body.stepUpEvidenceId);
+        if (partial) {
+          s.control.prepare("UPDATE approval_requests SET version=version+1 WHERE id=? AND version=?").run(approvalId, body.expectedVersion);
+          s.emit(s.control, { organizationId: actor.organizationId, workspaceId: row.workspace_id, aggregateType: "approval", aggregateId: approvalId, eventType: "approval.half-approved", payload: { approvalId, decisionId } });
+          return { resourceId: approvalId, receiptExtra: { decisionId, state: "pending", subjectDigest: body.subjectDigest } };
+        }
         transitionState(s.control, "approval", approvalId, newState, { bumpVersion: true, and: { version: body.expectedVersion } });
         s.emit(s.control, { organizationId: actor.organizationId, workspaceId: row.workspace_id, aggregateType: "approval", aggregateId: approvalId, eventType: body.decision === "approve" ? "approval.approved" : "approval.rejected", payload: { approvalId, decisionId } });
         return { resourceId: approvalId, receiptExtra: { decisionId, state: newState, subjectDigest: body.subjectDigest } };

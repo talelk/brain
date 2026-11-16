@@ -1350,7 +1350,7 @@
     },
     {
       "id": "E106",
-      "trigger": "Agent delegates beyond scope/budget or writers share a worktree",
+      "trigger": "Agent delegates beyond scope/budget or two attempts share a sandbox",
       "requiredObservation": "Delegation narrowed/denied and bounded; isolated writes and independent review; parent/WorkItem links intact",
       "suites": [
         "SECURITY",

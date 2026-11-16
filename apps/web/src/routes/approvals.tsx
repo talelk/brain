@@ -21,7 +21,7 @@ import { DisclosureCard } from "../ui/components/primitives";
 import { QueueRow, WorkspaceSection } from "../ui/components/Domain";
 import { DecisionCard } from "../ui/components/DecisionCard";
 import { PullRequests } from "../ui/components/PullRequests";
-import { ApprovalContextBlock } from "../ui/components/ApprovalContext";
+import { ApprovalContextBlock, approvalNeedsCode, approvedByYou } from "../ui/components/ApprovalContext";
 import { t } from "../i18n";
 import { useApp } from "../ui/app-context";
 const workspaceLabel = (approval: ApprovalRequest) => approval.subject.workspaceId;
@@ -156,7 +156,7 @@ export function ApprovalsScreen(props: {
               <h2 class="mt-2 break-words [overflow-wrap:anywhere] text-section text-ink-gray-9">{effectSummary(approval()) ?? plainSentence(approval())}</h2>
               <div class="mt-1"><AskLine approval={approval()} asOf={props.asOf} /></div>
             </div>
-            <div class="flex min-w-0 flex-wrap items-center gap-2"><ApprovalReview active={props.active} requireTwoFactor={props.requireTwoFactor} approvalId={approval().approvalId} context={<ApprovalContextBlock approval={approval()} />}
+            <div class="flex min-w-0 flex-wrap items-center gap-2"><ApprovalReview active={props.active && !approvedByYou(approval(), app.identity()?.actor.actorId)} requireTwoFactor={approvalNeedsCode(approval(), props.requireTwoFactor)} approvalId={approval().approvalId} context={<ApprovalContextBlock approval={approval()} />}
               summary={dialogSummary(approval())} requestedBy={app.personName(approval().requestedBy)} expiresAt={approval().subject.expiresAt} asOf={props.asOf}
               targetLabel={`${effect().operation} on ${effect().target}`} exactContent={exactJson(approval())} subjectDigest={approval().subjectDigest} version={approval().version}
               fresh={props.state.canMutate && approval().state === "pending" && isFreshFromServer(approval().subject.expiresAt, props.state.asOf ?? props.asOf)}
@@ -195,10 +195,10 @@ function EffectDecisionCard(props: { approval: ApprovalRequest; asOf?: string; r
   const effect = () => effectParts(props.approval);
   const given = () => effectArguments(props.approval);
   return <DecisionCard kind="approval" tier={props.approval.state === "pending" ? 1 : 5} title={effectSummary(props.approval) ?? plainSentence(props.approval)}
-    why={t("approval.card.asked", { name: app.personName(props.approval.requestedBy) })}
+    why={`${t("approval.card.asked", { name: app.personName(props.approval.requestedBy) })}${props.approval.subject.risk ? ` · ${t(`approval.risk.${props.approval.subject.risk.tier}`)}` : ""}`}
     recommended={props.review}>
     <div class="flex min-w-0 flex-col gap-3" data-approval-card={props.approval.state}>
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-interface text-ink-gray-7">
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-interface text-ink-gray-7">
         <StatusBadge kind="approval" status={props.approval.state} />
         <Show when={props.approval.state === "pending"} fallback={<span>{t("approval.card.state", { state: props.approval.state })}</span>}><ExpiryCountdown expiresAt={props.approval.subject.expiresAt} asOf={props.asOf} /></Show>
       </div>
@@ -209,7 +209,7 @@ function EffectDecisionCard(props: { approval: ApprovalRequest; asOf?: string; r
         <Show when={given().length > 0 && !props.approval.context?.change}><div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("approval.card.arguments")}</dt>
           <dd class="m-0 mt-0.5"><ul class="m-0 flex list-none flex-col gap-1 p-0" data-approval-arguments><For each={given()}>{([key, value]) => <li class="min-w-0 break-words [overflow-wrap:anywhere] text-interface text-ink-gray-9"><span class="text-ink-gray-6">{key}:</span> {value}</li>}</For></ul></dd></div></Show>
       </dl>
-      <ApprovalContextBlock approval={props.approval} />
+      <ApprovalContextBlock approval={props.approval} chipOnlyWhenLow />
       <p class="m-0 text-caption text-ink-gray-6">{t("approval.card.once")}</p>
     </div>
   </DecisionCard>;
@@ -243,7 +243,7 @@ export function ApprovalDetailScreen(props: {
       emptyAction={<Button variant="outline" onClick={props.onBack}>{t("mp.back-to-approvals.8cd8")}</Button>} onRetry={props.onRefresh}>
       <PageStack>
         <Show when={approval()}>{(current) => <EffectDecisionCard approval={current()} asOf={props.asOf}
-          review={<ApprovalReview triggers="decision" requireTwoFactor={props.requireTwoFactor} active={props.active} approvalId={current().approvalId} context={<ApprovalContextBlock approval={current()} />} targetLabel={`${effect().operation} on ${effect().target}`}
+          review={<ApprovalReview triggers="decision" requireTwoFactor={approvalNeedsCode(current(), props.requireTwoFactor)} active={props.active && !approvedByYou(current(), app.identity()?.actor.actorId)} approvalId={current().approvalId} context={<ApprovalContextBlock approval={current()} />} targetLabel={`${effect().operation} on ${effect().target}`}
             summary={dialogSummary(current())} requestedBy={app.personName(current().requestedBy)} expiresAt={current().subject.expiresAt} asOf={props.asOf}
             exactContent={exactJson(current())} subjectDigest={current().subjectDigest} version={current().version} fresh={fresh()}
             createIdempotencyKey={() => `web-${crypto.randomUUID()}`} verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />} />}</Show>
@@ -273,7 +273,7 @@ export function ApprovalDetailScreen(props: {
               <dl class="grid min-w-0 gap-3 sm:grid-cols-2">
                 <Fact label={t("mp.pinned-tool.7ddb")} value={effect().tool} />
                 <Fact label={t("mp.target-precondition.c669")} value={effect().precondition ? <DigestValue value={effect().precondition!} label={t("mp.target-precondition.c669")} /> : "No precondition digest declared"} />
-                <Fact label={t("mp.required-identity-evidence.952a")} value={props.requireTwoFactor ? t("mp.six-digit-authenticator-code-bou.497d") : t("mp.one-use-evidence-bound-to-this-s.8791")} wide class="max-sm:col-span-1" />
+                <Fact label={t("mp.required-identity-evidence.952a")} value={(approval() ? approvalNeedsCode(approval()!, props.requireTwoFactor) : props.requireTwoFactor) ? t("mp.six-digit-authenticator-code-bou.497d") : t("mp.one-use-evidence-bound-to-this-s.8791")} wide class="max-sm:col-span-1" />
                 <Fact label={t("mp.independent-completion-evidence.df7f")} value="No completion verdict is attached to this approval; a recorded decision is not execution or verification." wide class="max-sm:col-span-1" />
                 <Fact label={t("mp.subject-digest.0300")} value={<DigestValue value={approval()?.subjectDigest ?? ""} label={t("mp.subject-digest.0300")} />} wide class="max-sm:col-span-1" />
                 <Fact label={t("mp.configuration-digest.ab8b")} value={<DigestValue value={approval()?.subject.configDigest ?? ""} label={t("mp.configuration-digest.ab8b")} />} />

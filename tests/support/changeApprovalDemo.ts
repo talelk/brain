@@ -3,6 +3,7 @@ import type { Brain } from "../../apps/governor/src/application/brain";
 import { activeReleaseRecord } from "../../apps/governor/src/modules/configuration/index";
 import { effectInputDigest } from "../../apps/governor/src/modules/governance/effects";
 
+const TEAMMATE = "person-teammate";
 const DIGEST = `sha256:${"a".repeat(64)}`;
 
 /** The change this approval proposes: two files, one of them several lines, so the diff has something to read. */
@@ -25,6 +26,11 @@ export async function seedChangeApproval(brain: Brain, actor: ActorContext, work
   const tool = release?.release.manifest.tools?.find((candidate) => candidate.id === "git.open-pr");
   if (!release || !tool) throw new Error("change approval seed: the active release has no git.open-pr tool");
   const link = brain.store.workspaceDb(workspaceId, actor.organizationId).prepare("SELECT mission_id, work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(input.runId) as { mission_id: string; work_item_id: string };
+  // The shipped policies require separation of duties (ADR 0067): the person who decides must not have started the run or own its mission.
+  // The demo's signed-in owner is the approver here, so a teammate started this run and owns its mission.
+  const ws = brain.store.workspaceDb(workspaceId, actor.organizationId);
+  ws.prepare("UPDATE run_inputs SET actor_id=? WHERE run_id=?").run(TEAMMATE, input.runId);
+  ws.prepare("UPDATE missions SET owner_id=? WHERE id=?").run(TEAMMATE, link.mission_id);
   const args = { title: CHANGE.title, body: "The container was killed for memory twice today.", branch: CHANGE.branch, files: CHANGE.files };
   const subject = {
     organizationId: actor.organizationId, workspaceId, operation: "effect.git.open-pr", tool: { id: tool.id, digest: tool.digest }, inputDigest: effectInputDigest(args),

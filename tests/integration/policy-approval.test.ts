@@ -89,7 +89,11 @@ describe("production approval is by a person", () => {
     expect(why).toContain(`Policy ${POLICY} requires a person to approve a change to the production environment production`);
     expect(why).toContain("(productionHumanApproval)");
     const evidence = await stepUp(world.w, approver, pending.id, pending.subject_digest);
-    await world.w.brain.decideApproval(approver.identity, pending.id, body(pending, "prod-person", evidence));
+    // A privileged change to production with no rollback is critical (ADR 0076): a second, different person decides it too.
+    expect((await world.w.brain.decideApproval(approver.identity, pending.id, body(pending, "prod-person", evidence))).state).toBe("pending");
+    const second = await world.w.grantApprover("prod-second");
+    const secondEvidence = await stepUp(world.w, second, pending.id, pending.subject_digest);
+    await world.w.brain.decideApproval(second.identity, pending.id, body({ subject_digest: pending.subject_digest, version: pending.version + 1 }, "prod-second", secondEvidence));
     await world.drain();
     expect(world.restarts()).toEqual(["restarted demo-app"]);
   }, scaled(180_000));

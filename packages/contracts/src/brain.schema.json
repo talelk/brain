@@ -2134,6 +2134,9 @@
         },
         "origin": {
           "$ref": "#/$defs/ApprovalOrigin"
+        },
+        "risk": {
+          "$ref": "#/$defs/ApprovalRisk"
         }
       },
       "required": [
@@ -2310,6 +2313,13 @@
         },
         "context": {
           "$ref": "#/$defs/ApprovalContext"
+        },
+        "approvedBy": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
         }
       },
       "required": [
@@ -29941,6 +29951,65 @@
         "workspaceId",
         "idempotencyKey",
         "payload"
+      ],
+      "additionalProperties": false
+    },
+    "ApprovalRisk": {
+      "type": "object",
+      "properties": {
+        "tier": {
+          "type": "string",
+          "enum": [
+            "low",
+            "elevated",
+            "high",
+            "critical"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "fact": {
+                "type": "string",
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "code",
+              "fact"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "requires": {
+          "type": "object",
+          "properties": {
+            "stepUp": {
+              "type": "boolean"
+            },
+            "secondApprover": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "stepUp",
+            "secondApprover"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "tier",
+        "reasons",
+        "requires"
       ],
       "additionalProperties": false
     },

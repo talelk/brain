@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { approvalSubjectDigest } from "@brain/contracts";
-import type { JsonValue } from "@brain/contracts";
-import { DIGEST_A, stepUp } from "../helpers";
+import { DIGEST_A, stepUp, storedDigest } from "../helpers";
 import { achievedMission } from "../support/reuse";
 import { SSO_ORIGIN, ssoWorld, type SsoWorld } from "../support/sso-world";
 
@@ -91,7 +89,7 @@ describe("a second reviewer decides sensitive actions", () => {
     const ask = async (who: Record<string, string>, nonce: string) => {
       const subj = subject(s, nonce);
       const receipt = await (await s.command(who, "approval.request", { subject: subj }, `req-${nonce}`)).json() as { resourceId?: string };
-      return { approvalId: receipt.resourceId ?? "", digest: approvalSubjectDigest(subj as unknown as JsonValue) };
+      return { approvalId: receipt.resourceId ?? "", digest: storedDigest(s.w.brain, receipt.resourceId ?? "") };
     };
     const decide = (who: Record<string, string>, approvalId: string, digest: string, key: string, evidenceId?: string) => s.app.fetch(new Request(`${SSO_ORIGIN}/v1/approvals/${approvalId}/decision`, {
       method: "POST", headers: { "content-type": "application/json", ...who },

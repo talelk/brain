@@ -108,6 +108,11 @@ export async function stepUp(world: TestWorld, who: { actor: ActorContext; token
   return (await world.brain.stepUp.verify(identity, ch.challengeId, code, headers)).evidenceId;
 }
 
+/** The digest the Governor bound to an approval: the subject as stored, with the risk tier it stamped (ADR 0076). */
+export function storedDigest(brain: Brain, approvalId: string): string {
+  return (brain.store.control.prepare("SELECT subject_digest FROM approval_requests WHERE id=?").get(approvalId) as { subject_digest: string }).subject_digest;
+}
+
 export const DIGEST_A = `sha256:${"a".repeat(64)}`;
 
 /**

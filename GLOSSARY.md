@@ -473,21 +473,6 @@ version, adapter digest, when it observed a capability) is shown exactly as repo
 and left out when not reported; Brain never fills it in.
 _Avoid_: worker, agent (an agent is a definition, a runner executes it), worker pool
 
-**Mission branch**:
-A mission's integration branch in one repository, cut from the target base. Only the
-merge controller writes to it.
-_Avoid_: feature branch, team branch, integration branch (unqualified)
-
-**Work-item branch**:
-The branch one work item's attempts write to, cut from the mission branch. It has at
-most one active writer at a time.
-_Avoid_: attempt branch, task branch
-
-**Session branch**:
-The branch an interactive session writes to, cut from the mission branch and merged
-into it only on a human's command.
-_Avoid_: scratch branch, chat branch
-
 **Launcher**:
 The trusted component that sandboxes effect execution in ephemeral containers under
 fixed profiles.
@@ -596,6 +581,19 @@ Governor and never claimed by the caller. Titles, the diff and the rollback are 
 beside it and are not part of the digest.
 _Avoid_: context (that is the read-time part), owner
 
+**Risk tier**:
+The ordered level (low, elevated, high, critical) the Governor computes for one effect
+request from its class, environment, subject and rollback, with the reasons as code and
+fact. Bound in the approval's subject at request time. It only asks more of the decision:
+a TOTP step-up from elevated, a second different approver at critical.
+_Avoid_: severity, priority, risk score
+
+**Second approver**:
+The second person a critical approval needs. Neither approver is the requester or the
+owner of the mission; the same person cannot approve twice. The approval stays pending
+after the first.
+_Avoid_: co-signer, four-eyes
+
 **Compensating action**:
 What a Tool document declares undoes its effect, in plain words. Shown on the approval
 as the rollback; Brain never runs it.
@@ -673,8 +671,8 @@ that an evaluator judges.
 _Avoid_: log, report, audit trail
 
 **Mission evidence bundle**:
-The evidence bundle a mission's completion is judged on: its success criteria, mission
-branch heads, final outputs and references to the verified evidence of its work items.
+The evidence bundle a mission's completion is judged on: its success criteria, final
+final outputs and references to the verified evidence of its work items.
 _Avoid_: mission report, completion report
 
 **Verdict**:

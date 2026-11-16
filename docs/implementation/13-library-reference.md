@@ -46,7 +46,7 @@ The original architecture lists both required and optional tools. This register 
 | `p-retry` | [README](https://github.com/sindresorhus/p-retry) | Optional bounded transient read retry only; explicit classifier before use. Unknown writes never enter this helper. |
 | `proper-lockfile` | [README](https://github.com/moxystudio/node-proper-lockfile) | Optional local staging lock; stale-lock behavior is not authoritative fencing. No central distributed correctness dependency. |
 | `async-mutex` | [Official project](https://github.com/DirtyHairy/async-mutex) | Not needed initially; in-process coordination only if measured/necessary. |
-| Git | [Worktrees](https://git-scm.com/docs/git-worktree), [push](https://git-scm.com/docs/git-push) | Isolated writer checkouts, fixed arguments, target ref preconditions and serialized merge. Exact installed CLI behavior is G01 work. |
+| Git | [push](https://git-scm.com/docs/git-push) | Fixed arguments and target ref preconditions for the approved `git.open-pr` effect (ADR 0075). Exact installed CLI behavior is G01 work. |
 | GitHub runner model | [Placement](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job), [self-hosted reference](https://docs.github.com/en/actions/reference/runners/self-hosted-runners), [security](https://docs.github.com/en/actions/reference/security/secure-use) | Architectural precedent for group/label/availability and ephemeral cleanup; Brain uses its own protocol/binary. |
 
 ## Experience, memory and operations
