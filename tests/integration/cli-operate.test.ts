@@ -140,7 +140,7 @@ describe("CLI approvals with step-up", () => {
   async function pending(twoFactor = true) {
     const x = await fixture(twoFactor);
     const approver = await x.w.grantApprover("approver-cli");
-    const subject = { organizationId: x.w.org, workspaceId: x.w.workspaceId, operation: "fixture.publish", tool: { id: "fixture.echo", digest: `sha256:${"a".repeat(64)}` }, inputDigest: `sha256:${"a".repeat(64)}`, target: { targetId: "target-1", environmentId: "prod", preconditionDigest: `sha256:${"a".repeat(64)}` }, artifactDigest: `sha256:${"a".repeat(64)}`, policyDigest: `sha256:${"a".repeat(64)}`, configDigest: `sha256:${"a".repeat(64)}`, effectBounds: {}, expiresAt: new Date(Date.now() + 3_600_000).toISOString(), nonce: `cli-${Math.random()}` };
+    const subject = { organizationId: x.w.org, workspaceId: x.w.workspaceId, operation: "fixture.publish", tool: { id: "fixture.echo", digest: `sha256:${"a".repeat(64)}` }, inputDigest: `sha256:${"a".repeat(64)}`, target: { targetId: "target-1", environmentId: "local", preconditionDigest: `sha256:${"a".repeat(64)}` }, artifactDigest: `sha256:${"a".repeat(64)}`, policyDigest: `sha256:${"a".repeat(64)}`, configDigest: `sha256:${"a".repeat(64)}`, effectBounds: {}, expiresAt: new Date(Date.now() + 3_600_000).toISOString(), nonce: `cli-${Math.random()}` };
     const receipt = (await x.w.brain.executeCommand(x.w.owner, { contractVersion: "brain.command/v1", commandId: `cmd-${subject.nonce}`, commandType: "approval.request", workspaceId: x.w.workspaceId, idempotencyKey: subject.nonce, payload: { subject } } as never, subject.nonce)).receipt;
     return { x, approver, approvalId: receipt.resourceId! };
   }

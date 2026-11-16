@@ -1,6 +1,6 @@
 import { readRuntimeConfig, type RuntimeConfig } from "../runtime-config";
 import { join } from "node:path";
-import type { ActorContext, ArtifactRef, CommandReceipt, RedactedDiagnostics, HumanApprovalDecision, JsonValue, MemoryResult, Workflow, WorkflowCatalogEntry,
+import type { ActionSubject, ActorContext, ArtifactRef, CommandReceipt, RedactedDiagnostics, HumanApprovalDecision, JsonValue, MemoryResult, Workflow, WorkflowCatalogEntry,
 } from "@brain/contracts";
 import { approvalSubjectDigest, domainDigest, isKnownQuery } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
@@ -43,6 +43,7 @@ import { searchSessions } from "../modules/sessions/index";
 import { jobCommands, JobProtocol, resumeEligibility, type CreateJobInput } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { beginGovernorRun, finishEffect, issueEffectPermit, requestEffect, startEffect, type EffectPorts } from "../modules/governance/index";
+import { withRisk } from "../modules/governance/index";
 import { runGovernorEffect } from "./effect-broker";
 import { pullRequestCommands } from "./pull-requests";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
@@ -608,7 +609,7 @@ export class Brain {
     // The run the gate waits in is stamped on the subject by the Governor, whatever the proposal said (ADR 0046).
     const proposed = input.subject;
     const subject = proposed !== null && typeof proposed === "object" && !Array.isArray(proposed)
-      ? { ...proposed, origin: originOfRun(s.workspaceDb(input.workspaceId, input.organizationId), input.runId) } as unknown as JsonValue : proposed;
+      ? withRisk(s, { ...proposed, origin: originOfRun(s.workspaceDb(input.workspaceId, input.organizationId), input.runId) } as unknown as ActionSubject, input) as unknown as JsonValue : proposed;
     const digest = approvalSubjectDigest(subject);
     const approvalId = s.id("apr");
     s.inTx(s.control, () => {
@@ -659,7 +660,7 @@ export class Brain {
     const saved = receipt as unknown as { decisionId: string; state: string };
     // Waking the gate is idempotent (only a still-waiting step resumes), so a
     // replayed decision re-wakes a gate a crash may have left asleep.
-    if (actor.workspaceId) this.workflows.wakeGate(actor.organizationId, actor.workspaceId, approvalId, saved.state === "approved");
+    if (actor.workspaceId && saved.state !== "pending") this.workflows.wakeGate(actor.organizationId, actor.workspaceId, approvalId, saved.state === "approved");
     // A decided effect proposal releases or cancels its held act job right away (idempotent; the maintenance pass is the backstop).
     this.jobProtocol.settleEffects();
     return { decisionId: saved.decisionId, state: saved.state };

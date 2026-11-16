@@ -2,11 +2,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect } from "vitest";
-import { approvalSubjectDigest } from "@brain/contracts";
 import { createApp } from "../../apps/governor/src/http/app";
 import { approvalCurrentlyUsable } from "../../apps/governor/src/modules/governance/approval-authority";
 import { readRuntimeConfig } from "../../apps/governor/src/runtime-config";
-import { setupWorld, seedHuman, DIGEST_A } from "../helpers";
+import { setupWorld, seedHuman, DIGEST_A, storedDigest } from "../helpers";
 
 describe("optional and required two-factor approval policy", () => {
   it("issues one-use session evidence for one exact approval, and required policy refuses it after restart", async () => {
@@ -22,11 +21,11 @@ describe("optional and required two-factor approval policy", () => {
       expect(view.integrations.memoryUiUrl).toBe("https://memory.example.test/");
       expect(view.integrations).not.toHaveProperty("betterAuthAdminUiUrl");
       const subject = { organizationId: w.org, workspaceId: w.workspaceId, operation: "fixture.publish", tool: { id: "fixture.echo", digest: DIGEST_A }, inputDigest: DIGEST_A,
-        target: { targetId: "target-optional", environmentId: "prod", preconditionDigest: DIGEST_A }, artifactDigest: DIGEST_A, policyDigest: DIGEST_A, configDigest: DIGEST_A,
+        target: { targetId: "target-optional", environmentId: "local", preconditionDigest: DIGEST_A }, artifactDigest: DIGEST_A, policyDigest: DIGEST_A, configDigest: DIGEST_A,
         effectBounds: {}, expiresAt: new Date(Date.now()+3600000).toISOString(), nonce: "optional" };
-      const subjectDigest = approvalSubjectDigest(subject);
       const request = async (id: string) => (await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandType: "approval.request", commandId: id, idempotencyKey: id, workspaceId: w.workspaceId, payload: { subject } }, id)).receipt.resourceId!;
       const first = await request("optional-1");
+      const subjectDigest = storedDigest(w.brain, first);
       const second = w.brain.createApprovalForGate({ organizationId: w.org, workspaceId: w.workspaceId, runId: "test-run", stepId: "test-gate", subject, expiresAtMs: Date.now()+3600000, requestedBy: w.owner.actorId });
       const challenge = w.brain.stepUp.createChallenge(identity, first, subjectDigest);
       const { evidenceId } = await w.brain.stepUp.verify(identity, challenge.challengeId, "", headers);

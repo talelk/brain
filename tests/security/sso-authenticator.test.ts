@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { approvalSubjectDigest } from "@brain/contracts";
-import type { JsonValue } from "@brain/contracts";
 import { approvalCurrentlyUsable } from "../../apps/governor/src/modules/governance/approval-authority";
-import { DIGEST_A, seedHuman } from "../helpers";
+import { DIGEST_A, seedHuman, storedDigest } from "../helpers";
 import { SSO_ORIGIN, ssoWorld, type SsoWorld } from "../support/sso-world";
 import { totpCode } from "../support/totp";
 
@@ -41,7 +39,7 @@ describe("a directory-only person enrolls an authenticator and approves effects"
     const ask = async (nonce: string) => {
       const subj = subject(s, nonce);
       const receipt = await (await s.command(s.ownerHeaders, "approval.request", { subject: subj }, `req-${nonce}`)).json() as { resourceId?: string };
-      return { approvalId: receipt.resourceId!, digest: approvalSubjectDigest(subj as unknown as JsonValue) };
+      return { approvalId: receipt.resourceId!, digest: storedDigest(s.w.brain, receipt.resourceId!) };
     };
     const first = await ask("eff-1");
     // Required second factor and no authenticator: no step-up challenge can even be opened.
@@ -96,7 +94,7 @@ describe("a directory-only person enrolls an authenticator and approves effects"
     const enrolled = merge(cookie, await post(s, "/api/auth/two-factor/verify-totp", { code: totpCode(secret, Date.now()), trustDevice: false }, cookie));
     const subj = subject(s, "ann-own");
     const own = await (await post(s, "/v1/commands", { contractVersion: "brain.command/v1", commandId: "cmd-own", commandType: "approval.request", workspaceId: s.w.workspaceId, idempotencyKey: "own", payload: { subject: subj } }, enrolled)).json() as { resourceId?: string };
-    const digest = approvalSubjectDigest(subj as unknown as JsonValue);
+    const digest = storedDigest(s.w.brain, own.resourceId!);
     const challenge = await post(s, "/v1/step-up/challenges", { approvalId: own.resourceId, subjectDigest: digest }, enrolled);
     const { challengeId } = await challenge.json() as { challengeId: string };
     const proof = await (await post(s, "/v1/step-up/verify", { challengeId, code: totpCode(secret, Date.now()) }, enrolled)).json() as { evidenceId: string };

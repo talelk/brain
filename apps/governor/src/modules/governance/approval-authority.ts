@@ -1,6 +1,20 @@
+import type { ActionSubject } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { scopesForPrincipal } from "../../application/authz";
 import type { BrainAuth } from "../identity/index";
+
+/** Another person than the last approver approved with a TOTP step-up, and is still an enabled human who may decide approvals. */
+function secondApproverHolds(s: Store, approvalId: string, lastApprover: string): boolean {
+  const others = s.control.prepare(`SELECT d.actor_id FROM approval_decisions d
+    JOIN step_up_evidence e ON e.id=d.auth_evidence_ref AND e.decision_id=d.id AND e.method='totp'
+    JOIN principals p ON p.id=d.actor_id AND p.kind='human' AND p.disabled_at_ms IS NULL
+    JOIN approval_requests a ON a.id=d.approval_id
+    WHERE d.approval_id=? AND d.decision='approve' AND d.actor_id<>? AND d.actor_id<>a.requested_by AND e.revoked_at_ms IS NULL`).all(approvalId, lastApprover) as Array<{ actor_id: string }>;
+  return others.some((other) => {
+    const a = s.control.prepare("SELECT organization_id,workspace_id FROM approval_requests WHERE id=?").get(approvalId) as { organization_id: string; workspace_id: string };
+    return scopesForPrincipal(s, other.actor_id, a.organization_id, a.workspace_id).includes("approval:decide");
+  });
+}
 
 // Re-evaluate the immutable decision against current authority inside the same
 // control transaction that consumes it. An approved row is not a permanent grant.
@@ -16,8 +30,11 @@ export function approvalCurrentlyUsable(s: Store, auth: BrainAuth, input: { appr
     WHERE a.id=? AND a.organization_id=? AND a.workspace_id=? AND a.subject_digest=? AND a.state='approved' AND a.expires_at_ms>?
       AND a.requested_by<>d.actor_id AND e.revoked_at_ms IS NULL AND e.expires_at_ms>?`).get(input.approvalId,input.organizationId,input.workspaceId,input.subjectDigest,s.now(),s.now()) as
       { actor_id: string; auth_session_id: string; auth_user_id: string; factor_digest: string | null; method: string; auth_session_digest: string; auth_organization_id: string } | undefined;
-  return !!row
-    && (!auth.requireTwoFactor || (row.method === "totp" && !!row.factor_digest))
+  if (!row) return false;
+  const risk = (JSON.parse((s.control.prepare("SELECT subject_json FROM approval_requests WHERE id=?").get(input.approvalId) as { subject_json: string }).subject_json) as ActionSubject).risk;
+  // The bound tier is re-read with the decision: a critical effect is usable only while a second, different person's approval still holds.
+  if (risk?.requires.secondApprover && !secondApproverHolds(s, input.approvalId, row.actor_id)) return false;
+  return (!(auth.requireTwoFactor || risk?.requires.stepUp) || (row.method === "totp" && !!row.factor_digest))
     && row.auth_session_digest === s.tokenDigest("auth-session",row.auth_session_id)
     && auth.hasMembership(row.auth_user_id,row.auth_organization_id)
     && auth.isSessionCurrent(row.auth_user_id,row.auth_session_id,s.now(),row.factor_digest)

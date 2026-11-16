@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approvalSubjectDigest } from "@brain/contracts";
-import type { JsonValue } from "@brain/contracts";
-import { setupWorld, stepUp, DIGEST_A } from "../helpers";
+import { setupWorld, stepUp, DIGEST_A, storedDigest } from "../helpers";
 
 type World = ReturnType<typeof setupWorld>;
 
@@ -21,7 +19,8 @@ async function request(w: World, key: string, nonce: string): Promise<{ approval
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "approval.request",
     workspaceId: w.workspaceId, idempotencyKey: key, payload: { subject: subj },
   }, key);
-  return { approvalId: (req.receipt as { resourceId?: string }).resourceId ?? "", digest: approvalSubjectDigest(subj as unknown as JsonValue), subj };
+  const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
+  return { approvalId, digest: storedDigest(w.brain, approvalId), subj };
 }
 
 const decision = (key: string, digest: string, evidenceId?: string) => ({

@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approvalSubjectDigest } from "@brain/contracts";
-import type { JsonValue } from "@brain/contracts";
-import { setupWorld, stepUp, DIGEST_A } from "../helpers";
+import { setupWorld, stepUp, DIGEST_A, storedDigest } from "../helpers";
 
 type World = ReturnType<typeof setupWorld>;
 
@@ -43,7 +41,7 @@ async function approve(w: World, key: string): Promise<{ approvalId: string; dig
     workspaceId: w.workspaceId, idempotencyKey: key, payload: { subject },
   }, key);
   const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
-  const digest = approvalSubjectDigest(subject as unknown as JsonValue);
+  const digest = storedDigest(w.brain, approvalId);
   const evidenceId = await stepUp(w, approver, approvalId, digest);
   await w.brain.decideApproval(approver.identity, approvalId, {
     contractVersion: "brain.approval-decision/v1", idempotencyKey: `${key}-dec`, decision: "approve",

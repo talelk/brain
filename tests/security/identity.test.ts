@@ -2,9 +2,8 @@ import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { approvalSubjectDigest } from "@brain/contracts";
 import { createApp } from "../../apps/governor/src/http/app";
-import { setupCredential, setupWorld, DIGEST_A } from "../helpers";
+import { setupCredential, setupWorld, DIGEST_A, storedDigest } from "../helpers";
 import { totpCode } from "../support/totp";
 import { fixtureStarter } from "../support/starter";
 
@@ -27,7 +26,7 @@ async function pendingApproval() {
   const subject = { organizationId: w.org, workspaceId: w.workspaceId, operation: "fixture.publish", tool: { id: "fixture.echo", digest: DIGEST_A }, inputDigest: DIGEST_A, target: { targetId: "target-1", environmentId: "prod", preconditionDigest: DIGEST_A }, artifactDigest: DIGEST_A, policyDigest: DIGEST_A, configDigest: DIGEST_A, effectBounds: {}, expiresAt: new Date(Date.now()+3600_000).toISOString(), nonce: "native-review" };
   const { receipt } = await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "cmd-native-review", commandType: "approval.request", workspaceId: w.workspaceId, idempotencyKey: "native-review", payload: { subject } }, "native-review");
   const approvalId = receipt.resourceId!;
-  const digest = approvalSubjectDigest(subject);
+  const digest = storedDigest(w.brain, approvalId);
   const challenge = await send("/v1/step-up/challenges", { approvalId, subjectDigest: digest }, approver.token);
   expect(challenge.status).toBe(201);
   const { challengeId } = await challenge.json() as { challengeId: string };

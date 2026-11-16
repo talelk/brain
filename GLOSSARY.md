@@ -581,6 +581,19 @@ Governor and never claimed by the caller. Titles, the diff and the rollback are 
 beside it and are not part of the digest.
 _Avoid_: context (that is the read-time part), owner
 
+**Risk tier**:
+The ordered level (low, elevated, high, critical) the Governor computes for one effect
+request from its class, environment, subject and rollback, with the reasons as code and
+fact. Bound in the approval's subject at request time. It only asks more of the decision:
+a TOTP step-up from elevated, a second different approver at critical.
+_Avoid_: severity, priority, risk score
+
+**Second approver**:
+The second person a critical approval needs. Neither approver is the requester or the
+owner of the mission; the same person cannot approve twice. The approval stays pending
+after the first.
+_Avoid_: co-signer, four-eyes
+
 **Compensating action**:
 What a Tool document declares undoes its effect, in plain words. Shown on the approval
 as the rollback; Brain never runs it.

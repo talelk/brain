@@ -2,9 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { approvalSubjectDigest } from "@brain/contracts";
-import type { JsonValue } from "@brain/contracts";
-import { setupWorld, stepUp, DIGEST_A } from "../helpers";
+import { setupWorld, stepUp, DIGEST_A, storedDigest } from "../helpers";
 import { Brain } from "../../apps/governor/src/application/brain";
 import { createBackup, restoreBackup, verifyBackup } from "../../apps/governor/src/modules/operations/index";
 
@@ -39,7 +37,7 @@ describe("G07 restore: hash-verified backup, suspended history, dead authority (
       workspaceId: w.workspaceId, idempotencyKey: "g07-apr", payload: { subject },
     }, "g07a");
     const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
-    const sdigest = approvalSubjectDigest(subject as unknown as JsonValue);
+    const sdigest = storedDigest(w.brain, approvalId);
     const evidenceId = await stepUp(w, approver, approvalId, sdigest);
     await w.brain.decideApproval(approver.identity, approvalId, {
       contractVersion: "brain.approval-decision/v1", idempotencyKey: "g07-dec", decision: "approve",

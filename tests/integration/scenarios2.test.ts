@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { domainDigest } from "@brain/contracts";
 import type { JsonValue } from "@brain/contracts";
 import { approvalSubjectDigest } from "@brain/contracts";
-import { setupWorld, stepUp, DIGEST_A, goldenDocs } from "../helpers";
+import { setupWorld, stepUp, DIGEST_A, goldenDocs, storedDigest } from "../helpers";
 import { attestDomain, bundleForAttempt } from "../support/evidence";
 import { activeTool, verifiedEvidence } from "../support/capitalization";
 
@@ -59,7 +59,7 @@ async function approveSubject(w: World, subject: Record<string, unknown>, key: s
     workspaceId: w.workspaceId, idempotencyKey: key, payload: { subject },
   }, key);
   const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
-  const digest = approvalSubjectDigest(subject as unknown as JsonValue);
+  const digest = storedDigest(w.brain, approvalId);
   const evidenceId = await stepUp(w, approver, approvalId, digest);
   await w.brain.decideApproval(approver.identity, approvalId, {
     contractVersion: "brain.approval-decision/v1", idempotencyKey: `${key}-dec`, decision: "approve",
@@ -349,7 +349,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
     }, "ce1");
     const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
     w.brain.store.control.prepare("UPDATE approval_requests SET expires_at_ms=? WHERE id=?").run(Date.now() - 1, approvalId);
-    const digest = approvalSubjectDigest(subject as unknown as JsonValue);
+    const digest = storedDigest(w.brain, approvalId);
     await expect(w.brain.decideApproval(approver.identity, approvalId, {
       contractVersion: "brain.approval-decision/v1", idempotencyKey: "exp-dec", decision: "reject",
       subjectDigest: digest, expectedVersion: 1, note: "late",
