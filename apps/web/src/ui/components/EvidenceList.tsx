@@ -2,7 +2,8 @@ import type { JSX } from "solid-js";
 import { For, Show, createSignal, createEffect } from "solid-js";
 import { Badge, Progress } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
-import type { EvidenceBundle, VerificationVerdict } from "@brain/contracts";
+import type { EvidenceBundle, SignedRunReceiptView, VerificationVerdict } from "@brain/contracts";
+import { t } from "../../i18n";
 import { evidenceQuery } from "../../data/governor";
 import { ArtifactView } from "../outputs/ArtifactView";
 import { DigestValue } from "./DigestValue";
@@ -19,6 +20,7 @@ import { StatusBadge, statusHeaderTheme, statusTheme } from "./StatusBadge";
 export function EvidenceList(props: { bundleDigest?: string; workspaceId?: string; emptyHint?: string }): JSX.Element {
   const [bundle, setBundle] = createSignal<EvidenceBundle | undefined>();
   const [verdict, setVerdict] = createSignal<VerificationVerdict | undefined>();
+  const [receipt, setReceipt] = createSignal<SignedRunReceiptView | undefined>();
   const [status, setStatus] = createSignal<"loading" | "ready" | "missing">("loading");
   const [error, setError] = createSignal("");
 
@@ -29,6 +31,7 @@ export function EvidenceList(props: { bundleDigest?: string; workspaceId?: strin
     const current = ++requestGeneration;
     setBundle(undefined);
     setVerdict(undefined);
+    setReceipt(undefined);
     setStatus("loading");
     setError("");
     if (!digest) {
@@ -41,6 +44,7 @@ export function EvidenceList(props: { bundleDigest?: string; workspaceId?: strin
         if (current !== requestGeneration) return;
         setBundle(loaded.snapshot.bundle);
         if (loaded.snapshot.verdict) setVerdict(loaded.snapshot.verdict);
+        setReceipt(loaded.snapshot.receipt);
         setStatus("ready");
         // A criterion link (#check-<id>) arrives before this content exists: scroll to it once the checks are on the page.
         const wanted = typeof window === "undefined" ? "" : decodeURIComponent(window.location.hash.slice(1));
@@ -73,6 +77,17 @@ export function EvidenceList(props: { bundleDigest?: string; workspaceId?: strin
             <div class="min-w-0"><dt class="text-ink-gray-6">Source revision</dt><dd class="mt-1"><DigestValue value={bundle()!.sourceRevision} label="Source revision" /></dd></div>
             <div class="min-w-0"><dt class="text-ink-gray-6">Pinned primitives</dt><dd class="mt-1 font-medium text-ink-gray-9">{Object.keys(bundle()!.primitiveVersions).length}</dd></div>
           </dl>
+          <Show when={receipt()}>
+            {(signed) => (
+              <div class="flex min-w-0 flex-col gap-1 text-caption" data-testid="run-receipt">
+                <div class={`min-w-0 break-all font-medium ${signed().signedBy.verified ? "text-ink-gray-9" : "text-ink-red-4"}`}>
+                  {`${t("receipt.signed", { runner: signed().signedBy.runnerId })} (${signed().signedBy.verified ? t("receipt.verified") : t("receipt.unverified")})`}
+                  {signed().signedBy.keyRetired ? ` · ${t("receipt.retired")}` : ""}
+                </div>
+                <div class="min-w-0"><span class="text-ink-gray-6">{t("receipt.digest")}</span><div class="mt-1"><DigestValue value={signed().digest} label={t("receipt.digest")} /></div></div>
+              </div>
+            )}
+          </Show>
           <Show when={current()}>
             <Alert
               theme={statusHeaderTheme("evidence", current()!.outcome)}

@@ -2698,5 +2698,10 @@ export const ar: Catalog = {
   "pr.check.skipped": "تُخطّي",
   "pr.check.other": "انتهى",
   "health.service.audit": "سجل التدقيق",
+  "receipt.signed": "موقّع من المشغّل {runner}",
+  "receipt.verified": "تم التحقق",
+  "receipt.unverified": "لا يتحقق",
+  "receipt.retired": "جرى تدوير مفتاحه لاحقًا",
+  "receipt.digest": "بصمة الإيصال",
   // @@END
 };

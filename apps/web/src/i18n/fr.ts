@@ -2608,5 +2608,10 @@ export const fr: Catalog = {
   "pr.check.skipped": "ignorée",
   "pr.check.other": "terminée",
   "health.service.audit": "Journal d'audit",
+  "receipt.signed": "Signé par le runner {runner}",
+  "receipt.verified": "vérifié",
+  "receipt.unverified": "ne se vérifie pas",
+  "receipt.retired": "sa clé a été renouvelée depuis",
+  "receipt.digest": "Empreinte du reçu",
   // @@END
 };

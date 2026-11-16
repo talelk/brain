@@ -2,6 +2,7 @@ import { test, expect } from "./fixtures";
 import { goldenDocs } from "../helpers";
 import { signUpOwner } from "../support/flow";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
+import { signCompletions } from "../support/signed-completion";
 
 /**
  * A failed attempt says why where a person looks (backlog row 99): the run inspector names what failed and the one next step, shows the
@@ -33,7 +34,7 @@ test("a failed run names what failed, the next step and the reason, and View log
   const runner = { runnerId: "runner-why", epoch: 1, organizationId: actor.organizationId };
   const offer = brain.jobProtocol.claim(runner, "req-why") as unknown as { jobId: string; attemptId: string; leaseId: string; jobFence: number };
   brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
-  brain.jobProtocol.complete(runner, offer.attemptId, { result: "failed", jobFence: offer.jobFence, cleanupConfirmed: true, output: { error: `sandboxed execution failed: sandbox create failed 503: docker run failed: ${IMAGE} ANTHROPIC_API_KEY=${SECRET}` } });
+  signCompletions(brain).jobProtocol.complete(runner, offer.attemptId, { result: "failed", jobFence: offer.jobFence, cleanupConfirmed: true, output: { error: `sandboxed execution failed: sandbox create failed 503: docker run failed: ${IMAGE} ANTHROPIC_API_KEY=${SECRET}` } });
 
   await page.goto(`${governor.url}/runs/${offer.jobId}`);
   await expect(page.getByText("This run did not work").first()).toBeVisible();

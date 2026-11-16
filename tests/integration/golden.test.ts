@@ -74,8 +74,10 @@ describe("golden workflow end-to-end (T29/T30, G03 smoke)", () => {
       expect(await runOnce(toolCfg,toolSession.sessionToken)).toBe(true);
       const author = brain.store.control.prepare("SELECT a.id,j.state FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE j.workflow_run_id=? AND j.step_id='echo'").get(runId) as {id:string;state:string};
       expect(author.state).toBe("verifying");
-      const bundle=bundleForAttempt(brain,"org-golden","ws-golden",author.id,"bundle-echo-1");
-      brain.submitEvidence({runnerId:toolCfg.runnerId,epoch:toolSession.epoch,organizationId:"org-golden"},bundle);
+      // The runner submitted the bundle its signed receipt names; a second one for the same attempt would not be the evidence it vouched for.
+      const signed=brain.store.control.prepare("SELECT evidence_digest FROM attempt_receipts WHERE attempt_id=?").get(author.id) as {evidence_digest:string|null};
+      expect(signed.evidence_digest).toMatch(/^sha256:/);
+      expect(()=>brain.submitEvidence({runnerId:toolCfg.runnerId,epoch:toolSession.epoch,organizationId:"org-golden"},bundleForAttempt(brain,"org-golden","ws-golden",author.id,"bundle-echo-1"))).toThrow(/signed receipt names/);
       // Separate trust domains are Governor-verified fixture facts, never claims
       // granted by runner hello. Production attestation is a separate adapter.
       attestDomain(brain,toolCfg.runnerId,"author-host");

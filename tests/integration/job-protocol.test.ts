@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { JobProtocol, type JobProtocolPorts } from "../../apps/governor/src/modules/jobs/index";
 import { BrainDomainError } from "../../apps/governor/src/domain/errors";
 import { setupWorld, DIGEST_A, type TestWorld } from "../helpers";
+import { withSignedReceipt } from "../support/signed-completion";
 
 // Module-level tests: the JobProtocol interface is exercised against a fixture
 // Store with scripted fake ports — the real port wiring lives in the full-stack
@@ -104,7 +105,7 @@ describe("JobProtocol interface (modules/jobs)", () => {
       const offer = protocol.claim(runner, "req-complete-1") as Offer;
       protocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
       const receipt = { result: "failed", jobFence: offer.jobFence, cleanupConfirmed: true, output: { error: "boom" } };
-      const outcome = protocol.complete(runner, offer.attemptId, receipt) as { jobState: string };
+      const outcome = protocol.complete(runner, offer.attemptId, withSignedReceipt(w.brain, runner, offer.attemptId, receipt)) as { jobState: string };
       expect(outcome.jobState).toBe("failed");
 
       const completions = calls.filter((c) => c.port === "completeStep");

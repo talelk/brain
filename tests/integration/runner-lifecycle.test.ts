@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,7 +30,7 @@ describe("runner enrollment and administrative lifecycle", () => {
     expect((await run("rotate-identity", "rotate")).accepted).toBe(true);
     expect(w.brain.store.control.prepare("SELECT revoked_at_ms FROM runner_identity_credentials WHERE runner_id='runner-lifecycle'").get()).toEqual({ revoked_at_ms: expect.any(Number) });
     const enrollment = w.brain.jobProtocol.issueEnrollment(w.owner, "fixture-tools");
-    w.brain.jobProtocol.enrollRunner({ token: enrollment.token, publicKeyPem: "-----BEGIN PUBLIC KEY-----\nreplacement\n-----END PUBLIC KEY-----", runnerId: "runner-lifecycle" });
+    w.brain.jobProtocol.enrollRunner({ token: enrollment.token, publicKeyPem: generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" }).toString(), runnerId: "runner-lifecycle" });
     expect(w.brain.store.control.prepare("SELECT admin_state FROM runners WHERE id='runner-lifecycle'").get()).toEqual({ admin_state: "disabled" });
     await expect(Promise.resolve().then(async () => await run("enable-offline", "enable"))).rejects.toThrow(/current heartbeat/);
     w.brain.store.control.prepare("UPDATE runners SET last_heartbeat_ms=? WHERE id='runner-lifecycle'").run(w.brain.store.now());

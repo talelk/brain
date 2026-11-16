@@ -2,6 +2,7 @@ import { generateKeyPairSync, sign } from "node:crypto";
 // Relative: the browser project resolves no workspace packages from tests/.
 import { domainDigest, type ActorContext, type JsonValue } from "../../packages/contracts/src/index";
 import type { Brain } from "../../apps/governor/src/application/brain";
+import { signCompletions, useRunnerKey } from "./signed-completion";
 
 const DIGEST = `sha256:${"a".repeat(64)}`;
 
@@ -31,7 +32,11 @@ export function registerRunner(
   const protocol = brain.jobProtocol;
   const { token } = protocol.issueEnrollment(actor, group);
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
-  const { credential } = protocol.enrollRunner({ token, publicKeyPem: publicKey.export({ type: "spki", format: "pem" }).toString(), runnerId });
+  const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
+  const { credential } = protocol.enrollRunner({ token, publicKeyPem, runnerId });
+  // This runner signs the receipts of the attempts it completes with the key it just enrolled.
+  signCompletions(brain);
+  useRunnerKey(brain, runnerId, { publicKeyPem, privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }).toString() });
   const challenge = protocol.challenge(runnerId, credential);
   const body: Record<string, unknown> = {
     contractVersion: "brain.runner/v1",

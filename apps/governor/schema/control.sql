@@ -379,6 +379,22 @@ CREATE TABLE runner_identity_credentials (
   runner_id TEXT PRIMARY KEY REFERENCES runners(id), public_key_spki_pem TEXT NOT NULL,
   credential_digest TEXT NOT NULL UNIQUE, expires_at_ms INTEGER NOT NULL, revoked_at_ms INTEGER
 ) STRICT;
+-- Every public key a runner enrolled with, kept after rotation (ADR 0078): a receipt names its key, and a key is believed only until the
+-- runner is rotated or deregistered. The same facts are recorded in the audit chain (runner.keyEnrolled / runner.rotated) for offline checks.
+CREATE TABLE runner_keys (
+  key_id TEXT PRIMARY KEY, runner_id TEXT NOT NULL REFERENCES runners(id), organization_id TEXT NOT NULL REFERENCES organizations(id),
+  public_key_spki_pem TEXT NOT NULL, enrolled_at_ms INTEGER NOT NULL, revoked_at_ms INTEGER
+) STRICT;
+CREATE INDEX runner_keys_runner ON runner_keys(runner_id);
+-- A run receipt as the runner signed it (ADR 0078): written once at completion, after the Governor verified the signature, never rewritten.
+CREATE TABLE attempt_receipts (
+  attempt_id TEXT PRIMARY KEY REFERENCES job_attempts(id), organization_id TEXT NOT NULL REFERENCES organizations(id), workspace_id TEXT NOT NULL,
+  job_id TEXT NOT NULL, runner_id TEXT NOT NULL, key_id TEXT NOT NULL REFERENCES runner_keys(key_id),
+  receipt_json TEXT NOT NULL CHECK(json_valid(receipt_json)), receipt_digest TEXT NOT NULL, signature TEXT NOT NULL,
+  evidence_digest TEXT, recorded_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TRIGGER attempt_receipts_immutable BEFORE UPDATE ON attempt_receipts BEGIN SELECT RAISE(ABORT, 'a signed receipt is never rewritten'); END;
+CREATE TRIGGER attempt_receipts_kept BEFORE DELETE ON attempt_receipts BEGIN SELECT RAISE(ABORT, 'a signed receipt is never removed'); END;
 CREATE TABLE runner_challenges (
   id TEXT PRIMARY KEY, runner_id TEXT NOT NULL REFERENCES runners(id),
   nonce TEXT NOT NULL UNIQUE, expires_at_ms INTEGER NOT NULL, consumed_at_ms INTEGER

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { JobProtocol } from "../../apps/governor/src/modules/jobs/index";
 import { createStreamService } from "../../apps/governor/src/modules/stream/index";
 import { setupWorld, DIGEST_A, type TestWorld } from "../helpers";
+import { signProtocol } from "../support/signed-completion";
 
 // A failed attempt says why, everywhere a person looks: the run page's read model, the attempt's log (an error record) and the
 // stored reason, all from the failed step's own error, redacted and short.
@@ -24,10 +25,10 @@ async function failedAttempt(w: TestWorld, key: string, error: string): Promise<
     payload: { workflow: { id: "fixture-workflow", digest: w.brain.activeRelease(w.org)!.digest }, input: { message: key } },
   }, key);
   const runner = seedRunner(w, `runner-${key}`);
-  const protocol = new JobProtocol(w.brain.store, {
+  const protocol = signProtocol(w.brain, new JobProtocol(w.brain.store, {
     completeStep: () => undefined, evaluatorEligible: () => true, runnerCurrent: () => true, activeRelease: () => undefined,
     resolveWorkflow: () => ({ workflow: {}, configDigest: `sha256:${"0".repeat(64)}` }), startRun: () => ({ runId: "unused" }),
-  });
+  }));
   const offer = protocol.claim(runner, `req-${key}`) as Offer;
   protocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
   protocol.complete(runner, offer.attemptId, { result: "failed", jobFence: offer.jobFence, cleanupConfirmed: true, output: { error } });

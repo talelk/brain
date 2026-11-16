@@ -12,6 +12,7 @@ import { fixtureStarter } from "../support/starter";
 import { observation, registerRunner } from "../support/runnerHello";
 import { command } from "../support/reuse";
 import { setupWorld, type TestWorld } from "../helpers";
+import { signProtocol } from "../support/signed-completion";
 
 // The diagnostics bundle (spec #90, story 96) and what Health says about backups (story 97), reached through the Governor's own seams:
 // commands to make state, the runner protocol to register runners and fail an attempt, platform.health for the Health tab, and the
@@ -159,10 +160,10 @@ describe("the diagnostics bundle", () => {
       engines: [{ id: "fixture", adapterDigest: `sha256:${"d".repeat(64)}`, features: [] }],
       capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", "engine-isolation:fixture:ephemeral-container"].map((capability) => observation(capability, new Date(Date.now() - 60_000).toISOString())),
     }, "fixture-tools");
-    const protocol = new JobProtocol(w.brain.store, {
+    const protocol = signProtocol(w.brain, new JobProtocol(w.brain.store, {
       completeStep: () => undefined, evaluatorEligible: () => true, runnerCurrent: () => true, activeRelease: () => undefined,
       resolveWorkflow: () => ({ workflow: {}, configDigest: `sha256:${"0".repeat(64)}` }), startRun: () => ({ runId: "unused" }),
-    });
+    }));
     const runner = { runnerId, epoch, organizationId: w.org };
     const offer = protocol.claim(runner, "req-diag") as { attemptId: string; jobId: string; leaseId: string; jobFence: number };
     protocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });

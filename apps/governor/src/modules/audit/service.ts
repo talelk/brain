@@ -1,5 +1,5 @@
 import {
-  AuditChainVerifier, AuditKeyTrust, auditEventProblem, CONTROL_SCOPE, KEY_RECORDED_EVENT, checkpointSigningBytes, verifyAuditExport, workspaceScope,
+  AuditChainVerifier, AuditKeyTrust, createReceiptCheck, auditEventProblem, CONTROL_SCOPE, KEY_RECORDED_EVENT, checkpointSigningBytes, verifyAuditExport, workspaceScope,
   type ActorContext, type AuditCheckpoint, type AuditEventRecord, type AuditExportInput, type AuditExportPage, type AuditKey, type AuditOverview, type AuditScopeStatus, type AuditVerifyOptions, type AuditVerifyResult, type Digest,
 } from "@brain/contracts";
 import type { Store } from "../../application/store";
@@ -87,7 +87,7 @@ export class AuditService {
     // A break stays reported (and its scan stays) until the Governor restarts: a finding is not cleared by looking away.
     if (scan && scan.complete && !scan.verifier.broken && this.store.now() - scan.startedAtMs >= this.config.rescanMs) scan = undefined;
     if (!scan) {
-      scan = { verifier: new AuditChainVerifier(t.organizationId, t.scope, this.checkpointsOf(t)), cursor: 0, complete: false, startedAtMs: this.store.now(), verifiedAtMs: this.scans.get(key)?.verifiedAtMs ?? null, verifiedEvents: this.scans.get(key)?.verifiedEvents ?? 0 };
+      scan = { verifier: new AuditChainVerifier(t.organizationId, t.scope, this.checkpointsOf(t), [createReceiptCheck()]), cursor: 0, complete: false, startedAtMs: this.store.now(), verifiedAtMs: this.scans.get(key)?.verifiedAtMs ?? null, verifiedEvents: this.scans.get(key)?.verifiedEvents ?? 0 };
       this.scans.set(key, scan);
     }
     return scan;

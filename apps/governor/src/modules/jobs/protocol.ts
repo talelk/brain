@@ -1,7 +1,7 @@
 import { revokeRunnerSecrets } from "../secret-leases/index";
-import { randomBytes, verify } from "node:crypto";
+import { createPublicKey, randomBytes, verify } from "node:crypto";
 import type { JsonValue } from "@brain/contracts";
-import { domainDigest } from "@brain/contracts";
+import { domainDigest, RUNNER_KEY_ENROLLED_EVENT, runnerKeyId } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
@@ -41,6 +41,7 @@ export function operateRunner(s: Store, actor: { scopes: readonly string[]; acto
   if ((input.action === "rotate" || input.action === "deregister") && active.count > 0) throw new BrainDomainError("CONFLICT", "runner still has active or unresolved attempts");
   s.inTx(s.control, () => {
     const now = s.now();
+    let revokedKeyIds: string[] = [];
     if (input.action === "enable") {
       const capability = s.control.prepare("SELECT 1 AS ok FROM runner_capabilities WHERE runner_id=? AND verified=1 AND expires_at_ms>? LIMIT 1").get(input.runnerId, now);
       if (runner.health === "unhealthy" || Number(runner.last_heartbeat_ms ?? 0) <= now - 45_000 || !capability) {
@@ -64,6 +65,9 @@ export function operateRunner(s: Store, actor: { scopes: readonly string[]; acto
         .run(input.action, now, input.runnerId);
       s.control.prepare("UPDATE runner_sessions SET revoked_at_ms=? WHERE runner_id=? AND revoked_at_ms IS NULL").run(now, input.runnerId);
       s.control.prepare("UPDATE runner_identity_credentials SET revoked_at_ms=? WHERE runner_id=? AND revoked_at_ms IS NULL").run(now, input.runnerId);
+      // The keys end here: a receipt signed with one after this point is refused, and the event below says which keys ended (ADR 0078).
+      revokedKeyIds = (s.control.prepare("SELECT key_id FROM runner_keys WHERE runner_id=? AND revoked_at_ms IS NULL ORDER BY enrolled_at_ms").all(input.runnerId) as Array<{ key_id: string }>).map((r) => r.key_id);
+      s.control.prepare("UPDATE runner_keys SET revoked_at_ms=? WHERE runner_id=? AND revoked_at_ms IS NULL").run(now, input.runnerId);
       if (input.action === "deregister") {
         s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=?").run(input.runnerId);
         s.control.prepare("UPDATE runners SET engines_json='[]' WHERE id=?").run(input.runnerId);
@@ -73,13 +77,26 @@ export function operateRunner(s: Store, actor: { scopes: readonly string[]; acto
       throw new BrainDomainError("INVALID_ARGUMENT", "runner action must be enable, disable, drain, quarantine, rotate or deregister");
     }
     const eventType = input.action === "drain" ? "runner.draining" : input.action === "quarantine" ? "runner.quarantined" : `runner.${input.action}d`;
-    s.emit(s.control, { organizationId: actor.organizationId, aggregateType: "runner", aggregateId: input.runnerId, eventType, payload: { runnerId: input.runnerId, reason: input.reason, actorId: actor.actorId } });
+    s.emit(s.control, { organizationId: actor.organizationId, aggregateType: "runner", aggregateId: input.runnerId, eventType, payload: { runnerId: input.runnerId, reason: input.reason, actorId: actor.actorId, ...(revokedKeyIds.length > 0 ? { revokedKeyIds } : {}) } });
   });
   return input.runnerId;
 }
 
+/**
+ * Keeps the public key a runner enrolled with, under an id derived from the key, and records it in the audit chain: the receipts the runner
+ * signs name this key, and the offline verifier knows the key only from this event (ADR 0078).
+ */
+export function recordRunnerKey(s: Store, organizationId: string, runnerId: string, publicKeyPem: string): string {
+  const keyId = runnerKeyId(publicKeyPem);
+  s.control.prepare("INSERT INTO runner_keys(key_id, runner_id, organization_id, public_key_spki_pem, enrolled_at_ms) VALUES (?,?,?,?,?)").run(keyId, runnerId, organizationId, publicKeyPem, s.now());
+  s.emit(s.control, { organizationId, aggregateType: "runner", aggregateId: runnerId, eventType: RUNNER_KEY_ENROLLED_EVENT, payload: { runnerId, keyId, publicKeyPem } });
+  return keyId;
+}
+
 export function enrollRunner(s: Store, input: { token: string; publicKeyPem: string; runnerId: string }): { credential: string } {
-  if (!input.publicKeyPem.includes("BEGIN PUBLIC KEY")) throw new BrainDomainError("INVALID_ARGUMENT", "Ed25519 SPKI PEM required");
+  let ed25519 = false;
+  try { ed25519 = input.publicKeyPem.includes("BEGIN PUBLIC KEY") && createPublicKey(input.publicKeyPem).asymmetricKeyType === "ed25519"; } catch { ed25519 = false; }
+  if (!ed25519) throw new BrainDomainError("INVALID_ARGUMENT", "Ed25519 SPKI PEM required");
   const credential = randomBytes(32).toString("base64url");
   s.inTx(s.control, () => {
     const row = s.control.prepare("SELECT organization_id, group_id, expires_at_ms, consumed_at_ms FROM enrollment_tokens WHERE token_digest=?")
@@ -100,6 +117,7 @@ export function enrollRunner(s: Store, input: { token: string; publicKeyPem: str
     }
     s.control.prepare("INSERT INTO runner_identity_credentials(runner_id, public_key_spki_pem, credential_digest, expires_at_ms) VALUES (?,?,?,?)")
       .run(input.runnerId, input.publicKeyPem, s.tokenDigest("runner-cred", credential), s.now() + 365 * 24 * 3600_000);
+    recordRunnerKey(s, row.organization_id, input.runnerId, input.publicKeyPem);
     s.control.prepare("UPDATE enrollment_tokens SET consumed_at_ms=?, runner_id=? WHERE token_digest=?").run(s.now(), input.runnerId, s.tokenDigest("enroll", input.token));
   });
   return { credential };

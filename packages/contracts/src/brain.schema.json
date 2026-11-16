@@ -2912,6 +2912,14 @@
         "workspaceId": {
           "$ref": "#/$defs/Id"
         },
+        "stepId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "executionDigest": {
+          "$ref": "#/$defs/Digest"
+        },
         "attemptNumber": {
           "$ref": "#/$defs/Counter"
         },
@@ -3090,7 +3098,9 @@
         "placement",
         "execution",
         "grantRef",
-        "workflowRunId"
+        "workflowRunId",
+        "stepId",
+        "executionDigest"
       ],
       "additionalProperties": false
     },
@@ -5815,6 +5825,27 @@
         "acceptedBy",
         "createdAt"
       ],
+      "additionalProperties": false
+    },
+    "SignedRunReceiptView": {
+      "type": "object",
+      "properties": {
+        "signedBy": {
+          "type": "object",
+          "properties": {
+            "runnerId": { "$ref": "#/$defs/Id" },
+            "keyId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "verified": { "type": "boolean" },
+            "keyRetired": { "type": "boolean" }
+          },
+          "required": ["runnerId", "keyId", "verified", "keyRetired"],
+          "additionalProperties": false
+        },
+        "digest": { "$ref": "#/$defs/Digest" },
+        "signature": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "receipt": { "$ref": "#/$defs/JsonValue" }
+      },
+      "required": ["signedBy", "digest", "signature", "receipt"],
       "additionalProperties": false
     },
     "TrustRead": {
@@ -15250,6 +15281,9 @@
                 },
                 "trust": {
                   "$ref": "#/$defs/TrustRead"
+                },
+                "receipt": {
+                  "$ref": "#/$defs/SignedRunReceiptView"
                 }
               },
               "required": [
