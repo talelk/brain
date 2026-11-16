@@ -1,3 +1,4 @@
+import { scopeMethods, systemActor } from "./actor-context";
 import type { ActorContext, CommandReceipt, JsonValue, WorkflowCatalogEntry } from "@brain/contracts";
 import { payloadValidator } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
@@ -41,7 +42,9 @@ export class AutoStart {
   private sweeping: Promise<void> | undefined;
   private again = false;
 
-  constructor(private readonly ports: Ports) {}
+  constructor(private readonly ports: Ports) {
+    scopeMethods(this, { sweep: systemActor("auto-start"), sweepAll: systemActor("auto-start") });
+  }
 
   /** Runs a sweep for one workspace; concurrent calls coalesce into one follow-up pass. */
   sweep(organizationId: string, workspaceId: string): Promise<void> {

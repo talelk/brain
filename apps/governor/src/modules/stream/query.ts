@@ -38,6 +38,8 @@ export interface StreamRecordView {
   workspaceId?: string;
   at: string;
   tsApproximate: boolean;
+  /** Who caused the event, and through which attempt (ADR 0032). */
+  actor: { id: string; kind: string; actingFor?: string; attemptId?: string };
   correlation?: StreamCorrelation;
   summary: JsonValue;
   payloadRef: JsonValue;
@@ -72,6 +74,7 @@ interface StreamRow {
   run_id: string | null; job_id: string | null; attempt_id: string | null;
   session_id: string | null; work_item_id: string | null;
   invocation_id: string | null; proposal_id: string | null;
+  actor_id: string; actor_kind: string; actor_attempt_id: string | null; acting_for: string | null;
   summary_json: string;
   payload_ref_json: string;
 }
@@ -102,6 +105,7 @@ function rowToView(row: StreamRow): StreamRecordView {
     ...(row.workspace_id ? { workspaceId: row.workspace_id } : {}),
     at: iso(Number(row.occurred_at_ms)),
     tsApproximate: row.ts_approximate === 1,
+    actor: { id: row.actor_id, kind: row.actor_kind, ...(row.acting_for ? { actingFor: row.acting_for } : {}), ...(row.actor_attempt_id ? { attemptId: row.actor_attempt_id } : {}) },
     ...(Object.keys(correlation).length > 0 ? { correlation } : {}),
     summary: parse(row.summary_json, null),
     payloadRef: parse(row.payload_ref_json, { kind: "inline" }),
@@ -119,6 +123,7 @@ export function frameOf(record: StreamRecordView): Record<string, JsonValue> {
     aggregateId: record.aggregateId,
     ...(record.workspaceId ? { workspaceId: record.workspaceId } : {}),
     at: record.at,
+    actor: record.actor,
     ...(record.correlation ? { correlation: record.correlation } : {}),
     summary: record.summary,
   } as unknown as Record<string, JsonValue>;

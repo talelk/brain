@@ -1,4 +1,5 @@
 import type { AuditEntry } from "@brain/contracts";
+import { t } from "../i18n";
 import { eventWords } from "./format";
 
 const quoted = (what: string | undefined): string => (what ? ` "${what}"` : "");
@@ -16,7 +17,8 @@ const SENTENCES: Record<string, (what: string | undefined) => string> = {
   "mission.briefChanged": (what) => `The brief of mission${quoted(what)} changed`,
   "job.queued": (what) => `A task was queued${what ? `: ${what}` : ""}`,
   "job.updated": (what) => `A task made progress${what ? `: ${what}` : ""}`,
-  "session.acted": () => "An agent made a change to its mission",
+  "workItem.commented": (what) => `A comment was added to task${quoted(what)}`,
+  "mission.messageSent": (what) => `A message was sent on mission${quoted(what)}`,
   "session.delegated": () => "A session was handed to another agent",
   "session.checkpointed": () => "A session saved its progress",
   "handoff.submitted": () => "A task handed over its result",
@@ -56,4 +58,27 @@ export function auditSentence(entry: Pick<AuditEntry, "action" | "message" | "su
   if (known) return known(entry.subject);
   const words = eventWords(entry.action);
   return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Who an event is on record as caused by (ADR 0032, #148): the principal, the person it acted for, and the session it acted through. */
+export interface ActorRef { readonly id: string; readonly kind: string; readonly actingFor?: string | undefined; readonly attemptId?: string | undefined }
+
+/** What a Governor principal is, in words: `system:webhook:ep-1` reads "webhook ep-1", `system:watchdog` "watchdog". */
+export function systemWhat(principalId: string): string {
+  return principalId.replace(/^system:/u, "").replace(/[-:]/gu, " ");
+}
+
+/** One plain sentence saying who did it and through which session: a person, an agent for a person, a runner, or Brain itself. */
+export function actorSentence(actor: ActorRef, personName: (id: string) => string): string {
+  if (actor.kind === "agent") {
+    const name = personName(actor.actingFor ?? "");
+    return actor.attemptId ? t("actor.by-agent-session", { name }) : t("health.activity.by-agent", { name });
+  }
+  if (actor.kind === "runner") return t(actor.attemptId ? "actor.by-runner-session" : "actor.by-runner", { id: actor.id });
+  if (actor.kind === "system") {
+    return actor.actingFor
+      ? t("actor.by-brain-for", { name: personName(actor.actingFor), what: systemWhat(actor.id) })
+      : t("actor.by-brain", { what: systemWhat(actor.id) });
+  }
+  return t("health.activity.by", { name: personName(actor.id) });
 }

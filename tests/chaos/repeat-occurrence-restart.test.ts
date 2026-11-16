@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { actingAs, systemActor } from "../../apps/governor/src/application/actor-context";
 import { Brain } from "../../apps/governor/src/application/brain";
 import { setupWorld } from "../helpers";
 import { fixtureStarter } from "../support/starter";
@@ -21,10 +22,10 @@ describe("a scheduled repeat survives a Governor restart mid-occurrence", () => 
       db.prepare("INSERT INTO mission_evidence_bundles(digest,mission_id,state,manifest_json,findings_json,created_at_ms) VALUES (?,?,'verified','{}','[]',?)").run(`sha256:${"5".repeat(64)}`, source, Date.now());
       db.prepare("UPDATE missions SET state='closed', outcome='achieved' WHERE id=?").run(source);
 
-      const start = (brain: Brain, occurrenceId: string) => brain.missions.startFromDescription({
+      const start = (brain: Brain, occurrenceId: string) => actingAs(systemActor("scheduler"), () => brain.missions.startFromDescription({
         organizationId: world.org, workspaceId: world.workspaceId, title: "Weekly · run", situation: "Report\n\nDone when:\n- done",
         startedBy: "owner-1", occurrenceId, automationId: "auto-1", sourceMissionId: source, autoConfirm: true,
-      });
+      }));
       const first = start(world.brain, "occ-1");
       world.brain.close();
       reopened = new Brain({ dataDir: world.dir, allowTestActor: true });

@@ -158,8 +158,8 @@ describe("a session hands off and comments through its Brain tools", () => {
     await writer.act("workItem.comment", "n1", { workItemId: writer.workItemId, text: "One" });
     await writer.act("mission.message.send", "n2", { missionId, recipient: { kind: "member", memberId: "checker" }, body: "Two" });
     await writer.act("handoff.submit", "n3", { workItemId: writer.workItemId, notes: { summary: "Three" } });
-    const acted = (await audit(w)).filter((entry) => entry.action === "session.acted");
-    expect(acted).toHaveLength(3);
+    const acted = (await audit(w)).filter((entry) => entry.actorId === writer.actor.actorId);
+    expect(acted.map((entry) => entry.action)).toEqual(expect.arrayContaining(["workItem.commented", "mission.messageSent", "handoff.submitted"]));
     for (const entry of acted) expect(entry).toMatchObject({ actorId: writer.actor.actorId, actingFor: w.owner.actorId });
   });
 });

@@ -141,7 +141,7 @@ describe("mission owner transfer (#117)", () => {
     expect(after.actor).toMatchObject({ actorId: principalId, delegatedBy: "dana", missionId, scopes: ["mission:write", "workspace:read"] });
     expect(w.brain.store.control.prepare("SELECT revoked_at_ms FROM machine_sessions WHERE attempt_id=?").get(offer.attemptId)).toEqual({ revoked_at_ms: null });
     expect((await as(w, after.actor, "workItem.comment", "agent-comment", { workItemId, text: "Working for the new owner" })).accepted).toBe(true);
-    expect((await audit(w)).find((entry) => entry.action === "session.acted")).toMatchObject({ actorId: principalId, actingFor: "dana" });
+    expect((await audit(w)).find((entry) => entry.action === "workItem.commented" && entry.actorId === principalId)).toMatchObject({ actorId: principalId, actingFor: "dana" });
     // A session never hands a mission over: that is a person's decision.
     await expect(as(w, after.actor, "mission.owner.transfer", "agent-transfer", { missionId, newOwnerId: w.owner.actorId })).rejects.toThrow(/cannot run|missing scope/u);
     // The lease lapses and the next attempt starts under a new fence: a fresh credential for the same principal, acting for the new owner.

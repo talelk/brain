@@ -100,7 +100,7 @@ describe("the starter Play with a coordinator", () => {
       expect(revised).toMatchObject({ state: "confirmed", origin: "agent", created_by: `agent:${missionId}:lead` });
       expect(taskIds(revised!)).toEqual(["gather", "write", "check-sources"]);
       expect((await missionOf(w, missionId)).activePlanVersionId).toBe(revised!.id);
-      const acted = (await query<{ items: AuditEntry[] }>(w, "audit.list")).items.filter((entry) => entry.action === "session.acted");
+      const acted = (await query<{ items: AuditEntry[] }>(w, "audit.list")).items.filter((entry) => entry.actorId === `agent:${missionId}:lead`);
       expect(acted[0]).toMatchObject({ actorId: `agent:${missionId}:lead`, actingFor: w.owner.actorId });
 
       // The pack the coordinator was given is the mission as a planner needs it, never the plan it could not see.

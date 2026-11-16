@@ -1,3 +1,4 @@
+import { runnerActor, scopeMethods, systemActor, type EventActor } from "../../application/actor-context";
 import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, runnerChallenge, runnerHello, type HeartbeatCommand } from "./protocol";
@@ -78,6 +79,20 @@ export class JobProtocol {
       ...(this.ports.startDescribedMission ? { startDescribedMission: (input: Parameters<NonNullable<JobProtocolPorts["startDescribedMission"]>>[0]) => this.ports.startDescribedMission!(input) } : {}),
       ...(this.ports.missionOpen ? { missionOpen: (organizationId: string, workspaceId: string, missionId: string) => this.ports.missionOpen!(organizationId, workspaceId, missionId) } : {}),
     });
+    // Who each entry point acts as (ADR 0032): a runner's protocol call is that runner and its attempt, a timer's pass is a named Governor principal.
+    const runnerOf = (runner: { runnerId: string }, attemptId?: unknown): EventActor => runnerActor(runner.runnerId, typeof attemptId === "string" ? attemptId : undefined);
+    scopeMethods(this, {
+      enrollRunner: (input: { runnerId: string }) => runnerActor(input.runnerId),
+      challenge: (runnerId: string) => runnerActor(runnerId),
+      hello: (hello: Record<string, unknown>) => runnerActor(String(hello["runnerId"] ?? "unknown-runner")),
+      heartbeat: runnerOf, claim: (runner: { runnerId: string }) => runnerActor(runner.runnerId), toolRead: runnerOf, sessionCredential: runnerOf, secretCredentials: runnerOf,
+      validateSecretCredentials: runnerOf, modelGatewayToken: runnerOf, executionArtifact: runnerOf, resumeCheckpoint: runnerOf,
+      ack: runnerOf, renew: runnerOf, events: runnerOf, complete: runnerOf, release: runnerOf,
+      expireLeases: systemActor("lease-expiry"), expireDeadlines: systemActor("deadline-expiry"), settleEffects: systemActor("effect-settlement"),
+      expirePausedSessions: systemActor("pause-limit"), sweepStuckJobs: systemActor("watchdog"),
+      dispatchSchedules: systemActor("scheduler"), dispatchAutomations: systemActor("automation"),
+    });
+    scopeMethods(this, { createForStep: systemActor("workflow"), cancelForRun: systemActor("workflow"), reprioritizeForRun: systemActor("workflow"), concludeAttempt: systemActor("workflow"), stopAll: systemActor("stop-all"), resolveUnknown: systemActor("reconciliation"), resolveReconciliation: systemActor("reconciliation"), issueEnrollment: systemActor("runner-control"), controlRunner: systemActor("runner-control") }, { ifAbsent: true });
   }
 
   // --- Runner session protocol ---

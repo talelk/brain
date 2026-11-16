@@ -1,3 +1,4 @@
+import { UNATTRIBUTED, currentEventActor, strictActors } from "./actor-context";
 import { createHmac, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -133,6 +134,8 @@ export class Store {
     aggregateType: string; aggregateId: string; eventType: string;
     payload: JsonValue; destinations?: readonly string[];
   }): string {
+    const actor = currentEventActor();
+    if (!actor && strictActors()) throw new Error(`event ${input.eventType} written outside an actor scope (ADR 0032: wrap the entry point in actingAs)`);
     const eventId = this.id("evt");
     const changed = this.workspaceOfDb.get(db);
     if (changed) this.changedWorkspaces.add(changed);
@@ -145,12 +148,13 @@ export class Store {
         : "SELECT COALESCE(MAX(aggregate_seq),0) AS m FROM events WHERE aggregate_type=? AND aggregate_id=?",
     ).get(...(input.organizationId ? [input.organizationId, input.aggregateType, input.aggregateId] : [input.aggregateType, input.aggregateId])) as { m: number };
     const seq = seqRow.m + 1;
+    const actorColumns = [actor?.principalId ?? UNATTRIBUTED, actor?.kind ?? "system", actor?.attemptId ?? null, actor?.actingFor ?? null];
     if (input.organizationId) {
-      db.prepare(`INSERT INTO events(event_id, organization_id, workspace_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms)
-        VALUES (?,?,?,?,?,?,?,?,?,?)`).run(eventId, input.organizationId, input.workspaceId ?? null, input.aggregateType, input.aggregateId, seq, input.eventType, payloadJson, payloadDigest, this.now());
+      db.prepare(`INSERT INTO events(event_id, organization_id, workspace_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms, actor_id, actor_kind, actor_attempt_id, acting_for)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, input.organizationId, input.workspaceId ?? null, input.aggregateType, input.aggregateId, seq, input.eventType, payloadJson, payloadDigest, this.now(), ...actorColumns);
     } else {
-      db.prepare(`INSERT INTO events(event_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms)
-        VALUES (?,?,?,?,?,?,?,?)`).run(eventId, input.aggregateType, input.aggregateId, seq, input.eventType, payloadJson, payloadDigest, this.now());
+      db.prepare(`INSERT INTO events(event_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms, actor_id, actor_kind, actor_attempt_id, acting_for)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, input.aggregateType, input.aggregateId, seq, input.eventType, payloadJson, payloadDigest, this.now(), ...actorColumns);
     }
     for (const dest of input.destinations ?? []) {
       db.prepare("INSERT INTO outbox_deliveries(event_id, destination, state, next_attempt_at_ms) VALUES (?,?, 'pending', ?)")

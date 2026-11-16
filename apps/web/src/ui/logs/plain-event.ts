@@ -55,6 +55,7 @@ const ACTIONS: Record<string, string> = {
   "autonomy.suggestionAccepted": "accepted an autonomy suggestion",
   "autonomy.suggestionDismissed": "dismissed an autonomy suggestion",
   "mission.messageSent": "sent a message to the mission",
+  "workItem.commented": "added a comment to a task",
   "mission.verdictRecorded": "recorded the verdict on the mission",
   "mission.bundleAssembled": "gathered the mission's evidence",
   "mission.bundleJudged": "updated the model judge's read of the mission's evidence",

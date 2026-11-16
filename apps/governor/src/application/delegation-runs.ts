@@ -1,3 +1,4 @@
+import { scopeMethods, systemActor } from "./actor-context";
 import type { JsonValue, Workflow, WorkflowCatalogEntry } from "@brain/contracts";
 import { payloadValidator } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
@@ -25,7 +26,9 @@ interface Ports {
  * waits for it.
  */
 export class DelegationRuns {
-  constructor(private readonly ports: Ports) {}
+  constructor(private readonly ports: Ports) {
+    scopeMethods(this, { sweep: systemActor("delegation"), sweepAll: systemActor("delegation") });
+  }
 
   /** Starts what is pending in one workspace and settles delegations whose run ended without being heard (a restart, a cancelled run). */
   sweep(organizationId: string, workspaceId: string): number {
