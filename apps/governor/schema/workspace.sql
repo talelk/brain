@@ -523,8 +523,11 @@ CREATE TABLE events (
   payload_digest TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
   actor_id TEXT NOT NULL DEFAULT 'system:unattributed', actor_kind TEXT NOT NULL DEFAULT 'system',
   actor_attempt_id TEXT DEFAULT NULL, acting_for TEXT DEFAULT NULL,
+  -- The hash chain of this workspace's events (ADR 0078). NULL only on a row written outside the store, which the verifier reports.
+  chain_seq INTEGER DEFAULT NULL, prev_digest TEXT DEFAULT NULL, chain_digest TEXT DEFAULT NULL,
   UNIQUE(aggregate_type,aggregate_id,aggregate_seq)
 ) STRICT;
+CREATE UNIQUE INDEX events_chain ON events(chain_seq);
 CREATE INDEX events_type ON events(event_type, created_at_ms);
 CREATE TABLE outbox_deliveries (
   event_id TEXT NOT NULL REFERENCES events(event_id), destination TEXT NOT NULL,

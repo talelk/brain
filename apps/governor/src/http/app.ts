@@ -304,6 +304,32 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     } catch (e) { return fail(c as never, e); }
   });
 
+  // Tamper-evident audit (ADR 0078): the public keys and log positions, a paged export for offline verification, an on-demand checkpoint and key rotation.
+  app.get("/v1/audit", async (c) => {
+    try { const { actor } = await actorFor(c); return c.json(brain.audit.overview(actor)); }
+    catch (e) { return fail(c as never, e); }
+  });
+  app.get("/v1/audit/export", async (c) => {
+    try {
+      const { actor } = await actorFor(c);
+      return c.json(brain.audit.exportPage(actor, { scope: c.req.query("scope") ?? "control", afterCursor: Number(c.req.query("afterCursor") ?? 0) || 0, limit: Number(c.req.query("limit") ?? 2000) || 2000 }));
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.post("/v1/audit/checkpoints", async (c) => {
+    try {
+      const { actor } = await actorFor(c);
+      const body = await readJson(c); requireBody("AuditCheckpointRequest", body);
+      return c.json({ checkpoints: brain.audit.checkpointNow(actor, (body as import("@brain/contracts").AuditCheckpointRequest).workspaceId) });
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.post("/v1/audit/keys/rotate", async (c) => {
+    try {
+      const identity = await actorFor(c);
+      assertHumanIdentity(brain.store, brain.auth, identity, brain.runtime.requireTwoFactor);
+      return c.json(brain.audit.rotateKey(identity.actor));
+    } catch (e) { return fail(c as never, e); }
+  });
+
   app.get("/v1/local-runtime", async (c) => {
     try { const { actor } = await actorFor(c); return c.json(localRuntimeStatus(brain.store, actor)); }
     catch (e) { return fail(c as never, e); }

@@ -665,6 +665,18 @@ compacts deterministically (facts kept, prose cut or replaced by a reference to 
 text), never by a model summary.
 _Avoid_: context dump, prompt stuffing
 
+**Audit log**:
+The record of events, kept as a hash chain: each event stores the digest of the one before it and a digest of everything it records, actor included, so a changed, removed, added or reordered event breaks the chain at a known position (ADR 0078). One chain per organization's control log and per workspace. The audit trail screen only reads it.
+_Avoid_: tamper-proof (it is tamper-evident)
+
+**Audit checkpoint**:
+A signed note of where an **audit log** stood: its position, head digest and time, signed by the Governor's **audit key**. Written on a schedule and on demand; a log that no longer matches a checkpoint was rebuilt or cut. `brain audit verify` checks chain and checkpoints offline.
+_Avoid_: snapshot, backup
+
+**Audit key**:
+The Governor's ed25519 signing key for checkpoints. Private half owner-only in the data directory, public half published; rotation records the new key in the chain, signed by the old one, and old checkpoints stay verifiable.
+_Avoid_: signing secret
+
 **Evidence bundle**:
 The concrete, digest-addressed set of artifacts, checks, approvals and effect records
 that an evaluator judges.

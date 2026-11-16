@@ -3,6 +3,7 @@ import { collectRelease } from "./release.ts";
 import { credentialStore, readSetupCredential, validCredential } from "./credentials.ts";
 import { prompt } from "./prompt.ts";
 import { operate } from "./operate.ts";
+import { audit } from "./audit.ts";
 
 export interface CliOptions {
   readonly env?: NodeJS.ProcessEnv;
@@ -104,6 +105,8 @@ export async function runCli(argv: string[], options: CliOptions = {}): Promise<
       }
       case "mission": case "play": case "session": case "approval":
         return await operate(cmd, rest, { env, call: async (path, body) => { const { status, json } = await call(path, body); return { status, json }; }, stdout, stderr, ask });
+      case "audit":
+        return await audit(rest, { env, call: async (path, body) => { const { status, json } = await call(path, body); return { status, json }; }, stdout, stderr, ask });
       case "runner": {
         if (rest[0] === "token" && rest[1] === "create") {
           const group = rest[rest.indexOf("--group") + 1] ?? "fixture-tools";
@@ -171,7 +174,7 @@ export async function runCli(argv: string[], options: CliOptions = {}): Promise<
         return 2;
       }
       default:
-        stderr("usage: brain <login|logout|doctor|mission|play|session|approval|query|command|setup|runner|config|workflow|workspace|backup> [--json]\n");
+        stderr("usage: brain <login|logout|doctor|mission|play|session|approval|audit|query|command|setup|runner|config|workflow|workspace|backup> [--json]\n");
         return cmd ? 2 : 0;
     }
   } catch (e) {

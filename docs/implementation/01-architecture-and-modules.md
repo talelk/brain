@@ -95,6 +95,7 @@ Governor module folders share this one deployment:
 | packs | `apps/governor/src/modules/packs` | Compiled onboarding/support/SRE/delivery/eval modules and connector adapters |
 | operations | `apps/governor/src/modules/operations` | Health, bounded timers, backup/restore, audit and notifications |
 | stream | `apps/governor/src/modules/stream` | Unified Execution Stream read model: watermark-guarded projection over the authoritative source logs, permission-scoped reads, FTS search, correlation context, attempt comparison, retention sweep and bounded sanitized export; attention items, seen cursors and since-last-visit summaries |
+| audit | `apps/governor/src/modules/audit` | Hash-chain checkpoints, the audit signing key and its rotation, the audit export and the live self-verification of the event logs (ADR 0078) |
 <!-- END GENERATED LAYOUT -->
 
 Pure reducers live in Governor `src/domain`; use cases in `src/application` coordinate module public functions. Connection lifecycle/current schema/inbox/outbox live in `src/infrastructure/persistence`. A table has one writer owner. A synchronous local transaction may coordinate modules through injected transaction functions; no network, model call or human wait belongs inside it. Cross-file work still uses durable outbox/inbox.

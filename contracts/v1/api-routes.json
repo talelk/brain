@@ -3405,6 +3405,104 @@
    "errors": [
     "401"
    ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/audit",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Audit log overview: public audit keys and where each log stands",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "AuditOverview"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "audit.overview"
+  },
+  {
+   "method": "GET",
+   "path": "/v1/audit/export",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "One page of an audit log with its checkpoints and keys, for offline verification",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "AuditExportPage"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "audit.export"
+  },
+  {
+   "method": "POST",
+   "path": "/v1/audit/checkpoints",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "AuditCheckpointRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Signed checkpoints written now",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "AuditCheckpointResult"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "audit.checkpoint"
+  },
+  {
+   "method": "POST",
+   "path": "/v1/audit/keys/rotate",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Audit signing key rotated",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "AuditKeyRotationResult"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "audit.rotate-key"
   }
  ],
  "servers": [

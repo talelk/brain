@@ -267,8 +267,11 @@ CREATE TABLE events (
   payload_digest TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
   actor_id TEXT NOT NULL DEFAULT 'system:unattributed', actor_kind TEXT NOT NULL DEFAULT 'system',
   actor_attempt_id TEXT DEFAULT NULL, acting_for TEXT DEFAULT NULL,
+  -- The hash chain (ADR 0078): one chain per organization. NULL only on a row written outside the store, which the verifier reports.
+  chain_seq INTEGER DEFAULT NULL, prev_digest TEXT DEFAULT NULL, chain_digest TEXT DEFAULT NULL,
   UNIQUE(organization_id,aggregate_type,aggregate_id,aggregate_seq)
 ) STRICT;
+CREATE UNIQUE INDEX events_chain ON events(organization_id, chain_seq);
 CREATE TABLE outbox_deliveries (
   event_id TEXT NOT NULL REFERENCES events(event_id), destination TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('pending','processing','delivered','parked')),
@@ -447,11 +450,21 @@ CREATE TABLE artifact_associations (
   FOREIGN KEY(workspace_id,organization_id) REFERENCES workspaces(id,organization_id)
 ) STRICT;
 CREATE INDEX artifact_association_digest ON artifact_associations(digest);
+-- Signed checkpoints of the event hash chains (ADR 0078): the control chain of the organization (scope 'control') and of each workspace
+-- database (scope 'workspace:<id>'). A checkpoint names the chain position (through_seq) and head digest it pins and is signed by an audit key.
 CREATE TABLE audit_checkpoints (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
   through_cursor INTEGER NOT NULL CHECK(through_cursor>=0), chain_digest TEXT NOT NULL,
   signature TEXT NOT NULL, key_id TEXT NOT NULL, off_host_receipt_digest TEXT,
-  created_at_ms INTEGER NOT NULL
+  created_at_ms INTEGER NOT NULL,
+  scope TEXT NOT NULL DEFAULT 'control', through_seq INTEGER NOT NULL DEFAULT 0, reason TEXT NOT NULL DEFAULT 'schedule'
+) STRICT;
+CREATE INDEX audit_checkpoints_scope ON audit_checkpoints(organization_id, scope, through_seq);
+-- Public halves of the Governor's audit signing keys. Append-only: a retired key stays so its checkpoints stay verifiable. The private
+-- half lives in the data directory (audit/<key id>.key, owner-only) and is deleted when the key is retired.
+CREATE TABLE audit_keys (
+  key_id TEXT PRIMARY KEY, public_key TEXT NOT NULL, created_at_ms INTEGER NOT NULL, retired_at_ms INTEGER DEFAULT NULL,
+  previous_key_id TEXT DEFAULT NULL, rotation_signature TEXT DEFAULT NULL
 ) STRICT;
 CREATE TABLE notification_subscriptions (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),

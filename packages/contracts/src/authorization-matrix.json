@@ -313,6 +313,47 @@
       "humanOnly": true,
       "currentMembershipRequired": false,
       "originalActorOnly": true
+    },
+    "audit.overview": {
+      "scope": "workspace:read",
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true
+    },
+    "audit.export": {
+      "scope": "config:activate",
+      "additionalScopes": [
+        "runner:admin"
+      ],
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true,
+      "currentMembershipRequired": true
+    },
+    "audit.checkpoint": {
+      "scope": "config:activate",
+      "additionalScopes": [
+        "runner:admin"
+      ],
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true,
+      "currentMembershipRequired": true
+    },
+    "audit.rotate-key": {
+      "scope": "config:activate",
+      "additionalScopes": [
+        "runner:admin"
+      ],
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true,
+      "currentMembershipRequired": true,
+      "requireFactorWhenConfigured": true
     }
   },
   "separationOfDuties": "request author cannot approve own high-risk effect; organization administration grants no bypass",
