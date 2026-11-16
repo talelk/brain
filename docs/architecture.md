@@ -32,7 +32,7 @@ apps/governor/src/
   health/      runners, model reachability, backups
 apps/runner/   kept; edited for the new protocol, native tools and working copies
 apps/launcher/ kept; engine sandbox gains the working-copy mount
-apps/web/src/  new app, about eight screens
+apps/web/src/  new app, nine screens
 scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, runner, backup, restore, audit-verify), deploy-demo.sh
 deploy/        the sandbox images; demo/ (the demo host's compose file, host commands and backup units)
 packs/         base, software-factory, sre, customer-operations
@@ -138,9 +138,16 @@ Commands: `setup.create`, `workspace.create`, `workspace.archive`, `workspace.st
 `approval.decide`, `memory.decide`, `runner.token`, `runner.remove`.
 
 Queries: `setup.status`, `me`, `packs.list`, `workspace.get`, `workspace.files`,
-`file.read`, `today`, `tasks.list`, `task.get`, `task.events`, `approvals.list`,
+`file.read`, `today`, `overview`, `tasks.list`, `task.get`, `task.events`, `approvals.list`,
 `approval.get`, `usage.summary`, `memory.list`, `members.list`, `secrets.list` (names
-only), `runners.list`, `health`, `audit.verify`.
+only), `runners.list`, `health`, `audit.verify`. `overview` takes no workspace: for the active
+workspaces the caller is a member of it answers per-workspace counts (needs you, running, done and
+failed today), spend against the cap, projects, last activity and a dense 14-day series (UTC days, oldest
+first) of goals done and spend; one list of up to 50 tasks waiting for a person (each with its workspace
+and, for a call, the approval itself) and one of the 30 attempts running now; and, for an instance admin
+only, runners online, models reachable and the audit chain. It is declared `public` like `me` and answers
+UNAUTHENTICATED without a session; a person never sees a workspace they are not in. A client refetches it on
+any `changed` frame, since the stream already carries every workspace of the caller.
 
 Roles: `viewer` reads; `member` also creates and steers tasks, answers, checks and
 decides approvals; `admin` also writes files, secrets and members. A person never
@@ -149,7 +156,7 @@ produced a result never checks it.
 
 An answer is `{output}`, or `{error: {code, message, problems?}}` with the matching HTTP
 status. Besides the three workspace roles an entry is `public` (`setup.status`,
-`setup.create`, `me`) or needs an instance admin (`workspace.create`, `packs.list`,
+`setup.create`, `me`, `overview`) or needs an instance admin (`workspace.create`, `packs.list`,
 `runner.token`, `runner.remove`, `runners.list`, `audit.verify`). Every other entry takes
 `workspaceId`; a person who is not a member is told the workspace does not exist.
 `file.write` and `file.delete` take several paths and make one commit. Accounts are made
@@ -362,11 +369,17 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 ## 10. Web app (`apps/web`)
 
 SolidJS, Vite, the `@talelk/newui-*` design system, English, French and Arabic (RTL).
-Screens: sign-in and first-run setup; **Today** (goal box, needs you, running, recent
-results, spend); **Tasks** and one **Task** page (steps, result, check, evidence, cost,
-approvals, notes, pull requests); **Workspace** (agents, tools, Plays, memory, projects,
-settings: the files, with forms and a raw editor); **New workspace** (packs, repository,
-first goal); **Health** (runners, model, audit, backups); **People and secrets**.
+Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones): Overview, then the
+workspaces (each with an orange count of what waits there; the open one expands to Today, Tasks and
+Workspace) and New workspace, Health and People at the foot with the account (language, theme, sign out).
+The top bar has the live indicator and search (Cmd-K: pages, workspaces, goals). Screens (nine files in
+`src/screens`): sign-in and first-run setup (`AuthLayout`); **Overview** (the home: headline numbers, needs
+you across all workspaces with the decision in place, what is running, a table of workspaces with week
+sparklines, spend and goals per day stacked by workspace, the instance's health); **Today** (goal box, Plays,
+needs you, running, recent, spend); **Tasks** (filterable, sortable table with bulk stop) and one **Task**
+page (the chain and the record in two panes); **Workspace** (tabs for agents, tools, Plays, memory, projects,
+settings: list and form panes over the files, plus a raw editor); **New workspace** (a wizard); **Health**;
+**People and secrets**. Health and People belong to a workspace, so the sidebar leads to the open one's.
 
 ## 11. Tests
 
@@ -386,7 +399,7 @@ first goal); **Health** (runners, model, audit, backups); **People and secrets**
   and the real runner on the fixture engine, in the test process (`stack.ts`). It acts as a first-time user: setup link to
   a checked result with its cost; a typed goal, its plan changed and confirmed; an approval approved and one rejected with
   a reason; an agent's prompt edited (pack file to workspace file) and a broken file refused on its line; a workspace made
-  from a pack with its first goal; axe on Today and Task (light and dark) and an Arabic right-to-left check. It is not
+  from a pack with its first goal; the Overview across several workspaces (needs-you list, a call decided in place, a jump into a task); axe on Today and Task (light and dark) and an Arabic right-to-left check. It is not
   part of `pnpm verify`.
 
 `pnpm verify` = lint, typecheck, unit, runner, core and e2e tests, and `scripts/complexity.mjs`,

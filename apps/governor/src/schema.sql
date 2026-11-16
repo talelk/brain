@@ -94,6 +94,9 @@ CREATE TABLE tasks (
 ) STRICT;
 CREATE INDEX tasks_workspace_state ON tasks(workspace_id, state);
 CREATE INDEX tasks_workspace_created ON tasks(workspace_id, created_at_ms);
+-- The Overview: goals finished per day, and when a workspace last did anything.
+CREATE INDEX tasks_workspace_finished ON tasks(workspace_id, finished_at_ms);
+CREATE INDEX tasks_workspace_updated ON tasks(workspace_id, updated_at_ms);
 CREATE INDEX tasks_parent ON tasks(parent_id, position);
 CREATE INDEX tasks_root ON tasks(root_id);
 

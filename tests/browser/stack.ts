@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import { test as base, expect, type Locator, type Page } from "@playwright/test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { homedir } from "node:os";
@@ -104,13 +104,26 @@ export const test = base.extend<{ stack: Stack }>({
 });
 export { expect };
 
-/** Signs in on the sign-in page as the person `setUp` made, and lands on Today. */
+/** Signs in on the sign-in page as the person `setUp` made, and lands on the Overview. */
 export async function signIn(page: Page, stack: Stack): Promise<void> {
   await page.goto(stack.url);
   await page.getByLabel("Email").fill(EMAIL);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "What do you want done?" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+}
+
+/** The main navigation, opened first when it is a drawer (a phone). */
+export async function sidebar(page: Page): Promise<Locator> {
+  const nav = page.getByRole("navigation", { name: "Main" });
+  if (!(await nav.isVisible())) await page.getByRole("button", { name: "Open application navigation" }).click();
+  return nav;
+}
+
+/** Opens a workspace from the sidebar (its link carries just the name; the count of what waits sits beside it). */
+export async function openWorkspace(page: Page, name: string): Promise<void> {
+  await (await sidebar(page)).getByRole("link", { name: new RegExp(`^${name}`, "u") }).first().click();
+  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
 }
 
 /** The Starter workspace the first setup made, and what a test writes into it before the person arrives. */

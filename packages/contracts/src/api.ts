@@ -218,6 +218,61 @@ export interface UsageSummary {
   readonly byAgent: ReadonlyArray<Usage & { readonly agent: string }>;
   readonly byModel: ReadonlyArray<Usage & { readonly model: string }>;
 }
+/** One day of a workspace's work, UTC: goals finished (done) and what the day cost. */
+export interface OverviewDay { readonly day: string; readonly done: number; readonly microUsd: number }
+/** What one of the caller's workspaces is doing: counts of today, last two weeks, projects. */
+export interface OverviewWorkspace {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly role: Role;
+  readonly projects: readonly string[];
+  /** Tasks waiting for a person. */
+  readonly needsYou: number;
+  /** Goals started or running that wait for nothing from a person. */
+  readonly running: number;
+  readonly doneToday: number;
+  readonly failedToday: number;
+  readonly spend: Spend;
+  readonly lastActivityAt: number | null;
+  /** The last 14 days, oldest first, every day present; the last one is today. */
+  readonly days: readonly OverviewDay[];
+}
+/** A task that waits for a person, with the workspace it is in and, for a call to approve, the approval itself. */
+export interface OverviewNeed extends TaskSummary { readonly workspaceName: string; readonly workspaceSlug: string; readonly approval: Approval | null }
+/** One attempt running now. */
+export interface OverviewRun {
+  readonly attemptId: string;
+  readonly kind: AttemptKind;
+  readonly agent: string;
+  readonly workspaceId: string;
+  readonly workspaceName: string;
+  readonly workspaceSlug: string;
+  readonly rootId: string;
+  readonly taskId: string;
+  readonly goalTitle: string;
+  readonly title: string;
+  readonly stepId: string | null;
+  readonly startedAt: number | null;
+  readonly microUsd: number;
+}
+/** The state of this Brain as a whole; only for an instance admin. Models are those whose answer is known (probes are kept a minute). */
+export interface OverviewHealth {
+  readonly runnersOnline: number;
+  readonly runnersTotal: number;
+  readonly modelsReachable: number;
+  readonly modelsTotal: number;
+  readonly auditProblem: string | null;
+}
+/** Everything the caller's workspaces are doing, on one screen. */
+export interface Overview {
+  readonly workspaces: readonly OverviewWorkspace[];
+  /** The 50 most recent tasks waiting for a person, across the workspaces; the counts above are not limited. */
+  readonly needsYou: readonly OverviewNeed[];
+  /** The 30 attempts that started last and still run. */
+  readonly running: readonly OverviewRun[];
+  readonly health: OverviewHealth | null;
+}
 export interface MemoryItem { readonly name: string; readonly title: string; readonly source: string }
 export interface MemoryProposal {
   readonly id: string;
@@ -322,6 +377,8 @@ export const queries = table({
   "workspace.files": ["viewer", z.strictObject(inWorkspace)],
   "file.read": ["viewer", z.strictObject({ ...inWorkspace, path: filePath })],
   today: ["viewer", z.strictObject(inWorkspace)],
+  /** What all the caller's workspaces are doing. Like `me` it takes no workspace; it answers UNAUTHENTICATED without a session and never shows a workspace the caller is not a member of. */
+  overview: ["public", z.strictObject({})],
   /** `search` matches the title or the goal text; `rootsOnly` leaves out sub-tasks. Both are applied before `limit`. */
   "tasks.list": ["viewer", z.strictObject({ ...inWorkspace, state: z.enum(TASK_STATES).optional(), parentId: id.optional(), rootsOnly: z.boolean().optional(), search: z.string().trim().min(1).max(200).optional(), before: z.int().optional(), limit: z.int().min(1).max(200).default(50) })],
   "task.get": ["viewer", z.strictObject({ ...inWorkspace, taskId: id })],
@@ -373,6 +430,7 @@ export interface QueryOutputs {
   "workspace.files": { readonly files: readonly FileEntry[] };
   "file.read": FileContent;
   today: Today;
+  overview: Overview;
   "tasks.list": { readonly tasks: readonly TaskSummary[] };
   "task.get": Task;
   "task.events": { readonly events: readonly AttemptEvent[] };

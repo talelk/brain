@@ -1,6 +1,8 @@
 import { createMemo, createSignal, For, Match, Show, Switch, type JSX } from "solid-js";
-import { A, useParams, useSearchParams } from "@solidjs/router";
+import { useParams, useSearchParams } from "@solidjs/router";
 import { Button, Textarea } from "@talelk/newui-atoms";
+import { DetailHeader, Section } from "@talelk/newui-organisms";
+import { PaneLayout } from "@talelk/newui-templates";
 import type { Attempt, Check, Task, TaskNeed, TaskSummary } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
@@ -11,14 +13,10 @@ import { Chain } from "../components/Chain";
 import { Evidence } from "../components/Evidence";
 import { Markdown } from "../components/Markdown";
 import { PlanEditor } from "../components/PlanEditor";
-import { ConfirmButton, Details, Failure, Icon, Keyed, needText, PageHead, Ready, StateWord } from "../components/bits";
+import { ConfirmButton, Details, Failure, Icon, Keyed, needText, NeedsMark, Ready, StateWord } from "../components/bits";
+import { Head } from "../components/Shell";
 
-const Part = (props: { title: string; aside?: JSX.Element; children: JSX.Element }): JSX.Element => (
-  <section class="border-t border-rule py-6 first:border-t-0 first:pt-0">
-    <div class="mb-3 flex items-baseline justify-between gap-3"><h3 class="t-head text-ink">{props.title}</h3><Show when={props.aside}><span class="t-small text-ink-3">{props.aside}</span></Show></div>
-    {props.children}
-  </section>
-);
+const Part = (props: { title: string; aside?: JSX.Element; children: JSX.Element }): JSX.Element => <Section title={props.title} headingLevel={3} actions={props.aside ? <span class="t-small text-ink-3">{props.aside}</span> : undefined} class="border-t border-outline-gray-1 py-5 first:border-t-0 first:pt-0">{props.children}</Section>;
 
 /** A person's own check or sign-off: pass it, or send it back with what to fix. */
 function Verdict(props: { task: Task; passLabel: string }): JSX.Element {
@@ -48,8 +46,8 @@ function Needs(props: { task: Task; need: TaskNeed; onSelect: (id: string) => vo
   const approval = () => props.task.approvals.find((entry) => props.need.kind === "approval" && entry.id === props.need.approvalId);
   const candidates = (): Attempt[] => (props.need.kind === "judge" ? props.task.attempts.filter((attempt) => (props.need as { attemptIds: readonly string[] }).attemptIds.includes(attempt.id)) : []);
   return (
-    <section class="mb-6 rounded-[20px] border border-(--needs-line) bg-sheet p-5" aria-label={t("state.needs_you")}>
-      <p class="mb-3 inline-flex items-center gap-2 t-small font-semibold text-needs-text"><span class="h-[1.0625rem] w-[0.6875rem] rounded-full border-[2.5px] border-needs-mark" aria-hidden="true" />{needText(props.need)}</p>
+    <section class="mb-6 rounded-card border border-(--needs-line) bg-surface-elevation-1 p-4" aria-label={t("state.needs_you")}>
+      <p class="mb-3 inline-flex items-center gap-2 t-small font-semibold text-needs-text"><NeedsMark />{needText(props.need)}</p>
       <Show when={place.can("member") || props.need.kind === "approval"} fallback={<p class="t-text text-ink-2">{t("need.viewer")}</p>}>
         <Switch>
           <Match when={props.need.kind === "confirm-plan"}>
@@ -58,7 +56,7 @@ function Needs(props: { task: Task; need: TaskNeed; onSelect: (id: string) => vo
             <Failure error={confirm.error()} class="mt-3" />
             <div class="mt-4"><Button variant="solid" theme="blue" size="lg" loading={confirm.busy()} onClick={() => void confirm.run()}>{t("plan.confirm")}</Button></div>
           </Match>
-          <Match when={approval()}>{(entry) => <ApprovalView approval={entry()} diff="show" />}</Match>
+          <Match when={approval()}>{(entry) => <ApprovalView approval={entry()} workspaceId={place.id()} canDecide={place.can("member")} diff="show" />}</Match>
           <Match when={props.need.kind === "answer" && props.need}>
             {(asked) => (
               <form class="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); void send.run(); }}>
@@ -138,18 +136,13 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
   const skipped = (): boolean => task().state === "done" && task().result === "skipped";
   return (
     <article aria-label={task().title}>
-      <header class="mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-        <div class="min-w-0">
-          <h2 class="t-title text-ink"><bdi>{props.isGoal ? t("chain.goal") : titleOf(task())}</bdi></h2>
-          <p class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1"><StateWord state={task().state} /><Show when={task().agent}><span class="t-small text-ink-2">{t("task.agent", { agent: task().agent ?? "" })}</span></Show></p>
-        </div>
+      <DetailHeader class="mb-5" headingLevel={2} title={<bdi>{props.isGoal ? t("chain.goal") : titleOf(task())}</bdi>}
+        subtitle={<span class="flex flex-wrap items-center gap-x-3 gap-y-1"><StateWord state={task().state} /><Show when={task().agent}><span>{t("task.agent", { agent: task().agent ?? "" })}</span></Show></span>}>
         <Show when={place.can("member")}>
-          <div class="flex items-center gap-2">
-            <Show when={task().state === "failed" || task().state === "stopped"}><Button variant="outline" size="md" iconLeft="lucide-rotate-cw" loading={retry.busy()} onClick={() => void retry.run()}>{t("task.retry")}</Button></Show>
-            <Show when={open()}><ConfirmButton label={props.isGoal ? t("task.stop.goal") : t("task.stop")} confirm={t("task.stop.confirm")} busy={stop.busy()} onConfirm={() => void stop.run()} icon="lucide-square" /></Show>
-          </div>
+          <Show when={task().state === "failed" || task().state === "stopped"}><Button variant="outline" size="md" iconLeft="lucide-rotate-cw" loading={retry.busy()} onClick={() => void retry.run()}>{t("task.retry")}</Button></Show>
+          <Show when={open()}><ConfirmButton label={props.isGoal ? t("task.stop.goal") : t("task.stop")} confirm={t("task.stop.confirm")} busy={stop.busy()} onConfirm={() => void stop.run()} icon="lucide-square" /></Show>
         </Show>
-      </header>
+      </DetailHeader>
       <Failure error={stop.error() ?? retry.error()} class="mb-4" />
       <Show when={task().needs}>{(need) => <Needs task={task()} need={need()} onSelect={props.onSelect} onOrder={props.onOrder} />}</Show>
 
@@ -186,7 +179,7 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
       </Show>
       <Show when={decided().length > 0}>
         <Part title={t("task.approvals")}>
-          <ul class="flex flex-col gap-5"><Keyed each={decided()} by={(approval) => approval.id}>{(approval) => <li><ApprovalView approval={approval()} diff="show" /></li>}</Keyed></ul>
+          <ul class="flex flex-col gap-5"><Keyed each={decided()} by={(approval) => approval.id}>{(approval) => <li><ApprovalView approval={approval()} workspaceId={place.id()} canDecide={place.can("member")} diff="show" /></li>}</Keyed></ul>
         </Part>
       </Show>
       <Show when={task().pullRequests.length > 0}>
@@ -229,13 +222,13 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
   );
 }
 
-/** One goal: its chain down the leading side, and beside it what is recorded for the selected link. */
+/** One goal: its chain of sub-tasks in the start pane, and in the end pane what is recorded for the selected link. */
 export default function TaskScreen(): JSX.Element {
   const place = usePlace();
   const params = useParams<{ taskId: string }>();
   const [search, setSearch] = useSearchParams<{ link?: string }>();
   const [order, setOrder] = createSignal<readonly string[]>();
-  let detail: HTMLDivElement | undefined;
+  const [pane, setPane] = createSignal<"start" | "end">("end");
   const record = useQuery("task.get", () => ({ workspaceId: place.id(), taskId: params.taskId }));
   /** The link shown beside the chain: the one in the address, else the first that needs a person, else the one running, else the goal. */
   const selectedId = createMemo((): string => {
@@ -247,33 +240,35 @@ export default function TaskScreen(): JSX.Element {
   });
   const sub = useQuery("task.get", () => (selectedId() === params.taskId ? undefined : { workspaceId: place.id(), taskId: selectedId() }));
   const selected = (): Task | undefined => (selectedId() === params.taskId ? record.data() : sub.data());
-  const select = (id: string): void => {
-    setSearch({ link: id }, { replace: true });
-    if (window.innerWidth < 1024) detail?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
-  };
+  const select = (id: string): void => { setSearch({ link: id }, { replace: true }); setPane("end"); };
   return (
     <Ready data={record.data()} error={record.error()} retry={record.refetch}>
       {(task) => (
         <>
-          <PageHead title={<span dir="auto">{task().title}</span>}
-            back={task().parentId ? { href: place.to(`/tasks/${task().rootId}?link=${task().id}`), label: t("task.back.goal") } : { href: place.to("/tasks"), label: t("nav.tasks") }}
-            text={<>
+          <Head title={<bdi>{task().title}</bdi>} text={task().title}
+            breadcrumbs={[{ label: t("nav.overview"), route: "/" }, { label: place.summary().name, route: place.to() }, { label: t("nav.tasks"), route: place.to("/tasks") }, ...(task().parentId ? [{ label: t("task.back.goal"), route: place.to(`/tasks/${task().rootId}?link=${task().id}`) }] : [])]}
+            description={<>
               {task().createdByName ? t("task.started.by", { name: task().createdByName ?? "", when: ago(task().createdAt) }) : t("task.started", { when: ago(task().createdAt) })}
               <Show when={task().play}> {t("task.started.play", { play: place.workspace.data()?.snapshot.plays[task().play ?? ""]?.title ?? task().play ?? "" })}</Show>
               <Show when={task().usage.microUsd > 0}> {t(task().finishedAt ? "task.cost.total" : "task.cost.soFar", { cost: money(task().usage.microUsd) })}</Show>
             </>} />
-          <div class="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(17rem,23rem)_minmax(0,1fr)]">
-            <div class="lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:pe-1">
-              <Chain record={task()} order={task().needs?.kind === "confirm-plan" ? order() : undefined} selected={selectedId()} onSelect={select} />
-              <Show when={task().subtasks.length === 0 && task().state === "running"}><p class="ms-11 mt-3 t-small text-ink-3">{t("task.planning")}</p></Show>
-            </div>
-            <div ref={detail} class="min-w-0 scroll-mt-20 rounded-[24px] border border-rule bg-sheet p-5 sm:p-8">
-              <Show when={selected()} fallback={<Failure error={sub.error()} retry={sub.refetch} />}>
-                {(current) => <Detail task={current()} isGoal={current().id === task().id} onSelect={select} onOrder={setOrder} />}
-              </Show>
-            </div>
-          </div>
-          <Show when={task().parentId}><p class="mt-6 t-small text-ink-3"><A class="link" href={place.to(`/tasks/${task().rootId}`)}>{t("task.back.goal")}</A></p></Show>
+          <PaneLayout active={pane()} defaultSize={34} minStartSize={26} maxStartSize={50} resizeLabel={t("task.resize")} class="gap-0"
+            start={
+              <div class="lg:sticky lg:top-3 lg:max-h-[calc(100dvh-9rem)] lg:overflow-y-auto lg:pe-5">
+                <Chain record={task()} order={task().needs?.kind === "confirm-plan" ? order() : undefined} selected={selectedId()} onSelect={select} />
+                <Show when={task().subtasks.length === 0 && task().state === "running"}><p class="ms-11 mt-3 t-small text-ink-3">{t("task.planning")}</p></Show>
+              </div>
+            }
+            end={
+              <div class="min-w-0 lg:ps-6">
+                <Button variant="ghost" size="md" iconLeft="lucide-chevron-left" class="mb-3 lg:hidden" onClick={() => setPane("start")}>{t("chain.label")}</Button>
+                <div class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-5 sm:p-6">
+                  <Show when={selected()} fallback={<Failure error={sub.error()} retry={sub.refetch} />}>
+                    {(current) => <Detail task={current()} isGoal={current().id === task().id} onSelect={select} onOrder={setOrder} />}
+                  </Show>
+                </div>
+              </div>
+            } />
         </>
       )}
     </Ready>

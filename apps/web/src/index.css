@@ -13,6 +13,12 @@
 @source not "../node_modules/@talelk/newui-atoms/src/**/*.test.{ts,tsx}";
 @source "../node_modules/@talelk/newui-molecules/src/**/*.{ts,tsx}";
 @source not "../node_modules/@talelk/newui-molecules/src/**/*.test.{ts,tsx}";
+@source "../node_modules/@talelk/newui-organisms/src/**/*.{ts,tsx}";
+@source not "../node_modules/@talelk/newui-organisms/src/**/*.test.{ts,tsx}";
+@source "../node_modules/@talelk/newui-templates/src/**/*.{ts,tsx}";
+@source not "../node_modules/@talelk/newui-templates/src/**/*.test.{ts,tsx}";
+@source "../node_modules/@talelk/newui-charts/src/**/*.{ts,tsx}";
+@source not "../node_modules/@talelk/newui-charts/src/**/*.test.{ts,tsx}";
 
 /*
  * Brain's palette, written once and wired through the design system's own variables.
@@ -111,6 +117,32 @@
   --focus-outline-default: 2px solid #5b3df5;
   --focus-outline-blue: 2px solid #5b3df5;
   --surface-scrim: rgb(26 20 70 / 0.32);
+  /* Status colours of the design system's themes: green is a checked result, red a failure. Amber is never used: orange is only "needs you". */
+  --surface-green-1: #f0faf4;
+  --surface-green-2: var(--ok-soft);
+  --surface-green-6: var(--ok-mark);
+  --surface-green-7: var(--ok);
+  --surface-green-8: var(--ok);
+  --ink-green-5: var(--ok-mark);
+  --ink-green-6: var(--ok);
+  --ink-green-7: var(--ok);
+  --ink-green-8: var(--ok);
+  --surface-red-1: #fff6f7;
+  --surface-red-2: var(--bad-soft);
+  --surface-red-7: var(--bad);
+  --surface-red-8: var(--bad);
+  --ink-red-6: var(--bad);
+  --ink-red-7: var(--bad);
+  --ink-red-8: var(--bad);
+  /* Chart series: violets, blues, teal and magenta; never the orange of "needs you", the green of "checked" or the red of "failed". */
+  --chart-1: #5b3df5;
+  --chart-2: #0e8fb5;
+  --chart-3: #c2338b;
+  --chart-4: #2a2456;
+  --chart-5: #8a6dff;
+  --chart-6: #127c74;
+  --chart-7: #3e6be0;
+  --chart-8: #8f89bd;
 }
 
 [data-theme="dark"] {
@@ -192,6 +224,30 @@
   --focus-outline-default: 2px solid #a796ff;
   --focus-outline-blue: 2px solid #a796ff;
   --surface-scrim: rgb(5 3 20 / 0.7);
+  --surface-green-1: #0e2a22;
+  --surface-green-2: var(--ok-soft);
+  --surface-green-6: var(--ok-mark);
+  --surface-green-7: var(--ok);
+  --surface-green-8: var(--ok);
+  --ink-green-5: var(--ok-mark);
+  --ink-green-6: var(--ok);
+  --ink-green-7: var(--ok);
+  --ink-green-8: var(--ok);
+  --surface-red-1: #2e101c;
+  --surface-red-2: var(--bad-soft);
+  --surface-red-7: var(--bad);
+  --surface-red-8: var(--bad);
+  --ink-red-6: var(--bad);
+  --ink-red-7: var(--bad);
+  --ink-red-8: var(--bad);
+  --chart-1: #a796ff;
+  --chart-2: #5cc8e8;
+  --chart-3: #f07cc0;
+  --chart-4: #dcd7f7;
+  --chart-5: #c3b6ff;
+  --chart-6: #4fcdbf;
+  --chart-7: #7fa0ff;
+  --chart-8: #7770b3;
 }
 
 @theme inline {
@@ -347,7 +403,7 @@ body {
 .goal-box {
   background: var(--sheet);
   border: 2px solid var(--ink);
-  border-radius: 28px;
+  border-radius: 20px;
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .goal-box:focus-within {

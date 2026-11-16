@@ -1,11 +1,14 @@
 import { createSignal, Show, type JSX } from "solid-js";
 import { Button, TextInput } from "@talelk/newui-atoms";
+import { EmptyState } from "@talelk/newui-molecules";
+import { Section, StatGrid } from "@talelk/newui-organisms";
 import type { AuditVerifyResult, Health, Runner } from "@brain/contracts";
 import { command, query, useAction, useQuery } from "../data/api";
 import { usePlace, useSession } from "../data/session";
 import { t, tn } from "../i18n";
 import { ago, count, dateTime } from "../lib/format";
-import { Code, ConfirmButton, Empty, Failure, Icon, Keyed, PageHead, Ready, Section } from "../components/bits";
+import { Code, ConfirmButton, Failure, Icon, Keyed, Ready } from "../components/bits";
+import { Head } from "../components/Shell";
 
 /** Good or not, as a word with its own shape. */
 const Sign = (props: { ok: boolean; yes: string; no: string }): JSX.Element => (
@@ -15,7 +18,7 @@ const Sign = (props: { ok: boolean; yes: string; no: string }): JSX.Element => (
 function RunnerRow(props: { runner: Runner; admin: boolean }): JSX.Element {
   const remove = useAction(() => command("runner.remove", { runnerId: props.runner.id }));
   return (
-    <li class="border-b border-rule py-3 last:border-b-0">
+    <li class="border-b border-outline-gray-1 py-3 last:border-b-0">
       <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
         <p class="min-w-0 flex-1 basis-40 truncate t-text font-semibold text-ink">{props.runner.name}</p>
         <Sign ok={props.runner.online} yes={t("health.runner.online")} no={t("health.runner.offline")} />
@@ -39,7 +42,7 @@ function AddRunner(): JSX.Element {
   const make = useAction(async () => { setCopied(false); setMade(await command("runner.token", name().trim() ? { name: name().trim() } : {})); });
   const line = (): string => `pnpm brain runner --governor ${location.origin} --token ${made()?.token ?? ""}`;
   return (
-    <div class="mt-5 rounded-[20px] border border-rule bg-sheet p-5">
+    <div class="mt-4 rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-5">
       <h3 class="t-head text-ink">{t("health.runner.add")}</h3>
       <p class="mt-1 max-w-[62ch] t-small text-ink-2">{t("health.runner.add.text")}</p>
       <Show when={made()} fallback={
@@ -96,40 +99,47 @@ export default function HealthScreen(): JSX.Element {
   const health = useQuery("health", () => ({ workspaceId: place.id() }));
   const admin = (): boolean => session.user().instanceAdmin;
   return (
-    <div class="mx-auto max-w-[52rem]">
-      <PageHead title={t("nav.health")} text={t("health.text")} />
+    <>
+      <Head title={t("nav.health")} text={t("nav.health")} description={t("health.text")} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.health") }]} />
       <Ready data={health.data()} error={health.error()} retry={health.refetch}>
         {(loaded) => (
-          <>
-            <Section title={t("health.runners")} aside={t("health.runners.aside")} class="mt-0">
-              <Show when={loaded().runners.length > 0} fallback={<Empty title={t("health.runners.none")} text={t("health.runners.none.text")} />}>
-                <ul><Keyed each={loaded().runners} by={(runner) => runner.id}>{(runner) => <RunnerRow runner={runner()} admin={admin()} />}</Keyed></ul>
-              </Show>
-              <Show when={admin()}><AddRunner /></Show>
-            </Section>
-            <Section title={t("health.models")}>
-              <Show when={loaded().models.length > 0} fallback={<Empty title={t("health.models.none")} text={t("health.models.none.text")}><Button variant="outline" size="md" route={place.to()}>{t("health.models.connect")}</Button></Empty>}>
-                <ul>
-                  <Keyed each={loaded().models} by={(model) => model.name}>
-                    {(model) => (
-                      <li class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-rule py-3 last:border-b-0">
-                        <code class="t-code code-ltr font-medium text-ink">{model().name}</code>
-                        <Sign ok={model().reachable} yes={t("health.models.reachable")} no={t("health.models.unreachable")} />
-                        <span class="min-w-0 flex-1 basis-48 t-small text-ink-2">{model().detail}</span>
-                      </li>
-                    )}
-                  </Keyed>
-                </ul>
-              </Show>
-            </Section>
-            <Section title={t("health.audit")} aside={t("health.audit.aside")}><Audit audit={loaded().audit} admin={admin()} /></Section>
-            <Section title={t("health.backup")}>
-              <p class="t-text text-ink-2">{loaded().backup.lastAt ? t("health.backup.last", { when: ago(loaded().backup.lastAt ?? 0), date: dateTime(loaded().backup.lastAt ?? 0) }) : t("health.backup.none")}</p>
-            </Section>
-            <p class="mt-10 t-small text-ink-3">{t("health.version", { version: loaded().version })}</p>
-          </>
+          <div class="flex flex-col gap-6">
+            <StatGrid columns={4} stats={[
+              { label: t("health.runners"), icon: "lucide-server", value: `${loaded().runners.filter((runner) => runner.online).length} / ${loaded().runners.length}`, hint: t("health.runners.aside") },
+              { label: t("health.models"), icon: "lucide-brain-circuit", value: loaded().models.length === 0 ? "—" : `${loaded().models.filter((model) => model.reachable).length} / ${loaded().models.length}`, hint: t("overview.health.models.hint") },
+              { label: t("health.audit"), icon: "lucide-shield-check", value: loaded().audit.problem === null ? t("health.audit.ok") : t("health.audit.problem"), hint: tn("health.audit.events", loaded().audit.events, { n: count(loaded().audit.events) }) },
+              { label: t("health.backup"), icon: "lucide-archive", value: loaded().backup.lastAt ? ago(loaded().backup.lastAt ?? 0) : "—", hint: loaded().backup.lastAt ? dateTime(loaded().backup.lastAt ?? 0) : t("health.backup.none") },
+            ]} />
+            <div class="grid items-start gap-6 xl:grid-cols-2">
+              <Section title={t("health.runners")} description={t("health.runners.aside")} headingLevel={2}>
+                <Show when={loaded().runners.length > 0} fallback={<EmptyState size="sm" bordered icon="lucide-server-off" title={t("health.runners.none")} description={t("health.runners.none.text")} />}>
+                  <ul class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 px-4"><Keyed each={loaded().runners} by={(runner) => runner.id}>{(runner) => <RunnerRow runner={runner()} admin={admin()} />}</Keyed></ul>
+                </Show>
+                <Show when={admin()}><AddRunner /></Show>
+              </Section>
+              <div class="flex flex-col gap-6">
+                <Section title={t("health.models")} headingLevel={2}>
+                  <Show when={loaded().models.length > 0} fallback={<EmptyState size="sm" bordered icon="lucide-brain-circuit" title={t("health.models.none")} description={t("health.models.none.text")} action={<Button variant="outline" size="md" route={place.to()}>{t("health.models.connect")}</Button>} />}>
+                    <ul class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 px-4">
+                      <Keyed each={loaded().models} by={(model) => model.name}>
+                        {(model) => (
+                          <li class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-outline-gray-1 py-3 last:border-b-0">
+                            <code class="t-code code-ltr font-medium text-ink">{model().name}</code>
+                            <Sign ok={model().reachable} yes={t("health.models.reachable")} no={t("health.models.unreachable")} />
+                            <span class="min-w-0 flex-1 basis-48 t-small text-ink-2">{model().detail}</span>
+                          </li>
+                        )}
+                      </Keyed>
+                    </ul>
+                  </Show>
+                </Section>
+                <Section title={t("health.audit")} description={t("health.audit.aside")} headingLevel={2}><div class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-4"><Audit audit={loaded().audit} admin={admin()} /></div></Section>
+              </div>
+            </div>
+            <p class="t-small text-ink-3">{t("health.version", { version: loaded().version })}</p>
+          </div>
         )}
       </Ready>
-    </div>
+    </>
   );
 }

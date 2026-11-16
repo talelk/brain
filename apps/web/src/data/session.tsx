@@ -1,5 +1,5 @@
-import { createContext, useContext, type Accessor, type JSX } from "solid-js";
-import type { Role, Today, User, Workspace, WorkspaceSummary } from "@brain/contracts";
+import { createContext, createEffect, createSignal, useContext, type Accessor, type JSX } from "solid-js";
+import type { Overview, Role, Today, User, Workspace, WorkspaceSummary } from "@brain/contracts";
 import { roleAtLeast } from "../lib/model";
 import { useQuery, type Loaded } from "./api";
 
@@ -7,9 +7,13 @@ import { useQuery, type Loaded } from "./api";
 export interface Session {
   readonly user: Accessor<User>;
   readonly workspaces: Accessor<readonly WorkspaceSummary[]>;
+  /** What all the person's workspaces are doing: the Overview, and the counts beside each workspace in the sidebar. */
+  readonly overview: Loaded<Overview>;
   readonly refetch: () => void;
 }
 const SessionContext = createContext<Session>();
+/** The recent goals of the open workspace, for the search of the top bar; the Overview supplies those of the others. */
+export const [recentGoals, setRecentGoals] = createSignal<ReadonlyArray<{ rootId: string; title: string; workspaceId: string }>>([]);
 export const SessionProvider = (props: { value: Session; children: JSX.Element }): JSX.Element => <SessionContext.Provider value={props.value}>{props.children}</SessionContext.Provider>;
 export function useSession(): Session {
   const value = useContext(SessionContext);
@@ -38,6 +42,7 @@ export function PlaceProvider(props: { summary: Accessor<WorkspaceSummary>; chil
     to: (path = "") => `/w/${props.summary().slug}${path}`,
     can: (need) => roleAtLeast(props.summary().role, need),
   };
+  createEffect(() => setRecentGoals((place.today.data()?.recent ?? []).map((task) => ({ rootId: task.rootId, title: task.goalTitle, workspaceId: task.workspaceId }))));
   return <PlaceContext.Provider value={place}>{props.children}</PlaceContext.Provider>;
 }
 export function usePlace(): Place {

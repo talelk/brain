@@ -31,6 +31,26 @@ async function probe(gov: Gov, workspaceId: string, model: ReturnType<typeof act
   }
 }
 
+/** Whether a model answers, asked at most once a minute. */
+export function modelHealth(gov: Gov, workspaceId: string, model: ReturnType<typeof activeManifest>["models"][number], now: number): Promise<ModelHealth> {
+  const known = probes.get(gov) ?? new Map<string, { at: number; answer: ModelHealth }>();
+  probes.set(gov, known);
+  const id = `${workspaceId}\n${model.name}\n${model.url}`;
+  const recent = known.get(id);
+  if (recent && now - recent.at < FRESH_FOR_MS) return Promise.resolve(recent.answer);
+  return probe(gov, workspaceId, model).then((answer) => { known.set(id, { at: now, answer }); return answer; });
+}
+
+/** The first problem the audit log's verification found, or null; verifying reads the whole log, so one verification serves a minute of readers. */
+export function auditProblem(gov: Gov, now: number): string | null {
+  let audit = audits.get(gov);
+  if (!audit || now - audit.at >= FRESH_FOR_MS) {
+    const result = verify(gov.db);
+    audits.set(gov, (audit = { at: now, problem: result.ok ? null : (result.break?.detail ?? "The audit log does not verify") }));
+  }
+  return audit.problem;
+}
+
 export function registerHealth({ gov, app }: Governor): void {
   // The container's health check: the process answers and its database reads.
   app.get("/health/ready", (c) => {
@@ -40,28 +60,13 @@ export function registerHealth({ gov, app }: Governor): void {
 
   gov.registry.query("health", async (ctx, input) => {
     const now = ctx.now();
-    const known = probes.get(gov) ?? new Map<string, { at: number; answer: ModelHealth }>();
-    probes.set(gov, known);
-    const models = await Promise.all(activeManifest(gov, input.workspaceId).models.map(async (model) => {
-      const id = `${input.workspaceId}\n${model.name}\n${model.url}`;
-      const recent = known.get(id);
-      if (recent && now - recent.at < FRESH_FOR_MS) return recent.answer;
-      const answer = await probe(gov, input.workspaceId, model);
-      known.set(id, { at: now, answer });
-      return answer;
-    }));
-    // Verifying reads the whole log, so one verification serves a minute of readers.
-    let audit = audits.get(gov);
-    if (!audit || now - audit.at >= FRESH_FOR_MS) {
-      const result = verify(ctx.db);
-      audits.set(gov, (audit = { at: now, problem: result.ok ? null : (result.break?.detail ?? "The audit log does not verify") }));
-    }
+    const models = await Promise.all(activeManifest(gov, input.workspaceId).models.map((model) => modelHealth(gov, input.workspaceId, model, now)));
     const marker = join(gov.dataDir, "backup.marker");
     return {
       version: VERSION, runners: listRunners(gov), models,
       audit: {
         events: (ctx.db.prepare("SELECT COALESCE(MAX(seq), 0) AS n FROM events").get() as { n: number }).n,
-        lastCheckpointAt: (ctx.db.prepare("SELECT MAX(created_at_ms) AS at FROM audit_checkpoints").get() as { at: number | null }).at, problem: audit.problem,
+        lastCheckpointAt: (ctx.db.prepare("SELECT MAX(created_at_ms) AS at FROM audit_checkpoints").get() as { at: number | null }).at, problem: auditProblem(gov, now),
       },
       // The backup command leaves this file; its time is when the last backup finished.
       backup: { lastAt: existsSync(marker) ? Math.round(statSync(marker).mtimeMs) : null },

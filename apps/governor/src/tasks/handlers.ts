@@ -27,7 +27,7 @@ const summary = (row: SummaryRow): TaskSummary => ({
   play: row.root_play, stepId: row.step_id, round: row.round, microUsd: row.micro_usd, createdAt: row.created_at_ms, updatedAt: row.updated_at_ms, finishedAt: row.finished_at_ms,
   ...(row.created_by_name !== null ? { createdByName: row.created_by_name } : {}), waitingForYou: row.waiting_for_you,
 });
-const summaries = (db: Db, where: string, ...values: unknown[]): TaskSummary[] => (db.prepare(`${SUMMARY} WHERE ${where}`).all(...values) as SummaryRow[]).map(summary);
+export const summaries = (db: Db, where: string, ...values: unknown[]): TaskSummary[] => (db.prepare(`${SUMMARY} WHERE ${where}`).all(...values) as SummaryRow[]).map(summary);
 const waitsFor = (db: Db, taskId: string): string[] => (db.prepare("SELECT waits_for FROM task_deps WHERE task_id=?").all(taskId) as Array<{ waits_for: string }>).map((dep) => dep.waits_for);
 
 /** A task and everything under it, as a condition on a task id column. */

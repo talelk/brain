@@ -1,4 +1,4 @@
-import { expect, signIn, starter, test } from "./stack";
+import { expect, openWorkspace, signIn, starter, test } from "./stack";
 
 const planner = `You are the planner.
 FIXTURE @plan json {"summary": "Research, then write.", "tasks": [{"title": "Research", "goal": "Find the facts.\\\\nFIXTURE @work reply The facts: the moon pulls the sea.", "agent": "worker", "after": []}, {"title": "Write", "goal": "Write it up.\\\\nFIXTURE @work reply Written from the facts.", "agent": "worker", "after": ["Research"]}]}
@@ -13,6 +13,7 @@ test("a typed goal gets a plan that the person changes, confirms and sees finish
     "agents/editor/prompt.md": "You are the editor.\n",
   });
   await signIn(page, stack);
+  await openWorkspace(page, "Starter");
 
   await page.getByRole("textbox", { name: "Your goal" }).fill("Explain how tides work\nfor a school magazine.");
   await page.getByRole("button", { name: "Start", exact: true }).click();

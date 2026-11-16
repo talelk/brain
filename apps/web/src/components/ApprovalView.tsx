@@ -4,7 +4,6 @@ import { Button, Textarea } from "@talelk/newui-atoms";
 import type { Approval, JsonValue } from "@brain/contracts";
 import { command, useAction } from "../data/api";
 import { invalidate } from "../data/live";
-import { usePlace } from "../data/session";
 import { t } from "../i18n";
 import { ago, dateTime, shortHash, show } from "../lib/format";
 import { ArtifactDiff } from "./Diff";
@@ -16,20 +15,18 @@ const fields = (input: JsonValue): Array<[string, JsonValue]> => (input !== null
  * One approval, showing exactly what the API says the approver is shown: the tool, its inputs, the task it is for and, for a pull request,
  * the diff that would be opened. The decision is sent with the digest of that subject, so a changed call cannot be approved by mistake.
  */
-export function ApprovalView(props: { approval: Approval; diff?: "show" | "link"; href?: string }): JSX.Element {
-  const place = usePlace();
+export function ApprovalView(props: { approval: Approval; workspaceId: string; canDecide: boolean; diff?: "show" | "link"; href?: string }): JSX.Element {
   const [rejecting, setRejecting] = createSignal(false);
   const [reason, setReason] = createSignal("");
   const decide = useAction(async (decision: "approve" | "reject") => {
     try {
-      await command("approval.decide", { workspaceId: place.id(), approvalId: props.approval.id, decision, subjectDigest: props.approval.subjectDigest, reason: reason() });
+      await command("approval.decide", { workspaceId: props.workspaceId, approvalId: props.approval.id, decision, subjectDigest: props.approval.subjectDigest, reason: reason() });
     } catch (error) {
       invalidate(true);
       throw error;
     }
   });
   const approval = (): Approval => props.approval;
-  const taskHref = (): string => place.to(`/tasks/${approval().taskId}`);
   return (
     <div class="flex flex-col gap-3">
       <p class="t-text text-ink">
@@ -44,7 +41,7 @@ export function ApprovalView(props: { approval: Approval; diff?: "show" | "link"
       </dl>
       <Show when={approval().subject.patchDigest}>
         {(digest) => (
-          <Show when={props.diff === "show"} fallback={<p class="t-small text-ink-2">{t("approval.diff.link")} <A href={props.href ?? taskHref()} class="link">{t("approval.diff.open")}</A></p>}>
+          <Show when={props.diff === "show"} fallback={<p class="t-small text-ink-2">{t("approval.diff.link")} <A href={props.href ?? "#"} class="link">{t("approval.diff.open")}</A></p>}>
             <div><p class="mb-2 t-small font-medium text-ink-2">{t("approval.diff.title")}</p><ArtifactDiff digest={digest()} /></div>
           </Show>
         )}
@@ -55,7 +52,7 @@ export function ApprovalView(props: { approval: Approval; diff?: "show" | "link"
           <Show when={approval().reason}> {t("approval.reason", { reason: approval().reason ?? "" })}</Show>
         </p>
       }>
-        <Show when={place.can("member")} fallback={<p class="t-small text-ink-2">{t("approval.viewer")}</p>}>
+        <Show when={props.canDecide} fallback={<p class="t-small text-ink-2">{t("approval.viewer")}</p>}>
           <Show when={rejecting()}>
             <Textarea size="md" label={t("approval.reject.reason")} description={t("approval.reject.help")} value={reason()} onInput={(event) => setReason(event.currentTarget.value)} rows={2} autofocus />
           </Show>

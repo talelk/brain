@@ -1,4 +1,4 @@
-import { expect, signIn, starter, test } from "./stack";
+import { expect, openWorkspace, signIn, starter, test } from "./stack";
 
 const operator = 'description = "Restarts containers."\nengine = ["pi"]\nnative = "none"\ntools = ["deploy.restart"]\n[limits]\nturns = 5\ntokens = 20000\nspend_usd = 0\n';
 const restart = 'description = "Restarts one container."\neffect = "privileged"\nneeds = ["bash"]\n[inputs.container]\ntype = "string"\nrequired = true\n';
@@ -13,6 +13,7 @@ test.beforeEach(async ({ page, stack }) => {
     "plays/restart.toml": play,
   });
   await signIn(page, stack);
+  await openWorkspace(page, "Starter");
   await page.getByRole("button", { name: "Restart a container" }).click();
   await page.getByRole("button", { name: "Start", exact: true }).click();
 });
@@ -21,8 +22,8 @@ test("a call with an effect waits on Today until a person approves exactly it, t
   await page.getByRole("link", { name: "Today" }).first().click();
   const card = page.getByRole("listitem").filter({ hasText: "operator wants to run" });
   await expect(card.getByText("Approve a call")).toBeVisible();
-  await expect(card.getByText("deploy.restart", { exact: true })).toBeVisible();
-  await expect(card.getByText("web-1")).toBeVisible();
+  await expect(card.getByText("deploy.restart", { exact: true }).first()).toBeVisible();
+  await expect(card.getByText("web-1").first()).toBeVisible();
   await card.getByRole("button", { name: "Approve this call" }).click();
   await expect(card).toBeHidden();
 

@@ -1,6 +1,6 @@
 import { createEffect, createSignal, on, onCleanup, type Accessor } from "solid-js";
 import type { ApiError, ApiResponse, CommandOutputs, CommandRequest, CommandType, ErrorCode, Problem, QueryOutputs, QueryRequest, QueryType } from "@brain/contracts";
-import { invalidate, subscribe } from "./live";
+import { invalidate, markFresh, subscribe } from "./live";
 
 /** A refusal from the Governor, or a request that never reached it (`NETWORK`). */
 export class ApiFailure extends Error {
@@ -53,6 +53,7 @@ export function useLive<T>(key: Accessor<string | undefined>, load: () => Promis
         const text = JSON.stringify(value);
         if (text !== seen || data() === undefined) { seen = text; setData(() => value); }
         setError(undefined);
+        markFresh(Date.now());
       },
       (reason: unknown) => { if (mine === generation) setError(reason instanceof ApiFailure ? reason : new ApiFailure("INTERNAL", String(reason))); },
     );

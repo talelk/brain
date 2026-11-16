@@ -1,138 +1,234 @@
-import { For, Show, type JSX } from "solid-js";
-import { A, useLocation, useNavigate } from "@solidjs/router";
-import { Menu } from "@talelk/newui-molecules";
+import { createContext, createEffect, createMemo, createSignal, For, onCleanup, Show, useContext, type JSX, type Setter } from "solid-js";
+import { useLocation, useNavigate } from "@solidjs/router";
+import { Avatar, Button, KeyboardShortcut } from "@talelk/newui-atoms";
+import { Menu, type BreadcrumbItem } from "@talelk/newui-molecules";
+import { CommandGroup, CommandItem, CommandPalette, SidebarItem, SidebarLabel, useSidebar } from "@talelk/newui-organisms";
+import { AppShell } from "@talelk/newui-templates";
 import { authClient } from "../data/auth-client";
-import { usePlace, useSession } from "../data/session";
-import { LOCALES, locale, setLocale, t, type Locale, type MessageKey } from "../i18n";
+import { connected, updatedAt } from "../data/live";
+import { useSession } from "../data/session";
+import { LOCALES, locale, setLocale, t, type Locale } from "../i18n";
+import { ago } from "../lib/format";
 import { setTheme, theme } from "../lib/theme";
-import { Icon } from "./bits";
+import { Icon, NeedsCount } from "./bits";
 
 /** Two links of a chain: the mark of the app. */
 export const Mark = (props: { class?: string }): JSX.Element => (
-  <svg viewBox="0 0 28 28" class={props.class ?? "size-7"} fill="none" stroke="currentColor" stroke-width="3.2" aria-hidden="true">
+  <svg viewBox="0 0 28 28" class={props.class ?? "size-6"} fill="none" stroke="currentColor" stroke-width="3.2" aria-hidden="true">
     <rect x="3" y="3" width="11" height="17" rx="5.5" />
     <rect x="14" y="8" width="11" height="17" rx="5.5" />
   </svg>
 );
 
-const NAV: readonly { path: string; label: MessageKey; icon: string; end?: boolean }[] = [
-  { path: "", label: "nav.today", icon: "lucide-sun", end: true },
-  { path: "/tasks", label: "nav.tasks", icon: "lucide-list-checks" },
-  { path: "/workspace", label: "nav.workspace", icon: "lucide-folder-cog" },
-  { path: "/health", label: "nav.health", icon: "lucide-heart-pulse" },
-];
+/** What the top of a page says: its title, the way back, and its own actions. Each screen declares it with `<Head>`; the shell draws it. */
+interface HeadState { readonly title: JSX.Element; readonly description?: JSX.Element; readonly breadcrumbs?: BreadcrumbItem[]; readonly actions?: JSX.Element }
+const HeadContext = createContext<Setter<HeadState>>();
+export function Head(props: HeadState & { text?: string }): JSX.Element {
+  const set = useContext(HeadContext);
+  createEffect(() => {
+    set?.({ title: props.title, description: props.description, breadcrumbs: props.breadcrumbs, actions: props.actions });
+    document.title = props.text ? `${props.text} · Brain` : "Brain";
+  });
+  return null;
+}
+
 const THEMES = [["light", "theme.light"], ["dark", "theme.dark"], ["system", "theme.system"]] as const;
+const COLLAPSED_KEY = "brain.sidebar";
+const readCollapsed = (): boolean => { try { return localStorage.getItem(COLLAPSED_KEY) === "1"; } catch { return false; } };
+const writeCollapsed = (value: boolean): void => { try { localStorage.setItem(COLLAPSED_KEY, value ? "1" : "0"); } catch { /* a per-browser convenience only */ } };
 
-const menuPanel = "min-w-56 rounded-xl border border-rule bg-sheet p-1.5 shadow-popover";
-const menuItem = "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 t-text text-ink data-[highlighted]:bg-lilac";
-const menuLabel = "px-2.5 pb-1 pt-2 t-small text-ink-3";
+/** The workspace a page is in, from the address. */
+export const slugOf = (pathname: string): string | undefined => /^\/w\/([^/]+)/u.exec(pathname)?.[1];
 
-/** The frame of every signed-in page: a slim bar with the workspace, four places and the account. */
-export function Shell(props: { children: JSX.Element }): JSX.Element {
-  const place = usePlace();
+/** A workspace as a square with its initial; a dot says something there needs the person. */
+function WorkspaceMark(props: { name: string; needs: number }): JSX.Element {
+  const { collapsed } = useSidebar();
+  return <Avatar size="md" shape="square" theme="violet" label={props.name} indicator={props.needs > 0 && collapsed() ? <span class="block size-full rounded-full bg-needs" /> : undefined} />;
+}
+
+function Nav(): JSX.Element {
+  const session = useSession();
   const location = useLocation();
-  const waiting = (): number => { const today = place.today.data(); return today ? today.needsYou.length + today.approvals.filter((approval) => !today.needsYou.some((task) => task.id === approval.taskId)).length : 0; };
-  const active = (item: (typeof NAV)[number]): boolean => { const href = place.to(item.path); return item.end ? location.pathname === href || location.pathname === `${href}/` : location.pathname.startsWith(href); };
-  const links = (compact: boolean): JSX.Element => (
-    <For each={NAV}>
-      {(item) => (
-        <A href={place.to(item.path)} aria-current={active(item) ? "page" : undefined}
-          class={compact
-            ? "relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium text-ink-3 aria-[current=page]:text-ink"
-            : "relative flex items-center gap-2 rounded-full px-3.5 py-1.5 t-text font-medium text-ink-2 hover:bg-lilac hover:text-ink aria-[current=page]:bg-lilac aria-[current=page]:text-ink"}>
-          <Show when={compact}><Icon name={item.icon} class="size-5" /></Show>
-          {t(item.label)}
-          <Show when={item.end && waiting() > 0}>
-            <span class={`rounded-full bg-needs px-1.5 text-[0.6875rem] font-semibold leading-[1.125rem] text-(--on-needs) ${compact ? "absolute end-[22%] top-1.5" : ""}`}><span class="sr-only">{t("nav.needsYou")} </span>{waiting()}</span>
-          </Show>
-        </A>
-      )}
-    </For>
-  );
+  const { collapsed } = useSidebar();
+  const slug = (): string | undefined => slugOf(location.pathname);
+  const here = (path: string): boolean => location.pathname === path || location.pathname === `${path}/`;
+  const needs = (id: string): number => session.overview.data()?.workspaces.find((workspace) => workspace.id === id)?.needsYou ?? 0;
+  const active = (): readonly { id: string; slug: string; name: string }[] => session.workspaces().filter((workspace) => workspace.status === "active");
+  const sub: readonly { path: string; label: "nav.today" | "nav.tasks" | "nav.workspace"; icon: string }[] = [
+    { path: "", label: "nav.today", icon: "lucide-sun" }, { path: "/tasks", label: "nav.tasks", icon: "lucide-list-checks" }, { path: "/workspace", label: "nav.workspace", icon: "lucide-folder-cog" },
+  ];
   return (
-    <div class="min-h-dvh pb-20 md:pb-0">
-      <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:start-3 focus:top-3 focus:z-top focus:rounded-lg focus:bg-sheet focus:px-3 focus:py-2">{t("nav.skip")}</a>
-      <header class="sticky top-0 z-raised border-b border-rule bg-paper">
-        <div class="mx-auto flex h-14 max-w-[86rem] items-center gap-2 px-4 md:gap-4 md:px-8">
-          <A href={place.to()} class="flex items-center gap-2 rounded-lg text-ink" aria-label={t("nav.home")}>
-            <Mark />
-            <span class="font-display text-[1.1875rem] font-semibold tracking-tight max-sm:hidden">Brain</span>
-          </A>
-          <WorkspaceSwitcher />
-          <nav class="ms-2 hidden items-center gap-1 md:flex" aria-label={t("nav.main")}>{links(false)}</nav>
-          <div class="ms-auto"><AccountMenu /></div>
-        </div>
-      </header>
-      <main id="main" class="mx-auto max-w-[86rem] px-4 py-8 md:px-8 md:py-10">{props.children}</main>
-      <nav class="fixed inset-x-0 bottom-0 z-raised grid grid-cols-4 border-t border-rule bg-paper pb-[env(safe-area-inset-bottom)] md:hidden" aria-label={t("nav.main")}>{links(true)}</nav>
+    <div class="flex flex-col gap-0.5">
+      <SidebarItem route="/" icon="lucide-layout-dashboard" active={here("/")}>{t("nav.overview")}</SidebarItem>
+      <div class="mt-3"><SidebarLabel divider>{t("nav.workspaces")}</SidebarLabel></div>
+      <For each={active()}>
+        {(workspace) => (
+          <>
+            <SidebarItem route={`/w/${workspace.slug}`} label={workspace.name} active={slug() === workspace.slug && !location.pathname.slice(`/w/${workspace.slug}`.length).replace(/^\//u, "")}
+              prefix={<span aria-hidden="true"><WorkspaceMark name={workspace.name} needs={needs(workspace.id)} /></span>} suffix={<NeedsCount n={needs(workspace.id)} />}>
+              {workspace.name}
+            </SidebarItem>
+            <Show when={slug() === workspace.slug && !collapsed()}>
+              <div class="ms-3.5 mb-1 flex flex-col gap-0.5 border-s border-outline-gray-1 ps-1.5">
+                <For each={sub}>
+                  {(item) => {
+                    const href = `/w/${workspace.slug}${item.path}`;
+                    return <SidebarItem route={href} icon={item.icon} active={item.path === "" ? here(href) : location.pathname.startsWith(href)}>{t(item.label)}</SidebarItem>;
+                  }}
+                </For>
+              </div>
+            </Show>
+          </>
+        )}
+      </For>
+      <Show when={session.user().instanceAdmin}><SidebarItem route="/new" icon="lucide-plus" active={here("/new")}>{t("nav.newWorkspace")}</SidebarItem></Show>
     </div>
   );
 }
 
-function WorkspaceSwitcher(): JSX.Element {
+
+/** Health and People belong to a workspace: the one the person is in, else the one they were last in, else the first. */
+function Footer(): JSX.Element {
   const session = useSession();
-  const place = usePlace();
+  const location = useLocation();
+  const target = (): string | undefined => {
+    const active = session.workspaces().filter((workspace) => workspace.status === "active");
+    return (active.find((workspace) => workspace.slug === slugOf(location.pathname)) ?? active.find((workspace) => workspace.slug === lastSlug()) ?? active[0])?.slug;
+  };
+  const link = (path: string, label: "nav.health" | "nav.people", icon: string): JSX.Element => (
+    <Show when={target()}>{(slug) => <SidebarItem route={`/w/${slug()}${path}`} icon={icon} active={location.pathname === `/w/${slug()}${path}`}>{t(label)}</SidebarItem>}</Show>
+  );
+  return <>{link("/health", "nav.health", "lucide-heart-pulse")}{link("/people", "nav.people", "lucide-users")}</>;
+}
+
+const LAST_KEY = "brain.workspace";
+export const remember = (slug: string): void => { try { localStorage.setItem(LAST_KEY, slug); } catch { /* a convenience only */ } };
+export const lastSlug = (): string | null => { try { return localStorage.getItem(LAST_KEY); } catch { return null; } };
+
+function Account(props: { compact?: boolean }): JSX.Element {
+  const session = useSession();
   const navigate = useNavigate();
+  const select = (value: string): void => {
+    const [kind, choice] = value.split(":");
+    if (kind === "lang") setLocale(choice as Locale);
+    else if (kind === "theme") setTheme(choice as "light" | "dark" | "system");
+    else void authClient.signOut().finally(() => { session.refetch(); navigate("/"); });
+  };
+  const choice = (value: string, label: string, on: boolean): JSX.Element => (
+    <Menu.Item value={value}><span class="flex-1">{label}</span><Show when={on}><Icon name="lucide-check" class="size-4 text-violet-text" /></Show></Menu.Item>
+  );
   return (
-    <Menu.Root onSelect={(value) => navigate(value === "new" ? "/new" : `/w/${value}`)}>
-      <Menu.Trigger class="flex min-w-0 max-w-[13rem] items-center gap-1.5 rounded-full border border-rule-2 bg-sheet py-1.5 pe-2.5 ps-3.5 t-text font-medium text-ink hover:border-ink-3 data-[state=open]:border-ink-3" aria-label={t("nav.switch", { name: place.summary().name })}>
-        <span class="truncate">{place.summary().name}</span>
-        <Icon name="lucide-chevrons-up-down" class="size-3.5 text-ink-3" />
-      </Menu.Trigger>
-      <Menu.Content class={menuPanel}>
-        <For each={session.workspaces().filter((workspace) => workspace.status === "active")}>
-          {(workspace) => (
-            <Menu.Item value={workspace.slug} class={menuItem}>
-              <span class="min-w-0 flex-1 truncate">{workspace.name}</span>
-              <Show when={workspace.id === place.id()}><Icon name="lucide-check" class="size-4 text-violet-text" /></Show>
-            </Menu.Item>
-          )}
-        </For>
-        <Show when={session.user().instanceAdmin}>
-          <Menu.Separator class="my-1.5 border-rule" />
-          <Menu.Item value="new" class={menuItem}><Icon name="lucide-plus" />{t("nav.newWorkspace")}</Menu.Item>
+    <Menu.Root onSelect={select}>
+      <Menu.Trigger class="flex h-10 w-full items-center gap-2 rounded-control px-1.5 text-start hover:bg-surface-gray-3 focus-visible:focus-ring" aria-label={t("nav.account", { name: session.user().name })}>
+        <Avatar size="lg" theme="gray" label={session.user().name} />
+        <Show when={!props.compact}>
+          <span class="min-w-0 flex-1"><span class="block truncate text-interface-medium text-ink-gray-9">{session.user().name}</span><span class="block truncate text-caption text-ink-gray-6">{session.user().email}</span></span>
+          <Icon name="lucide-chevrons-up-down" class="size-3.5 text-ink-gray-5" />
         </Show>
+      </Menu.Trigger>
+      <Menu.Content>
+        <Menu.ItemGroup>
+          <Menu.Label>{t("nav.language")}</Menu.Label>
+          <For each={LOCALES}>{(entry) => choice(`lang:${entry.id}`, entry.label, locale() === entry.id)}</For>
+        </Menu.ItemGroup>
+        <Menu.Separator />
+        <Menu.ItemGroup>
+          <Menu.Label>{t("nav.theme")}</Menu.Label>
+          <For each={THEMES}>{([id, label]) => choice(`theme:${id}`, t(label), theme() === id)}</For>
+        </Menu.ItemGroup>
+        <Menu.Separator />
+        <Menu.Item value="signout"><Icon name="lucide-log-out" class="size-4 rtl:rotate-180" />{t("nav.signOut")}</Menu.Item>
       </Menu.Content>
     </Menu.Root>
   );
 }
 
-function AccountMenu(): JSX.Element {
-  const session = useSession();
-  const place = usePlace();
-  const navigate = useNavigate();
-  const initials = (): string => session.user().name.split(/\s+/u).map((part) => part[0] ?? "").join("").slice(0, 2).toUpperCase();
-  const select = (value: string): void => {
-    const [kind, choice] = value.split(":");
-    if (kind === "lang") setLocale(choice as Locale);
-    else if (kind === "theme") setTheme(choice as "light" | "dark" | "system");
-    else if (kind === "people") navigate(place.to("/people"));
-    else void authClient.signOut().finally(() => { session.refetch(); navigate("/"); });
-  };
-  const choice = (value: string, label: string, on: boolean): JSX.Element => (
-    <Menu.Item value={value} class={menuItem}><span class="flex-1">{label}</span><Show when={on}><Icon name="lucide-check" class="size-4 text-violet-text" /></Show></Menu.Item>
-  );
+/** Whether the page is current: the stream is open, and when a screen last had an answer. */
+function Live(): JSX.Element {
+  const [now, setNow] = createSignal(Date.now());
+  const timer = setInterval(() => setNow(Date.now()), 10_000);
+  onCleanup(() => clearInterval(timer));
   return (
-    <Menu.Root onSelect={select}>
-      <Menu.Trigger class="flex size-9 items-center justify-center rounded-full bg-ink text-[0.8125rem] font-semibold text-paper hover:bg-ink-2" aria-label={t("nav.account", { name: session.user().name })}>{initials()}</Menu.Trigger>
-      <Menu.Content class={menuPanel}>
-        <div class="px-2.5 pb-2 pt-1.5">
-          <p class="t-text font-medium text-ink">{session.user().name}</p>
-          <p class="t-small text-ink-3">{session.user().email}</p>
-        </div>
-        <Menu.Separator class="my-1 border-rule" />
-        <Menu.ItemGroup>
-          <Menu.Label class={menuLabel}>{t("nav.language")}</Menu.Label>
-          <For each={LOCALES}>{(entry) => choice(`lang:${entry.id}`, entry.label, locale() === entry.id)}</For>
-        </Menu.ItemGroup>
-        <Menu.ItemGroup>
-          <Menu.Label class={menuLabel}>{t("nav.theme")}</Menu.Label>
-          <For each={THEMES}>{([id, label]) => choice(`theme:${id}`, t(label), theme() === id)}</For>
-        </Menu.ItemGroup>
-        <Menu.Separator class="my-1.5 border-rule" />
-        <Menu.Item value="people" class={menuItem}><Icon name="lucide-users" />{t("nav.people")}</Menu.Item>
-        <Menu.Item value="signout" class={menuItem}><Icon name="lucide-log-out" class="size-4 rtl:rotate-180" />{t("nav.signOut")}</Menu.Item>
-      </Menu.Content>
-    </Menu.Root>
+    <span class="inline-flex items-center gap-1.5 whitespace-nowrap text-caption text-ink-gray-7" role="status">
+      <span class={`size-2 rounded-full ${connected() ? "bg-ok-mark" : "bg-ink-gray-4"}`} aria-hidden="true" />
+      <span>{connected() ? t("live.live") : t("live.offline")}</span>
+      <span class="text-ink-gray-6 max-md:hidden">· {t("live.updated", { when: ago(updatedAt(), now()) })}</span>
+    </span>
+  );
+}
+
+/** Cmd-K: a workspace, a goal or a page, by name. Goals are those on screen somewhere: waiting, running, and the recent ones of the open workspace. */
+function Palette(props: { open: boolean; onOpenChange: (open: boolean) => void; slug: string | undefined; recent: readonly { rootId: string; title: string; workspaceId: string }[] }): JSX.Element {
+  const session = useSession();
+  const navigate = useNavigate();
+  const go = (path: string) => (): void => { props.onOpenChange(false); navigate(path); };
+  const slugById = (id: string): { slug: string; name: string } | undefined => session.workspaces().find((workspace) => workspace.id === id);
+  const active = (): readonly { id: string; slug: string; name: string }[] => session.workspaces().filter((workspace) => workspace.status === "active");
+  const current = (): { slug: string; name: string } | undefined => active().find((workspace) => workspace.slug === props.slug);
+  const goals = createMemo(() => {
+    const seen = new Set<string>();
+    const out: { rootId: string; title: string; slug: string; name: string }[] = [];
+    for (const goal of props.recent) {
+      const place = slugById(goal.workspaceId);
+      if (place && !seen.has(goal.rootId)) { seen.add(goal.rootId); out.push({ rootId: goal.rootId, title: goal.title, slug: place.slug, name: place.name }); }
+    }
+    return out;
+  });
+  const tabs = ["agents", "tools", "plays", "memory", "projects", "settings"] as const;
+  return (
+    <CommandPalette open={props.open} onOpenChange={props.onOpenChange} placeholder={t("palette.placeholder")} label={t("palette.label")} size="lg" empty={t("palette.empty")}>
+      <CommandGroup label={t("palette.pages")}>
+        <CommandItem value="overview" icon="lucide-layout-dashboard" onSelect={go("/")}>{t("nav.overview")}</CommandItem>
+        <Show when={session.user().instanceAdmin}><CommandItem value="new-workspace" icon="lucide-plus" onSelect={go("/new")}>{t("nav.newWorkspace")}</CommandItem></Show>
+      </CommandGroup>
+      <Show when={current()}>
+        {(place) => (
+          <CommandGroup label={place().name}>
+            <CommandItem value={`${place().slug}-today`} keywords={`today ${place().name}`} icon="lucide-sun" onSelect={go(`/w/${place().slug}`)}>{t("nav.today")}</CommandItem>
+            <CommandItem value={`${place().slug}-tasks`} keywords={`tasks goals ${place().name}`} icon="lucide-list-checks" onSelect={go(`/w/${place().slug}/tasks`)}>{t("nav.tasks")}</CommandItem>
+            <For each={tabs}>{(tab) => <CommandItem value={`${place().slug}-${tab}`} keywords={`workspace ${place().name}`} icon="lucide-folder-cog" onSelect={go(`/w/${place().slug}/workspace/${tab}`)}>{`${t("nav.workspace")}: ${t(`workspace.tab.${tab}`)}`}</CommandItem>}</For>
+            <CommandItem value={`${place().slug}-people`} keywords={`people secrets members ${place().name}`} icon="lucide-users" onSelect={go(`/w/${place().slug}/people`)}>{t("nav.people")}</CommandItem>
+            <CommandItem value={`${place().slug}-health`} keywords={`health runners models audit ${place().name}`} icon="lucide-heart-pulse" onSelect={go(`/w/${place().slug}/health`)}>{t("nav.health")}</CommandItem>
+          </CommandGroup>
+        )}
+      </Show>
+      <CommandGroup label={t("nav.workspaces")}>
+        <For each={active()}>{(workspace) => <CommandItem value={`ws-${workspace.slug}`} keywords={workspace.name} icon="lucide-folder-git-2" onSelect={go(`/w/${workspace.slug}`)}>{workspace.name}</CommandItem>}</For>
+      </CommandGroup>
+      <Show when={goals().length > 0}>
+        <CommandGroup label={t("palette.goals")}>
+          <For each={goals()}>{(goal) => <CommandItem value={`goal-${goal.rootId}`} keywords={goal.name} icon="lucide-target" description={goal.name} onSelect={go(`/w/${goal.slug}/tasks/${goal.rootId}`)}>{goal.title}</CommandItem>}</For>
+        </CommandGroup>
+      </Show>
+    </CommandPalette>
+  );
+}
+
+/** The frame of every signed-in page: the sidebar, the top bar with search and the live indicator, and the page's own heading. */
+export function Shell(props: { children: JSX.Element; recent: readonly { rootId: string; title: string; workspaceId: string }[] }): JSX.Element {
+  const location = useLocation();
+  const [head, setHead] = createSignal<HeadState>({ title: "" });
+  const [collapsed, setCollapsed] = createSignal(readCollapsed());
+  const [searching, setSearching] = createSignal(false);
+  return (
+    <HeadContext.Provider value={setHead}>
+      <AppShell
+        title={head().title} description={head().description} breadcrumbs={head().breadcrumbs} actions={head().actions} navLabel={t("nav.main")}
+        brand={<a href="/" class="flex items-center gap-2 rounded-control px-1 py-1 text-ink-gray-9 focus-visible:focus-ring" aria-label={t("nav.home")}><Mark /><span class="font-display text-[1.125rem] font-semibold tracking-tight">Brain</span></a>}
+        brandCollapsed={<a href="/" class="grid size-8 place-items-center rounded-control text-ink-gray-9 focus-visible:focus-ring" aria-label={t("nav.home")}><Mark /></a>}
+        navigationContent={() => <Nav />} settings={() => <Footer />} account={<Account />} accountCollapsed={<Account compact />}
+        collapsed={collapsed()} onCollapsedChange={(next) => { setCollapsed(next); writeCollapsed(next); }}
+        headerActions={
+          <>
+            <Live />
+            <Button variant="outline" size="md" iconLeft="lucide-search" aria-label={t("palette.open")} onClick={() => setSearching(true)} class="min-w-9 max-sm:[&>span:last-child]:sr-only">
+              <span class="flex items-center gap-3"><span class="max-md:sr-only">{t("palette.search")}</span><KeyboardShortcut combo="Mod+K" class="max-md:hidden" /></span>
+            </Button>
+          </>
+        }>
+        <div class="min-w-0" data-route={location.pathname}>{props.children}</div>
+      </AppShell>
+      <Palette open={searching()} onOpenChange={setSearching} slug={slugOf(location.pathname)} recent={props.recent} />
+    </HeadContext.Provider>
   );
 }

@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { expect, signIn, starter, test, type Stack } from "./stack";
+import { expect, openWorkspace, signIn, starter, test, type Stack } from "./stack";
 
 /** A person with one finished goal, so Today and Task have something on them. */
 async function withFinishedGoal(stack: Stack): Promise<string> {
@@ -21,6 +21,9 @@ for (const scheme of ["light", "dark"] as const) {
     const taskId = await withFinishedGoal(stack);
     await page.emulateMedia({ colorScheme: scheme });
     await signIn(page, stack);
+    await expect(page.getByRole("row", { name: /Starter/u }).first()).toBeVisible();
+    expect(await violations(page), "Overview").toEqual([]);
+    await openWorkspace(page, "Starter");
     await expect(page.getByRole("heading", { name: "Recent results" })).toBeVisible();
     expect(await violations(page), "Today").toEqual([]);
     await page.getByRole("link", { name: /Say hello/u }).first().click();
@@ -36,16 +39,15 @@ test("in Arabic the page reads right to left and nothing runs off its edge", asy
   await page.getByLabel("البريد الإلكتروني").fill("maya@example.com");
   await page.locator('input[type="password"]').fill("correct horse battery");
   await page.locator('button[type="submit"]').click();
-  await expect(page.getByRole("heading", { name: "ما الذي تريد إنجازه؟" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "نظرة عامة" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator("html")).toHaveAttribute("lang", "ar");
-  await expect(page.getByRole("link", { name: "المهام" }).first()).toBeVisible();
-  // The menu starts on the right: its first entry is to the right of its last.
-  const entries = page.getByRole("navigation").first().getByRole("link");
-  const first = await entries.first().boundingBox();
-  const last = await entries.last().boundingBox();
-  expect(first && last && first.x > last.x).toBe(true);
+  // The sidebar starts on the right: it is to the right of the page.
+  const bar = await page.getByRole("navigation").first().boundingBox();
+  const main = await page.getByRole("main").boundingBox();
+  expect(bar && main && bar.x > main.x).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.getByRole("link", { name: /Starter/u }).first().click();
   await page.getByRole("link", { name: /Say hello|قل مرحبا/u }).first().click();
   await expect(page.getByRole("article")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

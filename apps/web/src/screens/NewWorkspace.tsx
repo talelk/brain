@@ -1,25 +1,20 @@
-import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
-import { A, useNavigate } from "@solidjs/router";
+import { createMemo, For, Show, type JSX } from "solid-js";
+import { useNavigate } from "@solidjs/router";
 import { Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
+import { EmptyState } from "@talelk/newui-molecules";
+import { Wizard, type WizardFormApi } from "@talelk/newui-organisms";
+import { createAppForm, fieldError } from "@talelk/newui-data/form";
 import type { PackSummary } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { useSession } from "../data/session";
 import { t, tn } from "../i18n";
 import { isSlug, slugify } from "../lib/model";
 import { Choice } from "../components/fields";
-import { Mark } from "../components/Shell";
-import { Empty, Failure, Ready } from "../components/bits";
+import { Head } from "../components/Shell";
+import { Failure, Ready } from "../components/bits";
 
-const Step = (props: { n: number; title: string; text: string; children: JSX.Element }): JSX.Element => (
-  <section class="grid gap-x-5 gap-y-3 border-t border-rule py-8 sm:grid-cols-[2.5rem_minmax(0,1fr)]">
-    <span class="flex size-9 items-center justify-center rounded-full bg-lilac font-display text-[1.0625rem] font-semibold text-ink" aria-hidden="true">{props.n}</span>
-    <div class="min-w-0">
-      <h2 class="t-head text-ink">{props.title}</h2>
-      <p class="mt-1 max-w-[60ch] t-text text-ink-2">{props.text}</p>
-      <div class="mt-5 flex flex-col gap-4">{props.children}</div>
-    </div>
-  </section>
-);
+interface Values { name: string; description: string; address: string; packs: string[]; repo: string; branch: string; access: "read" | "write"; credential: string }
+const BLANK: Values = { name: "", description: "", address: "", packs: ["base"], repo: "", branch: "main", access: "read", credential: "" };
 
 /** What a pack brings, in one line per kind. */
 function Brings(props: { pack: PackSummary }): JSX.Element {
@@ -38,82 +33,92 @@ export default function NewWorkspaceScreen(): JSX.Element {
   const session = useSession();
   const navigate = useNavigate();
   const packs = useQuery("packs.list", () => (session.user().instanceAdmin ? {} : undefined));
-  const [name, setName] = createSignal("");
-  const [description, setDescription] = createSignal("");
-  const [address, setAddress] = createSignal<string>();
-  const [picked, setPicked] = createSignal<readonly string[]>(["base"]);
-  const [repo, setRepo] = createSignal("");
-  const [branch, setBranch] = createSignal("main");
-  const [access, setAccess] = createSignal<"read" | "write">("read");
-  const [credential, setCredential] = createSignal("");
-  const slug = (): string => address() ?? slugify(name());
+  const app = createAppForm<Values>({ defaultValues: BLANK, onSubmit: () => undefined });
+  const form = app.form;
+  const values = form.useStore((state) => state.values);
+  const slugOf = (values: Values): string => (values.address !== "" ? values.address : slugify(values.name));
   /** Packs pulled in because a picked pack requires them. */
-  const required = createMemo((): Set<string> => {
+  const required = (picked: readonly string[]): Set<string> => {
     const all = packs.data()?.packs ?? [];
     const out = new Set<string>();
     const visit = (pack: string): void => { for (const need of all.find((entry) => entry.name === pack)?.requires ?? []) if (!out.has(need)) { out.add(need); visit(need); } };
-    picked().forEach(visit);
+    picked.forEach(visit);
     return out;
-  });
-  const create = useAction(async () => {
-    const project = repo().trim() === "" ? undefined : { repo: repo().trim(), branch: branch().trim() || "main", access: access(), ...(credential() ? { credential: credential() } : {}) };
-    const made = await command("workspace.create", { name: name().trim(), description: description().trim(), ...(isSlug(slug()) ? { slug: slug() } : {}), packs: [...new Set([...required(), ...picked()])], ...(project ? { project } : {}) });
+  };
+  const create = useAction(async (values: Values) => {
+    const project = values.repo.trim() === "" ? undefined : { repo: values.repo.trim(), branch: values.branch.trim() || "main", access: values.access, ...(values.credential ? { credential: values.credential } : {}) };
+    const slug = slugOf(values);
+    const made = await command("workspace.create", { name: values.name.trim(), description: values.description.trim(), ...(isSlug(slug) ? { slug } : {}), packs: [...new Set([...required(values.packs), ...values.packs])], ...(project ? { project } : {}) });
     session.refetch();
     navigate(`/w/${made.slug}?new=1`);
   });
-  const first = (): boolean => session.workspaces().length === 0;
+  const first = createMemo((): boolean => session.workspaces().length === 0);
+  const noop = (): undefined => undefined;
   return (
-    <main class="mx-auto max-w-[46rem] px-4 pb-24 pt-6 md:px-8">
-      <div class="flex items-center justify-between text-ink"><Mark /><Show when={!first()}><A href="/" class="link t-small">{t("action.cancel")}</A></Show></div>
-      <h1 class="mt-10 t-hero text-ink">{t("new.title")}</h1>
-      <p class="mb-8 mt-4 max-w-[56ch] t-text text-ink-2">{first() ? t("new.text.first") : t("new.text")}</p>
-      <Show when={session.user().instanceAdmin} fallback={<Empty title={t("new.adminOnly")} text={t("new.adminOnly.text")} />}>
-        <form onSubmit={(event) => { event.preventDefault(); void create.run(); }}>
-          <Step n={1} title={t("new.name.title")} text={t("new.name.text")}>
-            <TextInput size="lg" label={t("field.name")} placeholder={t("new.name.placeholder")} value={name()} onInput={(event) => setName(event.currentTarget.value)} required maxlength={100} autofocus />
-            <Textarea size="md" label={t("field.description")} description={t("settings.description.help")} rows={2} value={description()} onInput={(event) => setDescription(event.currentTarget.value)} maxlength={2000} />
-            <div class="max-w-sm"><TextInput size="md" class="t-code" label={t("new.address")} description={t("new.address.help", { address: `/w/${slug() || "…"}` })} error={slug() !== "" && !isSlug(slug()) ? t("workspace.new.name.slug") : undefined} value={slug()} onInput={(event) => setAddress(event.currentTarget.value)} /></div>
-          </Step>
-          <Step n={2} title={t("new.packs.title")} text={t("new.packs.text")}>
-            <Ready data={packs.data()} error={packs.error()} retry={packs.refetch}>
-              {(loaded) => (
-                <ul class="flex flex-col gap-3">
-                  <For each={loaded().packs}>
-                    {(pack) => {
-                      const forced = (): boolean => required().has(pack.name) || pack.name === "base";
-                      const on = (): boolean => forced() || picked().includes(pack.name);
-                      return (
-                        <li class={`rounded-[20px] border bg-sheet p-5 ${on() ? "border-violet" : "border-rule-2"}`}>
-                          <Checkbox size="md" label={<span class="t-text font-semibold text-ink">{pack.name}</span>} checked={on()} disabled={forced()} onCheckedChange={(checked) => setPicked(checked ? [...picked(), pack.name] : picked().filter((other) => other !== pack.name))} />
-                          <div class="ps-7">
-                            <p class="mt-1 t-small text-ink-2">{pack.description}</p>
-                            <Show when={forced()}><p class="mt-1 t-small text-ink-3">{pack.name === "base" ? t("new.packs.always") : t("new.packs.required")}</p></Show>
-                            <Brings pack={pack} />
-                          </div>
-                        </li>
-                      );
-                    }}
-                  </For>
-                </ul>
-              )}
-            </Ready>
-          </Step>
-          <Step n={3} title={t("new.repo.title")} text={t("new.repo.text")}>
-            <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
-              <TextInput size="md" class="t-code" label={t("projects.repo")} placeholder="https://github.com/acme/shop.git" value={repo()} onInput={(event) => setRepo(event.currentTarget.value)} />
-              <TextInput size="md" class="t-code" label={t("projects.branch")} value={branch()} onInput={(event) => setBranch(event.currentTarget.value)} disabled={repo().trim() === ""} />
-            </div>
-            <Show when={repo().trim() !== ""}>
-              <Choice label={t("projects.access")} value={access()} onChange={setAccess} options={[{ value: "read", label: t("projects.access.read"), help: t("projects.access.read.help") }, { value: "write", label: t("projects.access.write"), help: t("projects.access.write.help") }]} />
-              <TextInput size="md" type="password" autocomplete="off" label={t("new.repo.credential")} description={t("new.repo.credential.help")} value={credential()} onInput={(event) => setCredential(event.currentTarget.value)} />
-            </Show>
-          </Step>
-          <div class="border-t border-rule pt-8">
-            <Failure error={create.error()} class="mb-4" />
-            <Button type="submit" variant="solid" theme="blue" size="lg" class="rounded-full! px-6!" loading={create.busy()} disabled={name().trim() === ""}>{t("new.create")}</Button>
-          </div>
-        </form>
+    <>
+      <Head title={t("new.title")} text={t("new.title")} description={first() ? t("new.text.first") : t("new.text")} breadcrumbs={[{ label: t("nav.overview"), route: "/" }, { label: t("new.title") }]} />
+      <Show when={session.user().instanceAdmin} fallback={<EmptyState bordered icon="lucide-lock" title={t("new.adminOnly")} description={t("new.adminOnly.text")} />}>
+        <div class="max-w-[46rem]">
+          <Failure error={create.error()} class="mb-4" />
+          <Wizard<Values> label={t("new.title")} form={form as unknown as WizardFormApi} submitLabel={t("new.create")} onSubmit={async (submitted) => { await create.run(submitted); }}
+            steps={[
+              { id: "name", label: t("new.name.title"), description: t("new.name.text"),
+                validate: (given): Record<string, string> | undefined => (given.name.trim() === "" ? { name: t("new.name.required") } : slugOf(given) !== "" && !isSlug(slugOf(given)) ? { address: t("workspace.new.name.slug") } : noop()),
+                content: (
+                  <div class="flex flex-col gap-4">
+                    <form.Field name="name">{(field) => <TextInput size="lg" label={t("field.name")} placeholder={t("new.name.placeholder")} value={field().state.value} error={fieldError(field())} onInput={(event) => field().handleChange(event.currentTarget.value)} required maxlength={100} autofocus />}</form.Field>
+                    <form.Field name="description">{(field) => <Textarea size="md" label={t("field.description")} description={t("settings.description.help")} rows={2} value={field().state.value} onInput={(event) => field().handleChange(event.currentTarget.value)} maxlength={2000} />}</form.Field>
+                    <form.Field name="address">
+                      {(field) => <div class="max-w-sm"><TextInput size="md" class="t-code" label={t("new.address")} description={t("new.address.help", { address: `/w/${slugOf(values()) || "…"}` })} error={fieldError(field())} value={field().state.value} placeholder={slugify(values().name)} onInput={(event) => field().handleChange(event.currentTarget.value)} /></div>}
+                    </form.Field>
+                  </div>
+                ) },
+              { id: "packs", label: t("new.packs.title"), description: t("new.packs.text"),
+                content: (
+                  <Ready data={packs.data()} error={packs.error()} retry={packs.refetch}>
+                    {(loaded) => (
+                      <form.Field name="packs">
+                        {(field) => (
+                          <ul class="flex flex-col gap-3">
+                            <For each={loaded().packs}>
+                              {(pack) => {
+                                const forced = (): boolean => required(field().state.value).has(pack.name) || pack.name === "base";
+                                const on = (): boolean => forced() || field().state.value.includes(pack.name);
+                                return (
+                                  <li class={`rounded-card border bg-surface-elevation-1 p-4 ${on() ? "border-violet" : "border-outline-gray-2"}`}>
+                                    <Checkbox size="md" label={<span class="t-text font-semibold text-ink">{pack.name}</span>} checked={on()} disabled={forced()} onCheckedChange={(checked) => field().handleChange(checked ? [...field().state.value, pack.name] : field().state.value.filter((other) => other !== pack.name))} />
+                                    <div class="ps-7">
+                                      <p class="mt-1 t-small text-ink-2">{pack.description}</p>
+                                      <Show when={forced()}><p class="mt-1 t-small text-ink-3">{pack.name === "base" ? t("new.packs.always") : t("new.packs.required")}</p></Show>
+                                      <Brings pack={pack} />
+                                    </div>
+                                  </li>
+                                );
+                              }}
+                            </For>
+                          </ul>
+                        )}
+                      </form.Field>
+                    )}
+                  </Ready>
+                ) },
+              { id: "repo", label: t("new.repo.title"), description: t("new.repo.text"),
+                content: (
+                  <div class="flex flex-col gap-4">
+                    <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
+                      <form.Field name="repo">{(field) => <TextInput size="md" class="t-code" label={t("projects.repo")} placeholder="https://github.com/acme/shop.git" value={field().state.value} onInput={(event) => field().handleChange(event.currentTarget.value)} />}</form.Field>
+                      <form.Field name="branch">{(field) => <TextInput size="md" class="t-code" label={t("projects.branch")} value={field().state.value} disabled={values().repo.trim() === ""} onInput={(event) => field().handleChange(event.currentTarget.value)} />}</form.Field>
+                    </div>
+                    <Show when={values().repo.trim() !== ""}>
+                      <form.Field name="access">{(field) => <Choice label={t("projects.access")} value={field().state.value} onChange={(value) => field().handleChange(value)} options={[{ value: "read", label: t("projects.access.read"), help: t("projects.access.read.help") }, { value: "write", label: t("projects.access.write"), help: t("projects.access.write.help") }]} />}</form.Field>
+                      <form.Field name="credential">{(field) => <TextInput size="md" type="password" autocomplete="off" label={t("new.repo.credential")} description={t("new.repo.credential.help")} value={field().state.value} onInput={(event) => field().handleChange(event.currentTarget.value)} />}</form.Field>
+                    </Show>
+                  </div>
+                ) },
+            ]} />
+          <Button variant="ghost" size="md" class="mt-4" route="/">{t("action.cancel")}</Button>
+        </div>
       </Show>
-    </main>
+    </>
   );
 }

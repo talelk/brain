@@ -2,11 +2,17 @@
  * The one live connection: `GET /v1/events` says "something changed in this workspace" and every mounted query reads again, together.
  * Changes are coalesced, so a busy task costs one round of reads a second at most. While the stream is down a slow pulse keeps screens fresh.
  */
+import { createSignal } from "solid-js";
+
 type Listener = () => void;
 
 const MIN_GAP_MS = 1000;
 const COALESCE_MS = 250;
 const FALLBACK_MS = 15_000;
+
+/** Whether the stream is open, and when a screen last had a fresh answer: what the "updated" indicator of the top bar says. */
+export const [connected, setConnected] = createSignal(false);
+export const [updatedAt, markFresh] = createSignal(Date.now());
 
 const listeners = new Set<Listener>();
 let source: EventSource | undefined;
@@ -35,6 +41,7 @@ export function subscribe(listener: Listener): () => void {
 export function connectLive(enabled: boolean): void {
   source?.close();
   source = undefined;
+  setConnected(false);
   clearInterval(fallback);
   fallback = undefined;
   if (!enabled) return;
@@ -42,7 +49,8 @@ export function connectLive(enabled: boolean): void {
   source = new EventSource("/v1/events", { withCredentials: true });
   source.addEventListener("changed", () => invalidate());
   // The Governor ends a stream every few minutes; the browser reconnects by itself, and one read covers the gap.
-  source.addEventListener("open", () => invalidate());
+  source.addEventListener("open", () => { setConnected(true); invalidate(); });
+  source.addEventListener("error", () => setConnected(false));
 }
 
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") invalidate(); });

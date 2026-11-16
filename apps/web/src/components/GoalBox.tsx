@@ -52,8 +52,9 @@ export function GoalBox(props: { plays: Plays; play?: string; autofocus?: boolea
   const pick = (name: string | undefined): void => { setPlay(name); setValues({}); start.clear(); field?.focus(); };
 
   return (
-    <div>
-      <form class="goal-box px-5 pb-4 pt-5 sm:px-7 sm:pt-6" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+    <section aria-labelledby="goal-title">
+      <h2 id="goal-title" class="mb-3 t-title text-ink">{t("today.title")}</h2>
+      <form class="goal-box px-5 pb-4 pt-4 sm:px-6 sm:pt-5" onSubmit={(event) => { event.preventDefault(); submit(); }}>
         <Show when={chosen()}>
           {(file) => (
             <div class="mb-3 flex items-start gap-3">
@@ -87,18 +88,18 @@ export function GoalBox(props: { plays: Plays; play?: string; autofocus?: boolea
         </Show>
         <div class="mt-2 flex items-center justify-between gap-3">
           <p class="t-small text-ink-3">{place.can("member") ? (chosen() ? t("goal.hint.play") : t("goal.hint")) : t("goal.viewer")}</p>
-          <Button type="submit" variant="solid" theme="blue" size="lg" class="rounded-full! px-6!" loading={start.busy()} disabled={!ready() || !place.can("member")}>{t("goal.start")}</Button>
+          <Button type="submit" variant="solid" theme="blue" size="lg" loading={start.busy()} disabled={!ready() || !place.can("member")}>{t("goal.start")}</Button>
         </div>
       </form>
       <Failure error={start.error()} class="mt-3" />
       <Show when={!chosen() && Object.keys(props.plays).length > 0}>
-        <div class="-mx-4 mt-4 flex items-center gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        <div class="mt-3 flex flex-wrap items-center gap-2">
           <span class="me-1 shrink-0 t-small text-ink-3">{t("goal.plays")}</span>
           <For each={Object.entries(props.plays)}>
-            {([name, file]) => <button type="button" title={file.description} class="shrink-0 rounded-full border border-rule-2 bg-sheet px-3.5 py-1.5 t-small font-medium text-ink hover:border-violet hover:text-violet-text" onClick={() => pick(name)}>{file.title}</button>}
+            {([name, file]) => <Button variant="outline" size="md" iconLeft="lucide-play" title={file.description} onClick={() => pick(name)}>{file.title}</Button>}
           </For>
         </div>
       </Show>
-    </div>
+    </section>
   );
 }
