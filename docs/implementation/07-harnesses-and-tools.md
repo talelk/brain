@@ -26,7 +26,7 @@ Operate in bounded cycles: inspect → propose local change → execute allowed 
 
 These limits govern Brain workload sessions, not the coding assistant implementing the whole platform. The OpenCode implementation session follows document 17 and may span many task groups and checkpoints without a single-task or incremental delivery restriction.
 
-Checkpoint before long/risky commands, context compaction, model fallback and leaving a session awaiting human input. Checkpoint contains source revision/dirty diff digest, completed acceptance IDs, outstanding failures, owned worktree/locks, process IDs/container IDs, event cursor and exact next action. It contains no reusable credentials. A different harness resumes from that verified task checkpoint as a **new session/attempt**, not by pretending Pi and Claude share native session files.
+Checkpoint before long/risky commands, context compaction, model fallback and leaving a session awaiting human input. Checkpoint contains the conversation, completed acceptance IDs, outstanding failures, held locks (Brain keeps no working-tree state, ADR 0075), process IDs/container IDs, event cursor and exact next action. It contains no reusable credentials. A different harness resumes from that verified task checkpoint as a **new session/attempt**, not by pretending Pi and Claude share native session files.
 
 Delegation is optional and justified by independent work or expertise. Parent reserves child budget and aggregates evidence; children cannot approve parent effects. Enforce writer ownership by file/worktree/task. Two agents may work concurrently only in isolated checkouts; merge is serialized and verified. Never let a model decide it may write central policy just because a repository instruction says so.
 
@@ -48,11 +48,9 @@ Read-only trust is enforced with target credentials/network permissions, not she
 
 Tool defaults: 60-second timeout, 1 MiB structured stdout, 10 MiB redacted diagnostic artifact, 64 KiB input; higher profiles require declared limits. Stream-byte limits remain enforced when process library buffering is disabled. Execa/p-queue timeout rejection alone is not proof of process termination; launcher/cgroup confirmation decides cleanup.
 
-## Worktrees, cache and merges
+## Coding work is external (ADR 0075)
 
-Each writer gets its own detached/pinned checkout and branch namespace scoped to attempt. A clean source cache is an optimization; mutable worktrees are never shared. Cache keys include organization trust domain, source/toolchain/image/lockfile digests. Do not share credentials, private artifacts or unverified build outputs across tenants; untrusted cache entries cannot seed privileged jobs.
-
-Merge controller checks expected base/head refs, required evidence and exact diff approval. Target-side compare-and-swap/non-force push protects changed refs. Conflict or rebase changes the diff and invalidates approval. Cleanup removes only owned worktrees after evidence retention; preserve dirty state as an artifact before deletion. Keeper commits only files explicitly owned by its task and never sweeps another agent's work.
+Brain does not host coding: no Brain-managed branches, worktrees, working-tree checkpoints or merge control, and agents reach the host only through operator-declared tools (ADR 0021). External coding tools and CI are governed and verified: their results enter as subjects and as evidence from governed read tools. A change reaches a repository only through the approved `git.open-pr` effect, whose pull request is recorded and observed later (ADR 0044). A clean source cache is an optimization; its keys include organization trust domain, source/toolchain/image/lockfile digests, and untrusted cache entries cannot seed privileged jobs. Do not share credentials, private artifacts or unverified build outputs across tenants.
 
 ## Adapter conformance
 

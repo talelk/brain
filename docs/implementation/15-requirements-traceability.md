@@ -12,7 +12,7 @@
 | AC-06 target/diff changed | E051/E058 | T13/T23 |
 | AC-07 crash after production call | E056/E057 | T18/T23/T46 |
 | AC-08 stale fence | E038/E042 | T18 |
-| AC-09 worktrees/merge | E058/E059/E065/E071 | T21/T23/T24 |
+| AC-09 external targets and pull requests (ADR 0075) | E058/E059/E065/E071 | T21/T23/T24 |
 | AC-10 Pi/Claude parity | E062 | T24/T26 |
 | AC-11 unsupported ACP/steer | E061/E100 | T26/T36 |
 | AC-12 channel-equivalent denial | E001–E005/E066/E067 | T06/T12/T22/T32 |
