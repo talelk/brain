@@ -9,9 +9,12 @@ required = true
 id = "investigate"
 agent = "analyst"
 goal = """
-Find the cause of this issue and say exactly what must change to fix it. Name the project \
-it concerns, the files and lines that produce the behaviour, and the test that would prove \
-the fix.
+This step only investigates: do not edit any file and do not try to fix the issue; a later \
+step makes the change, and this step succeeds without any change to the working copy. Find \
+the cause of the issue below and say exactly what must change to fix it. Name the project it \
+concerns, the files and lines that produce the behaviour, and the test that would prove the \
+fix. Where the issue already says what to change, confirm that it is the right change and \
+where it goes.
 
 Issue: {{issue}}"""
 
