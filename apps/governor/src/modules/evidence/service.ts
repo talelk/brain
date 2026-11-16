@@ -132,7 +132,7 @@ export class EvidenceService {
     const digest = domainDigest("brain:evidence-bundle:v1", bundle as unknown as JsonValue);
     // The runner signed the digest of the bundle it was about to submit into its receipt (ADR 0078): a different bundle is not the one it vouched for.
     const signed = this.s.control.prepare("SELECT evidence_digest FROM attempt_receipts WHERE attempt_id=?").get(bundle.attemptId) as { evidence_digest: string | null } | undefined;
-    if (signed?.evidence_digest && signed.evidence_digest !== digest) throw new BrainDomainError("FORBIDDEN", "bundle is not the evidence the runner's signed receipt names");
+    if (!signed?.evidence_digest || signed.evidence_digest !== digest) throw new BrainDomainError("FORBIDDEN", "bundle is not the evidence the runner's signed receipt names");
     this.s.inTx(ws, () => {
       const existing = ws.prepare("SELECT digest FROM evidence_bundles WHERE bundle_id=?").get(bundle.bundleId) as { digest: string } | undefined;
       if (existing && existing.digest !== digest) throw new BrainDomainError("IDEMPOTENCY_CONFLICT", "bundle identity is immutable; submit a new identity");

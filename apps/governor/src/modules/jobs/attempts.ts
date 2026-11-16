@@ -645,6 +645,13 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     if (row["state"] !== "running" || row["job_state"] !== "running") throw new BrainDomainError("CONFLICT", "attempt cannot accept a new completion receipt");
     // A completion is accepted only with the receipt the runner signed with its enrolled key (ADR 0078); there is no unsigned path.
     const signed = verifySignedReceipt(s, runner, row, result, body);
+    // An attempt that ends with evidence to submit must sign the digest of that bundle: a receipt that names none vouches for no evidence.
+    const kind = (s.control.prepare("SELECT kind FROM job_payloads WHERE job_id=?").get(jobId) as { kind: string } | undefined)?.kind;
+    const heldHere = body["held"] === true && !isAct && (s.control.prepare("SELECT COUNT(*) AS n FROM effect_calls WHERE attempt_id=?").get(attemptId) as { n: number }).n > 0;
+    if (result === "succeeded" && !heldHere && !isAct && kind !== "eval" && signed.receipt.evidenceDigest === null
+      && authorEvidenceFor(s, String(row["organization_id"]), workspaceId, runId, String(row["config_digest"])).claimedChecks.length > 0) {
+      throw new BrainDomainError("FORBIDDEN", "RECEIPT_EVIDENCE_UNBOUND: this attempt submits an evidence bundle, so its signed receipt must name that bundle's digest");
+    }
     storeSignedReceipt(s, row, signed);
     const cleanup = body["cleanupConfirmed"] === true ? 1 : 0;
     if (result === "unknown-outcome" || result === "unknown") {

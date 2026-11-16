@@ -2613,5 +2613,6 @@ export const fr: Catalog = {
   "receipt.unverified": "ne se vérifie pas",
   "receipt.retired": "sa clé a été renouvelée depuis",
   "receipt.digest": "Empreinte du reçu",
+  "receipt.noBundle": "aucun lot de preuves",
   // @@END
 };

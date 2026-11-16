@@ -2111,5 +2111,6 @@ export const enExtra = {
   "receipt.unverified": "does not verify",
   "receipt.retired": "its key has since been rotated",
   "receipt.digest": "Receipt digest",
+  "receipt.noBundle": "no evidence bundle",
   // @@END
 } as const satisfies Record<string, string>;

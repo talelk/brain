@@ -9,9 +9,9 @@ import { createApp } from "../../apps/governor/src/http/app";
 import { enrollAndHello, runOnce, type RunnerConfig } from "../../apps/runner/src/supervisor";
 import { normalizeEvaluation } from "../../apps/runner/src/tools/invoke";
 import { setupWorld, seedWorkItem } from "../helpers";
-import { attestDomain, bundleForAttempt } from "../support/evidence";
+import { adjustPrecomputedBundle, attestDomain, bundleForAttempt } from "../support/evidence";
 
-async function world(executeAuthor = false) {
+async function world(executeAuthor = false, withArtifact = false) {
   const app=await createApp({dataDir:mkdtempSync(join(tmpdir(),"brain-evidence-")),allowTestActor:true});
   const w=setupWorld(app.brain);
   const transport: typeof fetch = async(input,init) => app.fetch(new Request(input,init));
@@ -33,6 +33,13 @@ async function world(executeAuthor = false) {
     // is covered separately below and by agent-dispatch.test.ts.
     const offer=w.brain.jobProtocol.claim(author,"author-claim") as unknown as {attemptId:string;leaseId:string;jobFence:number};
     w.brain.jobProtocol.ack(author,offer.attemptId,{leaseId:offer.leaseId,jobFence:offer.jobFence});
+    if (withArtifact) {
+      // The evaluator's input is part of the bundle, so it exists before the author completes: the receipt signs the digest of the whole bundle.
+      const bytes=Buffer.from("durable evaluator input");
+      const upload=w.brain.initUpload(w.owner,{workspaceId:w.workspaceId,attemptId:offer.attemptId,expectedDigest:sha256Digest(bytes),expectedBytes:bytes.length}) as {uploadId:string};
+      const artifact=w.brain.putUpload(w.owner,upload.uploadId,bytes) as unknown as ArtifactRef;
+      adjustPrecomputedBundle(w.brain,w.org,w.workspaceId,offer.attemptId,(b)=>({...b,artifacts:[artifact],checks:b.checks.map(c=>({...c,artifacts:[artifact]}))}));
+    }
     w.brain.jobProtocol.complete(author,offer.attemptId,{result:"succeeded",output:{message:"Brain fixture",bytes:13},jobFence:offer.jobFence,cleanupConfirmed:true});
   }
   const attempt=w.brain.store.control.prepare("SELECT a.id FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE j.step_id='echo'").get() as {id:string};
@@ -42,18 +49,8 @@ async function world(executeAuthor = false) {
   return {...w,app,authorConfig,evaluatorConfig,authorSession,evaluatorSession,author,evaluator,bundle};
 }
 
-type World=Awaited<ReturnType<typeof world>>;
-function addArtifact(w:World):ArtifactRef {
-  const bytes=Buffer.from("durable evaluator input");
-  const upload=w.brain.initUpload(w.owner,{workspaceId:w.workspaceId,attemptId:w.bundle.attemptId,expectedDigest:sha256Digest(bytes),expectedBytes:bytes.length}) as {uploadId:string};
-  const artifact=w.brain.putUpload(w.owner,upload.uploadId,bytes) as unknown as ArtifactRef;
-  w.bundle={...w.bundle,artifacts:[artifact],checks:w.bundle.checks.map(c=>({...c,artifacts:[artifact]}))};
-  return artifact;
-}
-
-async function admitted(prepare?: (w:World)=>void) {
-  const w=await world();
-  prepare?.(w);
+async function admitted(withArtifact = false) {
+  const w=await world(false,withArtifact);
   const submitted=w.brain.submitEvidence(w.author,w.bundle) as {digest:string};
   attestDomain(w.brain,w.author.runnerId,"author-host");attestDomain(w.brain,w.evaluator.runnerId,"evaluator-host");
   const offer=w.brain.jobProtocol.claim(w.evaluator,"claim-eval") as unknown as {attemptId:string;jobId:string;leaseId:string;jobFence:number};
@@ -130,15 +127,15 @@ describe("authenticated immutable evidence and real evaluator admission",()=>{
   });
 
   it("rehashes durable artifacts before both submission and acceptance (E074)",async()=>{
-    const w=await admitted(addArtifact);
+    const w=await admitted(true);
     try {
       writeFileSync(casFilePath(w.brain.store, w.bundle.artifacts[0]!.digest),"changed input");
       expect(()=>w.brain.acceptVerdict(w.evaluator,w.workspaceId,w.verdict)).toThrow(/artifact bytes/);
       expect(w.brain.store.workspaceDb(w.workspaceId,w.org).prepare("SELECT COUNT(*) AS n FROM verification_verdicts").get()).toEqual({n:0});
     } finally {await w.app.close();}
-    const other=await world();
+    const other=await world(false,true);
     try {
-      const artifact=addArtifact(other);
+      const artifact=other.bundle.artifacts[0]!;
       writeFileSync(casFilePath(other.brain.store, artifact.digest),"changed before submission");
       expect(()=>other.brain.submitEvidence(other.author,other.bundle)).toThrow(/artifact bytes/);
       expect(other.brain.store.workspaceDb(other.workspaceId,other.org).prepare("SELECT COUNT(*) AS n FROM evidence_bundles").get()).toEqual({n:0});

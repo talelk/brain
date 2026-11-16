@@ -2,6 +2,8 @@ import { generateKeyPairSync, type KeyObject } from "node:crypto";
 import { receiptSignatureOk, RUN_RECEIPT_VERSION, runnerKeyId, signReceipt, type RunReceipt } from "../../packages/contracts/src/index";
 import type { Brain } from "../../apps/governor/src/application/brain";
 import { actingAs, runnerActor } from "../../apps/governor/src/application/actor-context";
+import { domainDigest } from "../../packages/contracts/src/index";
+import { precomputeBundle } from "./evidence";
 import { recordRunnerKey } from "../../apps/governor/src/modules/jobs/protocol";
 
 /**
@@ -44,15 +46,21 @@ function signingFor(brain: Brain, organizationId: string, runnerId: string, atte
 
 /** The receipt of the attempt as the runner would state it, from what the Governor holds (the test has no engine to ask). */
 export function receiptFor(brain: Brain, runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>, keyId: string): RunReceipt | undefined {
-  const row = brain.store.control.prepare(`SELECT a.id, a.job_id, a.job_fence, j.workflow_run_id, j.step_id, j.config_digest, j.execution_digest FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE a.id=?`).get(attemptId) as
-    | { id: string; job_id: string; job_fence: number; workflow_run_id: string; step_id: string; config_digest: string; execution_digest: string } | undefined;
+  const row = brain.store.control.prepare(`SELECT a.id, a.job_id, a.job_fence, j.organization_id, j.workspace_id, j.workflow_run_id, j.step_id, j.config_digest, j.execution_digest FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE a.id=?`).get(attemptId) as
+    | { id: string; job_id: string; job_fence: number; organization_id: string; workspace_id: string; workflow_run_id: string; step_id: string; config_digest: string; execution_digest: string } | undefined;
   if (!row) return undefined;
   const now = new Date(brain.store.now()).toISOString();
+  // A succeeded author attempt of a workflow with an evaluator submits a bundle, and its receipt names that bundle's digest (as the runner's does).
+  const kind = (brain.store.control.prepare("SELECT kind FROM job_payloads WHERE job_id=?").get(row.job_id) as { kind: string } | undefined)?.kind;
+  let evidenceDigest: string | null = null;
+  if (body["result"] === "succeeded" && body["held"] !== true && kind !== "act" && kind !== "eval") {
+    try { evidenceDigest = domainDigest("brain:evidence-bundle:v1", precomputeBundle(brain, row.organization_id, row.workspace_id, attemptId) as never); } catch { evidenceDigest = null; }
+  }
   return {
     contractVersion: RUN_RECEIPT_VERSION, attemptId: row.id, jobId: row.job_id, jobFence: row.job_fence, runnerId: runner.runnerId, runnerEpoch: runner.epoch,
     workflowRunId: row.workflow_run_id, stepId: row.step_id, configDigest: row.config_digest, executionDigest: row.execution_digest, keyId,
     engine: { id: "fixture", version: null, route: null }, startedAt: now, endedAt: now, outcome: String(body["result"]) as RunReceipt["outcome"],
-    usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0 }, evidenceDigest: null, artifactDigests: [],
+    usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0 }, evidenceDigest, artifactDigests: [],
   };
 }
 

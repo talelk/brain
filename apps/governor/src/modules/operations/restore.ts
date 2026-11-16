@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { sha256Digest } from "@brain/contracts";
+import { RUNNER_KEYS_REVOKED_EVENT, sha256Digest } from "@brain/contracts";
+import { actingAs, systemActor } from "../../application/actor-context";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { bulkTransition } from "../../domain/states";
@@ -46,6 +47,8 @@ export function quarantineRestoredAuthority(s: Store, auth: Pick<BrainAuth, "rev
       }
     }
     auth.revokeAllSessions();
+    // The runner keys end with the restore; the audit chain must say so too, or the offline receipt check would accept a receipt the Governor now refuses.
+    const endedKeys = s.control.prepare("SELECT organization_id, key_id FROM runner_keys WHERE revoked_at_ms IS NULL ORDER BY organization_id, enrolled_at_ms").all() as Array<{ organization_id: string; key_id: string }>;
     for (const table of ["machine_sessions", "runner_sessions", "runner_identity_credentials", "runner_keys", "delegated_grants", "step_up_evidence", "command_step_ups", "permit_credentials", "secret_credentials"]) {
       s.control.prepare(`UPDATE ${table} SET revoked_at_ms=? WHERE revoked_at_ms IS NULL`).run(now);
     }
@@ -63,7 +66,10 @@ export function quarantineRestoredAuthority(s: Store, auth: Pick<BrainAuth, "rev
     s.control.prepare("UPDATE wake_intents SET state='parked' WHERE state IN ('pending','resuming')").run();
     s.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1").run();
     for (const org of s.control.prepare("SELECT id FROM organizations").all() as Array<{ id: string }>) {
-      s.emit(s.control, { organizationId: org.id, aggregateType: "operations", aggregateId: marker.restoreId, eventType: "operations.restored-authority-quarantined", payload: { restoreId: marker.restoreId, backupId: marker.backupId, quarantinedAt: s.nowIso() } });
+      actingAs(systemActor("restore"), () => s.emit(s.control, { organizationId: org.id, aggregateType: "operations", aggregateId: marker.restoreId, eventType: "operations.restored-authority-quarantined", payload: { restoreId: marker.restoreId, backupId: marker.backupId, quarantinedAt: s.nowIso() } }));
+    }
+    for (const org of new Set(endedKeys.map((k) => k.organization_id))) {
+      actingAs(systemActor("restore"), () => s.emit(s.control, { organizationId: org, aggregateType: "operations", aggregateId: marker.restoreId, eventType: RUNNER_KEYS_REVOKED_EVENT, payload: { restoreId: marker.restoreId, revokedKeyIds: endedKeys.filter((k) => k.organization_id === org).map((k) => k.key_id) } }));
     }
     // Same transaction as revocation: a crash cannot replay half of this operation.
     s.control.prepare("INSERT INTO inbox(source_id,event_id,payload_digest,applied_at_ms) VALUES ('operations.restore',?,?,?)").run(marker.restoreId, digest, now);

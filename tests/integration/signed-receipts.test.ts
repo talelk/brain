@@ -1,9 +1,11 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { generateKeyPairSync } from "node:crypto";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { RECEIPT_EVENT, receiptSignatureOk, runnerKeyId, signReceipt, verifyAuditExport, type AuditExportInput, type RunReceipt } from "@brain/contracts";
+import { quarantineRestoredAuthority } from "../../apps/governor/src/modules/operations/index";
 import { createApp } from "../../apps/governor/src/http/app";
 import { enrollAndHello, loadOrCreateKeys, runOnce, type RunnerConfig } from "../../apps/runner/src/supervisor";
 import { setupWorld } from "../helpers";
@@ -75,6 +77,20 @@ describe("a completion carries the receipt its runner signed", () => {
     expect(receipted).toBeGreaterThan(enrolled);
     expect(JSON.parse(control[receipted]!.payloadJson)).toMatchObject({ receipt, signature, receiptDigest: stored["receipt_digest"] });
     expect(x.brain.audit.verifyNow(x.org)).toMatchObject({ ok: true });
+  });
+
+  it("refuses a receipt that names no evidence bundle when the attempt submits one, and accepts it once it names the bundle's digest", async () => {
+    const x = await world();
+    await x.dispatch("unbound");
+    const offer = x.claim(x.first.runner, "claim-unbound");
+    const unbound = x.signed(x.first.runner, offer, "succeeded", x.first.keys, (r) => ({ ...r, evidenceDigest: null }));
+    expect(() => x.complete(x.first.runner, offer, "succeeded", unbound)).toThrow(/RECEIPT_EVIDENCE_UNBOUND/);
+    expect(x.receiptRow(offer.attemptId)).toBeUndefined();
+    const bound = x.signed(x.first.runner, offer, "succeeded", x.first.keys);
+    expect(bound.receipt.evidenceDigest).toMatch(/^sha256:/);
+    expect((x.complete(x.first.runner, offer, "succeeded", bound) as { jobState: string }).jobState).toBe("verifying");
+    // The bundle the receipt names is the only one the Governor takes for this attempt.
+    expect(() => x.brain.submitEvidence(x.first.runner, { ...bundleForAttempt(x.brain, x.org, x.workspaceId, offer.attemptId, "bundle-x"), createdAt: "2001-01-01T00:00:00.000Z" })).toThrow(/signed receipt names/);
   });
 
   it("refuses a completion with no receipt, or no signature, and leaves the attempt running", async () => {
@@ -277,5 +293,21 @@ describe("the runner signs what it did", () => {
     expect(view.snapshot.receipt).toMatchObject({ signedBy: { runnerId: "receipt-runner", keyId: runnerKeyId(x.first.keys.publicKeyPem), verified: true } });
     expect(view.snapshot.receipt!.digest).toMatch(/^sha256:/);
     expect(verifyAuditExport(x.exportInput())).toMatchObject({ ok: true });
+  });
+});
+
+describe("a restore ends the runner keys in the audit chain too", () => {
+  it("writes the revocation as a system:restore event, so the offline verifier and the Governor agree", async () => {
+    const x = await world();
+    const keyId = runnerKeyId(x.first.keys.publicKeyPem);
+    writeFileSync(join(x.brain.store.dataDir, "RESTORED-SUSPENDED.json"), JSON.stringify({ format: "brain.restore/v1", restoreId: randomUUID(), backupId: randomUUID(), manifestDigest: `sha256:${hex(64)}`, restoredAt: new Date().toISOString() }));
+    quarantineRestoredAuthority(x.brain.store, { revokeAllSessions() {} });
+    expect((x.brain.store.control.prepare("SELECT revoked_at_ms FROM runner_keys WHERE key_id=?").get(keyId) as { revoked_at_ms: number | null }).revoked_at_ms).not.toBeNull();
+    const input = x.exportInput();
+    const revoked = chainOf(input, "control").find((e) => e.eventType === "runner.keysRevoked");
+    expect(revoked).toBeDefined();
+    expect(JSON.parse(revoked!.payloadJson).revokedKeyIds).toContain(keyId);
+    expect(JSON.stringify(revoked)).toContain("system:restore");
+    expect(verifyAuditExport(input)).toMatchObject({ ok: true });
   });
 });

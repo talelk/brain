@@ -82,6 +82,7 @@ export function EvidenceList(props: { bundleDigest?: string; workspaceId?: strin
               <div class="flex min-w-0 flex-col gap-1 text-caption" data-testid="run-receipt">
                 <div class={`min-w-0 break-all font-medium ${signed().signedBy.verified ? "text-ink-gray-9" : "text-ink-red-4"}`}>
                   {`${t("receipt.signed", { runner: signed().signedBy.runnerId })} (${signed().signedBy.verified ? t("receipt.verified") : t("receipt.unverified")})`}
+                  {(signed().receipt as { evidenceDigest: string | null }).evidenceDigest === null ? `: ${t("receipt.noBundle")}` : ""}
                   {signed().signedBy.keyRetired ? ` · ${t("receipt.retired")}` : ""}
                 </div>
                 <div class="min-w-0"><span class="text-ink-gray-6">{t("receipt.digest")}</span><div class="mt-1"><DigestValue value={signed().digest} label={t("receipt.digest")} /></div></div>

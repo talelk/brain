@@ -13,7 +13,8 @@ import type { AuditEventCheck } from "./audit-chain";
 export const RUN_RECEIPT_VERSION = "brain.run-receipt/v1";
 export const RUNNER_KEY_ENROLLED_EVENT = "runner.keyEnrolled";
 /** Events that end a runner key: rotation and deregistration (their payload names `revokedKeyIds`). */
-export const RUNNER_KEY_REVOKING_EVENTS: readonly string[] = ["runner.rotated", "runner.deregistered"];
+export const RUNNER_KEYS_REVOKED_EVENT = "runner.keysRevoked";
+export const RUNNER_KEY_REVOKING_EVENTS: readonly string[] = ["runner.rotated", "runner.deregistered", RUNNER_KEYS_REVOKED_EVENT];
 export const RECEIPT_EVENT = "attempt.receipted";
 
 export type ReceiptOutcome = "succeeded" | "failed" | "unknown-outcome";
@@ -89,7 +90,7 @@ interface RunnerKey { readonly keyId: string; readonly runnerId: string; readonl
 
 /**
  * The offline receipt check for `brain audit verify` (the audit chain's plug-in point). It is stateful: it reads the runner keys the chain
- * recorded (`runner.keyEnrolled`) and the events that ended them (`runner.rotated`, `runner.deregistered`) in chain order, and judges each
+ * recorded (`runner.keyEnrolled`) and the events that ended them (`runner.rotated`, `runner.deregistered`, and the restore's `runner.keysRevoked`) in chain order, and judges each
  * `attempt.receipted` event against what was true at its position: the key was enrolled, belongs to that runner, had not been revoked, signed
  * exactly this receipt, and the receipt is for the attempt the event is about. Make one per verification; the control chain, which holds all
  * of these events, is walked first.

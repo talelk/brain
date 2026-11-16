@@ -2703,5 +2703,6 @@ export const ar: Catalog = {
   "receipt.unverified": "لا يتحقق",
   "receipt.retired": "جرى تدوير مفتاحه لاحقًا",
   "receipt.digest": "بصمة الإيصال",
+  "receipt.noBundle": "لا توجد حزمة أدلة",
   // @@END
 };

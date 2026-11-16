@@ -7,7 +7,31 @@ export function attestDomain(brain: Brain, runnerId: string, domain: string): vo
   brain.store.control.prepare("INSERT INTO runner_capabilities(runner_id,capability,verified,source,observed_at_ms,expires_at_ms) VALUES (?,?,1,'governor-test-attestation',?,?)").run(runnerId,`trust:domain:${domain}`,brain.store.now(),brain.store.now()+3600_000);
 }
 
+/**
+ * The bundle a runner would submit for an attempt is built before the attempt completes, because its digest is signed into the receipt (ADR 0078).
+ * A test world that completes attempts for the runner (tests/support/signed-completion.ts) builds it once and signs its digest; asking for
+ * the bundle of that attempt afterwards returns that same bundle, so the digest the receipt names is the digest that is submitted.
+ */
+const precomputed = new Map<string, EvidenceBundle>();
+export const precomputedBundleKey = (brain: Brain, attemptId: string): string => `${brain.store.dataDir}|${attemptId}`;
+export function precomputeBundle(brain: Brain, organizationId: string, workspaceId: string, attemptId: string): EvidenceBundle {
+  const key = precomputedBundleKey(brain, attemptId);
+  const known = precomputed.get(key);
+  if (known) return known;
+  const bundle = buildBundle(brain, organizationId, workspaceId, attemptId, `bundle-${attemptId}`);
+  precomputed.set(key, bundle);
+  return bundle;
+}
+/** Changes the bundle a test world will have signed for an attempt, before that attempt completes (the receipt names the digest of what it is given). */
+export function adjustPrecomputedBundle(brain: Brain, organizationId: string, workspaceId: string, attemptId: string, edit: (bundle: EvidenceBundle) => EvidenceBundle): void {
+  precomputed.set(precomputedBundleKey(brain, attemptId), edit(precomputeBundle(brain, organizationId, workspaceId, attemptId)));
+}
 export function bundleForAttempt(brain: Brain, organizationId: string, workspaceId: string, attemptId: string, bundleId: string): EvidenceBundle {
+  const known = precomputed.get(precomputedBundleKey(brain, attemptId));
+  return known ? structuredClone(known) : buildBundle(brain, organizationId, workspaceId, attemptId, bundleId);
+}
+
+function buildBundle(brain: Brain, organizationId: string, workspaceId: string, attemptId: string, bundleId: string): EvidenceBundle {
   const author = brain.store.control.prepare("SELECT a.job_id,a.job_fence,j.workflow_run_id,j.config_digest,p.payload_json,r.source_revision FROM job_attempts a JOIN jobs j ON j.id=a.job_id JOIN job_payloads p ON p.job_id=j.id JOIN config_releases r ON r.digest=j.config_digest WHERE a.id=?").get(attemptId) as { job_id:string;job_fence:number;workflow_run_id:string;config_digest:string;payload_json:string;source_revision:string };
   const ws = brain.store.workspaceDb(workspaceId,organizationId);
   const run = ws.prepare("SELECT workflow_digest FROM workflow_runs WHERE id=?").get(author.workflow_run_id) as { workflow_digest:string };
