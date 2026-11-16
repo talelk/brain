@@ -134,7 +134,8 @@ export async function runEngine(request: SessionRequest, format?: AnswerFormat):
   if (!format) { const output = wholeJsonObject(first.text); return output === undefined ? first : { ...first, output }; }
   const judged = problemsOf(first.text, format);
   if (judged.problems.length === 0) return { ...first, output: judged.value! };
-  const wrong = (problems: readonly string[]): AttemptFailure => failed("engine", `the agent's final answer is not the required JSON (${format.shape}): ${problems.join("; ")}`);
+  // A reply that is not the required JSON is a flake of the model, not a fault of the task: the Governor tries again (three times at most).
+  const wrong = (problems: readonly string[]): AttemptFailure => failed("engine", `the agent's final answer is not the required JSON (${format.shape}): ${problems.join("; ")}`, true);
   // The correction is part of the same allowance: with little of it left the first reply stands and the attempt fails on it.
   const used = first.usage.inputTokens + first.usage.outputTokens + first.usage.cachedInputTokens;
   const allowance = request.spec.limits.maxTokens;

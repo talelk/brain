@@ -318,7 +318,7 @@ describe("plan, check and judge attempts", () => {
     expect(fixed.usage.outputTokens).toBeGreaterThan(Math.ceil("It looks fine to me.".length / 4));
     expect(gov.completions.get(stubborn.attemptId)).toMatchObject({
       outcome: "failed", result: '{"pass":"yes"}',
-      failure: { reason: "engine", infrastructure: false, detail: 'the agent\'s final answer is not the required JSON ({"pass": true, "score": 0.9, "findings": "string"}): the reply is not a JSON object' },
+      failure: { reason: "engine", infrastructure: true, detail: 'the agent\'s final answer is not the required JSON ({"pass": true, "score": 0.9, "findings": "string"}): the reply is not a JSON object' },
     });
   });
 
