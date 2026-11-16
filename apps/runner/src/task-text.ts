@@ -30,7 +30,7 @@ function toolCalls(calls: readonly OfferToolCall[]): string {
   return `${shown.join("\n")}${calls.length > MAX_CALLS ? `\n[${calls.length - MAX_CALLS} more calls are not shown]` : ""}`;
 }
 
-export function composeTask(offer: JobOffer, paths: AttemptPaths, patches: ReadonlyMap<string, ReviewPatch> = new Map()): string {
+export function composeTask(offer: JobOffer, paths: AttemptPaths, patches: ReadonlyMap<string, ReviewPatch> = new Map(), files?: ReadonlyMap<string, ReviewPatch>): string {
   const { task, context, kind } = offer;
   const parts: string[] = [`[${kind} attempt, round ${task.round}]`, `# Goal\n${task.title}\n\n${task.goal}`];
   if (task.findings.length > 0) parts.push(`# Findings of earlier rounds\nThis is round ${task.round}. Earlier checks of this task found the following; each point must be dealt with.\n${task.findings.map((finding, index) => `${index + 1}. ${finding}`).join("\n")}`);
@@ -46,7 +46,8 @@ export function composeTask(offer: JobOffer, paths: AttemptPaths, patches: Reado
     parts.push(`# ${candidate ? "The candidates" : "What to check"}\n${context.review.map((entry) => {
       const patch = patches.get(entry.attemptId);
       const diff = patch?.path ? `The changes to the working copy are in the patch file ${patch.path}; read it.` : patch?.inline ? `The changes to the working copy:\n${patch.inline}` : "The working copy was not changed.";
-      return `## ${candidate ? "Candidate" : "Result"} ${entry.attemptId} (by agent ${entry.agent})\n### Result\n${cut(entry.result, RESULT_CHARS)}\n### Recorded tool calls\n${toolCalls(entry.toolCalls)}\n### Changes\n${diff}`;
+      const kept = entry.files.length === 0 ? "" : `\n### Files kept as results\n${entry.files.map((file) => { const shown = files?.get(`${entry.attemptId}/${file.name}`); return `- ${file.name} (${file.bytes} bytes)${shown?.path ? `: read it at ${shown.path}` : shown?.inline ? `:\n${shown.inline}` : ""}`; }).join("\n")}`;
+      return `## ${candidate ? "Candidate" : "Result"} ${entry.attemptId} (by agent ${entry.agent})\n### Result\n${cut(entry.result, RESULT_CHARS)}\n### Recorded tool calls\n${toolCalls(entry.toolCalls)}\n### Changes\n${diff}${kept}`;
     }).join("\n\n")}`);
   }
   if (offer.projects.length > 0 && paths.work) parts.push(`# Working copy\n${offer.projects.map((project) => `- ${project.name}: ${paths.work}/${project.name} (branch ${project.branch})`).join("\n")}\nFiles to keep as results go in ${paths.out}.`);

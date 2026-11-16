@@ -117,6 +117,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
     return {
       attemptId: id, agent: reviewed.agent, result: reviewed.result ?? "", ...(reviewed.output_json !== null ? { output: JSON.parse(reviewed.output_json) as JsonValue } : {}),
       toolCalls: callsOf(db, id), ...(reviewed.working_copy !== null ? { patch: blob(db, reviewed.working_copy) } : {}),
+      files: (db.prepare("SELECT l.name, l.digest, a.bytes FROM artifact_links l JOIN artifacts a ON a.digest=l.digest WHERE l.attempt_id=? AND l.kind='output' ORDER BY l.id").all(id) as Array<{ name: string; digest: Digest; bytes: number }>),
     };
   });
 
@@ -140,7 +141,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
   }));
   const describe = (entries: Record<string, { description?: string; title?: string }>) => Object.entries(entries).map(([name, entry]) => ({ name, description: entry.description || entry.title || "" }));
 
-  const offered = [...inherited.map((patch) => patch.digest), ...(own ? [own] : []), ...review.flatMap((entry) => (entry.patch ? [entry.patch.digest] : []))];
+  const offered = [...inherited.map((patch) => patch.digest), ...(own ? [own] : []), ...review.flatMap((entry) => [...(entry.patch ? [entry.patch.digest] : []), ...entry.files.map((file) => file.digest)])];
   db.prepare("UPDATE attempts SET payload_json=? WHERE id=?").run(JSON.stringify({ ...payload, offered }), attempt.id);
   return {
     attemptId: attempt.id, fence: attempt.fence, kind: attempt.kind, workspaceId: attempt.workspace_id, offerExpiresAt: attempt.offer_expires_at_ms ?? 0,

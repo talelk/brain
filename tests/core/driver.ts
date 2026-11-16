@@ -18,6 +18,8 @@ export interface Reply {
   readonly usage?: Partial<AttemptUsage>;
   /** The working-copy patch the attempt leaves, as `git diff --binary` text. */
   readonly patch?: string;
+  /** Files the attempt keeps as results (its `out/`), by name. */
+  readonly files?: Readonly<Record<string, string>>;
   readonly baseCommits?: Readonly<Record<string, string>>;
 }
 /** What a script is given for one attempt: the offer, and the calls an engine's tools would make. */
@@ -101,6 +103,7 @@ export async function enrolRunner(harness: Harness, script: Script = {}, options
       const reply: Reply = typeof given === "string" ? { result: given } : given;
       const result = reply.result ?? (reply.output !== undefined ? JSON.stringify(reply.output) : "");
       const output = reply.output ?? null;
+      for (const [name, content] of Object.entries(reply.files ?? {})) await upload(offer, name, content, "output");
       const workingCopy = reply.patch !== undefined ? await upload(offer, "working-copy.patch", reply.patch, "patch") : undefined;
       const receipt = { attemptId: offer.attemptId, fence, snapshotDigest: offer.snapshotDigest, resultDigest: resultDigest(result, output) };
       const body: CompleteRequest = {

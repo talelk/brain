@@ -279,7 +279,7 @@ describe("plan, check and judge attempts", () => {
     const check = (round: number) => gov.offer({
       kind: "check", agent: { name: "reviewer", native: "read" }, prompt: "# Reviewer\nFIXTURE read .brain/attempt-work.patch",
       task: { round, goal: 'Change a to b.\nFIXTURE @work write app/a.txt b\nFIXTURE @check #1 json {"pass": false, "score": 0.3, "findings": "no test"}\nFIXTURE @check #2+ json {"pass": true, "score": 0.9, "findings": "tested"}' },
-      context: { review: [{ attemptId: "attempt-work", agent: "developer", result: "Changed a to b.", toolCalls: [], patch }] },
+      context: { review: [{ attemptId: "attempt-work", agent: "developer", result: "Changed a to b.", toolCalls: [], files: [], patch }] },
     });
     const first = check(1);
     const second = check(2);
@@ -292,6 +292,18 @@ describe("plan, check and judge attempts", () => {
     expect(gov.eventsOf(first.attemptId, "native.result")[0]!.output).toBe(diff);
     // A check uploads no working-copy patch: only work changes the task's working copy.
     expect(gov.artifacts).toEqual([]);
+  });
+
+  it("shows a checker the files the reviewed attempt kept: as a file to read, or as text when it can read none", async () => {
+    const { gov, runner } = await runnerWorld();
+    const file = { name: "page.md", ...gov.blob("# The page\nHello") };
+    const review = [{ attemptId: "attempt-work", agent: "worker", result: "Wrote it.", toolCalls: [], files: [file] }];
+    const reader = gov.offer({ kind: "check", agent: { name: "reviewer", native: "read" }, prompt: "FIXTURE read .brain/attempt-work/files/page.md", task: { goal: 'FIXTURE @check json {"pass": true, "score": 1, "findings": "ok"}' }, context: { review } });
+    const blind = gov.offer({ kind: "check", agent: { name: "reviewer", native: "none" }, prompt: 'FIXTURE @check json {"pass": true, "score": 1, "findings": "ok"}', context: { review } });
+    await runner.runOnce();
+    await runner.runOnce();
+    expect(gov.eventsOf(reader.attemptId, "native.result")[0]!.output).toBe("# The page\nHello");
+    expect(gov.completions.get(blind.attemptId)).toMatchObject({ outcome: "succeeded" });
   });
 
   it("asks once for a correction when the answer is not the required JSON, and fails clearly when it still is not", async () => {
@@ -312,7 +324,7 @@ describe("plan, check and judge attempts", () => {
 
   it("has a judge keep exactly one of the candidates", async () => {
     const { gov, runner } = await runnerWorld();
-    const review = ["attempt-a", "attempt-b"].map((attemptId) => ({ attemptId, agent: "developer", result: `Result of ${attemptId}.`, toolCalls: [] }));
+    const review = ["attempt-a", "attempt-b"].map((attemptId) => ({ attemptId, agent: "developer", result: `Result of ${attemptId}.`, toolCalls: [], files: [] }));
     const picks = gov.offer({ kind: "judge", agent: { name: "judge" }, prompt: 'FIXTURE json {"keep": "attempt-b", "findings": "b is complete"}', context: { review } });
     const invents = gov.offer({ kind: "judge", agent: { name: "judge" }, prompt: 'FIXTURE json {"keep": "attempt-z", "findings": "z"}', context: { review } });
     await runner.runOnce();

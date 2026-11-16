@@ -123,7 +123,7 @@ describe("the task text", () => {
         results: [{ taskId: "t0", title: "Investigate", result: "The cause is a typo." }], notes: [{ author: "analyst", text: "Look at line 3.", at: 1 }],
         answers: [{ question: "Which branch?", answer: "main", by: "talel", at: 2 }],
         catalog: { agents: [{ name: "worker", description: "Does the work." }], tools: [{ name: "task.note", description: "Writes a note." }], plays: [{ name: "fix-issue", description: "Fixes an issue." }] },
-        review: [{ attemptId: "attempt-9", agent: "developer", result: "Fixed it.", toolCalls: [{ tool: "task.note", effect: "read", input: { text: "done" }, output: { id: "n1" }, outcome: "succeeded" }], patch: { digest: "sha256:x", bytes: 1 } }],
+        review: [{ attemptId: "attempt-9", agent: "developer", result: "Fixed it.", toolCalls: [{ tool: "task.note", effect: "read", input: { text: "done" }, output: { id: "n1" }, outcome: "succeeded" }], files: [], patch: { digest: "sha256:x", bytes: 1 } }],
       },
     });
     const text = composeTask(offer, { work: "/work", out: "/out" }, new Map([["attempt-9", { path: "/work/.brain/attempt-9.patch" }]]));

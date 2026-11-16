@@ -109,7 +109,7 @@ export interface JobOffer {
     /** What the workspace holds, by name and description. A planner assigns sub-tasks to `catalog.agents`. */
     readonly catalog: { readonly agents: ReadonlyArray<CatalogEntry>; readonly tools: ReadonlyArray<CatalogEntry>; readonly plays: ReadonlyArray<CatalogEntry> };
     /** For `check`: what is checked. For `judge`: one entry per candidate. */
-    readonly review?: ReadonlyArray<{ readonly attemptId: string; readonly agent: string; readonly result: string; readonly output?: JsonValue; readonly toolCalls: ReadonlyArray<OfferToolCall>; readonly patch?: BlobRef }>;
+    readonly review?: ReadonlyArray<{ readonly attemptId: string; readonly agent: string; readonly result: string; readonly output?: JsonValue; readonly toolCalls: ReadonlyArray<OfferToolCall>; readonly patch?: BlobRef; /** The files the reviewed attempt kept as results (its `out/`), so a check can read what it checks. */ readonly files: ReadonlyArray<BlobRef & { readonly name: string }> }>;
   };
   readonly snapshotDigest: Digest;
   readonly agent: {

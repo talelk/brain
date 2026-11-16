@@ -252,6 +252,17 @@ describe("patterns", () => {
     expect(task.result).toBe('Sent {"category":"billing","summary":"a refund"} | Billing answer to: Answer the billing request: a refund | skipped');
   });
 
+  it("a checker is offered the files the reviewed attempt kept, and may fetch exactly those", async () => {
+    let seen: ReadonlyArray<{ name: string; digest: string }> = [];
+    driver.script({
+      writer: () => ({ result: "Wrote the page.", files: { "page.md": "# The page" } }),
+      critic: async ({ offer }) => { seen = offer.context.review?.[0]?.files ?? []; return pass(); },
+    });
+    await start("critic");
+    await driver.drain();
+    expect(seen.map((file) => file.name)).toEqual(["page.md"]);
+  });
+
   it("generator and critic: the reviewer sends the result back with findings until it passes", async () => {
     const seen: Array<{ round: number; findings: readonly string[] }> = [];
     driver.script({

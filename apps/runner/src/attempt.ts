@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { resultDigest, sha256Digest, signReceipt } from "@brain/contracts";
 import type { AttemptEventBody, AttemptFailure, AttemptUsage, BlobRef, CompleteRequest, JobOffer, JsonValue } from "@brain/contracts";
 import { execa } from "execa";
@@ -157,7 +157,18 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
       const seesFiles = offer.agent.native !== "none";
       const paths = sandboxed ? SANDBOX_PATHS : { work: join(attemptDir, "work"), out: join(attemptDir, "out"), state: join(attemptDir, "state") };
       const reviewed = new Map<string, ReviewPatch>();
+      // The files a reviewed attempt kept: a file the agent can read, or (when it can read no files) the start of its text.
+      const reviewedFiles = new Map<string, ReviewPatch>();
       for (const entry of offer.context.review ?? []) {
+        for (const file of entry.files) {
+          const name = file.name.split("/").filter((part) => part && part !== "..").join("/") || "file";
+          const text = new TextDecoder().decode(await client.blob(file));
+          if (!seesFiles) { reviewedFiles.set(`${entry.attemptId}/${file.name}`, { inline: text.length > INLINE_PATCH_CHARS ? `${text.slice(0, INLINE_PATCH_CHARS)}\n[cut: ${text.length} characters in all]` : text }); continue; }
+          const target = join(attemptDir, "work", ".brain", entry.attemptId, "files", name);
+          mkdirSync(dirname(target), { recursive: true });
+          writeFileSync(target, text);
+          reviewedFiles.set(`${entry.attemptId}/${file.name}`, { path: `${paths.work}/.brain/${entry.attemptId}/files/${name}` });
+        }
         if (!entry.patch) continue;
         // The patch is `git diff` text with every path under its project's folder, as the files lie in the working copy.
         const text = new TextDecoder().decode(await client.blob(entry.patch));
@@ -198,7 +209,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
       emit({ kind: "status", phase: "engine", detail: `${picked.id} runs agent ${offer.agent.name}` });
       const spec: EngineSessionSpec = {
         attemptId, instructions: prompt, model, native: offer.agent.native, outDir: paths.out, stateDir: paths.state,
-        task: composeTask(offer, { ...(seesFiles ? { work: paths.work } : {}), out: paths.out }, reviewed),
+        task: composeTask(offer, { ...(seesFiles ? { work: paths.work } : {}), out: paths.out }, reviewed, reviewedFiles),
         ...(seesFiles ? { workDir: paths.work } : {}),
         tools: offer.tools.filter((tool) => offer.agent.tools.includes(tool.name)).map((tool) => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, effect: tool.effect })),
         limits: { timeoutMs: cfg.attemptTimeoutMs, maxTokens: offer.agent.limits.tokens, maxMicroUsd: offer.agent.limits.spendMicroUsd, maxTurns: offer.agent.limits.turns },
