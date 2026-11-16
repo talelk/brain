@@ -20,6 +20,7 @@
     "test:core": "node scripts/with-tmpdir.mjs vitest run tests/core",
     "test:runner": "node scripts/with-tmpdir.mjs vitest run tests/runner",
     "test:e2e": "node scripts/with-tmpdir.mjs vitest run tests/e2e",
+    "test:browser": "pnpm build && node scripts/with-tmpdir.mjs playwright test",
     "complexity": "node scripts/complexity.mjs",
     "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:runner && pnpm test:core && pnpm test:e2e && pnpm complexity",
     "build": "pnpm --filter @brain/web build",

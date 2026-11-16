@@ -37,7 +37,7 @@ function AddRunner(): JSX.Element {
   const [made, setMade] = createSignal<{ token: string; expiresAt: number }>();
   const [copied, setCopied] = createSignal(false);
   const make = useAction(async () => { setCopied(false); setMade(await command("runner.token", name().trim() ? { name: name().trim() } : {})); });
-  const line = (): string => `BRAIN_GOVERNOR_URL=${location.origin} \\\nBRAIN_RUNNER_ENROLL_TOKEN=${made()?.token ?? ""} \\\npnpm exec tsx apps/runner/src/main.ts`;
+  const line = (): string => `pnpm brain runner --governor ${location.origin} --token ${made()?.token ?? ""}`;
   return (
     <div class="mt-5 rounded-[20px] border border-rule bg-sheet p-5">
       <h3 class="t-head text-ink">{t("health.runner.add")}</h3>
@@ -53,7 +53,7 @@ function AddRunner(): JSX.Element {
             <p class="t-text text-ink">{t("health.runner.run")}</p>
             <Code text={line()} />
             <div class="flex flex-wrap items-center gap-3">
-              <Button variant="outline" size="md" iconLeft={copied() ? "lucide-check" : "lucide-copy"} onClick={() => void navigator.clipboard.writeText(line().replaceAll("\\\n", "")).then(() => setCopied(true))}>{copied() ? t("action.copied") : t("action.copy")}</Button>
+              <Button variant="outline" size="md" iconLeft={copied() ? "lucide-check" : "lucide-copy"} onClick={() => void navigator.clipboard.writeText(line()).then(() => setCopied(true))}>{copied() ? t("action.copied") : t("action.copy")}</Button>
               <span class="t-small text-ink-3">{t("health.runner.expires", { when: dateTime(token().expiresAt) })}</span>
             </div>
           </div>

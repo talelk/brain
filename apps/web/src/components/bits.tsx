@@ -4,7 +4,7 @@ import { Button } from "@talelk/newui-atoms";
 import type { Problem, TaskNeed, TaskState, TaskSummary } from "@brain/contracts";
 import type { ApiFailure } from "../data/api";
 import { t, tKey } from "../i18n";
-import { ago, money, stateLabel } from "../lib/format";
+import { ago, money, shownState, stateLabel } from "../lib/format";
 
 /** The small pieces every screen is made of. An icon is named by its full `lucide-*` class so the stylesheet build can see it. */
 
@@ -126,17 +126,14 @@ export function StateWord(props: { state: TaskState; class?: string }): JSX.Elem
 export const needText = (need: TaskNeed): string => t(`need.${need.kind}`);
 
 /** One goal in a list: its state, its title, who is on it, when, and what it cost. */
-export function TaskRow(props: { task: TaskSummary; href: string; by?: string }): JSX.Element {
+export function TaskRow(props: { task: TaskSummary; href: string }): JSX.Element {
+  const line = (): JSX.Element | undefined => (props.task.needs ? <span class="text-needs-text">{needText(props.task.needs)}</span> : props.task.waitingForYou > 0 ? <span class="text-needs-text">{t("link.needsYou")}</span> : (props.task.createdByName ? t("tasks.by", { name: props.task.createdByName }) : (props.task.agent ?? undefined)));
   return (
     <A href={props.href} class="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 rounded-xl px-3 py-2.5 hover:bg-lilac focus-visible:bg-lilac sm:grid-cols-[7.5rem_minmax(0,1fr)_auto_4.5rem]">
-      <StateWord state={props.task.state} class="max-sm:col-span-2" />
+      <StateWord state={shownState(props.task)} class="max-sm:col-span-2" />
       <span class="min-w-0">
         <span class="block truncate t-text font-medium text-ink">{props.task.title}</span>
-        <Show when={props.task.needs ?? props.by ?? props.task.agent}>
-          <span class="block truncate t-small text-ink-3">
-            <Show when={props.task.needs} fallback={props.by ?? props.task.agent}>{(need) => <span class="text-needs-text">{needText(need())}</span>}</Show>
-          </span>
-        </Show>
+        <Show when={line()}><span class="block truncate t-small text-ink-3">{line()}</span></Show>
       </span>
       <span class="t-small text-ink-3 max-sm:hidden">{ago(props.task.finishedAt ?? props.task.updatedAt)}</span>
       <span class="text-end t-small tabular-nums text-ink-2">{money(props.task.microUsd)}</span>

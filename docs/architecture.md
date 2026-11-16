@@ -33,7 +33,7 @@ apps/governor/src/
 apps/runner/   kept; edited for the new protocol, native tools and working copies
 apps/launcher/ kept; engine sandbox gains the working-copy mount
 apps/web/src/  new app, about eight screens
-scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, backup, restore, audit-verify), deploy-demo.sh
+scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, runner, backup, restore, audit-verify), deploy-demo.sh
 deploy/        the sandbox images; demo/ (the demo host's compose file, host commands and backup units)
 packs/         base, software-factory, sre, customer-operations
 tests/         unit/ (pure), core/ (governor + fixture runner in-process), browser/
@@ -193,12 +193,22 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   attempt ends, the task is `waiting` until its sub-tasks are done and is then run again with their results. A
   `task.ask` question makes the task `needs_you` when the attempt ends; the answer is in the context of the next attempt.
 - `task.edit` adds, changes and removes sub-tasks of a task that groups them, as long as the sub-task has no attempt yet.
+  Its list of changes is one edit: removals apply first, then changes and additions, and only the result is checked
+  (every `after` names a sub-task of the same task, none waits for itself), so the order of the list does not matter.
   `task.stop` stops a task and everything under it (attempts end, pending approvals expire); `task.retry` brings back a
   task that failed or was stopped, and with it its sub-tasks that did.
 - Each task receives as context: its goal, the results of the tasks it waits for (the copies of a `for_each` step each
   on their own), the shared notes of its root, the answers to its questions, what happened to it before (findings of
   failed checks, the outcome of calls a person decided after an attempt ended), the names and descriptions of the
   workspace's agents, tools and Plays, and the workspace's memory through `memory.search`.
+- What the screens read is answered by the Governor, not worked out by the web app. A task summary carries
+  `createdByName` (absent for a goal a trigger started), `goalTitle` (the goal it belongs to) and `waitingForYou` (the
+  tasks of its tree, itself included, in `needs_you`); a goal with `waitingForYou` above zero is shown as needing a
+  person, and `today.running` leaves such goals out. A sub-task of `task.get` also carries its `goal` and `waitsFor`.
+  An approval carries `rootTaskId` and `goalTitle`; a note and a pull request carry the `taskId` they belong to.
+  `tasks.list` takes `rootsOnly` and `search` (title or goal text, case-insensitive), both applied before `limit`, so a
+  page holds the newest matches. A goal started from a Play is titled by the Play and the start of its first text input
+  (`Fix an issue: The login page shows…`); a goal a person typed is titled by its first line.
 - An attempt that fails for an infrastructure reason (runner lost, lease expired, model refusal) is retried up to three
   times, after 5, 20 and 80 seconds, before the task fails. An `act` attempt is never retried on its own.
 - The decisions are pure functions over plain data (`tasks/decide.ts`); `tasks/orchestrator.ts` reads the facts and
@@ -371,8 +381,13 @@ first goal); **Health** (runners, model, audit, backups); **People and secrets**
   restored and started again.
 - `tests/e2e`: the real runner on its fixture engine against the Governor in one process: a pipeline to a checked
   result, a native edit that leaves as an approved pull request, a held call carried out later.
-- `tests/browser`: first-time user from empty install to a checked result; approving a
-  call; editing an agent; creating a workspace from a pack.
+- `tests/browser` (`pnpm test:browser`: builds the web app, then Playwright with Chromium at 1440 and, for the first
+  run and the accessibility pass, 390 wide): each test starts its own empty install, a Governor serving `apps/web/dist`
+  and the real runner on the fixture engine, in the test process (`stack.ts`). It acts as a first-time user: setup link to
+  a checked result with its cost; a typed goal, its plan changed and confirmed; an approval approved and one rejected with
+  a reason; an agent's prompt edited (pack file to workspace file) and a broken file refused on its line; a workspace made
+  from a pack with its first goal; axe on Today and Task (light and dark) and an Arabic right-to-left check. It is not
+  part of `pnpm verify`.
 
 `pnpm verify` = lint, typecheck, unit, runner, core and e2e tests, and `scripts/complexity.mjs`,
 which fails when tables, commands plus queries, glossary terms, step fields or screens exceed the

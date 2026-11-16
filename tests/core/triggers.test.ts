@@ -74,7 +74,7 @@ describe("a GitHub delivery", () => {
   it("Teams gets a card when a task needs a person and when a goal is done", async () => {
     await deliverCards(harness.governor.gov);
     expect(cards).toEqual(['"review" is waiting for your sign-off.', '"After a push" is done.']);
-    const review = step(await getTask(harness.admin, workspaceId, (await harness.admin.query("tasks.list", { workspaceId, state: "running" })).tasks[0]?.id ?? ""), "review");
+    const review = step(await getTask(harness.admin, workspaceId, (await harness.admin.query("tasks.list", { workspaceId, rootsOnly: true, state: "needs_you" })).tasks[0]?.id ?? ""), "review");
     await harness.admin.command("task.check", { workspaceId, taskId: review.id, pass: true });
     await deliverCards(harness.governor.gov);
     await deliverCards(harness.governor.gov);
@@ -105,7 +105,7 @@ describe("a schedule", () => {
     expect(patrols()).toBe(2);
     tick(QUARTER);
     expect(patrols()).toBe(3);
-    const { tasks } = await harness.admin.query("tasks.list", { workspaceId, state: "running" });
+    const { tasks } = await harness.admin.query("tasks.list", { workspaceId, rootsOnly: true, state: "running" });
     expect(await getTask(harness.admin, workspaceId, tasks[0]?.id ?? "")).toMatchObject({ createdBy: "trigger:patrol", play: "patrol" });
     await driver.drain();
   });

@@ -1,19 +1,19 @@
 import { createEffect, createMemo, createSignal, Show, type JSX } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Select } from "@talelk/newui-molecules";
-import type { CommandRequest, Task } from "@brain/contracts";
-import { command, query, useAction, useLive } from "../data/api";
+import type { CommandRequest, SubtaskSummary, Task } from "@brain/contracts";
+import { command, useAction } from "../data/api";
 import { usePlace } from "../data/session";
 import { t } from "../i18n";
-import { Details, Failure, Icon, Keyed, Loading } from "./bits";
+import { Details, Failure, Icon, Keyed } from "./bits";
 
 type Change = CommandRequest<"task.edit">["changes"][number];
-const editable = (task: Task): boolean => task.state === "waiting" || task.state === "ready";
+const editable = (task: SubtaskSummary): boolean => task.state === "waiting" || task.state === "ready";
 
 /** The sub-tasks in the order they will run: each after the ones it waits for, otherwise as the plan listed them. */
-export function planOrder(tasks: readonly Task[]): Task[] {
+export function planOrder(tasks: readonly SubtaskSummary[]): SubtaskSummary[] {
   const placed = new Set<string>();
-  const order: Task[] = [];
+  const order: SubtaskSummary[] = [];
   const rest = [...tasks];
   while (rest.length > 0) {
     const next = rest.findIndex((task) => task.waitsFor.every((id) => placed.has(id) || !tasks.some((other) => other.id === id)));
@@ -29,22 +29,16 @@ export function planOrder(tasks: readonly Task[]): Task[] {
  */
 export function PlanEditor(props: { root: Task; onOrder?: (ids: readonly string[]) => void }): JSX.Element {
   const place = usePlace();
-  const ids = (): string[] => props.root.subtasks.filter((task) => task.parentId === props.root.id).map((task) => task.id);
-  const loaded = useLive(() => `${props.root.id}:${ids().join(",")}:${props.root.version}`, () => Promise.all(ids().map((taskId) => query("task.get", { workspaceId: place.id(), taskId }))));
-  const tasks = createMemo(() => planOrder(loaded.data() ?? []));
+  const tasks = createMemo(() => planOrder(props.root.subtasks.filter((task) => task.parentId === props.root.id)));
   createEffect(() => props.onOrder?.(tasks().map((task) => task.id)));
   const agents = (): { label: string; value: string }[] => Object.keys(place.workspace.data()?.snapshot.agents ?? {}).map((name) => ({ label: name, value: name }));
   const edit = useAction((changes: Change[]) => command("task.edit", { workspaceId: place.id(), taskId: props.root.id, changes }));
   const titleOf = (id: string): string => tasks().find((task) => task.id === id)?.title ?? id;
 
-  /**
-   * Swaps two neighbours in the order: each takes the other's place in every "waits for". The later one is changed first, so that no
-   * step of the edit has the two waiting for each other.
-   */
-  const swap = (a: Task, b: Task): void => {
+  /** Swaps two neighbours in the order: each takes the other's place in every "waits for". The changes are one edit, in no particular order. */
+  const swap = (a: SubtaskSummary, b: SubtaskSummary): void => {
     const other = (id: string): string => (id === a.id ? b.id : id === b.id ? a.id : id);
-    const rest = tasks().filter((task) => task.id !== a.id && task.id !== b.id);
-    const changes = [b, a, ...rest].filter(editable).flatMap((task): Change[] => {
+    const changes = tasks().filter(editable).flatMap((task): Change[] => {
       const source = task.id === a.id ? b : task.id === b.id ? a : task;
       const after = source.waitsFor.map(other).filter((id) => id !== task.id);
       return after.join() === task.waitsFor.join() ? [] : [{ op: "change", id: task.id, after }];
@@ -62,7 +56,7 @@ export function PlanEditor(props: { root: Task; onOrder?: (ids: readonly string[
   };
 
   return (
-    <Show when={loaded.data()} fallback={<Show when={loaded.error()} fallback={<Loading />}><Failure error={loaded.error()} /></Show>}>
+    <>
       <ol class="flex flex-col">
         <Keyed each={tasks()} by={(task) => task.id}>
           {(task) => {
@@ -116,6 +110,6 @@ export function PlanEditor(props: { root: Task; onOrder?: (ids: readonly string[
         </form>
       </Show>
       <Show when={tasks().length === 0}><p class="mt-2 flex items-center gap-2 t-small text-ink-3"><Icon name="lucide-info" />{t("plan.empty")}</p></Show>
-    </Show>
+    </>
   );
 }

@@ -19,13 +19,6 @@ function tokenFromAddress(): string {
   return new URLSearchParams(location.search).get("token") ?? new URLSearchParams(location.hash.slice(1)).get("token") ?? "";
 }
 
-/** The company's mark. Its gradient is the mark's own; nothing else in the app borrows it. */
-const CompanyMark = (): JSX.Element => (
-  <p class="font-display text-[1.375rem] font-semibold tracking-tight text-ink" aria-label="Keyrus AI">
-    keyrus <span class="bg-linear-to-r from-[#5b3df5] to-[#f4692a] bg-clip-text text-transparent">Ai</span>
-  </p>
-);
-
 /** First-run setup, then sign-in with a password, a passkey and a second factor. */
 export function SignIn(props: { setupRequired: boolean; onDone: () => void }): JSX.Element {
   const [token, setToken] = createSignal(tokenFromAddress());
@@ -65,7 +58,7 @@ export function SignIn(props: { setupRequired: boolean; onDone: () => void }): J
 
   return (
     <main class="mx-auto flex min-h-dvh max-w-[26rem] flex-col justify-center px-5 py-12">
-      <CompanyMark />
+      <p class="font-display text-[1.375rem] font-semibold tracking-tight text-ink">Brain</p>
       <h1 class="mt-10 t-hero text-ink">{title()}</h1>
       <p class="mt-4 t-text text-ink-2">{text()}</p>
       <form class="mt-8 flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void submit.run(); }}>

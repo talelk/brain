@@ -110,7 +110,7 @@ describe("the shipped Plays", () => {
     const fire = async (): Promise<string> => {
       clock.advance(15 * 60_000);
       runSchedules(harness.governor.gov);
-      const [root] = (await member.query("tasks.list", { workspaceId, limit: 1 })).tasks;
+      const [root] = (await member.query("tasks.list", { workspaceId, rootsOnly: true, limit: 1 })).tasks;
       await driver.drain();
       return root?.id ?? "";
     };

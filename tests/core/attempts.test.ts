@@ -338,7 +338,7 @@ describe("the record of an attempt and the health of what runs it", () => {
     expect(events.map((event) => [event.seq, event.kind])).toEqual([[1, "status"], [2, "text"], [3, "native.call"]]);
     expect((await member.query("task.events", { workspaceId, taskId, attemptId, after: 2 })).events).toMatchObject([{ seq: 3, kind: "native.call", name: "bash", input: { command: "ls" } }]);
     await expect(member.query("task.events", { workspaceId, taskId, attemptId: "a_elsewhere" })).rejects.toMatchObject({ code: "NOT_FOUND" });
-    expect((await member.query("tasks.list", { workspaceId, state: "done", limit: 1 })).tasks).toMatchObject([{ title: "One step", state: "done", parentId: null }]);
+    expect((await member.query("tasks.list", { workspaceId, rootsOnly: true, state: "done", limit: 1 })).tasks).toMatchObject([{ title: "One step", state: "done", parentId: null }]);
     driver.script({ dev: () => "Done." });
   });
 

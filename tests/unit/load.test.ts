@@ -64,7 +64,7 @@ describe("a workspace folder with its packs", () => {
 describe("a folder is refused, with the file and what to fix, when", () => {
   it.each<[string, Record<string, string>, RegExp]>([
     ["it has no brain.toml", {}, /^brain\.toml: the workspace has no brain\.toml/u],
-    ["brain.toml is not TOML", { "brain.toml": 'name = "Test' }, /^brain\.toml: not valid TOML/u],
+    ["brain.toml is not TOML", { "brain.toml": 'name = "Test' }, /^brain\.toml: not valid TOML at line 1:/u],
     ["brain.toml has an unknown key", { "brain.toml": `${brain}colour = "blue"\n` }, /^brain\.toml: Unrecognized key/u],
     ["a pack does not exist", { "brain.toml": 'name = "T"\npacks = ["nowhere"]\n' }, /^brain\.toml: pack "nowhere" does not exist/u],
     ["an agent names a tool that does not exist", { "brain.toml": brain, "agents/writer/agent.toml": agentToml.replace("echo", "deploy.restart"), "agents/writer/prompt.md": "x" }, /^agents\/writer\/agent\.toml: tool "deploy\.restart" does not exist/u],

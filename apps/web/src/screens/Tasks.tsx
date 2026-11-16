@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 import { Button, TextInput } from "@talelk/newui-atoms";
 import type { TaskState, TaskSummary } from "@brain/contracts";
 import { query, useLive } from "../data/api";
@@ -15,10 +15,12 @@ export default function TasksScreen(): JSX.Element {
   const [state, setState] = createSignal<TaskState>();
   const [search, setSearch] = createSignal("");
   const [limit, setLimit] = createSignal(PAGE);
-  const list = useLive(() => `${place.id()}:${state() ?? "all"}:${limit()}`, () => query("tasks.list", { workspaceId: place.id(), ...(state() ? { state: state() } : {}), limit: limit() }));
+  /** The words searched for, once the person has stopped typing. */
+  const [words, setWords] = createSignal("");
+  createEffect(() => { const typed = search().trim(); const timer = setTimeout(() => { setWords(typed); setLimit(PAGE); }, 250); onCleanup(() => clearTimeout(timer)); });
   /** Goals only: a sub-task is reached through its goal. */
-  const goals = createMemo((): TaskSummary[] => (list.data()?.tasks ?? []).filter((task) => task.parentId === null));
-  const shown = createMemo((): TaskSummary[] => { const words = search().trim().toLowerCase(); return words === "" ? goals() : goals().filter((task) => task.title.toLowerCase().includes(words)); });
+  const list = useLive(() => `${place.id()}:${state() ?? "all"}:${words()}:${limit()}`, () => query("tasks.list", { workspaceId: place.id(), rootsOnly: true, ...(state() ? { state: state() } : {}), ...(words() !== "" ? { search: words() } : {}), limit: limit() }));
+  const shown = (): readonly TaskSummary[] => list.data()?.tasks ?? [];
   const filter = (value: TaskState | undefined, label: string): JSX.Element => (
     <button type="button" aria-pressed={state() === value} class="whitespace-nowrap rounded-full border border-rule-2 px-3.5 py-1.5 t-small font-medium text-ink-2 hover:border-ink-3 hover:text-ink aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-paper" onClick={() => { setState(value); setLimit(PAGE); }}>{label}</button>
   );
@@ -35,12 +37,12 @@ export default function TasksScreen(): JSX.Element {
       <Ready data={list.data()} error={list.error()} retry={list.refetch}>
         {(loaded) => (
           <Show when={shown().length > 0} fallback={
-            <Show when={goals().length === 0 && state() === undefined} fallback={<Empty title={t("tasks.none.match")} text={t("tasks.none.match.text")} />}>
+            <Show when={words() === "" && state() === undefined} fallback={<Empty title={t("tasks.none.match")} text={t("tasks.none.match.text")} />}>
               <Empty title={t("tasks.none")} text={t("tasks.none.text")}><Button variant="solid" theme="blue" size="md" route={`${place.to()}?new=1`}>{t("tasks.new")}</Button></Empty>
             </Show>
           }>
             <ul class="-mx-3">
-              <Keyed each={shown()} by={(task) => task.id}>{(task) => <li class="border-b border-rule last:border-b-0"><TaskRow task={task()} href={place.to(`/tasks/${task().id}`)} by={task().createdByName ?? task().agent ?? undefined} /></li>}</Keyed>
+              <Keyed each={shown()} by={(task) => task.id}>{(task) => <li class="border-b border-rule last:border-b-0"><TaskRow task={task()} href={place.to(`/tasks/${task().id}`)} /></li>}</Keyed>
             </ul>
             <Show when={loaded().tasks.length >= limit()}><div class="mt-5 text-center"><Button variant="outline" size="md" onClick={() => setLimit(limit() + PAGE)}>{t("tasks.more")}</Button></div></Show>
           </Show>

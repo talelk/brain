@@ -3,7 +3,7 @@ import { A, useParams, useSearchParams } from "@solidjs/router";
 import { Button, Textarea } from "@talelk/newui-atoms";
 import type { Attempt, Check, Task, TaskNeed, TaskSummary } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
-import { usePlace, useSession } from "../data/session";
+import { usePlace } from "../data/session";
 import { t } from "../i18n";
 import { ago, dateTime, duration, money, shortHash, titleOf, tokens } from "../lib/format";
 import { ApprovalView } from "../components/ApprovalView";
@@ -201,6 +201,7 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
       </Show>
       <Show when={runs().length > 0}>
         <Part title={t("task.cost")} aside={`${money(task().usage.microUsd)}, ${tokens(task().usage)}`}>
+          <Show when={runs().some((attempt) => !attempt.priced)}><p class="mb-2 t-small text-ink-2">{t("task.cost.unpriced")}</p></Show>
           <Details summary={t("task.cost.runs", { n: runs().length })}>
             <div class="overflow-x-auto">
               <table class="w-full t-small">
@@ -213,7 +214,7 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
                         <td class="whitespace-nowrap py-1.5 pe-3 text-ink-3">{[attempt.engine, attempt.model].filter(Boolean).join(", ")}</td>
                         <td class="whitespace-nowrap py-1.5 pe-3 text-ink-3">{t(`attempt.state.${attempt.state}`)}<Show when={attempt.startedAt && attempt.finishedAt}> ({duration((attempt.finishedAt ?? 0) - (attempt.startedAt ?? 0))})</Show></td>
                         <td class="whitespace-nowrap py-1.5 pe-3 text-ink-3">{tokens(attempt.usage)}</td>
-                        <td class="whitespace-nowrap py-1.5 text-end tabular-nums text-ink">{money(attempt.usage.microUsd)}</td>
+                        <td class="whitespace-nowrap py-1.5 text-end tabular-nums text-ink">{attempt.priced ? money(attempt.usage.microUsd) : t("cost.unpriced")}</td>
                       </tr>
                     )}
                   </For>
@@ -231,7 +232,6 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
 /** One goal: its chain down the leading side, and beside it what is recorded for the selected link. */
 export default function TaskScreen(): JSX.Element {
   const place = usePlace();
-  const session = useSession();
   const params = useParams<{ taskId: string }>();
   const [search, setSearch] = useSearchParams<{ link?: string }>();
   const [order, setOrder] = createSignal<readonly string[]>();
@@ -251,7 +251,6 @@ export default function TaskScreen(): JSX.Element {
     setSearch({ link: id }, { replace: true });
     if (window.innerWidth < 1024) detail?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   };
-  const startedBy = (task: Task): string => task.createdByName ?? (task.createdBy === session.user().id ? session.user().name : "");
   return (
     <Ready data={record.data()} error={record.error()} retry={record.refetch}>
       {(task) => (
@@ -259,7 +258,7 @@ export default function TaskScreen(): JSX.Element {
           <PageHead title={<span dir="auto">{task().title}</span>}
             back={task().parentId ? { href: place.to(`/tasks/${task().rootId}?link=${task().id}`), label: t("task.back.goal") } : { href: place.to("/tasks"), label: t("nav.tasks") }}
             text={<>
-              {startedBy(task()) ? t("task.started.by", { name: startedBy(task()), when: ago(task().createdAt) }) : t("task.started", { when: ago(task().createdAt) })}
+              {task().createdByName ? t("task.started.by", { name: task().createdByName ?? "", when: ago(task().createdAt) }) : t("task.started", { when: ago(task().createdAt) })}
               <Show when={task().play}> {t("task.started.play", { play: place.workspace.data()?.snapshot.plays[task().play ?? ""]?.title ?? task().play ?? "" })}</Show>
               <Show when={task().usage.microUsd > 0}> {t(task().finishedAt ? "task.cost.total" : "task.cost.soFar", { cost: money(task().usage.microUsd) })}</Show>
             </>} />

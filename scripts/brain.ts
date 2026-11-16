@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { spawn, spawnSync } from "node:child_process";
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { backup, restore } from "../apps/governor/src/health/backup";
@@ -16,6 +16,9 @@ import { verify } from "../apps/governor/src/trust/audit";
  *   stop             stops the runner, the launcher, the Governor and the egress proxy it started. Data is never touched.
  *   status           says what runs; exits 0 only when the Governor is ready.
  *   logs [name]      follows the log of `governor` (the default), `launcher` or `runner`.
+ *   runner --governor <address> --token <token>
+ *                    runs a runner on this machine for another Brain (a token comes from its Health screen), in this terminal, until
+ *                    stopped. It keeps its key in <home>/joined-<address>, so only the first start needs the token.
  *   backup [file]    writes one archive of the data (brain.db through SQLite's backup API, cas/, workspaces/, the instance key and the
  *                    audit key) and leaves <data>/backup.marker. Works while Brain runs. Default: <home>/backups/brain-<time>.tar.gz
  *   restore <file>   puts a backup in place of the data. Refuses while Brain runs; what was there is moved aside, never deleted.
@@ -203,9 +206,38 @@ async function start(): Promise<void> {
   say('Stop it with "pnpm brain stop".');
 }
 
+/** Runs a runner for the Governor at `governor`, in the foreground. */
+function joinRunner(governor: string, token: string | undefined): void {
+  const address = new URL(governor);
+  const state = join(HOME, `joined-${address.host.replace(/[^a-z0-9.-]/giu, "_")}`);
+  mkdirSync(state, { recursive: true, mode: 0o700 });
+  const ran = spawnSync(process.execPath, ["--import", "tsx", PARTS.runner], {
+    cwd: ROOT, stdio: "inherit",
+    env: {
+      ...process.env, BRAIN_GOVERNOR_URL: address.origin, BRAIN_RUNNER_STATE_DIR: state, BRAIN_RUNNER_NAME: process.env["BRAIN_RUNNER_NAME"] ?? hostname(), ...(token ? { BRAIN_RUNNER_ENROLL_TOKEN: token } : {}),
+      BRAIN_RUNNER_CAPABILITIES: process.env["BRAIN_RUNNER_CAPABILITIES"] ?? (FIXTURE ? "bash,python3,curl,git" : ["bash", "python3", "curl", "git"].filter(has).join(",")),
+      ...(FIXTURE ? { BRAIN_RUNNER_ENGINES: "fixture", BRAIN_RUNNER_FIXTURE_FOR: "pi,claude,opencode,codex" } : { BRAIN_RUNNER_ENGINES: process.env["BRAIN_ENGINES"] ?? "pi" }),
+    },
+  });
+  process.exitCode = ran.status ?? 1;
+}
+
+/** The value of `--name <value>` or `--name=<value>` among the arguments. */
+function flag(name: string): string | undefined {
+  const args = process.argv.slice(3);
+  const at = args.findIndex((arg) => arg === name || arg.startsWith(`${name}=`));
+  return at < 0 ? undefined : args[at]?.startsWith(`${name}=`) ? args[at]?.slice(name.length + 1) : args[at + 1];
+}
+
 async function main(): Promise<void> {
   const [command = "", argument] = process.argv.slice(2);
   if (command === "start") return start();
+  if (command === "runner") {
+    const governor = flag("--governor");
+    if (!governor) throw new Error("say which Brain to join: pnpm brain runner --governor <address> --token <token>");
+    if (!URL.canParse(governor)) throw new Error(`${governor} is not an address; write it like http://brain.example:3100`);
+    return joinRunner(governor, flag("--token"));
+  }
   if (command === "stop") {
     for (const part of ["runner", "launcher", "governor"] as const) await stopPart(part);
     // The egress proxy this Brain started (the one that reads this run folder's grants) goes with it.
@@ -247,7 +279,7 @@ async function main(): Promise<void> {
     }
     return;
   }
-  throw new Error("usage: pnpm brain start | stop | status | logs [governor|launcher|runner] | backup [file] | restore <file> | audit-verify");
+  throw new Error("usage: pnpm brain start | stop | status | logs [governor|launcher|runner] | runner --governor <address> --token <token> | backup [file] | restore <file> | audit-verify");
 }
 
 try {

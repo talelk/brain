@@ -56,7 +56,8 @@ function readToml<S extends z.ZodType>(schema: S, bytes: Uint8Array, path: strin
   try {
     raw = plain(parseToml(text(bytes)));
   } catch (e) {
-    problems.push({ path, message: `not valid TOML: ${(e instanceof Error ? e.message : String(e)).split("\n")[0]}` });
+    const line = (e as { line?: unknown }).line;
+    problems.push({ path, message: `not valid TOML${typeof line === "number" ? ` at line ${line}` : ""}: ${(e instanceof Error ? e.message : String(e)).split("\n")[0]}` });
     return undefined;
   }
   const parsed = schema.safeParse(raw);

@@ -125,10 +125,10 @@ export function expireApprovals(gov: Gov, of: { attemptId: string } | { taskId: 
   }
 }
 
-const VIEW = `SELECT a.*, t.title AS task_title, x.agent AS agent, u.name AS decided_name FROM approvals a JOIN tasks t ON t.id = a.task_id JOIN attempts x ON x.id = a.attempt_id LEFT JOIN "user" u ON u.id = a.decided_by`;
-type ViewRow = ApprovalRow & { readonly task_title: string; readonly agent: string; readonly decided_name: string | null };
+const VIEW = `SELECT a.*, t.title AS task_title, t.root_id AS root_task_id, r.title AS goal_title, x.agent AS agent, u.name AS decided_name FROM approvals a JOIN tasks t ON t.id = a.task_id JOIN tasks r ON r.id = t.root_id JOIN attempts x ON x.id = a.attempt_id LEFT JOIN "user" u ON u.id = a.decided_by`;
+type ViewRow = ApprovalRow & { readonly task_title: string; readonly root_task_id: string; readonly goal_title: string; readonly agent: string; readonly decided_name: string | null };
 const view = (row: ViewRow): Approval => ({
-  id: row.id, workspaceId: row.workspace_id, taskId: row.task_id, taskTitle: row.task_title, attemptId: row.attempt_id, agent: row.agent, tool: row.tool, effect: row.effect,
+  id: row.id, workspaceId: row.workspace_id, taskId: row.task_id, taskTitle: row.task_title, rootTaskId: row.root_task_id, goalTitle: row.goal_title, attemptId: row.attempt_id, agent: row.agent, tool: row.tool, effect: row.effect,
   subject: JSON.parse(row.subject_json) as ApprovalSubject, subjectDigest: row.subject_digest, state: row.state, standing: row.standing === 1, requestedAt: row.created_at_ms, expiresAt: row.expires_at_ms,
   decidedBy: row.decided_by ? { id: row.decided_by, name: row.decided_name ?? row.decided_by } : null, decidedAt: row.decided_at_ms, reason: row.reason, version: row.version,
 });

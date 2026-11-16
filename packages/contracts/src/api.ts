@@ -83,6 +83,8 @@ export interface TaskSummary {
   readonly parentId: string | null;
   readonly rootId: string;
   readonly title: string;
+  /** The title of the goal this task belongs to (its own title for a goal). */
+  readonly goalTitle: string;
   readonly agent: string | null;
   readonly state: TaskState;
   readonly needs: TaskNeed | null;
@@ -95,7 +97,11 @@ export interface TaskSummary {
   readonly finishedAt: number | null;
   /** The name of the person who started the goal; absent for a goal a trigger started. */
   readonly createdByName?: string;
+  /** How many tasks of this task's tree (itself included) wait for a person; a goal is shown as needing you when this is above zero. */
+  readonly waitingForYou: number;
 }
+/** A sub-task as the plan lists it: what it was asked and what it waits for. */
+export interface SubtaskSummary extends TaskSummary { readonly goal: string; readonly waitsFor: readonly string[] }
 export interface Usage { readonly microUsd: number; readonly inputTokens: number; readonly outputTokens: number; readonly cachedInputTokens: number }
 export type AttemptState = "queued" | "offered" | "running" | "succeeded" | "failed" | "held" | "stopped";
 export interface Attempt {
@@ -144,6 +150,9 @@ export interface Approval {
   readonly workspaceId: string;
   readonly taskId: string;
   readonly taskTitle: string;
+  /** The goal the task belongs to. */
+  readonly rootTaskId: string;
+  readonly goalTitle: string;
   readonly attemptId: string;
   readonly agent: string;
   readonly tool: string;
@@ -171,9 +180,9 @@ export interface ToolCall {
   readonly approvalId: string | null;
   readonly at: number;
 }
-export interface Note { readonly id: number; readonly author: string; readonly text: string; readonly at: number }
+export interface Note { readonly id: number; readonly taskId: string; readonly author: string; readonly text: string; readonly at: number }
 export interface ArtifactLink { readonly digest: Digest; readonly name: string; readonly kind: string; readonly mediaType: string; readonly bytes: number; readonly attemptId: string | null }
-export interface PullRequest { readonly project: string; readonly branch: string; readonly url: string; readonly number: number; readonly state: string; readonly at: number }
+export interface PullRequest { readonly taskId: string; readonly project: string; readonly branch: string; readonly url: string; readonly number: number; readonly state: string; readonly at: number }
 /** Everything the Task page shows. */
 export interface Task extends TaskSummary {
   readonly goal: string;
@@ -183,7 +192,7 @@ export interface Task extends TaskSummary {
   readonly createdBy: string;
   readonly waitsFor: readonly string[];
   readonly settings: { readonly reviewBy: string | null; readonly maxRounds: number; readonly targetScore: number | null; readonly approve: boolean; readonly when: string | null; readonly candidates: number | readonly string[] | null; readonly judge: string | null };
-  readonly subtasks: readonly TaskSummary[];
+  readonly subtasks: readonly SubtaskSummary[];
   readonly attempts: readonly Attempt[];
   readonly checks: readonly Check[];
   readonly approvals: readonly Approval[];
@@ -285,7 +294,7 @@ export const commands = table({
   "task.create": ["member", z.strictObject({ ...inWorkspace, goal: text.optional(), title: z.string().trim().min(1).max(200).optional(), play: name("a Play name").optional(), inputs: z.record(z.string(), z.json()).default({}) }).refine((input) => input.goal !== undefined || input.play !== undefined, "give a goal or a Play")],
   /** Accepts the plan proposed for a root task. */
   "task.confirm": ["member", z.strictObject({ ...inWorkspace, taskId: id })],
-  /** Changes, adds or removes sub-tasks that have not started. */
+  /** Changes, adds or removes sub-tasks that have not started. The whole list is one edit: it is checked as it ends up, whatever the order of its changes. */
   "task.edit": ["member", z.strictObject({ ...inWorkspace, taskId: id, changes: z.array(z.discriminatedUnion("op", [
     z.strictObject({ op: z.literal("add"), ...subtask }),
     z.strictObject({ op: z.literal("change"), id, title: subtask.title.optional(), goal: text.optional(), agent: subtask.agent.optional(), after: z.array(id).max(50).optional() }),
@@ -313,7 +322,8 @@ export const queries = table({
   "workspace.files": ["viewer", z.strictObject(inWorkspace)],
   "file.read": ["viewer", z.strictObject({ ...inWorkspace, path: filePath })],
   today: ["viewer", z.strictObject(inWorkspace)],
-  "tasks.list": ["viewer", z.strictObject({ ...inWorkspace, state: z.enum(TASK_STATES).optional(), parentId: id.optional(), before: z.int().optional(), limit: z.int().min(1).max(200).default(50) })],
+  /** `search` matches the title or the goal text; `rootsOnly` leaves out sub-tasks. Both are applied before `limit`. */
+  "tasks.list": ["viewer", z.strictObject({ ...inWorkspace, state: z.enum(TASK_STATES).optional(), parentId: id.optional(), rootsOnly: z.boolean().optional(), search: z.string().trim().min(1).max(200).optional(), before: z.int().optional(), limit: z.int().min(1).max(200).default(50) })],
   "task.get": ["viewer", z.strictObject({ ...inWorkspace, taskId: id })],
   /** The events of one attempt after `after`. */
   "task.events": ["viewer", z.strictObject({ ...inWorkspace, taskId: id, attemptId: id, after: z.int().min(0).default(0), limit: z.int().min(1).max(1000).default(200) })],

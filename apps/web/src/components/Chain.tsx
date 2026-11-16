@@ -1,7 +1,7 @@
 import { For, Show, type Accessor, type JSX } from "solid-js";
 import type { Approval, Check, Task, TaskState, TaskSummary } from "@brain/contracts";
 import { t } from "../i18n";
-import { money, titleOf } from "../lib/format";
+import { money, shownState, titleOf } from "../lib/format";
 import { Keyed, needText } from "./bits";
 
 /**
@@ -60,14 +60,7 @@ export function Chain(props: { record: Task; order?: readonly string[]; selected
     const order = props.order;
     return order && id === props.record.id ? [...children].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)) : children;
   };
-  /** A goal or a group is "running" for as long as it is open; what it shows is what its sub-tasks are doing. */
-  const shown = (task: TaskSummary): TaskState => {
-    if (task.state !== "running") return task.state;
-    const below = (id: string): TaskSummary[] => props.record.subtasks.filter((sub) => sub.parentId === id).flatMap((sub) => [sub, ...below(sub.id)]);
-    const under = below(task.id);
-    if (under.length === 0 || under.some((sub) => sub.state === "ready" || (sub.state === "running" && !under.some((other) => other.parentId === sub.id)))) return "running";
-    return under.some((sub) => sub.state === "needs_you") ? "needs_you" : "running";
-  };
+  const shown = shownState;
   const item = (task: Accessor<TaskSummary>, title: () => string): JSX.Element => {
     const mine = (): Hang[] => hangs(props.record.checks.filter((check) => check.taskId === task().id), props.record.approvals.filter((approval) => approval.taskId === task().id));
     const selected = (): boolean => props.selected === task().id;

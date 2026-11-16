@@ -90,7 +90,7 @@ describe("git.open-pr", () => {
     expect(server.requests.find((request) => request.path.startsWith("/api/"))?.authorization).toBe("Bearer ghp-test-token");
     const task = await getTask(member, workspaceId, taskId);
     expect(task.state).toBe("done");
-    expect(task.pullRequests).toMatchObject([{ project: "shop", branch, url: "https://github.example/origin/pull/41", number: 41, state: "open" }]);
+    expect(task.pullRequests).toMatchObject([{ taskId, project: "shop", branch, url: "https://github.example/origin/pull/41", number: 41, state: "open" }]);
     // What the approver was shown is the patch that was opened, and a member can read it.
     expect(subject).toMatchObject({ tool: "git.open-pr", input: { project: "shop", title: "Fix the cart total" }, patchDigest: expect.stringMatching(/^sha256:/u) });
     expect(await (await member.fetch(`/v1/artifacts/${subject?.patchDigest}`)).text()).toBe(patch);

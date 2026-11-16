@@ -48,6 +48,9 @@ export function duration(ms: number): string {
 /** The first characters of a commit or a digest, for details only. */
 export const shortHash = (value: string): string => value.replace(/^sha256:/u, "").slice(0, 8);
 
+/** The state a goal or group is shown in: running, but with something under it waiting for a person, it needs one. */
+export const shownState = (task: { readonly state: TaskState; readonly waitingForYou: number }): TaskState => (task.state === "running" && task.waitingForYou > 0 ? "needs_you" : task.state);
+
 export const stateLabel = (state: TaskState): string => t(`state.${state}`);
 
 /** A JSON value as one readable line or block. */

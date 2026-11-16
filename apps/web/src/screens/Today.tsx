@@ -26,7 +26,7 @@ function NeedCard(props: { kind: string; goal: string; step?: string; href: stri
 }
 
 /** A task that waits for something other than an approval: the question is answered here, the rest opens the task. */
-function NeedTask(props: { task: TaskSummary; goal: string }): JSX.Element {
+function NeedTask(props: { task: TaskSummary }): JSX.Element {
   const place = usePlace();
   const [answer, setAnswer] = createSignal("");
   const send = useAction(() => command("task.answer", { workspaceId: place.id(), taskId: props.task.id, answer: answer() }));
@@ -35,7 +35,7 @@ function NeedTask(props: { task: TaskSummary; goal: string }): JSX.Element {
   /** An approval has its own card, so what is left opens the task. */
   const kind = (): Exclude<TaskNeed["kind"], "approval"> => { const value = need()?.kind; return value === undefined || value === "approval" ? "check" : value; };
   return (
-    <NeedCard kind={need() ? needText(need()!) : ""} goal={props.goal} step={props.task.id === props.task.rootId ? undefined : titleOf(props.task)} href={href()}>
+    <NeedCard kind={need() ? needText(need()!) : ""} goal={props.task.goalTitle} step={props.task.id === props.task.rootId ? undefined : titleOf(props.task)} href={href()}>
       <Show when={need()?.kind === "answer" && need()} keyed fallback={
         <div class="flex flex-col items-start gap-3">
           <p class="min-w-0 t-text text-ink">{t(`need.${kind()}.text`)}</p>
@@ -127,24 +127,22 @@ function Lists(props: { today: TodayData }): JSX.Element {
   const others = (): readonly TaskSummary[] => props.today.needsYou.filter((task) => task.needs?.kind !== "approval");
   const waiting = (): number => pending().length + others().length;
   const cap = (): number => props.today.spend.capMicroUsd;
-  /** The goal a waiting sub-task belongs to: people know their goals by title, not the steps inside them. */
-  const goalOf = (task: TaskSummary | undefined, fallback: string): string => [...props.today.running, ...props.today.recent, ...props.today.needsYou].find((goal) => goal.id === task?.rootId)?.title ?? fallback;
+  /** The task an approval is asked on, for the step's name; people know their goals by title, not the steps inside them. */
   const asking = (approval: Approval): TaskSummary | undefined => props.today.needsYou.find((task) => task.id === approval.taskId);
-  /** A goal that waits for a person is listed under "Needs you", not also under "Running". */
-  const running = (): TaskSummary[] => props.today.running.filter((goal) => !props.today.needsYou.some((task) => task.rootId === goal.id));
+  const approvalHref = (approval: Approval): string => place.to(`/tasks/${approval.rootTaskId}?link=${approval.taskId}`);
   return (
     <>
       <Show when={waiting() > 0}>
         <Section title={t("today.needs")} aside={tn("today.needs.count", waiting())}>
           <ul class="flex flex-col gap-3">
-            <Keyed each={pending()} by={(approval) => approval.id}>{(approval) => <NeedCard kind={t("need.approval")} goal={goalOf(asking(approval()), approval().taskTitle)} step={asking(approval()) ? titleOf(asking(approval())!) : undefined} href={place.to(`/tasks/${asking(approval())?.rootId ?? approval().taskId}?link=${approval().taskId}`)}><ApprovalView approval={approval()} diff="link" href={place.to(`/tasks/${asking(approval())?.rootId ?? approval().taskId}?link=${approval().taskId}`)} /></NeedCard>}</Keyed>
-            <Keyed each={others()} by={(task) => task.id}>{(task) => <NeedTask task={task()} goal={goalOf(task(), task().title)} />}</Keyed>
+            <Keyed each={pending()} by={(approval) => approval.id}>{(approval) => <NeedCard kind={t("need.approval")} goal={approval().goalTitle} step={asking(approval()) ? titleOf(asking(approval())!) : undefined} href={approvalHref(approval())}><ApprovalView approval={approval()} diff="link" href={approvalHref(approval())} /></NeedCard>}</Keyed>
+            <Keyed each={others()} by={(task) => task.id}>{(task) => <NeedTask task={task()} />}</Keyed>
           </ul>
         </Section>
       </Show>
-      <Show when={running().length > 0}>
+      <Show when={props.today.running.length > 0}>
         <Section title={t("today.running")}>
-          <ul class="-mx-3"><Keyed each={running()} by={(task) => task.id}>{(task) => <li><TaskRow task={task()} href={href(task())} /></li>}</Keyed></ul>
+          <ul class="-mx-3"><Keyed each={props.today.running} by={(task) => task.id}>{(task) => <li><TaskRow task={task()} href={href(task())} /></li>}</Keyed></ul>
         </Section>
       </Show>
       <Show when={props.today.recent.length > 0}>

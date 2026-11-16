@@ -1,5 +1,5 @@
 import {
-  BrainError, type ArtifactLink, type Attempt, type AttemptEvent, type AttemptFailure, type Check, type JsonValue, type Note, type PullRequest, type Task, type TaskSummary, type ToolCall,
+  BrainError, type ArtifactLink, type Attempt, type AttemptEvent, type AttemptFailure, type Check, type JsonValue, type Note, type PullRequest, type PlayFile, type SubtaskSummary, type Task, type TaskSummary, type ToolCall,
 } from "@brain/contracts";
 import type { Governor } from "../app";
 import { tx, type Db } from "../db";
@@ -15,37 +15,61 @@ import { createFromPlay, insertTask, json, needOf, setState, taskIn, TERMINAL, t
 
 /** The commands a person steers work with and the queries of the Today, Tasks and Task screens (docs/architecture.md sections 4 and 10). */
 
-// A goal's cost is that of its whole tree; a sub-task's is its own.
-const SUMMARY = `SELECT t.*, CASE WHEN t.parent_id IS NULL THEN (SELECT COALESCE(SUM(${COST}), 0) FROM usage u JOIN tasks x ON x.id = u.task_id WHERE x.root_id = t.id)
-  ELSE (SELECT COALESCE(SUM(${COST}), 0) FROM usage u WHERE u.task_id = t.id) END AS micro_usd FROM tasks t`;
-type SummaryRow = TaskRow & { readonly micro_usd: number };
-function summary(db: Db, row: SummaryRow): TaskSummary {
-  const play = row.parent_id === null ? row.play : (db.prepare("SELECT play FROM tasks WHERE id=?").get(row.root_id) as { play: string | null }).play;
-  return {
-    id: row.id, workspaceId: row.workspace_id, parentId: row.parent_id, rootId: row.root_id, title: row.title, agent: row.agent, state: row.state, needs: needOf(row), play, stepId: row.step_id,
-    round: row.round, microUsd: row.micro_usd, createdAt: row.created_at_ms, updatedAt: row.updated_at_ms, finishedAt: row.finished_at_ms,
-  };
-}
-const summaries = (db: Db, where: string, ...values: unknown[]): TaskSummary[] => (db.prepare(`${SUMMARY} WHERE ${where}`).all(...values) as SummaryRow[]).map((row) => summary(db, row));
+// A goal's cost is that of its whole tree; a sub-task's is its own. `waiting_for_you` counts the tasks of the tree (itself included) that need a person.
+const SUMMARY = `SELECT t.*, r.title AS goal_title, r.play AS root_play, u.name AS created_by_name,
+  CASE WHEN t.parent_id IS NULL THEN (SELECT COALESCE(SUM(${COST}), 0) FROM usage u JOIN tasks x ON x.id = u.task_id WHERE x.root_id = t.id)
+  ELSE (SELECT COALESCE(SUM(${COST}), 0) FROM usage u WHERE u.task_id = t.id) END AS micro_usd,
+  (WITH RECURSIVE tree(id) AS (SELECT t.id UNION ALL SELECT c.id FROM tasks c JOIN tree ON c.parent_id = tree.id) SELECT COUNT(*) FROM tasks x WHERE x.state = 'needs_you' AND x.id IN (SELECT id FROM tree)) AS waiting_for_you
+  FROM tasks t JOIN tasks r ON r.id = t.root_id LEFT JOIN "user" u ON u.id = t.created_by`;
+type SummaryRow = TaskRow & { readonly micro_usd: number; readonly goal_title: string; readonly root_play: string | null; readonly created_by_name: string | null; readonly waiting_for_you: number };
+const summary = (row: SummaryRow): TaskSummary => ({
+  id: row.id, workspaceId: row.workspace_id, parentId: row.parent_id, rootId: row.root_id, title: row.title, goalTitle: row.goal_title, agent: row.agent, state: row.state, needs: needOf(row),
+  play: row.root_play, stepId: row.step_id, round: row.round, microUsd: row.micro_usd, createdAt: row.created_at_ms, updatedAt: row.updated_at_ms, finishedAt: row.finished_at_ms,
+  ...(row.created_by_name !== null ? { createdByName: row.created_by_name } : {}), waitingForYou: row.waiting_for_you,
+});
+const summaries = (db: Db, where: string, ...values: unknown[]): TaskSummary[] => (db.prepare(`${SUMMARY} WHERE ${where}`).all(...values) as SummaryRow[]).map(summary);
+const waitsFor = (db: Db, taskId: string): string[] => (db.prepare("SELECT waits_for FROM task_deps WHERE task_id=?").all(taskId) as Array<{ waits_for: string }>).map((dep) => dep.waits_for);
 
 /** A task and everything under it, as a condition on a task id column. */
 const TREE = "WITH RECURSIVE tree(id) AS (SELECT ? UNION ALL SELECT t.id FROM tasks t JOIN tree ON t.parent_id = tree.id)";
-const titleOf = (goal: string): string => (goal.split("\n").find((line) => line.trim() !== "") ?? goal).trim().slice(0, 80);
+/** `text` cut to `max` characters at a word, with an ellipsis, when it is longer. */
+function shorten(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > max / 2 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}
+const titleOf = (goal: string): string => shorten((goal.split("\n").find((line) => line.trim() !== "") ?? goal).trim(), 80);
+/** The title of a goal started from a Play: the Play's title and, when it has one, the start of its first text input. */
+function playTitle(play: PlayFile, inputs: Readonly<Record<string, JsonValue>>): string {
+  const first = Object.entries(play.inputs).filter(([, spec]) => spec.type === "string").map(([name]) => inputs[name]).find((value): value is string => typeof value === "string" && value.trim() !== "");
+  const line = (first ?? "").split("\n").find((text) => text.trim() !== "")?.trim().replace(/\s+/gu, " ") ?? "";
+  return line === "" ? play.title : `${play.title}: ${shorten(line, 40)}`;
+}
+const like = (text: string): string => `%${text.replace(/[\\%_]/gu, "\\$&")}%`;
 const notStarted = (db: Db, task: TaskRow): boolean => (task.state === "waiting" || task.state === "ready") && !db.prepare("SELECT 1 FROM attempts WHERE task_id=? LIMIT 1").get(task.id) && !db.prepare("SELECT 1 FROM tasks WHERE parent_id=? LIMIT 1").get(task.id);
 
 function agentKnown(ctx: Ctx, parent: TaskRow, agent: string): void {
   if (!manifestOf(ctx.gov, parent.snapshot_digest).agents[agent]) throw new BrainError("INVALID_INPUT", `There is no agent ${agent}`, [{ path: "agent", message: "not an agent of the workspace as this task was created on it" }]);
 }
-/** Sets what a sub-task waits for: other sub-tasks of the same parent, and never, through them, itself. */
+/** Sets what a sub-task waits for: other sub-tasks of the same parent. That none waits for itself, through the others, is checked once the whole edit is made. */
 function setAfter(db: Db, parent: TaskRow, taskId: string, after: readonly string[]): void {
-  const reaches = (from: string, target: string, seen = new Set<string>()): boolean =>
-    from === target || (!seen.has(from) && seen.add(from) !== undefined && (db.prepare("SELECT waits_for FROM task_deps WHERE task_id=?").all(from) as Array<{ waits_for: string }>).some((row) => reaches(row.waits_for, target, seen)));
   for (const id of after) {
     if (!db.prepare("SELECT 1 FROM tasks WHERE id=? AND parent_id=?").get(id, parent.id)) throw new BrainError("INVALID_INPUT", `${id} is not a sub-task of this task`, [{ path: "after", message: "names a task that is not a sub-task of the same task" }]);
-    if (reaches(id, taskId)) throw new BrainError("INVALID_INPUT", "A sub-task cannot wait for itself", [{ path: "after", message: `${id} already waits for this sub-task` }]);
   }
   db.prepare("DELETE FROM task_deps WHERE task_id=?").run(taskId);
   for (const id of after) db.prepare("INSERT INTO task_deps(task_id, waits_for) VALUES (?,?)").run(taskId, id);
+}
+function assertAcyclic(db: Db, parent: TaskRow): void {
+  const children = db.prepare("SELECT id, title FROM tasks WHERE parent_id=?").all(parent.id) as Array<{ id: string; title: string }>;
+  const settled = new Set<string>();
+  const visit = (id: string, path: readonly string[]): void => {
+    if (path.includes(id)) throw new BrainError("INVALID_INPUT", "Sub-tasks cannot wait for each other in a circle", [{ path: "after", message: `${children.find((child) => child.id === id)?.title ?? id} would wait for itself` }]);
+    if (settled.has(id)) return;
+    for (const next of waitsFor(db, id)) visit(next, [...path, id]);
+    settled.add(id);
+  };
+  for (const child of children) visit(child.id, []);
 }
 
 export function registerTasks(governor: Governor): void {
@@ -65,7 +89,7 @@ export function registerTasks(governor: Governor): void {
       if (!play) throw new BrainError("NOT_FOUND", `The workspace has no Play ${input.play}`);
       const problem = inputProblem(inputSchema(play.inputs), input.inputs as JsonValue);
       if (problem) throw new BrainError("INVALID_INPUT", `The inputs of ${input.play} are not valid: ${problem}`, [{ path: "inputs", message: problem }]);
-      root = createFromPlay(ctx.gov, ctx.actor, { workspaceId: workspace.id, snapshotDigest: workspace.snapshotDigest, play: input.play, inputs: input.inputs as Record<string, JsonValue>, title: input.title, goal: input.goal, createdBy });
+      root = createFromPlay(ctx.gov, ctx.actor, { workspaceId: workspace.id, snapshotDigest: workspace.snapshotDigest, play: input.play, inputs: input.inputs as Record<string, JsonValue>, title: input.title ?? playTitle(play, input.inputs as Record<string, JsonValue>), goal: input.goal, createdBy });
     } else {
       const goal = input.goal as string;
       root = insertTask(ctx.gov, ctx.actor, { workspaceId: workspace.id, parent: null, snapshotDigest: workspace.snapshotDigest, title: input.title ?? titleOf(goal), goal, agent: null, state: "running", createdBy });
@@ -93,16 +117,19 @@ export function registerTasks(governor: Governor): void {
       if (!notStarted(db, row)) throw new BrainError("CONFLICT", `"${row.title}" has already started`);
       return row;
     };
+    // The changes are one edit, whatever their order: removals first, then changes and additions, and the result is checked as it stands.
+    for (const change of input.changes) {
+      if (change.op !== "remove") continue;
+      const row = child(change.id);
+      db.prepare("DELETE FROM tasks WHERE id=?").run(row.id);
+      append(db, { type: "task.removed", workspaceId: parent.workspace_id, subject: `task:${row.id}`, payload: { title: row.title, parentId: parent.id }, actor: ctx.actor });
+    }
     for (const change of input.changes) {
       if (change.op === "add") {
         agentKnown(ctx, parent, change.agent);
         const added = insertTask(ctx.gov, ctx.actor, { workspaceId: parent.workspace_id, parent, snapshotDigest: parent.snapshot_digest, title: change.title, goal: change.goal, agent: change.agent, state: "waiting", createdBy: ctx.actor.id });
         setAfter(db, parent, added.id, change.after);
-      } else if (change.op === "remove") {
-        const row = child(change.id);
-        db.prepare("DELETE FROM tasks WHERE id=?").run(row.id);
-        append(db, { type: "task.removed", workspaceId: parent.workspace_id, subject: `task:${row.id}`, payload: { title: row.title, parentId: parent.id }, actor: ctx.actor });
-      } else {
+      } else if (change.op === "change") {
         const row = child(change.id);
         if (change.agent !== undefined) agentKnown(ctx, parent, change.agent);
         if (change.after !== undefined) setAfter(db, parent, row.id, change.after);
@@ -110,6 +137,7 @@ export function registerTasks(governor: Governor): void {
         append(db, { type: "task.edited", workspaceId: parent.workspace_id, subject: `task:${row.id}`, payload: { title: change.title ?? null, agent: change.agent ?? null, after: change.after ?? null, goal: change.goal !== undefined }, actor: ctx.actor });
       }
     }
+    assertAcyclic(db, parent);
     settle(ctx.gov, input.workspaceId);
     return {};
   });
@@ -156,15 +184,17 @@ export function registerTasks(governor: Governor): void {
 
   registry.query("today", (ctx, input) => ({
     needsYou: summaries(ctx.db, "t.workspace_id=? AND t.state='needs_you' ORDER BY t.updated_at_ms DESC LIMIT 100", input.workspaceId),
-    running: summaries(ctx.db, "t.workspace_id=? AND t.parent_id IS NULL AND t.state IN ('waiting','ready','running') ORDER BY t.created_at_ms DESC LIMIT 100", input.workspaceId),
+    running: summaries(ctx.db, "t.workspace_id=? AND t.parent_id IS NULL AND t.state IN ('waiting','ready','running') AND waiting_for_you = 0 ORDER BY t.created_at_ms DESC LIMIT 100", input.workspaceId),
     recent: summaries(ctx.db, "t.workspace_id=? AND t.parent_id IS NULL AND t.state IN ('done','failed','stopped') ORDER BY t.finished_at_ms DESC LIMIT 20", input.workspaceId),
     approvals: approvalsWhere(ctx.db, "a.workspace_id=? AND a.state='pending' ORDER BY a.created_at_ms", input.workspaceId),
     spend: spendOf(ctx.gov, input.workspaceId),
   }));
 
   registry.query("tasks.list", (ctx, input) => ({
-    tasks: summaries(ctx.db, "t.workspace_id=? AND t.parent_id IS ? AND (? IS NULL OR t.state=?) AND (? IS NULL OR t.created_at_ms<?) ORDER BY t.created_at_ms DESC, t.rowid DESC LIMIT ?",
-      input.workspaceId, input.parentId ?? null, input.state ?? null, input.state ?? null, input.before ?? null, input.before ?? null, input.limit),
+    tasks: summaries(ctx.db, `t.workspace_id=? AND (? IS NULL OR t.parent_id=?) AND (? = 0 OR t.parent_id IS NULL) AND (? IS NULL OR CASE ? WHEN 'needs_you' THEN (t.state = 'needs_you' OR waiting_for_you > 0) WHEN 'running' THEN (t.state = 'running' AND waiting_for_you = 0) ELSE t.state = ? END) AND (? IS NULL OR t.created_at_ms<?)
+      AND (? IS NULL OR t.title LIKE ? ESCAPE '\\' OR t.goal LIKE ? ESCAPE '\\') ORDER BY t.created_at_ms DESC, t.rowid DESC LIMIT ?`,
+      input.workspaceId, input.parentId ?? null, input.parentId ?? null, input.rootsOnly ? 1 : 0, input.state ?? null, input.state ?? null, input.state ?? null, input.before ?? null, input.before ?? null,
+      input.search ?? null, input.search === undefined ? null : like(input.search), input.search === undefined ? null : like(input.search), input.limit),
   }));
 
   registry.query("task.get", (ctx, input): Task => {
@@ -188,15 +218,15 @@ export function registerTasks(governor: Governor): void {
       Array<{ id: string; attempt_id: string; tool: string; effect: ToolCall["effect"]; input_json: string; output_json: string | null; outcome: ToolCall["outcome"]; approval_id: string | null; created_at_ms: number }>)
       .map((c): ToolCall => ({ id: c.id, attemptId: c.attempt_id, tool: c.tool, effect: c.effect, input: JSON.parse(c.input_json) as JsonValue, output: json<JsonValue>(c.output_json), outcome: c.outcome, approvalId: c.approval_id, at: c.created_at_ms }));
     return {
-      ...summary(db, row), goal: row.goal, result: row.result, output: json<JsonValue>(row.output_json), snapshotDigest: row.snapshot_digest, createdBy: row.created_by,
-      waitsFor: (db.prepare("SELECT waits_for FROM task_deps WHERE task_id=?").all(row.id) as Array<{ waits_for: string }>).map((dep) => dep.waits_for),
+      ...summary(row), goal: row.goal, result: row.result, output: json<JsonValue>(row.output_json), snapshotDigest: row.snapshot_digest, createdBy: row.created_by,
+      waitsFor: waitsFor(db, row.id),
       settings: { reviewBy: row.review_by, maxRounds: row.max_rounds, targetScore: row.target_score, approve: row.approve === 1, when: row.when_expr, candidates: json<number | string[]>(row.candidates_json), judge: row.judge },
-      subtasks: summaries(db, `t.id ${inTree} AND t.id != ? ORDER BY t.rowid`, row.id, row.id),
+      subtasks: (db.prepare(`${SUMMARY} WHERE t.id ${inTree} AND t.id != ? ORDER BY t.rowid`).all(row.id, row.id) as SummaryRow[]).map((sub): SubtaskSummary => ({ ...summary(sub), goal: sub.goal, waitsFor: waitsFor(db, sub.id) })),
       attempts, checks, toolCalls,
       approvals: approvalsWhere(db, `a.task_id ${inTree} ORDER BY a.rowid`, row.id),
-      notes: db.prepare("SELECT id, author, text, created_at_ms AS at FROM notes WHERE root_id=? ORDER BY id").all(row.root_id) as Note[],
+      notes: db.prepare("SELECT n.id, COALESCE((SELECT task_id FROM attempts WHERE id = n.attempt_id), n.root_id) AS taskId, n.author, n.text, n.created_at_ms AS at FROM notes n WHERE n.root_id=? ORDER BY n.id").all(row.root_id) as Note[],
       artifacts: db.prepare(`SELECT l.digest, l.name, l.kind, l.media_type AS mediaType, a.bytes, l.attempt_id AS attemptId FROM artifact_links l JOIN artifacts a ON a.digest = l.digest WHERE l.task_id ${inTree} ORDER BY l.id`).all(row.id) as ArtifactLink[],
-      pullRequests: db.prepare(`SELECT project, branch, url, number, state, created_at_ms AS at FROM pull_requests WHERE task_id ${inTree} ORDER BY id`).all(row.id) as PullRequest[],
+      pullRequests: db.prepare(`SELECT task_id AS taskId, project, branch, url, number, state, created_at_ms AS at FROM pull_requests WHERE task_id ${inTree} ORDER BY id`).all(row.id) as PullRequest[],
       usage: usageWhere(db, `u.task_id ${inTree}`, row.id), version: row.version,
     };
   });
