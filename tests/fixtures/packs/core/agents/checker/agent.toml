@@ -1,0 +1,3 @@
+description = "Checks a result against its goal."
+engine = ["fixture"]
+native = "read"

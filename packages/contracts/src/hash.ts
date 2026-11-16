@@ -1,6 +1,6 @@
 import { createHash, createHmac } from "node:crypto";
 import canonicalize from "canonicalize";
-import type { Digest, JsonValue } from "./brain.generated";
+import type { Digest, JsonValue } from "./protocol";
 
 const MAX_DEPTH = 32;
 const MAX_STRING_BYTES = 1024 * 1024;

@@ -3,18 +3,9 @@
   "compilerOptions": {
     "types": ["node"],
     "paths": {
-      "@brain/contracts": ["./packages/contracts/src/index.ts"],
-      "@brain/contracts/validate": ["./packages/contracts/src/validate.ts"],
-      "@brain/contracts/machines": ["./packages/contracts/src/machines.ts"]
+      "@brain/contracts": ["./packages/contracts/src/index.ts"]
     }
   },
-  "include": [
-    "packages/contracts/src",
-    "apps/governor/src",
-    "apps/runner/src",
-    "apps/launcher/src",
-    "apps/cli/src",
-    "tests"
-  ],
-  "exclude": ["node_modules", "**/dist", "apps/web", "tests/browser"]
+  "include": ["packages/contracts/src", "apps/governor/src", "apps/governor/scripts", "tests", "vitest.config.ts"],
+  "exclude": ["node_modules", "**/dist", "tests/browser"]
 }

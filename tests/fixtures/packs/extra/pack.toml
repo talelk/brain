@@ -1,0 +1,3 @@
+name = "extra"
+description = "A reviewer and a reviewed Play, on top of core."
+requires = ["core"]

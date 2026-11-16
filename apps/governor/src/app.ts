@@ -1,0 +1,179 @@
+import { BrainError, ERROR_STATUS, hmacSha256Hex, isDigest, parseStrictJson, type ApiError, type Clock } from "@brain/contracts";
+import { Hono, type Context } from "hono";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { extname, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createAuth } from "./auth/auth";
+import { ensureSetupToken, registerAuth } from "./auth/handlers";
+import { openDb } from "./db";
+import { Registry, runCommand, runQuery, type Gov } from "./dispatch";
+import { onChanged } from "./events";
+import { readableLink, readArtifact } from "./trust/artifacts";
+import { checkpoint, ensureAuditKey } from "./trust/audit";
+import { registerTrust } from "./trust/handlers";
+import { instanceKeys } from "./trust/secrets";
+import { registerWorkspace } from "./workspace/handlers";
+import { reconcile } from "./workspace/store";
+
+export interface GovernorOptions {
+  readonly dataDir: string;
+  /** The address people reach the Governor at; sign-in cookies and passkeys are bound to it. */
+  readonly baseUrl?: string;
+  readonly packsDir?: string;
+  readonly webDist?: string;
+  readonly clock?: Clock;
+}
+export interface Governor {
+  readonly gov: Gov;
+  readonly app: Hono;
+  /** Registers work to repeat while the Governor serves (`startTimers`). */
+  every(ms: number, work: () => void | Promise<void>): void;
+  startTimers(): void;
+  close(): void;
+}
+
+const repo = (path: string): string => fileURLToPath(new URL(`../../../${path}`, import.meta.url));
+const systemClock: Clock = { nowMs: () => Date.now(), monotonicMs: () => performance.now() };
+const MAX_BODY = 4 * 1024 * 1024;
+const TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".svg": "image/svg+xml",
+  ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2", ".webmanifest": "application/manifest+json",
+};
+
+function refusal(c: Context, e: unknown): Response {
+  const error: ApiError = e instanceof BrainError ? { code: e.code, message: e.message, ...(e.problems ? { problems: e.problems } : {}) } : { code: "INTERNAL", message: "Something went wrong in Brain" };
+  if (!(e instanceof BrainError)) console.error(e);
+  return c.json({ error }, ERROR_STATUS[error.code]);
+}
+
+async function readJson(request: Request): Promise<unknown> {
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  if (bytes.length > MAX_BODY) throw new BrainError("INVALID_INPUT", "The request is too large");
+  try {
+    return parseStrictJson(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw new BrainError("INVALID_INPUT", "The request is not valid JSON");
+  }
+}
+
+export async function createGovernor(options: GovernorOptions): Promise<Governor> {
+  const dataDir = resolve(options.dataDir);
+  mkdirSync(join(dataDir, "workspaces"), { recursive: true, mode: 0o700 });
+  const baseUrl = options.baseUrl ?? "http://localhost:3100";
+  const origin = new URL(baseUrl).origin;
+  const db = openDb(dataDir);
+  const keys = instanceKeys(dataDir);
+  const gov: Gov = {
+    db, dataDir, baseUrl, keys, packsDir: resolve(options.packsDir ?? repo("packs")), clock: options.clock ?? systemClock,
+    auth: createAuth(db, { secret: hmacSha256Hex(keys.digests, Buffer.from("better-auth")), baseUrl }), registry: new Registry(), onActivate: [],
+  };
+  const app = new Hono();
+  const timers: Array<{ ms: number; work: () => void | Promise<void> }> = [];
+  const running = new Set<NodeJS.Timeout>();
+  const streams = new Set<() => void>();
+  const governor: Governor = {
+    gov, app,
+    every: (ms, work) => void timers.push({ ms, work }),
+    startTimers() {
+      for (const { ms, work } of timers) running.add(setInterval(() => void Promise.resolve().then(work).catch((e: unknown) => console.error(e)), ms));
+    },
+    close() {
+      for (const timer of running) clearInterval(timer);
+      for (const end of streams) end();
+      if (db.open) db.close();
+    },
+  };
+  app.onError((e, c) => refusal(c, e));
+
+  // A cookie is sent by the browser on its own, so a request that changes something with one must come from Brain's own pages.
+  app.use("*", async (c, next) => {
+    const headers = c.req.raw.headers;
+    if (c.req.method !== "GET" && c.req.method !== "HEAD" && headers.has("cookie")) {
+      const from = headers.get("origin");
+      const site = headers.get("sec-fetch-site");
+      if (from ? from !== origin : site !== "same-origin" && site !== "none") return refusal(c, new BrainError("FORBIDDEN", "This request did not come from Brain's own pages"));
+    }
+    return next();
+  });
+
+  // Sign-in. Accounts are made by setup and by a workspace admin (member.set), so signing up from outside is closed.
+  app.on(["GET", "POST"], "/api/auth/*", (c) => {
+    if (c.req.path === "/api/auth/sign-up/email") return refusal(c, new BrainError("FORBIDDEN", "Ask an admin of a workspace to add you"));
+    return gov.auth.handler(c.req.raw);
+  });
+
+  const caller = async (c: Context) => ({ user: await gov.auth.user(c.req.raw.headers), cookies: [] as string[] });
+  app.post("/v1/command", async (c) => {
+    const who = await caller(c);
+    const output = await runCommand(gov, who, await readJson(c.req.raw));
+    for (const cookie of who.cookies) c.header("set-cookie", cookie, { append: true });
+    return c.json({ output });
+  });
+  app.post("/v1/query", async (c) => c.json({ output: await runQuery(gov, await caller(c), await readJson(c.req.raw)) }));
+
+  // One stream per signed-in page: a `changed` frame names a workspace that has something new, and the page reads it again.
+  app.get("/v1/events", async (c) => {
+    const user = await gov.auth.user(c.req.raw.headers);
+    if (!user) throw new BrainError("UNAUTHENTICATED", "Sign in first");
+    const encoder = new TextEncoder();
+    let end = (): void => undefined;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const send = (frame: string): void => {
+          try { controller.enqueue(encoder.encode(frame)); } catch { end(); }
+        };
+        const stop = onChanged(db, (workspaceIds) => {
+          const mine = new Set((db.prepare("SELECT workspace_id AS id FROM members WHERE user_id=?").all(user.id) as Array<{ id: string }>).map((row) => row.id));
+          for (const workspaceId of workspaceIds) if (mine.has(workspaceId)) send(`event: changed\ndata: ${JSON.stringify({ workspaceId })}\n\n`);
+        });
+        const keepalive = setInterval(() => send(": keepalive\n\n"), 15_000);
+        // The stream ends after a while so the page reconnects and its session is checked again.
+        const lifetime = setTimeout(() => end(), 5 * 60_000);
+        end = () => {
+          stop();
+          clearInterval(keepalive);
+          clearTimeout(lifetime);
+          streams.delete(end);
+          try { controller.close(); } catch { /* already closed */ }
+        };
+        streams.add(end);
+        c.req.raw.signal.addEventListener("abort", () => end(), { once: true });
+        send(": connected\n\n");
+      },
+      cancel: () => end(),
+    });
+    return new Response(stream, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "x-accel-buffering": "no" } });
+  });
+
+  app.get("/v1/artifacts/:digest", async (c) => {
+    const user = await gov.auth.user(c.req.raw.headers);
+    if (!user) throw new BrainError("UNAUTHENTICATED", "Sign in first");
+    const digest = c.req.param("digest");
+    const link = isDigest(digest) ? readableLink(db, digest, user.id) : undefined;
+    if (!link) throw new BrainError("NOT_FOUND", "No such file");
+    // Stored bytes come from agents: they are downloaded, never rendered as a page of Brain.
+    return new Response(Buffer.from(readArtifact(gov, digest)), {
+      headers: { "content-type": link.mediaType, "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(link.name)}`, "x-content-type-options": "nosniff", "content-security-policy": "sandbox" },
+    });
+  });
+
+  // Each module registers its commands, queries, routes and timers here, before the web app's catch-all route below.
+  for (const register of [registerAuth, registerWorkspace, registerTrust]) register(governor);
+  governor.every(15 * 60_000, () => void checkpoint(gov));
+
+  ensureAuditKey(gov);
+  ensureSetupToken(db, dataDir);
+  await reconcile(gov);
+
+  // The built web app, when it is there; any other path is a page of it.
+  const dist = resolve(options.webDist ?? repo("apps/web/dist"));
+  app.get("*", (c) => {
+    if (/^\/(?:v1|runner|api|model|hooks)(?:\/|$)/u.test(c.req.path)) return refusal(c, new BrainError("NOT_FOUND", "There is nothing at this address"));
+    const asked = resolve(dist, `.${decodeURIComponent(c.req.path)}`);
+    const file = asked.startsWith(dist + sep) && existsSync(asked) && statSync(asked).isFile() ? asked : join(dist, "index.html");
+    if (!existsSync(file)) return refusal(c, new BrainError("NOT_FOUND", "The web app is not built (pnpm build)"));
+    return new Response(Buffer.from(readFileSync(file)), { headers: { "content-type": TYPES[extname(file)] ?? "application/octet-stream" } });
+  });
+  app.notFound((c) => refusal(c, new BrainError("NOT_FOUND", "There is nothing at this address")));
+  return governor;
+}

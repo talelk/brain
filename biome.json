@@ -10,23 +10,10 @@
       "**",
       "!node_modules",
       "!**/dist",
-      "!artifacts",
-      "!contracts",
-      "!examples",
       "!docs",
       "!deploy",
-      "!screenshots",
       "!test-results",
-      "!review.browser.mjs",
-      "!review.phase2.mjs",
-      "!review.phase3.mjs",
-      "!review.phase4.mjs",
-      "!review.phase5.mjs",
-      "!**/*.generated.ts",
-      "!packages/contracts/src/ports.ts",
-      "!pnpm-lock.yaml",
-      "!Keyrus_Brain_v4_2_Implementation_Spec.md",
-      "!Keyrus_Brain_v4_2_Implementation_Pack.zip"
+      "!pnpm-lock.yaml"
     ]
   },
   "css": {

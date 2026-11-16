@@ -1,0 +1,15 @@
+title = "Change and review"
+
+[[step]]
+id = "change"
+agent = "worker"
+goal = "Make the change."
+review_by = "reviewer"
+max_rounds = 3
+
+[[step]]
+id = "report"
+agent = "worker"
+after = ["change"]
+when = 'steps.change.result.ok == true'
+goal = "Report on {{steps.change.result.summary}}."

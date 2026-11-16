@@ -17,7 +17,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm verify:change
+      - run: pnpm verify
   browser:
     # The browser suite runs on main only: it is the slow gate.
     if: github.ref == 'refs/heads/main'

@@ -1,21 +1,14 @@
-import { scaled } from "./tests/support/timing.ts";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
-    alias: {
-      "@brain/contracts/validate": fileURLToPath(new URL("./packages/contracts/src/validate.ts", import.meta.url)),
-      "@brain/contracts/machines": fileURLToPath(new URL("./packages/contracts/src/machines.ts", import.meta.url)),
-      "@brain/contracts": fileURLToPath(new URL("./packages/contracts/src/index.ts", import.meta.url)),
-    },
+    alias: { "@brain/contracts": fileURLToPath(new URL("./packages/contracts/src/index.ts", import.meta.url)) },
   },
   test: {
-    include: ["tests/**/*.test.ts"],
-    // Cap parallel forks: each worker is ~400-570 MB and uncapped runs have OOM-killed the machine.
+    include: ["tests/unit/**/*.test.ts", "tests/core/**/*.test.ts"],
+    // Each worker is a few hundred megabytes; more than four have exhausted the machine's memory.
     maxWorkers: 4,
-    testTimeout: scaled(60000),
-    // Removes this run's disposable brain-test-* data directories once all workers finish.
-    globalSetup: ["tests/support/temp-teardown.ts"],
+    testTimeout: 60_000,
   },
 });

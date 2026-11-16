@@ -1,0 +1,232 @@
+import { z } from "zod";
+import type { Digest, JsonValue } from "./protocol";
+
+/** The files of a workspace folder and of a pack (docs/model.md): zod schemas, parsed types, and the step template syntax. Unknown keys are errors. */
+
+const SLUG = /^[a-z][a-z0-9-]{0,62}$/u;
+const slug = (what: string) => z.string().regex(SLUG, `${what} must be lower-case letters, digits and dashes, starting with a letter`);
+/** A tool is named by its folder: slugs joined by dots, such as `git.open-pr`. */
+export const isToolName = (name: string): boolean => name.length <= 80 && name.split(".").every((part) => SLUG.test(part));
+const toolName = z.string().refine(isToolName, "a tool name must be lower-case words joined by dots, such as deploy.restart");
+export const isSlug = (name: string): boolean => SLUG.test(name);
+
+/** A secret is named in a file, never written in one. */
+const SECRET_REF = /^secret:[a-z][a-z0-9-]{0,62}$/u;
+const secretRef = z.string().regex(SECRET_REF, "must be a reference written secret:<name>; the secret itself is set in the app");
+export const secretName = (ref: string): string => ref.slice("secret:".length);
+const host = z.string().refine((value) => {
+  const [name = "", port, ...more] = value.split(":");
+  return /^[A-Za-z0-9*.-]{1,253}$/u.test(name) && more.length === 0 && (port === undefined || /^\d{1,5}$/u.test(port));
+}, "must be a host name, optionally with a port");
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "must be a date written YYYY-MM-DD");
+
+export const EFFECTS = ["read", "write", "privileged"] as const;
+export const NATIVE_LEVELS = ["none", "read", "all"] as const;
+/** The tools the Governor runs itself (`runs = "brain"`). */
+export const BRAIN_TOOLS = ["task.create", "task.note", "task.ask", "memory.search", "memory.propose", "git.open-pr", "message.send"] as const;
+
+// --- inputs of a tool or a Play ---
+
+const INPUT_TYPES = ["string", "number", "integer", "boolean", "array", "object"] as const;
+const inputEnum = z.array(z.union([z.string(), z.number(), z.boolean()])).min(1);
+export const InputSpec = z.strictObject({
+  type: z.enum(INPUT_TYPES),
+  description: z.string().default(""),
+  required: z.boolean().default(false),
+  enum: inputEnum.optional(),
+  items: z.strictObject({ type: z.enum(INPUT_TYPES), enum: inputEnum.optional() }).optional(),
+}).refine((spec) => spec.items === undefined || spec.type === "array", { path: ["items"], message: "items is only for an input of type array" });
+export type InputSpec = z.infer<typeof InputSpec>;
+const inputs = z.record(z.string().regex(/^[a-z][a-z0-9_]{0,62}$/u, "an input name must be lower-case letters, digits and underscores"), InputSpec).default({});
+export type JsonSchema = { readonly [key: string]: JsonValue };
+
+// --- brain.toml ---
+
+export const BrainFile = z.strictObject({
+  name: z.string().min(1).max(100),
+  description: z.string().max(2000).default(""),
+  packs: z.array(slug("a pack name")).default([]),
+  limits: z.strictObject({
+    daily_spend_usd: z.number().min(0).default(0),
+    running_tasks: z.int().min(1).max(64).default(4),
+    confirm_plans: z.enum(["person", "auto"]).default("person"),
+  }).prefault({}),
+  model: z.array(z.strictObject({
+    name: slug("a model name"),
+    provider: z.enum(["openai-compatible", "anthropic"]),
+    url: z.string().regex(/^https?:\/\/\S+$/u, "must be an http or https address"),
+    model: z.string().min(1),
+    key: secretRef.optional(),
+  })).default([]),
+  project: z.array(z.strictObject({
+    name: slug("a project name"),
+    repo: z.string().min(1),
+    branch: z.string().min(1).default("main"),
+    access: z.enum(["read", "write"]).default("read"),
+    credential: secretRef.optional(),
+    setup: z.string().min(1).optional(),
+    network: z.array(host).default([]),
+  })).default([]),
+  github: z.strictObject({ credential: secretRef, webhook_secret: secretRef.optional() }).optional(),
+  teams: z.strictObject({ webhook: secretRef }).optional(),
+  approvals: z.record(toolName, z.strictObject({ targets: z.array(z.string().min(1)).min(1), per_day: z.int().min(1), until: day })).default({}),
+});
+export type BrainFile = z.infer<typeof BrainFile>;
+
+// --- agents/<name>/agent.toml ---
+
+export const AgentFile = z.strictObject({
+  description: z.string().min(1),
+  engine: z.array(slug("an engine name")).min(1),
+  native: z.enum(NATIVE_LEVELS).default("none"),
+  tools: z.array(toolName).default([]),
+  model: slug("a model name").optional(),
+  limits: z.strictObject({
+    turns: z.int().min(1).default(20),
+    tokens: z.int().min(1).default(200_000),
+    spend_usd: z.number().min(0).default(0),
+  }).prefault({}),
+});
+export type AgentFile = z.infer<typeof AgentFile>;
+
+// --- tools/<name>/tool.toml ---
+
+export const ToolFile = z.strictObject({
+  description: z.string().min(1),
+  effect: z.enum(EFFECTS),
+  timeout_seconds: z.int().min(1).max(3600).default(60),
+  needs: z.array(slug("a runner capability")).default([]),
+  network: z.array(host).default([]),
+  secrets: z.array(slug("a secret name")).default([]),
+  runs: z.literal("brain").optional(),
+  host_command: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/u, "must be the name of a command declared on the runner host").optional(),
+  inputs,
+}).superRefine((tool, ctx) => {
+  if (tool.runs !== undefined && tool.host_command !== undefined) ctx.addIssue({ code: "custom", path: ["host_command"], message: "a tool is run by Brain or by a host command, not both" });
+  if (tool.host_command !== undefined && tool.effect === "write") ctx.addIssue({ code: "custom", path: ["effect"], message: "a host command that changes anything must have effect privileged" });
+});
+export type ToolFile = z.infer<typeof ToolFile>;
+
+// --- plays/<name>.toml ---
+
+const cron = z.string().refine((text) => {
+  const fields = text.trim().split(/\s+/u);
+  return fields.length === 5 && fields.every((field) => /^[0-9A-Za-z*/,-]+$/u.test(field));
+}, "must be a five-field cron expression, such as 0 8 * * 1");
+export const StepSpec = z.strictObject({
+  id: slug("a step id"),
+  agent: slug("an agent name").optional(),
+  goal: z.string().min(1).optional(),
+  after: z.array(slug("a step id")).default([]),
+  for_each: z.string().min(1).optional(),
+  review_by: slug("an agent name").optional(),
+  max_rounds: z.int().min(1).max(10).default(2),
+  target_score: z.number().min(0).max(1).optional(),
+  candidates: z.union([z.int().min(2).max(8), z.array(slug("an agent name")).min(2).max(8)]).optional(),
+  judge: slug("a judge").optional(),
+  when: z.string().min(1).optional(),
+  approve: z.boolean().default(false),
+});
+export type StepSpec = z.infer<typeof StepSpec>;
+export const PlayFile = z.strictObject({
+  title: z.string().min(1).max(200),
+  description: z.string().default(""),
+  inputs,
+  trigger: z.strictObject({
+    schedule: cron.optional(),
+    webhook: z.string().refine((value) => {
+      const [source, ...event] = value.split(".");
+      return source === "github" && (event.length === 1 || event.length === 2) && event.every((part) => /^[a-z_]+$/u.test(part));
+    }, "must name a GitHub event, such as github.issues.opened").optional(),
+  }).refine((trigger) => (trigger.schedule === undefined) !== (trigger.webhook === undefined), "a trigger has either schedule or webhook").optional(),
+  step: z.array(StepSpec).min(1),
+});
+export type PlayFile = z.infer<typeof PlayFile>;
+
+// --- packs/<name>/pack.toml ---
+
+export const PackFile = z.strictObject({
+  name: slug("a pack name"),
+  description: z.string().default(""),
+  requires: z.array(slug("a pack name")).default([]),
+});
+export type PackFile = z.infer<typeof PackFile>;
+
+// --- memory/<name>.md ---
+
+export const MemoryEntry = z.strictObject({ title: z.string().min(1).max(200), body: z.string() });
+export type MemoryEntry = z.infer<typeof MemoryEntry>;
+/** A memory entry is Markdown whose first line is its title (`# Title`). Returns what the schema is given; a file with no title line has an empty title. */
+export function splitMemoryEntry(text: string): { title: string; body: string } {
+  const [first = "", ...rest] = text.replace(/^﻿/u, "").trimStart().split("\n");
+  return first.startsWith("# ") ? { title: first.slice(2).trim(), body: rest.join("\n").trim() } : { title: "", body: text.trim() };
+}
+
+// --- step templates: {{input}}, {{steps.<id>.result[.field]}}, {{item[.field]}} ---
+
+export type Ref =
+  | { readonly kind: "input"; readonly name: string; readonly path: readonly string[] }
+  | { readonly kind: "step"; readonly step: string; readonly path: readonly string[] }
+  | { readonly kind: "item"; readonly path: readonly string[] };
+
+/** Reads one reference, without braces. Undefined when it is not one. */
+export function parseRef(text: string): Ref | undefined {
+  const parts = text.trim().split(".");
+  const [head, second, third] = parts;
+  if (head === undefined || !parts.every((part) => /^[A-Za-z0-9_-]+$/u.test(part))) return undefined;
+  if (head === "item") return { kind: "item", path: parts.slice(1) };
+  if (head === "steps") return second !== undefined && third === "result" ? { kind: "step", step: second, path: parts.slice(3) } : undefined;
+  return { kind: "input", name: head, path: parts.slice(1) };
+}
+
+const PLACEHOLDER = /\{\{([^{}]*)\}\}/gu;
+/** Every `{{...}}` of a text, with the reference it holds (undefined when it holds none). */
+export function templateRefs(text: string): Array<{ raw: string; ref: Ref | undefined }> {
+  return [...text.matchAll(PLACEHOLDER)].map((match) => ({ raw: match[0], ref: parseRef(match[1] ?? "") }));
+}
+/** Replaces every `{{...}}` with its value: a string as it is, anything else as JSON, and nothing for a value that does not exist. */
+export function renderTemplate(text: string, resolve: (ref: Ref) => JsonValue | undefined): string {
+  return text.replace(PLACEHOLDER, (_raw, inner: string) => {
+    const ref = parseRef(inner);
+    const value = ref ? resolve(ref) : undefined;
+    return value === undefined || value === null ? "" : typeof value === "string" ? value : JSON.stringify(value);
+  });
+}
+
+export interface When { readonly ref: Ref; readonly op: "==" | "!="; readonly value: string | number | boolean }
+/** Reads a step's `when`: one reference (braces optional), `==` or `!=`, and a quoted string, a number or a boolean. */
+export function parseWhen(text: string): When | undefined {
+  const at = text.search(/[=!]=/u);
+  if (at < 0) return undefined;
+  const left = text.slice(0, at).trim();
+  const right = text.slice(at + 2).trim();
+  const ref = parseRef(left.startsWith("{{") && left.endsWith("}}") ? left.slice(2, -2) : left);
+  const quoted = /^"([^"]*)"$|^'([^']*)'$/u.exec(right);
+  const value = quoted ? (quoted[1] ?? quoted[2] ?? "") : right === "true" ? true : right === "false" ? false : right !== "" && Number.isFinite(Number(right)) ? Number(right) : undefined;
+  return ref && value !== undefined ? { ref, op: text.slice(at, at + 2) as When["op"], value } : undefined;
+}
+
+// --- the snapshot: one manifest of everything a workspace folder and its packs hold ---
+
+export interface FileRef { readonly path: string; readonly digest: Digest; readonly bytes: number }
+/** Where a file came from: `workspace`, or the name of the pack that supplied it. */
+export interface Sourced { readonly source: string }
+export interface SnapshotManifest {
+  readonly name: string;
+  readonly description: string;
+  /** Every pack in use, required packs first. */
+  readonly packs: readonly string[];
+  readonly limits: BrainFile["limits"];
+  readonly models: BrainFile["model"];
+  readonly projects: BrainFile["project"];
+  readonly github: BrainFile["github"] | null;
+  readonly teams: BrainFile["teams"] | null;
+  readonly approvals: BrainFile["approvals"];
+  readonly agents: Readonly<Record<string, AgentFile & Sourced & { readonly prompt: { readonly digest: Digest; readonly bytes: number } }>>;
+  /** `files` are the files beside `tool.toml` (`run.sh`, `test.sh`, ...); `input_schema` is the JSON Schema a call's input must satisfy. */
+  readonly tools: Readonly<Record<string, ToolFile & Sourced & { readonly input_schema: JsonSchema; readonly files: readonly FileRef[] }>>;
+  readonly plays: Readonly<Record<string, PlayFile & Sourced>>;
+  readonly memory: ReadonlyArray<Sourced & { readonly name: string; readonly title: string; readonly digest: Digest; readonly bytes: number }>;
+}
+/** One thing wrong with a workspace folder: the file and what to fix. */
+export interface Problem { readonly path: string; readonly message: string }

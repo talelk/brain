@@ -1,19 +1,10 @@
 /**
- * Model routes (ADR 0055): a workspace's ordered list of hosted models. A route names a place, a model, two prices and a key by reference;
- * the key itself lives in the environment of whoever calls (the runner, or the Governor for the advisory judge), never in a job or an event.
+ * Model keys on a runner host, as the kept engine adapters still read them. The Governor's model gateway now holds the keys
+ * (docs/architecture.md section 6); this file goes when the runner's engines stop reading keys from their environment.
  */
-export const COST_TIERS = ["low", "standard", "premium"] as const;
-export type CostTier = (typeof COST_TIERS)[number];
-
-/** Cheaper to dearer: an agent that names a cost tier takes routes of that tier or a cheaper one. */
-export const costTierRank = (tier: CostTier): number => COST_TIERS.indexOf(tier);
-
-export const MAX_MODEL_ROUTES = 8;
-/** A route's name and its key reference are short slugs: a pasted secret or an arbitrary variable name is not one. */
-export const ROUTE_NAME = /^[a-z][a-z0-9-]{0,31}$/u;
-export const KEY_REFERENCE = /^[a-z][a-z0-9-]{0,31}$/u;
+const KEY_REFERENCE = /^[a-z][a-z0-9-]{0,31}$/u;
 /** Anything that looks like a vendor secret is refused as a reference even when it would fit the slug. */
-export const LOOKS_LIKE_SECRET = /^(?:sk|pk|key|token|secret|bearer)-|[0-9]{8,}/iu;
+const LOOKS_LIKE_SECRET = /^(?:sk|pk|key|token|secret|bearer)-|[0-9]{8,}/iu;
 
 export function isKeyReference(value: string): boolean {
   return KEY_REFERENCE.test(value) && !LOOKS_LIKE_SECRET.test(value);

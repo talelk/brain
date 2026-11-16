@@ -1,0 +1,14 @@
+description = "Returns what it is given."
+effect = "read"
+timeout_seconds = 10
+needs = ["bash"]
+
+[inputs.words]
+type = "array"
+items = { type = "string" }
+description = "Words to return."
+required = true
+
+[inputs.mode]
+type = "string"
+enum = ["plain", "loud"]

@@ -1,0 +1,11 @@
+title = "Say hello"
+description = "One step."
+
+[inputs.name]
+type = "string"
+required = true
+
+[[step]]
+id = "greet"
+agent = "worker"
+goal = "Say hello to {{name}}."

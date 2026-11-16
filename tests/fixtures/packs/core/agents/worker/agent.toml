@@ -1,0 +1,9 @@
+description = "Does the work."
+engine = ["fixture"]
+native = "all"
+tools = ["task.note", "echo"]
+
+[limits]
+turns = 5
+tokens = 1000
+spend_usd = 0.1

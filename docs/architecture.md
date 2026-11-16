@@ -20,6 +20,7 @@ packages/contracts/src/   shared types and zod schemas (the only shared package)
   audit-chain.ts hash.ts run-receipt.ts   kept, pure
 apps/governor/src/
   main.ts  app.ts (HTTP)  db.ts (SQLite + schema.sql)  events.ts (append + audit chain)
+  dispatch.ts  commands and queries: input, role, idempotency, one transaction
   auth/        sign-in (better-auth), members, roles
   workspace/   folders, TOML loading, validation, packs, git commits, snapshots
   tasks/       tasks, Plays to tasks, orchestrator, checks, notes
@@ -40,7 +41,9 @@ tests/         unit/ (pure), core/ (governor + fixture runner in-process), brows
 One Governor process serves the API and the built web app. State is one SQLite file,
 `<data>/brain.db`, plus `<data>/cas/` (content-addressed bytes) and
 `<data>/workspaces/<slug>/` (the workspace folders, each a git repository managed with
-isomorphic-git). There is no organization level and no per-workspace database.
+isomorphic-git), `<data>/instance.key` (encrypts secrets, keys the digests of tokens)
+and `<data>/audit/` (the audit signing key). There is no organization level and no
+per-workspace database.
 
 ## 2. Workspace folder to snapshot
 
@@ -49,7 +52,9 @@ isomorphic-git). There is no organization level and no per-workspace database.
   file replaces a pack file of the same path), and checks references: every tool an
   agent names exists; every step's `agent`, `review_by`, `judge` exists; `after` names
   earlier steps and has no cycle; `review_by` and `judge` differ from the step's `agent`;
-  `secret:` references are well formed.
+  an agent's `model` names a `[[model]]`; a standing approval names an existing tool;
+  `secret:` references are well formed. A step that reads `steps.<id>.result` (in its
+  goal, `when` or `for_each`) waits for that step through `after`.
 - A pack is a folder `packs/<name>/` with `pack.toml` (`name`, `description`,
   `requires = [...]` naming other packs, which are pulled in with it) and the same
   `agents/`, `tools/`, `plays/`, `memory/` layout as a workspace. `packs/README.md`
@@ -98,7 +103,7 @@ Everything else:
 | `checks` | task, round, by (agent or person), pass, score, findings |
 | `usage` | one row per attempt: reserved and settled cost, tokens, model, agent |
 | `artifacts`, `artifact_links` | CAS entries and what they belong to (task, attempt) with a name |
-| `events` | the audit chain: sequence, type, subject, payload digest, actor, previous and chain digest |
+| `events` | the audit chain: sequence, type, subject, payload and its digest, actor, previous and chain digest |
 | `audit_keys`, `audit_checkpoints` | signing keys and signed checkpoints |
 | `runners`, `runner_tokens`, `runner_challenges` | enrolled runners, their key, capabilities, engines, slots, last seen |
 | `triggers` | per workspace and Play: schedule state (next run) and webhook bindings |
@@ -134,6 +139,15 @@ Roles: `viewer` reads; `member` also creates and steers tasks, answers, checks a
 decides approvals; `admin` also writes files, secrets and members. A person never
 approves a call or checks a result of a task they are not a member for; the agent that
 produced a result never checks it.
+
+An answer is `{output}`, or `{error: {code, message, problems?}}` with the matching HTTP
+status. Besides the three workspace roles an entry is `public` (`setup.status`,
+`setup.create`, `me`) or needs an instance admin (`workspace.create`, `packs.list`,
+`runner.token`, `runner.remove`, `runners.list`, `audit.verify`). Every other entry takes
+`workspaceId`; a person who is not a member is told the workspace does not exist.
+`file.write` and `file.delete` take several paths and make one commit. Accounts are made
+by `setup.create` and by `member.set` (with a name and a first password for a person who
+has none); signing up from outside is closed.
 
 ## 5. Tasks and orchestration (`tasks/`)
 
