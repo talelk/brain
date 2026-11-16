@@ -70,8 +70,11 @@ const token = env("BRAIN_GITHUB_TOKEN");
 const model = { name: "main", provider: "openai-compatible" as const, url: env("BRAIN_MODEL_URL"), model: env("BRAIN_MODEL_NAME"), ...(process.env["BRAIN_MODEL_KEY"] ? { key: process.env["BRAIN_MODEL_KEY"] } : {}) };
 const prices = { in: process.env["BRAIN_MODEL_INPUT_USD_PER_MTOK"], out: process.env["BRAIN_MODEL_OUTPUT_USD_PER_MTOK"] };
 
-for (const demo of DEMOS) {
+// The Starter workspace made at setup gets the same model as the demos, so its sample goal runs.
+const DEMOS_AND_STARTER: readonly Demo[] = [{ slug: "starter", name: "Starter", description: "", packs: ["base"] }, ...DEMOS];
+for (const demo of DEMOS_AND_STARTER) {
   const known = ((await query("me")) as { workspaces: Array<{ id: string; slug: string }> }).workspaces.find((entry) => entry.slug === demo.slug);
+  if (!known && demo.slug === "starter") continue;
   const id = known?.id ?? ((await command("workspace.create", {
     name: demo.name, slug: demo.slug, description: demo.description, packs: demo.packs, model,
     ...(demo.repo ? { project: { repo: demo.repo, branch: demo.branch ?? "main", access: "write", credential: token } } : {}),
@@ -81,6 +84,7 @@ for (const demo of DEMOS) {
 
   const file = (await query("file.read", { workspaceId: id, path: "brain.toml" })) as { content: string };
   const config = parse(file.content) as Record<string, unknown> & { model?: Array<Record<string, unknown>>; project?: Array<Record<string, unknown>> };
+  if (demo.slug === "starter" && !(config.model ?? []).length) config.model = [{ name: model.name, provider: model.provider, url: model.url, model: model.model }];
   config["timezone"] = env("BRAIN_TIMEZONE", "Africa/Tunis");
   if (prices.in && prices.out) for (const entry of config.model ?? []) { entry["input_usd_per_mtok"] = Number(prices.in); entry["output_usd_per_mtok"] = Number(prices.out); }
   for (const project of config.project ?? []) {

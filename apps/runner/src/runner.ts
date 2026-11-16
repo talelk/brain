@@ -109,7 +109,7 @@ export class Runner {
         catch (error) { console.error("runner attempt failed:", error instanceof Error ? error.message : error); await pause(3000); }
       }
     };
-    signal.addEventListener("abort", () => { for (const attempt of this.running.values()) attempt.abort("stopped" satisfies AbortCause); }, { once: true });
+    signal.addEventListener("abort", () => { for (const attempt of this.running.values()) attempt.abort("lease" satisfies AbortCause); }, { once: true });
     await Promise.all([beat(), ...Array.from({ length: this.cfg.slots }, () => slot())]);
   }
 }
