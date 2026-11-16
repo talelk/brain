@@ -168,7 +168,7 @@ describe("Mastra WorkflowEnginePort conformance (T29/T30)", () => {
     await engine.settle();
     await waitFor(() => (ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string }).state === "succeeded", 30000);
     // The fake host counts every call: a second admission would show twice.
-    expect([...host.jobs].sort()).toEqual(["first", "finish", "work"]);
+    expect([...host.jobs].sort()).toEqual(["finish", "first", "work"]);
     expect(host.approvals).toHaveLength(1);
     expect(host.steers).toBe(1);
     expect((ws.prepare("SELECT COUNT(*) AS n FROM workflow_runs WHERE execution_key LIKE ?").get(`${runId}:%`) as { n: number }).n).toBe(1);
