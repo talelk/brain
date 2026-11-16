@@ -1,6 +1,0 @@
-packages:
-  - apps/*
-  - packages/contracts
-strictPeerDependencies: true
-engineStrict: true
-saveExact: true

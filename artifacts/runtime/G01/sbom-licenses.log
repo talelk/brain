@@ -1,3 +1,0 @@
-$ node scripts/generate_sbom.mjs artifacts/runtime/G01/sbom.json
-(cwd=/home/talel/.cache/brain-gates)
-SBOM: 816 packages (0 UNKNOWN license) -> artifacts/runtime/G01/sbom.json

@@ -1,8 +1,0 @@
-{
-  "minMissions": 2,
-  "practices": [
-    { "id": "data", "title": "Data", "description": "Analysis, reporting and data questions answered from files and sources the team owns." },
-    { "id": "operations", "title": "Operations", "description": "Running services: checks, incidents, runbooks and routine changes." },
-    { "id": "support", "title": "Support", "description": "Answering customers and colleagues: triage, replies and follow-up." }
-  ]
-}

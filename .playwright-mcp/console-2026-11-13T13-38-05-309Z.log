@@ -1,2 +1,0 @@
-[     263ms] [INFO] Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner. @ http://localhost:3111/w/ws-cc7c2867-5717-46bb-92f3-7ab028a104f4/logs?job=job-mwf0auc4-d-e6l6hz9u:1
-[     264ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3111/v1/identity:1
