@@ -45,7 +45,7 @@ describe("brain audit verify and signed receipts", () => {
   it("verifies a Governor whose attempt was receipted by its runner", async () => {
     const x = await fixture();
     expect(await x.run(["audit", "verify"])).toBe(0);
-    expect(x.output()).toMatch(/^OK: \d+ events in 2 logs verified/u);
+    expect(x.output()).toMatch(/^OK \(hash chain only\): \d+ events in 2 logs/u);
   });
 
   it("exports the runner's key and its receipt, and finds a receipt altered after signing in a file whose digests were all recomputed", async () => {
