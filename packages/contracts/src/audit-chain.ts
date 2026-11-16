@@ -41,8 +41,8 @@ export function auditEventProblem(e: AuditEventRecord): { kind: "payload-edited"
 
 /** What a checkpoint signature covers. */
 export type CheckpointBody = Pick<AuditCheckpoint, "checkpointId" | "organizationId" | "scope" | "throughSeq" | "chainDigest" | "createdAtMs" | "reason" | "keyId">;
-export function checkpointSigningBytes(c: CheckpointBody): Uint8Array {
-  const body = canonicalJsonBytes([c.checkpointId, c.organizationId, c.scope, c.throughSeq, c.chainDigest, c.createdAtMs, c.reason, c.keyId]);
+export function checkpointSigningBytes(checkpoint: CheckpointBody): Uint8Array {
+  const body = canonicalJsonBytes([checkpoint.checkpointId, checkpoint.organizationId, checkpoint.scope, checkpoint.throughSeq, checkpoint.chainDigest, checkpoint.createdAtMs, checkpoint.reason, checkpoint.keyId]);
   return Buffer.concat([Buffer.from("brain:audit-checkpoint:v1\n"), body]);
 }
 /** What the previous key signs to hand over to the next one. */
@@ -130,20 +130,20 @@ export class AuditChainVerifier {
   checkCheckpoints(trust: AuditKeyTrust): { problem?: AuditBreak; verified: number } {
     if (this.broken) return { problem: this.broken, verified: 0 };
     let verified = 0;
-    for (const cp of [...this.checkpoints].sort((a, b) => a.throughSeq - b.throughSeq)) {
-      const where = `checkpoint ${cp.checkpointId} (position ${cp.throughSeq}, ${new Date(cp.createdAtMs).toISOString()})`;
-      const key = trust.publicKeyOf(cp.keyId);
-      if (key === undefined) return { problem: this.cpFail("checkpoint-unknown-key", cp, `${where} was signed by key ${cp.keyId}, which is not a trusted audit key`), verified };
-      if (cp.organizationId !== this.organizationId || cp.scope !== this.scope || !signatureOk(key, checkpointSigningBytes(cp), cp.signature)) return { problem: this.cpFail("checkpoint-unsigned", cp, `${where} does not carry a valid signature from key ${cp.keyId}`), verified };
-      if (cp.throughSeq > this.lastSeq) return { problem: this.cpFail("tail-truncated", cp, `${where} covers events beyond the last one present (${this.lastSeq}): the end of the log was cut`), verified };
-      const have = cp.throughSeq === 0 ? auditGenesis(this.organizationId, this.scope) : this.digestAt.get(cp.throughSeq);
-      if (have !== cp.chainDigest) return { problem: this.cpFail("checkpoint-mismatch", cp, `${where} signed a different history than the log now holds at that position: the log was rebuilt`), verified };
+    for (const checkpoint of [...this.checkpoints].sort((a, b) => a.throughSeq - b.throughSeq)) {
+      const where = `checkpoint ${checkpoint.checkpointId} (position ${checkpoint.throughSeq}, ${new Date(checkpoint.createdAtMs).toISOString()})`;
+      const key = trust.publicKeyOf(checkpoint.keyId);
+      if (key === undefined) return { problem: this.cpFail("checkpoint-unknown-key", checkpoint, `${where} was signed by key ${checkpoint.keyId}, which is not a trusted audit key`), verified };
+      if (checkpoint.organizationId !== this.organizationId || checkpoint.scope !== this.scope || !signatureOk(key, checkpointSigningBytes(checkpoint), checkpoint.signature)) return { problem: this.cpFail("checkpoint-unsigned", checkpoint, `${where} does not carry a valid signature from key ${checkpoint.keyId}`), verified };
+      if (checkpoint.throughSeq > this.lastSeq) return { problem: this.cpFail("tail-truncated", checkpoint, `${where} covers events beyond the last one present (${this.lastSeq}): the end of the log was cut`), verified };
+      const have = checkpoint.throughSeq === 0 ? auditGenesis(this.organizationId, this.scope) : this.digestAt.get(checkpoint.throughSeq);
+      if (have !== checkpoint.chainDigest) return { problem: this.cpFail("checkpoint-mismatch", checkpoint, `${where} signed a different history than the log now holds at that position: the log was rebuilt`), verified };
       verified += 1;
     }
     return { verified };
   }
-  private cpFail(kind: AuditBreakKind, cp: AuditCheckpoint, detail: string): AuditBreak {
-    this.broken = { chain: this.scope, kind, chainSeq: cp.throughSeq, eventId: null, detail };
+  private cpFail(kind: AuditBreakKind, checkpoint: AuditCheckpoint, detail: string): AuditBreak {
+    this.broken = { chain: this.scope, kind, chainSeq: checkpoint.throughSeq, eventId: null, detail };
     return this.broken;
   }
 }
@@ -197,8 +197,16 @@ export interface AuditVerifyOptions {
   readonly eventChecks?: readonly AuditEventCheck[];
 }
 export interface AuditChainResult { readonly scope: string; readonly verifiedEvents: number; readonly checkpointsVerified: number; readonly head: { readonly seq: number; readonly digest: Digest } | null }
+/**
+ * What a passing verification rests on. `chain-only`: the hash links and event digests are consistent, but no signed checkpoint was checked, so
+ * a chain rebuilt end to end or a cut tail is NOT detected. `checkpointed`: checkpoints signed by keys taken from the export itself held (an
+ * attacker who can rewrite the export can replace those keys too). `pinned`: checkpoints held under keys the verifier was told to believe.
+ */
+export type AuditAssurance = "chain-only" | "checkpointed" | "pinned";
 export interface AuditVerifyResult {
   readonly ok: boolean;
+  /** What `ok` means; meaningful when `ok` is true. */
+  readonly assurance: AuditAssurance;
   readonly verifiedEvents: number;
   readonly checkpointsVerified: number;
   readonly keysPinned: boolean;
@@ -233,7 +241,7 @@ export function verifyAuditExport(input: AuditExportInput, options: AuditVerifyO
     results.push({ scope: v.scope, verifiedEvents: v.verified, checkpointsVerified: judged.verified, head: v.lastSeq > 0 ? { seq: v.lastSeq, digest: v.lastDigest } : null });
   }
   return {
-    ok: firstBreak === undefined, verifiedEvents: verifiers.reduce((n, v) => n + v.verified, 0), checkpointsVerified, keysPinned: trust.pinned,
+    ok: firstBreak === undefined, assurance: checkpointsVerified === 0 ? "chain-only" : trust.pinned ? "pinned" : "checkpointed", verifiedEvents: verifiers.reduce((n, v) => n + v.verified, 0), checkpointsVerified, keysPinned: trust.pinned,
     warnings: trust.warnings, chains: results, ...(firstBreak ? { break: firstBreak } : {}),
   };
 }

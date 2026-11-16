@@ -41,7 +41,25 @@ export { STATE_MACHINES, canTransition, isTerminal, machineStates } from "./mach
 
 export const AUTH_MATRIX = authMatrixJson as unknown as {
   readonly roles: Record<string, { readonly scopes: readonly string[]; readonly grantScope: string }>;
+  readonly specialEndpoints: Record<string, EndpointPolicy>;
 };
+
+/** The rule the matrix states for an endpoint that is not a registry command or query: the scopes a caller must hold, and whether only a person may call it. */
+export interface EndpointPolicy {
+  readonly scope: string;
+  readonly additionalScopes?: readonly string[];
+  readonly actors: readonly string[];
+  readonly humanOnly?: boolean;
+}
+
+/** Whether the actor meets the matrix's rule for the named endpoint: right kind of caller and every scope the rule lists. Unknown endpoints are refused. */
+export function meetsEndpointPolicy(endpoint: string, actor: { readonly kind: string; readonly scopes: readonly string[] }): boolean {
+  const policy = AUTH_MATRIX.specialEndpoints[endpoint];
+  if (!policy) return false;
+  if (!policy.actors.includes(actor.kind) || (policy.humanOnly === true && actor.kind !== "human")) return false;
+  // A `none:` scope names a rule that needs no scope (any signed-in person, a bearer token), not a scope to look for.
+  return [policy.scope, ...(policy.additionalScopes ?? [])].every((scope) => scope.startsWith("none:") || actor.scopes.includes(scope));
+}
 
 export function roleScopes(role: string): readonly string[] {
   return AUTH_MATRIX.roles[role]?.scopes ?? [];

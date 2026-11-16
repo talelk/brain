@@ -4,7 +4,7 @@ import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { pruneEgressGrants, removeEgressGrant, startEgressProxy, writeEgressGrant, type EgressProxy } from "../../apps/launcher/src/egress-proxy";
+import { internalAddress, pruneEgressGrants, removeEgressGrant, startEgressProxy, writeEgressGrant, type EgressProxy } from "../../apps/launcher/src/egress-proxy";
 import { scaled } from "../support/timing";
 
 // The egress proxy at its own boundary (ADR 0037, story 105): two fake upstreams on loopback and two grants, as two workspaces' sandboxes
@@ -65,7 +65,7 @@ describe("egress proxy (ADR 0037)", () => {
     portB = b.port;
     wsA = writeEgressGrant(dir, [`127.0.0.1:${portA}`]);
     wsB = writeEgressGrant(dir, [`127.0.0.1:${portB}`]);
-    proxy = await startEgressProxy({ port: 0, grantsDir: dir, bindHost: "127.0.0.1" });
+    proxy = await startEgressProxy({ port: 0, grantsDir: dir, bindHost: "127.0.0.1", allowInternal: ["127.0.0.1:*", "127.0.0.1"] });
   }, scaled(30_000));
 
   afterAll(async () => {
@@ -125,5 +125,94 @@ describe("egress proxy (ADR 0037)", () => {
     // A restarted launcher keeps the grants of live sandboxes only.
     expect(pruneEgressGrants(dir, new Set([wsA.id]))).toBe(1);
     expect(readdirSync(dir)).toEqual([`${wsA.id}.json`]);
+  });
+});
+
+// What a listed name really is (ADR 0037): the address is checked after resolution and the connection pinned to it, so a name cannot be
+// pointed at the host, the cloud metadata service or the private network, and cannot change its answer between check and connect.
+describe("egress proxy resolves once and refuses internal addresses", () => {
+  let dir = "";
+  let hits = 0;
+  let origin: Server;
+  let originPort = 0;
+  const proxies: EgressProxy[] = [];
+  const dns: Record<string, string[][]> = {};
+  const resolutions: string[] = [];
+
+  beforeAll(async () => {
+    dir = mkdtempSync(join(tmpdir(), "brain-egress-dns-"));
+    origin = createServer((_req, res) => { hits++; res.end("reached"); });
+    await new Promise<void>((resolve) => origin.listen(0, "127.0.0.1", resolve));
+    originPort = (origin.address() as { port: number }).port;
+  });
+  afterAll(async () => {
+    for (const proxy of proxies) await proxy.close();
+    await new Promise<void>((resolve) => { origin.closeAllConnections(); origin.close(() => resolve()); });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  const start = async (allowInternal: string[] = []): Promise<EgressProxy> => {
+    const proxy = await startEgressProxy({
+      port: 0, grantsDir: dir, bindHost: "127.0.0.1", allowInternal,
+      resolve: async (host) => { resolutions.push(host); const answer = dns[host]?.shift(); if (!answer) throw new Error("NXDOMAIN"); return answer; },
+    });
+    proxies.push(proxy);
+    return proxy;
+  };
+
+  it("refuses names that resolve to loopback, metadata, private and unique-local addresses, in every spelling", async () => {
+    const proxy = await start();
+    const names: Record<string, string[]> = {
+      "loop.example": ["127.0.0.1"], "meta.example": ["169.254.169.254"], "ten.example": ["10.1.2.3"], "private.example": ["192.168.0.9"], "twelve.example": ["172.20.0.2"],
+      "six-loop.example": ["::1"], "six-local.example": ["fc00::5"], "six-link.example": ["fe80::1"], "mapped.example": ["::ffff:127.0.0.1"], "mapped-hex.example": ["::ffff:7f00:1"],
+      "mapped-meta.example": ["::ffff:169.254.169.254"], "mixed.example": ["203.0.113.9", "10.0.0.1"], "nat64.example": ["64:ff9b::a9fe:a9fe"],
+    };
+    for (const [name, addresses] of Object.entries(names)) {
+      dns[name] = [addresses];
+      const grant = writeEgressGrant(dir, [`${name}:${originPort}`]);
+      const answer = await viaProxy(proxy.port, `http://${name}:${originPort}/`, basic(grant));
+      expect(answer.status, name).toBe(403);
+      expect(answer.body, name).toContain("resolves to");
+      dns[name] = [addresses];
+      expect((await tunnel(proxy.port, `${name}:${originPort}`, basic(grant))).connectStatus, name).toBe(403);
+    }
+    expect(hits).toBe(0);
+  });
+
+  it("refuses an IP literal in a grant that is internal, and the proxy's own address", async () => {
+    const proxy = await start();
+    for (const literal of ["127.0.0.1", "169.254.169.254", "10.0.0.5"]) {
+      const grant = writeEgressGrant(dir, [`${literal}:${originPort}`]);
+      expect((await viaProxy(proxy.port, `http://${literal}:${originPort}/`, basic(grant))).status, literal).toBe(403);
+    }
+    expect(hits).toBe(0);
+  });
+
+  it("resolves once and connects to that address, so a name that answers differently the second time cannot redirect it", async () => {
+    // The operator listed this host on purpose. The first answer is the origin; a second resolution would give the metadata address.
+    const proxy = await start(["rebind.example:*"]);
+    dns["rebind.example"] = [["127.0.0.1"], ["169.254.169.254"]];
+    resolutions.length = 0;
+    const grant = writeEgressGrant(dir, [`rebind.example:${originPort}`]);
+    const answer = await viaProxy(proxy.port, `http://rebind.example:${originPort}/`, basic(grant));
+    expect(answer).toEqual({ status: 200, body: "reached" });
+    expect(resolutions).toEqual(["rebind.example"]);
+    expect(hits).toBe(1);
+  });
+
+  it("an internal host reaches only through the operator's explicit allowance, and an unresolvable name is a 502", async () => {
+    const refused = await start();
+    const allowed = await start([`internal.example:${originPort}`]);
+    const grant = writeEgressGrant(dir, [`internal.example:${originPort}`, `gone.example:${originPort}`]);
+    dns["internal.example"] = [["127.0.0.1"], ["127.0.0.1"]];
+    expect((await viaProxy(refused.port, `http://internal.example:${originPort}/`, basic(grant))).status).toBe(403);
+    expect((await viaProxy(allowed.port, `http://internal.example:${originPort}/`, basic(grant))).status).toBe(200);
+    expect((await viaProxy(allowed.port, `http://gone.example:${originPort}/`, basic(grant))).status).toBe(502);
+  });
+
+  it("classifies public addresses as reachable", () => {
+    const own = new Set<string>(["172.18.0.3"]);
+    for (const address of ["8.8.8.8", "93.184.216.34", "2606:4700:4700::1111", "::ffff:8.8.8.8", "172.32.0.1", "100.63.0.1"]) expect(internalAddress(address, own), address).toBeUndefined();
+    for (const address of ["0.0.0.0", "100.64.0.1", "172.31.255.255", "192.0.0.1", "198.19.0.1", "224.0.0.1", "255.255.255.255", "::", "::ffff:10.0.0.1", "ff02::1", "172.18.0.3"]) expect(internalAddress(address, own), address).toBeDefined();
   });
 });

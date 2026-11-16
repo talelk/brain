@@ -315,7 +315,7 @@
       "originalActorOnly": true
     },
     "audit.overview": {
-      "scope": "workspace:read",
+      "scope": "none:signed-in-person",
       "actors": [
         "human"
       ],

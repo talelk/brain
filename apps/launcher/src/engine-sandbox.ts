@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { lstatSync } from "node:fs";
-import { resolve, sep } from "node:path";
+import { lstatSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { execa } from "execa";
 import { isEgressHost, removeEgressGrant, writeEgressGrant } from "./egress-proxy";
@@ -29,17 +30,16 @@ export interface EngineSandboxShape {
   readonly stateDirectory: string;
   /** `uid:gid` the engine runs as: the owner of the state directory. */
   readonly user: string;
-  readonly proxyUrl?: string | undefined;
+  /** A file of `NAME=value` lines holding the proxy credentials: the argv names the file, never the secret. */
+  readonly proxyEnvFile?: string | undefined;
   readonly grantId?: string | undefined;
 }
 
 /** The `docker run` argv of an engine sandbox: nothing in it comes from the caller except the values named in the shape. */
 export function engineSandboxArgs(shape: EngineSandboxShape): string[] {
-  const proxy = shape.proxyUrl
-    ? ["-e", `http_proxy=${shape.proxyUrl}`, "-e", `https_proxy=${shape.proxyUrl}`, "-e", `HTTP_PROXY=${shape.proxyUrl}`, "-e", `HTTPS_PROXY=${shape.proxyUrl}`, "-e", "no_proxy=127.0.0.1,localhost", "-e", "NODE_USE_ENV_PROXY=1"]
-    : [];
+  const proxy = shape.proxyEnvFile ? ["--env-file", shape.proxyEnvFile, "-e", "no_proxy=127.0.0.1,localhost", "-e", "NODE_USE_ENV_PROXY=1"] : [];
   return ["run", "-i", "--rm", "--name", shape.name,
-    "--network", shape.proxyUrl ? "brain-internal" : "none",
+    "--network", shape.proxyEnvFile ? "brain-internal" : "none",
     "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
     "--cpus", String(Math.max(0.1, shape.cpuMillicores / 1000)), "--memory", `${shape.memoryMb}m`, "--memory-swap", `${shape.memoryMb}m`, "--pids-limit", String(ENGINE_PIDS_LIMIT),
     "--user", shape.user,
@@ -49,6 +49,11 @@ export function engineSandboxArgs(shape: EngineSandboxShape): string[] {
     ...proxy,
     "--label", `brain.engine-sandbox=${shape.requestId}`, ...(shape.grantId ? ["--label", `brain.egress-grant=${shape.grantId}`] : []),
     ENGINE_IMAGE];
+}
+
+/** The proxy credentials as an env file's text; they never appear in an argv, where `ps` and `docker inspect` would show them. */
+export function proxyEnvText(proxyUrl: string): string {
+  return ["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"].map((name) => `${name}=${proxyUrl}\n`).join("");
 }
 
 interface EngineSandbox {
@@ -83,6 +88,8 @@ const slug = (text: string): string => text.replace(/[^A-Za-z0-9_.-]/gu, "-").re
 
 export class EngineSandboxes {
   private readonly live = new Map<string, EngineSandbox>();
+  /** Creates in progress by request id: a second request for the same id waits for the first instead of starting a second container. */
+  private readonly starting = new Map<string, Promise<Reply>>();
   private readonly finished = new Set<string>();
   private reaper: ReturnType<typeof setInterval> | undefined;
 
@@ -106,19 +113,28 @@ export class EngineSandboxes {
     } catch { /* docker unreachable: nothing to remove, and none can start */ }
   }
 
-  async create(b: Record<string, unknown>): Promise<Reply> {
-    for (const key of Object.keys(b)) if (!(ENGINE_FIELDS as readonly string[]).includes(key)) return refuse(422, `field ${key} forbidden`);
-    const engine = String(b["engine"] ?? "");
+  create(body: Record<string, unknown>): Promise<Reply> {
+    const requestId = String(body["requestId"] ?? "");
+    const inFlight = this.starting.get(requestId);
+    if (inFlight) return inFlight;
+    const started = this.start(body).finally(() => this.starting.delete(requestId));
+    this.starting.set(requestId, started);
+    return started;
+  }
+
+  private async start(body: Record<string, unknown>): Promise<Reply> {
+    for (const key of Object.keys(body)) if (!(ENGINE_FIELDS as readonly string[]).includes(key)) return refuse(422, `field ${key} forbidden`);
+    const engine = String(body["engine"] ?? "");
     if (!ENGINES.has(engine)) return refuse(422, "unknown engine");
-    const attemptId = String(b["attemptId"] ?? "");
+    const attemptId = String(body["attemptId"] ?? "");
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(attemptId) || attemptId.includes("..")) return refuse(422, "attemptId invalid");
-    const requestId = String(b["requestId"] ?? "");
+    const requestId = String(body["requestId"] ?? "");
     if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/u.test(requestId)) return refuse(422, "requestId invalid");
-    const cpu = b["cpuMillicores"];
-    const memory = b["memoryMb"];
+    const cpu = body["cpuMillicores"];
+    const memory = body["memoryMb"];
     if (typeof cpu !== "number" || !Number.isInteger(cpu) || cpu < 100 || cpu > 64_000) return refuse(422, "cpuMillicores must be an integer from 100 to 64000");
     if (typeof memory !== "number" || !Number.isInteger(memory) || memory < 128 || memory > 262_144) return refuse(422, "memoryMb must be an integer from 128 to 262144");
-    const hosts = Array.isArray(b["egressHosts"]) ? b["egressHosts"].map((host) => String(host)) : [];
+    const hosts = Array.isArray(body["egressHosts"]) ? body["egressHosts"].map((host) => String(host)) : [];
     if (hosts.length > 100 || hosts.some((host) => !isEgressHost(host))) return refuse(422, "egressHosts must be at most 100 lower-case host or host:port entries");
     const { stateRoot, egressGrantsDir } = this.options;
     if (!stateRoot) return refuse(409, "engine sandboxes are not configured on this launcher (BRAIN_LAUNCHER_ENGINE_STATE_ROOT)");
@@ -135,9 +151,13 @@ export class EngineSandboxes {
     const name = `brain-engine-${slug(requestId)}-${Date.now().toString(36)}`;
     if (hosts.length > 0) await execa("docker", ["network", "create", "--internal", "brain-internal"], { timeout: 15_000, reject: false });
     const grant = hosts.length > 0 ? writeEgressGrant(egressGrantsDir!, hosts) : undefined;
+    // The credentials reach the container through a 0600 file that exists only until the container has started.
+    const envDir = grant ? mkdtempSync(join(tmpdir(), "brain-engine-env-")) : undefined;
+    const envFile = envDir ? join(envDir, "proxy.env") : undefined;
+    if (grant && envFile) writeFileSync(envFile, proxyEnvText(`http://${grant.id}:${grant.token}@brain-egress-proxy:18080`), { mode: 0o600 });
     const args = engineSandboxArgs({
       name, engine, requestId, cpuMillicores: cpu, memoryMb: memory, stateDirectory: directory, user: this.options.user,
-      ...(grant ? { proxyUrl: `http://${grant.id}:${grant.token}@brain-egress-proxy:18080`, grantId: grant.id } : {}),
+      ...(grant ? { proxyEnvFile: envFile, grantId: grant.id } : {}),
     });
     const child = spawn("docker", args, { stdio: ["pipe", "pipe", "pipe"] });
     const sandbox: EngineSandbox = { id: name, requestId, child, grantId: grant?.id, lines: [], base: 0, exited: false, stderr: "", lastSeenMs: Date.now(), notify: new Set() };
@@ -161,7 +181,7 @@ export class EngineSandboxes {
       await execa("docker", ["rm", "-f", name], { timeout: 30_000, reject: false });
       if (grant) removeEgressGrant(egressGrantsDir!, grant.id);
       return refuse(503, `docker run failed: ${(sandbox.stderr || (error instanceof Error ? error.message : "")).trim().slice(-500)}`);
-    } finally { clearTimeout(timer); }
+    } finally { clearTimeout(timer); if (envDir) rmSync(envDir, { recursive: true, force: true }); }
     this.live.set(name, sandbox);
     return { status: 201, body: { sandboxId: name } };
   }

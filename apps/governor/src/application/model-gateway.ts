@@ -20,6 +20,8 @@ export const GATEWAY_MAX_REQUEST_BYTES = 4 * 1024 * 1024;
 export const GATEWAY_MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 export const GATEWAY_CALL_TIMEOUT_MS = 10 * 60_000;
 const MAX_USAGE_LINE = 1024 * 1024;
+/** What a call that names no output limit is assumed to be able to produce, for the reservation made before it is forwarded. */
+export const GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS = 4096;
 
 type Outcome = "served" | "quota" | "failed" | "cancelled" | "refused";
 interface Usage { inputTokens: number; outputTokens: number }
@@ -43,6 +45,12 @@ function usageOf(value: unknown): Usage | undefined {
  */
 export class ModelGateway {
   private readonly bodies = new BodyReader(64 * 1024 * 1024, 30_000);
+  /**
+   * The most each call still in flight could cost, by attempt. A call reserves this before it is forwarded and gives it back when its actual
+   * cost is recorded, so parallel calls of one attempt cannot all pass the money check on what was spent before any of them. It lives in
+   * memory because a call in flight does not survive the Governor, which is when the reservation stops mattering.
+   */
+  private readonly inFlight = new Map<string, Map<symbol, number>>();
   constructor(private readonly ports: Ports) {}
 
   async handle(request: Request, routeId: string): Promise<Response> {
@@ -68,8 +76,9 @@ export class ModelGateway {
       const seconds = Math.max(1, Math.ceil((cooling - store.now()) / 1000));
       return refuse(429, `this model route's account is out of quota; try the next route in ${seconds}s`, route, { "retry-after": String(seconds) }, "quota");
     }
-    const spentSoFar = (store.control.prepare("SELECT COALESCE(SUM(micro_usd),0) AS n FROM model_gateway_calls WHERE attempt_id=?").get(grant.attemptId) as { n: number }).n;
-    if (this.ports.spendStopped(grant.organizationId, grant.workspaceId, grant.runId, spentSoFar)) return refuse(403, "the mission's money allowance or the workspace cap is used up; this call was not sent");
+    const stopped = (reservation: number): boolean => this.ports.spendStopped(grant.organizationId, grant.workspaceId, grant.runId, this.spentSoFar(grant.attemptId) + this.reservedInFlight(grant.attemptId) + reservation);
+    const spentMessage = "the mission's money allowance or the workspace cap is used up; this call was not sent";
+    if (stopped(0)) return refuse(403, spentMessage);
     const key = resolveModelKey(route.keyRef, this.ports.keyEnv());
     if (!key) return refuse(502, "the Governor holds no key for this model route; nothing was sent");
 
@@ -85,6 +94,15 @@ export class ModelGateway {
       if (error instanceof BrainDomainError && error.code === "PAYLOAD_TOO_LARGE") return refuse(413, "the request is larger than the model gateway takes");
       return refuse(400, "the request is not a JSON object");
     }
+    // The call reserves the most it could cost (its request and its output limit at the route's prices) and is refused when that does not fit
+    // beside what was spent and what the attempt's other calls in flight may still cost. Nothing awaits between this check and the reservation.
+    const outputLimit = [body["max_completion_tokens"], body["max_tokens"]].find((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0);
+    const reservation = Math.ceil(((requestBytes / 3) * route.inputMicroUsdPerMTok + Math.min(outputLimit ?? GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS, 1_000_000) * route.outputMicroUsdPerMTok) / 1_000_000);
+    if (stopped(reservation)) return refuse(403, spentMessage);
+    const held = Symbol("reservation");
+    const mine = this.inFlight.get(grant.attemptId) ?? new Map<symbol, number>();
+    mine.set(held, reservation);
+    this.inFlight.set(grant.attemptId, mine);
     // The route decides the model, and a stream always reports its token counts so the call can be priced.
     body["model"] = route.model;
     if (body["stream"] === true) body["stream_options"] = { ...(typeof body["stream_options"] === "object" && body["stream_options"] !== null ? body["stream_options"] as Record<string, unknown> : {}), include_usage: true };
@@ -97,6 +115,8 @@ export class ModelGateway {
     const finish = (status: number, outcome: Outcome, usage: Usage | undefined, responseBytes: number): void => {
       clearTimeout(timer);
       request.signal.removeEventListener("abort", onClientGone);
+      mine.delete(held);
+      if (mine.size === 0) this.inFlight.delete(grant.attemptId);
       const microUsd = usage ? Math.ceil((usage.inputTokens * route.inputMicroUsdPerMTok + usage.outputTokens * route.outputMicroUsdPerMTok) / 1_000_000) : 0;
       this.record(grant, { routeId, model: route.model, status, outcome, usage, microUsd, requestBytes, responseBytes, durationMs: Date.now() - started });
     };
@@ -170,6 +190,16 @@ export class ModelGateway {
       cancel() { abort.abort(); settle(upstream.status, "cancelled"); return reader.cancel().catch(() => undefined); },
     });
     return new Response(stream, { status: upstream.status, headers });
+  }
+
+  private spentSoFar(attemptId: string): number {
+    return (this.ports.store.control.prepare("SELECT COALESCE(SUM(micro_usd),0) AS n FROM model_gateway_calls WHERE attempt_id=?").get(attemptId) as { n: number }).n;
+  }
+
+  private reservedInFlight(attemptId: string): number {
+    let total = 0;
+    for (const amount of this.inFlight.get(attemptId)?.values() ?? []) total += amount;
+    return total;
   }
 
   /** The routes the job was offered, pinned with its payload when it was first offered. */

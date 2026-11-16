@@ -122,6 +122,11 @@ export async function audit(args: string[], ctx: OperateContext): Promise<number
 function report(result: AuditVerifyResult, ctx: OperateContext, json: boolean, total: number): void {
   if (json) { ctx.stdout(`${JSON.stringify(result)}\n`); return; }
   const trust = result.keysPinned ? "keys pinned by you" : "keys taken from the export, not pinned";
+  if (result.ok && result.assurance === "chain-only") {
+    ctx.stdout(`OK (hash chain only): ${result.verifiedEvents} events in ${result.chains.length} ${result.chains.length === 1 ? "log" : "logs"} link to each other and match their digests. No signed checkpoint was checked, so a chain rebuilt from the start or a cut tail would NOT be detected. Run brain audit checkpoint, then verify again, and pin the keys.\n`);
+    for (const warning of result.warnings) ctx.stdout(`warning: ${warning}\n`);
+    return;
+  }
   if (result.ok) {
     ctx.stdout(`OK: ${result.verifiedEvents} events in ${result.chains.length} ${result.chains.length === 1 ? "log" : "logs"} verified; ${result.checkpointsVerified} signed checkpoint${result.checkpointsVerified === 1 ? "" : "s"} hold (${trust}).\n`);
     for (const warning of result.warnings) ctx.stdout(`warning: ${warning}\n`);
