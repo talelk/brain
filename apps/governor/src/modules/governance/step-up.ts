@@ -8,7 +8,7 @@ import { createCommandChallenge, verifyCommandChallenge } from "./command-step-u
 
 export class StepUpService {
   constructor(private readonly store: Store, private readonly auth: BrainAuth) {}
-  /** True when the approval's bound risk tier asks for a TOTP step-up (elevated and above), whatever the server's own two-factor setting (ADR 0075). */
+  /** True when the approval's bound risk tier asks for a TOTP step-up (elevated and above), whatever the server's own two-factor setting (ADR 0076). */
   private tierNeedsTotp(approvalId: string, organizationId: string): boolean {
     const row = this.store.control.prepare("SELECT subject_json FROM approval_requests WHERE id=? AND organization_id=?").get(approvalId, organizationId) as { subject_json: string } | undefined;
     return row ? (JSON.parse(row.subject_json) as ActionSubject).risk?.requires.stepUp === true : false;

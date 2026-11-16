@@ -4,7 +4,7 @@ import { activeReleaseRecord, isProductionEnvironment, policyForRelease, policyO
 import { declaredTool, type ReleaseTools } from "./context";
 
 /**
- * The risk tier of one effect request (ADR 0075): a small ordered scale computed from facts the Governor already holds, by code and not by
+ * The risk tier of one effect request (ADR 0076): a small ordered scale computed from facts the Governor already holds, by code and not by
  * a model. The tier and what it requires are stamped on the approval's subject when it is requested, so the digest binds them. A tier only
  * ever asks MORE of the approval (a TOTP step-up, a second different approver); it never skips, shares or pre-approves an effect, which
  * keeps its own approval and permit (ADR 0024).

@@ -1,4 +1,4 @@
-# 75. A risk tier asks more of an approval, and never skips one
+# 76. A risk tier asks more of an approval, and never skips one
 
 Status: accepted, 2026-11-15. Extends ADR 0024 (every effect carries its own approval and permit), ADR 0049 (approval origin and context) and ADR 0067 (policy enforced while work runs). Weakens nothing in them.
 
