@@ -122,6 +122,7 @@ describe("mission timeline and run tool calls", () => {
     const verdict = full.items.find((entry) => entry.event === "verdict.mission");
     expect(verdict).toMatchObject({ outcome: "verified", actorId: "system:governor", source: { kind: "mission", id: missionId } });
     expect(verdict?.independence).toBeUndefined();
+    expect(full.items.find((entry) => entry.event === "plan.proposed")).toMatchObject({ outcome: "manual" });
     // The first mission's approval and effect are not here: a timeline holds one mission's records only.
     expect(full.items.some((entry) => entry.kind === "approval" || entry.kind === "effect")).toBe(false);
 
@@ -129,6 +130,17 @@ describe("mission timeline and run tool calls", () => {
     expect(newest.truncated).toBe(true);
     expect(newest.items.map((entry) => entry.entryId)).toEqual(full.items.slice(-2).map((entry) => entry.entryId));
   }, scaled(180_000));
+
+  it("a plan the plan guide drafted for a person says it was an agent draft requested by that person", async () => {
+    const w = world ?? (world = await effectsWorld());
+    const missionId = (await w.command("mission.create", "g-create", { title: "Guided mission", intent: "Plan with the guide", successCriteria: ["done"], autoStart: false })).resourceId!;
+    await w.command("plan.propose", "g-plan", { missionId, origin: "agent", summary: "Drafted by the guide", tasks: [{ id: "a", title: "Do it", criteria: ["done"], dependsOn: [] }] });
+    const entry = (await timeline(w, missionId)).items.find((item) => item.event === "plan.proposed");
+    expect(entry).toMatchObject({ outcome: "plan-guide", actorId: w.w.owner.actorId });
+    // A coordinator's own proposal is also origin agent but is created by its agent principal: that is not the plan guide acting for a person.
+    w.store.workspaceDb(w.w.workspaceId, w.w.org).prepare("UPDATE plan_versions SET created_by='agent:coordinator-1' WHERE mission_id=?").run(missionId);
+    expect((await timeline(w, missionId)).items.find((item) => item.event === "plan.proposed")).toMatchObject({ outcome: "agent", actorId: "agent:coordinator-1" });
+  }, scaled(60_000));
 
   it("only someone who may read the workspace reads a mission's timeline", async () => {
     const w = world ?? (world = await effectsWorld());

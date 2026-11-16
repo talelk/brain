@@ -2616,6 +2616,8 @@ export const fr: Catalog = {
   "receipt.noBundle": "aucun lot de preuves",
   "signoff.done.brain": "Vérifiée par Brain à partir des contrôles indépendants des tâches. Aucune personne n'a validé cette mission.",
   "timeline.verdict.mission.verifiedByBrain": "Vérifiée par Brain à partir des contrôles indépendants des tâches ; aucune personne n'a validé",
+  "timeline.plan.drafted": "La version {revision} du plan a été rédigée par le guide de plan",
+  "timeline.for": "pour {actor}",
   "signoff.verified.brain": "Brain a vérifié cette mission à partir des contrôles indépendants des tâches ; aucune personne ne l'a validée. Clôturez-la comme réussie pour terminer.",
   // @@END
 };

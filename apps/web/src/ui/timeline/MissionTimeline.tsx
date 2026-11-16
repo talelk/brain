@@ -53,7 +53,7 @@ export function MissionTimeline(props: { mission: Mission }): JSX.Element {
         <Show when={words.note}><span class="text-caption text-ink-gray-6">{words.note}</span></Show>
         <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-gray-6">
           <span>{kindLabel(entry.kind)}</span>
-          <Show when={entry.actorId}><span>{t("timeline.by", { actor: app.personName(entry.actorId) })}</span></Show>
+          <Show when={entry.actorId}><span>{t(entry.event === "plan.proposed" && entry.outcome === "plan-guide" ? "timeline.for" : "timeline.by", { actor: app.personName(entry.actorId) })}</span></Show>
           <Show when={entry.memberId}><span data-timeline-member={entry.memberId}>{t("timeline.member", { role: roleOf(entry.memberId ?? "") })}</span></Show>
           <A href={link.href} class={linkClass} data-timeline-source={entry.source.kind}>{openLabel(link.label)}<span class="lucide-arrow-right size-3 rtl:rotate-180" aria-hidden="true" /></A>
           <Show when={calls}>{(href) => <A href={href()} class={linkClass} data-timeline-tool-calls>{t("timeline.open.toolCalls", { count: entry.toolCalls ?? 0 })}</A>}</Show>

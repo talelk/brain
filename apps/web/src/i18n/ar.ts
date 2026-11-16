@@ -2706,6 +2706,8 @@ export const ar: Catalog = {
   "receipt.noBundle": "لا توجد حزمة أدلة",
   "signoff.done.brain": "تحقق Brain منها من الفحوص المستقلة للمهام. لم يعتمد أي شخص هذه المهمة.",
   "timeline.verdict.mission.verifiedByBrain": "تحقق Brain من الفحوص المستقلة للمهام؛ لم يعتمد أي شخص",
+  "timeline.plan.drafted": "صاغ مرشد الخطة النسخة {revision} من الخطة",
+  "timeline.for": "لصالح {actor}",
   "signoff.verified.brain": "تحقق Brain من هذه المهمة من الفحوص المستقلة للمهام؛ لم يعتمدها أي شخص. أغلقها كمُنجَزة لإنهائها.",
   // @@END
 };

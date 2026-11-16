@@ -13,6 +13,8 @@ const memberOf = (assignmentJson: string | null): string | undefined => {
   const assignment = assignmentJson ? JSON.parse(assignmentJson) as PlanAssignment : undefined;
   return assignment?.kind === "agent" ? assignment.id : undefined;
 };
+/** The plan guide drafts for the person who asked (origin agent, created by that person); a coordinator's own proposal is created by its agent principal. */
+const planGuideDraft = (plan: { origin: string; created_by: string }): boolean => plan.origin === "agent" && !plan.created_by.startsWith("agent:");
 const marks = (values: readonly unknown[]): string => values.map(() => "?").join(",");
 const clip = (text: string, max = 400): string => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
@@ -30,13 +32,13 @@ export function missionTimeline(store: Store, db: Db, organizationId: string, wo
   const add = (kind: Kind, atMs: number, key: string, entry: Omit<Entry, "kind" | "atMs" | "key">): void => { entries.push({ kind, atMs, key, ...entry }); };
 
   const mission = db.prepare("SELECT coordinator_member_id AS coordinator FROM missions WHERE id=?").get(missionId) as { coordinator: string | null };
-  const plans = db.prepare("SELECT id, revision, state, summary, created_by, team_json, created_at_ms, confirmed_at_ms FROM plan_versions WHERE mission_id=? ORDER BY revision").all(missionId) as
-    Array<{ id: string; revision: number; state: string; summary: string | null; created_by: string; team_json: string; created_at_ms: number; confirmed_at_ms: number | null }>;
+  const plans = db.prepare("SELECT id, revision, state, origin, summary, created_by, team_json, created_at_ms, confirmed_at_ms FROM plan_versions WHERE mission_id=? ORDER BY revision").all(missionId) as
+    Array<{ id: string; revision: number; state: string; origin: string; summary: string | null; created_by: string; team_json: string; created_at_ms: number; confirmed_at_ms: number | null }>;
   const roles = new Map<string, string>();
   for (const plan of plans) {
     for (const member of JSON.parse(plan.team_json) as TeamMember[]) roles.set(member.memberId, member.role);
     const common = { ...(plan.summary ? { subject: clip(plan.summary) } : {}), revision: plan.revision, source: { kind: "plan" as const, id: plan.id } };
-    add("plan", plan.created_at_ms, `${plan.id}:0`, { event: "plan.proposed", actorId: plan.created_by, ...common });
+    add("plan", plan.created_at_ms, `${plan.id}:0`, { event: "plan.proposed", outcome: planGuideDraft(plan) ? "plan-guide" : plan.origin, actorId: plan.created_by, ...common });
     if (plan.confirmed_at_ms !== null) add("plan", plan.confirmed_at_ms, `${plan.id}:1`, { event: "plan.confirmed", ...common });
   }
 

@@ -2114,6 +2114,8 @@ export const enExtra = {
   "receipt.noBundle": "no evidence bundle",
   "signoff.done.brain": "Verified by Brain from the tasks' independent checks. No person signed this mission off.",
   "timeline.verdict.mission.verifiedByBrain": "Verified by Brain from the tasks' independent checks; no person signed off",
+  "timeline.plan.drafted": "Plan version {revision} was drafted by the plan guide",
+  "timeline.for": "for {actor}",
   "signoff.verified.brain": "Brain verified this mission from the tasks' independent checks; no person signed it off. Close it as achieved to finish.",
   // @@END
 } as const satisfies Record<string, string>;
