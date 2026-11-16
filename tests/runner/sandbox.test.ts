@@ -48,7 +48,7 @@ describe("an engine in its sandbox", () => {
       agent: { engines: ["pi"], native: "all" }, model: { gatewayUrl: "https://Brain.Example.test:8443/model/v1", route: "main" },
       projects: [{ name: "app", repo: origin.repo, branch: "main", access: "write", network: ["registry.npmjs.org", "*.example.test"], setup: "echo installed > setup.log" }],
       tools: [gov.tool("task.note", { runs: "brain", inputSchema: { type: "object" } })],
-      task: { goal: 'FIXTURE read app/setup.log\nFIXTURE write app/b.txt b\\n\nFIXTURE tool task.note {"text": "hello"}\nFIXTURE reply done: {{last}}' },
+      task: { goal: 'FIXTURE read app/setup.log\nFIXTURE write app/b.txt b\\n\nFIXTURE tool task.note {"text": "hello"}\nFIXTURE reply done: %last%' },
     });
     await runner.runOnce();
     expect(launcher.opened).toEqual([{ engine: "pi", attemptId: offer.attemptId, requestId: `engine-${offer.attemptId}-1`, cpuMillicores: 1000, memoryMb: 1024, work: "rw", egressHosts: ["brain.example.test:8443", "registry.npmjs.org"] }]);
@@ -67,7 +67,7 @@ describe("an engine in its sandbox", () => {
     root = join(stateDir, "attempts");
     const origin = bareRepository({ "a.txt": "a\n" });
     const projects = [{ name: "app", repo: origin.repo, branch: "main", access: "read" as const, network: [], setup: "exit 9" }];
-    const reader = gov.offer({ agent: { engines: ["pi"], native: "read" }, projects, task: { goal: "FIXTURE read app/a.txt\nFIXTURE reply {{last}}" } });
+    const reader = gov.offer({ agent: { engines: ["pi"], native: "read" }, projects, task: { goal: "FIXTURE read app/a.txt\nFIXTURE reply %last%" } });
     const talker = gov.offer({ agent: { engines: ["pi"], native: "none" }, projects, task: { goal: "FIXTURE reply nothing to read" } });
     await runner.runOnce();
     await runner.runOnce();

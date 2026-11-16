@@ -152,7 +152,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
       limits: { turns: agent.limits.turns, tokens: agent.limits.tokens, spendMicroUsd: microUsd(agent.limits.spend_usd) }, tools: agent.tools,
     },
     tools, projects, inheritedPatches: inherited, ...(own ? { workingCopy: blob(db, own) } : {}),
-    model: { gatewayUrl: `${gov.baseUrl}/model/v1`, route: agent.model ?? manifest.models[0]?.name ?? "" },
+    model: { gatewayUrl: `${gov.gatewayUrl}/model/v1`, route: agent.model ?? manifest.models[0]?.name ?? "" },
     ...(payload.act ? { act: payload.act } : {}),
   };
 }

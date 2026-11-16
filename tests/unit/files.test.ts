@@ -8,9 +8,9 @@ const messages = (schema: z.ZodType, value: unknown): string[] => {
 };
 
 const brain = {
-  name: "Kios RH", description: "Workforce cost platform", packs: ["base", "software-factory"],
+  name: "Kios RH", description: "Workforce cost platform", timezone: "Africa/Tunis", packs: ["base", "software-factory"],
   limits: { daily_spend_usd: 20, running_tasks: 4, confirm_plans: "person" },
-  model: [{ name: "main", provider: "openai-compatible", url: "https://models.example/v1", model: "qwen3-coder", key: "secret:model-main" }],
+  model: [{ name: "main", provider: "openai-compatible", url: "https://models.example/v1", model: "qwen3-coder", key: "secret:model-main", input_usd_per_mtok: 0.4, output_usd_per_mtok: 1.6 }],
   project: [{ name: "kios-newrh", repo: "https://github.com/keyrustunisie/kios-newrh.git", branch: "master", access: "write", credential: "secret:github", setup: "pnpm install --frozen-lockfile", network: ["registry.npmjs.org"] }],
   github: { credential: "secret:github", webhook_secret: "secret:github-webhook" },
   teams: { webhook: "secret:teams-webhook" },
@@ -29,6 +29,12 @@ const play = {
 
 describe("file schemas accept what docs/model.md shows", () => {
   it("brain.toml", () => expect(messages(BrainFile, brain)).toEqual([]));
+  it("brain.toml: the time zone is an IANA name, UTC when not given, and a model's prices are optional and not negative", () => {
+    expect(BrainFile.parse({ name: "Kios RH" }).timezone).toBe("UTC");
+    expect(messages(BrainFile, { ...brain, timezone: "Mars/Olympus" })).toEqual(["timezone: must be an IANA time zone name, such as Europe/Paris"]);
+    expect(messages(BrainFile, { ...brain, model: [{ ...brain.model[0], input_usd_per_mtok: -1 }] })).toHaveLength(1);
+    expect(BrainFile.parse({ ...brain, model: [{ name: "main", provider: "anthropic", url: "https://api.anthropic.com", model: "opus" }] }).model[0]).not.toHaveProperty("input_usd_per_mtok");
+  });
   it("agent.toml", () => expect(messages(AgentFile, agent)).toEqual([]));
   it("tool.toml, with a script, run by Brain, or a host command", () => {
     expect(messages(ToolFile, tool)).toEqual([]);

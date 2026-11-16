@@ -33,7 +33,8 @@ apps/governor/src/
 apps/runner/   kept; edited for the new protocol, native tools and working copies
 apps/launcher/ kept; engine sandbox gains the working-copy mount
 apps/web/src/  new app, about eight screens
-apps/cli/      small: start, stop, backup, restore, audit verify
+scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, backup, restore, audit-verify), deploy-demo.sh
+deploy/        the sandbox images; demo/ (the demo host's compose file, host commands and backup units)
 packs/         base, software-factory, sre, customer-operations
 tests/         unit/ (pure), core/ (governor + fixture runner in-process), browser/
 ```
@@ -44,6 +45,12 @@ One Governor process serves the API and the built web app. State is one SQLite f
 isomorphic-git), `<data>/instance.key` (encrypts secrets, keys the digests of tokens)
 and `<data>/audit/` (the audit signing key). There is no organization level and no
 per-workspace database.
+
+There is no separate command-line program. `pnpm brain start` runs one Brain on a machine: it builds the web
+app when it is stale, starts the Governor on `~/.local/share/brain/data` and port 3100, the launcher when
+Docker answers, and one runner, which enrols by itself (section 6). `BRAIN_PROFILE=fixture` runs every agent on
+the fixture engine instead, with no Docker and no model. `scripts/brain.ts` lists the commands and the
+environment; `Dockerfile` is the Governor alone, serving the built web app, for a host that runs it in a container.
 
 ## 2. Workspace folder to snapshot
 
@@ -64,7 +71,7 @@ per-workspace database.
   over such a value (`==`, `!=`, with a string, number or boolean); `for_each` names a
   list in an earlier step's JSON result (`steps.<id>.result.<field>`), and inside that
   step `{{item}}` (or `{{item.<field>}}`) is the current item.
-- The result is a **snapshot**: one JSON manifest (models, limits, projects, agents with
+- The result is a **snapshot**: one JSON manifest (time zone, models with their prices, limits, projects, agents with
   prompt text digest, tools with file digests, Plays, memory entry list, approvals
   settings) whose bytes go to the CAS. Its sha256 is the snapshot digest. Same folder
   content gives the same digest.
@@ -147,7 +154,10 @@ status. Besides the three workspace roles an entry is `public` (`setup.status`,
 `workspaceId`; a person who is not a member is told the workspace does not exist.
 `file.write` and `file.delete` take several paths and make one commit. Accounts are made
 by `setup.create` and by `member.set` (with a name and a first password for a person who
-has none); signing up from outside is closed. The answer of `runner.token` is shown once: it is not kept for
+has none); signing up from outside is closed. `setup.create` also makes the first workspace,
+named Starter, from the `base` pack with the new person as its admin, so the first screen is
+never empty; the pack's `hello` Play is the sample goal. A packs directory without `base`
+gets no Starter. The answer of `runner.token` is shown once: it is not kept for
 idempotency, and the same key sent again is refused.
 
 ## 5. Tasks and orchestration (`tasks/`)
@@ -206,7 +216,8 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   message}}` with its status. Everything after `hello` carries the session token as a bearer credential; an attempt
   route names the fence it was offered, and `LEASE_LOST` (409) says the attempt is no longer that runner's.
 - Enrolment: a one-use token (15 minutes); the runner registers an ed25519 public key and proves it by signing a
-  challenge. `hello` answers a session token (12 hours; only keyed digests of tokens are stored). `hello` and `heartbeat`
+  challenge. A Governor started with `BRAIN_LOCAL_RUNNER_TOKEN_FILE` writes such a token to that file (owner-only) at
+  each start while no runner is enrolled: the runner started beside it on the same machine enrols with no person involved. `hello` answers a session token (12 hours; only keyed digests of tokens are stored). `hello` and `heartbeat`
   (every 10 s; a runner silent for 45 s is not online) report capabilities (plain names the operator declares, such as
   `bash`, `python3`, `curl`, `docker`, plus `native-tools` when engines run sandboxed), engines, and free slots. A tool's
   `needs` are matched against them. There are no runner groups: any runner whose capabilities and engines fit may take
@@ -227,30 +238,37 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   `artifacts` stores bytes in the CAS, linked to the attempt and its task. `blobs/:digest` serves only what the
   snapshots of the attempts the runner holds name (manifest, prompts, tool files) and what their offers named.
   `secret` leases only a secret a tool of the attempt's agent declares, or the credential of a project.
+  `tool-call` and `brain-tool` carry the commits the attempt's working copy stands on (`baseCommits`); the Governor
+  keeps them on the attempt from the first call, so it knows them before the attempt ends.
 - `complete` carries the result text, optional structured output, usage, the working-copy patch artifact, the base
   commits, and a receipt signed with the runner's key over the attempt id, fence, snapshot digest and result digest. The
   Governor checks the receipt against the enrolled key and records it in the audit chain. An `act` attempt ends
   `succeeded` with `output {tool, outcome, output}`.
 - The model is always reached through the Governor's model gateway, with a token bound to the attempt and its fence
   (`model-token`; valid while the attempt runs): OpenAI-style at `/model/v1/chat/completions`, Anthropic-style at
-  `/model/v1/messages`. The gateway forwards to the workspace's models of that kind in order (the agent's own first; the
-  next one on 402, 429, a server error or no answer), holds the keys, and adds the token counts and the cost each answer
-  reports (`usage.cost`, in dollars) to `usage`. It refuses a call once the attempt has used its agent's `spend_usd` or
-  the workspace its daily cap. `brain.toml` holds no prices: where a model server reports no cost, the cost of an attempt
-  is what its runner reports at `complete`, and the larger of the two figures is settled.
+  `/model/v1/messages`. The offer names the gateway at the Governor's base address, or at `BRAIN_GATEWAY_URL` where
+  sandboxes reach the Governor by another one (the host's address on Docker's bridge, which the egress proxy is told to allow). The gateway forwards to the workspace's models of that kind in order (the agent's own first; the
+  next one on 402, 429, a server error or no answer), holds the keys, and adds the token counts and the cost of each
+  answer to `usage`: the cost the answer reports (`usage.cost`, in dollars), or else its token counts at the model's
+  `input_usd_per_mtok` and `output_usd_per_mtok`. A model with no prices whose server reports no cost records zero, and
+  `task.get` marks such an attempt `priced: false`. The gateway refuses a call once the attempt has used its agent's
+  `spend_usd` or the workspace its daily cap. At `complete` the larger of the gateway's figure and the runner's is settled.
 
 ## 7. Tools
 
 - **Native tools** are the engine's own. The runner enables them at the agent's `native`
   level and only when the engine runs in its sandbox (or is the fixture). Their calls
-  are recorded as attempt events.
+  are recorded as attempt events. The fixture engine runs no model: it answers from `FIXTURE`
+  lines in the texts it is given, or with a default. A runner may let it stand in for
+  named engines (`BRAIN_RUNNER_FIXTURE_FOR`), which is how the fixture profile runs the
+  packs' agents; such an attempt says its engine was `fixture`.
 - **Workspace tools** with `run.sh`: the runner fetches the files by digest, validates
   the input against the schema, and runs the script in a tool sandbox with the task's
   working copy mounted read-only at `/work`, the declared hosts on the egress proxy and
   the declared secrets leased for that call. `effect = "read"` runs at once.
 - **Effects** (`write`, `privileged`): the runner posts the call to `tool-call`. The
   Governor builds the approval subject (tool, digest of the tool's definition, input and its digest, task,
-  snapshot digest, and for a pull request the patch digest). If a standing approval in
+  snapshot digest, and for a pull request the patch digest and the commit it is made on). If a standing approval in
   the snapshot covers it (the call names at least one target among its string inputs and every
   string input is a listed target, under `per_day` for the UTC day, up to and including `until`)
   it is approved at once and counted. Otherwise an approval is pending and the task shows in
@@ -299,17 +317,20 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   of every task the task waits for, directly or through another, oldest first; every task of one goal works on the
   commit the goal's first attempt found (or the head of the pull request that started it).
 - `git.open-pr`: the Governor stores the whole change as one patch (the inherited patches, then the working copy the
-  runner uploaded before the call), which is what the approver is shown and what the approval is bound to. Once
-  approved it clones the project at the base commit (isomorphic-git), applies the patch (`integrations/patch.ts`),
+  runner uploaded before the call), which with the base commit is what the approver is shown and what the approval is
+  bound to. The base commit is the one the runner names with the call, so a goal's first attempt, which has reported
+  none yet, opens its pull request on the commit it worked on and not on wherever the branch is by then. Once
+  approved it clones the project at that commit (isomorphic-git), applies the patch (`integrations/patch.ts`),
   commits, pushes branch `brain/<task id>` with the project's credential (the workspace's `[github]` credential when the
   project names none), opens the pull request through the GitHub API and records it. A task that opens its pull request
   again moves the branch; the pull request it already has follows. Nothing merges.
 
 ## 9. Triggers and integrations
 
-- `[trigger] schedule = "<cron>"` starts the Play at each time, in the Governor's local time (five fields; lists,
-  ranges and steps). Missed times are not replayed (a time more than five minutes past is missed); an occurrence is
-  skipped while the previous one is still running.
+- `[trigger] schedule = "<cron>"` starts the Play at each time, on the wall clock of the workspace's `timezone` (UTC
+  when `brain.toml` names none; five fields; lists, ranges and steps). A time the clock skips when it is set forward does
+  not come, and one it shows twice comes twice. Missed times are not replayed (a time more than five minutes past is
+  missed); an occurrence is skipped while the previous one is still running.
 - `[trigger] webhook = "github.<event>"` starts the Play for each matching delivery of a
   project's repository, with the delivery as the Play input named `delivery`.
   `POST /hooks/github/:workspace` (the workspace's address or id) verifies the signature with the workspace's
@@ -322,6 +343,11 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 - Health: `GET /health/ready` answers when the process and its database do. The `health` query reports runners, whether
   each model's server answers (asked at most once a minute), the audit log's verification, and the time of the last
   backup: the modification time of `<data>/backup.marker`, which the backup command leaves.
+- Backup (`health/backup.ts`, run by `pnpm brain backup [file]`): one `.tar.gz`, readable by its owner only, with a
+  consistent copy of `brain.db` taken through SQLite's backup API while the Governor runs, `cas/`, `workspaces/`,
+  `instance.key` and `audit/`. `pnpm brain restore <file>` refuses while the Governor runs, checks the database of the
+  archive, moves the data that is in place aside (it deletes nothing) and puts the archive's in its place; the Governor
+  that starts on it takes up a workspace commit newer than the database copy, as after a crash.
 
 ## 10. Web app (`apps/web`)
 
@@ -341,7 +367,8 @@ first goal); **Health** (runners, model, audit, backups); **People and secrets**
   engine. Each of the twelve patterns as a Play; done requires a check by another agent;
   effect approval (fast path, held path, rejection, standing approval and its limits,
   changed-subject refusal); daily cap; lease expiry and retry; roles; working copy and
-  pull request against a local bare repository.
+  pull request against a local bare repository; a backup made while the Governor runs,
+  restored and started again.
 - `tests/e2e`: the real runner on its fixture engine against the Governor in one process: a pipeline to a checked
   result, a native edit that leaves as an approved pull request, a held call carried out later.
 - `tests/browser`: first-time user from empty install to a checked result; approving a

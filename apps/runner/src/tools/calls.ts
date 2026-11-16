@@ -25,6 +25,8 @@ export interface ToolCallsDeps {
   readonly emit: (event: AttemptEventBody) => void;
   /** Uploads the working copy's current patch when it changed, before a call with an effect is asked for: the Governor may need it (a pull request is opened from it). */
   readonly syncPatch: () => Promise<void>;
+  /** The commits the attempt's working copy stands on, by project: sent with every call, so the Governor knows them before the attempt ends. */
+  readonly baseCommits: () => Readonly<Record<string, string>>;
   /** The lease is gone: the attempt must stop. */
   readonly leaseLost: () => void;
   readonly approval?: ApprovalWait;
@@ -96,7 +98,7 @@ export class ToolCalls {
       const state: ApprovalState | undefined = problem ? undefined : (await client.approval(offer.attemptId, act.approvalId, { fence: offer.fence })).state;
       if (problem || !tool) result = failed(`The approved call cannot be run: ${problem}`);
       else if (state !== "approved") result = failed(`The approval of this call is ${state}, so nothing was run.`);
-      else if (tool.runs === "brain") result = this.brainAnswer(await client.brainTool(offer.attemptId, { fence: offer.fence, callId: act.callId, tool: tool.name, input: act.input }));
+      else if (tool.runs === "brain") result = this.brainAnswer(await client.brainTool(offer.attemptId, { fence: offer.fence, callId: act.callId, tool: tool.name, input: act.input, baseCommits: this.deps.baseCommits() }));
       else result = ran(await this.perform(tool, act.callId, act.input));
     } catch (error) {
       if (isLeaseLost(error)) this.deps.leaseLost();
@@ -143,7 +145,7 @@ export class ToolCalls {
   private async withApproval(tool: OfferTool, callId: string, input: JsonValue): Promise<CallResult> {
     const { offer, client } = this.deps;
     await this.deps.syncPatch();
-    const asked = await client.toolCall(offer.attemptId, { fence: offer.fence, callId, tool: tool.name, input });
+    const asked = await client.toolCall(offer.attemptId, { fence: offer.fence, callId, tool: tool.name, input, baseCommits: this.deps.baseCommits() });
     const verdict: ApprovalVerdict = asked.state === "approved" ? { state: "approved" }
       : asked.state === "pending" && asked.approvalId ? await this.wait(asked.approvalId)
       : { state: "rejected", reason: asked.reason ?? (asked.state === "expired" ? "the approval expired without a decision" : "the call was rejected") };
@@ -165,7 +167,7 @@ export class ToolCalls {
   private async brain(tool: OfferTool, callId: string, input: JsonValue): Promise<CallResult> {
     const { offer, client } = this.deps;
     if (tool.effect !== "read") await this.deps.syncPatch();
-    const request = { fence: offer.fence, callId, tool: tool.name, input };
+    const request = { fence: offer.fence, callId, tool: tool.name, input, baseCommits: this.deps.baseCommits() };
     const first = await client.brainTool(offer.attemptId, request);
     if (first.state !== "pending") return this.brainAnswer(first);
     const verdict = await this.wait(first.approvalId);

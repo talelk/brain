@@ -8,6 +8,7 @@ import { tx } from "../db";
 import type { Gov } from "../dispatch";
 import { append } from "../events";
 import type { AttemptRow, TaskRow } from "../tasks/store";
+import type { PullRequestChange } from "../trust/approvals";
 import { linkArtifact, putArtifact, readArtifact } from "../trust/artifacts";
 import { readSecret } from "../trust/secrets";
 import { ToolRefusal } from "../tools/schema";
@@ -24,8 +25,10 @@ import { applyPatch, PatchConflict, projectPatch } from "./patch";
 /**
  * The whole change a pull request of this attempt would carry, stored as one patch so that an approver is shown exactly what will be
  * opened: the patches of the tasks this one started from, then what the attempt itself last uploaded (or what the task's earlier attempt left).
+ * With it, the commit the change is made on: the one the attempt's working copy stands on, as its runner said with the call (`commits`),
+ * else the one the goal already works on. A goal's first attempt has reported none before it ends, so only its runner knows it.
  */
-export function pullRequestPatch(gov: Gov, attempt: AttemptRow, task: TaskRow, projectName: string): Digest {
+export function pullRequestChange(gov: Gov, attempt: AttemptRow, task: TaskRow, projectName: string, commits: Readonly<Record<string, string>> = {}): PullRequestChange {
   const { db } = gov;
   // What can be told before anyone is asked is told now: the project must be one this workspace may change.
   const project = writable(gov, task, projectName);
@@ -36,7 +39,8 @@ export function pullRequestPatch(gov: Gov, attempt: AttemptRow, task: TaskRow, p
   if (projectPatch(whole, project.name).length === 0) throw new ToolRefusal(`The working copy has no changes in ${project.name}, so there is nothing to open a pull request from`);
   const digest = putArtifact(gov, whole);
   linkArtifact(db, { digest, workspaceId: task.workspace_id, taskId: task.id, attemptId: attempt.id, name: "pull-request.patch", kind: "pull-request", mediaType: "text/x-diff" }, gov.clock.nowMs());
-  return digest;
+  const baseCommit = commits[project.name] ?? baseCommitOf(gov, task, project.name);
+  return { patchDigest: digest, ...(baseCommit !== undefined ? { baseCommit } : {}) };
 }
 
 function writable(gov: Gov, task: TaskRow, name: string): SnapshotManifest["projects"][number] {
@@ -61,7 +65,9 @@ const httpOver = (send: typeof fetch): HttpClient => ({
 
 interface OpenedPullRequest { readonly url: string; readonly number: number; readonly branch: string }
 
-export async function openPullRequest(gov: Gov, attempt: AttemptRow, task: TaskRow, input: { project: string; title: string; body: string }, patchDigest: Digest): Promise<OpenedPullRequest> {
+/** Opens the pull request an approval was given for: `change` is the patch and the commit of the approved subject. */
+export async function openPullRequest(gov: Gov, attempt: AttemptRow, task: TaskRow, input: { project: string; title: string; body: string }, change: PullRequestChange & { patchDigest: Digest }): Promise<OpenedPullRequest> {
+  const { patchDigest, baseCommit: base } = change;
   const project = writable(gov, task, input.project);
   const credential = project.credential ?? manifestOf(gov, task.snapshot_digest).github?.credential;
   const token = credential ? readSecret(gov, task.workspace_id, secretName(credential)) : undefined;
@@ -69,7 +75,6 @@ export async function openPullRequest(gov: Gov, attempt: AttemptRow, task: TaskR
   const patch = projectPatch(readArtifact(gov, patchDigest), project.name);
 
   const branch = `brain/${task.id}`;
-  const base = baseCommitOf(gov, task, project.name);
   const http = httpOver(gov.fetch);
   // The credential goes with every request to the repository, as a header; it is never part of an address.
   const headers = { authorization: `Basic ${Buffer.from(token.includes(":") ? token : `x-access-token:${token}`).toString("base64")}` };

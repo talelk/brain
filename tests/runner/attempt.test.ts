@@ -74,7 +74,7 @@ describe("a work attempt", () => {
       agent: { name: "developer", native: "all", limits: { turns: 20, tokens: 200_000, spendMicroUsd: 0 } },
       projects: [project(origin.repo, { setup: "echo installed > setup.log" })],
       tools: [gov.tool("echo.back", { script: ECHO_SCRIPT, inputSchema: { type: "object" } }), gov.tool("task.note", { runs: "brain", inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] } })],
-      task: { goal: ["Add the feature.", "FIXTURE read app/setup.log", "FIXTURE write app/src/new.txt added in round {{round}}\\n", "FIXTURE delete app/src/old.txt", 'FIXTURE tool echo.back {"n": 1}', 'FIXTURE tool task.note {"text": "added the feature"}', "FIXTURE out report.md # Report\\nDone.", "FIXTURE reply Added src/new.txt and removed src/old.txt."].join("\n") },
+      task: { goal: ["Add the feature.", "FIXTURE read app/setup.log", "FIXTURE write app/src/new.txt added in round %round%\\n", "FIXTURE delete app/src/old.txt", 'FIXTURE tool echo.back {"n": 1}', 'FIXTURE tool task.note {"text": "added the feature"}', "FIXTURE out report.md # Report\\nDone.", "FIXTURE reply Added src/new.txt and removed src/old.txt."].join("\n") },
     });
     expect(await runner.runOnce()).toBe(true);
     expect(await runner.runOnce()).toBe(false);
@@ -105,7 +105,7 @@ describe("a work attempt", () => {
     expect(gov.eventsOf(offer.attemptId, "native.result")[0]).toMatchObject({ ok: true, output: "installed\n" });
     expect(gov.eventsOf(offer.attemptId, "tool.call").map((event) => [event.tool, event.effect, event.input])).toEqual([["echo.back", "read", { n: 1 }], ["task.note", "read", { text: "added the feature" }]]);
     expect(gov.eventsOf(offer.attemptId, "tool.result").map((event) => [event.outcome, event.output])).toEqual([["succeeded", { echo: { n: 1 } }], ["succeeded", { id: "note-1" }]]);
-    expect(gov.brainCalls).toEqual([{ fence: 1, callId: `${offer.attemptId}-call-2`, tool: "task.note", input: { text: "added the feature" } }]);
+    expect(gov.brainCalls).toEqual([{ fence: 1, callId: `${offer.attemptId}-call-2`, tool: "task.note", input: { text: "added the feature" }, baseCommits: done.baseCommits }]);
     expect(gov.eventsOf(offer.attemptId, "usage").at(-1)).toMatchObject(done.usage);
     // Nothing of the attempt stays on the runner but the mirror.
     expect(existsSync(join(stateDir, "attempts", offer.attemptId))).toBe(false);
@@ -128,7 +128,7 @@ describe("a work attempt", () => {
     expect(files).toContain("b/app/own.txt");
     expect(files).not.toContain("first.txt");
     expect(files).not.toContain("second.txt");
-    const offer = gov.offer({ agent: { native: "read" }, projects: [project(origin.repo, { baseCommit: origin.head() })], inheritedPatches: [first, second], workingCopy: own, task: { goal: "FIXTURE read app/first.txt\nFIXTURE read app/second.txt\nFIXTURE read app/own.txt\nFIXTURE reply {{last}}" } });
+    const offer = gov.offer({ agent: { native: "read" }, projects: [project(origin.repo, { baseCommit: origin.head() })], inheritedPatches: [first, second], workingCopy: own, task: { goal: "FIXTURE read app/first.txt\nFIXTURE read app/second.txt\nFIXTURE read app/own.txt\nFIXTURE reply %last%" } });
     await runner.runOnce();
     const done = gov.completions.get(offer.attemptId)!;
     expect(done).toMatchObject({ outcome: "succeeded", result: "own\n", baseCommits: { app: origin.head() } });
@@ -189,13 +189,13 @@ describe("a work attempt", () => {
 
 describe("calls with an effect", () => {
   const tools = (gov: Awaited<ReturnType<typeof runnerWorld>>["gov"], stateDir: string) => [gov.tool("deploy.restart", { effect: "privileged", script: markerScript(stateDir, "restarted"), inputSchema: { type: "object", properties: { container: { type: "string" } }, required: ["container"] } })];
-  const goal = 'FIXTURE tool deploy.restart {"container": "web"}\nFIXTURE reply The tool answered: {{last}}';
+  const goal = 'FIXTURE tool deploy.restart {"container": "web"}\nFIXTURE reply The tool answered: %last%';
 
   it("asks first and runs a call that is approved at once (a standing approval)", async () => {
     const { gov, runner, stateDir } = await runnerWorld();
     const offer = gov.offer({ tools: tools(gov, stateDir), task: { goal } });
     await runner.runOnce();
-    expect(gov.toolCalls).toEqual([{ fence: 1, callId: `${offer.attemptId}-call-1`, tool: "deploy.restart", input: { container: "web" } }]);
+    expect(gov.toolCalls).toEqual([{ fence: 1, callId: `${offer.attemptId}-call-1`, tool: "deploy.restart", input: { container: "web" }, baseCommits: {} }]);
     expect(existsSync(join(stateDir, "restarted"))).toBe(true);
     expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "succeeded", result: 'The tool answered: {"done":true}' });
   });
@@ -234,17 +234,20 @@ describe("calls with an effect", () => {
     expect(done.failure).toBeUndefined();
   });
 
-  it("uploads the working copy's patch before it asks, so the Governor has it for the call", async () => {
+  it("uploads the working copy's patch before it asks and names the commit it stands on, so the Governor has both for the call", async () => {
     const { gov, runner } = await runnerWorld();
     const origin = bareRepository({ "a.txt": "a\n" });
     let patchesAtCall = -1;
     gov.onBrainTool = () => { patchesAtCall = gov.artifacts.filter((artifact) => artifact.kind === "patch").length; return { state: "done", output: { url: "https://example.test/pr/1", number: 1, branch: "brain/task-1" } }; };
-    const offer = gov.offer({ agent: { native: "all" }, projects: [project(origin.repo)], tools: [gov.tool("git.open-pr", { runs: "brain", effect: "write", inputSchema: { type: "object" } })], task: { goal: 'FIXTURE write app/b.txt b\\n\nFIXTURE tool git.open-pr {"project": "app", "title": "Add b", "body": "b"}\nFIXTURE reply opened {{last}}' } });
+    const offer = gov.offer({ agent: { native: "all" }, projects: [project(origin.repo)], tools: [gov.tool("git.open-pr", { runs: "brain", effect: "write", inputSchema: { type: "object" } })], task: { goal: 'FIXTURE write app/b.txt b\\n\nFIXTURE tool git.open-pr {"project": "app", "title": "Add b", "body": "b"}\nFIXTURE reply opened %last%' } });
     await runner.runOnce();
     expect(patchesAtCall).toBe(1);
     // The patch did not change after the call, so it was not uploaded a second time.
     expect(gov.artifacts.filter((artifact) => artifact.kind === "patch")).toHaveLength(1);
     expect(gov.completions.get(offer.attemptId)!.workingCopy!.digest).toBe(gov.artifacts[0]!.digest);
+    // This is the goal's first attempt: the offer named no commit, so only the runner knows which one it found.
+    expect(offer.projects[0]?.baseCommit).toBeUndefined();
+    expect(gov.brainCalls).toMatchObject([{ tool: "git.open-pr", baseCommits: { app: origin.head() } }]);
   });
 
   it("sends a Brain-run call again once its approval is given, and stops calling after a question to a person", async () => {
@@ -253,7 +256,7 @@ describe("calls with an effect", () => {
     gov.onBrainTool = (request) => (request.tool === "task.ask" ? { state: "done", output: { status: "waiting" } }
       : gov.brainCalls.filter((call) => call.callId === request.callId).length === 1 ? { state: "pending", approvalId: "approval-7" } : { state: "done", output: { sent: true } });
     const brain = (name: string, effect: "read" | "write") => gov.tool(name, { runs: "brain", effect, inputSchema: { type: "object" } });
-    const offer = gov.offer({ tools: [brain("message.send", "write"), brain("task.ask", "read"), brain("task.note", "read")], task: { goal: 'FIXTURE tool message.send {"text": "hi"}\nFIXTURE tool task.ask {"question": "Which one?"}\nFIXTURE tool task.note {"text": "after asking"}\nFIXTURE reply I am waiting for the answer. {{last}}' } });
+    const offer = gov.offer({ tools: [brain("message.send", "write"), brain("task.ask", "read"), brain("task.note", "read")], task: { goal: 'FIXTURE tool message.send {"text": "hi"}\nFIXTURE tool task.ask {"question": "Which one?"}\nFIXTURE tool task.note {"text": "after asking"}\nFIXTURE reply I am waiting for the answer. %last%' } });
     await runner.runOnce();
     expect(gov.brainCalls.map((call) => call.tool)).toEqual(["message.send", "message.send", "task.ask"]);
     expect(gov.eventsOf(offer.attemptId, "tool.result").map((event) => [event.outcome, event.output])).toEqual([["succeeded", { sent: true }], ["succeeded", { status: "waiting" }]]);

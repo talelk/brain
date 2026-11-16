@@ -18,6 +18,15 @@ const host = z.string().refine((value) => {
   const [name = "", port, ...more] = value.split(":");
   return /^[A-Za-z0-9*.-]{1,253}$/u.test(name) && more.length === 0 && (port === undefined || /^\d{1,5}$/u.test(port));
 }, "must be a host name, optionally with a port");
+/** True for a time zone name the runtime knows (IANA, such as `Africa/Tunis`). */
+export function isTimeZone(name: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: name });
+    return true;
+  } catch {
+    return false;
+  }
+}
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "must be a date written YYYY-MM-DD");
 
 export const EFFECTS = ["read", "write", "privileged"] as const;
@@ -45,6 +54,8 @@ export type JsonSchema = { readonly [key: string]: JsonValue };
 export const BrainFile = z.strictObject({
   name: z.string().min(1).max(100),
   description: z.string().max(2000).default(""),
+  /** The IANA time zone schedules are read in. */
+  timezone: z.string().refine(isTimeZone, "must be an IANA time zone name, such as Europe/Paris").default("UTC"),
   packs: z.array(slug("a pack name")).default([]),
   limits: z.strictObject({
     daily_spend_usd: z.number().min(0).default(0),
@@ -57,6 +68,9 @@ export const BrainFile = z.strictObject({
     url: z.string().regex(/^https?:\/\/\S+$/u, "must be an http or https address"),
     model: z.string().min(1),
     key: secretRef.optional(),
+    /** What a million tokens cost, in dollars: the gateway prices a call with them when the model server reports no cost. */
+    input_usd_per_mtok: z.number().min(0).optional(),
+    output_usd_per_mtok: z.number().min(0).optional(),
   })).default([]),
   project: z.array(z.strictObject({
     name: slug("a project name"),
@@ -214,6 +228,7 @@ export interface Sourced { readonly source: string }
 export interface SnapshotManifest {
   readonly name: string;
   readonly description: string;
+  readonly timezone: string;
   /** Every pack in use, required packs first. */
   readonly packs: readonly string[];
   readonly limits: BrainFile["limits"];

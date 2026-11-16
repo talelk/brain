@@ -1,32 +1,53 @@
 #!/usr/bin/env bash
-# Deploy the latest Keyrus Brain working tree to the demo server WITHOUT resetting.
+# Deploys this checkout to the demo host: the Governor in a container behind the host's nginx, and on the host itself the
+# launcher, one runner, the egress proxy and the backup timers.
 #
-# Brings up / refreshes the whole stack:
-#   * governor container (Web UI + API)  — brain.mykeyrus.tn
-#   * TencentDB Agent Memory stack       — core/hub/proxy on 127.0.0.1
-#   * launcher + two runners             — Pi (agents) + Claude (evaluators)
+#   scripts/deploy-demo.sh             deploy
+#   scripts/deploy-demo.sh --dry-run   print every action, local and remote, and do none of them: no connection is made, no
+#                                      credential is read
 #
-# What it does every run:
-#   1. rsync the current checkout to /srv/demos/brain/src (data is never synced)
-#   2. (re)install the compose file from deploy/demo/docker-compose.yml
-#   3. create /srv/demos/brain/.env on first deploy only (never touched again)
-#   4. build + recreate the governor container; run first-launch init only if the
-#      data volume is empty (idempotent — existing orgs/workspaces are preserved)
-#   5. ensure the TencentDB memory stack is running and bound to 127.0.0.1
-#   6. ensure sandbox images, host Node toolchain and runner units exist
-#   7. restart the launcher + runners so they run the freshly synced code
+# Layout on the host, under /srv/demos/brain:
+#   src/                 this repository (rsync; nothing else is ever synced)
+#   data/                the Governor's data, mounted into its container; `pnpm brain backup` reads it from the host
+#   run/                 launcher socket, the runner's folder, egress grants, the Governor's runner token
+#   archive/             what earlier versions left: data-<time>/, config-<time>/. Never deleted by any deploy.
+#   docker-compose.yml, .env, runner.env, host-commands.json     written by this script
 #
-# What it never does: reset, `down -v`, remove the brain-data volume, or touch
-# accounts/workspaces/runs. Existing data always survives.
+# Steps, in order:
+#   1. Once, before the first deploy of this version (no /srv/demos/brain/.simplified-model yet): stop and disable the units
+#      of the earlier stack that no longer exist, stop the earlier Governor, MOVE data/ to archive/data-<time>/ (data kept
+#      in the earlier stack's Docker volume is copied there instead, and the volume is left as it is), move the earlier
+#      run/ and configuration to archive/config-<time>/, and make an empty data/. Nothing is deleted.
+#   2. Sync the source.
+#   3. Install docker-compose.yml, .env and host-commands.json (the host commands of the `sre` pack).
+#   4. Build the Governor image and the sandbox images.
+#   5. Start the Governor and wait for /health/ready.
+#   6. Start the egress proxy, the only way a sandbox reaches a network.
+#   7. Node and the dependencies of the launcher and the runner on the host.
+#   8. The systemd units brain-launcher and brain-runner; the runner enrols by itself the first time, with the token the
+#      Governor leaves while it has no runner.
+#   9. The backup timers, when /srv/demos/brain/backup.env exists.
+#  10. Checks, and on a fresh install the setup link.
+# Attempts that are running when the Governor or the runner restarts are taken back and run again.
 #
-# Usage: BRAIN_DEPLOY_SUDO_PASSWORD=... scripts/deploy-demo.sh   (from the repo root)
-#        BRAIN_DEPLOY_HOST=... BRAIN_DEPLOY_PORT=... BRAIN_DEPLOY_SUDO_PASSWORD=... scripts/deploy-demo.sh
-#        (a schema-changing release needs the live databases brought to the current
-#        schema first; scripts/repair-live-schema.ts refuses to alter existing tables)
+# Environment:
+#   BRAIN_DEPLOY_HOST (demos.mykeyrus.tn)  BRAIN_DEPLOY_PORT (42242)  BRAIN_DEPLOY_USER (talel)  BRAIN_DEPLOY_DIR (/srv/demos/brain)
+#   BRAIN_DEPLOY_SUDO_PASSWORD   the deploy user's sudo password; never stored in the repository
+#   BRAIN_DEMO_DOMAIN (brain.mykeyrus.tn)
+#   BRAIN_DEPLOY_ENGINES (pi,claude)  BRAIN_DEPLOY_RUNNER_SLOTS (3)
+#   BRAIN_DEPLOY_SANDBOX_CPU_MILLICORES (2000)  BRAIN_DEPLOY_SANDBOX_MEMORY_MB (4096)
 set -euo pipefail
 
-# Dev machines keep the deploy host, port and sudo password in a private file; load it without echoing anything.
-if [ -z "${BRAIN_DEPLOY_SUDO_PASSWORD:-}" ] && [ -r "$HOME/.config/brain-dev/credentials.env" ]; then
+DRY=0
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY=1 ;;
+    *) echo "usage: scripts/deploy-demo.sh [--dry-run]" >&2; exit 2 ;;
+  esac
+done
+
+# A dev machine keeps the deploy host, port and sudo password in a private file. A dry run reads no credential.
+if [ "$DRY" != 1 ] && [ -z "${BRAIN_DEPLOY_SUDO_PASSWORD:-}" ] && [ -r "$HOME/.config/brain-dev/credentials.env" ]; then
   set -a; . "$HOME/.config/brain-dev/credentials.env"; set +a
 fi
 
@@ -34,407 +55,305 @@ HOST="${BRAIN_DEPLOY_HOST:-demos.mykeyrus.tn}"
 PORT="${BRAIN_DEPLOY_PORT:-42242}"
 USER_SSH="${BRAIN_DEPLOY_USER:-talel}"
 REMOTE_DIR="${BRAIN_DEPLOY_DIR:-/srv/demos/brain}"
-SSH="ssh -p $PORT -o ConnectTimeout=15 $USER_SSH@$HOST"
 DOMAIN="${BRAIN_DEMO_DOMAIN:-brain.mykeyrus.tn}"
-TDAI_REVISION="ecc01a545da0b2ac6cae2f0f0af0d39d41469793"
-MODEL_URL="${BRAIN_LOCAL_MODEL_URL:-http://tntungx10:8000/v1}"
-MODEL_ID="${BRAIN_LOCAL_MODEL_ID:-qwen3.8-flash-next-a5b}"
+ENGINES="${BRAIN_DEPLOY_ENGINES:-pi,claude}"
+SLOTS="${BRAIN_DEPLOY_RUNNER_SLOTS:-3}"
+SANDBOX_CPU="${BRAIN_DEPLOY_SANDBOX_CPU_MILLICORES:-2000}"
+SANDBOX_MEMORY="${BRAIN_DEPLOY_SANDBOX_MEMORY_MB:-4096}"
+TARGET="$USER_SSH@$HOST"
+
+for value in "$PORT" "$SLOTS" "$SANDBOX_CPU" "$SANDBOX_MEMORY"; do
+  [[ "$value" =~ ^[1-9][0-9]*$ ]] || { echo "the port, the slots and the sandbox limits must be positive integers" >&2; exit 1; }
+done
+[[ "$REMOTE_DIR" =~ ^/[A-Za-z0-9._/-]+$ && "$DOMAIN" =~ ^[a-z0-9.-]+$ && "$ENGINES" =~ ^[a-z,]+$ && "$USER_SSH" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "the deploy directory, the domain, the engines or the user is not written as expected" >&2; exit 1; }
 
 cd "$(dirname "$0")/.."
-command -v rsync >/dev/null || { echo "rsync is required" >&2; exit 1; }
-# The deploy user's sudo password comes from the environment and is never stored
-# in the repository. (A sudoers NOPASSWD rule for the systemctl/apt commands used
-# below would avoid passing a password at all.)
-: "${BRAIN_DEPLOY_SUDO_PASSWORD:?set BRAIN_DEPLOY_SUDO_PASSWORD to the sudo password of the deploy user}"
-SUDO="printf '%s\n' $(printf '%q' "$BRAIN_DEPLOY_SUDO_PASSWORD") | sudo -S -p ''"   # only for system-level actions
-
-# One exit handler: remove the private pre-check copy, and never leave the platform drained. If the deploy fails after drain began
-# (a failed roll, a Governor that is not ready), draining would stop all new work with nobody told, so the drain is ended here.
-PRECHECK_DIR=""; DRAINED=0
-cleanup() {
-  [ -n "$PRECHECK_DIR" ] && rm -rf "$PRECHECK_DIR"
-  if [ "$DRAINED" = 1 ]; then
-    echo "==> Ending drain after an unfinished deploy" >&2
-    $SSH "cd $REMOTE_DIR && docker compose run --rm --no-deps -T governor node - off" < scripts/drain-live.mjs >/dev/null 2>&1 || echo "!! Could not end drain: run scripts/drain-live.mjs off inside the governor container" >&2
-  fi
-}
-trap cleanup EXIT
-
-# ---- standing test gate (backlog row 78): a drop of more than 10 points of first-pass success blocks the deploy ----
-# Exit 0 passed, 3 skipped (no model reachable from here), anything else blocks. BRAIN_DEPLOY_SKIP_STANDING_TESTS=1 skips; CI runs the gate as its own step.
-if [ "${BRAIN_DEPLOY_SKIP_STANDING_TESTS:-0}" != 1 ] && [ "${CI:-}" != true ]; then
-  set +e; pnpm exec tsx scripts/standing-tests/gate.ts; GATE_RC=$?; set -e
-  case "$GATE_RC" in 0|3) ;; *) echo "!! The standing test set blocked this deploy (exit $GATE_RC); nothing was changed." >&2; exit 1 ;; esac
-fi
-
-# ---- refuse while missions run: a deploy interrupts running attempts (BRAIN_DEPLOY_FORCE=1 overrides) ----
-# Normally the drain step below handles this: it stops new attempts and waits for the running ones. Without it (BRAIN_DEPLOY_SKIP_DRAIN=1)
-# the deploy refuses outright while attempts run.
-if [ "${BRAIN_DEPLOY_FORCE:-0}" != 1 ] && [ "${BRAIN_DEPLOY_SKIP_DRAIN:-0}" = 1 ]; then
-  RUN_GOV_ID="$($SSH "cd $REMOTE_DIR 2>/dev/null && docker compose ps -q governor 2>/dev/null" || true)"
-  if [ -n "$RUN_GOV_ID" ]; then
-    RUNNING="$($SSH "docker exec -i $RUN_GOV_ID node --input-type=module -" < scripts/live-running-count.mjs 2>/dev/null | tail -1 || true)"
-    if [ -n "$RUNNING" ] && [ "$RUNNING" != 0 ]; then
-      echo "!! $RUNNING attempt(s) are running on the server; a deploy would interrupt them. Wait, or set BRAIN_DEPLOY_FORCE=1." >&2
-      exit 1
-    fi
-  fi
-fi
-
-# ---- pre-deploy check: prove the live databases can be upgraded BEFORE anything on the server changes ----
-# Copies the live databases (read-only) to a private local directory and runs scripts/repair-live-schema.ts of this
-# checkout against the copy. If it fails the deploy aborts here: the old container keeps serving, nothing was synced.
-# Skipped on a first deploy (no running governor yet) and with BRAIN_DEPLOY_SKIP_PRECHECK=1.
-if [ "${BRAIN_DEPLOY_SKIP_PRECHECK:-0}" != 1 ]; then
-  GOV_ID="$($SSH "cd $REMOTE_DIR 2>/dev/null && docker compose ps -q governor 2>/dev/null" || true)"
-  if [ -n "$GOV_ID" ]; then
-    echo "==> Pre-deploy check: repairing a copy of the live databases with this checkout's schema"
-    PRECHECK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/brain-precheck-XXXXXX")"
-    chmod 700 "$PRECHECK_DIR"
-    # A consistent snapshot (VACUUM INTO inside the container), moved to the host, then pulled with rsync: resumable,
-    # compressed and retried. A piped tar of 40+ MB over the VPN broke at random ("Error is not recoverable").
-    REMOTE_SNAP="/tmp/brain-precheck-$$"
-    copied=0
-    if $SSH "docker exec -i $GOV_ID node --input-type=module -" < scripts/snapshot-live-dbs.mjs >/dev/null \
-      && $SSH "rm -rf $REMOTE_SNAP && docker cp $GOV_ID:/tmp/precheck-snap $REMOTE_SNAP && docker exec $GOV_ID rm -rf /tmp/precheck-snap"; then
-      for attempt in 1 2 3 4; do
-        if rsync -az --partial -e "ssh -p $PORT -o ConnectTimeout=15" "$USER_SSH@$HOST:$REMOTE_SNAP/" "$PRECHECK_DIR/" && [ -s "$PRECHECK_DIR/control.db" ]; then copied=1; break; fi
-        echo "   (copy interrupted; retry $attempt of 4)" >&2
-      done
-    fi
-    $SSH "rm -rf $REMOTE_SNAP" >/dev/null 2>&1 || true
-    if [ "$copied" != 1 ]; then
-      echo "!! Could not snapshot the live databases; aborting before any change (old container untouched)" >&2; exit 1
-    fi
-    if ! BRAIN_DATA_DIR="$PRECHECK_DIR" pnpm exec tsx scripts/repair-live-schema.ts; then
-      echo "!! Schema repair FAILED against a copy of the live databases; aborting before any change (old container still running)." >&2
-      echo "   A new column on an existing table needs DEFAULT (see docs/wiki/ops-live-server.md)." >&2
-      exit 1
-    fi
-    echo "==> Pre-deploy check passed"
-  else
-    echo "==> No running governor found; skipping the pre-deploy schema check"
-  fi
-fi
-
-echo "==> Syncing source to $USER_SSH@$HOST:$REMOTE_DIR/src (data is never synced)"
-$SSH "mkdir -p $REMOTE_DIR/src"
-rsync -az --delete --info=stats1 \
-  -e "ssh -p $PORT" \
-  --exclude .git/ --exclude node_modules/ --exclude test-results/ \
-  --exclude playwright-report/ --exclude /artifacts/ --exclude screenshots/ \
-  --exclude .pi-agent/ --exclude .vitest/ --exclude .zcode/ --exclude '*.log' \
-  ./ "$USER_SSH@$HOST:$REMOTE_DIR/src/"
-
-echo "==> Installing compose file"
-scp -P "$PORT" deploy/demo/docker-compose.yml "$USER_SSH@$HOST:$REMOTE_DIR/docker-compose.yml.new"
-$SSH "test -f $REMOTE_DIR/docker-compose.yml && cp -a $REMOTE_DIR/docker-compose.yml $REMOTE_DIR/docker-compose.yml.bak.\$(date +%s) || true
-     mv $REMOTE_DIR/docker-compose.yml.new $REMOTE_DIR/docker-compose.yml"
-
-# .env is created once on first deploy; later deploys must not change credentials.
-FIRST_RUN=0
-if ! $SSH "test -f $REMOTE_DIR/.env"; then
-  FIRST_RUN=1
-  echo "==> First deploy: generating credentials"
-  ADMIN_EMAIL="${BRAIN_ADMIN_EMAIL:-admin@brain.local}"
-  ADMIN_PASS="$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)"
-  $SSH "umask 077 && cat > $REMOTE_DIR/.env" <<EOF
-BRAIN_BASE_URL=https://$DOMAIN
-BRAIN_ADMIN_EMAIL=$ADMIN_EMAIL
-BRAIN_ADMIN_PASSWORD=$ADMIN_PASS
-EOF
-  echo "    Admin: $ADMIN_EMAIL / $ADMIN_PASS"
-  echo "    Saved to $REMOTE_DIR/.env — record it now."
+if [ "$DRY" = 1 ]; then
+  SUDO_PASSWORD="<the sudo password>"
+  echo "DRY RUN: nothing below is done. It is what a deploy to $TARGET (port $PORT), directory $REMOTE_DIR, would do."
 else
-  echo "==> Keeping existing .env (credentials unchanged)"
+  command -v rsync >/dev/null || { echo "rsync is required" >&2; exit 1; }
+  : "${BRAIN_DEPLOY_SUDO_PASSWORD:?set BRAIN_DEPLOY_SUDO_PASSWORD to the sudo password of the deploy user}"
+  SUDO_PASSWORD="$BRAIN_DEPLOY_SUDO_PASSWORD"
 fi
 
-# ---- continuous database replica (ADR 0027): a no-op unless $REMOTE_DIR/replica.env exists on the server ----
-# With it, the Governor writes snapshots into $REMOTE_DIR/replica (mounted at /replica) and Health reports replica lag from the shipped
-# marker; the timer installed at the end copies that directory to BRAIN_REPLICA_HOST. Without it nothing is added to .env or installed.
-REPLICA_ON=0
-if $SSH "test -r $REMOTE_DIR/replica.env"; then
-  REPLICA_ON=1
-  echo "==> Replica configured: wiring the Governor to write its replica"
-  $SSH "mkdir -p $REMOTE_DIR/replica && for kv in BRAIN_REPLICA_DIR=/replica BRAIN_REPLICA_HOST_DIR=$REMOTE_DIR/replica BRAIN_REPLICA_SHIPPED_FILE=/replica/shipped.json; do k=\${kv%%=*}; grep -q \"^\$k=\" $REMOTE_DIR/.env || echo \"\$kv\" >> $REMOTE_DIR/.env; done"
-else
-  echo "==> No $REMOTE_DIR/replica.env on the server: no database replica (see docs/howto/replica-and-second-runner.md)"
-fi
-
-# ---- TencentDB memory stack (idempotent; binds 127.0.0.1 only) ----
-echo "==> Ensuring TencentDB memory stack"
-$SSH "mkdir -p $REMOTE_DIR/tencentdb $REMOTE_DIR/run"
-$SSH "cd $REMOTE_DIR/tencentdb && if [ ! -d checkout/.git ]; then
-        git clone --filter=blob:none --no-checkout https://github.com/TencentCloud/TencentDB-Agent-Memory.git checkout >/dev/null 2>&1;
-      fi
-      cd checkout && git sparse-checkout set deploy/global-images MemoryCore/pi-plugin >/dev/null 2>&1
-      git checkout --detach $TDAI_REVISION >/dev/null 2>&1
-      cd deploy/global-images
-      [ -f .env ] || cp .env.example .env
-      chmod 600 .env
-      sed -i -e 's|^MEMORY_CORE_PORT=.*|MEMORY_CORE_PORT=8420|' -e 's|^PANEL_PORT=.*|PANEL_PORT=8125|' \
-             -e 's|^KNOWLEDGE_PORT=.*|KNOWLEDGE_PORT=8424|' -e 's|^PROXY_PORT=.*|PROXY_PORT=8096|' \
-             -e 's|^MEMORY_LLM_BASE_URL=.*|MEMORY_LLM_BASE_URL=$MODEL_URL|' -e 's|^MEMORY_LLM_API_KEY=.*|MEMORY_LLM_API_KEY=local-no-key|' \
-             -e 's|^MEMORY_LLM_MODEL=.*|MEMORY_LLM_MODEL=$MODEL_ID|' -e 's|^MEMORY_LLM_PROTOCOL=.*|MEMORY_LLM_PROTOCOL=openai|' \
-             -e 's|^PROXY_UPSTREAM_URL=.*|PROXY_UPSTREAM_URL=$MODEL_URL|' -e 's|^PROXY_UPSTREAM_API_KEY=.*|PROXY_UPSTREAM_API_KEY=local-no-key|' \
-             -e 's|^PROXY_UPSTREAM_MODEL=.*|PROXY_UPSTREAM_MODEL=$MODEL_ID|' .env
-      grep -q '^PROXY_FULL_STACK=' .env || echo 'PROXY_FULL_STACK=1' >> .env
-      for f in start-memory-core.sh start-memory-hub.sh start-proxy.sh; do
-        sed -i -E 's|-p \"(\\\$\{[A-Z_]+PORT\}):([0-9]+)\"|-p \"127.0.0.1:\1:\2\"|g' \$f
-        sed -i 's|run -d --name \"\\\$CONTAINER\"|run -d --restart unless-stopped --name \"\\\$CONTAINER\"|' \$f
-      done"
-if ! $SSH "docker ps -q -f name=tdai-memory-core" | grep -q .; then
-  echo "    starting memory stack"
-  $SSH "cd $REMOTE_DIR/tencentdb/checkout/deploy/global-images && bash start-all.sh </dev/null >/tmp/tdai-start.log 2>&1"
-fi
-
-# ---- sandbox images (for launcher-enforced isolation) ----
-echo "==> Ensuring sandbox images"
-if ! $SSH "docker images -q brain-sandbox-agent" | grep -q . || ! $SSH "docker images -q brain-sandbox-engine" | grep -q . || ! $SSH "docker images -q brain-egress-proxy" | grep -q .; then
-  $SSH "cd $REMOTE_DIR/src && bash scripts/build-sandbox-images.sh >/dev/null 2>&1"
-fi
-
-# ---- engine sandboxes (ADR 0073): every engine runs in its own container, reaching a network only through the egress proxy ----
-# The engine state root is shared by the runners (their attempts' directories) and the launcher (which mounts one per attempt); the grants
-# directory is where the launcher writes each sandbox's allowed hosts for the proxy (ADR 0037). Idempotent on every deploy.
-echo "==> Engine sandboxes (state root, egress proxy)"
-$SSH "mkdir -p $REMOTE_DIR/run/engine-state $REMOTE_DIR/run/egress-grants && chmod 700 $REMOTE_DIR/run/engine-state $REMOTE_DIR/run/egress-grants"
-$SSH "docker network inspect brain-internal >/dev/null 2>&1 || docker network create --internal brain-internal >/dev/null"
-# The proxy refuses private and Tailscale addresses unless the operator grants a host on purpose (BRAIN_EGRESS_ALLOW_INTERNAL, ADR 0072/0073 review fix):
-# the local model host is exactly that case. Docker's bridge DNS does not see Tailscale names, so the host is pinned to the address the server resolves.
-# The grants directory is mode 0700 owned by the deploy user, so the proxy runs as that uid (the image default, uid 1000, cannot read it).
-# `docker container inspect` (not `docker inspect`, which also matches the image of the same name and would skip starting the container).
-MODEL_HP="${MODEL_URL#*://}"; MODEL_HP="${MODEL_HP%%/*}"; MODEL_HOST="${MODEL_HP%%:*}"
-$SSH "docker container inspect brain-egress-proxy >/dev/null 2>&1 || (MIP=\$(getent hosts $MODEL_HOST | awk '{print \$1}' | head -1); docker run -d --restart unless-stopped --name brain-egress-proxy --user \"\$(id -u):\$(id -g)\" --read-only --cap-drop ALL --security-opt no-new-privileges:true --memory 256m --pids-limit 128 \${MIP:+--add-host $MODEL_HOST:\$MIP} -e BRAIN_EGRESS_ALLOW_INTERNAL=$MODEL_HP -v $REMOTE_DIR/run/egress-grants:/grants:ro brain-egress-proxy >/dev/null && docker network connect --alias brain-egress-proxy brain-internal brain-egress-proxy)"
-
-echo "==> Building the governor image (cached layers make repeat deploys fast)"
-$SSH "cd $REMOTE_DIR && docker compose build governor"
-
-# ---- drain: running attempts finish instead of being interrupted (ADR 0023 deploy rule; scripts/drain-live.mjs) ----
-# While draining the Governor offers no new attempt and starts nothing automatically; this waits for the running ones. If they do not
-# finish in time the deploy stops here with nothing changed (BRAIN_DEPLOY_FORCE_DRAIN=1 rolls anyway; BRAIN_DEPLOY_SKIP_DRAIN=1 skips).
-# Drain stays on across the container swap and is ended after the new Governor is ready (below).
-DRAIN_GOV="$($SSH "cd $REMOTE_DIR && docker compose ps -q governor" 2>/dev/null || true)"
-if [ -n "$DRAIN_GOV" ] && [ "${BRAIN_DEPLOY_SKIP_DRAIN:-0}" != 1 ] && [ "${BRAIN_DEPLOY_FORCE:-0}" != 1 ]; then
-  DRAIN_SECONDS="${BRAIN_DEPLOY_DRAIN_SECONDS:-900}"
-  echo "==> Draining: no new attempts start; waiting up to ${DRAIN_SECONDS}s for running ones to finish"
-  if $SSH "docker exec -i $DRAIN_GOV node - wait $DRAIN_SECONDS" < scripts/drain-live.mjs; then
-    DRAINED=1
-  elif [ "${BRAIN_DEPLOY_FORCE_DRAIN:-0}" = 1 ]; then
-    echo "   (attempts still running; rolling anyway because BRAIN_DEPLOY_FORCE_DRAIN=1)" >&2; DRAINED=1
-  else
-    $SSH "docker exec -i $DRAIN_GOV node - off" < scripts/drain-live.mjs >/dev/null 2>&1 || true
-    echo "!! Attempts are still running after ${DRAIN_SECONDS}s; aborting before any change (drain ended, work resumed)." >&2
-    exit 1
-  fi
-fi
-
-echo "==> Rolling the container (stop -> repair-if-needed -> initialize-if-empty -> up)"
-# initialize-local.ts needs exclusive ownership of the data directory and is
-# idempotent: with existing organizations it preserves everything and exits.
-# repair-live-schema.ts is likewise idempotent: on a current database it only
-# reports digests; on a database predating a schema-file change it creates the
-# declared tables the file added, verifies columns, and realigns digests.
-# Rows are never touched either way.
-$SSH "cd $REMOTE_DIR && docker compose stop governor \
-  && docker compose run --rm --no-deps governor node --import tsx scripts/repair-live-schema.ts \
-  && docker compose run --rm --no-deps governor node --import tsx scripts/initialize-local.ts \
-  && docker compose up -d governor" || {
-  echo "!! Rolling the governor failed; restarting the previous container so the site keeps serving" >&2
-  $SSH "cd $REMOTE_DIR && docker compose start governor" >&2 || true
-  exit 1
+# What every script run on the host starts with. The sudo password travels in the script, on the connection's standard input:
+# it is never in a command line, on either machine, and never in a file.
+prelude() {
+  printf 'set -euo pipefail\n'
+  printf 'REMOTE_DIR=%q DOMAIN=%q DEPLOY_USER=%q ENGINES=%q SLOTS=%q SANDBOX_CPU=%q SANDBOX_MEMORY=%q\n' "$REMOTE_DIR" "$DOMAIN" "$USER_SSH" "$ENGINES" "$SLOTS" "$SANDBOX_CPU" "$SANDBOX_MEMORY"
+  printf 'SUDO_PASSWORD=%q\n' "$SUDO_PASSWORD"
+  printf 'as_root() { sudo -k -S -p "" "$@" <<<"$SUDO_PASSWORD"; }\n'
 }
 
-echo "==> Waiting for /health/ready"
-for i in $(seq 1 30); do
-  if $SSH "curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3100/health/ready"; then
-    echo "==> Governor is healthy"
-    if [ "$DRAINED" = 1 ]; then
-      NEW_GOV="$($SSH "cd $REMOTE_DIR && docker compose ps -q governor")"
-      $SSH "docker exec -i $NEW_GOV node - off" < scripts/drain-live.mjs && DRAINED=0 && echo "==> Drain ended: new attempts start again"
+# on_host "what it does" <<'SCRIPT' ... SCRIPT     runs the script on the host, or prints it in a dry run.
+# The script is one group with no standard input, so the host's shell has read all of it before any command of it could.
+on_host() {
+  local body
+  body="$(cat)"
+  echo "==> $1"
+  if [ "$DRY" = 1 ]; then
+    { prelude; printf '{\n%s\n} </dev/null\n' "$body"; } | sed "s/^/    [on $HOST] /"
+    return 0
+  fi
+  { prelude; printf '{\n%s\n} </dev/null\n' "$body"; } | ssh -p "$PORT" -o ConnectTimeout=15 "$TARGET" 'bash -s'
+}
+
+# locally "what it does" command...     runs a command on this machine, or prints it in a dry run.
+locally() {
+  echo "==> $1"
+  shift
+  if [ "$DRY" = 1 ]; then
+    printf '    [here]'; printf ' %q' "$@"; printf '\n'
+    return 0
+  fi
+  "$@"
+}
+
+# ---- 1. once, before the first deploy of this version: archive what the earlier version left, and start empty ----
+on_host "Before the first deploy of this version: archive the earlier data (moved, never deleted) and retire the earlier units" <<'SCRIPT'
+MARK="$REMOTE_DIR/.simplified-model"
+mkdir -p "$REMOTE_DIR"
+if [ -e "$MARK" ]; then
+  echo "    already done on $(cat "$MARK"): nothing is archived, data/ is kept as it is"
+else
+  TS="$(date -u +%Y%m%dT%H%M%SZ)"
+  ARCHIVE="$REMOTE_DIR/archive"
+  mkdir -p "$ARCHIVE"
+  chmod 700 "$ARCHIVE"
+
+  # Units of the earlier stack that this version does not have.
+  for unit in brain-runner-agents.service brain-runner-evaluators.service brain-runner-sre-host.service \
+              brain-watchdog.timer brain-watchdog.service brain-standing-tests.timer brain-standing-tests.service \
+              brain-replica-ship.timer brain-replica-ship.service; do
+    as_root systemctl disable --now "$unit" >/dev/null 2>&1 || true
+    as_root rm -f "/etc/systemd/system/$unit"
+  done
+  # The launcher and the runner hold files under run/, which is moved below; they are installed again in step 8.
+  as_root systemctl stop brain-runner.service brain-launcher.service >/dev/null 2>&1 || true
+  as_root rm -rf /etc/systemd/system/brain-launcher.service.d
+  as_root rm -f /etc/sudoers.d/brain-watchdog
+  as_root systemctl daemon-reload
+  docker rm -f brain-egress-proxy >/dev/null 2>&1 || true
+
+  # The earlier Governor is stopped, not removed: its container still names where its data is.
+  OLD=""
+  if [ -f "$REMOTE_DIR/docker-compose.yml" ]; then OLD="$(cd "$REMOTE_DIR" && docker compose ps -aq governor 2>/dev/null | head -n 1 || true)"; fi
+  if [ -n "$OLD" ]; then docker stop "$OLD" >/dev/null; fi
+
+  # ARCHIVE. A data directory is moved. Data the earlier stack kept in a Docker volume is copied out through a container
+  # that mounts it (the earlier Governor's, or one made for the copy and never started); the volume itself is left exactly
+  # as it is: no deploy ever runs `docker volume rm` or `docker compose down -v`.
+  VOLUME="$(docker volume ls -q | grep -E '(^|_)brain-data$' | head -n 1 || true)"
+  if [ -d "$REMOTE_DIR/data" ]; then
+    mv "$REMOTE_DIR/data" "$ARCHIVE/data-$TS"
+    echo "    moved $REMOTE_DIR/data to $ARCHIVE/data-$TS"
+  elif [ -n "$OLD" ]; then
+    docker cp "$OLD:/data" "$ARCHIVE/data-$TS"
+    echo "    copied the earlier Governor's /data to $ARCHIVE/data-$TS"
+  elif [ -n "$VOLUME" ] && [ -n "$(docker images -q | head -n 1)" ]; then
+    HOLDER="$(docker create -v "$VOLUME:/data:ro" "$(docker images -q | head -n 1)" true)"
+    docker cp "$HOLDER:/data" "$ARCHIVE/data-$TS"
+    docker rm "$HOLDER" >/dev/null
+    echo "    copied the Docker volume $VOLUME to $ARCHIVE/data-$TS"
+  else
+    echo "    there is no earlier data directory on this host"
+  fi
+  if [ -n "$VOLUME" ]; then echo "    the Docker volume $VOLUME of the earlier stack is left as it is"; fi
+  for kept in run .env docker-compose.yml host-commands.json runner-agents.env runner-evaluators.env runner-sre-host.env replica.env replica; do
+    if [ -e "$REMOTE_DIR/$kept" ]; then
+      mkdir -p "$ARCHIVE/config-$TS"
+      mv "$REMOTE_DIR/$kept" "$ARCHIVE/config-$TS/$kept"
     fi
-    break
-  fi
-  if [ "$i" = 30 ]; then
-    echo "!! Governor not ready after 30 tries. First error lines from its log:" >&2
-    $SSH "cd $REMOTE_DIR && docker compose logs --no-color --tail=200 governor 2>&1 | grep -iE -m 15 'error|refus|diverge|fatal|cannot|failed' || docker compose logs --no-color --tail=15 governor 2>&1" >&2 || true
-    echo "   Full log: $SSH 'cd $REMOTE_DIR && docker compose logs --tail=100 governor'" >&2
-    exit 1
-  fi
+  done
+
+  # This version starts on an empty data directory.
+  mkdir -p "$REMOTE_DIR/data"
+  chmod 700 "$REMOTE_DIR/data"
+  echo "$TS" > "$MARK"
+  echo "    archive:"; ls -la "$ARCHIVE" | sed 's/^/      /'
+fi
+mkdir -p "$REMOTE_DIR/src" "$REMOTE_DIR/data" "$REMOTE_DIR/run/governor" "$REMOTE_DIR/run/runner/attempts" "$REMOTE_DIR/run/egress-grants"
+chmod 700 "$REMOTE_DIR/data" "$REMOTE_DIR/run" "$REMOTE_DIR/run/governor" "$REMOTE_DIR/run/runner" "$REMOTE_DIR/run/egress-grants"
+SCRIPT
+
+# ---- 2. the source ----
+locally "Sync the source to $TARGET:$REMOTE_DIR/src (nothing else is ever synced)" \
+  rsync -az --delete --info=stats1 -e "ssh -p $PORT -o ConnectTimeout=15" \
+  --exclude .git/ --exclude node_modules/ --exclude dist/ --exclude test-results/ --exclude playwright-report/ \
+  --exclude .cache/ --exclude .claude/ --exclude .pi-agent/ --exclude .tower/ --exclude .vitest/ --exclude .zcode/ \
+  --exclude '*.log' --exclude '*.pdf' \
+  ./ "$TARGET:$REMOTE_DIR/src/"
+
+# ---- 3. configuration ----
+on_host "Install docker-compose.yml, .env and the host commands of the sre pack" <<'SCRIPT'
+cd "$REMOTE_DIR"
+install -m 0644 src/deploy/demo/docker-compose.yml docker-compose.yml
+# host.status, host.logs, host.disk, host.restart and host.redeploy: the launcher runs exactly these command lines, as the
+# deploy user. They use Docker, so that user must be in the docker group.
+install -m 0644 src/deploy/demo/host-commands.json host-commands.json
+if ! id -nG "$DEPLOY_USER" | tr ' ' '\n' | grep -qx docker; then as_root usermod -aG docker "$DEPLOY_USER"; fi
+BRIDGE_IP="$(docker network inspect bridge --format '{{range .IPAM.Config}}{{.Gateway}} {{end}}' | tr ' ' '\n' | grep -E '^[0-9]+(\.[0-9]+){3}$' | head -n 1)"
+[ -n "$BRIDGE_IP" ] || { echo "Docker's bridge network has no IPv4 gateway address" >&2; exit 1; }
+umask 077
+printf 'BRAIN_BASE_URL=https://%s\nBRAIN_UID=%s\nBRAIN_GID=%s\nBRAIN_BRIDGE_IP=%s\n' "$DOMAIN" "$(id -u)" "$(id -g)" "$BRIDGE_IP" > .env
+SCRIPT
+
+# ---- 4. images ----
+on_host "Build the Governor image and the sandbox images (cached layers make a repeat deploy fast)" <<'SCRIPT'
+cd "$REMOTE_DIR"
+docker compose build governor
+bash src/scripts/build-sandbox-images.sh >/dev/null
+SCRIPT
+
+# ---- 5. the Governor ----
+on_host "Start the Governor and wait for /health/ready" <<'SCRIPT'
+cd "$REMOTE_DIR"
+docker compose up -d governor
+for try in $(seq 1 60); do
+  if curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3100/health/ready; then echo "    the Governor is ready"; exit 0; fi
   sleep 2
 done
+echo "!! the Governor is not ready after two minutes. The end of its log:" >&2
+docker compose logs --no-color --tail=40 governor >&2 || true
+exit 1
+SCRIPT
 
-# ---- host Node toolchain for launcher/runners (first deploy only) ----
-if ! $SSH "node -e 'process.exit(Number(process.versions.node.split(\".\")[0])>=24?0:1)' 2>/dev/null"; then
-  echo "==> Installing Node 24 + pnpm on the host (first deploy)"
-  $SSH "curl -fsSL https://deb.nodesource.com/setup_24.x -o /tmp/nsetup.sh && $SUDO bash /tmp/nsetup.sh >/dev/null 2>&1 && $SUDO apt-get install -y nodejs >/dev/null 2>&1 && $SUDO npm install -g pnpm@12.11.2 >/dev/null 2>&1"
+# ---- 6. the egress proxy ----
+on_host "Start the egress proxy" <<'SCRIPT'
+# Sandboxes are on a network with no way out but this proxy. It may reach the Governor's model gateway on Docker's bridge
+# address (host.docker.internal:3100) because that is granted here; every other private address is refused.
+docker network inspect brain-internal >/dev/null 2>&1 || docker network create --internal brain-internal >/dev/null
+docker rm -f brain-egress-proxy >/dev/null 2>&1 || true
+docker run -d --restart unless-stopped --name brain-egress-proxy --user "$(id -u):$(id -g)" --read-only --cap-drop ALL \
+  --security-opt no-new-privileges:true --memory 256m --pids-limit 128 --add-host host.docker.internal:host-gateway \
+  -e BRAIN_EGRESS_ALLOW_INTERNAL=host.docker.internal:3100 -v "$REMOTE_DIR/run/egress-grants:/grants:ro" brain-egress-proxy >/dev/null
+docker network connect --alias brain-egress-proxy brain-internal brain-egress-proxy
+SCRIPT
+
+# ---- 7. Node and the dependencies of the launcher and the runner ----
+on_host "Node 24, pnpm and the dependencies of the launcher and the runner on the host" <<'SCRIPT'
+if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)' 2>/dev/null; then
+  curl -fsSL https://deb.nodesource.com/setup_24.x -o /tmp/brain-node-setup.sh
+  as_root bash /tmp/brain-node-setup.sh >/dev/null
+  as_root apt-get install -y nodejs >/dev/null
 fi
-# refresh host node_modules when the lockfile is newer than what is installed
-$SSH "cd $REMOTE_DIR/src && if [ ! -d node_modules ] || [ pnpm-lock.yaml -nt node_modules/.modules-state ] 2>/dev/null; then pnpm install --frozen-lockfile >/tmp/brain-host-install.log 2>&1 && pnpm approve-builds better-sqlite3 esbuild >>/tmp/brain-host-install.log 2>&1 && pnpm rebuild better-sqlite3 >>/tmp/brain-host-install.log 2>&1; fi"
+command -v pnpm >/dev/null || as_root npm install -g pnpm@12.11.2 >/dev/null
+cd "$REMOTE_DIR/src"
+if [ ! -d node_modules ] || [ pnpm-lock.yaml -nt node_modules/.modules.yaml ]; then pnpm install --frozen-lockfile > /tmp/brain-host-install.log 2>&1 || { tail -n 30 /tmp/brain-host-install.log >&2; exit 1; }; fi
+SCRIPT
 
-# ---- healing below the application (idempotent): host watchdog every minute, standing tests nightly ----
-# The watchdog restarts a launcher, runner or model proxy that stopped answering; it may restart exactly those units and nothing else.
-echo "==> Installing the host watchdog and the nightly standing tests"
-$SSH "printf 'talel ALL=(root) NOPASSWD: /usr/bin/systemctl restart brain-launcher.service, /usr/bin/systemctl restart brain-runner-agents.service, /usr/bin/systemctl restart brain-runner-evaluators.service\n' > /tmp/brain-watchdog-sudoers && $SUDO visudo -cf /tmp/brain-watchdog-sudoers >/dev/null && $SUDO install -m 0440 -o root -g root /tmp/brain-watchdog-sudoers /etc/sudoers.d/brain-watchdog"
-$SSH "$SUDO cp $REMOTE_DIR/src/deploy/demo/brain-watchdog.service $REMOTE_DIR/src/deploy/demo/brain-watchdog.timer $REMOTE_DIR/src/deploy/demo/brain-standing-tests.service $REMOTE_DIR/src/deploy/demo/brain-standing-tests.timer /etc/systemd/system/ && $SUDO systemctl daemon-reload && $SUDO systemctl enable --now brain-watchdog.timer brain-standing-tests.timer"
-
-# ---- memory wiring for the governor container (idempotent) ----
-if ! $SSH "grep -q BRAIN_TENCENTDB_URL $REMOTE_DIR/.env"; then
-  $SSH "KEY=\$(cat $REMOTE_DIR/tencentdb/checkout/deploy/global-images/.admin-key);
-        umask 077; { echo BRAIN_TENCENTDB_URL=http://tdai-memory-core:8420; echo BRAIN_MEMORY_UI_URL=https://memory.$(echo "$DOMAIN" | cut -d. -f2-); echo BRAIN_TENCENTDB_API_KEY=\$KEY; } >> $REMOTE_DIR/.env"
-  $SSH "cd $REMOTE_DIR && docker compose up -d governor"
-fi
-
-# ---- launcher + runner systemd units ----
-# Concurrent sessions per runner (BRAIN_DEPLOY_AGENT_SLOTS / BRAIN_DEPLOY_EVALUATOR_SLOTS) and what they may reserve on the host.
-for v in BRAIN_DEPLOY_AGENT_SLOTS BRAIN_DEPLOY_EVALUATOR_SLOTS BRAIN_DEPLOY_RUNNER_CPU_MILLICORES BRAIN_DEPLOY_RUNNER_MEMORY_MB; do
-  [[ -z "${!v:-}" || "${!v}" =~ ^[1-9][0-9]*$ ]] || { echo "$v must be a positive integer" >&2; exit 1; }
-done
-AGENT_SLOTS="${BRAIN_DEPLOY_AGENT_SLOTS:-3}"; EVALUATOR_SLOTS="${BRAIN_DEPLOY_EVALUATOR_SLOTS:-2}"
-RUNNER_CPU_MILLICORES="${BRAIN_DEPLOY_RUNNER_CPU_MILLICORES:-4000}"; RUNNER_MEMORY_MB="${BRAIN_DEPLOY_RUNNER_MEMORY_MB:-8192}"
-# set_runner_env FILE KEY VALUE: idempotent upsert of one KEY=VALUE line in a runner env file on the host.
-set_runner_env() { $SSH "f=$REMOTE_DIR/$1; [ -f \$f ] || exit 0; if grep -q '^$2=' \$f; then sed -i 's|^$2=.*|$2=$3|' \$f; else echo '$2=$3' >> \$f; fi"; }
-# ---- host access for the SRE tools (ADR 0021): read-only /srv for host.read, named read-only commands for host.exec ----
-# The mount and the command allowlist are operator configuration: the launcher offers /srv only read-only and only to the tool the
-# runner names (host.read); host.exec runs only the commands in host-commands.json, with fixed argv. Idempotent on every deploy.
-echo "==> Host access for the SRE tools (read-only /srv, named diagnostic commands)"
-rsync -az -e "ssh -p $PORT -o ConnectTimeout=15" scripts/demo/host-commands.json "$USER_SSH@$HOST:$REMOTE_DIR/host-commands.json"
-$SSH "printf '[Service]\nEnvironment=BRAIN_LAUNCHER_DATA_MOUNTS=srv=/srv\nEnvironment=BRAIN_LAUNCHER_HOST_COMMANDS=$REMOTE_DIR/host-commands.json\nEnvironment=BRAIN_LAUNCHER_ENGINE_STATE_ROOT=$REMOTE_DIR/run/engine-state\nEnvironment=BRAIN_LAUNCHER_EGRESS_GRANTS_DIR=$REMOTE_DIR/run/egress-grants\n' > /tmp/brain-host-access.conf && $SUDO mkdir -p /etc/systemd/system/brain-launcher.service.d && $SUDO cp /tmp/brain-host-access.conf /etc/systemd/system/brain-launcher.service.d/host-access.conf && $SUDO systemctl daemon-reload"
-# host tools live only on the sre-host runner once it exists (scripts/enroll-sre-host-runner.sh); before that the agents runner keeps the mount
-if $SSH "test -f $REMOTE_DIR/runner-sre-host.env"; then set_runner_env runner-sre-host.env BRAIN_TOOL_DATA_MOUNTS host.read=srv; else set_runner_env runner-agents.env BRAIN_TOOL_DATA_MOUNTS host.read=srv; fi
-if ! $SSH "systemctl list-unit-files --type=service" 2>/dev/null | grep -q "brain-runner-agents.service"; then
-  echo "==> First deploy: installing launcher + runner units and enrolling runners"
-  # create the evaluator memory binding (user/team/agent + claude user key)
-  $SSH "cat > /tmp/tdai-bind.mjs" <<'BIND'
-import { readFileSync, writeFileSync, mkdirSync, chmodSync, renameSync } from "node:fs";
-import { dirname, join } from "node:path";
-const coreUrl = "http://127.0.0.1:8420", runDir = "/run/brain";
-const adminKey = readFileSync("/deploy/.admin-key", "utf8").trim();
-function pw(f, v) { mkdirSync(dirname(f), { recursive: true, mode: 0o700 }); const t = f + "." + process.pid + ".tmp"; writeFileSync(t, v, { mode: 0o600 }); renameSync(t, f); chmodSync(f, 0o600); }
-async function api(p, b, k = adminKey) { const r = await fetch(coreUrl + "/v3/meta" + p, { method: "POST", headers: { "content-type": "application/json", "x-tdai-service-id": "default", "x-tdai-user-key": k }, body: JSON.stringify(b), signal: AbortSignal.timeout(10000) }); const e = await r.json(); if (!r.ok || e.code !== 0 || !e.data) throw new Error(p + ": " + (e.message || r.status)); return e.data; }
-const users = await api("/user/list", { username: "brain_local_evaluator", limit: 100 });
-const userId = users.items[0]?.user_id ?? (await api("/user/create", { username: "brain_local_evaluator", user_id: "brain_local_evaluator" })).user_id;
-const created = await api("/user-key/create", { user_id: userId, name: "brain-demo-claude" });
-pw(join(runDir, "tencentdb-claude-user-key"), created.key_value + "\n");
-const teams = await api("/team/list", { user_id: userId, limit: 100 });
-const teamId = teams.items.find((t) => t.name === "Brain Local")?.team_id ?? (await api("/team/create", { name: "Brain Local", owner_user_id: userId, description: "Brain demo runner memory" }, created.key_value)).team_id;
-const agents = await api("/agent/list", { team_id: teamId, limit: 100 });
-const agentId = agents.items.find((a) => a.name === "Brain Evaluator")?.agent_id ?? (await api("/agent/create", { team_id: teamId, owner_user_id: userId, name: "Brain Evaluator", description: "Independent Brain workflow evaluation", prompt: "Evaluate Brain outputs using only the pinned evaluator and immutable evidence.", visibility: "team" }, created.key_value)).agent_id;
-pw(join(runDir, "tencentdb-binding.json"), JSON.stringify({ teamId, agentId, userId }) + "\n");
-console.log("BINDING " + teamId + " " + agentId);
-BIND
-  $SSH "docker run --rm --network host -v $REMOTE_DIR/tencentdb/checkout/deploy/global-images:/deploy:ro -v $REMOTE_DIR/run:/run/brain -v /tmp/tdai-bind.mjs:/bind.mjs:ro node:24-slim node /bind.mjs"
-
-  # unit files
-  $SSH "cat > /tmp/brain-launcher.service" <<'EOF'
+# ---- 8. the launcher and the runner ----
+on_host "Install and start brain-launcher and brain-runner (one runner, engines $ENGINES)" <<'SCRIPT'
+NODE="$(command -v node)"
+cat > /tmp/brain-launcher.service <<UNIT
 [Unit]
-Description=Keyrus Brain launcher (sandbox supervisor)
+Description=Brain launcher (starts sandboxes and runs the operator's host commands)
 After=docker.service network-online.target
 Wants=docker.service
 [Service]
-User=talel
-WorkingDirectory=/srv/demos/brain/src
-Environment=BRAIN_LAUNCHER_SOCKET=/srv/demos/brain/run/launcher.sock
-ExecStart=/usr/bin/pnpm exec tsx apps/launcher/src/main.ts
+User=$DEPLOY_USER
+WorkingDirectory=$REMOTE_DIR/src
+Environment=BRAIN_LAUNCHER_SOCKET=$REMOTE_DIR/run/launcher.sock
+Environment=BRAIN_LAUNCHER_ATTEMPTS_ROOT=$REMOTE_DIR/run/runner/attempts
+Environment=BRAIN_LAUNCHER_EGRESS_GRANTS_DIR=$REMOTE_DIR/run/egress-grants
+Environment=BRAIN_LAUNCHER_HOST_COMMANDS=$REMOTE_DIR/host-commands.json
+ExecStart=$NODE --import tsx apps/launcher/src/main.ts
 Restart=always
 RestartSec=3
 [Install]
 WantedBy=multi-user.target
-EOF
-  for g in agents evaluators; do
-    eng=pi; [ "$g" = evaluators ] && eng=claude
-    $SSH "cat > /tmp/brain-runner-$g.service" <<EOF
+UNIT
+cat > /tmp/brain-runner.service <<UNIT
 [Unit]
-Description=Keyrus Brain runner ($g group, $eng engine)
+Description=Brain runner
 After=brain-launcher.service
 Wants=brain-launcher.service
 [Service]
-User=talel
-WorkingDirectory=/srv/demos/brain/src
-EnvironmentFile=$REMOTE_DIR/runner-$g.env
-ExecStart=/usr/bin/pnpm exec tsx apps/runner/src/main.ts
+User=$DEPLOY_USER
+WorkingDirectory=$REMOTE_DIR/src
+EnvironmentFile=$REMOTE_DIR/runner.env
+ExecStart=$NODE --import tsx apps/runner/src/main.ts
 Restart=always
 RestartSec=5
 [Install]
 WantedBy=multi-user.target
-EOF
-  done
-  $SSH "$SUDO cp /tmp/brain-*.service /etc/systemd/system/ && $SUDO systemctl daemon-reload"
+UNIT
+as_root install -m 0644 /tmp/brain-launcher.service /tmp/brain-runner.service /etc/systemd/system/
+rm -f /tmp/brain-launcher.service /tmp/brain-runner.service
+as_root systemctl daemon-reload
+as_root systemctl stop brain-runner.service >/dev/null 2>&1 || true
 
-  # enrollment tokens via the API
-  ADMIN_PW=$(grep BRAIN_ADMIN_PASSWORD "$REMOTE_DIR/.env" 2>/dev/null | cut -d= -f2 || echo admin-password)
-  ADMIN_EM=$(grep BRAIN_ADMIN_EMAIL "$REMOTE_DIR/.env" 2>/dev/null | cut -d= -f2 || echo admin@brain.local)
-  TOKEN=$($SSH "curl -s -m 10 -X POST http://127.0.0.1:3100/api/auth/sign-in/email -H 'content-type: application/json' -d '{\"email\":\"$ADMIN_EM\",\"password\":\"$ADMIN_PW\"}'" | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
-  tok() { $SSH "curl -s -m 10 -X POST http://127.0.0.1:3100/v1/runner-tokens -H 'authorization: Bearer $TOKEN' -H 'content-type: application/json' -d '{\"groupId\":\"$1\"}'" | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])"; }
-  TOK_AG=$(tok agents); TOK_EV=$(tok evaluators)
-  BIND_IDS=$($SSH "cat $REMOTE_DIR/run/tencentdb-binding.json" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['teamId'],d['agentId'])")
-
-  $SSH "umask 077; cat > $REMOTE_DIR/runner-agents.env" <<EOF
+ENV_FILE="$REMOTE_DIR/runner.env"
+TOKEN_FILE="$REMOTE_DIR/run/governor/runner.token"
+umask 077
+cat > "$ENV_FILE" <<ENV
 BRAIN_GOVERNOR_URL=http://127.0.0.1:3100
-BRAIN_LAUNCHER_SOCKET=/srv/demos/brain/run/launcher.sock
-BRAIN_RUNNER_STATE_DIR=/srv/demos/brain/run/runner-agents-1-state
-BRAIN_RUNNER_ENGINE_STATE_DIR=/srv/demos/brain/run/engine-state
-BRAIN_RUNNER_ID=runner-agents-1
-BRAIN_RUNNER_ENGINE=pi
-BRAIN_RUNNER_SLOTS=$AGENT_SLOTS
-BRAIN_RUNNER_CPU_MILLICORES=$RUNNER_CPU_MILLICORES
-BRAIN_RUNNER_MEMORY_MB=$RUNNER_MEMORY_MB
-BRAIN_RUNNER_CAPABILITIES=os:linux,arch:amd64,tool:bash,tool:python3,isolation:ephemeral-container
-BRAIN_LOCAL_MODEL_URL=$MODEL_URL
-BRAIN_LOCAL_MODEL_ID=$MODEL_ID
-BRAIN_RUNNER_ENROLL_TOKEN=$TOK_AG
-EOF
-  $SSH "umask 077; cat > $REMOTE_DIR/runner-evaluators.env" <<EOF
-BRAIN_GOVERNOR_URL=http://127.0.0.1:3100
-BRAIN_LAUNCHER_SOCKET=/srv/demos/brain/run/launcher.sock
-BRAIN_RUNNER_STATE_DIR=/srv/demos/brain/run/runner-evaluators-1-state
-BRAIN_RUNNER_ENGINE_STATE_DIR=/srv/demos/brain/run/engine-state
-BRAIN_RUNNER_ID=runner-evaluators-1
-BRAIN_RUNNER_ENGINE=claude
-BRAIN_RUNNER_SLOTS=$EVALUATOR_SLOTS
-BRAIN_RUNNER_CPU_MILLICORES=$RUNNER_CPU_MILLICORES
-BRAIN_RUNNER_MEMORY_MB=$RUNNER_MEMORY_MB
-BRAIN_RUNNER_CAPABILITIES=os:linux,arch:amd64,tool:bash,tool:python3,isolation:ephemeral-container
-BRAIN_LOCAL_MODEL_URL=$MODEL_URL
-BRAIN_LOCAL_MODEL_ID=$MODEL_ID
-BRAIN_CLAUDE_MODEL=$MODEL_ID
-BRAIN_ANTHROPIC_BASE_URL=http://127.0.0.1:8096/claude-code/default
-BRAIN_ANTHROPIC_API_KEY_FILE=$REMOTE_DIR/run/tencentdb-claude-user-key
-BRAIN_TENCENTDB_TEAM_ID=$(echo "$BIND_IDS" | cut -d' ' -f1)
-BRAIN_TENCENTDB_AGENT_ID=$(echo "$BIND_IDS" | cut -d' ' -f2)
-BRAIN_RUNNER_ENROLL_TOKEN=$TOK_EV
-EOF
-  $SSH "$SUDO systemctl enable --now brain-launcher brain-runner-agents brain-runner-evaluators >/dev/null 2>&1"
+BRAIN_LAUNCHER_SOCKET=$REMOTE_DIR/run/launcher.sock
+BRAIN_RUNNER_STATE_DIR=$REMOTE_DIR/run/runner
+BRAIN_RUNNER_NAME=demo
+BRAIN_RUNNER_ENGINES=$ENGINES
+BRAIN_RUNNER_SLOTS=$SLOTS
+BRAIN_RUNNER_CAPABILITIES=bash,python3,curl,git
+BRAIN_RUNNER_SANDBOX_CPU_MILLICORES=$SANDBOX_CPU
+BRAIN_RUNNER_SANDBOX_MEMORY_MB=$SANDBOX_MEMORY
+ENV
+# The Governor leaves a one-use token while it has no runner (BRAIN_LOCAL_RUNNER_TOKEN_FILE). It lasts fifteen minutes, so one
+# that has aged is made again by restarting the Governor. A credential from an earlier data directory would not be known to it.
+if [ -s "$TOKEN_FILE" ]; then
+  if [ -n "$(find "$TOKEN_FILE" -mmin +10)" ]; then
+    (cd "$REMOTE_DIR" && docker compose restart governor >/dev/null)
+    for try in $(seq 1 60); do curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3100/health/ready && break; sleep 2; done
+  fi
+  rm -f "$REMOTE_DIR/run/runner/credential"
+  printf 'BRAIN_RUNNER_ENROLL_TOKEN=%s\n' "$(cat "$TOKEN_FILE")" >> "$ENV_FILE"
+  ENROLLING=1
 else
-  echo "==> Updating runner capacity (agents $AGENT_SLOTS slots, evaluators $EVALUATOR_SLOTS slots), then restarting launcher + runners to pick up synced code"
-  for kv in "SLOTS:$AGENT_SLOTS:$EVALUATOR_SLOTS" "CPU_MILLICORES:$RUNNER_CPU_MILLICORES:$RUNNER_CPU_MILLICORES" "MEMORY_MB:$RUNNER_MEMORY_MB:$RUNNER_MEMORY_MB"; do
-    IFS=: read -r key agents_value evaluators_value <<<"$kv"
-    set_runner_env runner-agents.env "BRAIN_RUNNER_$key" "$agents_value"
-    set_runner_env runner-evaluators.env "BRAIN_RUNNER_$key" "$evaluators_value"
-  done
-  # A runner claims ephemeral-container isolation for its engines only with the engine state directory (ADR 0073). Runners enrolled by an earlier
-  # release do not have it; without it every starter workflow finds no capable runner. Idempotent upsert for every runner env file that exists.
-  for f in runner-agents.env runner-evaluators.env runner-sre-host.env; do set_runner_env "$f" BRAIN_RUNNER_ENGINE_STATE_DIR "$REMOTE_DIR/run/engine-state"; done
-  $SSH "$SUDO systemctl restart brain-launcher brain-runner-agents brain-runner-evaluators; systemctl cat brain-runner-sre-host >/dev/null 2>&1 && $SUDO systemctl restart brain-runner-sre-host || true"
+  ENROLLING=0
 fi
+as_root systemctl enable brain-launcher.service brain-runner.service >/dev/null 2>&1
+as_root systemctl restart brain-launcher.service
+for try in $(seq 1 30); do [ -S "$REMOTE_DIR/run/launcher.sock" ] && break; sleep 1; done
+[ -S "$REMOTE_DIR/run/launcher.sock" ] || { echo "!! the launcher did not open its socket: journalctl -u brain-launcher -n 40" >&2; exit 1; }
+as_root systemctl start brain-runner.service
+if [ "$ENROLLING" = 1 ]; then
+  for try in $(seq 1 30); do [ -s "$REMOTE_DIR/run/runner/credential" ] && break; sleep 1; done
+  # The token is used: it leaves the env file and the disk.
+  sed -i '/^BRAIN_RUNNER_ENROLL_TOKEN=/d' "$ENV_FILE"
+  rm -f "$TOKEN_FILE"
+  [ -s "$REMOTE_DIR/run/runner/credential" ] || { echo "!! the runner did not enrol: journalctl -u brain-runner -n 40" >&2; exit 1; }
+  echo "    the runner enrolled"
+fi
+SCRIPT
 
-scripts/refresh-released-schema.sh || true   # the schema just deployed becomes the "previously released" fixture
-echo "    Commit tests/fixtures/released-schema so the next deploy is checked against what is live now."
-# ---- nightly encrypted backup + monthly restore rehearsal (needs $REMOTE_DIR/backup.env with BRAIN_BACKUP_HOST) ----
-if $SSH "test -r $REMOTE_DIR/backup.env"; then
-  echo "==> Installing the backup timers"
-  $SSH "$SUDO cp $REMOTE_DIR/src/deploy/demo/backup/brain-backup.service $REMOTE_DIR/src/deploy/demo/backup/brain-backup.timer $REMOTE_DIR/src/deploy/demo/backup/brain-restore-test.service $REMOTE_DIR/src/deploy/demo/backup/brain-restore-test.timer /etc/systemd/system/ && $SUDO systemctl daemon-reload && $SUDO systemctl enable --now brain-backup.timer brain-restore-test.timer >/dev/null 2>&1"
+# ---- 9. backups ----
+on_host "The nightly backup and the monthly restore rehearsal (only with $REMOTE_DIR/backup.env)" <<'SCRIPT'
+if [ -r "$REMOTE_DIR/backup.env" ]; then
+  chmod +x "$REMOTE_DIR/src/deploy/demo/backup/backup-live.sh" "$REMOTE_DIR/src/deploy/demo/backup/restore-test.sh"
+  as_root install -m 0644 "$REMOTE_DIR/src/deploy/demo/backup/brain-backup.service" "$REMOTE_DIR/src/deploy/demo/backup/brain-backup.timer" \
+    "$REMOTE_DIR/src/deploy/demo/backup/brain-restore-test.service" "$REMOTE_DIR/src/deploy/demo/backup/brain-restore-test.timer" /etc/systemd/system/
+  as_root systemctl daemon-reload
+  as_root systemctl enable --now brain-backup.timer brain-restore-test.timer >/dev/null 2>&1
+  echo "    the backup timers are on"
 else
-  echo "==> No $REMOTE_DIR/backup.env on the server: nightly backups are NOT scheduled (see docs/howto/backup-and-restore.md)"
+  echo "    no $REMOTE_DIR/backup.env on the host: nightly backups are NOT scheduled (it names BRAIN_BACKUP_HOST)"
 fi
+SCRIPT
 
-# ---- replica shipping timer (only when replica.env exists, see above) ----
-if [ "$REPLICA_ON" = 1 ]; then
-  echo "==> Installing the replica shipping timer"
-  $SSH "chmod +x $REMOTE_DIR/src/deploy/demo/replica/*.sh && $SUDO cp $REMOTE_DIR/src/deploy/demo/replica/brain-replica-ship.service $REMOTE_DIR/src/deploy/demo/replica/brain-replica-ship.timer /etc/systemd/system/ && $SUDO systemctl daemon-reload && $SUDO systemctl enable --now brain-replica-ship.timer >/dev/null 2>&1"
+# ---- 10. checks ----
+on_host "Checks" <<'SCRIPT'
+for unit in brain-launcher brain-runner; do echo "    $unit: $(systemctl is-active "$unit" || true)"; done
+echo "    governor: $(curl -fsS --max-time 5 http://127.0.0.1:3100/health/ready || echo 'NOT READY')"
+# What an engine in a sandbox needs: the proxy's container reaching the Governor on Docker's bridge address.
+if docker exec brain-egress-proxy node -e "fetch('http://host.docker.internal:3100/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+  echo "    sandboxes reach the model gateway"
+else
+  echo "!! the egress proxy cannot reach the Governor at host.docker.internal:3100: engines in sandboxes will get no model. Check the host's firewall for the Docker bridge." >&2
 fi
+if [ -s "$REMOTE_DIR/data/setup.token" ]; then
+  echo "    This is a fresh install. Create the first account here:"
+  echo "      https://$DOMAIN/#token=$(cat "$REMOTE_DIR/data/setup.token")"
+fi
+SCRIPT
 
 echo "==> Done. https://$DOMAIN"
-if [ "$FIRST_RUN" = 1 ]; then
-  echo "    Sign in with the admin credentials printed above."
-fi

@@ -93,6 +93,8 @@ export interface TaskSummary {
   readonly createdAt: number;
   readonly updatedAt: number;
   readonly finishedAt: number | null;
+  /** The name of the person who started the goal; absent for a goal a trigger started. */
+  readonly createdByName?: string;
 }
 export interface Usage { readonly microUsd: number; readonly inputTokens: number; readonly outputTokens: number; readonly cachedInputTokens: number }
 export type AttemptState = "queued" | "offered" | "running" | "succeeded" | "failed" | "held" | "stopped";
@@ -109,6 +111,8 @@ export interface Attempt {
   readonly result: string | null;
   readonly failure: AttemptFailure | null;
   readonly usage: Usage;
+  /** False when the attempt used tokens nothing put a price on: its model has no prices in `brain.toml` and the model server reported no cost. */
+  readonly priced: boolean;
   readonly createdAt: number;
   readonly startedAt: number | null;
   readonly finishedAt: number | null;
@@ -131,8 +135,9 @@ export interface ApprovalSubject {
   readonly inputDigest: Digest;
   readonly taskId: string;
   readonly snapshotDigest: Digest;
-  /** For a pull request: the digest of the patch that would be opened. */
+  /** For a pull request: the digest of the patch that would be opened, and the commit of the project it is made on (absent: the branch head). */
   readonly patchDigest?: Digest;
+  readonly baseCommit?: string;
 }
 export interface Approval {
   readonly id: string;

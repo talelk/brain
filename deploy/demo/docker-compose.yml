@@ -1,57 +1,22 @@
-# Keyrus Brain demo deployment for demos.mykeyrus.tn (brain.mykeyrus.tn).
-# Layout: /srv/demos/brain/{docker-compose.yml,.env,src/}. Data lives in the
-# brain-data volume; deploys rebuild the image and recreate the container only.
-# Never run `docker compose down -v` or `brain reset` against this project.
+# The demo host's Governor (scripts/deploy-demo.sh installs this file as /srv/demos/brain/docker-compose.yml and writes .env).
+# Layout there: src/ (this repository), data/ (the Governor's data, a plain folder owned by the deploy user so that
+# `pnpm brain backup` reads it from the host), run/ (launcher socket, runner folder, egress grants), archive/ (data kept from before).
+# nginx serves the public name from 127.0.0.1:3100. The same port is published on Docker's bridge address, which is where the
+# egress proxy lets engine sandboxes reach the model gateway (BRAIN_GATEWAY_URL); nothing else can reach it there.
+# Never run `docker compose down -v` here, and never delete data/ or archive/.
 services:
   governor:
     build: ./src
-    pull_policy: missing
     image: brain-governor:demo
     restart: unless-stopped
+    user: "${BRAIN_UID}:${BRAIN_GID}"
     environment:
-      BRAIN_DATA_DIR: /data
-      PORT: "3100"
-      BRAIN_BASE_URL: ${BRAIN_BASE_URL:-http://127.0.0.1:3100}
-      BRAIN_GOVERNOR_URL: http://127.0.0.1:3100
-      BRAIN_ADMIN_EMAIL: ${BRAIN_ADMIN_EMAIL:-admin@brain.local}
-      BRAIN_ADMIN_PASSWORD: ${BRAIN_ADMIN_PASSWORD:-admin-password}
-      BRAIN_AUTH_REQUIRE_2FA: ${BRAIN_AUTH_REQUIRE_2FA:-false}
-      BRAIN_TENCENTDB_URL: ${BRAIN_TENCENTDB_URL:-}
-      BRAIN_TENCENTDB_API_KEY: ${BRAIN_TENCENTDB_API_KEY:-}
-      BRAIN_MEMORY_UI_URL: ${BRAIN_MEMORY_UI_URL:-}
-      # Continuous replica to a second host (ADR 0027): off unless deploy-demo.sh finds replica.env and writes these into .env.
-      BRAIN_REPLICA_DIR: ${BRAIN_REPLICA_DIR:-}
-      BRAIN_REPLICA_SHIPPED_FILE: ${BRAIN_REPLICA_SHIPPED_FILE:-}
-      # Metrics for Prometheus (/metrics): a token file the owner puts in the data volume; without one the endpoint does not exist.
-      BRAIN_METRICS_TOKEN_FILE: ${BRAIN_METRICS_TOKEN_FILE:-}
-      BRAIN_BACKUP_STAMP_FILE: /host-run/last-backup-ok
-      # Optional trace export (ADR 0066): off unless OTEL_TRACES_EXPORTER=otlp and an endpoint are set in .env.
-      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
-      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
-      # Health shows the monthly restore rehearsal's last result (restore-test.sh writes it).
-      BRAIN_RESTORE_TEST_FILE: /host-run/last-restore-test.json
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      BRAIN_BASE_URL: ${BRAIN_BASE_URL}
+      BRAIN_GATEWAY_URL: http://host.docker.internal:3100
+      BRAIN_LOCAL_RUNNER_TOKEN_FILE: /host-run/runner.token
     ports:
-      - "127.0.0.1:${BRAIN_HOST_PORT:-3100}:3100"
+      - "127.0.0.1:3100:3100"
+      - "${BRAIN_BRIDGE_IP}:3100:3100"
     volumes:
-      - brain-data:/data
-      - ${BRAIN_REPLICA_HOST_DIR:-./replica}:/replica
-      - ./run:/host-run:ro
-    networks:
-      - default
-      - tdai-memory-stack
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 10s
-      timeout: 3s
-      retries: 6
-      start_period: 30s
-
-volumes:
-  brain-data:
-
-networks:
-  tdai-memory-stack:
-    external: true
+      - ./data:/data
+      - ./run/governor:/host-run

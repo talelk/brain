@@ -59,7 +59,7 @@ describe("the fixture script language", () => {
   it("edits, reads and deletes files in the working copy as native tool calls", async () => {
     const dir = tempDir("fixture-work");
     writeFiles(dir, { "old.txt": "old\n", "kept.txt": "kept\n" });
-    const ran = await session({ native: "all", workDir: dir, task: "[work attempt, round 2]\nFIXTURE write src/new.txt round {{round}}\\n\nFIXTURE delete old.txt\nFIXTURE read kept.txt\nFIXTURE out report.md # Report\nFIXTURE reply read: {{last}}" });
+    const ran = await session({ native: "all", workDir: dir, task: "[work attempt, round 2]\nFIXTURE write src/new.txt round %round%\\n\nFIXTURE delete old.txt\nFIXTURE read kept.txt\nFIXTURE out report.md # Report\nFIXTURE reply read: %last%" });
     expect(readFileSync(join(dir, "src/new.txt"), "utf8")).toBe("round 2\n");
     expect(existsSync(join(dir, "old.txt"))).toBe(false);
     expect(readFileSync(join(ran.out, "report.md"), "utf8")).toBe("# Report");
@@ -81,7 +81,7 @@ describe("the fixture script language", () => {
 
   it("calls a workspace tool as a model would and can quote its answer", async () => {
     const asked: Array<[string, JsonValue]> = [];
-    const ran = await session({ tools: [TOOL], task: 'FIXTURE tool task.note {"text": "hello"}\nFIXTURE reply the tool said {{last}}', answer: (tool, input) => { asked.push([tool, input]); return '{"id":"note-1"}'; } });
+    const ran = await session({ tools: [TOOL], task: 'FIXTURE tool task.note {"text": "hello"}\nFIXTURE reply the tool said %last%', answer: (tool, input) => { asked.push([tool, input]); return '{"id":"note-1"}'; } });
     expect(asked).toEqual([["task.note", { text: "hello" }]]);
     expect(ran.text).toBe('the tool said {"id":"note-1"}');
   });

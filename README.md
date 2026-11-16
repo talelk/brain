@@ -23,11 +23,15 @@ Requirements: Linux, Node 24, pnpm 12, git, and Docker for the sandboxes.
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm brain start
+pnpm brain start                        # the Governor, the launcher and one runner
+BRAIN_PROFILE=fixture pnpm brain start  # or: try it with no Docker and no model
 ```
 
-Open the printed address, create your account, and connect a model. Brain creates a
-starter workspace and runs one sample goal so you can see a checked result.
+Open the printed link, create your account, and connect a model. Brain has made a
+workspace named Starter; start its "Say hello" Play to see a goal become a checked result.
+
+`pnpm brain stop | status | logs | backup [file] | restore <file> | audit-verify` do the
+rest. Data is in `~/.local/share/brain` (`BRAIN_HOME`); the port is 3100 (`BRAIN_PORT`).
 
 To work on your own code, create a workspace, pick a pack, add a repository, and type a
 goal.

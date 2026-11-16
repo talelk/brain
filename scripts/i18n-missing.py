@@ -16,7 +16,7 @@ for path in SRC.rglob("*.ts*"):
     for base in re.findall(r'\btn\(\s*"([a-zA-Z0-9_.-]+)"', text):
         for suffix in ("one", "other"):
             used.setdefault(f"{base}_{suffix}", str(path.relative_to(SRC)))
-    for key in re.findall(r'"((?:nav|shell|live|decision|today|start|working|missions|mission|library|outputs|result|attempts|state|common|wait|setup|first)\.[a-zA-Z0-9_.-]+)"', text):
+    for key in re.findall(r'"((?:nav|shell|live|decision|today|start|working|result|attempts|state|common|wait|setup|first)\.[a-zA-Z0-9_.-]+)"', text):
         used.setdefault(key, str(path.relative_to(SRC)))
 for key in sorted(used):
     if key not in defined:

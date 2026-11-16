@@ -172,10 +172,12 @@ export function registerTasks(governor: Governor): void {
     const row = db.prepare(`${SUMMARY} WHERE t.id=? AND t.workspace_id=?`).get(input.taskId, input.workspaceId) as SummaryRow | undefined;
     if (!row) throw new BrainError("NOT_FOUND", "Task not found");
     const inTree = `IN (${TREE} SELECT id FROM tree)`;
+    const { models } = manifestOf(ctx.gov, row.snapshot_digest);
     const attempts = (db.prepare(`SELECT a.*, r.name AS runner, u.model, u.input_tokens, u.output_tokens, u.cached_input_tokens, ${COST} AS micro_usd FROM attempts a LEFT JOIN runners r ON r.id = a.runner_id LEFT JOIN usage u ON u.attempt_id = a.id
       WHERE a.task_id ${inTree} ORDER BY a.rowid`).all(row.id) as Array<{ id: string; task_id: string; kind: Attempt["kind"]; agent: string; state: Attempt["state"]; round: number; runner: string | null; engine: string | null; model: string | null;
       result: string | null; failure_json: string | null; input_tokens: number | null; output_tokens: number | null; cached_input_tokens: number | null; micro_usd: number | null; created_at_ms: number; started_at_ms: number | null; finished_at_ms: number | null }>)
       .map((a): Attempt => ({
+        priced: (a.micro_usd ?? 0) > 0 || (a.input_tokens ?? 0) + (a.output_tokens ?? 0) === 0 || models.some((model) => model.name === a.model && (model.input_usd_per_mtok ?? model.output_usd_per_mtok) !== undefined),
         id: a.id, taskId: a.task_id, kind: a.kind, agent: a.agent, state: a.state, round: a.round, runner: a.runner, engine: a.engine, model: a.model, result: a.result, failure: json<AttemptFailure>(a.failure_json),
         usage: { microUsd: a.micro_usd ?? 0, inputTokens: a.input_tokens ?? 0, outputTokens: a.output_tokens ?? 0, cachedInputTokens: a.cached_input_tokens ?? 0 }, createdAt: a.created_at_ms, startedAt: a.started_at_ms, finishedAt: a.finished_at_ms,
       }));

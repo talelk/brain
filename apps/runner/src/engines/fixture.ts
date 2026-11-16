@@ -32,8 +32,9 @@ import { engineToolName, ToolRequests } from "./tool-calls";
  *   sleep <ms>              Waits (a long attempt, a stop, a lease renewal).
  *   fail <reason>           Ends the session as an engine failure with that reason.
  *
- * In `<text>`, `\n` is a line break and `\\` a backslash; `{{last}}` is the text the last `tool` or `read` returned and `{{round}}`
- * the round. `write`, `delete`, `read` and `tool` each count as one turn.
+ * In `<text>`, `\n` is a line break and `\\` a backslash; `%last%` is the text the last `tool` or `read` returned and `%round%`
+ * the round (written with `%` because `{{ }}` in a Play's goal belongs to the Play). `write`, `delete`, `read` and `tool` each count as
+ * one turn.
  *
  * Without a `reply` or `json` the answer depends on the kind: `fixture: done` for work (and for a correction, which therefore fails); a plan of one task for the workspace's
  * `worker` agent (or its first agent) for plan; `{"pass": true, "score": 1, "findings": "fixture check"}` for check; and the first
@@ -42,7 +43,7 @@ import { engineToolName, ToolRequests } from "./tool-calls";
  *
  * Example, a Play step checked twice:
  *   goal = """Write the note.
- *   FIXTURE @work write notes/a.md round {{round}}
+ *   FIXTURE @work write notes/a.md round %round%
  *   FIXTURE @work reply wrote the note
  *   FIXTURE @check #1 json {"pass": false, "score": 0.3, "findings": "say more"}
  *   FIXTURE @check #2+ json {"pass": true, "score": 0.9, "findings": "fine"}"""
@@ -125,7 +126,7 @@ export class FixtureEngine implements EngineAdapter {
     let native = 0;
     const usage = { inputTokens: Math.ceil((spec.instructions.length + spec.task.length) / 4), outputTokens: 0, cachedInputTokens: 0, microUsd: 0, turns: 1 };
     const report = (): void => push({ kind: "usage", ...usage } satisfies EngineEvent & EngineUsage);
-    const text = (raw: string): string => unescaped(raw).replaceAll("{{last}}", last).replaceAll("{{round}}", String(round));
+    const text = (raw: string): string => unescaped(raw).replaceAll("%last%", last).replaceAll("%round%", String(round));
     /** A path of the script, kept inside the directory it is relative to. */
     const inside = (root: string | undefined, path: string, what: string): string => {
       if (!root) throw new Error(`the script uses ${what} but this attempt has no working copy`);

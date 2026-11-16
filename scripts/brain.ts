@@ -1,63 +1,258 @@
-import { instancePaths, registerInstance, verifyInstance, resetInstance } from "./local-instance";
-import { createInterface } from "node:readline/promises";
-import { spawnSync } from "node:child_process";
-import { mkdirSync, existsSync } from "node:fs";
+import Database from "better-sqlite3";
+import { spawn, spawnSync } from "node:child_process";
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
-async function main(): Promise<void> {
-const instance = process.env["BRAIN_INSTANCE_DIR"] ?? join(homedir(), ".local", "share", "brain");
-const env = { ...process.env, BRAIN_DATA_DIR: process.env["BRAIN_DATA_DIR"] ?? join(instance, "data"), BRAIN_RUN_DIR: process.env["BRAIN_RUN_DIR"] ?? join(instance, "run"), BRAIN_PORT: process.env["BRAIN_PORT"] ?? "3100" };
-Object.assign(env, { BRAIN_CLI_STATE_DIR: process.env["BRAIN_CLI_STATE_DIR"] ?? join(instance, "cli"), BRAIN_GOVERNOR_URL: process.env["BRAIN_GOVERNOR_URL"] ?? `http://localhost:${env.BRAIN_PORT}`, BRAIN_BASE_URL: process.env["BRAIN_BASE_URL"] ?? `http://localhost:${env.BRAIN_PORT}` });
-function run(command: string, args: string[], extra = {}) { const result = spawnSync(command, args, { env: { ...env, ...extra }, stdio: "inherit" }); if (result.error) throw result.error; if (result.status !== 0) process.exit(result.status ?? 1); }
-const command = process.argv[2] ?? "start";
-if (command === "start") {
-  mkdirSync(instance, { recursive: true, mode: 0o700 });
-  registerInstance(instancePaths(env));
-  run("pnpm", ["build"]);
-  run("bash", ["scripts/build-sandbox-images.sh"]);
-  // Initialization needs exclusive ownership. A running instance is left alone.
-  let running = false;
-  try { running = (await fetch(`${env.BRAIN_GOVERNOR_URL}/health/live`, { signal: AbortSignal.timeout(1500) })).ok; } catch { /* first start */ }
-  if (!running) run(process.execPath, ["--import", "tsx", "scripts/initialize-local.ts"], { BRAIN_LOCAL_RUNTIME_DIR: env.BRAIN_RUN_DIR });
-  run("bash", ["scripts/up.sh"], { BRAIN_RUNNERS: "0", BRAIN_LOCAL_RUNTIME_DIR: env.BRAIN_RUN_DIR });
-  console.log(`Open ${env.BRAIN_GOVERNOR_URL}. Sign in: ${env.BRAIN_ADMIN_EMAIL ?? "admin@brain.local"}${env.BRAIN_ADMIN_PASSWORD ? "" : " / admin-password"}. Pi and Claude runners use the configured local model; change it in Administration → Setup. Memory administration: ${process.env["BRAIN_MEMORY_UI_URL"] ?? "http://localhost:8125"}.`);
-} else if (command === "backup") {
-  const destination = process.argv[3]; if (!destination || destination.startsWith("--")) throw new Error("Usage: pnpm brain backup <new-backup-directory>");
-  run("bash", ["scripts/down.sh"]);
-  run("pnpm", ["--filter", "@brain/governor", "maintenance", "backup", env.BRAIN_DATA_DIR, destination]);
-  run("pnpm", ["--filter", "@brain/governor", "maintenance", "verify", destination]);
-  console.log("Local backup verified. Restarting the instance; consult backup completeness limits for external services.");
-  run(process.execPath, ["--import", "tsx", "scripts/brain.ts", "start"]);
-} else if (command === "restore") {
-  const archive = process.argv[3]; if (!archive || archive.startsWith("--")) throw new Error("Usage: pnpm brain restore <backup-directory>");
-  run("bash", ["scripts/down.sh"]);
-  run("pnpm", ["--filter", "@brain/governor", "maintenance", "verify", archive]);
-  run("pnpm", ["--filter", "@brain/governor", "maintenance", "restore", archive, env.BRAIN_DATA_DIR]);
-  console.log("Restore verified. Execution remains suspended for controlled reconciliation. Run pnpm brain start to inspect the restored instance.");
-} else if (command === "reset") {
-  if (process.argv.slice(3).some((arg) => arg !== "--yes")) throw new Error("Usage: pnpm brain reset [--yes]");
-  const paths = instancePaths(env);
-  verifyInstance(paths);
-  console.log(`Reset will remove all accounts, workspaces, releases, runs, artifacts, conversations, model settings, credentials and logs in:\n${paths.data}\n${paths.run}\n${paths.cli}`);
-  console.log("Reset cannot undo actions already applied to external systems.");
-  if (!process.argv.includes("--yes")) {
-    if (!process.stdin.isTTY) throw new Error("Reset requires --yes in a noninteractive terminal");
-    const prompt = createInterface({ input: process.stdin, output: process.stdout });
-    const answer = await prompt.question("Type RESET to erase this local instance: "); prompt.close();
-    if (answer !== "RESET") throw new Error("Reset cancelled");
-  }
-  run("bash", ["scripts/down.sh"]);
-  resetInstance(paths);
-  console.log("Instance reset. Run pnpm brain start to generate a new administrator and populated workspace.");
-} else if (command === "stop") run("bash", ["scripts/down.sh"]);
-else if (command === "status") {
-  try { const response = await fetch(`${env.BRAIN_GOVERNOR_URL}/health/ready`, { signal: AbortSignal.timeout(3000) }); const snapshot = await response.text(); console.log(process.argv.includes("--json") ? snapshot : `Brain server ${response.ok ? "is running" : "is not ready"} at ${env.BRAIN_GOVERNOR_URL}. Workspace readiness is shown in Administration → Setup.`); process.exitCode = response.ok ? 0 : 1; }
-  catch { console.log("Brain is stopped or unreachable."); process.exitCode = 1; }
-} else if (command === "logs") {
-  const log = join(env.BRAIN_RUN_DIR, "governor.log");
-  if (!existsSync(log)) throw new Error("No Governor log yet. Start Brain first.");
-  run("tail", ["-n", "100", "-f", log]);
-} else throw new Error("Usage: pnpm brain start|stop|status|logs|reset [--yes]|backup <directory>|restore <archive>");
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { backup, restore } from "../apps/governor/src/health/backup";
+import { verify } from "../apps/governor/src/trust/audit";
 
+/**
+ * `pnpm brain <command>`: one Brain on this machine.
+ *
+ *   start            builds the web app when it is missing or older than its sources, starts the Governor, the launcher (when Docker
+ *                    answers; the sandbox images are built when missing) and one runner, and prints the address. On a fresh install it
+ *                    prints the setup link, which carries the setup token.
+ *   stop             stops the runner, the launcher, the Governor and the egress proxy it started. Data is never touched.
+ *   status           says what runs; exits 0 only when the Governor is ready.
+ *   logs [name]      follows the log of `governor` (the default), `launcher` or `runner`.
+ *   backup [file]    writes one archive of the data (brain.db through SQLite's backup API, cas/, workspaces/, the instance key and the
+ *                    audit key) and leaves <data>/backup.marker. Works while Brain runs. Default: <home>/backups/brain-<time>.tar.gz
+ *   restore <file>   puts a backup in place of the data. Refuses while Brain runs; what was there is moved aside, never deleted.
+ *   audit-verify     verifies the audit log from its first event; exits 0 only when it holds.
+ *
+ * Environment:
+ *   BRAIN_HOME        where this Brain lives (default ~/.local/share/brain): data/, run/ (pids, logs, the runner's folder), backups/
+ *   BRAIN_DATA_DIR    the data directory (default <home>/data)
+ *   BRAIN_RUN_DIR     pids, logs, the launcher's socket and the runner's folder (default <home>/run)
+ *   BRAIN_PORT        the Governor's port (default 3100)
+ *   BRAIN_BASE_URL    the address people open (default http://localhost:<port>)
+ *   BRAIN_ENGINES     the runner's engines, comma-separated (default pi)
+ *   BRAIN_PROFILE     `fixture` runs every agent on the fixture engine: no Docker, no model, so Brain can be tried anywhere
+ * Anything else in the environment reaches the three processes as it is (BRAIN_RUNNER_SLOTS, BRAIN_LAUNCHER_HOST_COMMANDS, ...).
+ */
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const HOME = resolve(process.env["BRAIN_HOME"] ?? join(homedir(), ".local", "share", "brain"));
+const DATA = resolve(process.env["BRAIN_DATA_DIR"] ?? join(HOME, "data"));
+const RUN = resolve(process.env["BRAIN_RUN_DIR"] ?? join(HOME, "run"));
+const PORT = process.env["BRAIN_PORT"] ?? "3100";
+const LOCAL = `http://127.0.0.1:${PORT}`;
+const BASE_URL = process.env["BRAIN_BASE_URL"] ?? `http://localhost:${PORT}`;
+const FIXTURE = process.env["BRAIN_PROFILE"] === "fixture";
+const SOCKET = join(RUN, "launcher.sock");
+const RUNNER_TOKEN = join(RUN, "runner.token");
+const PARTS = { governor: "apps/governor/src/main.ts", launcher: "apps/launcher/src/main.ts", runner: "apps/runner/src/main.ts" } as const;
+type Part = keyof typeof PARTS;
+const IMAGES = ["brain-sandbox-tool", "brain-sandbox-engine", "brain-egress-proxy"];
+
+const say = (text: string): void => console.log(text);
+const pause = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
+const quiet = (command: string, args: readonly string[]): { ok: boolean; out: string } => {
+  const ran = spawnSync(command, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 30_000 });
+  return { ok: ran.status === 0, out: (ran.stdout ?? "").trim() };
+};
+const has = (program: string): boolean => quiet("which", [program]).ok;
+
+/** The pid of a part this command started, while that process is still the one it started. */
+function pidOf(part: Part): number | undefined {
+  const file = join(RUN, `${part}.pid`);
+  if (!existsSync(file)) return undefined;
+  const pid = Number(readFileSync(file, "utf8").trim());
+  try {
+    if (pid > 0 && readFileSync(`/proc/${pid}/cmdline`, "utf8").includes(PARTS[part])) return pid;
+  } catch { /* the process is gone */ }
+  rmSync(file, { force: true });
+  return undefined;
 }
-try { await main(); } catch (error) { console.error(`Brain: ${error instanceof Error ? error.message : "Command failed"}`); process.exitCode = 1; }
+
+/** Starts a part on its own, with its output in `<run>/<part>.log`. */
+function startPart(part: Part, env: Record<string, string>): void {
+  if (pidOf(part)) return say(`${part}: already running`);
+  const log = openSync(join(RUN, `${part}.log`), "a", 0o600);
+  const child = spawn(process.execPath, ["--import", "tsx", PARTS[part]], { cwd: ROOT, env: { ...process.env, ...env }, detached: true, stdio: ["ignore", log, log] });
+  closeSync(log);
+  child.unref();
+  writeFileSync(join(RUN, `${part}.pid`), `${child.pid}\n`, { mode: 0o600 });
+  say(`${part}: started (pid ${child.pid}, log ${join(RUN, `${part}.log`)})`);
+}
+
+async function stopPart(part: Part): Promise<void> {
+  const pid = pidOf(part);
+  if (!pid) return say(`${part}: not running`);
+  const signal = (name: NodeJS.Signals): void => { try { process.kill(-pid, name); } catch { /* already gone */ } };
+  signal("SIGTERM");
+  for (let waited = 0; waited < 10_000 && pidOf(part); waited += 200) await pause(200);
+  if (pidOf(part)) signal("SIGKILL");
+  rmSync(join(RUN, `${part}.pid`), { force: true });
+  say(`${part}: stopped`);
+}
+
+const ready = async (): Promise<boolean> => {
+  try { return (await fetch(`${LOCAL}/health/ready`, { signal: AbortSignal.timeout(2000) })).ok; } catch { return false; }
+};
+const lastLines = (part: Part): string => (existsSync(join(RUN, `${part}.log`)) ? readFileSync(join(RUN, `${part}.log`), "utf8").trim().split("\n").slice(-15).join("\n") : "");
+
+/** The newest change under a folder, in milliseconds. */
+function newest(dir: string): number {
+  let latest = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) latest = Math.max(latest, entry.isDirectory() ? newest(join(dir, entry.name)) : statSync(join(dir, entry.name)).mtimeMs);
+  return latest;
+}
+
+/** Builds the web app when it has never been built or its sources are newer. A build that fails does not stop the start: the API works without it. */
+function buildWeb(): void {
+  const web = join(ROOT, "apps", "web");
+  const built = join(web, "dist", "index.html");
+  if (!existsSync(join(web, "src"))) return say("web app: apps/web/src is not there, so nothing is built; the API starts without its pages");
+  const sources = Math.max(newest(join(web, "src")), ...["index.html", "package.json", "vite.config.ts"].map((name) => (existsSync(join(web, name)) ? statSync(join(web, name)).mtimeMs : 0)));
+  if (existsSync(built) && statSync(built).mtimeMs >= sources) return;
+  say(existsSync(built) ? "web app: the sources are newer than the build, building" : "web app: not built yet, building");
+  const ran = spawnSync("pnpm", ["--filter", "@brain/web", "build"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  if (ran.status === 0) return say("web app: built");
+  say(`web app: the build failed, so ${existsSync(built) ? "the pages of the last build are served" : "there are no pages yet; the API still starts"}. Run "pnpm build" to see why. Last lines:`);
+  say(`${ran.stdout ?? ""}${ran.stderr ?? ""}`.trim().split("\n").slice(-8).map((line) => `  ${line}`).join("\n"));
+}
+
+/**
+ * What sandboxes need on this machine: the three images, the internal network and the egress proxy, which reads its grants from this
+ * Brain's run folder. Engines in a sandbox reach the model gateway through the proxy, at the host's address on Docker's bridge; the
+ * answer is that address (the Governor listens on it too) and the gateway address to offer. Undefined when sandboxes cannot be had.
+ */
+function prepareSandboxes(): { bridge: string; gatewayUrl: string } | undefined {
+  if (!has("docker") || !quiet("docker", ["version", "--format", "{{.Server.Version}}"]).ok) {
+    say("sandboxes: Docker does not answer, so no launcher is started. Agents that use their engine's own tools will wait for a runner that has sandboxes; BRAIN_PROFILE=fixture runs everything without Docker.");
+    return undefined;
+  }
+  if (IMAGES.some((image) => !quiet("docker", ["image", "inspect", image, "--format", "{{.Id}}"]).ok)) {
+    say("sandboxes: building the sandbox images (the first time takes a few minutes)");
+    if (spawnSync("bash", ["scripts/build-sandbox-images.sh"], { cwd: ROOT, stdio: "inherit" }).status !== 0) {
+      say("sandboxes: the images did not build, so no launcher is started");
+      return undefined;
+    }
+  }
+  const bridge = quiet("docker", ["network", "inspect", "bridge", "--format", "{{range .IPAM.Config}}{{.Gateway}} {{end}}"]).out.split(/\s+/u).find((address) => /^\d+\.\d+\.\d+\.\d+$/u.test(address));
+  if (!bridge) {
+    say("sandboxes: Docker's bridge network has no address the Governor could listen on, so no launcher is started");
+    return undefined;
+  }
+  const grants = join(RUN, "egress-grants");
+  mkdirSync(grants, { recursive: true, mode: 0o700 });
+  quiet("docker", ["network", "create", "--internal", "brain-internal"]);
+  // One proxy per machine, under a fixed name the sandboxes know. One that reads another folder's grants, or allows another port, is replaced.
+  const running = quiet("docker", ["container", "inspect", "brain-egress-proxy", "--format", '{{.State.Running}} {{range .Mounts}}{{.Source}}:{{.Destination}}{{end}} {{range .Config.Env}}{{println .}}{{end}}']).out;
+  if (!(running.startsWith(`true ${grants}:/grants`) && running.includes(`BRAIN_EGRESS_ALLOW_INTERNAL=host.docker.internal:${PORT}`))) {
+    quiet("docker", ["rm", "-f", "brain-egress-proxy"]);
+    const started = quiet("docker", ["run", "-d", "--restart", "unless-stopped", "--name", "brain-egress-proxy", "--user", `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`, "--read-only", "--cap-drop", "ALL",
+      "--security-opt", "no-new-privileges:true", "--memory", "256m", "--pids-limit", "128", "--add-host", "host.docker.internal:host-gateway", "-e", `BRAIN_EGRESS_ALLOW_INTERNAL=host.docker.internal:${PORT}`,
+      "-v", `${grants}:/grants:ro`, "brain-egress-proxy"]);
+    if (!started.ok || !quiet("docker", ["network", "connect", "--alias", "brain-egress-proxy", "brain-internal", "brain-egress-proxy"]).ok) {
+      say("sandboxes: the egress proxy container did not start, so no launcher is started");
+      return undefined;
+    }
+  }
+  return { bridge, gatewayUrl: `http://host.docker.internal:${PORT}` };
+}
+
+async function start(): Promise<void> {
+  mkdirSync(RUN, { recursive: true, mode: 0o700 });
+  if (existsSync(DATA) && readdirSync(DATA).length > 0 && !existsSync(join(DATA, "brain.db"))) {
+    throw new Error(`${DATA} holds files but no Brain database (brain.db), so it is not this Brain's data and is left as it is. Move it away (mv ${DATA} ${DATA}.old) or choose another place with BRAIN_HOME.`);
+  }
+  if (!pidOf("governor") && (await ready())) throw new Error(`something else already answers on port ${PORT}; stop it or choose another BRAIN_PORT`);
+  buildWeb();
+  const sandboxes = FIXTURE ? undefined : prepareSandboxes();
+
+  if (!pidOf("governor")) rmSync(RUNNER_TOKEN, { force: true });
+  startPart("governor", {
+    BRAIN_DATA_DIR: DATA, PORT, BRAIN_BASE_URL: BASE_URL, BRAIN_LOCAL_RUNNER_TOKEN_FILE: RUNNER_TOKEN,
+    ...(sandboxes ? { BRAIN_BIND_HOST: `127.0.0.1,${sandboxes.bridge}`, BRAIN_GATEWAY_URL: sandboxes.gatewayUrl } : {}),
+  });
+  for (let waited = 0; waited < 60_000 && !(await ready()); waited += 500) {
+    if (!pidOf("governor")) throw new Error(`the Governor stopped while starting. Its last lines:\n${lastLines("governor")}`);
+    await pause(500);
+  }
+  if (!(await ready())) throw new Error(`the Governor is not ready after a minute. Its last lines:\n${lastLines("governor")}`);
+
+  if (sandboxes) {
+    startPart("launcher", { BRAIN_LAUNCHER_SOCKET: SOCKET, BRAIN_LAUNCHER_ATTEMPTS_ROOT: join(RUN, "runner", "attempts"), BRAIN_LAUNCHER_EGRESS_GRANTS_DIR: join(RUN, "egress-grants") });
+    for (let waited = 0; waited < 15_000 && !existsSync(SOCKET); waited += 250) await pause(250);
+    if (!existsSync(SOCKET)) throw new Error(`the launcher did not open its socket. Its last lines:\n${lastLines("launcher")}`);
+  }
+
+  // The Governor leaves a token while it has no runner. A credential kept from an earlier data directory would not be known to it.
+  const token = existsSync(RUNNER_TOKEN) ? readFileSync(RUNNER_TOKEN, "utf8").trim() : undefined;
+  if (token && !pidOf("runner")) rmSync(join(RUN, "runner", "credential"), { force: true });
+  mkdirSync(join(RUN, "runner", "attempts"), { recursive: true, mode: 0o700 });
+  startPart("runner", {
+    BRAIN_GOVERNOR_URL: LOCAL, BRAIN_RUNNER_STATE_DIR: join(RUN, "runner"), BRAIN_RUNNER_NAME: process.env["BRAIN_RUNNER_NAME"] ?? "local",
+    BRAIN_RUNNER_SLOTS: process.env["BRAIN_RUNNER_SLOTS"] ?? "2", ...(token ? { BRAIN_RUNNER_ENROLL_TOKEN: token } : {}),
+    // What tool scripts find: the tool sandbox image when there are sandboxes; the fixture profile says the same, and runs no script.
+    BRAIN_RUNNER_CAPABILITIES: process.env["BRAIN_RUNNER_CAPABILITIES"] ?? (sandboxes || FIXTURE ? "bash,python3,curl,git" : ["bash", "python3", "curl", "git"].filter(has).join(",")),
+    ...(FIXTURE ? { BRAIN_RUNNER_ENGINES: "fixture", BRAIN_RUNNER_FIXTURE_FOR: "pi,claude,opencode,codex" } : { BRAIN_RUNNER_ENGINES: process.env["BRAIN_ENGINES"] ?? "pi" }),
+    ...(sandboxes ? { BRAIN_LAUNCHER_SOCKET: SOCKET } : {}),
+  });
+  for (let waited = 0; waited < 20_000 && pidOf("runner") && !existsSync(join(RUN, "runner", "credential")); waited += 250) await pause(250);
+  await pause(500);
+  if (!pidOf("runner")) say(`runner: it stopped. Its last lines:\n${lastLines("runner")}`);
+  else rmSync(RUNNER_TOKEN, { force: true });
+
+  say("");
+  say(`Brain is running at ${BASE_URL}${FIXTURE ? " (fixture profile: agents answer from a script, with no model)" : ""}`);
+  const setupToken = join(DATA, "setup.token");
+  if (existsSync(setupToken)) say(`This is a fresh install. Create the first account here:\n  ${BASE_URL}/#token=${readFileSync(setupToken, "utf8").trim()}`);
+  say('Stop it with "pnpm brain stop".');
+}
+
+async function main(): Promise<void> {
+  const [command = "", argument] = process.argv.slice(2);
+  if (command === "start") return start();
+  if (command === "stop") {
+    for (const part of ["runner", "launcher", "governor"] as const) await stopPart(part);
+    // The egress proxy this Brain started (the one that reads this run folder's grants) goes with it.
+    if (has("docker") && quiet("docker", ["container", "inspect", "brain-egress-proxy", "--format", "{{range .Mounts}}{{.Source}}{{end}}"]).out === join(RUN, "egress-grants")) quiet("docker", ["rm", "-f", "brain-egress-proxy"]);
+    return;
+  }
+  if (command === "status") {
+    for (const part of ["governor", "launcher", "runner"] as const) say(`${part}: ${pidOf(part) ? `running (pid ${pidOf(part)})` : "not running"}`);
+    const answers = await ready();
+    say(answers ? `Brain is ready at ${BASE_URL} (data in ${DATA})` : `Brain does not answer on port ${PORT}`);
+    process.exitCode = answers ? 0 : 1;
+    return;
+  }
+  if (command === "logs") {
+    const part = (argument ?? "governor") as Part;
+    if (!(part in PARTS) || !existsSync(join(RUN, `${part}.log`))) throw new Error(`there is no log of "${part}" in ${RUN}; the logs are governor, launcher and runner`);
+    spawnSync("tail", ["-n", "100", "-f", join(RUN, `${part}.log`)], { stdio: "inherit" });
+    return;
+  }
+  if (command === "backup") {
+    const made = await backup(DATA, argument ?? join(HOME, "backups", `brain-${new Date().toISOString().replace(/[:.]/gu, "-")}.tar.gz`));
+    return say(`Backup written to ${made.file}\nIt holds the key that encrypts this Brain's secrets: keep it as you would keep them.`);
+  }
+  if (command === "restore") {
+    if (!argument) throw new Error("say which backup: pnpm brain restore <file>");
+    if (pidOf("governor") || (await ready())) throw new Error('Brain is running on this data; stop it first ("pnpm brain stop"), then restore');
+    const { kept } = restore(argument, DATA);
+    return say(`Restored ${resolve(argument)} into ${DATA}.${kept ? `\nWhat was there before is kept in ${kept}` : ""}\nStart Brain with "pnpm brain start".`);
+  }
+  if (command === "audit-verify") {
+    if (!existsSync(join(DATA, "brain.db"))) throw new Error(`${DATA} holds no Brain database (brain.db)`);
+    const db = new Database(join(DATA, "brain.db"), { readonly: true, fileMustExist: true });
+    try {
+      const result = verify(db);
+      say(result.ok ? `The audit log holds: ${result.events} events verified` : `The audit log does NOT hold: ${result.break?.detail ?? "it does not verify"}`);
+      process.exitCode = result.ok ? 0 : 1;
+    } finally {
+      db.close();
+    }
+    return;
+  }
+  throw new Error("usage: pnpm brain start | stop | status | logs [governor|launcher|runner] | backup [file] | restore <file> | audit-verify");
+}
+
+try {
+  await main();
+} catch (error) {
+  console.error(`Brain: ${error instanceof Error ? error.message : String(error)}`);
+  process.exitCode = 1;
+}

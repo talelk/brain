@@ -110,6 +110,19 @@ describe("a schedule", () => {
     await driver.drain();
   });
 
+  it("is read in the workspace's time zone, and follows the time zone when it changes", async () => {
+    const tokyo = await makeWorkspace(harness, "Tokyo", {
+      brain: 'timezone = "Asia/Tokyo"\n', agents: { reviewer: {} },
+      plays: { morning: 'title = "Morning"\n[trigger]\nschedule = "0 9 * * *"\n[[step]]\nid = "look"\nagent = "reviewer"\ngoal = "Look around."\n' },
+    });
+    const next = (): string => new Date((harness.governor.gov.db.prepare("SELECT next_run_at_ms AS at FROM triggers WHERE workspace_id=? AND play='morning'").get(tokyo.workspaceId) as { at: number }).at).toISOString().slice(11, 16);
+    // Nine in the morning in Tokyo is midnight UTC.
+    expect((await harness.admin.query("workspace.get", { workspaceId: tokyo.workspaceId })).snapshot.timezone).toBe("Asia/Tokyo");
+    expect(next()).toBe("00:00");
+    await harness.admin.command("file.write", { workspaceId: tokyo.workspaceId, files: [{ path: "brain.toml", content: 'name = "Tokyo"\npacks = ["core"]\n' }] });
+    expect(next()).toBe("09:00");
+  });
+
   it("follows the workspace's files: a Play that is removed no longer starts", async () => {
     await harness.admin.command("file.delete", { workspaceId, paths: ["plays/patrol.toml"] });
     tick(QUARTER);

@@ -1,13 +1,14 @@
 import {
-  BrainError, hmacSha256Hex, RUNNER_ENROLLED_EVENT, RUNNER_REMOVED_EVENT, RUNNER_ROUTES, type ChallengeResponse, type EnrollResponse, type HeartbeatResponse, type HelloResponse, type Runner,
+  BrainError, hmacSha256Hex, RUNNER_ENROLLED_EVENT, RUNNER_REMOVED_EVENT, RUNNER_ROUTES, type Actor, type ChallengeResponse, type EnrollResponse, type HeartbeatResponse, type HelloResponse, type Runner,
 } from "@brain/contracts";
 import type { Context } from "hono";
 import { createPublicKey, randomBytes, verify } from "node:crypto";
+import { rmSync, writeFileSync } from "node:fs";
 import { z } from "zod";
 import { readJson, type Governor } from "../app";
 import { tx, type Db } from "../db";
 import type { Gov } from "../dispatch";
-import { append } from "../events";
+import { append, SYSTEM } from "../events";
 import { newId } from "../tasks/store";
 import { releaseAttempt } from "./routes";
 
@@ -55,20 +56,32 @@ function report(db: Db, runnerId: string, now: number, reported: { capabilities:
     .run(JSON.stringify(reported.capabilities), JSON.stringify(reported.engines), reported.slots, reported.freeSlots, reported.version, now, runnerId);
 }
 
+/** A new one-use enrolment token; only its keyed digest is kept. */
+function issueToken(gov: Gov, name: string | null, actor: Actor): { token: string; expiresAt: number } {
+  const now = gov.clock.nowMs();
+  const token = `brt_${randomBytes(32).toString("base64url")}`;
+  const expiresAt = now + ENROLL_FOR_MS;
+  gov.db.prepare("INSERT INTO runner_tokens(token_digest, kind, name, created_by, created_at_ms, expires_at_ms) VALUES (?, 'enroll', ?, ?, ?, ?)").run(digestOf(gov, "enroll", token), name, actor.id, now, expiresAt);
+  append(gov.db, { type: "runner.tokenIssued", subject: "runner:new", payload: { name, expiresAt }, actor });
+  return { token, expiresAt };
+}
+
+/**
+ * Enrolment without a person, for the runner that is started beside the Governor on one machine: while no runner is enrolled, a one-use
+ * token is written to `path`, which only the Governor's own user can read. Whoever can read the data directory could do as much.
+ */
+export function offerLocalRunnerToken(gov: Gov, path: string): void {
+  if (gov.db.prepare("SELECT 1 FROM runners WHERE state='active'").get()) return;
+  const { token } = tx(gov.db, () => issueToken(gov, "local", SYSTEM));
+  rmSync(path, { force: true });
+  writeFileSync(path, `${token}\n`, { mode: 0o600, flag: "wx" });
+}
+
 export function registerRunners({ gov, app }: Governor): void {
   const { db, registry } = gov;
 
   // The token is shown once: a repeated command is refused instead of answered from a stored copy.
-  registry.command("runner.token", {
-    secretOutput: true,
-    run(ctx, input) {
-      const token = `brt_${randomBytes(32).toString("base64url")}`;
-      const expiresAt = ctx.now() + ENROLL_FOR_MS;
-      db.prepare("INSERT INTO runner_tokens(token_digest, kind, name, created_by, created_at_ms, expires_at_ms) VALUES (?, 'enroll', ?, ?, ?, ?)").run(digestOf(gov, "enroll", token), input.name ?? null, ctx.actor.id, ctx.now(), expiresAt);
-      append(db, { type: "runner.tokenIssued", subject: "runner:new", payload: { name: input.name ?? null, expiresAt }, actor: ctx.actor });
-      return { token, expiresAt };
-    },
-  });
+  registry.command("runner.token", { secretOutput: true, run: (ctx, input) => issueToken(gov, input.name ?? null, ctx.actor) });
   registry.command("runner.remove", (ctx, input) => {
     if (db.prepare("UPDATE runners SET state='removed', removed_at_ms=? WHERE id=? AND state='active'").run(ctx.now(), input.runnerId).changes === 0) throw new BrainError("NOT_FOUND", "Runner not found");
     db.prepare("DELETE FROM runner_tokens WHERE runner_id=? AND kind='session'").run(input.runnerId);

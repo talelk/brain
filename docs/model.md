@@ -40,6 +40,7 @@ kios-newrh/
 ```toml
 name = "Kios RH"
 description = "Workforce cost platform"
+timezone = "Africa/Tunis"   # schedules are read in it; UTC when not given
 packs = ["base", "software-factory"]
 
 [limits]
@@ -53,6 +54,8 @@ provider = "openai-compatible"
 url = "https://models.example/v1"
 model = "qwen3-coder"
 key = "secret:model-main"
+input_usd_per_mtok = 0.40   # optional prices per million tokens, used when
+output_usd_per_mtok = 1.60  # the model server reports no cost itself
 
 [[project]]
 name = "kios-newrh"
@@ -77,6 +80,11 @@ until = 2027-01-31
 
 A value written `secret:<name>` is a reference. The secret itself is set in the app and
 never appears in a file, a log or a result.
+
+Cost is what the model server reports for each call. Where it reports none, Brain
+prices the call from its token counts and the model's two prices; a model with no
+prices records no cost, and the task says it was not priced. `timezone` is an IANA
+name such as `Europe/Paris`; a Play's `schedule` means that clock.
 
 ### An agent
 

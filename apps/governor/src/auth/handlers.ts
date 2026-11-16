@@ -1,4 +1,4 @@
-import { BrainError, hmacSha256Hex, type Role, type WorkspaceSummary } from "@brain/contracts";
+import { BrainError, hmacSha256Hex, type CommandInput, type Role, type WorkspaceSummary } from "@brain/contracts";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -6,6 +6,7 @@ import { getInstance, setInstance, type Db } from "../db";
 import type { Governor } from "../app";
 import type { Gov } from "../dispatch";
 import { append } from "../events";
+import { commitNewWorkspace, createWorkspace, starterWorkspace, type NewWorkspace } from "../workspace/handlers";
 
 const tokenPath = (dataDir: string): string => join(dataDir, "setup.token");
 const setupDone = (db: Db): boolean => getInstance(db, "setup") === "done";
@@ -32,7 +33,7 @@ export function registerAuth({ gov: { registry } }: Governor): void {
   registry.query("setup.status", (ctx) => ({ setupRequired: !setupDone(ctx.db) }));
 
   const settingUp = new WeakSet<Gov>();
-  registry.command<"setup.create", { userId: string; cookies: string[] }>("setup.create", {
+  registry.command<"setup.create", { userId: string; cookies: string[]; starter?: { input: CommandInput<"workspace.create">; folder: NewWorkspace } }>("setup.create", {
     async prepare(ctx, input) {
       assertSetupToken(ctx.gov, input.token);
       if (settingUp.has(ctx.gov)) throw new BrainError("CONFLICT", "Setup is already in progress");
@@ -40,16 +41,20 @@ export function registerAuth({ gov: { registry } }: Governor): void {
       try {
         // An account left by a setup that stopped half-way must prove its password instead of being made again.
         if (!ctx.gov.auth.find(input.email)) await ctx.gov.auth.createAccount({ email: input.email, name: input.name, password: input.password });
-        return await ctx.gov.auth.signIn(input.email, input.password);
+        const signedIn = await ctx.gov.auth.signIn(input.email, input.password);
+        // The first screen is never empty: a workspace made from the base pack, when the packs directory has one.
+        const starter = starterWorkspace(ctx.gov);
+        return starter ? { ...signedIn, starter: { input: starter, folder: await commitNewWorkspace(ctx.gov, starter, { name: input.name, email: input.email }) } } : signedIn;
       } finally {
         settingUp.delete(ctx.gov);
       }
     },
-    run(ctx, _input, { userId, cookies }) {
+    run(ctx, _input, { userId, cookies, starter }) {
       if (setupDone(ctx.db)) throw new BrainError("CONFLICT", "This Brain is already set up");
       ctx.db.prepare("INSERT INTO instance_admins(user_id, created_at_ms) VALUES (?,?)").run(userId, ctx.now());
       setInstance(ctx.db, "setup", "done");
       append(ctx.db, { type: "setup.completed", subject: `user:${userId}`, payload: { userId }, actor: { kind: "person", id: userId } });
+      if (starter) createWorkspace(ctx.gov, ctx.db, starter.input, starter.folder, userId);
       rmSync(tokenPath(ctx.gov.dataDir), { force: true });
       ctx.cookies.push(...cookies);
       return { userId };

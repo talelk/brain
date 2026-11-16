@@ -13,6 +13,8 @@ export interface Gov {
   readonly dataDir: string;
   readonly packsDir: string;
   readonly baseUrl: string;
+  /** The address attempts reach the model gateway at: the base address, unless sandboxes reach the Governor by another one. */
+  readonly gatewayUrl: string;
   readonly clock: Clock;
   /** Every request the Governor makes to another server (a model, GitHub, Teams, a project's repository) goes through this. */
   readonly fetch: typeof fetch;

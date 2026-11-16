@@ -85,7 +85,7 @@ export interface OfferProject {
   /**
    * The commit to work on: the head commit of the pull request whose delivery started the goal, else the commit the first attempt of the
    * goal reported for this project (every task of one goal works on the same commit). Absent on the goal's first attempt: the branch head
-   * is used and reported back in `complete`.
+   * is used and reported back with every call (`CallRequest.baseCommits`) and in `complete`.
    */
   readonly baseCommit?: string;
 }
@@ -157,17 +157,20 @@ export interface EventsResponse { readonly through: number }
 export interface ArtifactUpload extends Fenced { readonly name: string; readonly kind: "patch" | "output" | "log"; readonly mediaType: string }
 export type ArtifactUploadResponse = BlobRef;
 
+/** A call an attempt makes. `baseCommits` are the commits its working copy stands on, by project; a runner always sends them. */
+export interface CallRequest extends Fenced { readonly callId: string; readonly tool: string; readonly input: JsonValue; readonly baseCommits?: Readonly<Record<string, string>> }
 /** Asks to run a workspace tool that has an effect. `approved` may run now; `pending` is polled on `approvals/:approvalId`. */
-export interface ToolCallRequest extends Fenced { readonly callId: string; readonly tool: string; readonly input: JsonValue }
+export type ToolCallRequest = CallRequest;
 export type ApprovalState = "pending" | "approved" | "rejected" | "expired";
 export interface ToolCallResponse { readonly callId: string; readonly state: ApprovalState; readonly approvalId?: string; readonly reason?: string }
 export interface ApprovalPollResponse { readonly state: ApprovalState; readonly reason?: string }
 
 /**
  * Runs a Brain-run tool as the attempt. A tool with an effect may answer `pending` first, like `tool-call`; once its approval is
- * `approved`, the same request (same `callId`) is sent again and answers `done`. A repeated request never runs a call twice.
+ * `approved`, the same request (same `callId`) is sent again and answers `done`. A repeated request never runs a call twice. For
+ * `git.open-pr`, `baseCommits` says which commit the change was made on, also in a goal's first attempt, which has not reported one yet.
  */
-export interface BrainToolRequest extends Fenced { readonly callId: string; readonly tool: string; readonly input: JsonValue }
+export type BrainToolRequest = CallRequest;
 export type BrainToolResponse =
   | { readonly state: "done"; readonly output: JsonValue }
   | { readonly state: "failed"; readonly error: string }

@@ -33,9 +33,13 @@ const PATCH_MEDIA_TYPE = "text/x-diff";
 const INLINE_PATCH_CHARS = 20_000;
 const NO_USAGE: AttemptUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0 };
 
-/** The first engine of the agent's list that this runner has and that can give the agent its native tools. */
-export function pickEngine(offer: JobOffer, engines: readonly string[], sandboxAvailable: boolean): { id: string; hosting: EngineHosting } | undefined {
-  for (const id of offer.agent.engines) {
+/**
+ * The first engine of the agent's list that this runner has and that can give the agent its native tools. Where the runner's fixture
+ * stands in for an engine (`fixtureFor`), an agent that names that engine gets the fixture.
+ */
+export function pickEngine(offer: JobOffer, engines: readonly string[], sandboxAvailable: boolean, fixtureFor: readonly string[] = []): { id: string; hosting: EngineHosting } | undefined {
+  for (const named of offer.agent.engines) {
+    const id = fixtureFor.includes(named) && engines.includes("fixture") ? "fixture" : named;
     const hosting = engineHosting(id, sandboxAvailable);
     if (engines.includes(id) && hosting !== "unavailable" && (offer.agent.native === "none" || nativeToolsAllowed(hosting))) return { id, hosting };
   }
@@ -89,7 +93,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
   const { attemptId, fence } = offer;
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(attemptId) || attemptId.includes("..")) throw new Error("the attempt id cannot name a folder");
   const attemptDir = join(cfg.stateDir, "attempts", attemptId);
-  const picked = offer.kind === "act" ? undefined : pickEngine(offer, cfg.engines, context.sandboxAvailable);
+  const picked = offer.kind === "act" ? undefined : pickEngine(offer, cfg.engines, context.sandboxAvailable, cfg.fixtureFor);
   const engineName = picked?.id ?? "none";
   const stop = (cause: AbortCause): void => { if (!abort.signal.aborted) abort.abort(cause); };
 
@@ -126,7 +130,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
     };
     const tools = new ToolCalls({
       offer, client, launcher: cfg.launcher, attemptDir, emit, signal: abort.signal, unsandboxedForTests: cfg.unsandboxedForTests === true,
-      syncPatch: async () => { await uploadPatch(); }, leaseLost: () => { spool.discard(); stop("lease"); },
+      syncPatch: async () => { await uploadPatch(); }, baseCommits: () => copy?.baseCommits ?? {}, leaseLost: () => { spool.discard(); stop("lease"); },
       ...(cfg.approval ? { approval: cfg.approval } : {}),
     });
 

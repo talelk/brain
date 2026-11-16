@@ -15,11 +15,14 @@ import { manifestOf } from "../workspace/store";
  */
 const PENDING_FOR_MS = 7 * 86_400_000;
 
+/** What a pull request would carry: the patch, and the commit it is made on when one is known. */
+export interface PullRequestChange { readonly patchDigest?: Digest | undefined; readonly baseCommit?: string | undefined }
+
 /** What an approver is shown and what their decision is bound to. */
-export function approvalSubject(manifest: SnapshotManifest, call: { tool: string; input: JsonValue; taskId: string; snapshotDigest: Digest; patchDigest?: Digest | undefined }): ApprovalSubject {
+export function approvalSubject(manifest: SnapshotManifest, call: { tool: string; input: JsonValue; taskId: string; snapshotDigest: Digest } & PullRequestChange): ApprovalSubject {
   return {
     tool: call.tool, toolDigest: domainDigest("brain:tool:v1", (manifest.tools[call.tool] ?? null) as unknown as JsonValue), input: call.input, inputDigest: domainDigest("brain:tool-input:v1", call.input),
-    taskId: call.taskId, snapshotDigest: call.snapshotDigest, ...(call.patchDigest !== undefined ? { patchDigest: call.patchDigest } : {}),
+    taskId: call.taskId, snapshotDigest: call.snapshotDigest, ...(call.patchDigest !== undefined ? { patchDigest: call.patchDigest } : {}), ...(call.baseCommit !== undefined ? { baseCommit: call.baseCommit } : {}),
   };
 }
 
@@ -65,7 +68,7 @@ export interface CallDecision { readonly rowId: string; readonly state: Approval
  * Whether a call may run now. A `read` call may. A call with an effect is approved at once when a standing approval covers it; otherwise
  * an approval is pending and the task needs a person. Asking again for the same call answers what was decided.
  */
-export function authorizeCall(gov: Gov, attempt: AttemptRow, call: { callId: string; tool: string; effect: Effect; input: JsonValue; patchDigest?: Digest | undefined }): CallDecision {
+export function authorizeCall(gov: Gov, attempt: AttemptRow, call: { callId: string; tool: string; effect: Effect; input: JsonValue } & PullRequestChange): CallDecision {
   const { db } = gov;
   const rowId = callRowId(attempt, call.callId);
   const known = db.prepare("SELECT approval_id FROM tool_calls WHERE id=?").get(rowId) as { approval_id: string | null } | undefined;
@@ -77,7 +80,7 @@ export function authorizeCall(gov: Gov, attempt: AttemptRow, call: { callId: str
   if (call.effect === "read") return { rowId, state: "approved" };
   const task = taskOf(db, attempt.task_id);
   const manifest = manifestOf(gov, task.snapshot_digest);
-  const subject = approvalSubject(manifest, { tool: call.tool, input: call.input, taskId: task.id, snapshotDigest: task.snapshot_digest, patchDigest: call.patchDigest });
+  const subject = approvalSubject(manifest, { tool: call.tool, input: call.input, taskId: task.id, snapshotDigest: task.snapshot_digest, patchDigest: call.patchDigest, baseCommit: call.baseCommit });
   const now = gov.clock.nowMs();
   const today = utcDay(now);
   const used = (db.prepare("SELECT count FROM standing_uses WHERE workspace_id=? AND tool=? AND day=?").get(task.workspace_id, call.tool, today) as { count: number } | undefined)?.count ?? 0;

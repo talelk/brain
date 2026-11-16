@@ -1,12 +1,12 @@
-import { BrainError, isSlug, type BrainToolRequest, type BrainToolResponse, type Digest, type JsonValue, type ToolOutcome } from "@brain/contracts";
+import { BrainError, isSlug, type BrainToolRequest, type BrainToolResponse, type JsonValue, type ToolOutcome } from "@brain/contracts";
 import { tx } from "../db";
 import type { Gov } from "../dispatch";
-import { openPullRequest, pullRequestPatch } from "../integrations/pull-request";
+import { openPullRequest, pullRequestChange } from "../integrations/pull-request";
 import { postTeams } from "../integrations/teams";
 import { proposeMemory, searchMemory } from "../memory/memory";
 import { settle } from "../tasks/orchestrator";
 import { insertTask, taskOf, type AttemptRow, type TaskRow } from "../tasks/store";
-import { authorizeCall, callRowId, finishCall, openCall } from "../trust/approvals";
+import { authorizeCall, callRowId, finishCall, openCall, type PullRequestChange } from "../trust/approvals";
 import { manifestOf } from "../workspace/store";
 import { inputProblem, ToolRefusal } from "./schema";
 
@@ -52,13 +52,14 @@ function runNow(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: string, inpu
 }
 
 /** The tools that reach another server. They run after the call is recorded and approved, outside any transaction. */
-async function runOutside(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: string, input: Input, patchDigest: Digest | undefined): Promise<JsonValue> {
+async function runOutside(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: string, input: Input, change: PullRequestChange): Promise<JsonValue> {
   if (tool === "message.send") {
     await postTeams(gov, task.workspace_id, input["text"] as string);
     return { sent: true };
   }
+  const { patchDigest } = change;
   if (patchDigest === undefined) throw new Error("a pull request call has no patch in its approval subject");
-  return { ...(await openPullRequest(gov, attempt, task, { project: input["project"] as string, title: input["title"] as string, body: input["body"] as string }, patchDigest)) };
+  return { ...(await openPullRequest(gov, attempt, task, { project: input["project"] as string, title: input["title"] as string, body: input["body"] as string }, { ...change, patchDigest })) };
 }
 
 const words = (e: unknown): string => {
@@ -88,7 +89,7 @@ export function runBrainTool(gov: Gov, attempt: AttemptRow, request: Omit<BrainT
 
   const run = async (): Promise<BrainToolResponse> => {
     const input = request.input as Input;
-    const first = tx(db, (): BrainToolResponse | { patchDigest: Digest | undefined } => {
+    const first = tx(db, (): BrainToolResponse | { change: PullRequestChange } => {
       const known = db.prepare("SELECT outcome, output_json, approval_id FROM tool_calls WHERE id=?").get(rowId) as { outcome: ToolOutcome | "pending"; output_json: string | null; approval_id: string | null } | undefined;
       // A call the Governor already carried out is answered as it was; a runner that reported the call as held has not been answered yet.
       if (known && known.outcome !== "pending" && known.outcome !== "held") return answered(known.outcome, JSON.parse(known.output_json ?? "null") as JsonValue);
@@ -97,10 +98,12 @@ export function runBrainTool(gov: Gov, attempt: AttemptRow, request: Omit<BrainT
       try {
         const problem = asked ? undefined : inputProblem(tool.input_schema, request.input);
         if (problem) throw new ToolRefusal(`The input of ${request.tool} is not valid: ${problem}`);
-        const decision = authorizeCall(gov, attempt, { callId: request.callId, tool: request.tool, effect: tool.effect, input: request.input, patchDigest: !asked && request.tool === "git.open-pr" ? pullRequestPatch(gov, attempt, task, input["project"] as string) : undefined });
+        const change = !asked && request.tool === "git.open-pr" ? pullRequestChange(gov, attempt, task, input["project"] as string, request.baseCommits) : {};
+        const decision = authorizeCall(gov, attempt, { callId: request.callId, tool: request.tool, effect: tool.effect, input: request.input, ...change });
         if (decision.state === "pending") return { state: "pending", approvalId: decision.approvalId as string };
         if (decision.state !== "approved") return { state: "rejected", reason: decision.reason ?? "The call was not approved" };
-        if (request.tool === "git.open-pr" || request.tool === "message.send") return { patchDigest: decision.subject?.patchDigest };
+        // What is opened is what was approved: the patch and the commit of the subject, whoever asks again and whenever.
+        if (request.tool === "git.open-pr" || request.tool === "message.send") return { change: { patchDigest: decision.subject?.patchDigest, baseCommit: decision.subject?.baseCommit } };
         // In a transaction of its own inside this one: a tool that fails half-way leaves nothing behind.
         return finish("succeeded", tx(db, () => runNow(gov, attempt, task, request.tool, input)));
       } catch (e) {
@@ -108,9 +111,9 @@ export function runBrainTool(gov: Gov, attempt: AttemptRow, request: Omit<BrainT
         return finish("failed", { error: words(e) });
       }
     });
-    if (!("patchDigest" in first)) return first;
+    if (!("change" in first)) return first;
     try {
-      const output = await runOutside(gov, attempt, task, request.tool, input, first.patchDigest);
+      const output = await runOutside(gov, attempt, task, request.tool, input, first.change);
       return tx(db, () => finish("succeeded", output));
     } catch (e) {
       return tx(db, () => finish("failed", { error: words(e) }));

@@ -43,7 +43,7 @@ beforeAll(async () => {
     agents: { writer: {}, developer: { native: "all", tools: ["git.open-pr"] }, operator: { tools: ["deploy.restart"] } },
     tools: { "deploy.restart": 'description = "Restarts one container."\neffect = "privileged"\nneeds = ["bash"]\n[inputs.container]\ntype = "string"\nrequired = true\n' },
     plays: {
-      pipeline: 'title = "Pipeline"\n[[step]]\nid = "draft"\nagent = "writer"\ngoal = """Draft the note.\nFIXTURE @work reply The tide follows the moon."""\n[[step]]\nid = "polish"\nagent = "writer"\nafter = ["draft"]\ngoal = """Polish this: {{steps.draft.result}}\nFIXTURE @work reply Polished."""\n',
+      pipeline: 'title = "Pipeline"\n[[step]]\nid = "draft"\nagent = "writer"\ngoal = """Draft the note.\nFIXTURE @work reply The tide follows the moon."""\n[[step]]\nid = "polish"\nagent = "writer"\nafter = ["draft"]\ngoal = """Polish this: {{steps.draft.result}}\nFIXTURE @work reply Polished in round %round%."""\n',
       change: 'title = "Change"\n[[step]]\nid = "change"\nagent = "developer"\ngoal = """Fix the total.\nFIXTURE @work write shop/src/cart.js export const total = (items) => items.reduce((sum, item) => sum + item.price, 0);\\\\n\nFIXTURE @work tool git.open-pr {"project": "shop", "title": "Fix the cart total", "body": "It counted the items."}\nFIXTURE @work reply Opened the pull request."""\n',
       restart: 'title = "Restart"\n[[step]]\nid = "restart"\nagent = "operator"\ngoal = """Restart the database.\nFIXTURE @work tool deploy.restart {"container": "db"}\nFIXTURE @work reply The database was restarted."""\n',
     },
@@ -68,7 +68,8 @@ describe("the runner and the Governor together", () => {
     const taskId = await start("pipeline");
     expect(await runAll()).toBe(4);
     const task = await getTask(member, workspaceId, taskId);
-    expect(task).toMatchObject({ state: "done", result: "Polished." });
+    // `%round%` is the fixture's own placeholder: a Play's goal may hold it, and the engine fills it in.
+    expect(task).toMatchObject({ state: "done", result: "Polished in round 1." });
     expect(task.attempts.map((attempt) => [attempt.kind, attempt.agent, attempt.state, attempt.engine])).toEqual([
       ["work", "writer", "succeeded", "fixture"], ["check", "checker", "succeeded", "fixture"], ["work", "writer", "succeeded", "fixture"], ["check", "checker", "succeeded", "fixture"],
     ]);
@@ -91,7 +92,7 @@ describe("the runner and the Governor together", () => {
     expect(git(origin.repo, "show", `${branch}:src/cart.js`)).toBe("export const total = (items) => items.reduce((sum, item) => sum + item.price, 0);");
     expect(git(origin.repo, "log", "--format=%s|%P", "-1", branch)).toBe(`Fix the cart total|${base}`);
     expect(server.opened).toEqual([{ repo: "origin", title: "Fix the cart total", head: branch, base: "main", body: "It counted the items." }]);
-    expect(task.approvals).toMatchObject([{ tool: "git.open-pr", state: "approved", standing: false, subject: { patchDigest: expect.stringMatching(/^sha256:/u) } }]);
+    expect(task.approvals).toMatchObject([{ tool: "git.open-pr", state: "approved", standing: false, subject: { patchDigest: expect.stringMatching(/^sha256:/u), baseCommit: base } }]);
     expect(task.pullRequests).toMatchObject([{ project: "shop", number: 41, branch }]);
     // The attempt left its working copy as a patch, on the commit it found; the check was given that patch to work on.
     const work = task.attempts[0];

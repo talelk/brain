@@ -15,6 +15,8 @@ export interface RunnerConfig {
   /** The plain capability names the operator declares (`bash`, `python3`, `curl`, `docker`). `native-tools` is never declared: the runner states it itself. */
   readonly capabilities: readonly string[];
   readonly engines: readonly string[];
+  /** Engines the fixture stands in for, so that agents written for them run with no model. Only where `engines` has `fixture`. */
+  readonly fixtureFor?: readonly string[];
   readonly slots: number;
   /** How long one engine session may run; the offer carries no time limit. */
   readonly attemptTimeoutMs: number;
@@ -38,6 +40,8 @@ export interface RunnerConfig {
  *   BRAIN_RUNNER_ENROLL_TOKEN             the one-use enrolment token, for the first start only
  *   BRAIN_RUNNER_CAPABILITIES             comma-separated capability names the operator declares (default bash)
  *   BRAIN_RUNNER_ENGINES                  comma-separated engines: fixture, pi, claude, opencode, codex (default fixture)
+ *   BRAIN_RUNNER_FIXTURE_FOR              comma-separated engines the fixture stands in for (default none): an agent written for one of
+ *                                         them then runs on the fixture, with no model, and its attempts say so
  *   BRAIN_RUNNER_SLOTS                    attempts at a time (default 1)
  *   BRAIN_RUNNER_ATTEMPT_TIMEOUT_SECONDS  how long one engine session may run (default 3600)
  *   BRAIN_RUNNER_SANDBOX_CPU_MILLICORES   cpu of an engine sandbox (default 2000)
@@ -59,6 +63,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): RunnerConfi
     ...(env["BRAIN_RUNNER_ENROLL_TOKEN"] ? { enrollToken: env["BRAIN_RUNNER_ENROLL_TOKEN"] } : {}),
     capabilities: list("BRAIN_RUNNER_CAPABILITIES", "bash"),
     engines: list("BRAIN_RUNNER_ENGINES", "fixture"),
+    ...(env["BRAIN_RUNNER_FIXTURE_FOR"] ? { fixtureFor: list("BRAIN_RUNNER_FIXTURE_FOR", "") } : {}),
     slots: positive("BRAIN_RUNNER_SLOTS", 1),
     attemptTimeoutMs: positive("BRAIN_RUNNER_ATTEMPT_TIMEOUT_SECONDS", 3600) * 1000,
     sandbox: { cpuMillicores: positive("BRAIN_RUNNER_SANDBOX_CPU_MILLICORES", 2000), memoryMb: positive("BRAIN_RUNNER_SANDBOX_MEMORY_MB", 4096) },

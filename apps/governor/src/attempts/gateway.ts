@@ -1,4 +1,4 @@
-import { secretName, type AttemptUsage } from "@brain/contracts";
+import { secretName, type AttemptUsage, type SnapshotManifest } from "@brain/contracts";
 import type { Context } from "hono";
 import type { Governor } from "../app";
 import type { Gov } from "../dispatch";
@@ -13,17 +13,20 @@ import { attemptOfModelToken } from "./routes";
  * The model gateway (docs/architecture.md section 6). An engine reaches its model only here, with the token of its attempt: OpenAI-style at
  * `/model/v1/chat/completions`, Anthropic-style at `/model/v1/messages`. The Governor forwards to the workspace's models of that kind in
  * order (the agent's own first), moves to the next when one refuses for quota or is not available, keeps the keys to itself, and adds the
- * token counts and cost each answer reports to the attempt's usage. It keeps no request and no answer.
+ * token counts and the cost of each answer to the attempt's usage: the cost the model server reports, or else the token counts at the
+ * model's prices in `brain.toml` (nothing when it has none). It keeps no request and no answer.
  */
 const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
 const CALL_TIMEOUT_MS = 10 * 60_000;
 type Provider = "openai-compatible" | "anthropic";
+type Model = SnapshotManifest["models"][number];
+type Reported = { usage?: Record<string, unknown>; message?: { usage?: Record<string, unknown> } } | null;
+const usageOf = (value: unknown): Record<string, unknown> | undefined => (value as Reported)?.usage ?? (value as Reported)?.message?.usage;
 const refusal = (status: number, message: string): Response => Response.json({ error: { message, type: status === 401 ? "invalid_api_key" : "gateway_refused", code: null } }, { status });
 
 /** Adds to `into` what one JSON answer (or one frame of a stream) says about usage, in either vendor's words. */
 export function readUsage(value: unknown, into: AttemptUsage): AttemptUsage {
-  const holder = value as { usage?: Record<string, unknown>; message?: { usage?: Record<string, unknown> } } | null;
-  const usage = holder?.usage ?? holder?.message?.usage;
+  const usage = usageOf(value);
   if (!usage || typeof usage !== "object") return into;
   const count = (name: string): number | undefined => (typeof usage[name] === "number" ? Math.max(0, Math.round(usage[name])) : undefined);
   const next = { ...into };
@@ -88,18 +91,19 @@ async function forward(gov: Gov, c: Context, provider: Provider): Promise<Respon
       last = new Response(await upstream.text(), { status: upstream.status, headers: { "content-type": upstream.headers.get("content-type") ?? "application/json" } });
       continue;
     }
-    return relay(gov, upstream, attempt.id, attempt.workspace_id, model.name);
+    return relay(gov, upstream, attempt.id, attempt.workspace_id, model);
   }
   return last;
 }
 
 /** Hands the model's answer on as it arrives, reading only its usage figures on the way. */
-function relay(gov: Gov, upstream: Response, attemptId: string, workspaceId: string, model: string): Response {
+function relay(gov: Gov, upstream: Response, attemptId: string, workspaceId: string, model: Model): Response {
   const headers = new Headers();
   for (const name of ["content-type", "retry-after"]) if (upstream.headers.get(name)) headers.set(name, upstream.headers.get(name) as string);
   const streaming = (upstream.headers.get("content-type") ?? "").includes("text/event-stream");
   const decoder = new TextDecoder();
   let used: AttemptUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0 };
+  let costReported = false;
   let pending = "";
   const scan = (text: string, end: boolean): void => {
     pending += text;
@@ -108,7 +112,11 @@ function relay(gov: Gov, upstream: Response, attemptId: string, workspaceId: str
     for (const frame of frames) {
       const data = streaming ? (frame.startsWith("data:") && frame.includes("\"usage\"") ? frame.slice(5) : undefined) : frame;
       if (data === undefined) continue;
-      try { used = readUsage(JSON.parse(data), used); } catch { /* not JSON: it carries no figures */ }
+      try {
+        const answer: unknown = JSON.parse(data);
+        used = readUsage(answer, used);
+        costReported ||= typeof usageOf(answer)?.["cost"] === "number";
+      } catch { /* not JSON: it carries no figures */ }
     }
   };
   let recorded = false;
@@ -116,8 +124,10 @@ function relay(gov: Gov, upstream: Response, attemptId: string, workspaceId: str
     if (recorded) return;
     recorded = true;
     scan(decoder.decode(), true);
+    // A model server that says nothing of cost is priced here, per million tokens; a model with no prices costs nothing on record.
+    if (!costReported) used = { ...used, microUsd: Math.round(used.inputTokens * (model.input_usd_per_mtok ?? 0) + used.outputTokens * (model.output_usd_per_mtok ?? 0)) };
     if (upstream.ok && gov.db.open) {
-      meterUsage(gov.db, attemptId, model, used);
+      meterUsage(gov.db, attemptId, model.name, used);
       markChanged(gov.db, workspaceId);
     }
   };

@@ -276,6 +276,36 @@ describe("a runner", () => {
     answer = () => Response.json({});
   });
 
+  it("prices a call from its token counts when the model server reports no cost, and records no cost for a model without prices", async () => {
+    const priced = await makeWorkspace(harness, "Priced", {
+      brain: `[[model]]\nname = "main"\nprovider = "openai-compatible"\nurl = "https://priced.example/v1"\nmodel = "small"\ninput_usd_per_mtok = 2\noutput_usd_per_mtok = 10
+[[model]]\nname = "spare"\nprovider = "openai-compatible"\nurl = "https://unpriced.example/v1"\nmodel = "large"\n`,
+      agents: { dev: {} }, plays: { one: one("dev") },
+    });
+    const run = async (answers: Array<(url: string) => Response>) => {
+      const taskId = await start("one", priced.workspaceId);
+      const offer = (await driver.claim()) as JobOffer;
+      await driver.ack(offer);
+      const token = await modelTokenOf(driver, offer);
+      for (const next of answers) {
+        answer = next;
+        await (await harness.anonymous.fetch("/model/v1/chat/completions", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: JSON.stringify({ messages: [] }) })).text();
+      }
+      await driver.finish(offer);
+      await driver.drain();
+      answer = () => Response.json({});
+      return (await getTask(harness.admin, priced.workspaceId, taskId)).attempts[0];
+    };
+    const tokens = { prompt_tokens: 1000, completion_tokens: 500 };
+    // 1000 tokens in at $2 a million and 500 out at $10 a million; a cost the model server states itself is taken as it is.
+    expect(await run([() => Response.json({ choices: [], usage: tokens }), () => Response.json({ choices: [], usage: { ...tokens, cost: 0.001 } })]))
+      .toMatchObject({ model: "main", priced: true, usage: { inputTokens: 2000, outputTokens: 1000, microUsd: 7000 + 1000 } });
+    // The first model is out of quota, the next one has no prices: its tokens are counted and cost nothing on record.
+    expect(await run([(url) => (url.startsWith("https://priced.example") ? Response.json({}, { status: 429 }) : Response.json({ choices: [], usage: tokens }))]))
+      .toMatchObject({ model: "spare", priced: false, usage: { inputTokens: 1000, outputTokens: 500, microUsd: 0 } });
+    expect((await harness.admin.query("usage.summary", { workspaceId: priced.workspaceId, days: 1 })).total).toMatchObject({ microUsd: 8000, inputTokens: 3000 });
+  });
+
   it("is given a person's answer to the agent's question in the next attempt", async () => {
     driver.script({
       dev: async ({ offer, brain }) => {

@@ -5,7 +5,7 @@ import { extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { registerGateway } from "./attempts/gateway";
 import { registerAttempts } from "./attempts/routes";
-import { registerRunners } from "./attempts/runners";
+import { offerLocalRunnerToken, registerRunners } from "./attempts/runners";
 import { createAuth } from "./auth/auth";
 import { ensureSetupToken, registerAuth } from "./auth/handlers";
 import { openDb } from "./db";
@@ -30,8 +30,12 @@ export interface GovernorOptions {
   readonly dataDir: string;
   /** The address people reach the Governor at; sign-in cookies and passkeys are bound to it. */
   readonly baseUrl?: string;
+  /** The address engines reach the Governor at for the model gateway, when it is not `baseUrl` (a sandbox reaches the host by another name). */
+  readonly gatewayUrl?: string;
   readonly packsDir?: string;
   readonly webDist?: string;
+  /** Where to leave a one-use runner token while no runner is enrolled (`BRAIN_LOCAL_RUNNER_TOKEN_FILE`): the bundled runner enrols with it, without a person. */
+  readonly localRunnerTokenFile?: string;
   readonly clock?: Clock;
   /** Tests answer the Governor's outgoing requests themselves. */
   readonly fetch?: typeof fetch;
@@ -78,7 +82,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   const db = openDb(dataDir);
   const keys = instanceKeys(dataDir);
   const gov: Gov = {
-    db, dataDir, baseUrl, keys, packsDir: resolve(options.packsDir ?? repo("packs")), clock: options.clock ?? systemClock, fetch: options.fetch ?? ((input, init) => fetch(input, init)),
+    db, dataDir, baseUrl, gatewayUrl: (options.gatewayUrl ?? baseUrl).replace(/\/+$/u, ""), keys, packsDir: resolve(options.packsDir ?? repo("packs")), clock: options.clock ?? systemClock, fetch: options.fetch ?? ((input, init) => fetch(input, init)),
     auth: createAuth(db, { secret: hmacSha256Hex(keys.digests, Buffer.from("better-auth")), baseUrl }), registry: new Registry(), onActivate: [],
   };
   const app = new Hono();
@@ -177,6 +181,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
 
   ensureAuditKey(gov);
   ensureSetupToken(db, dataDir);
+  if (options.localRunnerTokenFile) offerLocalRunnerToken(gov, resolve(options.localRunnerTokenFile));
   await reconcile(gov);
 
   // The built web app, when it is there; any other path is a page of it.

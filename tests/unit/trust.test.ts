@@ -65,9 +65,8 @@ describe("a call's input", () => {
 });
 
 describe("the next time of a schedule", () => {
-  // Local times, as cron means them.
-  const at = (month: number, day: number, hour: number, minute: number): number => new Date(2026, month - 1, day, hour, minute).getTime();
-  const next = (expression: string, from: number): number | undefined => nextCron(expression, from);
+  const at = (month: number, day: number, hour: number, minute: number): number => Date.UTC(2026, month - 1, day, hour, minute);
+  const next = (expression: string, from: number, timeZone = "UTC"): number | undefined => nextCron(expression, from, timeZone);
   it("is the first matching minute after the given moment", () => {
     expect(next("*/15 * * * *", at(11, 16, 9, 0))).toBe(at(11, 16, 9, 15));
     expect(next("*/15 * * * *", at(11, 16, 9, 59) + 30_000)).toBe(at(11, 16, 10, 0));
@@ -88,5 +87,19 @@ describe("the next time of a schedule", () => {
     expect(next("61 * * * *", at(11, 16, 9, 0))).toBeUndefined();
     expect(next("0 8 * * mon", at(11, 16, 9, 0))).toBeUndefined();
     expect(next("0 0 31 2 *", at(11, 16, 9, 0))).toBeUndefined();
+  });
+  it("is read on the wall clock of the workspace's time zone", () => {
+    // Paris is an hour ahead of UTC in winter and two in summer; Tunis is an hour ahead all year.
+    expect(next("0 8 * * *", at(11, 16, 9, 0), "Europe/Paris")).toBe(at(11, 17, 7, 0));
+    expect(next("0 8 * * *", at(7, 1, 9, 0), "Europe/Paris")).toBe(at(7, 2, 6, 0));
+    expect(next("0 8 * * 1", at(11, 16, 6, 30), "Africa/Tunis")).toBe(at(11, 16, 7, 0));
+    expect(next("0 0 1 * *", at(11, 30, 22, 30), "Europe/Paris")).toBe(at(11, 30, 23, 0));
+    // 29 March 2026, Paris: the clock goes from 02:00 to 03:00, so 02:30 does not come that day.
+    expect(next("30 2 * * *", at(3, 28, 12, 0), "Europe/Paris")).toBe(at(3, 30, 0, 30));
+    expect(next("0 * * * *", at(3, 29, 0, 30), "Europe/Paris")).toBe(at(3, 29, 1, 0));
+    // 25 October 2026, Paris: the clock goes from 03:00 back to 02:00, so 02:30 comes twice.
+    expect(next("30 2 * * *", at(10, 24, 12, 0), "Europe/Paris")).toBe(at(10, 25, 0, 30));
+    expect(next("30 2 * * *", at(10, 25, 0, 30), "Europe/Paris")).toBe(at(10, 25, 1, 30));
+    expect(next("30 2 * * *", at(10, 25, 1, 30), "Europe/Paris")).toBe(at(10, 26, 1, 30));
   });
 });

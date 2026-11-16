@@ -119,6 +119,16 @@ Checker (`base/agents/checker`), and every agent used as `review_by`
 
 All three are always present; `score` is from 0 to 1.
 
+Judge (the agent a step names as `judge`), for a `judge` attempt:
+
+```json
+{"keep": "<attemptId>", "findings": "string"}
+```
+
+`keep` is the attempt id of the one candidate to keep, as the judge's context lists the
+candidates; `findings` says why. The judgement is the check of the kept result unless
+the step also names `review_by`.
+
 Router (`customer-operations/agents/router`):
 
 ```json

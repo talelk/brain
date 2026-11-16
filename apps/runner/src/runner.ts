@@ -60,6 +60,8 @@ export class Runner {
       if (hosting === "sandboxed" ? createEngine(id) !== undefined : hosting !== "unavailable" && (await createEngine(id)?.probe().catch(() => undefined))?.ready === true) engines.push(id);
     }
     const native = engines.some((id) => nativeToolsAllowed(engineHosting(id, this.sandboxAvailable)));
+    // The fixture answers for the engines it stands in for: the Governor offers this runner the agents written for them.
+    if (engines.includes("fixture")) engines.push(...(this.cfg.fixtureFor ?? []).filter((id) => !engines.includes(id)));
     const capabilities = [...new Set([...this.cfg.capabilities.filter((name) => name !== NATIVE_TOOLS), ...(native ? [NATIVE_TOOLS] : [])])];
     return { capabilities, engines, slots: this.cfg.slots, freeSlots: Math.max(0, this.cfg.slots - this.running.size), version: RUNNER_VERSION };
   }

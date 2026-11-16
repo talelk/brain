@@ -125,6 +125,34 @@ describe("git.open-pr", () => {
     expect((await getTask(member, workspaceId, taskId)).result).toBe("Opened https://github.example/origin/pull/42");
   });
 
+  it("in a goal's first attempt the pull request is made on the commit the runner names with the call, also when the branch moved before the approval", async () => {
+    const base = origin.head();
+    const patch = patchOf({ "src/tax.js": "export const tax = (total) => total * 0.19;\n" });
+    let subject: Approval["subject"] | undefined;
+    driver.script({
+      developer: async (turn) => {
+        expect(turn.offer.projects[0]?.baseCommit).toBeUndefined();
+        await turn.upload("working-copy.patch", patch, "patch");
+        const call = { callId: "first-attempt", tool: "git.open-pr", input: { project: "shop", title: "Add the tax", body: "19 percent." }, baseCommits: { shop: base } };
+        expect(await turn.post<BrainToolResponse>("brain-tool", call)).toMatchObject({ state: "pending" });
+        origin.commit({ "NOTES.md": "Pushed by someone else meanwhile.\n" }, "meanwhile");
+        subject = (await approve()).subject;
+        const opened = await turn.post<BrainToolResponse>("brain-tool", call);
+        return { result: JSON.stringify(opened), patch, baseCommits: { shop: base } };
+      },
+    });
+    const taskId = step(await getTask(member, workspaceId, (await member.command("task.create", { workspaceId, play: "solo" })).taskId), "change").id;
+    const offer = await driver.step();
+    expect(origin.head()).not.toBe(base);
+    // The approver was shown the commit, and the branch starts from it.
+    expect(subject).toMatchObject({ patchDigest: expect.stringMatching(/^sha256:/u), baseCommit: base });
+    expect(git(origin.repo, "log", "--format=%s|%P", "-1", `brain/${taskId}`)).toBe(`Add the tax|${base}`);
+    // The check that follows is given the same commit, which the Governor learnt from the call.
+    expect(offer?.kind).toBe("work");
+    expect((await driver.step())?.projects[0]).toMatchObject({ name: "shop", baseCommit: base });
+    await driver.drain();
+  });
+
   it("a change that does not fit the commit is refused with the paths, and nothing is pushed", async () => {
     const stale = patchOf({ "src/cart.js": "export const total = () => 0;\n" }).replace("items.length", "items.size");
     driver.script({
@@ -139,6 +167,6 @@ describe("git.open-pr", () => {
     await member.command("task.create", { workspaceId, play: "solo" });
     await driver.drain();
     expect(server.requests.filter((request) => request.path.endsWith("/git-receive-pack")).length).toBe(pushes);
-    expect(server.opened).toHaveLength(2);
+    expect(server.opened).toHaveLength(3);
   });
 });

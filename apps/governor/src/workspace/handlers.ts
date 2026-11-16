@@ -1,12 +1,14 @@
-import { BrainError, isSlug, type CommandInput, type FileEntry, type WorkspaceSummary } from "@brain/contracts";
+import { BrainError, isSlug, type CommandInput, type CommandOutputs, type FileEntry, type WorkspaceSummary } from "@brain/contracts";
 import { randomBytes } from "node:crypto";
 import { existsSync, rmSync } from "node:fs";
 import { stringify } from "smol-toml";
 import type { Governor } from "../app";
-import type { Ctx } from "../dispatch";
+import type { Db } from "../db";
+import type { Ctx, Gov } from "../dispatch";
 import { append } from "../events";
 import { setSecret } from "../trust/secrets";
-import { listPacks } from "./files";
+import { listPacks, readPack } from "./files";
+import type { Author } from "./git";
 import { activate, commitFolder, commitOf, getWorkspace, loadFolder, manifestOf, workspaceDir, type Committed } from "./store";
 
 const encode = (content: string): Uint8Array => new TextEncoder().encode(content);
@@ -28,33 +30,48 @@ function firstBrainToml(input: CommandInput<"workspace.create">): string {
   });
 }
 
+/** A new workspace's folder, committed and valid, not yet a workspace: `createWorkspace` makes it one. */
+export interface NewWorkspace { readonly slug: string; readonly committed: Committed }
+
+/** Writes and commits the folder of a new workspace. Git cannot run in a transaction, so this comes first. */
+export async function commitNewWorkspace(gov: Gov, input: CommandInput<"workspace.create">, by: Author): Promise<NewWorkspace> {
+  const slug = input.slug ?? slugOf(input.name);
+  if (!isSlug(slug)) throw new BrainError("INVALID_INPUT", "Give the workspace an address", [{ path: "slug", message: "an address is lower-case letters, digits and dashes, starting with a letter" }]);
+  if (gov.db.prepare("SELECT 1 FROM workspaces WHERE slug=?").get(slug)) throw new BrainError("CONFLICT", `A workspace already has the address ${slug}`);
+  // A folder no workspace owns is what a creation that failed half-way left behind.
+  const dir = workspaceDir(gov, slug);
+  if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+  try {
+    return { slug, committed: await commitFolder(gov, slug, { write: new Map([["brain.toml", encode(firstBrainToml(input))]]), remove: [], message: "Create the workspace", author: by }) };
+  } catch (e) {
+    rmSync(dir, { recursive: true, force: true });
+    throw e;
+  }
+}
+
+/** Makes a committed folder a workspace, with its first admin and the secrets given at creation. Runs in the command's transaction. */
+export function createWorkspace(gov: Gov, db: Db, input: CommandInput<"workspace.create">, { slug, committed }: NewWorkspace, userId: string): CommandOutputs["workspace.create"] {
+  const now = gov.clock.nowMs();
+  const workspaceId = `ws_${randomBytes(9).toString("base64url")}`;
+  db.prepare("INSERT INTO workspaces(id, slug, name, description, active_snapshot, created_at_ms) VALUES (?,?,?,?,?,?)").run(workspaceId, slug, input.name, input.description, committed.snapshotDigest, now);
+  db.prepare("INSERT INTO members(workspace_id, user_id, role, created_at_ms) VALUES (?,?,'admin',?)").run(workspaceId, userId, now);
+  if (input.model?.key) setSecret(gov, db, { workspaceId, name: `model-${input.model.name}`, value: input.model.key, by: userId });
+  if (input.project?.credential) setSecret(gov, db, { workspaceId, name: "github", value: input.project.credential, by: userId });
+  activate(gov, db, workspaceId, committed, { kind: "person", id: userId }, "workspace.created");
+  return { workspaceId, slug, snapshotDigest: committed.snapshotDigest };
+}
+
+/** The pack a first workspace is made from, and that workspace: what a person sees before they have made anything. Its `hello` Play is the sample goal. */
+export const STARTER_PACK = "base";
+export const starterWorkspace = (gov: Gov): CommandInput<"workspace.create"> | undefined =>
+  (readPack(gov.packsDir, STARTER_PACK) ? { name: "Starter", description: "A first workspace to try Brain in. Start the Play \"Say hello\" to see a goal become a checked result.", packs: [STARTER_PACK] } : undefined);
+
 export function registerWorkspace({ gov: { registry } }: Governor): void {
-  registry.command<"workspace.create", { slug: string; committed: Committed }>("workspace.create", {
-    async prepare(ctx, input) {
-      const slug = input.slug ?? slugOf(input.name);
-      if (!isSlug(slug)) throw new BrainError("INVALID_INPUT", "Give the workspace an address", [{ path: "slug", message: "an address is lower-case letters, digits and dashes, starting with a letter" }]);
-      if (ctx.db.prepare("SELECT 1 FROM workspaces WHERE slug=?").get(slug)) throw new BrainError("CONFLICT", `A workspace already has the address ${slug}`);
-      // A folder no workspace owns is what a creation that failed half-way left behind.
-      const dir = workspaceDir(ctx.gov, slug);
-      if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
-      try {
-        const committed = await commitFolder(ctx.gov, slug, { write: new Map([["brain.toml", encode(firstBrainToml(input))]]), remove: [], message: "Create the workspace", author: author(ctx) });
-        return { slug, committed };
-      } catch (e) {
-        rmSync(dir, { recursive: true, force: true });
-        throw e;
-      }
-    },
-    run(ctx, input, { slug, committed }) {
-      const user = ctx.user;
-      if (!user) throw new BrainError("UNAUTHENTICATED", "Sign in first");
-      const workspaceId = `ws_${randomBytes(9).toString("base64url")}`;
-      ctx.db.prepare("INSERT INTO workspaces(id, slug, name, description, active_snapshot, created_at_ms) VALUES (?,?,?,?,?,?)").run(workspaceId, slug, input.name, input.description, committed.snapshotDigest, ctx.now());
-      ctx.db.prepare("INSERT INTO members(workspace_id, user_id, role, created_at_ms) VALUES (?,?,'admin',?)").run(workspaceId, user.id, ctx.now());
-      if (input.model?.key) setSecret(ctx.gov, ctx.db, { workspaceId, name: `model-${input.model.name}`, value: input.model.key, by: user.id });
-      if (input.project?.credential) setSecret(ctx.gov, ctx.db, { workspaceId, name: "github", value: input.project.credential, by: user.id });
-      activate(ctx.gov, ctx.db, workspaceId, committed, ctx.actor, "workspace.created");
-      return { workspaceId, slug, snapshotDigest: committed.snapshotDigest };
+  registry.command<"workspace.create", NewWorkspace>("workspace.create", {
+    prepare: (ctx, input) => commitNewWorkspace(ctx.gov, input, author(ctx)),
+    run(ctx, input, prepared) {
+      if (!ctx.user) throw new BrainError("UNAUTHENTICATED", "Sign in first");
+      return createWorkspace(ctx.gov, ctx.db, input, prepared, ctx.user.id);
     },
   });
 

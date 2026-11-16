@@ -30,7 +30,8 @@ const MAX_ARTIFACT_BYTES = 64 * 1024 * 1024;
 
 const fence = z.int().min(0);
 const text = z.string().max(2_000_000);
-const call = { fence, callId: z.string().min(1).max(100), tool: z.string().min(1).max(100), input: z.json() };
+const commits = z.record(z.string(), z.string().max(100));
+const call = { fence, callId: z.string().min(1).max(100), tool: z.string().min(1).max(100), input: z.json(), baseCommits: commits.optional() };
 const eventBody = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("status"), phase: z.enum(["setup", "engine", "upload"]), detail: text }),
   z.object({ kind: z.literal("text"), channel: z.enum(["assistant", "diagnostic"]), text }),
@@ -45,7 +46,7 @@ const blobRef = z.strictObject({ digest: z.string().refine(isDigest), bytes: z.i
 const completion = z.strictObject({
   fence, outcome: z.enum(["succeeded", "failed", "held"]), result: text, output: z.json().optional(),
   failure: z.strictObject({ reason: z.enum(["engine", "model-refused", "setup", "timeout", "limit", "stopped", "runner"]), detail: text, infrastructure: z.boolean() }).optional(),
-  usage, engine: z.string().max(100), workingCopy: blobRef.optional(), baseCommits: z.record(z.string(), z.string().max(100)),
+  usage, engine: z.string().max(100), workingCopy: blobRef.optional(), baseCommits: commits,
   receipt: z.strictObject({ receipt: z.unknown(), signature: z.string().min(1).max(500) }),
 });
 
@@ -56,6 +57,14 @@ function heldAttempt(gov: Gov, c: Context, fenceGiven: number): AttemptRow {
   if (!attempt) throw new BrainError("NOT_FOUND", "Attempt not found");
   if (attempt.runner_id !== runnerId || attempt.fence !== fenceGiven || (attempt.state !== "offered" && attempt.state !== "running")) throw new BrainError("LEASE_LOST", "This attempt is no longer this runner's to run");
   return attempt;
+}
+
+/**
+ * Keeps the commits a runner says its attempt's working copy stands on, from the first call that carries them: the goal's other tasks are
+ * then given the same commits without waiting for this attempt to end.
+ */
+function noteCommits(gov: Gov, attempt: AttemptRow, baseCommits: Readonly<Record<string, string>> | undefined): void {
+  if (baseCommits && Object.keys(baseCommits).length > 0) gov.db.prepare("UPDATE attempts SET base_commits_json=? WHERE id=? AND base_commits_json IS NULL").run(JSON.stringify(baseCommits), attempt.id);
 }
 
 /** A token for the model gateway, bound to the attempt and its fence. It holds its own proof, so nothing is stored. */
@@ -211,6 +220,7 @@ export function registerAttempts(governor: Governor): void {
   app.post(RUNNER_ROUTES.toolCall, async (c) => {
     const input = await body(c, z.strictObject(call));
     const attempt = heldAttempt(gov, c, input.fence);
+    noteCommits(gov, attempt, input.baseCommits);
     const manifest = manifestOf(gov, taskOf(db, attempt.task_id).snapshot_digest);
     const tool = manifest.agents[attempt.agent]?.tools.includes(input.tool) ? manifest.tools[input.tool] : undefined;
     if (!tool || tool.runs === "brain") throw new BrainError("FORBIDDEN", `The agent ${attempt.agent} has no tool ${input.tool} that a runner runs`);
@@ -231,7 +241,10 @@ export function registerAttempts(governor: Governor): void {
 
   app.post(RUNNER_ROUTES.brainTool, async (c) => {
     const input = await body(c, z.strictObject(call));
-    return c.json(await runBrainTool(gov, heldAttempt(gov, c, input.fence), input));
+    const attempt = heldAttempt(gov, c, input.fence);
+    noteCommits(gov, attempt, input.baseCommits);
+    const { baseCommits, ...request } = input;
+    return c.json(await runBrainTool(gov, attempt, { ...request, ...(baseCommits ? { baseCommits } : {}) }));
   });
 
   app.post(RUNNER_ROUTES.secret, async (c) => {

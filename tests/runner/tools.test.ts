@@ -13,7 +13,7 @@ const SCHEMA = { type: "object", properties: { container: { type: "string" }, li
 
 describe("tool input validation", () => {
   const tool = { name: "host.logs", inputSchema: SCHEMA } as unknown as OfferTool;
-  const calls = new ToolCalls({ offer: {} as JobOffer, client: {} as never, launcher: undefined, attemptDir: "", emit: () => undefined, syncPatch: async () => undefined, leaseLost: () => undefined, unsandboxedForTests: false, signal: new AbortController().signal });
+  const calls = new ToolCalls({ offer: {} as JobOffer, client: {} as never, launcher: undefined, attemptDir: "", emit: () => undefined, syncPatch: async () => undefined, baseCommits: () => ({}), leaseLost: () => undefined, unsandboxedForTests: false, signal: new AbortController().signal });
 
   it("accepts an input that fits the tool's inputs", () => {
     expect(calls.inputProblem(tool, { container: "web", lines: 100, mode: "fast", tags: ["a"] })).toBeUndefined();
@@ -31,7 +31,7 @@ describe("tool input validation", () => {
 
   it("records a call with a wrong input as failed and never runs the tool", async () => {
     const { gov, runner, stateDir } = await runnerWorld();
-    const offer = gov.offer({ tools: [gov.tool("deploy.mark", { script: markerScript(stateDir, "ran"), inputSchema: SCHEMA })], task: { goal: 'FIXTURE tool deploy.mark {"lines": 5}\nFIXTURE reply told: {{last}}' } });
+    const offer = gov.offer({ tools: [gov.tool("deploy.mark", { script: markerScript(stateDir, "ran"), inputSchema: SCHEMA })], task: { goal: 'FIXTURE tool deploy.mark {"lines": 5}\nFIXTURE reply told: %last%' } });
     await runner.runOnce();
     expect(existsSync(join(stateDir, "ran"))).toBe(false);
     expect(gov.eventsOf(offer.attemptId, "tool.result")[0]).toMatchObject({ outcome: "failed", output: { error: "The input does not fit the tool's inputs: input must have required property 'container'" } });
@@ -55,7 +55,7 @@ describe("script tools", () => {
     const { gov, runner } = await runnerWorld();
     gov.secrets["deploy-key"] = "s3cret-value";
     const script = '#!/usr/bin/env bash\ncat > /dev/null\nprintf \'{"saw": "%s", "length": %s}\' "$BRAIN_SECRET_DEPLOY_KEY" "$(printf %s "$BRAIN_SECRET_DEPLOY_KEY" | wc -c)"\n';
-    const offer = gov.offer({ tools: [gov.tool("deploy.show", { script, secrets: ["deploy-key"] })], task: { goal: "FIXTURE tool deploy.show {}\nFIXTURE reply {{last}}" } });
+    const offer = gov.offer({ tools: [gov.tool("deploy.show", { script, secrets: ["deploy-key"] })], task: { goal: "FIXTURE tool deploy.show {}\nFIXTURE reply %last%" } });
     await runner.runOnce();
     expect(gov.secretRequests).toEqual([{ fence: 1, name: "deploy-key", use: { tool: "deploy.show" } }]);
     expect(gov.eventsOf(offer.attemptId, "tool.result")[0]).toMatchObject({ outcome: "succeeded", output: { saw: "[redacted]", length: 12 } });
@@ -76,7 +76,7 @@ describe("script tools", () => {
       hostCommand: async (...args: unknown[]) => { ran.push(args); return { exitCode: 0, stdout: "web  Up 3 hours\n", stderr: "", timedOut: false }; },
     };
     const { gov, runner } = await runnerWorld({ launcher });
-    const offer = gov.offer({ tools: [gov.tool("host.logs", { hostCommand: "host.logs", inputSchema: SCHEMA })], task: { goal: 'FIXTURE tool host.logs {"container": "web", "lines": 100}\nFIXTURE reply {{last}}' } });
+    const offer = gov.offer({ tools: [gov.tool("host.logs", { hostCommand: "host.logs", inputSchema: SCHEMA })], task: { goal: 'FIXTURE tool host.logs {"container": "web", "lines": 100}\nFIXTURE reply %last%' } });
     await runner.runOnce();
     expect(ran).toEqual([["host.logs", { container: "web", lines: "100" }, "read", `${offer.attemptId}-call-1`]]);
     expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "succeeded", result: "web  Up 3 hours" });
@@ -95,6 +95,16 @@ describe("choosing an engine and naming tools", () => {
     expect(pickEngine(offer(["pi"], "all"), ["pi"], false)).toBeUndefined();
     expect(pickEngine(offer(["pi"], "read"), ["pi"], true)).toEqual({ id: "pi", hosting: "sandboxed" });
     expect(pickEngine(offer(["pi", "fixture"], "all"), ["pi", "fixture"], false)).toEqual({ id: "fixture", hosting: "fixture" });
+  });
+
+  it("where the fixture stands in for an engine, an agent written for that engine runs on the fixture, with no model", async () => {
+    expect(pickEngine(offer(["pi", "claude"], "all"), ["fixture"], false, ["pi", "claude"])).toEqual({ id: "fixture", hosting: "fixture" });
+    expect(pickEngine(offer(["opencode"], "none"), ["fixture"], false, ["pi", "claude"])).toBeUndefined();
+    const { gov, runner } = await runnerWorld({ fixtureFor: ["pi", "claude"] });
+    expect(gov.hellos.at(-1)).toMatchObject({ engines: ["fixture", "pi", "claude"], capabilities: ["bash", "native-tools"] });
+    const made = gov.offer({ agent: { engines: ["pi", "claude"], native: "read" }, task: { goal: "Describe the workspace." } });
+    await runner.runOnce();
+    expect(gov.completions.get(made.attemptId)).toMatchObject({ outcome: "succeeded", engine: "fixture", result: "fixture: done" });
   });
 
   it("gives a workspace tool a name a model API accepts, apart from the engine's own tools", () => {

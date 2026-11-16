@@ -1,22 +1,63 @@
 # Live server operations
 
-As of `talelk/brain@e4017e5` (2026-11-11):
-- Demo URL `https://brain.mykeyrus.tn`; the browser is already signed in as Administrator in the user's Chrome (Claude-in-Chrome tools).
-- SSH: `demos.mykeyrus.tn:42242` timed out after many connections on 2026-11-10; use the Tailscale host `ns390729` port 42242 user `talel`. The key `/home/talel/dev/keys/id_rsa` is only configured for the other host name, so start a temporary `ssh-agent` + `ssh-add` inside the same shell command (agent env does not persist between Bash calls) and pass `-p 42242`.
-- Deploy: `BRAIN_DEPLOY_HOST=ns390729 BRAIN_DEPLOY_PORT=42242 BRAIN_DEPLOY_SUDO_PASSWORD=<ask the user> ./scripts/deploy-demo.sh`. It rsyncs, repairs live schema, recreates the governor container, restarts launcher and runners; it never resets data. Runners restart right after: wait ~1 min before judging planning/runs.
-- Inspect data: `scp` a `node:sqlite` script to the host, `docker cp` it into `brain-governor-1`, `docker exec brain-governor-1 node /tmp/x.mjs`. DBs: `/data/control.db`, `/data/workspaces/ws-ded6091d-fea2-44b0-b46a-2a5cb10ae7c1.db` (workspace id `ws-ded6091d-fea2-44b0-b46a-2a5cb10ae7c1`). The container is recreated on deploy, so re-copy scripts.
-- Tests: `export TMPDIR=$HOME/.cache/tmp` (the default /tmp fills); `pnpm verify:fast`, `pnpm test:integration`, `pnpm test:chaos`, `pnpm test:security`; browser: `pnpm build` then `npx playwright test <spec> --project=1440-light --forbid-only --update-snapshots=none`. Kill orphaned Playwright runs.
-- Changing an agent markdown file re-pins digests and needs a release restage + activation.
+The demo is `https://brain.mykeyrus.tn`, on the demos host under `/srv/demos/brain`. The model is
+[docs/model.md](../model.md); this page is only how the demo host is run.
 
-Deploy safety net and the DEFAULT rule for new columns (enforced by `tests/contracts/live-schema-upgrade.test.ts`): `docs/wiki/archive/ops-live-server-2026-11-11-deploy-safety.md`. Credentials come from `~/.config/brain-dev/credentials.env`; `pnpm test:integration|security|chaos` pick a private TMPDIR.
+## Layout on the host
 
-Older ops notes (notification webhook, stuck-run watchdog, runner capacity): `docs/wiki/archive/ops-live-server-2026-11-11.md`.
+| Path | What |
+|---|---|
+| `src/` | this repository, synced by the deploy |
+| `data/` | the Governor's data (`brain.db`, `cas/`, `workspaces/`, `instance.key`, `audit/`) |
+| `run/` | launcher socket, the runner's folder (`run/runner`), egress grants |
+| `archive/` | what earlier versions left (`data-<time>/`, `config-<time>/`). Never delete it. |
+| `docker-compose.yml`, `.env`, `runner.env`, `host-commands.json` | written by the deploy |
 
-## SRE workspace and host access for the demos server (2026-11-12, ADR 0021, deployed)
-Workspace `ws-sre-demos`, made by `scripts/provision-sre-demos.sh` (idempotent; `BRAIN_PROVISION_REVISE=1` saves `scripts/demo/sre-demos/*.md` as new document revisions): four documents (inventory, monitoring, runbook, access rules) and two missions ("Keep the demos server healthy", achieved; "Check the demos server live", uses `sre-task`). 
-- Host access: `host.read` lists/reads/finds text files under `/srv` read-only; `host.exec` runs one named read-only diagnostic. Used by the `sre-operator` agent through the hidden `sre-task` workflow. Operator config, set by `scripts/deploy-demo.sh` on every deploy: launcher drop-in `/etc/systemd/system/brain-launcher.service.d/host-access.conf` (`BRAIN_LAUNCHER_DATA_MOUNTS=srv=/srv`, `BRAIN_LAUNCHER_HOST_COMMANDS=/srv/demos/brain/host-commands.json`, from `scripts/demo/host-commands.json`) and `BRAIN_TOOL_DATA_MOUNTS=host.read=srv` in `runner-agents.env` (format `tool=mount+mount,...`, per tool).
-- Checked live: launcher health lists the mount and commands; probes refused an undeclared command and a flag-like argument; a real mission made `host.exec` and `host.read` calls on `/srv/demos/*`. Secrets, databases, archives and `backups` are denied by name; secret-looking values are redacted.
-- Live run 2026-11-12: a task made 168 refused calls (budget 14) and parked; fixed with `http.check-demos`, budget 30 and a stop-when-refused rule.
-- Not done: privileged commands (restart/reload, each needing an effect permit) and a writable per-run output directory (results already appear in Outputs). Tools are org-wide (only `sre-operator` lists them; `sre-task` is hidden); a dedicated runner group is the next hardening step.
+What runs: the container `brain-governor-1` on `127.0.0.1:3100` behind the host's nginx, the container
+`brain-egress-proxy`, and the systemd units `brain-launcher` and `brain-runner` (one runner, engines
+`pi,claude`, in sandboxes). With `backup.env` on the host: `brain-backup.timer` (nightly, encrypted, to a
+second host) and `brain-restore-test.timer` (monthly).
 
-- Dated notes of 2026-11-12 (Tools tab, parked-task healing, release re-pinning): `docs/wiki/archive/ops-live-server-2026-11-12.md`. Pi attempts are judged while they run (ADR 0030).
+## Deploy
+
+```bash
+scripts/deploy-demo.sh --dry-run   # prints every local and remote action; connects to nothing
+scripts/deploy-demo.sh             # needs BRAIN_DEPLOY_SUDO_PASSWORD
+```
+
+The host, port and sudo password come from the environment (`BRAIN_DEPLOY_HOST`, `BRAIN_DEPLOY_PORT`,
+`BRAIN_DEPLOY_SUDO_PASSWORD`); a dev machine keeps them in `~/.config/brain-dev/credentials.env`, which the
+script reads by itself. Never copy the values anywhere else. The steps are listed at the top of the script.
+
+The first deploy of the simplified model (no `/srv/demos/brain/.simplified-model` yet) moves the earlier
+`data/` to `archive/data-<time>/`, retires the earlier units, and starts on an empty `data/`; it prints the
+setup link with the setup token. Later deploys keep `data/` as it is. A deploy restarts the Governor and
+the runner: attempts that were running are taken back and run again.
+
+## Day to day
+
+```bash
+ssh <host> 'cd /srv/demos/brain && docker compose logs --tail=100 governor'
+ssh <host> 'journalctl -u brain-runner -n 100'      # or brain-launcher
+ssh <host> 'cd /srv/demos/brain/src && BRAIN_HOME=/srv/demos/brain pnpm brain backup /tmp/brain.tar.gz'
+ssh <host> 'cd /srv/demos/brain/src && BRAIN_HOME=/srv/demos/brain pnpm brain audit-verify'
+```
+
+Restore on the host: `docker compose stop governor`, then `BRAIN_HOME=/srv/demos/brain pnpm brain restore <file>`
+(it refuses while the Governor answers; the data that was in place is moved to `data.before-restore-<time>`),
+then `docker compose start governor`.
+
+- A second runner: create a token on the Health screen, then start `apps/runner/src/main.ts` on the other
+  host with `BRAIN_GOVERNOR_URL`, `BRAIN_RUNNER_ENROLL_TOKEN` and the variables listed in
+  `apps/runner/src/config.ts`; a launcher beside it gives it sandboxes (`apps/launcher/src/server.ts`).
+- Host commands of the `sre` pack (`host.status`, `host.logs`, `host.disk`, `host.restart`, `host.redeploy`)
+  are the command lines in `deploy/demo/host-commands.json`. The launcher runs them as the deploy user, who
+  is in the `docker` group. `host.redeploy` takes the name of a folder under `/srv/demos` other than `brain`.
+- Engines in sandboxes reach the model gateway at `host.docker.internal:3100`, the Governor's port on
+  Docker's bridge address. The last step of the deploy checks that path.
+
+## Locally
+
+`pnpm brain start | stop | status | logs | backup | restore <file> | audit-verify` runs the same stack
+without containers for the Governor (`scripts/brain.ts` lists the environment variables). Tests: `pnpm verify`,
+`pnpm test:browser`. Use `export TMPDIR=$HOME/.cache/tmp` when `/tmp` is full.
