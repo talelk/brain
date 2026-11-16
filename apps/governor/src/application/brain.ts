@@ -65,6 +65,7 @@ import { createStreamService, frameOf, type StreamFilters, type StreamService } 
 import { DocumentService, documentCommands } from "../modules/resources/index";
 import { receiveWebhook, type WebhookReply } from "./webhooks";
 import { IntegrationService, integrationCommands, type GitCredentialMaterial, type OpenedPullRequest } from "../modules/integrations/index";
+import { actingAs, eventActorOf, runnerActor, scopeMethods, systemActor, type EventActor } from "./actor-context";
 import { EncryptedStoreAdapter, HostFileAdapter, SecretBroker, gitReference, revokeAttemptSecrets } from "../modules/secret-leases/index";
 import { ConfigurationDraftService } from "../modules/configuration/index";
 import { CapitalizationService, ToolTests, capitalizationCommands } from "../modules/capabilities/index";
@@ -266,7 +267,8 @@ export class Brain {
         dispatch: (actor, command) => this.commands.run(actor, command as Parameters<CommandFunnel["run"]>[1]),
         catalog: (organizationId) => (releaseDefinitions(this.store, organizationId, "workflows") as unknown as { items: WorkflowCatalogEntry[] }).items,
       });
-      quarantineRestoredAuthority(this.store, this.auth);
+      this.scopeEntryPoints();
+      actingAs(systemActor("startup"), () => quarantineRestoredAuthority(this.store, this.auth));
     } catch (e) {
       this.store.close();
       throw e;
@@ -274,9 +276,7 @@ export class Brain {
     this.probeMemoryService();
     this.memoryProbeTimer = setInterval(() => this.probeMemoryService(), 10_000);
     this.memoryProbeTimer.unref();
-    checkDisk(this.store);
-    checkReplica(this.store, this.replica);
-    checkBackups(this.store);
+    actingAs(systemActor("health-checks"), () => { checkDisk(this.store); checkReplica(this.store, this.replica); checkBackups(this.store); });
     if (this.replica) {
       const config = this.replica;
       void this.replicate();
@@ -363,6 +363,33 @@ export class Brain {
         ? { status: "healthy", detail: "TencentDB Memory Core reachable; scoped local review records remain authoritative", checkedAt }
         : { status: "unavailable", detail: `TencentDB Memory Core health returned HTTP ${response.status}`, checkedAt }; })
       .catch(() => { this.memoryProbe = { status: "unavailable", detail: `TencentDB Memory Core unreachable at ${url}`, checkedAt }; });
+  }
+
+  /**
+   * Who each entry point that is not a command acts as (ADR 0032, #148): every event takes its actor from the scope it is
+   * written in, so a pass, a runner call or a facade method names its principal here, once, instead of at each emit site.
+   * A command's scope is set by the funnel. Passes are named Governor principals, never a person.
+   */
+  private scopeEntryPoints(): void {
+    const runnerOf = (runner: { runnerId: string }, attemptId?: unknown): EventActor => runnerActor(runner.runnerId, typeof attemptId === "string" ? attemptId : undefined);
+    const caller = (actor: ActorContext): EventActor => eventActorOf(actor);
+    scopeMethods(this.missions, { pumpCoordinators: systemActor("coordinator") });
+    scopeMethods(this.stream, { projectAll: systemActor("projector"), sweep: systemActor("projector"), project: systemActor("projector") });
+    scopeMethods(this.integrations, { verifyPending: systemActor("integrations") });
+    scopeMethods(this.drafts, { publishPending: systemActor("config-publisher") });
+    // The engine's callbacks run inside whoever caused them; alone they are the Governor's workflow.
+    scopeMethods(this, { runFailed: systemActor("workflow"), runSucceeded: systemActor("workflow"), createJobForStep: systemActor("workflow"), createApprovalForGate: systemActor("workflow"), steerSession: systemActor("workflow") }, { ifAbsent: true });
+    scopeMethods(this as Brain, {
+      projectOutbox: systemActor("outbox"), runCapitalization: systemActor("capitalization"), notifyAttention: systemActor("notifications"), notifyDigests: systemActor("notifications"),
+      replicate: systemActor("replica"), runEngineProbes: systemActor("engine-probes"),
+      bootstrap: systemActor("bootstrap"), inboundChat: systemActor("chat-inbound"),
+      // A signed delivery is the endpoint's own act: no person signed in, so the principal is named after the endpoint that received it.
+      receiveWebhook: (_kind: string, endpointId: string) => systemActor(`webhook:${endpointId}`),
+      verifyTrustDomain: (identity: ResolvedActor) => eventActorOf(identity.actor), revokeTrustDomain: caller,
+      createWorkspace: caller, stageRelease: caller, activateRelease: caller,
+      issuePermit: runnerOf, requestEffect: runnerOf, issueEffectPermit: runnerOf, startEffect: runnerOf, finishEffect: runnerOf, runEffect: runnerOf,
+      acceptAttemptArtifact: runnerOf, readReleaseTool: runnerOf, readReleaseAgent: runnerOf, submitEvidence: runnerOf, acceptVerdict: runnerOf,
+    });
   }
 
   // --- bootstrap / directory ---

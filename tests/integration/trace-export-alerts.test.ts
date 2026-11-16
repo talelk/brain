@@ -1,3 +1,4 @@
+import { seedEvent } from "../support/seed-event";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
@@ -88,7 +89,7 @@ describe("optional trace export (ADR 0066)", () => {
     expect(Date.now() - started).toBeLessThan(5000);
     // The queue is bounded: a flood of events never grows it past its limit.
     const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
-    for (let i = 0; i < 1500; i++) w.brain.store.emit(db, { aggregateType: "mission", aggregateId: id, eventType: "mission.briefChanged", payload: { missionId: id } });
+    for (let i = 0; i < 1500; i++) seedEvent(w.brain.store, db, { aggregateType: "mission", aggregateId: id, eventType: "mission.briefChanged", payload: { missionId: id } });
     expect(w.brain.traceExport!.stats().queued).toBeLessThanOrEqual(1000);
   });
 });

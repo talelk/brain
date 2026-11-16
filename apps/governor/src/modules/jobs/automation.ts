@@ -1,3 +1,4 @@
+import { eventActorOf, scopeMethods, systemActor } from "../../application/actor-context";
 import { createHash } from "node:crypto";
 import { domainDigest } from "@brain/contracts";
 import type { ActorContext, Automation, AutomationOccurrence, JsonValue } from "@brain/contracts";
@@ -124,7 +125,10 @@ export function plannedInstants(row: Pick<AutomationRow, "trigger_kind" | "cron"
 }
 
 export class AutomationService {
-  constructor(private readonly store: Store, private readonly deps: AutomationDispatchDeps) {}
+  constructor(private readonly store: Store, private readonly deps: AutomationDispatchDeps) {
+    scopeMethods(this, { apply: (actor: ActorContext) => eventActorOf(actor), allowAutoConfirm: (actor: ActorContext) => eventActorOf(actor) });
+    scopeMethods(this, { dispatchAll: systemActor("automation"), fireSubject: systemActor("automation") }, { ifAbsent: true });
+  }
 
   private db(actor: ActorContext, workspaceId: string) {
     requireWorkspaceRead(this.store, actor, workspaceId);

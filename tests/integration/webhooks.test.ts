@@ -94,6 +94,10 @@ describe("GitHub webhooks (#138)", () => {
     expect(db(w).prepare("SELECT state FROM plan_versions WHERE mission_id=?").get(missionId)).toEqual({ state: "proposed" });
     const forSubject = await read<{ items: Array<{ missionId: string }> }>(w, "missions.forSubject", tickets(w)[0]!.id);
     expect(forSubject.items.map((mission) => mission.missionId)).toEqual([missionId]);
+    // What the delivery set going is on record as the endpoint's own act (a named system principal), never a person's or the mission owner's.
+    const byEndpoint = db(w).prepare("SELECT actor_id, actor_kind FROM events WHERE actor_id=?").all(`system:webhook:${id}`);
+    expect(byEndpoint.length).toBeGreaterThan(0);
+    expect(byEndpoint).toEqual(byEndpoint.map(() => ({ actor_id: `system:webhook:${id}`, actor_kind: "system" })));
 
     // The same delivery, and the same bytes under a fresh delivery id (a captured request replayed), are acknowledged and do nothing.
     expect(await post(path, opened.body, opened.headers)).toEqual({ status: 200, json: { status: "duplicate" } });

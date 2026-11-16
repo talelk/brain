@@ -12314,6 +12314,9 @@
         },
         "payloadRef": {
           "$ref": "#/$defs/StreamPayloadRef"
+        },
+        "actor": {
+          "$ref": "#/$defs/EventActor"
         }
       },
       "required": [
@@ -12327,6 +12330,7 @@
         "aggregateId",
         "aggregateSeq",
         "at",
+        "actor",
         "tsApproximate",
         "summary",
         "payloadRef"
@@ -12377,6 +12381,9 @@
         },
         "summary": {
           "$ref": "#/$defs/JsonValue"
+        },
+        "actor": {
+          "$ref": "#/$defs/EventActor"
         }
       },
       "required": [
@@ -19057,12 +19064,28 @@
         },
         "actingFor": {
           "$ref": "#/$defs/Id"
+        },
+        "actorKind": {
+          "type": "string",
+          "enum": [
+            "human",
+            "runner",
+            "agent",
+            "workflow",
+            "service",
+            "kiosk",
+            "system"
+          ]
+        },
+        "attemptId": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [
         "id",
         "cursor",
         "actorId",
+        "actorKind",
         "action",
         "resourceId",
         "occurredAt",
@@ -30036,6 +30059,39 @@
         "commandType",
         "idempotencyKey",
         "payload"
+      ],
+      "additionalProperties": false
+    },
+    "EventActor": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "human",
+            "runner",
+            "agent",
+            "workflow",
+            "service",
+            "kiosk",
+            "system"
+          ]
+        },
+        "actingFor": {
+          "$ref": "#/$defs/Id"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
       ],
       "additionalProperties": false
     }

@@ -36,8 +36,16 @@ test("Health shows what an agent session did as the agent, working for the owner
   await page.goto(`${governor.url}/settings?tab=health`);
   await expect(page.getByRole("heading", { name: "Health", exact: true, level: 1 })).toBeVisible();
   const activity = page.getByRole("region", { name: "Recent activity" });
-  await expect(activity.getByText("An agent made a change to its mission", { exact: true })).toBeVisible();
-  await expect(activity.getByText("By an agent working for you", { exact: true })).toBeVisible();
-  // Only the session's one change is the agent's; the owner's own steps are not relabelled.
-  await expect(activity.getByText("By an agent working for you")).toHaveCount(1);
+  await expect(activity.getByText('A comment was added to task "Fix the links"', { exact: true })).toBeVisible();
+  // Who did it and through which session, in one plain sentence per entry: the agent for the owner, never the owner.
+  await expect(activity.getByText("By an agent working for you, through its session", { exact: true })).toBeVisible();
+  await expect(activity.getByText("By an agent working for you, through its session", { exact: true })).toHaveCount(1);
+  // The dispatch of the member's task is the member's principal too, never the owner's own name.
+  await expect(activity.getByText("By an agent working for you", { exact: true })).toHaveCount(1);
+  await expect(activity.getByText("By you", { exact: true })).toHaveCount(0);
+
+  // The Logs explorer says the same for the same event: open the session's comment and read who caused it.
+  await page.goto(`${governor.url}/w/ws-principal/logs`);
+  await page.getByRole("button", { name: /added a comment to a task/ }).first().click();
+  await expect(page.getByTestId("log-actor")).toHaveText("By an agent working for you, through its session");
 });

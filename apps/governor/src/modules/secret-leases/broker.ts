@@ -1,3 +1,4 @@
+import { scopeMethods, systemActor } from "../../application/actor-context";
 import { randomBytes } from "node:crypto";
 import { BrainDomainError } from "../../domain/errors";
 import type { Store } from "../../application/store";
@@ -27,7 +28,10 @@ type Scope = { organizationId: string; workspaceId: string; attemptId: string };
  * plus a small grace. Its value is returned once to the caller and never stored or put in an event; the audit names the reference and the attempt.
  */
 export class SecretBroker {
-  constructor(private readonly store: Store, private adapters: readonly SecretsAdapter[]) {}
+  constructor(private readonly store: Store, private adapters: readonly SecretsAdapter[]) {
+    // A lease is minted for a runner's attempt, inside the runner's call; alone it is the broker's own act.
+    scopeMethods(this, { mint: systemActor("secret-broker"), validate: systemActor("secret-broker") }, { ifAbsent: true });
+  }
 
   /** Replaces the adapters (a deployment's own, or a test's): the port is the architecture boundary. */
   useAdapters(adapters: readonly SecretsAdapter[]): void { this.adapters = adapters; }

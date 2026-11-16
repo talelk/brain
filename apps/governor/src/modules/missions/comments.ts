@@ -36,6 +36,8 @@ export function recordComment(store: Store, db: Db, input: {
     }
     db.prepare("INSERT INTO work_item_comments(id,work_item_id,actor_id,body,correction_of,message_id,created_at_ms) VALUES (?,?,?,?,?,?,?)")
       .run(commentId, input.workItemId, input.authorId, input.text, input.correctionOf ?? null, messageId ?? null, store.now());
+    // A session's comment sends nothing to anyone; the event is what puts it on the record under the session's own actor (ADR 0032).
+    store.emit(db, { aggregateType: "workItem", aggregateId: input.workItemId, eventType: "workItem.commented", payload: { missionId: input.missionId, workItemId: input.workItemId, commentId } });
     return { commentId, ...(messageId ? { messageId } : {}) };
   });
 }

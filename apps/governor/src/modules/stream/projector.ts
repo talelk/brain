@@ -27,6 +27,7 @@ interface SourceEventRow {
   event_type: string;
   payload_json: string;
   created_at_ms: number;
+  actor_id: string; actor_kind: string; actor_attempt_id: string | null; acting_for: string | null;
 }
 
 interface Correlation {
@@ -48,6 +49,7 @@ interface StreamInsert {
   occurredAtMs: number;
   tsApproximate: boolean;
   correlation: Correlation;
+  actor: { id: string; kind: string; attemptId: string | null; actingFor: string | null };
   summaryJson: string;
   payloadRefJson: string;
   ftsText: string;
@@ -168,6 +170,10 @@ function payloadOf(row: { payload_json: string }): Record<string, unknown> | nul
   } catch { return null; }
 }
 
+function actorOfRow(row: Pick<SourceEventRow, "actor_id" | "actor_kind" | "actor_attempt_id" | "acting_for">): StreamInsert["actor"] {
+  return { id: row.actor_id, kind: row.actor_kind, attemptId: row.actor_attempt_id, actingFor: row.acting_for };
+}
+
 function correlateEvent(c: Correlator, row: SourceEventRow): Correlation {
   const payload = payloadOf(row);
   const out: Correlation = {};
@@ -193,13 +199,14 @@ function insertRecord(control: Db, row: StreamInsert): void {
       event_id, organization_id, workspace_id, source, emitter,
       aggregate_type, aggregate_id, aggregate_seq, event_type, severity,
       occurred_at_ms, ts_approximate, run_id, job_id, attempt_id, session_id, work_item_id,
-      invocation_id, proposal_id, summary_json, payload_ref_json)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+      invocation_id, proposal_id, actor_id, actor_kind, actor_attempt_id, acting_for, summary_json, payload_ref_json)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     row.eventId, row.organizationId, row.workspaceId, row.source, row.emitter,
     row.aggregateType, row.aggregateId, row.aggregateSeq, row.eventType, row.severity,
     row.occurredAtMs, row.tsApproximate ? 1 : 0, row.correlation.runId ?? null, row.correlation.jobId ?? null,
     row.correlation.attemptId ?? null, row.correlation.sessionId ?? null, row.correlation.workItemId ?? null,
     row.correlation.invocationId ?? null, row.correlation.proposalId ?? null,
+    row.actor.id, row.actor.kind, row.actor.attemptId, row.actor.actingFor,
     row.summaryJson, row.payloadRefJson,
   );
   if (result.changes === 1) {
@@ -214,7 +221,7 @@ function projectControlTail(s: Store, correlator: Correlator, organizationId: st
   let projected = 0;
   for (;;) {
     const rows = control.prepare(`SELECT cursor, event_id, organization_id, workspace_id, aggregate_type, aggregate_id, aggregate_seq,
-        event_type, payload_json, created_at_ms FROM events WHERE organization_id=? AND cursor>? ORDER BY cursor ASC LIMIT ?`)
+        event_type, payload_json, created_at_ms, actor_id, actor_kind, actor_attempt_id, acting_for FROM events WHERE organization_id=? AND cursor>? ORDER BY cursor ASC LIMIT ?`)
       .all(organizationId, cursor, PAGE) as Array<SourceEventRow & { cursor: number }>;
     if (rows.length === 0) break;
     s.inTx(control, () => {
@@ -235,6 +242,7 @@ function projectControlTail(s: Store, correlator: Correlator, organizationId: st
           occurredAtMs: Number(row.created_at_ms),
           tsApproximate: false,
           correlation: correlateEvent(correlator, row),
+          actor: actorOfRow(row),
           summaryJson,
           payloadRefJson: payloadRef("control", payload),
           ftsText: `${row.event_type} ${row.aggregate_type} ${row.aggregate_id} ${summaryJson}`,
@@ -255,7 +263,7 @@ function projectWorkspaceTail(s: Store, correlator: Correlator, organizationId: 
   let projected = 0;
   for (;;) {
     const ws = s.workspaceDb(workspaceId, organizationId);
-    const rows = ws.prepare(`SELECT cursor, event_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, created_at_ms
+    const rows = ws.prepare(`SELECT cursor, event_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, created_at_ms, actor_id, actor_kind, actor_attempt_id, acting_for
       FROM events WHERE cursor>? ORDER BY cursor ASC LIMIT ?`).all(cursor, PAGE) as Array<Omit<SourceEventRow, "organization_id" | "workspace_id"> & { cursor: number }>;
     if (rows.length === 0) break;
     s.inTx(control, () => {
@@ -276,6 +284,7 @@ function projectWorkspaceTail(s: Store, correlator: Correlator, organizationId: 
           occurredAtMs: Number(row.created_at_ms),
           tsApproximate: false,
           correlation: correlateEvent(correlator, { ...row, organization_id: organizationId, workspace_id: workspaceId }),
+          actor: actorOfRow(row),
           summaryJson,
           payloadRefJson: payloadRef("workspace", payload),
           ftsText: `${row.event_type} ${row.aggregate_type} ${row.aggregate_id} ${summaryJson}`,
@@ -292,6 +301,7 @@ function projectWorkspaceTail(s: Store, correlator: Correlator, organizationId: 
 
 interface AttemptTailRow {
   attempt_id: string;
+  runner_id: string;
   job_id: string;
   workspace_id: string;
   organization_id: string;
@@ -307,7 +317,7 @@ function projectAttemptTail(s: Store, organizationId: string): number {
   // whole table and must not run when no attempt reported anything.
   const head = (control.prepare("SELECT COALESCE(MAX(rowid), 0) AS top FROM attempt_events").get() as { top: number }).top;
   if (head <= watermark(control, "attempt-head", organizationId)) return 0;
-  const candidates = control.prepare(`SELECT a.id AS attempt_id, a.job_id, j.workspace_id, j.organization_id, j.workflow_run_id, m.max_seq
+  const candidates = control.prepare(`SELECT a.id AS attempt_id, a.runner_id, a.job_id, j.workspace_id, j.organization_id, j.workflow_run_id, m.max_seq
     FROM (SELECT attempt_id, MAX(seq) AS max_seq FROM attempt_events GROUP BY attempt_id) m
     JOIN job_attempts a ON a.id=m.attempt_id JOIN jobs j ON j.id=a.job_id
     LEFT JOIN stream_watermarks w ON w.source='attempt' AND w.key=a.id
@@ -352,6 +362,8 @@ function projectAttemptTail(s: Store, organizationId: string): number {
             severity: severityOf("attempt", eventType, innerPayload),
             occurredAtMs: approximate ? s.now() : occurredAtMs,
             tsApproximate: approximate,
+            // What the attempt reports reaches the Governor through its runner, which is who is on record for it.
+            actor: { id: candidate.runner_id, kind: "runner", attemptId: candidate.attempt_id, actingFor: null },
             correlation: {
               runId: candidate.workflow_run_id,
               jobId: candidate.job_id,

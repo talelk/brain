@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { auditSentence } from "../../apps/web/src/ui/audit-text";
+import { actorSentence, auditSentence } from "../../apps/web/src/ui/audit-text";
 import { formatDateTime, formatOccurrence, friendlyOutputName } from "../../apps/web/src/ui/format";
-import { setLocale } from "../../apps/web/src/i18n";
+import { loadEnglishRest, setLocale } from "../../apps/web/src/i18n";
 import { parseInline } from "../../apps/web/src/ui/outputs/markdown-parse";
 
 describe("UI text policy", () => {
@@ -21,6 +21,20 @@ describe("UI text policy", () => {
     expect(friendlyOutputName("write-recommendation", "Write the recommendation")).toBe("Write the recommendation");
     expect(friendlyOutputName("write-recommendation")).toBe("Write recommendation");
     expect(friendlyOutputName("Quarterly Report")).toBe("Quarterly Report");
+  });
+
+  it("says who caused an event and through which session, in one plain sentence", async () => {
+    await loadEnglishRest();
+    setLocale("en");
+    const name = (id: string) => (id === "ana" ? "Ana" : "a teammate");
+    expect(actorSentence({ id: "ana", kind: "human" }, name)).toBe("By Ana");
+    expect(actorSentence({ id: "agent:m1:pi", kind: "agent", actingFor: "ana" }, name)).toBe("By an agent working for Ana");
+    expect(actorSentence({ id: "agent:m1:pi", kind: "agent", actingFor: "ana", attemptId: "att-1" }, name)).toBe("By an agent working for Ana, through its session");
+    expect(actorSentence({ id: "runner-7", kind: "runner" }, name)).toBe("By runner runner-7");
+    expect(actorSentence({ id: "runner-7", kind: "runner", attemptId: "att-1" }, name)).toBe("By runner runner-7, running a session");
+    expect(actorSentence({ id: "system:watchdog", kind: "system" }, name)).toBe("By Brain itself (watchdog)");
+    expect(actorSentence({ id: "system:webhook:ep-1", kind: "system" }, name)).toBe("By Brain itself (webhook ep 1)");
+    expect(actorSentence({ id: "system:governor", kind: "system", actingFor: "ana" }, name)).toBe("By Brain for Ana (governor)");
   });
 
   it("writes audit entries as plain sentences", () => {

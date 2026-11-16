@@ -1,3 +1,4 @@
+import { eventActorOf, scopeMethods, systemActor } from "../../application/actor-context";
 import { randomBytes } from "node:crypto";
 import type { ActorContext } from "@brain/contracts";
 import type { Store } from "../../application/store";
@@ -67,7 +68,11 @@ function shareable(db: Db, versionId: string): { name: string; label: string; di
 }
 
 export class ShareService {
-  constructor(private readonly store: Store) {}
+  constructor(private readonly store: Store) {
+    scopeMethods(this, { create: (actor: ActorContext) => eventActorOf(actor), revoke: (actor: ActorContext) => eventActorOf(actor) });
+    // A shared page is opened by anyone holding the link: the viewer is no principal, and what it records is the link's own.
+    scopeMethods(this, { view: systemActor("share-link") }, { ifAbsent: true });
+  }
 
   /** Creates a link. The token is returned here and never again. */
   create(actor: ActorContext, workspaceId: string, input: { versionId: string; expiresInHours?: number }): { shareId: string; token: string; expiresAt: string } {

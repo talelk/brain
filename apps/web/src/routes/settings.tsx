@@ -22,7 +22,7 @@ import type { ScreenState } from "../data/screens";
 import { formatDateTime, formatRelative } from "../ui/format";
 import { sendTestEmail } from "../data/engine";
 import { t, tn, tOr, type MessageKey } from "../i18n";
-import { auditSentence } from "../ui/audit-text";
+import { actorSentence, auditSentence } from "../ui/audit-text";
 import { ActionFeedback } from "../ui/components/ActionFeedback";
 import { Freshness, WorkspaceSection } from "../ui/components/Domain";import { StatusBadge, statusTheme } from "../ui/components/StatusBadge";
 import { StatusIcon } from "../ui/viz/StatusIcon";
@@ -96,7 +96,7 @@ export function SettingsScreen(props: {
         <WorkspaceSection title={t("health.activity.title")} description={t("health.activity.description")}>
           <ScreenRegion state={props.state} skeleton="rows" emptyTitle={t("health.activity.empty.title")} emptyDescription={t("health.activity.empty.description")} onRetry={props.onRefresh}>
             <Show when={props.audit.length === 0}><p class="brain-empty-inline">{t("health.activity.empty.title")}. {t("health.activity.empty.description")}</p></Show>
-            <Timeline items={auditRows().map((entry) => ({ id: String(entry.cursor), title: <span class="block whitespace-normal break-words">{auditSentence(entry)}</span>, description: <span class="break-words" title={entry.resourceId}>{entry.actingFor ? t("health.activity.by-agent", { name: app.personName(entry.actingFor) }) : t("health.activity.by", { name: app.personName(entry.actorId) })}</span>, timestamp: <span class="whitespace-nowrap"><DateText value={entry.occurredAt} /></span>, icon: "lucide-history" }))} />
+            <Timeline items={auditRows().map((entry) => ({ id: entry.id, title: <span class="block whitespace-normal break-words">{auditSentence(entry)}</span>, description: <span class="break-words" title={entry.resourceId}>{actorSentence({ id: entry.actorId, kind: entry.actorKind, actingFor: entry.actingFor, attemptId: entry.attemptId }, app.personName)}</span>, timestamp: <span class="whitespace-nowrap"><DateText value={entry.occurredAt} /></span>, icon: "lucide-history" }))} />
             <Show when={auditPageCount() > 1}><Pagination.Root aria-label={t("health.activity.pagination")} class="mt-3 flex-wrap items-center justify-between gap-2 border-t border-outline-gray-1 pt-3" count={props.audit.length} pageSize={SETTINGS_PAGE_SIZE} page={currentAuditPage()} onPageChange={setAuditPage}>
               <Pagination.Range />
               <div class="flex items-center gap-1"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /></div>
