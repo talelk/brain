@@ -257,6 +257,8 @@ CREATE TABLE events (
   aggregate_type TEXT NOT NULL, aggregate_id TEXT NOT NULL, aggregate_seq INTEGER NOT NULL CHECK(aggregate_seq > 0),
   event_type TEXT NOT NULL, payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
   payload_digest TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  actor_id TEXT NOT NULL DEFAULT 'system:unattributed', actor_kind TEXT NOT NULL DEFAULT 'system',
+  actor_attempt_id TEXT DEFAULT NULL, acting_for TEXT DEFAULT NULL,
   UNIQUE(organization_id,aggregate_type,aggregate_id,aggregate_seq)
 ) STRICT;
 CREATE TABLE outbox_deliveries (
@@ -475,6 +477,8 @@ CREATE TABLE execution_stream (
   ts_approximate INTEGER NOT NULL DEFAULT 0 CHECK(ts_approximate IN (0,1)),
   run_id TEXT, job_id TEXT, attempt_id TEXT, session_id TEXT, work_item_id TEXT,
   invocation_id TEXT, proposal_id TEXT,
+  actor_id TEXT NOT NULL DEFAULT 'system:unattributed', actor_kind TEXT NOT NULL DEFAULT 'system',
+  actor_attempt_id TEXT DEFAULT NULL, acting_for TEXT DEFAULT NULL,
   summary_json TEXT NOT NULL CHECK(json_valid(summary_json) AND length(summary_json) <= 4096),
   payload_ref_json TEXT NOT NULL CHECK(json_valid(payload_ref_json))
 ) STRICT;

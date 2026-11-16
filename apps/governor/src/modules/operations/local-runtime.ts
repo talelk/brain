@@ -1,3 +1,4 @@
+import { actingAs, eventActorOf } from "../../application/actor-context";
 import { randomUUID } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync, renameSync, unlinkSync, openSync, fsyncSync, closeSync, constants } from "node:fs";
 import { join, resolve } from "node:path";
@@ -107,7 +108,7 @@ export async function connectLocalModel(s: Store, actor: ActorContext, input: Lo
   requireAdmin(actor);
   if (connecting.has(s)) throw new BrainDomainError("CONFLICT", "Another model connection is being tested; wait for it to finish");
   connecting.add(s);
-  try { return await connectLocalModelExclusive(s, actor, input, transport, reauthorize); }
+  try { return await actingAs(eventActorOf(actor), () => connectLocalModelExclusive(s, actor, input, transport, reauthorize)); }
   finally { connecting.delete(s); }
 }
 export function restoreLocalRuntimeHandoff(s: Store): void {

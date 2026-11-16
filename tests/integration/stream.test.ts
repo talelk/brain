@@ -1,3 +1,4 @@
+import { seedEvent } from "../support/seed-event";
 import { describe, expect, it } from "vitest";
 import { createStreamService, emitterOf, severityOf, sweepStream } from "../../apps/governor/src/modules/stream/index";
 import { JobProtocol } from "../../apps/governor/src/modules/jobs/index";
@@ -62,9 +63,9 @@ describe("unified execution stream", () => {
       // attempt source (engine text event, payload carries occurredAt)
       seedAttemptEvent(w, "att-stream-1", 1, engineEvent("att-stream-1", 1, "text", { text: "fixture steering target hello", channel: "assistant", provisional: true }));
       // control source
-      s.emit(s.control, { organizationId: w.org, workspaceId: w.workspaceId, aggregateType: "job", aggregateId: "job-stream-1", eventType: "job.queued", payload: { jobId: "job-stream-1", runId: "run-stream-1" } });
+      seedEvent(s, s.control, { organizationId: w.org, workspaceId: w.workspaceId, aggregateType: "job", aggregateId: "job-stream-1", eventType: "job.queued", payload: { jobId: "job-stream-1", runId: "run-stream-1" } });
       // workspace source
-      s.emit(s.workspaceDb(w.workspaceId, w.org), { aggregateType: "session", aggregateId: "ses-stream-1", eventType: "session.created", payload: { sessionId: "ses-stream-1" } });
+      seedEvent(s, s.workspaceDb(w.workspaceId, w.org), { aggregateType: "session", aggregateId: "ses-stream-1", eventType: "session.created", payload: { sessionId: "ses-stream-1" } });
       const result = stream.project();
       expect(result.projected).toBeGreaterThanOrEqual(3);
       const page = stream.read(w.owner, { workspaceId: w.workspaceId }, 200);
@@ -121,7 +122,7 @@ describe("unified execution stream", () => {
       seedJob(w, "job-stream-3", "run-stream-3", "runner-stream-3", "att-stream-3");
       seedSession(w, "ses-stream-3", "job-stream-3", "att-stream-3", ["sessions"]);
       seedAttemptEvent(w, "att-stream-3", 1, engineEvent("att-stream-3", 1, "text", { text: "replay me", channel: "diagnostic", provisional: true }));
-      s.emit(s.control, { organizationId: w.org, aggregateType: "config", aggregateId: "cfg-x", eventType: "config.compiled", payload: { digest: "cfg-x" } });
+      seedEvent(s, s.control, { organizationId: w.org, aggregateType: "config", aggregateId: "cfg-x", eventType: "config.compiled", payload: { digest: "cfg-x" } });
       stream.project();
       const count = () => (s.control.prepare("SELECT COUNT(*) AS c FROM execution_stream").get() as { c: number }).c;
       const first = count();
@@ -150,9 +151,9 @@ describe("unified execution stream", () => {
       s.control.prepare("INSERT INTO workspace_memberships(workspace_id, organization_id, principal_id, role, version, granted_by, granted_at_ms) VALUES (?, ?, 'member-1', 'viewer', 1, 'owner-1', ?)")
         .run(w.workspaceId, w.org, s.now());
       const wsB = s.workspaceDb("ws-stream-b", w.org);
-      s.emit(wsB, { aggregateType: "session", aggregateId: "ses-b-1", eventType: "session.created", payload: { sessionId: "ses-b-1" } });
-      s.emit(s.workspaceDb(w.workspaceId, w.org), { aggregateType: "session", aggregateId: "ses-a-1", eventType: "session.created", payload: { sessionId: "ses-a-1" } });
-      s.emit(s.control, { organizationId: w.org, aggregateType: "config", aggregateId: "cfg-org-1", eventType: "config.compiled", payload: { digest: "cfg-org-1" } });
+      seedEvent(s, wsB, { aggregateType: "session", aggregateId: "ses-b-1", eventType: "session.created", payload: { sessionId: "ses-b-1" } });
+      seedEvent(s, s.workspaceDb(w.workspaceId, w.org), { aggregateType: "session", aggregateId: "ses-a-1", eventType: "session.created", payload: { sessionId: "ses-a-1" } });
+      seedEvent(s, s.control, { organizationId: w.org, aggregateType: "config", aggregateId: "cfg-org-1", eventType: "config.compiled", payload: { digest: "cfg-org-1" } });
       stream.project();
       const member = w.actor("member-1");
       // LIMIT 1 must be filled by an authorized row, not post-filtered to emptiness.
@@ -165,7 +166,7 @@ describe("unified execution stream", () => {
       // Org-scoped rows are visible org-wide: explicit workspace scoping still
       // surfaces them — runner records carry no workspace of their own — while
       // other workspaces' member rows stay excluded.
-      s.emit(s.control, { organizationId: w.org, aggregateType: "runner", aggregateId: "runner-stream-scope", eventType: "runner.enabled", payload: { runnerId: "runner-stream-scope" } });
+      seedEvent(s, s.control, { organizationId: w.org, aggregateType: "runner", aggregateId: "runner-stream-scope", eventType: "runner.enabled", payload: { runnerId: "runner-stream-scope" } });
       stream.project();
       const scoped = stream.read(member, { workspaceId: w.workspaceId }, 200).items;
       expect(scoped.some((item) => item.workspaceId === undefined && item.eventType === "config.compiled")).toBe(true);
@@ -372,7 +373,7 @@ describe("unified execution stream", () => {
       seedJob(w, "job-stream-8", "run-stream-8", "runner-stream-8", "att-stream-8");
       seedSession(w, "ses-stream-8", "job-stream-8", "att-stream-8", ["sessions"]);
       seedAttemptEvent(w, "att-stream-8", 1, engineEvent("att-stream-8", 1, "text", { text: "old chatter to sweep", channel: "assistant", provisional: true }));
-      s.emit(s.control, { organizationId: w.org, workspaceId: w.workspaceId, aggregateType: "job", aggregateId: "job-stream-8", eventType: "job.queued", payload: { jobId: "job-stream-8" } });
+      seedEvent(s, s.control, { organizationId: w.org, workspaceId: w.workspaceId, aggregateType: "job", aggregateId: "job-stream-8", eventType: "job.queued", payload: { jobId: "job-stream-8" } });
       stream.project();
       const cutoff = s.now() - 40 * DAY;
       s.control.prepare("UPDATE execution_stream SET occurred_at_ms=? WHERE event_type IN ('text','job.queued')").run(cutoff - 1);

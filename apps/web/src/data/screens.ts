@@ -192,6 +192,8 @@ export interface StreamEvent {
   readonly aggregateId?: string;
   readonly workspaceId?: string;
   readonly at: string;
+  /** Who caused the event, and through which attempt (ADR 0032). */
+  readonly actor?: { readonly id: string; readonly kind: string; readonly actingFor?: string; readonly attemptId?: string };
   readonly correlation?: Record<string, string>;
   /** Bounded summary projected by the server (never the raw high-volume payload). */
   readonly summary?: unknown;

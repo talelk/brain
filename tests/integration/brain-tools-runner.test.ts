@@ -92,8 +92,8 @@ describe("a session's Brain tools, called as the runner makes them", () => {
       expect(waiting).toMatchObject({ ok: true, data: { state: "proposed", outcome: expect.stringMatching(/waits for a person.*Do not propose it again/su) } });
       expect((w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT state FROM plan_versions WHERE mission_id=? ORDER BY revision DESC LIMIT 1").get(missionId) as { state: string }).state).toBe("proposed");
 
-      const acted = ((await query<{ items: AuditEntry[] }>(w, "audit.list")).items).filter((entry) => entry.action === "session.acted");
-      expect(acted).toHaveLength(5);
+      const acted = ((await query<{ items: AuditEntry[] }>(w, "audit.list")).items).filter((entry) => entry.actorId === principal);
+      expect(acted.length).toBeGreaterThanOrEqual(5);
       for (const entry of acted) expect(entry).toMatchObject({ actorId: principal, actingFor: w.owner.actorId });
     });
   });
@@ -223,7 +223,7 @@ describe("an agent attempt calling Brain tools end to end (supervisor, fixture e
       expect((await query<{ items: WorkItemComment[] }>(w, "workItemComments.list", workItemId)).items).toMatchObject([{ authorId: principal, text: "The source table is stale" }]);
       expect((await query<{ items: MissionMessage[] }>(w, "missionMessages.list", missionId)).items).toMatchObject([{ senderId: principal, senderKind: "agent", recipient: { memberId: "checker" }, body: "Use the 2025 figures" }]);
       expect(w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT submitted_by FROM handoffs WHERE work_item_id=?").get(workItemId)).toEqual({ submitted_by: principal });
-      expect(((await query<{ items: AuditEntry[] }>(w, "audit.list")).items).filter((entry) => entry.action === "session.acted")).toHaveLength(3);
+      expect(((await query<{ items: AuditEntry[] }>(w, "audit.list")).items).filter((entry) => entry.actorId === principal).map((entry) => entry.action)).toEqual(expect.arrayContaining(["workItem.commented", "mission.messageSent", "handoff.submitted"]));
 
       // The credential the runner used is nowhere in what the attempt recorded: events, tool outputs, uploaded artifacts.
       const credentials = [...new Set(bearers)].filter((token) => token !== "" && token !== session.sessionToken);

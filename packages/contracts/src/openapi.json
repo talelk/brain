@@ -19652,6 +19652,9 @@
      },
      "payloadRef": {
       "$ref": "#/components/schemas/StreamPayloadRef"
+     },
+     "actor": {
+      "$ref": "#/components/schemas/EventActor"
      }
     },
     "required": [
@@ -19665,6 +19668,7 @@
      "aggregateId",
      "aggregateSeq",
      "at",
+     "actor",
      "tsApproximate",
      "summary",
      "payloadRef"
@@ -19715,6 +19719,9 @@
      },
      "summary": {
       "$ref": "#/components/schemas/JsonValue"
+     },
+     "actor": {
+      "$ref": "#/components/schemas/EventActor"
      }
     },
     "required": [
@@ -26404,12 +26411,28 @@
      },
      "actingFor": {
       "$ref": "#/components/schemas/Id"
+     },
+     "actorKind": {
+      "type": "string",
+      "enum": [
+       "human",
+       "runner",
+       "agent",
+       "workflow",
+       "service",
+       "kiosk",
+       "system"
+      ]
+     },
+     "attemptId": {
+      "$ref": "#/components/schemas/Id"
      }
     },
     "required": [
      "id",
      "cursor",
      "actorId",
+     "actorKind",
      "action",
      "resourceId",
      "occurredAt",
@@ -37226,6 +37249,39 @@
      "tier",
      "reasons",
      "requires"
+    ],
+    "additionalProperties": false
+   },
+   "EventActor": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "human",
+       "runner",
+       "agent",
+       "workflow",
+       "service",
+       "kiosk",
+       "system"
+      ]
+     },
+     "actingFor": {
+      "$ref": "#/components/schemas/Id"
+     },
+     "attemptId": {
+      "$ref": "#/components/schemas/Id"
+     }
+    },
+    "required": [
+     "id",
+     "kind"
     ],
     "additionalProperties": false
    }

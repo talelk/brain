@@ -1,3 +1,4 @@
+import { scopeMethods, systemActor } from "../../../application/actor-context";
 import { payloadValidator } from "@brain/contracts/validate";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -62,6 +63,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     private readonly storageDir: string,
   ) {
     mkdirSync(storageDir, { recursive: true });
+    scopeMethods(this, { completeStep: systemActor("workflow"), startRun: systemActor("workflow"), cancelRun: systemActor("workflow"), evidenceSubmitted: systemActor("workflow"), recoverRun: systemActor("workflow") }, { ifAbsent: true });
   }
 
   startRun(input: {

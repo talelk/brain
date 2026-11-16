@@ -859,6 +859,10 @@ session it acted through)
 The principal performing a command, together with the session and scope it acts through.
 _Avoid_: caller
 
+**Event actor**:
+Who caused an event, recorded on the event itself (ADR 0032): the principal and its kind, the attempt it acted through, and the person it acted for when it is a machine. The Governor's own passes record a named system principal (`system:watchdog`, `system:webhook:<endpointId>`), never null and never the mission owner.
+_Avoid_: author, user
+
 **Brain tool**:
 An operator-declared, release-pinned tool through which an agent acts on Brain itself: comment on a
 work item, message a team member, submit a handoff, propose a plan, delegate a sub-task (ADR 0042, 0051) or ask a person a question (ADR 0050). Each is one command run

@@ -2,6 +2,7 @@ import { commandDef, domainDigest } from "@brain/contracts";
 import type { ActorContext, CommandEnvelope, CommandReceipt, JsonValue } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
+import { actingAs, eventActorOf } from "./actor-context";
 import { assertSessionAdmits, authorizeCommand, requireWorkspaceRead, type ResolvedActor } from "./authz";
 import { assertQueueAdmits } from "../modules/jobs/index";
 import { missionsOfCommand } from "../modules/missions/index";
@@ -104,7 +105,12 @@ export class CommandFunnel {
    * against the registry here; a command outside the registry is authorized
    * by the route that admitted it. Replay, intent and commit are identical.
    */
-  async run(actor: ActorContext, cmd: Command, opts: ExecuteOptions = {}): Promise<CommandOutcome> {
+  run(actor: ActorContext, cmd: Command, opts: ExecuteOptions = {}): Promise<CommandOutcome> {
+    // Every event the command writes records this caller as its actor (ADR 0032), whatever scope the caller itself runs in.
+    return actingAs(eventActorOf(actor), () => this.runAs(actor, cmd, opts));
+  }
+
+  private async runAs(actor: ActorContext, cmd: Command, opts: ExecuteOptions): Promise<CommandOutcome> {
     const handler = this.handlers[cmd.commandType];
     if (!handler) throw new BrainDomainError("INVALID_CONTRACT", `unknown command ${cmd.commandType}`);
     if (commandDef(cmd.commandType)) authorizeCommand(actor, cmd.commandType);
@@ -216,14 +222,6 @@ export class CommandFunnel {
       .run(a.cmd.commandId, a.workspaceId ?? null, a.requestJson, this.store.now());
     this.store.control.prepare("INSERT INTO command_idempotency(organization_id, actor_id, command_type, idempotency_key, request_digest, command_id, receipt_json, created_at_ms) VALUES (?,?,?,?,?,?,?,?)")
       .run(actor.organizationId, actor.actorId, a.cmd.commandType, a.cmd.idempotencyKey, a.requestDigest, a.cmd.commandId, JSON.stringify(receipt), this.store.now());
-    // What a session did is on the record under its own principal and the person it acted for, in the audit trail and Logs (ADR 0032).
-    if (actor.attemptId) {
-      this.store.emit(this.store.control, {
-        organizationId: actor.organizationId, ...(a.workspaceId ? { workspaceId: a.workspaceId } : {}), aggregateType: "session", aggregateId: actor.attemptId, eventType: "session.acted",
-        payload: { actorId: actor.actorId, actingFor: actor.delegatedBy ?? "", missionId: actor.missionId ?? "", ...(actor.memberId ? { memberId: actor.memberId } : {}), attemptId: actor.attemptId, commandType: a.cmd.commandType, commandId: a.cmd.commandId },
-        destinations: a.workspaceId ? [`workspace:${a.workspaceId}`] : [],
-      });
-    }
     return receipt;
   }
 }

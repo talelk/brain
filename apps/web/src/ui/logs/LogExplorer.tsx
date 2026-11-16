@@ -26,6 +26,7 @@ import { buildReadableRows } from "./readable";
 import { ToolCallGroup } from "./ToolCallGroup";
 import { AttemptCompare } from "./AttemptCompare";
 import { contextAround, failureJump, rowMembers } from "./errorJump";
+import { actorSentence } from "../audit-text";
 
 /**
  * The Log Explorer (T61): an independent, searchable execution-log view at
@@ -374,6 +375,7 @@ function RecordDetail(props: { row: LogRowModel; mode: LogViewMode }): JSX.Eleme
       </span>
     </div>
     <p class="text-base-medium text-ink-gray-9">{plainSentence(record(), undefined, props.row.kind === "message" ? props.row.text : undefined)}</p>
+    <Show when={record().actor}>{(actor) => <p class="text-caption text-ink-gray-7" data-testid="log-actor">{actorSentence(actor(), app.personName)}</p>}</Show>
     <p class="brain-exec-log whitespace-pre-wrap break-words text-ink-gray-8">{props.row.kind === "message" ? props.row.text : streamSummaryText(record().summary, 2000)}</p>
     <div class="flex flex-wrap items-center gap-1" data-testid="log-detail-links">
       <CorrelationChips correlation={record().correlation} />
@@ -396,6 +398,7 @@ function RecordDetail(props: { row: LogRowModel; mode: LogViewMode }): JSX.Eleme
         at: record().at,
         tsApproximate: record().tsApproximate || undefined,
         emitter: record().emitter,
+        actor: record().actor,
         severity: record().severity ?? undefined,
         correlation: record().correlation,
         payloadRef: record().payloadRef,

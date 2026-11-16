@@ -2557,5 +2557,10 @@ export const fr: Catalog = {
   "autonomy.refused": "La suggestion n'a pas pu être traitée.",
   "autonomy.refused.title": "Suggestion non appliquée",
   "autonomy.counted.window": "Compté sur les {days} derniers jours.",
+  "actor.by-agent-session": "Par un agent travaillant pour {name}, via sa session",
+  "actor.by-runner": "Par le runner {id}",
+  "actor.by-runner-session": "Par le runner {id}, qui exécute une session",
+  "actor.by-brain": "Par Brain lui-même ({what})",
+  "actor.by-brain-for": "Par Brain pour {name} ({what})",
   // @@END
 };

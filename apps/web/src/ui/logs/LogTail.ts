@@ -30,6 +30,8 @@ export interface LogRecord {
   readonly at: string;
   /** True when the source event carried no timestamp and projection set one. */
   readonly tsApproximate: boolean;
+  /** Who caused the event and through which attempt; SSE frames carry it too. */
+  readonly actor?: StreamRecord["actor"];
   readonly correlation?: StreamCorrelation;
   readonly summary: unknown;
   /** Where the full payload lives (query views only; SSE frames carry none). */
@@ -40,7 +42,7 @@ export function recordOfView(view: StreamRecord): LogRecord {
   return {
     streamSeq: view.streamSeq, eventId: view.eventId, type: view.eventType,
     severity: view.severity, emitter: view.emitter, source: view.source,
-    aggregateId: view.aggregateId, at: view.at, tsApproximate: view.tsApproximate,
+    aggregateId: view.aggregateId, at: view.at, tsApproximate: view.tsApproximate, actor: view.actor,
     ...(view.correlation ? { correlation: view.correlation } : {}),
     summary: view.summary, payloadRef: view.payloadRef,
   };
@@ -52,6 +54,7 @@ function recordOfFrame(frame: StreamEvent): LogRecord {
     type: frame.type, severity: frame.severity ?? null, emitter: frame.emitter ?? "governor",
     source: frame.source, aggregateId: frame.aggregateId ?? "", at: frame.at,
     tsApproximate: false,
+    ...(frame.actor ? { actor: frame.actor as StreamRecord["actor"] } : {}),
     ...(frame.correlation ? { correlation: frame.correlation as StreamCorrelation } : {}),
     summary: frame.summary,
   };

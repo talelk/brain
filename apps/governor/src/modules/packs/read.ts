@@ -94,8 +94,13 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
     return { items } as unknown as JsonValue;
   }
   if (queryType === "audit.list") {
-    const rows = store.control.prepare("SELECT cursor, event_id, event_type, aggregate_id, payload_json, payload_digest, created_at_ms FROM events WHERE organization_id=? AND workspace_id=? ORDER BY cursor DESC LIMIT 50").all(actor.organizationId, workspaceId) as Array<Record<string, unknown>>;
+    const rows = store.control.prepare("SELECT cursor, event_id, event_type, aggregate_id, payload_json, payload_digest, created_at_ms, actor_id, actor_kind, actor_attempt_id, acting_for FROM events WHERE organization_id=? AND workspace_id=? ORDER BY cursor DESC LIMIT 50").all(actor.organizationId, workspaceId) as Array<Record<string, unknown>>;
     const ws = store.workspaceDb(workspaceId, actor.organizationId);
+    // What agents did inside the workspace (a plan, a comment, a handoff) is on the workspace's own log; it is shown here with the control-plane events, newest first.
+    const inside = ws.prepare("SELECT cursor, event_id, event_type, aggregate_id, payload_json, payload_digest, created_at_ms, actor_id, actor_kind, actor_attempt_id, acting_for FROM events WHERE actor_kind='agent' ORDER BY cursor DESC LIMIT 50").all() as Array<Record<string, unknown>>;
+    rows.push(...inside);
+    rows.sort((a, b) => Number(b["created_at_ms"]) - Number(a["created_at_ms"]) || String(b["event_id"]).localeCompare(String(a["event_id"])));
+    rows.length = Math.min(rows.length, 50);
     /** The title of the task or mission an event is about, so a person reads "Draft the summary" and not an id. */
     const titleOf = (kind: "workItem" | "mission", id: unknown): string | undefined => {
       if (typeof id !== "string") return undefined;
@@ -116,15 +121,16 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
       try { return (store.control.prepare("SELECT workflow_run_id AS run FROM jobs WHERE id=? AND organization_id=?").get(jobId, actor.organizationId) as { run?: string } | undefined)?.run; } catch { return undefined; }
     };
     return { items: rows.map((r) => {
-      let actorId = "system";
+      // Who did it is what the event recorded when it was written (ADR 0032), never guessed from its payload.
+      const actorId = String(r["actor_id"]);
+      const actorKind = String(r["actor_kind"]);
+      const attemptId = typeof r["actor_attempt_id"] === "string" ? r["actor_attempt_id"] : undefined;
+      // A machine principal's entry names the person it acted for, so the trail never reads as that person's own action.
+      const actingFor = typeof r["acting_for"] === "string" && r["acting_for"] ? r["acting_for"] : undefined;
       let message: string | undefined;
       let subject: string | undefined;
-      let actingFor: string | undefined;
       try {
         const payload = JSON.parse(String(r["payload_json"])) as Record<string, unknown>;
-        actorId = String(payload["actorId"] ?? payload["actorRef"] ?? payload["requestedBy"] ?? "system");
-        // A machine principal's entry names the person it acted for, so the trail never reads as that person's own action.
-        if (typeof payload["actingFor"] === "string" && payload["actingFor"]) actingFor = payload["actingFor"];
         // Where the writer already put a plain sentence in the event (a declined tool request does), the page shows that sentence.
         if (typeof payload["message"] === "string" && payload["message"].trim()) message = payload["message"].trim().slice(0, 500);
         const type = String(r["event_type"]);
@@ -133,8 +139,8 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
           const verb = ({ done: "finished", "in-progress": "started", in_progress: "started", review: "is ready for review", blocked: "is blocked", abandoned: "was dropped", ready: "is ready to start" } as Record<string, string>)[String(payload["state"])];
           if (verb) message = `Task${subject ? ` "${subject}"` : ""} ${verb}`;
         }
-      } catch { /* payload is digest-bound; actor stays system */ }
-      return { id: String(r["event_id"]), cursor: Number(r["cursor"]), actorId, action: String(r["event_type"]), resourceId: String(r["aggregate_id"]), occurredAt: iso(Number(r["created_at_ms"])), payloadDigest: String(r["payload_digest"]), ...(message ? { message } : {}), ...(subject ? { subject } : {}), ...(actingFor ? { actingFor } : {}) };
+      } catch { /* payload is digest-bound; the entry still names its recorded actor */ }
+      return { id: String(r["event_id"]), cursor: Number(r["cursor"]), actorId, actorKind, action: String(r["event_type"]), resourceId: String(r["aggregate_id"]), occurredAt: iso(Number(r["created_at_ms"])), payloadDigest: String(r["payload_digest"]), ...(message ? { message } : {}), ...(subject ? { subject } : {}), ...(actingFor ? { actingFor } : {}), ...(attemptId ? { attemptId } : {}) };
     }) } as unknown as JsonValue;
   }
   const table = LIST_TABLES[queryType];

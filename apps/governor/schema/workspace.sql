@@ -502,6 +502,8 @@ CREATE TABLE events (
   aggregate_type TEXT NOT NULL, aggregate_id TEXT NOT NULL, aggregate_seq INTEGER NOT NULL CHECK(aggregate_seq > 0),
   event_type TEXT NOT NULL, payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
   payload_digest TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  actor_id TEXT NOT NULL DEFAULT 'system:unattributed', actor_kind TEXT NOT NULL DEFAULT 'system',
+  actor_attempt_id TEXT DEFAULT NULL, acting_for TEXT DEFAULT NULL,
   UNIQUE(aggregate_type,aggregate_id,aggregate_seq)
 ) STRICT;
 CREATE INDEX events_type ON events(event_type, created_at_ms);

@@ -1,3 +1,4 @@
+import { scopeMethods, systemActor } from "./actor-context";
 import { resolveModelKey, sha256Digest } from "@brain/contracts";
 import type { Store } from "./store";
 import { BrainDomainError } from "../domain/errors";
@@ -27,7 +28,9 @@ export class BundleJudge {
   private running: Promise<void> | undefined;
   private again = false;
   private readonly inFlight = new Set<string>();
-  constructor(private readonly ports: Ports) {}
+  constructor(private readonly ports: Ports) {
+    scopeMethods(this, { sweep: systemActor("bundle-judge") });
+  }
 
   /** One pass over every active workspace; a pass asked for while one runs is run again right after it, so no submission is missed. */
   sweep(): Promise<void> {

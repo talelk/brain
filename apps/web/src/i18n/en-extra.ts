@@ -2055,5 +2055,10 @@ export const enExtra = {
   "autonomy.refused": "The suggestion could not be decided.",
   "autonomy.refused.title": "Suggestion not applied",
   "autonomy.counted.window": "Counted over the last {days} days.",
+  "actor.by-agent-session": "By an agent working for {name}, through its session",
+  "actor.by-runner": "By runner {id}",
+  "actor.by-runner-session": "By runner {id}, running a session",
+  "actor.by-brain": "By Brain itself ({what})",
+  "actor.by-brain-for": "By Brain for {name} ({what})",
   // @@END
 } as const satisfies Record<string, string>;

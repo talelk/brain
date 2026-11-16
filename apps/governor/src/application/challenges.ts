@@ -1,3 +1,4 @@
+import { scopeMethods, systemActor } from "./actor-context";
 import type { ActorContext, CommandReceipt, JsonValue, WorkflowCatalogEntry } from "@brain/contracts";
 import { payloadValidator } from "@brain/contracts/validate";
 import { handlersFor, type CommandHandlers } from "./command-funnel";
@@ -79,7 +80,9 @@ export function claimsOf(deliverable: string): ChallengeClaim[] {
  */
 export class Challenges {
   private sweeping: Promise<void> | undefined;
-  constructor(private readonly ports: Ports) {}
+  constructor(private readonly ports: Ports) {
+    scopeMethods(this, { sweep: systemActor("challenges") });
+  }
 
   commands(): CommandHandlers {
     const { store, missions } = this.ports;

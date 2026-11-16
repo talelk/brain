@@ -1,3 +1,4 @@
+import { eventActorOf, scopeMethods, systemActor } from "../../application/actor-context";
 import { domainDigest, roleScopes } from "@brain/contracts";
 import type { AcceptedDecision, ActorContext, AutonomyPolicy, AutonomyPreset, ExecutionLink, JsonValue, Mission, MissionBrief, MissionOutcome, OutputInput, PlanAssignment, PlanOperation, PlanTask, PlanVersion, StandingTeam, TeamMember, WorkItem, WorkItemPriority, WorkItemState, WorkItemSubtasks } from "@brain/contracts";
 import type { Store } from "../../application/store";
@@ -118,7 +119,11 @@ export const PARKED_INTERRUPTED_REASON = "Stopped: waiting for you to try again"
 const MAX_PENDING_TEAMMATE_MESSAGES = 5;
 
 export class MissionService {
-  constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort, private readonly coordinatorPort?: CoordinatorPort, private readonly capitalization?: { requestMissionRun(organizationId: string, workspaceId: string, missionId: string): string }, private readonly runs?: RunPriorityPort) {}
+  constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort, private readonly coordinatorPort?: CoordinatorPort, private readonly capitalization?: { requestMissionRun(organizationId: string, workspaceId: string, missionId: string): string }, private readonly runs?: RunPriorityPort) {
+    // The engine's callbacks run inside whoever caused them (a runner's completion, a person's cancel); alone, they are the Governor's workflow.
+    scopeMethods(this, { recordRunFailure: systemActor("workflow"), recordRunSuccess: systemActor("workflow"), completeFinishedMissions: systemActor("workflow"), autoStartPlan: systemActor("workflow"), recordOutput: systemActor("workflow") }, { ifAbsent: true });
+    scopeMethods(this, { returnToActive: (actor: ActorContext) => eventActorOf(actor) });
+  }
 
   /** Starts coordinator runs for pending wakes across active workspaces (maintenance pass). */
   pumpCoordinators(): number {

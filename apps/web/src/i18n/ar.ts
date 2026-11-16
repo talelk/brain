@@ -2647,5 +2647,10 @@ export const ar: Catalog = {
   "autonomy.refused": "تعذر البت في الاقتراح.",
   "autonomy.refused.title": "لم يُطبق الاقتراح",
   "autonomy.counted.window": "محسوب على آخر {days} يوما.",
+  "actor.by-agent-session": "بواسطة وكيل يعمل لصالح {name}، عبر جلسته",
+  "actor.by-runner": "بواسطة المشغّل {id}",
+  "actor.by-runner-session": "بواسطة المشغّل {id}، أثناء تشغيل جلسة",
+  "actor.by-brain": "بواسطة Brain نفسه ({what})",
+  "actor.by-brain-for": "بواسطة Brain لصالح {name} ({what})",
   // @@END
 };
