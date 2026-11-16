@@ -6,7 +6,7 @@ export default defineConfig({
     alias: { "@brain/contracts": fileURLToPath(new URL("./packages/contracts/src/index.ts", import.meta.url)) },
   },
   test: {
-    include: ["tests/unit/**/*.test.ts", "tests/core/**/*.test.ts"],
+    include: ["tests/unit/**/*.test.ts", "tests/core/**/*.test.ts", "tests/runner/**/*.test.ts", "tests/e2e/**/*.test.ts"],
     // Each worker is a few hundred megabytes; more than four have exhausted the machine's memory.
     maxWorkers: 4,
     testTimeout: 60_000,

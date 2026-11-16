@@ -35,6 +35,40 @@ describe("roles", () => {
     }
   });
 
+  it("every command and query refuses a person below its role, a person outside the workspace, and nobody", async () => {
+    const t = { workspaceId, taskId: "t_none" };
+    const valid: Record<string, object> = {
+      "workspace.archive": { workspaceId }, "workspace.stopAll": { workspaceId }, "file.write": memory("roles"), "file.delete": { workspaceId, paths: ["memory/roles.md"] },
+      "secret.set": { workspaceId, name: "x", value: "y" }, "secret.delete": { workspaceId, name: "x" }, "member.set": { workspaceId, email: "vera@example.com", role: "viewer" }, "member.remove": { workspaceId, userId: "u_none" },
+      "task.create": { workspaceId, goal: "Do something" }, "task.confirm": t, "task.edit": { ...t, changes: [{ op: "remove", id: "t_other" }] }, "task.stop": t, "task.retry": t, "task.check": { ...t, pass: true }, "task.answer": { ...t, answer: "yes" },
+      "approval.decide": { workspaceId, approvalId: "ap_none", decision: "approve", subjectDigest: "sha256:0" }, "memory.decide": { workspaceId, proposalId: "mp_none", decision: "accept" },
+      "runner.remove": { runnerId: "r_none" }, "file.read": { workspaceId, path: "brain.toml" }, "task.get": t, "task.events": { ...t, attemptId: "a_none" }, "approval.get": { workspaceId, approvalId: "ap_none" },
+    };
+    const rank = { viewer: 0, member: 1, admin: 2 } as const;
+    const refusal = async (call: Promise<unknown>): Promise<string> => call.then(() => "answered", (e: { code: string }) => e.code);
+    const run = (client: Client, kind: "command" | "query", type: string, input: object): Promise<string> => refusal(kind === "command" ? client.command(type as never, input as never) : client.query(type as never, input as never));
+    let checked = 0;
+    for (const [kind, table] of [["command", commands], ["query", queries]] as const) {
+      for (const entry of Object.values(table)) {
+        if (entry.role === "public" || entry.type === "setup.create" || entry.type === "workspace.create") continue;
+        const input = valid[entry.type] ?? (entry.role === "instance-admin" ? {} : { workspaceId });
+        expect(await run(harness.anonymous, kind, entry.type, input), `${entry.type} for nobody`).toBe("UNAUTHENTICATED");
+        if (entry.role === "instance-admin") {
+          expect(await run(member, kind, entry.type, input), `${entry.type} for a workspace member`).toBe("FORBIDDEN");
+          continue;
+        }
+        expect(await run(outsider, kind, entry.type, input), `${entry.type} for a person outside`).toBe("NOT_FOUND");
+        for (const [role, client] of [["viewer", viewer], ["member", member]] as const) {
+          const answer = await run(client, kind, entry.type, input);
+          if (rank[role] < rank[entry.role as keyof typeof rank]) expect(answer, `${entry.type} for a ${role}`).toBe("FORBIDDEN");
+          else expect(answer, `${entry.type} for a ${role}`).not.toBe("FORBIDDEN");
+        }
+        checked += 1;
+      }
+    }
+    expect(checked).toBe(Object.keys(commands).length + Object.keys(queries).length - 9);
+  });
+
   it("a viewer reads the workspace and cannot write a file", async () => {
     expect((await viewer.query("workspace.get", { workspaceId })).role).toBe("viewer");
     expect((await viewer.query("workspace.files", { workspaceId })).files.length).toBeGreaterThan(0);
@@ -44,8 +78,9 @@ describe("roles", () => {
   });
 
   it("a member may start work and cannot write a file, set a secret or change members", async () => {
-    // Starting work is allowed to a member: the refusal is not about their role.
-    await expect(member.command("task.create", { workspaceId, goal: "Do something" })).rejects.toMatchObject({ code: "NOT_IMPLEMENTED" });
+    // Starting work is allowed to a member: the refusal is not about their role (this workspace has no planner for a goal without a Play).
+    await expect(member.command("task.create", { workspaceId, goal: "Do something" })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(member.command("task.create", { workspaceId, play: "hello", inputs: { name: "Max" } })).resolves.toMatchObject({ taskId: expect.any(String) });
     await expect(member.command("file.write", memory("member"))).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(member.command("secret.set", { workspaceId, name: "github", value: "a-secret-value" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(member.query("secrets.list", { workspaceId })).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -167,14 +202,14 @@ describe("secrets", () => {
     for (const entry of Object.values(queries)) {
       const input = inputs[entry.type] ?? (entry.input.safeParse({}).success ? {} : { workspaceId });
       const output = await harness.admin.query(entry.type, input as never).catch((e: { code?: string }) => {
-        expect(e.code, entry.type).toBe("NOT_IMPLEMENTED");
+        expect(e.code, entry.type).toBe("NOT_FOUND");
         return undefined;
       });
       if (output === undefined) continue;
       answered += 1;
       expect(JSON.stringify(output), entry.type).not.toContain(value);
     }
-    expect(answered).toBeGreaterThanOrEqual(9);
+    expect(answered).toBe(Object.keys(queries).length - 3);
   });
 
   it("can be replaced and deleted", async () => {

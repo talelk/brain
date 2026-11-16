@@ -18,7 +18,10 @@
     "check:knip": "knip --no-config-hints",
     "test:unit": "node scripts/with-tmpdir.mjs vitest run tests/unit",
     "test:core": "node scripts/with-tmpdir.mjs vitest run tests/core",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:core",
+    "test:runner": "node scripts/with-tmpdir.mjs vitest run tests/runner",
+    "test:e2e": "node scripts/with-tmpdir.mjs vitest run tests/e2e",
+    "complexity": "node scripts/complexity.mjs",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:runner && pnpm test:core && pnpm test:e2e && pnpm complexity",
     "build": "pnpm --filter @brain/web build",
     "host-watchdog": "tsx scripts/watchdog/host-watchdog.ts",
     "brain": "tsx scripts/brain.ts"

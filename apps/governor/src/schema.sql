@@ -164,7 +164,6 @@ CREATE TABLE attempts (
   candidate INTEGER,
   runner_id TEXT REFERENCES runners(id),
   engine TEXT,
-  model TEXT,
   -- Moves every time the attempt is offered again; a request with an older fence is refused.
   fence INTEGER NOT NULL DEFAULT 0,
   offer_expires_at_ms INTEGER,
@@ -273,6 +272,8 @@ CREATE TABLE usage (
   -- YYYY-MM-DD, UTC: the day the cost counts against the workspace's daily cap.
   day TEXT NOT NULL,
   reserved_micro_usd INTEGER NOT NULL DEFAULT 0,
+  -- What the model gateway has measured so far, from the answers of the models it forwarded to.
+  metered_micro_usd INTEGER NOT NULL DEFAULT 0,
   -- Null until the attempt ends; then the reservation no longer counts.
   settled_micro_usd INTEGER,
   input_tokens INTEGER NOT NULL DEFAULT 0,

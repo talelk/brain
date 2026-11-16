@@ -14,6 +14,8 @@ export interface Gov {
   readonly packsDir: string;
   readonly baseUrl: string;
   readonly clock: Clock;
+  /** Every request the Governor makes to another server (a model, GitHub, Teams, a project's repository) goes through this. */
+  readonly fetch: typeof fetch;
   /** From `<data>/instance.key`: one key encrypts secrets, the other keys digests of tokens and requests. */
   readonly keys: { readonly secrets: Buffer; readonly digests: Buffer };
   readonly auth: Auth;
@@ -42,10 +44,15 @@ export interface Ctx {
  */
 export type CommandHandler<T extends CommandType, P = undefined> =
   | ((ctx: Ctx, input: CommandInput<T>) => CommandOutputs[T])
-  | { prepare(ctx: Ctx, input: CommandInput<T>): Promise<P>; run(ctx: Ctx, input: CommandInput<T>, prepared: P): CommandOutputs[T] };
+  | {
+    prepare?(ctx: Ctx, input: CommandInput<T>): Promise<P>;
+    run(ctx: Ctx, input: CommandInput<T>, prepared: P): CommandOutputs[T];
+    /** The answer holds a secret shown once: it is not kept, and a repeated key is refused instead of answered again. */
+    secretOutput?: boolean;
+  };
 export type QueryHandler<T extends QueryType> = (ctx: Ctx, input: QueryInput<T>) => QueryOutputs[T] | Promise<QueryOutputs[T]>;
 
-interface AnyCommand { prepare?: (ctx: Ctx, input: unknown) => Promise<unknown>; run: (ctx: Ctx, input: unknown, prepared: unknown) => unknown }
+interface AnyCommand { prepare?: (ctx: Ctx, input: unknown) => Promise<unknown>; run: (ctx: Ctx, input: unknown, prepared: unknown) => unknown; secretOutput?: boolean }
 type AnyQuery = (ctx: Ctx, input: unknown) => unknown;
 
 /** Where each module registers the commands and queries it implements. One without a handler answers NOT_IMPLEMENTED. */
@@ -117,6 +124,7 @@ export async function runCommand(gov: Gov, caller: Caller, body: unknown): Promi
     const row = gov.db.prepare("SELECT command, request_digest AS digest, response_json AS response FROM idempotency WHERE actor_id=? AND key=?").get(actorId, idempotencyKey) as { command: string; digest: string; response: string } | undefined;
     if (!row) return undefined;
     if (row.command !== type || row.digest !== requestDigest) throw new BrainError("IDEMPOTENCY_CONFLICT", "This idempotency key was used for a different command");
+    if (row.response === "") throw new BrainError("CONFLICT", "The answer to this command was shown once; send it again with a new key");
     return { output: JSON.parse(row.response) };
   };
   const first = replay();
@@ -126,7 +134,7 @@ export async function runCommand(gov: Gov, caller: Caller, body: unknown): Promi
     const again = replay();
     if (again) return again.output;
     const output = handler.run(ctx, input, prepared);
-    if (actorId) gov.db.prepare("INSERT INTO idempotency(actor_id, key, command, request_digest, response_json, created_at_ms) VALUES (?,?,?,?,?,?)").run(actorId, idempotencyKey, type, requestDigest, JSON.stringify(output), ctx.now());
+    if (actorId) gov.db.prepare("INSERT INTO idempotency(actor_id, key, command, request_digest, response_json, created_at_ms) VALUES (?,?,?,?,?,?)").run(actorId, idempotencyKey, type, requestDigest, handler.secretOutput ? "" : JSON.stringify(output), ctx.now());
     return output;
   });
 }

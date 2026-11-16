@@ -3,15 +3,26 @@ import { Hono, type Context } from "hono";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { registerGateway } from "./attempts/gateway";
+import { registerAttempts } from "./attempts/routes";
+import { registerRunners } from "./attempts/runners";
 import { createAuth } from "./auth/auth";
 import { ensureSetupToken, registerAuth } from "./auth/handlers";
 import { openDb } from "./db";
 import { Registry, runCommand, runQuery, type Gov } from "./dispatch";
 import { onChanged } from "./events";
+import { registerHealth } from "./health/health";
+import { registerGithub } from "./integrations/github";
+import { registerTeams } from "./integrations/teams";
+import { registerMemory } from "./memory/memory";
+import { registerTasks } from "./tasks/handlers";
+import { registerTriggers } from "./tasks/triggers";
+import { registerApprovals } from "./trust/approvals";
 import { readableLink, readArtifact } from "./trust/artifacts";
 import { checkpoint, ensureAuditKey } from "./trust/audit";
 import { registerTrust } from "./trust/handlers";
 import { instanceKeys } from "./trust/secrets";
+import { registerUsage } from "./trust/usage";
 import { registerWorkspace } from "./workspace/handlers";
 import { reconcile } from "./workspace/store";
 
@@ -22,6 +33,8 @@ export interface GovernorOptions {
   readonly packsDir?: string;
   readonly webDist?: string;
   readonly clock?: Clock;
+  /** Tests answer the Governor's outgoing requests themselves. */
+  readonly fetch?: typeof fetch;
 }
 export interface Governor {
   readonly gov: Gov;
@@ -46,7 +59,8 @@ function refusal(c: Context, e: unknown): Response {
   return c.json({ error }, ERROR_STATUS[error.code]);
 }
 
-async function readJson(request: Request): Promise<unknown> {
+/** The body of a request, read as strict JSON. */
+export async function readJson(request: Request): Promise<unknown> {
   const bytes = new Uint8Array(await request.arrayBuffer());
   if (bytes.length > MAX_BODY) throw new BrainError("INVALID_INPUT", "The request is too large");
   try {
@@ -64,7 +78,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   const db = openDb(dataDir);
   const keys = instanceKeys(dataDir);
   const gov: Gov = {
-    db, dataDir, baseUrl, keys, packsDir: resolve(options.packsDir ?? repo("packs")), clock: options.clock ?? systemClock,
+    db, dataDir, baseUrl, keys, packsDir: resolve(options.packsDir ?? repo("packs")), clock: options.clock ?? systemClock, fetch: options.fetch ?? ((input, init) => fetch(input, init)),
     auth: createAuth(db, { secret: hmacSha256Hex(keys.digests, Buffer.from("better-auth")), baseUrl }), registry: new Registry(), onActivate: [],
   };
   const app = new Hono();
@@ -158,7 +172,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   });
 
   // Each module registers its commands, queries, routes and timers here, before the web app's catch-all route below.
-  for (const register of [registerAuth, registerWorkspace, registerTrust]) register(governor);
+  for (const register of [registerAuth, registerWorkspace, registerTrust, registerUsage, registerApprovals, registerMemory, registerTriggers, registerTasks, registerRunners, registerAttempts, registerGateway, registerGithub, registerTeams, registerHealth]) register(governor);
   governor.every(15 * 60_000, () => void checkpoint(gov));
 
   ensureAuditKey(gov);

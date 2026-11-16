@@ -50,11 +50,10 @@ describe("first-run setup", () => {
     expect((await harness.admin.query("me", {})).workspaces.map((workspace) => workspace.id)).toEqual([workspaceId]);
   });
 
-  it("a command or query nobody implements yet says so, and an unknown one is refused", async () => {
+  it("a command or query that does not exist is refused, and nobody signed in reads nothing", async () => {
     harness = await createHarness();
     const { workspaceId } = await harness.createWorkspace();
-    await expect(harness.admin.query("today", { workspaceId })).rejects.toMatchObject({ code: "NOT_IMPLEMENTED" });
-    await expect(harness.admin.command("task.create", { workspaceId, goal: "Do something" })).rejects.toMatchObject({ code: "NOT_IMPLEMENTED" });
+    await expect(harness.admin.command("no.such" as never, {} as never)).rejects.toMatchObject({ code: "INVALID_INPUT" });
     await expect(harness.admin.query("no.such" as never, {} as never)).rejects.toMatchObject({ code: "INVALID_INPUT" });
     await expect(harness.anonymous.query("today", { workspaceId })).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
   });

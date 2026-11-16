@@ -1,94 +1,11 @@
 import type { JsonSchema } from "./files";
 import type { SignedRunReceipt } from "./run-receipt";
 
-/** Wire types between a runner and the Governor (docs/architecture.md section 6), and the engine-facing types the runner's adapters use. */
+/** Wire types between a runner and the Governor (docs/architecture.md section 6). */
 
 export type JsonValue = null | boolean | number | string | ReadonlyArray<JsonValue> | { readonly [key: string]: JsonValue };
 /** `sha256:<64 hex>`. */
 export type Digest = string;
-
-// --- Engine side: what an engine adapter (ports.ts) is given and what it reports ---
-
-export interface ReleaseRef { readonly id: string; readonly digest: Digest }
-export interface Target { readonly targetId: string; readonly environmentId: string; readonly preconditionDigest: Digest }
-export interface ArtifactRef {
-  readonly artifactId: string;
-  readonly digest: Digest;
-  readonly bytes: number;
-  readonly mediaType: string;
-  readonly classification: "public" | "internal" | "confidential" | "restricted";
-}
-export interface EngineInfo { readonly id: string; readonly version?: string; readonly adapterDigest: Digest; readonly features: ReadonlyArray<string> }
-export interface EngineSessionSpec {
-  readonly contractVersion: "brain.engine/v1";
-  readonly jobId: string;
-  readonly attemptId: string;
-  readonly engine: EngineInfo;
-  readonly modelId: string;
-  readonly instructions: string;
-  readonly instructionsDigest: Digest;
-  readonly task: string;
-  readonly sourceRevision: string;
-  readonly allowedTools: ReadonlyArray<ReleaseRef>;
-  readonly context: ArtifactRef;
-  readonly resumeFrom?: ArtifactRef;
-  readonly limits: { readonly timeoutMs: number; readonly maxTokens: number; readonly maxMicroUsd: number; readonly maxTurns: number };
-}
-export interface ExternalEffect {
-  readonly invocationId: string;
-  readonly targetId: string;
-  readonly operation: string;
-  readonly outcome: "applied" | "absent" | "conflicting" | "unknown";
-  readonly receiptArtifact: ArtifactRef;
-}
-export interface ToolReceipt {
-  readonly invocationId: string;
-  readonly attemptId: string;
-  readonly jobFence: number;
-  readonly result: "succeeded" | "failed" | "partial" | "unknown";
-  readonly startedAt: string;
-  readonly finishedAt?: string;
-  readonly exitCode?: number;
-  readonly stdout?: ArtifactRef;
-  readonly stderr?: ArtifactRef;
-  readonly effects: ReadonlyArray<ExternalEffect>;
-}
-export interface EngineError { readonly code: string; readonly detail: string; readonly retryable: boolean; readonly correlationId: string }
-interface EngineEventPayloads {
-  "session.started": { readonly engine: EngineInfo; readonly resumedFrom?: Digest };
-  "session.stopped": { readonly reason: "completed" | "cancelled" | "budget" | "timeout" | "error"; readonly terminationConfirmed: boolean; readonly output?: ArtifactRef };
-  text: { readonly text: string; readonly channel: "assistant" | "diagnostic"; readonly provisional: true };
-  "tool.proposed": { readonly proposalId: string; readonly tool: ReleaseRef; readonly input: JsonValue; readonly target: Target; readonly inputDigest: Digest };
-  "tool.result": { readonly proposalId: string; readonly invocationId: string; readonly receipt: ToolReceipt };
-  usage: { readonly usageId: string; readonly inputTokens: number; readonly outputTokens: number; readonly cachedInputTokens: number; readonly microUsd: number; readonly accounting: "delta" | "final-total"; readonly estimated: boolean };
-  artifact: { readonly artifact: ArtifactRef; readonly purpose: "output" | "checkpoint" | "diagnostic" | "evidence" };
-  "human.input.requested": { readonly requestId: string; readonly prompt: string; readonly expiresAt: string; readonly choices: ReadonlyArray<string> };
-  error: { readonly error: EngineError; readonly phase: "probe" | "start" | "stream" | "tool" | "cancel" | "checkpoint" | "resume"; readonly retryClass: "safe-read" | "new-attempt" | "never" | "reconcile" };
-}
-export type EngineEvent = {
-  [K in keyof EngineEventPayloads]: {
-    readonly contractVersion: "brain.engine-event/v1";
-    readonly eventId: string;
-    readonly sessionId: string;
-    readonly attemptId: string;
-    readonly sequence: number;
-    readonly occurredAt: string;
-    readonly kind: K;
-    readonly payload: EngineEventPayloads[K];
-  };
-}[keyof EngineEventPayloads];
-export interface Checkpoint {
-  readonly contractVersion: "brain.checkpoint/v2";
-  readonly attemptId?: string;
-  readonly sourceRevision: string;
-  readonly engineState?: ArtifactRef;
-  readonly completedCriteria: ReadonlyArray<string>;
-  readonly failures: ReadonlyArray<string>;
-  readonly eventSequence: number;
-  readonly ownedResources?: ReadonlyArray<string>;
-  readonly nextAction: string;
-  readonly createdAt: string;
-}
 
 // --- Runner routes, all under /runner/v1. `:id` is an attempt id. ---
 
@@ -166,8 +83,9 @@ export interface OfferProject {
   /** The name of the secret to lease for fetching; absent for a public repository. */
   readonly credential?: string;
   /**
-   * The commit to work on. Set to the commit an earlier attempt of this task worked on, and on a first attempt when the task was started by
-   * a pull request delivery (that pull request's head commit). Absent otherwise: the branch head is used and reported back in `complete`.
+   * The commit to work on: the head commit of the pull request whose delivery started the goal, else the commit the first attempt of the
+   * goal reported for this project (every task of one goal works on the same commit). Absent on the goal's first attempt: the branch head
+   * is used and reported back in `complete`.
    */
   readonly baseCommit?: string;
 }
@@ -204,7 +122,11 @@ export interface JobOffer {
   };
   readonly tools: ReadonlyArray<OfferTool>;
   readonly projects: ReadonlyArray<OfferProject>;
-  /** The working-copy patches of the tasks this one waits for, in the order to apply them on each project's base commit. */
+  /**
+   * The working-copy patches of every task this one waits for, directly or through another, oldest first and each once. A patch holds only
+   * what its own task changed on top of the patches before it, so they apply in this order on each project's base commit. A `check` attempt
+   * is also given, last, the patch of the result it checks.
+   */
   readonly inheritedPatches: ReadonlyArray<BlobRef>;
   /** The patch an earlier attempt of this task left, applied after `inheritedPatches`. */
   readonly workingCopy?: BlobRef;
@@ -241,7 +163,10 @@ export type ApprovalState = "pending" | "approved" | "rejected" | "expired";
 export interface ToolCallResponse { readonly callId: string; readonly state: ApprovalState; readonly approvalId?: string; readonly reason?: string }
 export interface ApprovalPollResponse { readonly state: ApprovalState; readonly reason?: string }
 
-/** Runs a Brain-run tool as the attempt. A tool with an effect may answer `pending` first, like `tool-call`. */
+/**
+ * Runs a Brain-run tool as the attempt. A tool with an effect may answer `pending` first, like `tool-call`; once its approval is
+ * `approved`, the same request (same `callId`) is sent again and answers `done`. A repeated request never runs a call twice.
+ */
 export interface BrainToolRequest extends Fenced { readonly callId: string; readonly tool: string; readonly input: JsonValue }
 export type BrainToolResponse =
   | { readonly state: "done"; readonly output: JsonValue }
@@ -269,7 +194,11 @@ export interface CompleteRequest extends Fenced {
   readonly failure?: AttemptFailure;
   readonly usage: AttemptUsage;
   readonly engine: string;
-  /** `git diff` of every project against its base commit, uploaded through `artifacts` with kind `patch`. */
+  /**
+   * What this attempt's task changed in the working copy, on top of `inheritedPatches`: `git diff` of every project, uploaded through
+   * `artifacts` with kind `patch`. Before a call to `git.open-pr` the runner uploads the same (name `working-copy.patch`); the newest such
+   * upload of the attempt is the change the pull request's approval is bound to.
+   */
   readonly workingCopy?: BlobRef;
   readonly baseCommits: Readonly<Record<string, string>>;
   readonly receipt: SignedRunReceipt;

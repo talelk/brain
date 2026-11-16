@@ -38,7 +38,8 @@ const cookieHeader = (setCookies: readonly string[]): string => setCookies.map((
 
 export async function startGovernor(options: Partial<GovernorOptions> = {}): Promise<{ governor: Governor; dataDir: string; client(cookies?: string): Client }> {
   const dataDir = options.dataDir ?? mkdtempSync(join(tmpdir(), "brain-test-"));
-  const governor = await createGovernor({ dataDir, baseUrl: BASE_URL, packsDir: FIXTURE_PACKS, ...options });
+  // A test that expects the Governor to call another server answers those calls itself; none reaches the network.
+  const governor = await createGovernor({ dataDir, baseUrl: BASE_URL, packsDir: FIXTURE_PACKS, fetch: () => Promise.reject(new Error("tests do not reach the network")), ...options });
   const client = (cookies = ""): Client => {
     const fetch = (path: string, init: RequestInit = {}): Promise<Response> =>
       Promise.resolve(governor.app.fetch(new Request(`${BASE_URL}${path}`, { ...init, headers: { origin: BASE_URL, ...(cookies ? { cookie: cookies } : {}), ...(init.headers as Record<string, string> | undefined) } })));
