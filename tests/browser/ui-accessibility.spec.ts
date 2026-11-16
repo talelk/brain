@@ -39,7 +39,7 @@ test("keyboard, 200% zoom, French input, RTL and reduced motion remain contained
   await page.goto(`${governor.url}/w/${workspaceId}/missions`);
   const french = "Examiner attentivement les autorisations et les preuves indépendantes avant toute activation en production";
   await page.getByRole("button", { name: "Search Brain (Control K)" }).click();
-  const search = page.getByPlaceholder("Try a session, run, approval, output, Agent or Workflow");
+  const search = page.getByRole("combobox", { name: "Search Brain" });
   await search.fill(french);
   await expect(search).toHaveValue(french);
   await page.keyboard.press("Escape");

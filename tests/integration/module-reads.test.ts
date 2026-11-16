@@ -242,3 +242,17 @@ describe("sessions module search helper", () => {
     w.brain.close();
   });
 });
+
+describe("approval reads without a subject to describe", () => {
+  it("lists and gets an approval whose subject has no tool or origin with an empty context instead of crashing", () => {
+    const w = setupWorld();
+    w.brain.store.control.prepare(`INSERT INTO approval_requests(id,organization_id,workspace_id,requested_by,subject_digest,subject_json,state,expires_at_ms,created_at_ms)
+      VALUES ('apr-bare',?,?,'owner-1',?,'{}','pending',?,?)`)
+      .run(w.org, w.workspaceId, `sha256:${"f".repeat(64)}`, w.brain.store.now() + 3_600_000, w.brain.store.now());
+    const listed = listApprovals(w.brain.store, w.owner, [w.workspaceId], 50) as unknown as { items: Array<{ approvalId: string; context: Record<string, unknown> }> };
+    expect(listed.items.map((item) => item.approvalId)).toEqual(["apr-bare"]);
+    expect(listed.items[0]!.context).toEqual({ rollback: { declared: false } });
+    const one = getApproval(w.brain.store, w.owner, [w.workspaceId], "apr-bare") as unknown as { context: Record<string, unknown> };
+    expect(one.context).toEqual({ rollback: { declared: false } });
+  });
+});

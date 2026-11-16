@@ -72,7 +72,7 @@ test("today vitals: authenticated LCP, interaction latency and initial JS budget
   await page.getByRole("button", { name: "Create workspace", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "Search Brain (Control K)" }).click();
-  await page.getByPlaceholder("Try a session, run, approval, output, Agent or Workflow").click();
+  await page.getByRole("combobox", { name: "Search Brain" }).click();
   await page.keyboard.type("approval", { delay: 10 });
   await page.waitForTimeout(600);
   const vitals = await page.evaluate(() => {

@@ -114,6 +114,12 @@ export class AcpEngine implements EngineAdapter {
         idx = this.buffer.indexOf("\n");
       }
     });
+    // A binary that cannot be started (absent, not executable) is the agent being unavailable, not an uncaught exception in the runner.
+    proc.on("error", (error) => {
+      for (const p of this.pending.values()) p.reject(new Error(`ACP agent could not start: ${error.message}`));
+      this.pending.clear();
+      if (this.proc === proc) this.proc = null;
+    });
     proc.on("exit", () => {
       for (const p of this.pending.values()) p.reject(new Error(this.violation || "ACP agent exited"));
       this.pending.clear();
