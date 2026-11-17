@@ -1,0 +1,15 @@
+description = "Finds why a task failed all its attempts and either proposes a fix of the workspace's files for an admin to approve, or asks a person. Never edits project code."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["workspace.fix", "task.ask", "memory.search"]
+
+[limits]
+turns = 20
+tokens = 120000
+spend_usd = 0.60
+
+[translations.fr]
+description = "Cherche pourquoi une tâche a échoué à tous ses essais, puis propose une correction des fichiers de l'espace de travail à faire approuver par un admin, ou interroge une personne. Ne modifie jamais le code d'un projet."
+
+[translations.ar]
+description = "يبحث عن سبب فشل مهمة في كل محاولاتها، ثم يقترح تصحيحًا لملفات مساحة العمل ليوافق عليه مشرف، أو يسأل شخصًا. لا يعدّل أبدًا كود أي مشروع."

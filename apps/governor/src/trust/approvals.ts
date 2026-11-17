@@ -160,6 +160,8 @@ export function registerApprovals(governor: Governor): void {
     const row = db.prepare("SELECT * FROM approvals WHERE id=? AND workspace_id=?").get(input.approvalId, input.workspaceId) as ApprovalRow | undefined;
     if (!row) throw new BrainError("NOT_FOUND", "Approval not found");
     if (row.state !== "pending") throw new BrainError("CONFLICT", `This approval is already ${row.state}`);
+    // A change of the workspace's own files is an admin's to allow, as an edit of them is.
+    if (row.tool === "workspace.fix" && ctx.role !== "admin") throw new BrainError("FORBIDDEN", "Only an admin can approve a change of the workspace's files");
     if (row.expires_at_ms !== null && row.expires_at_ms <= ctx.now()) throw new BrainError("CONFLICT", "This approval expired; the call did not happen");
     // The decision is for exactly what the approver was shown, and what is stored must still be what was asked.
     if (input.subjectDigest !== row.subject_digest || approvalSubjectDigest(JSON.parse(row.subject_json) as JsonValue) !== row.subject_digest) {

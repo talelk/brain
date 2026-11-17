@@ -10,6 +10,7 @@ import { approvalsWhere } from "../trust/approvals";
 import { COST, spendOf, usageWhere } from "../trust/usage";
 import { inputSchema } from "../workspace/load";
 import { getWorkspace, manifestOf } from "../workspace/store";
+import { HEAL } from "./heal";
 import { personCheck, reviveTask, settle, startPlan, stopTask } from "./orchestrator";
 import { createFromPlay, insertTask, json, needOf, setState, taskIn, TERMINAL, type TaskRow } from "./store";
 
@@ -17,15 +18,18 @@ import { createFromPlay, insertTask, json, needOf, setState, taskIn, TERMINAL, t
 
 // A goal's cost is that of its whole tree; a sub-task's is its own. `waiting_for_you` counts the tasks of the tree (itself included) that need a person.
 const SUMMARY = `SELECT t.*, r.title AS goal_title, r.play AS root_play, u.name AS created_by_name,
+  (SELECT f.title FROM tasks f WHERE t.created_by LIKE 'heal:%' AND f.id = substr(t.created_by, 6)) AS heals_title,
+  (SELECT f.root_id FROM tasks f WHERE t.created_by LIKE 'heal:%' AND f.id = substr(t.created_by, 6)) AS heals_root,
   CASE WHEN t.parent_id IS NULL THEN (SELECT COALESCE(SUM(${COST}), 0) FROM usage u JOIN tasks x ON x.id = u.task_id WHERE x.root_id = t.id)
   ELSE (SELECT COALESCE(SUM(${COST}), 0) FROM usage u WHERE u.task_id = t.id) END AS micro_usd,
   (WITH RECURSIVE tree(id) AS (SELECT t.id UNION ALL SELECT c.id FROM tasks c JOIN tree ON c.parent_id = tree.id) SELECT COUNT(*) FROM tasks x WHERE x.state = 'needs_you' AND x.id IN (SELECT id FROM tree)) AS waiting_for_you
   FROM tasks t JOIN tasks r ON r.id = t.root_id LEFT JOIN "user" u ON u.id = t.created_by`;
-type SummaryRow = TaskRow & { readonly micro_usd: number; readonly goal_title: string; readonly root_play: string | null; readonly created_by_name: string | null; readonly waiting_for_you: number };
+type SummaryRow = TaskRow & { readonly micro_usd: number; readonly goal_title: string; readonly root_play: string | null; readonly created_by_name: string | null; readonly waiting_for_you: number; readonly heals_title: string | null; readonly heals_root: string | null };
 const summary = (row: SummaryRow): TaskSummary => ({
   id: row.id, workspaceId: row.workspace_id, parentId: row.parent_id, rootId: row.root_id, title: row.title, goalTitle: row.goal_title, agent: row.agent, state: row.state, needs: needOf(row),
   play: row.root_play, stepId: row.step_id, round: row.round, microUsd: row.micro_usd, createdAt: row.created_at_ms, updatedAt: row.updated_at_ms, finishedAt: row.finished_at_ms,
   ...(row.created_by_name !== null ? { createdByName: row.created_by_name } : {}), waitingForYou: row.waiting_for_you,
+  ...(row.heals_title !== null ? { heals: { id: row.created_by.slice(HEAL.length), rootId: row.heals_root as string, title: row.heals_title } } : {}),
 });
 export const summaries = (db: Db, where: string, ...values: unknown[]): TaskSummary[] => (db.prepare(`${SUMMARY} WHERE ${where}`).all(...values) as SummaryRow[]).map(summary);
 const waitsFor = (db: Db, taskId: string): string[] => (db.prepare("SELECT waits_for FROM task_deps WHERE task_id=?").all(taskId) as Array<{ waits_for: string }>).map((dep) => dep.waits_for);
@@ -228,6 +232,7 @@ export function registerTasks(governor: Governor): void {
       artifacts: db.prepare(`SELECT l.digest, l.name, l.kind, l.media_type AS mediaType, a.bytes, l.attempt_id AS attemptId FROM artifact_links l JOIN artifacts a ON a.digest = l.digest WHERE l.task_id ${inTree} ORDER BY l.id`).all(row.id) as ArtifactLink[],
       pullRequests: db.prepare(`SELECT task_id AS taskId, project, branch, url, number, state, created_at_ms AS at FROM pull_requests WHERE task_id ${inTree} ORDER BY id`).all(row.id) as PullRequest[],
       usage: usageWhere(db, `u.task_id ${inTree}`, row.id), version: row.version,
+      heal: (db.prepare("SELECT id AS taskId, state FROM tasks WHERE created_by=?").get(`${HEAL}${row.id}`) as { taskId: string; state: Task["state"] } | undefined) ?? null,
     };
   });
 

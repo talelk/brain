@@ -8,6 +8,7 @@ import { settle } from "../tasks/orchestrator";
 import { insertTask, taskOf, type AttemptRow, type TaskRow } from "../tasks/store";
 import { authorizeCall, callRowId, finishCall, openCall, type PullRequestChange } from "../trust/approvals";
 import { manifestOf } from "../workspace/store";
+import { applyFix, commitFix, planFix, type FixPlan } from "./fix";
 import { inputProblem, ToolRefusal } from "./schema";
 
 /**
@@ -89,6 +90,19 @@ export function runBrainTool(gov: Gov, attempt: AttemptRow, request: Omit<BrainT
 
   const run = async (): Promise<BrainToolResponse> => {
     const input = request.input as Input;
+    // A fix is checked, and stored as the diff the approver reads, before anyone is asked; that needs the folder, which only async code reads.
+    let fix: FixPlan | undefined;
+    const before = db.prepare("SELECT outcome, approval_id FROM tool_calls WHERE id=?").get(rowId) as { outcome: ToolOutcome | "pending"; approval_id: string | null } | undefined;
+    if (request.tool === "workspace.fix" && before?.approval_id == null && (before === undefined || before.outcome === "pending" || before.outcome === "held")) {
+      try {
+        fix = await planFix(gov, attempt, task, rowId, tool.input_schema, request.input);
+      } catch (e) {
+        return tx(db, () => {
+          openCall(gov, attempt, request.callId, { tool: request.tool, effect: tool.effect, input: request.input });
+          return finish("failed", { error: words(e) });
+        });
+      }
+    }
     const first = tx(db, (): BrainToolResponse | { change: PullRequestChange } => {
       const known = db.prepare("SELECT outcome, output_json, approval_id FROM tool_calls WHERE id=?").get(rowId) as { outcome: ToolOutcome | "pending"; output_json: string | null; approval_id: string | null } | undefined;
       // A call the Governor already carried out is answered as it was; a runner that reported the call as held has not been answered yet.
@@ -98,12 +112,12 @@ export function runBrainTool(gov: Gov, attempt: AttemptRow, request: Omit<BrainT
       try {
         const problem = asked ? undefined : inputProblem(tool.input_schema, request.input);
         if (problem) throw new ToolRefusal(`The input of ${request.tool} is not valid: ${problem}`);
-        const change = !asked && request.tool === "git.open-pr" ? pullRequestChange(gov, attempt, task, input["project"] as string, request.baseCommits) : {};
+        const change = !asked && request.tool === "git.open-pr" ? pullRequestChange(gov, attempt, task, input["project"] as string, request.baseCommits) : fix ?? {};
         const decision = authorizeCall(gov, attempt, { callId: request.callId, tool: request.tool, effect: tool.effect, input: request.input, ...change });
         if (decision.state === "pending") return { state: "pending", approvalId: decision.approvalId as string };
         if (decision.state !== "approved") return { state: "rejected", reason: decision.reason ?? "The call was not approved" };
         // What is opened is what was approved: the patch and the commit of the subject, whoever asks again and whenever.
-        if (request.tool === "git.open-pr" || request.tool === "message.send") return { change: { patchDigest: decision.subject?.patchDigest, baseCommit: decision.subject?.baseCommit } };
+        if (request.tool === "git.open-pr" || request.tool === "message.send" || request.tool === "workspace.fix") return { change: { patchDigest: decision.subject?.patchDigest, baseCommit: decision.subject?.baseCommit } };
         // In a transaction of its own inside this one: a tool that fails half-way leaves nothing behind.
         return finish("succeeded", tx(db, () => runNow(gov, attempt, task, request.tool, input)));
       } catch (e) {
@@ -113,6 +127,10 @@ export function runBrainTool(gov: Gov, attempt: AttemptRow, request: Omit<BrainT
     });
     if (!("change" in first)) return first;
     try {
+      if (request.tool === "workspace.fix") {
+        const committed = await commitFix(gov, task, request.input, first.change.baseCommit);
+        return tx(db, () => finish("succeeded", applyFix(gov, attempt, task, committed)));
+      }
       const output = await runOutside(gov, attempt, task, request.tool, input, first.change);
       return tx(db, () => finish("succeeded", output));
     } catch (e) {

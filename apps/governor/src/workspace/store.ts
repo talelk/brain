@@ -59,6 +59,25 @@ export interface FolderChange { readonly write: ReadonlyMap<string, Uint8Array>;
 /** A committed, valid folder, ready to be made the active snapshot. */
 export interface Committed { readonly commit: string; readonly snapshotDigest: Digest; readonly manifest: SnapshotManifest; readonly paths: readonly string[] }
 
+/** The folder as it would be after a change: the files to write (those that differ), or the problems. A folder that would not be valid is refused. */
+function applied(head: { readonly files: Files } | undefined, change: Pick<FolderChange, "write" | "remove">, packsDir: string): { readonly files: Files; readonly write: Map<string, Uint8Array>; readonly loaded: Loaded & { manifest: SnapshotManifest } } {
+  const files: Files = new Map(head?.files);
+  const refused: Problem[] = [];
+  const write = new Map<string, Uint8Array>();
+  for (const [path, bytes] of change.write) {
+    if (!classifyPath(path)) refused.push({ path, message: pathProblem(path) ?? "Under agents/, tools/, plays/ and memory/ Brain reads agents/<name>/agent.toml and prompt.md, tools/<name>/<file>, plays/<name>.toml and memory/<name>.md (or memory/<name>.fr.md, .ar.md); this path is none of them" });
+    else if ([...files.keys()].some((other) => other.startsWith(`${path}/`) || path.startsWith(`${other}/`))) refused.push({ path, message: "a file and a folder cannot have the same name" });
+    const before = files.get(path);
+    if (!before || Buffer.compare(before, bytes) !== 0) write.set(path, bytes);
+    files.set(path, bytes);
+  }
+  for (const path of change.remove) if (!files.delete(path)) refused.push({ path, message: "the workspace has no such file" });
+  if (refused.length > 0) throw new BrainError("INVALID_INPUT", "The change names files that cannot be written or removed", refused);
+  const loaded = loadWorkspace(files, packsDir);
+  if (!loaded.manifest) throw new BrainError("INVALID_WORKSPACE", "The workspace would not be valid, so nothing was changed", loaded.problems);
+  return { files, write, loaded: { ...loaded, manifest: loaded.manifest } };
+}
+
 /**
  * Validates the folder as it would be after the change; only a valid one is written and committed. An invalid one is refused with the
  * path and message of each problem, and nothing changes. A new folder (no repository yet) is created by its first change.
@@ -67,23 +86,19 @@ export function commitFolder(gov: Gov, slug: string, change: FolderChange): Prom
   const dir = workspaceDir(gov, slug);
   return inTurn(dir, async () => {
     const head = existsSync(join(dir, ".git")) ? await readHead(dir) : undefined;
-    const files: Files = new Map(head?.files);
-    const refused: Problem[] = [];
-    const write = new Map<string, Uint8Array>();
-    for (const [path, bytes] of change.write) {
-      if (!classifyPath(path)) refused.push({ path, message: pathProblem(path) ?? "Under agents/, tools/, plays/ and memory/ Brain reads agents/<name>/agent.toml and prompt.md, tools/<name>/<file>, plays/<name>.toml and memory/<name>.md (or memory/<name>.fr.md, .ar.md); this path is none of them" });
-      else if ([...files.keys()].some((other) => other.startsWith(`${path}/`) || path.startsWith(`${other}/`))) refused.push({ path, message: "a file and a folder cannot have the same name" });
-      const before = files.get(path);
-      if (!before || Buffer.compare(before, bytes) !== 0) write.set(path, bytes);
-      files.set(path, bytes);
-    }
-    for (const path of change.remove) if (!files.delete(path)) refused.push({ path, message: "the workspace has no such file" });
-    if (refused.length > 0) throw new BrainError("INVALID_INPUT", "The change names files that cannot be written or removed", refused);
-    const loaded = loadWorkspace(files, gov.packsDir);
-    if (!loaded.manifest) throw new BrainError("INVALID_WORKSPACE", "The workspace would not be valid, so nothing was changed", loaded.problems);
+    const { write, loaded } = applied(head, change, gov.packsDir);
     const paths = [...write.keys(), ...change.remove];
     const commit = head && paths.length === 0 ? head.commit : await commitChange(dir, { ...change, write });
-    return { commit, snapshotDigest: storeSnapshot(gov, { ...loaded, manifest: loaded.manifest }), manifest: loaded.manifest, paths };
+    return { commit, snapshotDigest: storeSnapshot(gov, loaded), manifest: loaded.manifest, paths };
+  });
+}
+
+/** What a change would make of the folder, without writing anything: the files as they are now and the manifest they would give. */
+export function checkFolder(gov: Gov, slug: string, change: Pick<FolderChange, "write" | "remove">): Promise<{ readonly before: Files; readonly manifest: SnapshotManifest }> {
+  const dir = workspaceDir(gov, slug);
+  return inTurn(dir, async () => {
+    const head = await readHead(dir);
+    return { before: head.files, manifest: applied(head, change, gov.packsDir).loaded.manifest };
   });
 }
 

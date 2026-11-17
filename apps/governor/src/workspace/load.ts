@@ -278,10 +278,11 @@ export function loadWorkspace(workspace: Files, packsDir: string): Loaded {
     documents.push({ path, title: splitMemoryEntry(content).title || (path.split("/").at(-1) ?? path), ...blob(file.bytes) });
   }
 
+  if (brain.approvals["workspace.fix"]) problems.push({ path: "brain.toml", message: "a change of the workspace's own files is always decided by an admin: approvals cannot cover workspace.fix" });
   for (const tool of Object.keys(brain.approvals)) if (!toolFiles.has(tool)) problems.push({ path: "brain.toml", message: `approvals names tool "${tool}", which does not exist` });
 
   return done(JSON.parse(JSON.stringify({
-    name: brain.name, description: brain.description, timezone: brain.timezone, visibility: brain.visibility, packs: packs.map((pack) => pack.name), limits: brain.limits, models: brain.model, projects: brain.project,
+    name: brain.name, description: brain.description, timezone: brain.timezone, visibility: brain.visibility, packs: packs.map((pack) => pack.name), limits: brain.limits, healing: brain.healing, models: brain.model, projects: brain.project,
     github: brain.github ?? null, teams: brain.teams ?? null, approvals: brain.approvals, agents, tools, plays, memory, documents,
   } satisfies SnapshotManifest)) as SnapshotManifest);
 }

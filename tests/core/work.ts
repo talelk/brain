@@ -15,6 +15,7 @@ export const BRAIN_TOOLS: Record<string, string> = {
   "memory.propose": brainTool("read", { name: text, title: text, text }),
   "git.open-pr": brainTool("write", { project: text, title: text, body: text }),
   "message.send": brainTool("write", { text }),
+  "workspace.fix": brainTool("write", { task: 'type = "string"', files: 'type = "array"\nitems = { type = "object" }\nrequired = true', message: text, why: text }),
 };
 
 export interface WorkspaceFiles {

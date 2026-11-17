@@ -1,0 +1,63 @@
+description = """
+Proposes one change of this workspace's files that heals the failed task your own task is \
+about, and re-runs that task once the change is made. You send the whole new content of \
+each file, not a patch. Brain checks that the workspace stays valid, then an admin reads \
+the change as a diff with your reason and approves exactly it, which can take minutes: \
+wait for the answer and do not call it again. Only brain.toml (but not its approvals, \
+github or teams) and files under agents/, tools/, plays/, memory/ and docs/ can be \
+changed; never project code, never a secret. If the answer says the call is held, \
+declined or refused, nothing changed. One proposal per task. Returns \
+{"commit": "<commit>", "requeued": true or false}."""
+runs = "brain"
+effect = "write"
+
+[inputs.task]
+type = "string"
+description = "The id of the failed task your task heals, as your goal gives it. Left out, it is that task."
+required = false
+
+[inputs.files]
+type = "array"
+items = { type = "object" }
+description = "The files to change: a list of {\"path\": \"agents/worker/prompt.md\", \"content\": \"<the whole new text>\"}. Start from the current text your goal shows; never rewrite a file it shows as cut."
+required = true
+
+[inputs.message]
+type = "string"
+description = "The commit message: what changes, in one line."
+required = true
+
+[inputs.why]
+type = "string"
+description = "The cause of the repeated failure and why this change removes it, for the person who approves. Name what you ruled out."
+required = true
+
+[translations.fr]
+description = "Propose une modification des fichiers de cet espace de travail qui guérit la tâche en échec dont votre propre tâche s'occupe, puis relance cette tâche une fois la modification faite. Vous envoyez le nouveau contenu complet de chaque fichier, pas un patch. Brain vérifie que l'espace de travail reste valide, puis un admin lit la modification sous forme de diff avec votre raison et approuve exactement celle-ci, ce qui peut prendre plusieurs minutes : attendez la réponse et ne rappelez pas l'appel. Seuls brain.toml (hors approvals, github et teams) et les fichiers sous agents/, tools/, plays/, memory/ et docs/ peuvent être modifiés ; jamais le code d'un projet, jamais un secret. Si la réponse indique que l'appel est retenu, refusé ou rejeté, rien n'a changé. Une seule proposition par tâche. Renvoie {\"commit\": \"<commit>\", \"requeued\": true ou false}."
+
+[translations.fr.inputs.task]
+description = "L'identifiant de la tâche en échec dont s'occupe votre tâche, tel que votre objectif le donne. Omis, c'est cette tâche."
+
+[translations.fr.inputs.files]
+description = "Les fichiers à modifier : une liste de {\"path\": \"agents/worker/prompt.md\", \"content\": \"<le nouveau texte complet>\"}. Partez du texte actuel que montre votre objectif ; ne réécrivez jamais un fichier qu'il montre tronqué."
+
+[translations.fr.inputs.message]
+description = "Le message du commit : ce qui change, en une ligne."
+
+[translations.fr.inputs.why]
+description = "La cause de l'échec répété et pourquoi cette modification la supprime, pour la personne qui approuve. Dites ce que vous avez écarté."
+
+[translations.ar]
+description = "يقترح تعديلًا واحدًا لملفات مساحة العمل هذه يعالج المهمة الفاشلة التي تخصها مهمتك، ثم يعيد تشغيل تلك المهمة بعد إجراء التعديل. ترسل المحتوى الجديد الكامل لكل ملف، لا رقعة (patch). يتحقق Brain من أن مساحة العمل تبقى صالحة، ثم يقرأ مشرف التعديل على شكل diff مع سببك ويوافق على هذا التعديل بالضبط، وقد يستغرق ذلك دقائق: انتظر الإجابة ولا تكرر الاستدعاء. لا يمكن تعديل إلا brain.toml (دون approvals وgithub وteams) والملفات الموجودة تحت agents/ وtools/ وplays/ وmemory/ وdocs/؛ ولا يُعدَّل أبدًا كود مشروع ولا سرّ. إذا أفادت الإجابة بأن الاستدعاء معلّق أو مرفوض فلم يتغير شيء. اقتراح واحد لكل مهمة. يعيد {\"commit\": \"<commit>\", \"requeued\": true أو false}."
+
+[translations.ar.inputs.task]
+description = "معرّف المهمة الفاشلة التي تعالجها مهمتك، كما يذكره هدفك. إن حُذف فهو تلك المهمة."
+
+[translations.ar.inputs.files]
+description = "الملفات المراد تعديلها: قائمة من {\"path\": \"agents/worker/prompt.md\", \"content\": \"<النص الجديد كاملًا>\"}. ابدأ من النص الحالي الذي يعرضه هدفك، ولا تُعد كتابة ملف يعرضه مقتطعًا."
+
+[translations.ar.inputs.message]
+description = "رسالة الإيداع (commit): ما الذي يتغير، في سطر واحد."
+
+[translations.ar.inputs.why]
+description = "سبب الفشل المتكرر ولماذا يزيله هذا التعديل، للشخص الذي يوافق. اذكر ما استبعدته."

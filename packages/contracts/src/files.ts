@@ -33,7 +33,7 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "must be a date written YYY
 export const EFFECTS = ["read", "write", "privileged"] as const;
 export const NATIVE_LEVELS = ["none", "read", "all"] as const;
 /** The tools the Governor runs itself (`runs = "brain"`). */
-export const BRAIN_TOOLS = ["task.create", "task.note", "task.ask", "memory.search", "memory.propose", "git.open-pr", "message.send"] as const;
+export const BRAIN_TOOLS = ["task.create", "task.note", "task.ask", "memory.search", "memory.propose", "git.open-pr", "message.send", "workspace.fix"] as const;
 
 // --- translations: what a person reads, in the page's language; agents read the English ---
 
@@ -81,6 +81,8 @@ export const BrainFile = z.strictObject({
     running_tasks: z.int().min(0).max(64).default(4),
     confirm_plans: z.enum(["person", "auto"]).default("person"),
   }).prefault({}),
+  /** What happens when a task has failed all its attempts: a heal task analyses it. `per_day` is the heal tasks of a UTC day; 0 is no cap. */
+  healing: z.strictObject({ mode: z.enum(["auto", "off"]).default("auto"), per_day: z.int().min(0).default(5) }).prefault({}),
   model: z.array(z.strictObject({
     name: slug("a model name"),
     provider: z.enum(["openai-compatible", "anthropic"]),
@@ -287,6 +289,7 @@ export interface SnapshotManifest {
   /** Every pack in use, required packs first. */
   readonly packs: readonly string[];
   readonly limits: BrainFile["limits"];
+  readonly healing: BrainFile["healing"];
   readonly models: BrainFile["model"];
   readonly projects: BrainFile["project"];
   readonly github: BrainFile["github"] | null;

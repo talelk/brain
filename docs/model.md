@@ -19,7 +19,8 @@ not named here, Brain does not have it.
 
 Everything except tasks is a file. Editing in the app writes the file and commits it.
 Every task records the commit it ran on, so a result can always be traced to the exact
-agents, tools and Plays that produced it.
+agents, tools and Plays that produced it. A task that was healed records the commit of
+the fix, and each attempt keeps the commit it ran on.
 
 ## A workspace folder
 
@@ -48,6 +49,10 @@ packs = ["base", "software-factory"]
 daily_spend_usd = 20        # 0 means no cap
 running_tasks = 4           # 0 means no cap
 confirm_plans = "person"    # or "auto"
+
+[healing]                   # what happens when a task has failed all its attempts
+mode = "auto"              # or "off"
+per_day = 5                 # heal tasks a day; 0 means no cap
 
 [[model]]                   # tried in order; the next one is used when one refuses
 name = "main"
@@ -266,6 +271,32 @@ planner and a checker; the other packs build on it.
 
 A task is in one of these states: `waiting`, `ready`, `running`, `needs you`, `done`,
 `failed`, `stopped`.
+
+## When a task fails
+
+A task that has failed all its attempts is not left to a person alone. Brain starts one
+goal for it, "Heal: *title*", run by the base pack's `workspace-healer` agent. The healer
+is given the evidence (the goal, the sub-task chain, every attempt's failure, the tool
+calls with their inputs and outputs, the checks) and the workspace files involved, and
+finds the cause of the repeated failure. It then does one of two things:
+
+- The cause is in the configuration (a prompt too vague, a wrong limit, a missing network
+  host, a setup command, a tool script): it calls the tool `workspace.fix` with the
+  minimal change to the workspace's files. That call is a `write`: an admin sees the
+  files as a diff with the reason, and approves exactly that change. The change is
+  committed like any edit of the folder, and the failed task, and only it, runs again on
+  that new commit. A rejection ends the goal; the failed task shows the healer's analysis
+  and the proposal.
+- The cause is not in the configuration (the model is down, the project's code is wrong),
+  or the healer cannot tell: it asks a person a question with `task.ask`. The person's
+  answer comes back to the healer, which may then call `workspace.fix`.
+
+A task is healed once, a heal task is never healed, and a failure that only infrastructure
+caused (model unreachable, runner lost) is not healed; the failed task says so. The
+healer never edits project code and never retries by itself. `[healing]` in `brain.toml`
+turns this off or caps the heal tasks a workspace starts in a UTC day. `workspace.fix`
+changes only `brain.toml` (not its approvals, GitHub, Teams or secret references),
+`agents/`, `tools/`, `plays/`, `memory/` and `docs/`, and only an admin may approve it.
 
 ## What is recorded for every task
 

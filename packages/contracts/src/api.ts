@@ -116,6 +116,8 @@ export interface TaskSummary {
   readonly createdByName?: string;
   /** How many tasks of this task's tree (itself included) wait for a person; a goal is shown as needing you when this is above zero. */
   readonly waitingForYou: number;
+  /** For a heal task: the failed task it looks into. */
+  readonly heals?: { readonly id: string; readonly rootId: string; readonly title: string };
 }
 /** A sub-task as the plan lists it: what it was asked and what it waits for. */
 export interface SubtaskSummary extends TaskSummary { readonly goal: string; readonly waitsFor: readonly string[] }
@@ -218,6 +220,8 @@ export interface Task extends TaskSummary {
   readonly artifacts: readonly ArtifactLink[];
   readonly pullRequests: readonly PullRequest[];
   readonly usage: Usage;
+  /** For a failed task: the heal task that looks into it, once there is one. */
+  readonly heal: { readonly taskId: string; readonly state: TaskState } | null;
   readonly version: number;
 }
 export interface Spend { readonly todayMicroUsd: number; readonly capMicroUsd: number }

@@ -7,7 +7,7 @@ conventions the pack files rely on, so the code that loads and runs them matches
 
 | Pack | Requires | Agents | Tools | Plays |
 |---|---|---|---|---|
-| `base` | | planner, checker, worker | task.create, task.note, task.ask, memory.search, memory.propose, git.open-pr, message.send, web.fetch | hello |
+| `base` | | planner, checker, worker, workspace-healer | task.create, task.note, task.ask, memory.search, memory.propose, git.open-pr, message.send, workspace.fix, web.fetch | hello |
 | `software-factory` | base | analyst, developer, reviewer, release-manager | | fix-issue, build-feature, review-pull-request, dependency-check |
 | `sre` | base | sre-operator, incident-analyst, evaluator | host.status, host.logs, host.disk, http.check, host.restart, host.redeploy | keep-healthy, incident-triage, weekly-report |
 | `customer-operations` | base | router, billing-agent, technical-agent, generalist, quality-reviewer | | handle-request, improve-answers |
@@ -125,6 +125,9 @@ Checker (`base/agents/checker`), and every agent used as `review_by`
 
 All three are always present; `score` is from 0 to 1.
 
+Workspace healer (`base/agents/workspace-healer`): free text, ending with one of two calls: `workspace.fix`, or `task.ask`.
+Its final answer is the analysis: the cause, what it ruled out, and the change proposed or the question asked.
+
 Judge (the agent a step names as `judge`), for a `judge` attempt:
 
 ```json
@@ -162,6 +165,7 @@ the outputs the descriptions promise to agents.
 | `memory.propose` | read | `name`* (file name slug), `title`*, `text`* | `{"id": "<proposal id>", "status": "proposed"}` |
 | `git.open-pr` | write | `project`*, `title`*, `body`* | `{"url", "number", "branch"}` |
 | `message.send` | write | `text`* | `{"sent": true}` |
+| `workspace.fix` | write | `task` (id of the failed task; by default the one the heal task heals), `files`* (list of `{"path", "content"}`), `message`*, `why`* | `{"commit", "requeued": true or false}` |
 
 - `task.create` adds the sub-task under the calling task. In `after`, the tool takes
   task ids; the planner's JSON takes titles.
@@ -170,6 +174,9 @@ the outputs the descriptions promise to agents.
 - `memory.search` returns `name` without `.md`, and in `text` the matching part of the
   entry. A text document of the workspace under `docs/` is found too, with its path as
   `name` and `source` `document` (a memory entry's is `memory`).
+- `workspace.fix` is for `workspace-healer` only. `files` hold the whole new content of each file, not a patch; `message`
+  becomes the commit message and `why` is shown to the approver. The healer's context holds, in its goal, the current
+  text of the files involved (a file cut short is marked, and must not be rewritten).
 - For a `write` call that is not approved in time, the agent is told the call is held.
   Every prompt says: held, declined or refused means it did not happen; do not repeat it.
 

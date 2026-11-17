@@ -4,6 +4,7 @@ import { append, SYSTEM } from "../events";
 import { expireApprovals } from "../trust/approvals";
 import { settleUsage } from "../trust/usage";
 import { manifestOf } from "../workspace/store";
+import { healFailed } from "./heal";
 import { afterCheck, afterPersonCheck, afterWork, checkerOf, doers, groupOutcome, promote, readJudgement, readPlan, readVerdict, passes, renderGoal, retryOf, SKIPPED, type WorkFacts, type WorkState } from "./decide";
 import {
   ACTIVE_ATTEMPT, agentsOf, attemptOf, createPlanned, failureOf, insertTask, json, needOf, payloadOf, queueAttempt, scopeOf, setState, settingsOf, stepOf, taskOf, TERMINAL,
@@ -208,6 +209,9 @@ export function attemptEnded(gov: Gov, attemptId: string): void {
     else if (attempt.kind === "check") afterCheckEnded(gov, task, attempt);
     else if (attempt.kind === "judge") afterJudgeEnded(gov, task, attempt);
     else afterPlanEnded(gov, task, attempt);
+    // A task that has just failed, with no attempt left, is looked into.
+    const ended = taskOf(gov.db, task.id);
+    if (ended.state === "failed") healFailed(gov, ended);
   }
   settle(gov, attempt.workspace_id);
 }

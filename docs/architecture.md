@@ -247,6 +247,15 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   (`Fix an issue: The login page shows…`); a goal a person typed is titled by its first line.
 - An attempt that fails for an infrastructure reason (runner lost, lease expired, model refusal) is retried up to three
   times, after 5, 20 and 80 seconds, before the task fails. An `act` attempt is never retried on its own.
+- A task that fails (a work or plan attempt ended and no retry is left) is healed (`tasks/heal.ts`), in the transaction
+  that failed it, when the active snapshot has a `workspace-healer` agent and `[healing] mode` is `auto`. The heal task is
+  a goal with that agent whose `created_by` is `heal:<failed task id>`: that is its only link to the failed task, which is
+  what makes "once per task" (no goal with that `created_by` yet), "never a heal task" (the root of the failed task is not
+  one) and the daily cap (heal tasks created since 00:00 UTC against `per_day`) plain queries. A failure that every failed
+  attempt of the task marks `infrastructure` is not healed and says so in a note of the failed task's goal. The goal text
+  holds the evidence, each part cut to a size, and the files of the agents, tools, Play and `brain.toml` involved, read from
+  the workspace folder or the pack. `task.get` carries `heal` (the heal task's id, state, result) on the failed task, and a
+  task summary carries `heals` (id and title of the failed task) on a heal task, which is how the screens link the two.
 - The decisions are pure functions over plain data (`tasks/decide.ts`); `tasks/orchestrator.ts` reads the facts and
   writes what they decide.
 
@@ -327,12 +336,21 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 - An approval decision must carry the subject digest the approver was shown; a decision
   on a changed subject is refused. The requester of a task may approve; the deciding
   person must be a `member` or `admin` of the workspace.
+- `workspace.fix` takes `task`, `files` (`path`, `content`), `message` and `why`. Before it asks for approval the Governor
+  checks the paths (`brain.toml`, `agents/`, `tools/`, `plays/`, `memory/`, `docs/`), that the folder would still be valid
+  and that `approvals`, `github` and `teams` of `brain.toml` are unchanged, and stores the change as a unified diff whose
+  digest is the approval's `patchDigest`; the subject's `baseCommit` is the workspace's commit. A standing approval never
+  covers it, only an admin decides it, and it is refused when the workspace's commit is no longer `baseCommit`. When it is
+  approved the Governor commits (as `file.write` does, the message ending with the failed task's id), activates the
+  snapshot, moves the failed task and its sub-tasks to it and queues the task again (`reviveTask`), in one transaction with
+  the call's outcome. A heal task makes one fix.
 - **Brain-run tools** (`runs = "brain"`), executed by the Governor as the attempt:
   `task.create` (add a sub-task), `task.note` (write the shared board), `task.ask`
   (question to a person: it returns `{"status": "waiting"}`, the attempt ends, the task is
   `needs_you`, and the answer is in the context of the next attempt), `memory.search`,
   `memory.propose`, `git.open-pr` (effect `write`), `message.send` (Teams; effect
-  `write`). A Brain-run call with an effect answers `pending` until its approval is decided;
+  `write`), `workspace.fix` (effect `write`, only for the agent of a heal task and only for the task it heals). A
+  Brain-run call with an effect answers `pending` until its approval is decided;
   the runner then sends the same call again.
 
 ## 8. Runner on disk and working copies
