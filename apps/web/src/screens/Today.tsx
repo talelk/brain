@@ -84,7 +84,7 @@ function Lists(props: { today: TodayData }): JSX.Element {
   const href = (task: TaskSummary): string => place.to(`/tasks/${task.id}`);
   const pending = (): readonly Approval[] => props.today.approvals.filter((approval) => approval.state === "pending");
   const needs = createMemo((): NeedsItem[] => {
-    const shared = { workspaceId: place.id(), slug: place.summary().slug, workspaceName: place.summary().name, canAct: place.can("member") };
+    const shared = { workspaceId: place.id(), slug: place.summary().slug, workspaceName: place.summary().name, role: place.summary().role };
     const waiting = props.today.needsYou.map((task): NeedsItem => ({ ...shared, task, approval: task.needs?.kind === "approval" ? (pending().find((approval) => task.needs?.kind === "approval" && approval.id === task.needs.approvalId) ?? null) : null }));
     // A call whose task is not listed (it is still being asked) is shown by its own task row.
     return waiting;

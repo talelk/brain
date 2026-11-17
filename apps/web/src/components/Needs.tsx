@@ -2,10 +2,11 @@ import { createSignal, Show, type JSX } from "solid-js";
 import { A } from "@solidjs/router";
 import { Button, Textarea } from "@talelk/newui-atoms";
 import { Collapsible } from "@talelk/newui-molecules";
-import type { Approval, TaskSummary } from "@brain/contracts";
+import type { Approval, Role, TaskSummary } from "@brain/contracts";
 import { command, useAction } from "../data/api";
 import { t } from "../i18n";
 import { ago, show, titleOf } from "../lib/format";
+import { roleAtLeast } from "../lib/model";
 import { ApprovalView } from "./ApprovalView";
 import { Failure, Icon, Keyed, needText, NeedsMark } from "./bits";
 
@@ -16,7 +17,8 @@ export interface NeedsItem {
   readonly workspaceId: string;
   readonly slug: string;
   readonly workspaceName: string;
-  readonly canAct: boolean;
+  /** What the person is in this workspace: members act, and only an admin decides a change of its files. */
+  readonly role: Role;
 }
 
 /** A one-line reading of what a call would do: its inputs, as the approver will see them in full below. */
@@ -33,10 +35,10 @@ function Answer(props: { item: NeedsItem; question: string }): JSX.Element {
   return (
     <form class="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); void send.run(); }}>
       <p class="t-text text-ink" dir="auto">{props.question}</p>
-      <Show when={props.item.canAct}>
+      <Show when={roleAtLeast(props.item.role, "member")}>
         <Textarea size="md" aria-label={t("need.answer.label")} placeholder={t("need.answer.placeholder")} rows={2} value={answer()} onInput={(event) => setAnswer(event.currentTarget.value)} />
         <Failure error={send.error()} />
-        <div><Button type="submit" variant="solid" theme="blue" size="md" loading={send.busy()} disabled={answer().trim() === ""}>{t("need.answer.send")}</Button></div>
+        <div><Button type="submit" variant="solid" theme="blue" size="md" loading={send.busy()} disabled={answer().trim() === ""}>{props.item.task.heals ? t("heal.suggest") : t("need.answer.send")}</Button></div>
       </Show>
     </form>
   );
@@ -46,7 +48,7 @@ function Row(props: { item: NeedsItem; showWorkspace: boolean; open: boolean }):
   const task = (): TaskSummary => props.item.task;
   const href = (): string => `/w/${props.item.slug}/tasks/${task().rootId}?link=${task().id}`;
   const need = () => task().needs;
-  const kind = (): string => { const asked = need(); return asked ? needText(asked) : t("link.needsYou"); };
+  const kind = (): string => { const asked = need(); return task().heals ? t(asked?.kind === "approval" ? "need.heal.fix" : "need.heal.ask", { task: task().heals?.title ?? "" }) : asked ? needText(asked) : t("link.needsYou"); };
   /** What a task that is not an approval or a question says about itself: the check, plan or sign-off to open. */
   const plain = (): "confirm-plan" | "check" | "sign-off" | "judge" | "failed-subtask" => { const asked = need()?.kind; return asked === undefined || asked === "approval" || asked === "answer" ? "check" : asked; };
   const step = (): string | undefined => (task().id === task().rootId ? undefined : titleOf(task()));
@@ -78,7 +80,7 @@ function Row(props: { item: NeedsItem; showWorkspace: boolean; open: boolean }):
                 {(asked) => <Answer item={props.item} question={asked.kind === "answer" ? asked.question : ""} />}
               </Show>
             }>
-              {(approval) => <ApprovalView approval={approval()} workspaceId={props.item.workspaceId} canDecide={props.item.canAct} diff="show" href={href()} />}
+              {(approval) => <ApprovalView approval={approval()} workspaceId={props.item.workspaceId} canDecide={roleAtLeast(props.item.role, approval().tool === "workspace.fix" ? "admin" : "member")} diff="show" href={href()} />}
             </Show>
           </div>
         </Collapsible.Content>

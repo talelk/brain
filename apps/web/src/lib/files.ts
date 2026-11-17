@@ -17,6 +17,7 @@ export interface Brain {
   visibility?: "private" | "public";
   packs: readonly string[];
   limits: SnapshotManifest["limits"];
+  healing: SnapshotManifest["healing"];
   models: readonly Model[];
   projects: readonly Project[];
   github: SnapshotManifest["github"];
@@ -25,8 +26,8 @@ export interface Brain {
 }
 
 export function brainOf(snapshot: SnapshotManifest): Brain {
-  const { name, description, packs, limits, models, projects, github, teams, approvals } = snapshot;
-  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, packs, limits, models, projects, github, teams, approvals };
+  const { name, description, packs, limits, healing, models, projects, github, teams, approvals } = snapshot;
+  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, packs, limits, healing, models, projects, github, teams, approvals };
 }
 
 export function brainToml(brain: Brain): string {
@@ -37,6 +38,7 @@ export function brainToml(brain: Brain): string {
     visibility: brain.visibility === "public" ? "public" : undefined,
     packs: brain.packs,
     limits: { ...brain.limits },
+    healing: { ...brain.healing },
     model: brain.models.map((model) => ({ ...model })),
     project: brain.projects.map((project) => ({ ...project })),
     github: brain.github ? { ...brain.github } : undefined,

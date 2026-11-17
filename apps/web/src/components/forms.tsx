@@ -329,6 +329,12 @@ export function SettingsForm(props: { snapshot: SnapshotManifest; readOnly: bool
         </div>
         <Choice label={t("settings.limits.plans")} value={brain.limits.confirm_plans} onChange={(value) => set("limits", "confirm_plans", value)} disabled={props.readOnly} options={[{ value: "person", label: t("settings.limits.plans.person"), help: t("settings.limits.plans.person.help") }, { value: "auto", label: t("settings.limits.plans.auto"), help: t("settings.limits.plans.auto.help") }]} />
       </Group>
+      <Group title={t("settings.healing")} text={t("settings.healing.text")}>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <Choice label={t("settings.healing.mode")} value={brain.healing.mode} onChange={(value) => set("healing", "mode", value)} disabled={props.readOnly} options={[{ value: "auto", label: t("settings.healing.auto"), help: t("settings.healing.auto.help") }, { value: "off", label: t("settings.healing.off"), help: t("settings.healing.off.help") }]} />
+          <NumberField label={t("settings.healing.perDay")} description={t("field.zeroNoCap")} min={0} step={1} value={brain.healing.per_day} onChange={(value) => set("healing", "per_day", value ?? 0)} disabled={props.readOnly} />
+        </div>
+      </Group>
       <Group title={t("settings.models")} text={t("settings.models.text")}>
         <Rows<Model> label={t("settings.models")} items={brain.models} onChange={(models) => set("models", models)} add={t("settings.models.add")} disabled={props.readOnly} blank={() => ({ name: brain.models.length === 0 ? "main" : "", provider: "openai-compatible", url: "", model: "" })}>
           {(model, change) => (

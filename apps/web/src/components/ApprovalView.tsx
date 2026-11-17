@@ -27,6 +27,8 @@ export function ApprovalView(props: { approval: Approval; workspaceId: string; c
     }
   });
   const approval = (): Approval => props.approval;
+  /** A change of the workspace's own files, proposed by a healer. */
+  const fix = (): boolean => approval().tool === "workspace.fix";
   return (
     <div class="flex flex-col gap-3">
       <p class="t-text text-ink">
@@ -35,14 +37,14 @@ export function ApprovalView(props: { approval: Approval; workspaceId: string; c
       </p>
       {/* The inputs are the call's own data, so they read left to right like code, whatever the language of the page. */}
       <dl class="code-ltr grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 rounded-xl bg-paper px-3.5 py-3 t-small">
-        <For each={fields(approval().subject.input)}>
+        <For each={fields(approval().subject.input).filter(([name]) => !fix() || name !== "files")}>
           {([name, value]) => (<><dt class="text-ink-3">{name}</dt><dd class="min-w-0 whitespace-pre-wrap break-words text-ink">{show(value)}</dd></>)}
         </For>
       </dl>
       <Show when={approval().subject.patchDigest}>
         {(digest) => (
-          <Show when={props.diff === "show"} fallback={<p class="t-small text-ink-2">{t("approval.diff.link")} <A href={props.href ?? "#"} class="link">{t("approval.diff.open")}</A></p>}>
-            <div><p class="mb-2 t-small font-medium text-ink-2">{t("approval.diff.title")}</p><ArtifactDiff digest={digest()} /></div>
+          <Show when={props.diff === "show"} fallback={<p class="t-small text-ink-2">{t(fix() ? "approval.diff.link.fix" : "approval.diff.link")} <A href={props.href ?? "#"} class="link">{t("approval.diff.open")}</A></p>}>
+            <div><p class="mb-2 t-small font-medium text-ink-2">{t(fix() ? "approval.diff.title.fix" : "approval.diff.title")}</p><ArtifactDiff digest={digest()} /></div>
           </Show>
         )}
       </Show>
@@ -52,14 +54,14 @@ export function ApprovalView(props: { approval: Approval; workspaceId: string; c
           <Show when={approval().reason}> {t("approval.reason", { reason: approval().reason ?? "" })}</Show>
         </p>
       }>
-        <Show when={props.canDecide} fallback={<p class="t-small text-ink-2">{t("approval.viewer")}</p>}>
+        <Show when={props.canDecide} fallback={<p class="t-small text-ink-2">{t(fix() ? "approval.viewer.fix" : "approval.viewer")}</p>}>
           <Show when={rejecting()}>
             <Textarea size="md" label={t("approval.reject.reason")} description={t("approval.reject.help")} value={reason()} onInput={(event) => setReason(event.currentTarget.value)} rows={2} autofocus />
           </Show>
           <Failure error={decide.error()} />
           <div class="flex flex-wrap items-center gap-2">
             <Show when={rejecting()} fallback={<>
-              <Button variant="solid" theme="blue" size="md" loading={decide.busy()} onClick={() => void decide.run("approve")}>{approval().subject.patchDigest ? t("approval.approve.pr") : t("approval.approve")}</Button>
+              <Button variant="solid" theme="blue" size="md" loading={decide.busy()} onClick={() => void decide.run("approve")}>{fix() ? t("approval.approve.fix") : approval().subject.patchDigest ? t("approval.approve.pr") : t("approval.approve")}</Button>
               <Button variant="outline" size="md" disabled={decide.busy()} onClick={() => setRejecting(true)}>{t("approval.reject")}</Button>
             </>}>
               <Button variant="solid" theme="red" size="md" loading={decide.busy()} onClick={() => void decide.run("reject")}>{t("approval.reject.confirm")}</Button>

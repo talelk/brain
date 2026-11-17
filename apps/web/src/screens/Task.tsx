@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Match, Show, Switch, type JSX } from "solid-js";
-import { useParams, useSearchParams } from "@solidjs/router";
+import { A, useParams, useSearchParams } from "@solidjs/router";
 import { Button, Textarea } from "@talelk/newui-atoms";
 import { DetailHeader, Section } from "@talelk/newui-organisms";
 import { PaneLayout } from "@talelk/newui-templates";
@@ -58,14 +58,14 @@ function Needs(props: { task: Task; need: TaskNeed; onSelect: (id: string) => vo
             <Failure error={confirm.error()} class="mt-3" />
             <div class="mt-4"><Button variant="solid" theme="blue" size="lg" loading={confirm.busy()} onClick={() => void confirm.run()}>{t("plan.confirm")}</Button></div>
           </Match>
-          <Match when={approval()}>{(entry) => <ApprovalView approval={entry()} workspaceId={place.id()} canDecide={place.can("member")} diff="show" />}</Match>
+          <Match when={approval()}>{(entry) => <ApprovalView approval={entry()} workspaceId={place.id()} canDecide={place.can(entry().tool === "workspace.fix" ? "admin" : "member")} diff="show" />}</Match>
           <Match when={props.need.kind === "answer" && props.need}>
             {(asked) => (
               <form class="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); void send.run(); }}>
                 <p class="t-text text-ink" dir="auto">{asked().question}</p>
                 <Textarea size="md" aria-label={t("need.answer.label")} placeholder={t("need.answer.placeholder")} rows={3} value={answer()} onInput={(event) => setAnswer(event.currentTarget.value)} />
                 <Failure error={send.error()} />
-                <div><Button type="submit" variant="solid" theme="blue" size="md" loading={send.busy()} disabled={answer().trim() === ""}>{t("need.answer.send")}</Button></div>
+                <div><Button type="submit" variant="solid" theme="blue" size="md" loading={send.busy()} disabled={answer().trim() === ""}>{props.task.heals ? t("heal.suggest") : t("need.answer.send")}</Button></div>
               </form>
             )}
           </Match>
@@ -124,6 +124,26 @@ function CheckRow(props: { check: Check }): JSX.Element {
   );
 }
 
+/** What looks into a failed task: its heal task's progress and analysis, and the fix or the question that waits for a person, decided where it is shown. */
+function Healing(props: { heal: NonNullable<Task["heal"]> }): JSX.Element {
+  const place = usePlace();
+  const heal = useQuery("task.get", () => ({ workspaceId: place.id(), taskId: props.heal.taskId }));
+  return (
+    <div class="mt-5 flex flex-col gap-3" aria-label={t("heal.title")}>
+      <p class="t-small font-semibold text-ink-2">{t("heal.title")}</p>
+      <Show when={heal.data()} fallback={<Failure error={heal.error()} retry={heal.refetch} />}>
+        {(healing) => (<>
+          <Show when={["waiting", "ready", "running"].includes(healing().state)}><p class="t-text text-ink-2">{t("heal.running")}</p></Show>
+          <Show when={healing().needs}>{(need) => <Needs task={healing()} need={need()} onSelect={() => undefined} onOrder={() => undefined} />}</Show>
+          <Show when={healing().state === "done" && healing().result}><div class="rounded-xl bg-paper px-4 py-3"><Markdown text={healing().result ?? ""} /></div></Show>
+          <Show when={healing().state === "failed" || healing().state === "stopped"}><p class="t-text text-ink-2">{t("heal.ended")}</p></Show>
+          <p class="t-small"><A href={place.to(`/tasks/${healing().id}`)} class="link">{t("heal.open")}</A></p>
+        </>)}
+      </Show>
+    </div>
+  );
+}
+
 /** Everything recorded for the selected link: result, check, evidence, approvals, cost, pull request. */
 function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => void; onOrder: (ids: readonly string[]) => void }): JSX.Element {
   const place = usePlace();
@@ -148,7 +168,8 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
       <Failure error={stop.error() ?? retry.error()} class="mb-4" />
       <Show when={task().needs}>{(need) => <Needs task={task()} need={need()} onSelect={props.onSelect} onOrder={props.onOrder} />}</Show>
 
-      <Show when={props.isGoal} fallback={
+      <Show when={task().heals}>{(failed) => <p class="mb-6 t-text text-ink-2">{t("heal.for")} <A href={`${place.to(`/tasks/${failed().rootId}`)}?link=${failed().id}`} class="link"><bdi>{failed().title}</bdi></A></p>}</Show>
+      <Show when={props.isGoal && !task().heals} fallback={
         <Details class="mb-6" summary={t("task.asked")}>
           <Markdown text={task().goal} class="rounded-xl bg-paper px-4 py-3" />
           <Show when={task().settings.when}><p class="mt-2 t-small text-ink-3">{t("task.when", { when: task().settings.when ?? "" })}</p></Show>
@@ -162,7 +183,7 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
       <Show when={task().result !== null || task().state === "failed"}>
         <Part title={task().state === "failed" ? t("task.failed") : t("task.result")}>
           <Show when={!skipped()} fallback={<p class="t-text text-ink-2">{t("task.skipped")}</p>}>
-            <Show when={task().state === "failed"} fallback={<Markdown text={task().result ?? ""} />}><p class="whitespace-pre-wrap rounded-xl bg-bad-soft px-4 py-3 t-text text-bad" dir="auto">{said(task().result ?? runs().at(-1)?.failure?.detail ?? t("task.failed.unknown"))}</p></Show>
+            <Show when={task().state === "failed"} fallback={<Markdown text={task().result ?? ""} />}><p class="whitespace-pre-wrap rounded-xl bg-bad-soft px-4 py-3 t-text text-bad" dir="auto">{said(task().result ?? runs().at(-1)?.failure?.detail ?? t("task.failed.unknown"))}</p><Show when={task().heal}>{(heal) => <Healing heal={heal()} />}</Show></Show>
           </Show>
         </Part>
       </Show>

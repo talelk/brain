@@ -109,7 +109,7 @@ function Content(props: { overview: Overview }): JSX.Element {
   const o = (): Overview => props.overview;
   const needs = createMemo((): NeedsItem[] => o().needsYou.map((need) => ({
     task: need, approval: need.approval, workspaceId: need.workspaceId, slug: need.workspaceSlug, workspaceName: need.workspaceName,
-    canAct: roleAtLeast(o().workspaces.find((workspace) => workspace.id === need.workspaceId)?.role ?? "viewer", "member"),
+    role: o().workspaces.find((workspace) => workspace.id === need.workspaceId)?.role ?? "viewer",
   })));
   const [all, setAll] = createSignal(false);
   const shown = (): NeedsItem[] => (all() ? needs() : needs().slice(0, ROWS));
