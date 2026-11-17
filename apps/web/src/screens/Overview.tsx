@@ -10,6 +10,7 @@ import { t, tn } from "../i18n";
 import { roleAtLeast } from "../lib/model";
 import { ago, duration, money } from "../lib/format";
 import { useNow } from "../lib/clock";
+import { VisibilityBadge } from "../components/Share";
 import { Head } from "../components/Shell";
 import { Icon, Loading, NeedsCount, Ready } from "../components/bits";
 import { NeedsList, type NeedsItem } from "../components/Needs";
@@ -26,7 +27,7 @@ const sum = (list: readonly OverviewWorkspace[], pick: (workspace: OverviewWorks
 function WorkspacesTable(props: { workspaces: readonly OverviewWorkspace[] }): JSX.Element {
   const week = (workspace: OverviewWorkspace, pick: (day: OverviewWorkspace["days"][number]) => number): number[] => workspace.days.slice(-7).map(pick);
   const columns: DataTableColumn<OverviewWorkspace>[] = [
-    { accessorKey: "name", header: t("overview.col.workspace"), meta: { mobile: "title" }, cell: (ctx) => <A href={`/w/${ctx.row.original.slug}`} class="font-medium text-ink-gray-9 hover:underline">{ctx.row.original.name}</A> },
+    { accessorKey: "name", header: t("overview.col.workspace"), meta: { mobile: "title" }, cell: (ctx) => <span class="flex flex-wrap items-center gap-2"><A href={`/w/${ctx.row.original.slug}`} class="font-medium text-ink-gray-9 hover:underline">{ctx.row.original.name}</A><VisibilityBadge visibility={ctx.row.original.visibility} /></span> },
     { id: "projects", header: t("overview.col.projects"), accessorFn: (workspace) => workspace.projects.join(", "), meta: { mobile: "meta" }, cell: (ctx) => <span class="block max-w-48 truncate text-ink-gray-7" title={ctx.row.original.projects.join(", ")}>{ctx.row.original.projects.length > 0 ? ctx.row.original.projects.join(", ") : "—"}</span> },
     { accessorKey: "running", header: t("overview.col.running"), meta: { align: "end" }, cell: (ctx) => <span class="tabular-nums">{ctx.row.original.running}</span> },
     { accessorKey: "needsYou", header: t("overview.col.needs"), meta: { align: "end", mobile: "status" }, cell: (ctx) => (ctx.row.original.needsYou > 0 ? <NeedsCount n={ctx.row.original.needsYou} /> : <span class="text-ink-gray-7">0</span>) },
@@ -127,7 +128,13 @@ function Content(props: { overview: Overview }): JSX.Element {
         </Section>
         <Section title={t("overview.running")} description={t("overview.running.text")} headingLevel={2}><Running runs={o().running} workspaces={o().workspaces} /></Section>
       </div>
-      <Section title={t("overview.workspaces")} description={tn("overview.workspaces.text", o().workspaces.length)} headingLevel={2}><WorkspacesTable workspaces={o().workspaces} /></Section>
+      <For each={[
+        { title: t("nav.workspaces.mine"), list: o().workspaces.filter((workspace) => !workspace.viaPublic && workspace.role === "admin") },
+        { title: t("nav.workspaces.shared"), list: o().workspaces.filter((workspace) => !workspace.viaPublic && workspace.role !== "admin") },
+        { title: t("nav.workspaces.public"), list: o().workspaces.filter((workspace) => workspace.viaPublic) },
+      ].filter((group) => group.list.length > 0)}>
+        {(group) => <Section title={group.title} description={tn("overview.workspaces.text", group.list.length)} headingLevel={2}><WorkspacesTable workspaces={group.list} /></Section>}
+      </For>
       <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
         <Section title={t("overview.chart")} description={t("overview.chart.text")} headingLevel={2}>
           <Suspense fallback={<Loading />}><Charts workspaces={o().workspaces} /></Suspense>

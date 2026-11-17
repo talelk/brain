@@ -1,12 +1,13 @@
-import { createEffect, createMemo, lazy, Show, Suspense, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, lazy, Show, Suspense, type JSX } from "solid-js";
 import { Navigate, Route, Router, useParams, type RouteSectionProps } from "@solidjs/router";
 import { EmptyState } from "@talelk/newui-molecules";
 import { Button } from "@talelk/newui-atoms";
 import { useQuery } from "./data/api";
 import { connectLive } from "./data/live";
-import { PlaceProvider, recentGoals, SessionProvider, useSession } from "./data/session";
+import { PlaceProvider, recentGoals, SessionProvider, usePlace, useSession } from "./data/session";
 import { t } from "./i18n";
 import { Failure, Loading } from "./components/bits";
+import { ShareDialog, VisibilityBadge } from "./components/Share";
 import { remember, Shell } from "./components/Shell";
 import { SignIn } from "./screens/SignIn";
 
@@ -18,6 +19,23 @@ const Workspace = lazy(() => import("./screens/Workspace"));
 const NewWorkspace = lazy(() => import("./screens/NewWorkspace"));
 const Health = lazy(() => import("./screens/Health"));
 const People = lazy(() => import("./screens/People"));
+const Schedules = lazy(() => import("./screens/Schedules"));
+
+/** What is true of the open workspace at a glance: private or public, whether the person only reads it because it is public, and Share for an admin. */
+function WorkspaceStrip(): JSX.Element {
+  const place = usePlace();
+  const [sharing, setSharing] = createSignal(false);
+  return (
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+      <VisibilityBadge visibility={place.summary().visibility} />
+      <Show when={place.summary().viaPublic}><span class="t-small text-ink-2">{t("visibility.viaPublic")}</span></Show>
+      <Show when={place.can("admin")}>
+        <Button variant="outline" size="sm" iconLeft="lucide-share-2" onClick={() => setSharing(true)}>{t("share.action")}</Button>
+        <ShareDialog open={sharing()} onOpenChange={setSharing} />
+      </Show>
+    </div>
+  );
+}
 
 /** Everything under `/w/:slug`: finds the workspace among the person's own and gives its pages the workspace to work in. */
 function InWorkspace(props: RouteSectionProps): JSX.Element {
@@ -26,8 +44,13 @@ function InWorkspace(props: RouteSectionProps): JSX.Element {
   const summary = () => session.workspaces().find((workspace) => workspace.slug === params.slug);
   createEffect(() => { if (summary()) remember(params.slug); });
   return (
-    <Show when={summary()} keyed fallback={<EmptyState icon="lucide-folder-x" size="lg" title={t("workspace.missing.title")} description={t("workspace.missing.text")} action={<Button variant="outline" size="md" route="/">{t("workspace.missing.back")}</Button>} />}>
-      {(found) => <PlaceProvider summary={() => summary() ?? found}>{props.children}</PlaceProvider>}
+    <Show when={summary()} fallback={<EmptyState icon="lucide-folder-x" size="lg" title={t("workspace.missing.title")} description={t("workspace.missing.text")} action={<Button variant="outline" size="md" route="/">{t("workspace.missing.back")}</Button>} />}>
+      {(found) => (
+        <PlaceProvider summary={() => summary() ?? found()}>
+          <WorkspaceStrip />
+          {props.children}
+        </PlaceProvider>
+      )}
     </Show>
   );
 }
@@ -60,6 +83,7 @@ export function App(): JSX.Element {
             <Router root={Frame}>
               <Route path="/" component={Overview} />
               <Route path="/new" component={NewWorkspace} />
+              <Route path="/schedules" component={Schedules} />
               <Route path="/w/:slug" component={InWorkspace}>
                 <Route path="/" component={Today} />
                 <Route path="/tasks" component={Tasks} />
@@ -67,6 +91,7 @@ export function App(): JSX.Element {
                 <Route path="/workspace/:tab?/*name" component={Workspace} />
                 <Route path="/health" component={Health} />
                 <Route path="/people" component={People} />
+                <Route path="/schedules" component={Schedules} />
               </Route>
               <Route path="*" component={() => <Navigate href="/" />} />
             </Router>

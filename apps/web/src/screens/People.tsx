@@ -9,6 +9,7 @@ import { t } from "../i18n";
 import { ago } from "../lib/format";
 import { ROLES } from "../lib/model";
 import { ConfirmButton, Failure, Ready } from "../components/bits";
+import { ShareDialog } from "../components/Share";
 import { Head } from "../components/Shell";
 
 const roleOptions = (): { label: string; value: string; description: string }[] => ROLES.map((role) => ({ label: t(`role.${role}`), value: role, description: t(`role.${role}.help`) }));
@@ -32,37 +33,6 @@ function RoleSelect(props: { member: Member }): JSX.Element {
   const change = useAction((role: Role) => command("member.set", { workspaceId: place.id(), email: props.member.email, role }));
   return (
     <div class="w-36"><Select size="md" aria-label={t("people.role.of", { name: props.member.name })} options={roleOptions()} value={props.member.role} disabled={props.member.userId === session.user().id || change.busy()} onValueChange={(role) => { if (role && role !== props.member.role) void change.run(role as Role); }} /></div>
-  );
-}
-
-function AddMember(props: { open: boolean; onOpenChange: (open: boolean) => void }): JSX.Element {
-  const place = usePlace();
-  const [email, setEmail] = createSignal("");
-  const [name, setName] = createSignal("");
-  const [password, setPassword] = createSignal("");
-  const [role, setRole] = createSignal<Role>("member");
-  const add = useAction(async () => {
-    const result = await command("member.set", { workspaceId: place.id(), email: email(), role: role(), ...(name().trim() ? { name: name() } : {}), ...(password() ? { password: password() } : {}) });
-    toast.success({ title: result.created ? t("people.add.created", { email: email() }) : t("people.add.added", { email: email() }) });
-    setEmail(""); setName(""); setPassword("");
-    props.onOpenChange(false);
-  });
-  return (
-    <Dialog.Root open={props.open} onOpenChange={props.onOpenChange}>
-      <Dialog.Content size="md">
-        <Dialog.Header><Dialog.Title>{t("people.add")}</Dialog.Title><Dialog.Description>{t("people.add.text")}</Dialog.Description></Dialog.Header>
-        <form class="mt-4 flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void add.run(); }}>
-          <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
-            <TextInput size="md" type="email" label={t("signin.email")} value={email()} onInput={(event) => setEmail(event.currentTarget.value)} required />
-            <Select size="md" label={t("people.role")} options={roleOptions()} value={role()} onValueChange={(value) => { if (value) setRole(value as Role); }} />
-          </div>
-          <TextInput size="md" label={t("people.add.name")} description={t("people.add.name.help")} value={name()} onInput={(event) => setName(event.currentTarget.value)} maxlength={100} />
-          <TextInput size="md" type="password" label={t("people.add.password")} description={t("setup.password.help")} autocomplete="new-password" minlength={12} maxlength={128} value={password()} onInput={(event) => setPassword(event.currentTarget.value)} />
-          <Failure error={add.error()} />
-          <div class="flex justify-end gap-2"><Button variant="ghost" size="md" onClick={() => props.onOpenChange(false)}>{t("action.cancel")}</Button><Button type="submit" variant="solid" theme="blue" size="md" loading={add.busy()}>{t("people.add.submit")}</Button></div>
-        </form>
-      </Dialog.Content>
-    </Dialog.Root>
   );
 }
 
@@ -127,14 +97,14 @@ export default function PeopleScreen(): JSX.Element {
       <Head title={t("people.title")} text={t("people.title")} description={t("people.text", { name: place.summary().name })} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.people") }]} />
       <Show when={place.can("admin")} fallback={<EmptyState bordered icon="lucide-lock" title={t("people.adminOnly")} description={t("people.adminOnly.text", { role: t(`role.${place.summary().role}`) })} />}>
         <div class="flex flex-col gap-8">
-          <Section title={t("people.members")} headingLevel={2} actions={<Button variant="outline" size="md" iconLeft="lucide-user-plus" onClick={() => setAdding(true)}>{t("people.add")}</Button>}>
+          <Section title={t("people.members")} headingLevel={2} actions={<Button variant="outline" size="md" iconLeft="lucide-share-2" onClick={() => setAdding(true)}>{t("share.action")}</Button>}>
             <Ready data={members.data()} error={members.error()} retry={members.refetch}>
               {(loaded) => <DataTable title={t("people.members")} rows={loaded().members.map((member) => ({ ...member, id: member.userId }))} columns={columns} hideSearch selectable={false} density="comfortable" recordsLabel={t("people.members")} pageSize={100} />}
             </Ready>
           </Section>
           <Secrets />
         </div>
-        <AddMember open={adding()} onOpenChange={setAdding} />
+        <ShareDialog open={adding()} onOpenChange={setAdding} />
       </Show>
     </>
   );

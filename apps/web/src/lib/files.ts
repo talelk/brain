@@ -14,6 +14,7 @@ export interface Brain {
   name: string;
   description: string;
   timezone?: string;
+  visibility?: "private" | "public";
   packs: readonly string[];
   limits: SnapshotManifest["limits"];
   models: readonly Model[];
@@ -25,7 +26,7 @@ export interface Brain {
 
 export function brainOf(snapshot: SnapshotManifest): Brain {
   const { name, description, packs, limits, models, projects, github, teams, approvals } = snapshot;
-  return { name, description, timezone: (snapshot as { timezone?: string }).timezone, packs, limits, models, projects, github, teams, approvals };
+  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, packs, limits, models, projects, github, teams, approvals };
 }
 
 export function brainToml(brain: Brain): string {
@@ -33,6 +34,7 @@ export function brainToml(brain: Brain): string {
     name: brain.name,
     description: brain.description,
     timezone: brain.timezone,
+    visibility: brain.visibility === "public" ? "public" : undefined,
     packs: brain.packs,
     limits: { ...brain.limits },
     model: brain.models.map((model) => ({ ...model })),

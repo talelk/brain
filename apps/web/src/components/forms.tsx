@@ -12,6 +12,7 @@ import { CodeEditor } from "./CodeEditor";
 import { Choice, ListField, NumberField, PickMany, Rows } from "./fields";
 import { Markdown } from "./Markdown";
 import { Details, Failure } from "./bits";
+import { ScheduleEditor } from "./Schedule";
 
 /** The forms of the Workspace screen. Each starts from the active snapshot, and saving writes whole files through `file.write`. */
 
@@ -188,9 +189,10 @@ export function PlayForm(props: { name: string; initial: PlayFile; isNew: boolea
   const [inputs, setInputs] = createSignal(toRows(props.initial.inputs));
   const [trigger, setTrigger] = createSignal<"none" | "schedule" | "webhook">(props.initial.trigger?.schedule ? "schedule" : props.initial.trigger?.webhook ? "webhook" : "none");
   const [when, setWhen] = createSignal(props.initial.trigger?.schedule ?? props.initial.trigger?.webhook ?? "");
+  const [paused, setPaused] = createSignal(props.initial.trigger?.paused === true);
   const write = useWrite(props.onSaved);
   const agents = (): { label: string; value: string }[] => names(props.snapshot.agents);
-  const file = (): PlayFile => ({ ...unwrap(play), inputs: fromRows(inputs()), trigger: trigger() === "none" ? undefined : trigger() === "schedule" ? { schedule: when() } : { webhook: when() } });
+  const file = (): PlayFile => ({ ...unwrap(play), inputs: fromRows(inputs()), trigger: trigger() === "none" ? undefined : trigger() === "schedule" ? { schedule: when(), ...(paused() ? { paused: true } : {}) } : { webhook: when() } });
   const save = (): void => void write.run([{ path: paths.play(props.name), content: playToml(file()) }], `${props.isNew ? "Add" : "Change"} the Play ${props.name}`);
   const step = (index: number, patch: Partial<StepSpec>): void => setPlay("step", index, patch);
   const move = (index: number, by: number): void => { const steps = [...unwrap(play).step]; const [moved] = steps.splice(index, 1); if (moved) { steps.splice(index + by, 0, moved); setPlay("step", steps); } };
@@ -252,8 +254,12 @@ export function PlayForm(props: { name: string; initial: PlayFile; isNew: boolea
       </Group>
       <Group title={t("play.trigger")} text={t("play.trigger.text")}>
         <Choice label={t("play.trigger")} value={trigger()} onChange={setTrigger} disabled={props.readOnly} options={[{ value: "none", label: t("play.trigger.none"), help: t("play.trigger.none.help") }, { value: "schedule", label: t("play.trigger.schedule"), help: t("play.trigger.schedule.help") }, { value: "webhook", label: t("play.trigger.webhook"), help: t("play.trigger.webhook.help") }]} />
-        <Show when={trigger() !== "none"}>
-          <div class="max-w-sm"><TextInput size="md" class="t-code" label={trigger() === "schedule" ? t("play.trigger.cron") : t("play.trigger.event")} placeholder={trigger() === "schedule" ? "0 8 * * 1" : "github.issues.opened"} value={when()} onInput={(event) => setWhen(event.currentTarget.value)} required disabled={props.readOnly} /></div>
+        <Show when={trigger() === "schedule"}>
+          <ScheduleEditor timezone={props.snapshot.timezone} value={when()} onChange={setWhen} disabled={props.readOnly} />
+          <Switch label={t("schedule.pause")} description={t("schedule.pause.help")} checked={paused()} onCheckedChange={setPaused} disabled={props.readOnly} />
+        </Show>
+        <Show when={trigger() === "webhook"}>
+          <div class="max-w-sm"><TextInput size="md" class="t-code" label={t("play.trigger.event")} placeholder="github.issues.opened" value={when()} onInput={(event) => setWhen(event.currentTarget.value)} required disabled={props.readOnly} /></div>
         </Show>
       </Group>
       <Show when={!props.readOnly}><SaveBar write={write} onSave={save} shown={[paths.play(props.name)]} /></Show>
@@ -311,6 +317,8 @@ export function SettingsForm(props: { snapshot: SnapshotManifest; readOnly: bool
         <TextInput size="md" label={t("field.name")} value={brain.name} onInput={(event) => set("name", event.currentTarget.value)} required maxlength={100} disabled={props.readOnly} />
         <Textarea size="md" label={t("field.description")} description={t("settings.description.help")} rows={2} value={brain.description} onInput={(event) => set("description", event.currentTarget.value)} disabled={props.readOnly} />
         <div class="max-w-sm"><TextInput size="md" label={t("settings.timezone")} description={t("settings.timezone.help")} placeholder="Africa/Tunis" value={brain.timezone ?? ""} onInput={(event) => set("timezone", event.currentTarget.value || undefined)} disabled={props.readOnly} /></div>
+        <Choice label={t("visibility.title")} value={brain.visibility ?? "private"} onChange={(value) => set("visibility", value)} disabled={props.readOnly}
+          options={[{ value: "private", label: t("visibility.private"), help: t("visibility.private.help") }, { value: "public", label: t("visibility.public"), help: t("visibility.public.help") }]} />
         <p class="t-small text-ink-2">{t("settings.packs", { packs: brain.packs.join(", ") || t("fields.none") })}</p>
       </Group>
       <Group title={t("settings.limits")}>

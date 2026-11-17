@@ -6,6 +6,7 @@ import { CommandGroup, CommandItem, CommandPalette, SidebarItem, SidebarLabel, u
 import { AppShell } from "@talelk/newui-templates";
 import { authClient } from "../data/auth-client";
 import { connected, updatedAt } from "../data/live";
+import type { WorkspaceSummary } from "@brain/contracts";
 import { useSession } from "../data/session";
 import { LOCALES, locale, setLocale, t, type Locale } from "../i18n";
 import { ago } from "../lib/format";
@@ -53,15 +54,23 @@ function Nav(): JSX.Element {
   const slug = (): string | undefined => slugOf(location.pathname);
   const here = (path: string): boolean => location.pathname === path || location.pathname === `${path}/`;
   const needs = (id: string): number => session.overview.data()?.workspaces.find((workspace) => workspace.id === id)?.needsYou ?? 0;
-  const active = (): readonly { id: string; slug: string; name: string }[] => session.workspaces().filter((workspace) => workspace.status === "active");
-  const sub: readonly { path: string; label: "nav.today" | "nav.tasks" | "nav.workspace"; icon: string }[] = [
-    { path: "", label: "nav.today", icon: "lucide-sun" }, { path: "/tasks", label: "nav.tasks", icon: "lucide-list-checks" }, { path: "/workspace", label: "nav.workspace", icon: "lucide-folder-cog" },
+  const active = (): readonly WorkspaceSummary[] => session.workspaces().filter((workspace) => workspace.status === "active");
+  const groups = (): ReadonlyArray<{ label: "nav.workspaces.mine" | "nav.workspaces.shared" | "nav.workspaces.public"; list: readonly WorkspaceSummary[] }> => [
+    { label: "nav.workspaces.mine", list: active().filter((workspace) => !workspace.viaPublic && workspace.role === "admin") },
+    { label: "nav.workspaces.shared", list: active().filter((workspace) => !workspace.viaPublic && workspace.role !== "admin") },
+    { label: "nav.workspaces.public", list: active().filter((workspace) => workspace.viaPublic) },
+  ];
+  const sub: readonly { path: string; label: "nav.today" | "nav.tasks" | "nav.workspace" | "nav.schedules"; icon: string }[] = [
+    { path: "", label: "nav.today", icon: "lucide-sun" }, { path: "/tasks", label: "nav.tasks", icon: "lucide-list-checks" }, { path: "/schedules", label: "nav.schedules", icon: "lucide-calendar-clock" }, { path: "/workspace", label: "nav.workspace", icon: "lucide-folder-cog" },
   ];
   return (
     <div class="flex flex-col gap-0.5">
       <SidebarItem route="/" icon="lucide-layout-dashboard" active={here("/")}>{t("nav.overview")}</SidebarItem>
-      <div class="mt-3"><SidebarLabel divider>{t("nav.workspaces")}</SidebarLabel></div>
-      <For each={active()}>
+      <SidebarItem route="/schedules" icon="lucide-calendar-clock" active={here("/schedules")}>{t("nav.schedules")}</SidebarItem>
+      <For each={groups().filter((group) => group.list.length > 0)}>
+        {(group) => (<>
+      <div class="mt-3"><SidebarLabel divider>{t(group.label)}</SidebarLabel></div>
+      <For each={group.list}>
         {(workspace) => (
           <>
             <SidebarItem route={`/w/${workspace.slug}`} label={workspace.name} active={slug() === workspace.slug && !location.pathname.slice(`/w/${workspace.slug}`.length).replace(/^\//u, "")}
@@ -73,13 +82,15 @@ function Nav(): JSX.Element {
                 <For each={sub}>
                   {(item) => {
                     const href = `/w/${workspace.slug}${item.path}`;
-                    return <SidebarItem route={href} icon={item.icon} active={item.path === "" ? here(href) : location.pathname.startsWith(href)}>{t(item.label)}</SidebarItem>;
+                    return <SidebarItem route={href} icon={item.icon} active={item.path === "" ? here(href) : location.pathname === href || location.pathname.startsWith(`${href}/`)}>{t(item.label)}</SidebarItem>;
                   }}
                 </For>
               </div>
             </Show>
           </>
         )}
+      </For>
+        </>)}
       </For>
       <Show when={session.user().instanceAdmin}><SidebarItem route="/new" icon="lucide-plus" active={here("/new")}>{t("nav.newWorkspace")}</SidebarItem></Show>
     </div>
@@ -92,7 +103,7 @@ function Footer(): JSX.Element {
   const session = useSession();
   const location = useLocation();
   const target = (): string | undefined => {
-    const active = session.workspaces().filter((workspace) => workspace.status === "active");
+    const active = session.workspaces().filter((workspace) => workspace.status === "active" && !workspace.viaPublic);
     return (active.find((workspace) => workspace.slug === slugOf(location.pathname)) ?? active.find((workspace) => workspace.slug === lastSlug()) ?? active[0])?.slug;
   };
   const link = (path: string, label: "nav.health" | "nav.people", icon: string): JSX.Element => (
@@ -179,6 +190,7 @@ function Palette(props: { open: boolean; onOpenChange: (open: boolean) => void; 
     <CommandPalette open={props.open} onOpenChange={props.onOpenChange} placeholder={t("palette.placeholder")} label={t("palette.label")} size="lg" empty={t("palette.empty")}>
       <CommandGroup label={t("palette.pages")}>
         <CommandItem value="overview" icon="lucide-layout-dashboard" onSelect={go("/")}>{t("nav.overview")}</CommandItem>
+        <CommandItem value="schedules" keywords="schedules cron triggers" icon="lucide-calendar-clock" onSelect={go("/schedules")}>{t("nav.schedules")}</CommandItem>
         <Show when={session.user().instanceAdmin}><CommandItem value="new-workspace" icon="lucide-plus" onSelect={go("/new")}>{t("nav.newWorkspace")}</CommandItem></Show>
       </CommandGroup>
       <Show when={current()}>

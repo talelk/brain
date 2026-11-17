@@ -182,7 +182,7 @@ status. Besides the three workspace roles an entry is `public` (`setup.status`,
 `setup.create`, `me`, `overview`) or needs an instance admin (`workspace.create`, `packs.list`,
 `runner.token`, `runner.remove`, `runners.list`, `audit.verify`). Every other entry takes
 `workspaceId`; a person who is not a member is told the workspace does not exist.
-`file.write` and `file.delete` take several paths and make one commit. A `file.write` file is text, or
+`file.write` (up to 200 files, 500 removals) and `file.delete` (up to 500 paths) take several paths and make one commit; a copy or a move of files and folders in the Files tab is one such commit. A `file.write` file is text, or
 `encoding: "base64"` for a document of any kind; a write may also name `remove` paths, so a rename is one commit.
 A file is at most 5 MB and a write 20 MB (decoded), refused with INVALID_INPUT naming the file. `file.read` answers
 `binary: true` and no content for a file that is not text, and adds the message and time of the last commit that

@@ -381,8 +381,8 @@ export const commands = table({
   "workspace.archive": ["admin", z.strictObject(inWorkspace)],
   "workspace.stopAll": ["member", z.strictObject(inWorkspace)],
   /** Writes files of the workspace folder in one commit, and removes the paths of `remove` in it (a rename). A `base64` file is bytes of a document. Refused with INVALID_WORKSPACE, and nothing written, when the folder would not be valid. */
-  "file.write": ["admin", z.strictObject({ ...inWorkspace, files: z.array(z.strictObject({ path: filePath, content: z.string().max(Math.ceil(MAX_FILE_BYTES * 4 / 3) + 4), encoding: z.enum(["utf8", "base64"]).default("utf8") })).max(50).default([]), remove: z.array(filePath).max(50).default([]), message: z.string().trim().min(1).max(200).optional() })],
-  "file.delete": ["admin", z.strictObject({ ...inWorkspace, paths: z.array(filePath).min(1).max(50), message: z.string().trim().min(1).max(200).optional() })],
+  "file.write": ["admin", z.strictObject({ ...inWorkspace, files: z.array(z.strictObject({ path: filePath, content: z.string().max(Math.ceil(MAX_FILE_BYTES * 4 / 3) + 4), encoding: z.enum(["utf8", "base64"]).default("utf8") })).max(200).default([]), remove: z.array(filePath).max(500).default([]), message: z.string().trim().min(1).max(200).optional() })],
+  "file.delete": ["admin", z.strictObject({ ...inWorkspace, paths: z.array(filePath).min(1).max(500), message: z.string().trim().min(1).max(200).optional() })],
   "secret.set": ["admin", z.strictObject({ ...inWorkspace, name: name("a secret name"), value: z.string().min(1).max(10_000) })],
   "secret.delete": ["admin", z.strictObject({ ...inWorkspace, name: name("a secret name") })],
   /** Sets a person's role. A person with no account yet gets one, with the given name and first password. */
