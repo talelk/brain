@@ -176,6 +176,30 @@ export function splitMemoryEntry(text: string): { title: string; body: string } 
   return first.startsWith("# ") ? { title: first.slice(2).trim(), body: rest.join("\n").trim() } : { title: "", body: text.trim() };
 }
 
+// --- documents: any other file of the workspace folder ---
+
+/** The most a file of a workspace may be, and the most one write may carry, in bytes. */
+export const MAX_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_WRITE_BYTES = 20 * 1024 * 1024;
+/** Documents `memory.search` finds: text under `docs/`, at most this long. */
+export const MAX_INDEXED_BYTES = 1024 * 1024;
+const INDEXED = /^docs\/.+\.(?:md|markdown|txt|rst|csv|json|ya?ml)$/iu;
+export const isIndexedDocument = (path: string): boolean => INDEXED.test(path);
+/** Why a path cannot be a file of a workspace folder, or undefined when it can. Hidden names are refused, except the `.gitkeep` that keeps an empty folder. */
+export function pathProblem(path: string): string | undefined {
+  if (path.length > 300) return "a path is at most 300 characters";
+  if (/[\\\u0000-\u001f\u007f]/u.test(path)) return "a path has no backslash or control character";
+  const parts = path.split("/");
+  if (parts.length > 12) return "a path is at most 12 folders deep";
+  for (const [index, part] of parts.entries()) {
+    if (part === "") return "a path has no empty part: no leading, trailing or double slash";
+    if (part === "." || part === "..") return "a path cannot contain . or ..";
+    if (part.startsWith(".") && !(part === ".gitkeep" && index === parts.length - 1)) return "a name cannot start with a dot, except .gitkeep";
+    if (part.length > 120) return "a name is at most 120 characters";
+  }
+  return undefined;
+}
+
 // --- step templates: {{input}}, {{steps.<id>.result[.field]}}, {{item[.field]}} ---
 
 export type Ref =
@@ -242,6 +266,8 @@ export interface SnapshotManifest {
   readonly tools: Readonly<Record<string, ToolFile & Sourced & { readonly input_schema: JsonSchema; readonly files: readonly FileRef[] }>>;
   readonly plays: Readonly<Record<string, PlayFile & Sourced>>;
   readonly memory: ReadonlyArray<Sourced & { readonly name: string; readonly title: string; readonly digest: Digest; readonly bytes: number }>;
+  /** The text documents of the workspace under `docs/` that agents can search. */
+  readonly documents: ReadonlyArray<{ readonly path: string; readonly title: string; readonly digest: Digest; readonly bytes: number }>;
 }
 /** One thing wrong with a workspace folder: the file and what to fix. */
 export interface Problem { readonly path: string; readonly message: string }

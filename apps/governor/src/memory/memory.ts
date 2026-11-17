@@ -7,7 +7,7 @@ import { newId, type AttemptRow } from "../tasks/store";
 import { readArtifact } from "../trust/artifacts";
 import { activate, activeManifest, commitFolder, getWorkspace, type Committed } from "../workspace/store";
 
-/** A workspace's memory (docs/model.md): a search index over the entries of its active snapshot, and entries agents propose for a person to accept. */
+/** A workspace's memory (docs/model.md): a search index over the entries and the text documents of its active snapshot, and entries agents propose for a person to accept. */
 
 /** Rebuilds a workspace's index from the memory entries of the snapshot being activated. */
 function indexMemory(gov: Gov, workspaceId: string, manifest: SnapshotManifest): void {
@@ -16,14 +16,20 @@ function indexMemory(gov: Gov, workspaceId: string, manifest: SnapshotManifest):
     const { title, body } = splitMemoryEntry(new TextDecoder().decode(readArtifact(gov, entry.digest)));
     gov.db.prepare("INSERT INTO memory_index(workspace_id, name, title, body) VALUES (?,?,?,?)").run(workspaceId, entry.name, title, body);
   }
+  // A document is told from a memory entry by its name: an entry's is a slug, a document's is its path.
+  for (const document of manifest.documents) {
+    const { body } = splitMemoryEntry(new TextDecoder().decode(readArtifact(gov, document.digest)));
+    gov.db.prepare("INSERT INTO memory_index(workspace_id, name, title, body) VALUES (?,?,?,?)").run(workspaceId, document.path, document.title, body);
+  }
 }
 
 /** The entries that best match the words of a query, best first, each with the part of it that matches. */
-export function searchMemory(db: Db, workspaceId: string, query: string, limit = 5): Array<{ name: string; title: string; text: string }> {
+export function searchMemory(db: Db, workspaceId: string, query: string, limit = 5): Array<{ name: string; title: string; text: string; source: "memory" | "document" }> {
   const words = query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
   if (words.length === 0) return [];
-  return db.prepare(`SELECT name, title, snippet(memory_index, 3, '', '', ' ... ', 64) AS text FROM memory_index WHERE memory_index MATCH ? AND workspace_id=?
+  const rows = db.prepare(`SELECT name, title, snippet(memory_index, 3, '', '', ' ... ', 64) AS text FROM memory_index WHERE memory_index MATCH ? AND workspace_id=?
     ORDER BY bm25(memory_index, 0.0, 0.0, 4.0, 1.0) LIMIT ?`).all(words.slice(0, 20).map((word) => `"${word}"*`).join(" OR "), workspaceId, Math.min(Math.max(limit, 1), 20)) as Array<{ name: string; title: string; text: string }>;
+  return rows.map((row) => ({ ...row, source: row.name.includes("/") ? "document" : "memory" }));
 }
 
 /** Records an entry an agent proposes. Nothing is saved to the workspace until a person accepts it. */

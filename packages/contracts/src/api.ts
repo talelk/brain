@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AuditVerifyResult } from "./audit-chain";
-import { isSlug, type Problem, type SnapshotManifest } from "./files";
+import { isSlug, MAX_FILE_BYTES, type Problem, type SnapshotManifest } from "./files";
 import type { ApprovalState, AttemptEvent, AttemptFailure, AttemptKind, Digest, Effect, JsonValue, RunnerCapability, ToolOutcome } from "./protocol";
 
 /**
@@ -54,7 +54,12 @@ export interface FileEntry {
   /** For a workspace file: the pack whose file of the same path it replaces. */
   readonly replaces?: string;
 }
-export interface FileContent extends FileEntry { readonly content: string }
+/** A file's text, or `binary` and no content when it is not text. `lastCommit` is the commit that last changed a file of the workspace. */
+export interface FileContent extends FileEntry {
+  readonly content: string;
+  readonly binary: boolean;
+  readonly lastCommit?: { readonly message: string; readonly atMs: number };
+}
 export interface PackSummary {
   readonly name: string;
   readonly description: string;
@@ -337,8 +342,8 @@ export const commands = table({
   })],
   "workspace.archive": ["admin", z.strictObject(inWorkspace)],
   "workspace.stopAll": ["member", z.strictObject(inWorkspace)],
-  /** Writes files of the workspace folder in one commit. Refused with INVALID_WORKSPACE, and nothing written, when the folder would not be valid. */
-  "file.write": ["admin", z.strictObject({ ...inWorkspace, files: z.array(z.strictObject({ path: filePath, content: z.string().max(512_000) })).min(1).max(50), message: z.string().trim().min(1).max(200).optional() })],
+  /** Writes files of the workspace folder in one commit, and removes the paths of `remove` in it (a rename). A `base64` file is bytes of a document. Refused with INVALID_WORKSPACE, and nothing written, when the folder would not be valid. */
+  "file.write": ["admin", z.strictObject({ ...inWorkspace, files: z.array(z.strictObject({ path: filePath, content: z.string().max(Math.ceil(MAX_FILE_BYTES * 4 / 3) + 4), encoding: z.enum(["utf8", "base64"]).default("utf8") })).max(50).default([]), remove: z.array(filePath).max(50).default([]), message: z.string().trim().min(1).max(200).optional() })],
   "file.delete": ["admin", z.strictObject({ ...inWorkspace, paths: z.array(filePath).min(1).max(50), message: z.string().trim().min(1).max(200).optional() })],
   "secret.set": ["admin", z.strictObject({ ...inWorkspace, name: name("a secret name"), value: z.string().min(1).max(10_000) })],
   "secret.delete": ["admin", z.strictObject({ ...inWorkspace, name: name("a secret name") })],

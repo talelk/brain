@@ -152,7 +152,7 @@ the outputs the descriptions promise to agents.
 | `task.create` | read | `title`*, `goal`*, `agent`*, `after` (list of task ids) | `{"id": "<task id>"}` |
 | `task.note` | read | `text`* | `{"id": "<note id>"}` |
 | `task.ask` | read | `question`* | `{"status": "waiting"}` |
-| `memory.search` | read | `query`*, `limit` (integer; 5 by default, at most 20) | `{"results": [{"name", "title", "text"}]}`, best first |
+| `memory.search` | read | `query`*, `limit` (integer; 5 by default, at most 20) | `{"results": [{"name", "title", "text", "source"}]}`, best first |
 | `memory.propose` | read | `name`* (file name slug), `title`*, `text`* | `{"id": "<proposal id>", "status": "proposed"}` |
 | `git.open-pr` | write | `project`*, `title`*, `body`* | `{"url", "number", "branch"}` |
 | `message.send` | write | `text`* | `{"sent": true}` |
@@ -162,7 +162,8 @@ the outputs the descriptions promise to agents.
 - `task.ask` returns at once. The prompts tell the agent to end its turn; the answer is
   expected in the context of the task's next attempt.
 - `memory.search` returns `name` without `.md`, and in `text` the matching part of the
-  entry.
+  entry. A text document of the workspace under `docs/` is found too, with its path as
+  `name` and `source` `document` (a memory entry's is `memory`).
 - For a `write` call that is not approved in time, the agent is told the call is held.
   Every prompt says: held, declined or refused means it did not happen; do not repeat it.
 

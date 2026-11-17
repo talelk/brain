@@ -390,3 +390,6 @@ details[open] > summary > .details-mark { transform: rotate(90deg); }
 .team-key path { fill: none; stroke-width: 1.75; }
 .gnode-agent-box .gnode-main { height: 100%; justify-content: center; text-decoration: none; }
 :root[dir="rtl"] .team-edge .count text { transform: scaleX(-1); transform-box: fill-box; transform-origin: center; }
+
+/* Files tab: while files are dragged over it, the whole area says it takes them. */
+.drop-active { outline: 2px dashed var(--violet); outline-offset: 6px; border-radius: 16px; }

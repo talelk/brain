@@ -11,13 +11,14 @@ import { ago } from "../lib/format";
 import { paths } from "../lib/files";
 import { isSlug } from "../lib/model";
 import { TeamGraph } from "../components/TeamGraph";
+import { FilesTab } from "../components/FilesTab";
 import { CodeEditor } from "../components/CodeEditor";
 import { AgentForm, MarkdownEditor, PlayForm, problemsOf, ProjectsForm, SaveBar, SettingsForm, ToolForm, useWrite } from "../components/forms";
 import { Markdown } from "../components/Markdown";
 import { ConfirmButton, Failure, Icon, Keyed, Ready } from "../components/bits";
 import { Head } from "../components/Shell";
 
-const TABS = ["agents", "team", "tools", "plays", "memory", "projects", "settings"] as const;
+const TABS = ["agents", "team", "tools", "plays", "memory", "projects", "settings", "files"] as const;
 type Tab = (typeof TABS)[number];
 interface Item { readonly name: string; readonly title?: string; readonly text: string; readonly source: string }
 
@@ -177,7 +178,11 @@ export default function WorkspaceScreen(): JSX.Element {
               const isNew = (): boolean => !exists() && search.new !== undefined;
               const saved = (): void => { if (search.new !== undefined) navigate(href(tab(), name()), { replace: true }); };
               return (
-                <Show when={tab() !== "team"} fallback={<TeamGraph snapshot={snapshot()} tasks={recent.data()?.tasks ?? []} href={(agent) => href("agents", agent)} />}>
+                <Show when={tab() !== "team" && tab() !== "files"} fallback={
+                  <Show when={tab() === "team"} fallback={<Show when={files.data()} fallback={<Failure error={files.error()} />}>{(listed) => <FilesTab files={listed().files} readOnly={readOnly()} />}</Show>}>
+                    <TeamGraph snapshot={snapshot()} tasks={recent.data()?.tasks ?? []} href={(agent) => href("agents", agent)} />
+                  </Show>
+                }>
                 <Show when={!single()} fallback={
                   <div class="max-w-[52rem] rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-5 sm:p-6">
                     <ModeSwitch raw={raw()} onChange={setRaw} class="mb-6" />

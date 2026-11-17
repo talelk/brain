@@ -1,5 +1,5 @@
 import {
-  BrainError, canonicalJsonBytes, commands, hmacSha256Hex, queries, roleAtLeast,
+  BrainError, canonicalJsonBytes, commands, hmacSha256Hex, MAX_UPLOAD_STRING, queries, roleAtLeast,
   type Actor, type ApiRole, type Clock, type CommandInput, type CommandOutputs, type CommandType, type JsonValue, type Problem, type QueryInput, type QueryOutputs, type QueryType,
   type Role, type SnapshotManifest, type User,
 } from "@brain/contracts";
@@ -120,7 +120,7 @@ export async function runCommand(gov: Gov, caller: Caller, body: unknown): Promi
 
   // A public command has no caller to key a record by; setup, the only one, can succeed once anyway.
   const actorId = caller.user?.id;
-  const requestDigest = hmacSha256Hex(gov.keys.digests, canonicalJsonBytes({ type, input: input as JsonValue }));
+  const requestDigest = hmacSha256Hex(gov.keys.digests, canonicalJsonBytes({ type, input: input as JsonValue }, MAX_UPLOAD_STRING));
   const replay = (): { output: unknown } | undefined => {
     if (!actorId) return undefined;
     const row = gov.db.prepare("SELECT command, request_digest AS digest, response_json AS response FROM idempotency WHERE actor_id=? AND key=?").get(actorId, idempotencyKey) as { command: string; digest: string; response: string } | undefined;

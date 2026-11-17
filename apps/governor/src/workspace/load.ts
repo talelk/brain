@@ -1,5 +1,5 @@
 import {
-  AgentFile, BRAIN_TOOLS, BrainFile, MemoryEntry, PackFile, parseRef, parseWhen, PlayFile, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
+  AgentFile, BRAIN_TOOLS, BrainFile, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PackFile, parseRef, parseWhen, PlayFile, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
   type Digest, type InputSpec, type JsonSchema, type JsonValue, type Problem, type Ref, type SnapshotManifest, type StepSpec,
 } from "@brain/contracts";
 import { parse as parseToml } from "smol-toml";
@@ -259,11 +259,20 @@ export function loadWorkspace(workspace: Files, packsDir: string): Loaded {
     else memory.push({ name, title: entry.data.title, source: file.source, ...blob(file.bytes) });
   }
 
+  // The text documents agents can search; a file that is not valid text, or is too long, is a document that is only stored.
+  const documents: Array<SnapshotManifest["documents"][number]> = [];
+  for (const [path, file] of [...files].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    if (file.source !== "workspace" || !isIndexedDocument(path) || file.bytes.length > MAX_INDEXED_BYTES) continue;
+    let content: string;
+    try { content = new TextDecoder("utf-8", { fatal: true }).decode(file.bytes); } catch { continue; }
+    documents.push({ path, title: splitMemoryEntry(content).title || (path.split("/").at(-1) ?? path), ...blob(file.bytes) });
+  }
+
   for (const tool of Object.keys(brain.approvals)) if (!toolFiles.has(tool)) problems.push({ path: "brain.toml", message: `approvals names tool "${tool}", which does not exist` });
 
   return done(JSON.parse(JSON.stringify({
     name: brain.name, description: brain.description, timezone: brain.timezone, packs: packs.map((pack) => pack.name), limits: brain.limits, models: brain.model, projects: brain.project,
-    github: brain.github ?? null, teams: brain.teams ?? null, approvals: brain.approvals, agents, tools, plays, memory,
+    github: brain.github ?? null, teams: brain.teams ?? null, approvals: brain.approvals, agents, tools, plays, memory, documents,
   } satisfies SnapshotManifest)) as SnapshotManifest);
 }
 

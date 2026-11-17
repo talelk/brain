@@ -31,3 +31,13 @@ export async function commitChange(dir: string, change: Change): Promise<string>
   }
   return git.commit({ fs, dir, message: change.message, author: change.author, cache });
 }
+
+/** The message and time of the last commit that changed a file, or undefined when the file has no history. */
+export async function lastCommitOf(dir: string, filepath: string): Promise<{ message: string; atMs: number } | undefined> {
+  try {
+    const [entry] = await git.log({ fs, dir, filepath, depth: 1 });
+    return entry ? { message: entry.commit.message.trim().split("\n")[0] ?? "", atMs: entry.commit.committer.timestamp * 1000 } : undefined;
+  } catch {
+    return undefined;
+  }
+}

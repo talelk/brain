@@ -4,8 +4,11 @@ import type { Digest, JsonValue } from "./protocol";
 
 const MAX_DEPTH = 32;
 const MAX_STRING_BYTES = 1024 * 1024;
+/** The longest string of a command from a signed-in person: a 5 MB file as base64. */
+export const MAX_UPLOAD_STRING = 8 * 1024 * 1024;
 
-export function assertBoundedJson(value: unknown, depth = 0): asserts value is JsonValue {
+/** `maxString` is the longest string in bytes: 1 MB, except for a command that carries files. */
+export function assertBoundedJson(value: unknown, depth = 0, maxString = MAX_STRING_BYTES): asserts value is JsonValue {
   if (depth > MAX_DEPTH) throw new Error("JSON_TOO_DEEP");
   if (value === null || typeof value === "boolean") return;
   if (typeof value === "number") {
@@ -13,7 +16,7 @@ export function assertBoundedJson(value: unknown, depth = 0): asserts value is J
     return;
   }
   if (typeof value === "string") {
-    if (Buffer.byteLength(value, "utf8") > MAX_STRING_BYTES) throw new Error("JSON_STRING_TOO_LARGE");
+    if (Buffer.byteLength(value, "utf8") > maxString) throw new Error("JSON_STRING_TOO_LARGE");
     // Reject lone surrogates (RFC 8785 requires well-formed Unicode).
     for (let i = 0; i < value.length; i++) {
       const c = value.charCodeAt(i);
@@ -28,20 +31,20 @@ export function assertBoundedJson(value: unknown, depth = 0): asserts value is J
     return;
   }
   if (Array.isArray(value)) {
-    for (const item of value) assertBoundedJson(item, depth + 1);
+    for (const item of value) assertBoundedJson(item, depth + 1, maxString);
     return;
   }
   if (typeof value === "object") {
     const prototype = Object.getPrototypeOf(value);
     if (prototype !== null && prototype !== Object.prototype) throw new Error("JSON_UNSUPPORTED_OBJECT_TYPE");
-    for (const [key, v] of Object.entries(value as Record<string, unknown>)) { assertBoundedJson(key); assertBoundedJson(v, depth + 1); }
+    for (const [key, v] of Object.entries(value as Record<string, unknown>)) { assertBoundedJson(key); assertBoundedJson(v, depth + 1, maxString); }
     return;
   }
   throw new Error("JSON_UNSUPPORTED_TYPE");
 }
 
 /** Strict JSON parse: rejects duplicate keys, lone surrogates and non-finite numbers. */
-export function parseStrictJson(text: string): JsonValue {
+export function parseStrictJson(text: string, maxString = MAX_STRING_BYTES): JsonValue {
   let i = 0;
   let nodes = 0;
   const fail = (m: string): never => { throw new Error(m); };
@@ -127,12 +130,12 @@ export function parseStrictJson(text: string): JsonValue {
   const value = parseValue(0);
   skipWs();
   if (i !== text.length) fail("JSON_TRAILING_CONTENT");
-  assertBoundedJson(value);
+  assertBoundedJson(value, 0, maxString);
   return value;
 }
 
-export function canonicalJsonBytes(value: JsonValue): Uint8Array {
-  assertBoundedJson(value);
+export function canonicalJsonBytes(value: JsonValue, maxString = MAX_STRING_BYTES): Uint8Array {
+  assertBoundedJson(value, 0, maxString);
   const text = canonicalize(value as never);
   if (typeof text !== "string") throw new Error("JSON_CANONICALIZE_FAILED");
   return new TextEncoder().encode(text);

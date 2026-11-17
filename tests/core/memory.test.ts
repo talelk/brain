@@ -46,7 +46,7 @@ describe("memory", () => {
     ]);
     // The entry about staging comes before the one that only mentions it.
     expect(found(staging)).toEqual(["staging", "release-checklist"]);
-    expect(refund).toEqual({ state: "done", output: { results: [{ name: "refund-policy", title: "Refunds", text: "A refund is possible within 30 days of the invoice." }] } });
+    expect(refund).toEqual({ state: "done", output: { results: [{ name: "refund-policy", title: "Refunds", text: "A refund is possible within 30 days of the invoice.", source: "memory" }] } });
     expect(found(nothing)).toEqual([]);
     expect(found(limited)).toHaveLength(2);
     expect(bad).toMatchObject({ state: "failed" });

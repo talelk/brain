@@ -1,4 +1,4 @@
-import { BrainError, ERROR_STATUS, hmacSha256Hex, isDigest, parseStrictJson, type ApiError, type Clock } from "@brain/contracts";
+import { BrainError, ERROR_STATUS, hmacSha256Hex, isDigest, MAX_UPLOAD_STRING, parseStrictJson, type ApiError, type Clock } from "@brain/contracts";
 import { Hono, type Context } from "hono";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
@@ -53,6 +53,8 @@ export interface Governor {
 const repo = (path: string): string => fileURLToPath(new URL(`../../../${path}`, import.meta.url));
 const systemClock: Clock = { nowMs: () => Date.now(), monotonicMs: () => performance.now() };
 const MAX_BODY = 4 * 1024 * 1024;
+/** A command from a signed-in person may carry an upload: a bit over 20 MB of files is about 34 MB as base64, */
+const MAX_UPLOAD_BODY = 36 * 1024 * 1024;
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".svg": "image/svg+xml",
   ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2", ".webmanifest": "application/manifest+json",
@@ -65,11 +67,11 @@ function refusal(c: Context, e: unknown): Response {
 }
 
 /** The body of a request, read as strict JSON. */
-export async function readJson(request: Request): Promise<unknown> {
+export async function readJson(request: Request, upload = false): Promise<unknown> {
   const bytes = new Uint8Array(await request.arrayBuffer());
-  if (bytes.length > MAX_BODY) throw new BrainError("INVALID_INPUT", "The request is too large");
+  if (bytes.length > (upload ? MAX_UPLOAD_BODY : MAX_BODY)) throw new BrainError("INVALID_INPUT", "The request is too large");
   try {
-    return parseStrictJson(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    return parseStrictJson(new TextDecoder("utf-8", { fatal: true }).decode(bytes), upload ? MAX_UPLOAD_STRING : undefined);
   } catch {
     throw new BrainError("INVALID_INPUT", "The request is not valid JSON");
   }
@@ -124,7 +126,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   const caller = async (c: Context) => ({ user: await gov.auth.user(c.req.raw.headers), cookies: [] as string[] });
   app.post("/v1/command", async (c) => {
     const who = await caller(c);
-    const output = await runCommand(gov, who, await readJson(c.req.raw));
+    const output = await runCommand(gov, who, await readJson(c.req.raw, who.user !== null));
     for (const cookie of who.cookies) c.header("set-cookie", cookie, { append: true });
     return c.json({ output });
   });

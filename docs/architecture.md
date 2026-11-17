@@ -72,7 +72,7 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   list in an earlier step's JSON result (`steps.<id>.result.<field>`), and inside that
   step `{{item}}` (or `{{item.<field>}}`) is the current item.
 - The result is a **snapshot**: one JSON manifest (time zone, models with their prices, limits, projects, agents with
-  prompt text digest, tools with file digests, Plays, memory entry list, approvals
+  prompt text digest, tools with file digests, Plays, memory entry list, documents, approvals
   settings) whose bytes go to the CAS. Its sha256 is the snapshot digest. Same folder
   content gives the same digest.
 - Every task stores the snapshot digest it was created with; its sub-tasks and attempts
@@ -80,6 +80,13 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
 - An invalid folder is never activated: `file.write` validates the would-be folder first
   and refuses with the path and message of each problem. The workspace keeps its last
   valid snapshot as `active`.
+- A **document** is any other file of the folder (`docs/handbook.md`, `docs/logo.png`). A path is refused when it is
+  absolute, has a backslash or control character, a `..` or `.` segment, or a hidden segment other than the file
+  `.gitkeep`; a path under `agents/`, `tools/`, `plays/` or `memory/` must still be one Brain reads, and
+  `brain.toml` is the only file at the top that is not a document. The manifest lists the text and Markdown
+  documents under `docs/` (`.md`, `.markdown`, `.txt`, `.rst`, `.csv`, `.json`, `.yaml`, `.yml`, valid UTF-8, at most 1 MB) with `path`,
+  `title` (the first `# ` line, else the file name), `digest` and `bytes`, so a task keeps the documents of its own
+  snapshot. Other documents are only in git.
 - A tool's inputs (`[inputs.<name>]` with `type`, `description`, `required`, `enum`,
   `items`) compile to a JSON Schema used to validate calls.
 - A tool with `runs = "brain"` is implemented by the Governor (section 7) and has no
@@ -116,7 +123,7 @@ Everything else:
 | `triggers` | per workspace and Play: schedule state (next run) and webhook bindings |
 | `webhook_deliveries` | received deliveries, de-duplicated |
 | `pull_requests` | task, project, branch, address, number, state when opened |
-| `memory_index` (FTS5), `memory_proposals` | search over `memory/`; proposed entries awaiting a person |
+| `memory_index` (FTS5), `memory_proposals` | search over `memory/` entries and the manifest's documents (a document's `name` is its path); proposed entries awaiting a person |
 | `idempotency` | actor, key, command, request digest, stored response |
 
 Every state change goes through `events.append(...)` in the same transaction as the
@@ -159,7 +166,13 @@ status. Besides the three workspace roles an entry is `public` (`setup.status`,
 `setup.create`, `me`, `overview`) or needs an instance admin (`workspace.create`, `packs.list`,
 `runner.token`, `runner.remove`, `runners.list`, `audit.verify`). Every other entry takes
 `workspaceId`; a person who is not a member is told the workspace does not exist.
-`file.write` and `file.delete` take several paths and make one commit. Accounts are made
+`file.write` and `file.delete` take several paths and make one commit. A `file.write` file is text, or
+`encoding: "base64"` for a document of any kind; a write may also name `remove` paths, so a rename is one commit.
+A file is at most 5 MB and a write 20 MB (decoded), refused with INVALID_INPUT naming the file. `file.read` answers
+`binary: true` and no content for a file that is not text, and adds the message and time of the last commit that
+changed the file. `GET /v1/workspaces/:id/files/<path>` streams the bytes of a workspace file to a member of the
+workspace (anyone else is told it does not exist); it is always an attachment, `nosniff` and `sandbox`, so a
+document is never rendered as a page of Brain. Accounts are made
 by `setup.create` and by `member.set` (with a name and a first password for a person who
 has none); signing up from outside is closed. `setup.create` also makes the first workspace,
 named Starter, from the `base` pack with the new person as its admin, so the first screen is
@@ -378,7 +391,7 @@ you across all workspaces with the decision in place, what is running, a table o
 sparklines, spend and goals per day stacked by workspace, the instance's health); **Today** (goal box, Plays,
 needs you, running, recent, spend); **Tasks** (filterable, sortable table with bulk stop) and one **Task**
 page (the goal drawn as a graph of its sub-tasks, in columns by what each waits for, and the record in two panes); **Workspace** (tabs for agents, a
-Team graph, tools, Plays, memory, projects, settings: list and form panes over the files, plus a raw editor; Team draws the agents and
+Team graph, tools, Plays, memory, projects, settings, Files: list and form panes over the files, plus a raw editor; Files shows the whole folder as a tree to browse, edit, rename, delete and upload documents into, one commit per change; Team draws the agents and
 the handoffs between them, read from the Plays' steps and the recent tasks the web app already lists, with no query of its own); **New workspace** (a wizard); **Health**;
 **People and secrets**. Health and People belong to a workspace, so the sidebar leads to the open one's.
 
@@ -400,7 +413,7 @@ the handoffs between them, read from the Plays' steps and the recent tasks the w
   and the real runner on the fixture engine, in the test process (`stack.ts`). It acts as a first-time user: setup link to
   a checked result with its cost; a typed goal, its plan changed and confirmed; an approval approved and one rejected with
   a reason; an agent's prompt edited (pack file to workspace file) and a broken file refused on its line; a workspace made
-  from a pack with its first goal; the Overview across several workspaces (needs-you list, a call decided in place, a jump into a task); axe on Today and Task (light and dark) and an Arabic right-to-left check. It is not
+  from a pack with its first goal; Files (browse, edit and save a document, a broken `brain.toml` refused, upload with an overwrite confirmation and a size refusal, download, delete; axe light and dark at 390; Arabic); the Overview across several workspaces (needs-you list, a call decided in place, a jump into a task); axe on Today and Task (light and dark) and an Arabic right-to-left check. It is not
   part of `pnpm verify`.
 
 `pnpm verify` = lint, typecheck, unit, runner, core and e2e tests, and `scripts/complexity.mjs`,

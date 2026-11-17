@@ -116,8 +116,8 @@ describe("file.write and file.delete", () => {
     expect((await harness.admin.query("workspace.get", { workspaceId })).snapshotDigest).toBe(before.snapshotDigest);
   });
 
-  it("refuse a path Brain does not read, and a path outside the folder", async () => {
-    for (const path of ["notes/todo.txt", "../outside.toml", "agents/writer/../../brain.toml", "/etc/passwd"]) {
+  it("refuse a path under agents/ that Brain does not read, and a path outside the folder", async () => {
+    for (const path of ["agents/writer/notes.txt", "../outside.toml", "agents/writer/../../brain.toml", "/etc/passwd"]) {
       await expect(harness.admin.command("file.write", { workspaceId, files: [{ path, content: "x" }] })).rejects.toMatchObject({ code: "INVALID_INPUT", problems: [{ path }] });
     }
   });

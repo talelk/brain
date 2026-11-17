@@ -185,6 +185,19 @@ A Markdown file per entry, with a title line. Agents read memory through the
 `memory.search` tool and add to it with `memory.propose`; a person accepts a proposal,
 which commits the file. A workspace never reads another workspace's memory.
 
+### Documents
+
+A workspace folder may also hold documents: any other file, usually under `docs/`
+(handbooks, specifications, reference sheets, images, PDFs, office files). A document is a
+plain file, committed with the rest of the folder, so git keeps its history and a change
+can be reverted. Brain does not interpret it. Text and Markdown documents under `docs/`
+are searched by agents through `memory.search`, next to the memory entries, and each
+result says it comes from a document. Other documents (images, PDFs, office files) are
+stored and downloadable only. Viewers read and download documents; admins add, edit,
+rename and delete them in the Files tab. A document never holds a secret. A path may not
+climb out of the folder (`..`) or start a hidden name (only `.gitkeep` is allowed), and an
+upload is limited to 5 MB per file and 20 MB in all.
+
 ### Packs
 
 A workspace lists the packs it uses. A file in the workspace with the same name as a

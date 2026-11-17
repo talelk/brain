@@ -1,4 +1,4 @@
-import { BrainError, isSlug, type CommandInput, type CommandOutputs, type FileEntry, type WorkspaceSummary } from "@brain/contracts";
+import { BrainError, isSlug, MAX_FILE_BYTES, MAX_WRITE_BYTES, type CommandInput, type CommandOutputs, type FileEntry, type WorkspaceSummary } from "@brain/contracts";
 import { randomBytes } from "node:crypto";
 import { existsSync, rmSync } from "node:fs";
 import { stringify } from "smol-toml";
@@ -7,9 +7,10 @@ import type { Db } from "../db";
 import type { Ctx, Gov } from "../dispatch";
 import { append } from "../events";
 import { setSecret } from "../trust/secrets";
-import { listPacks, readPack } from "./files";
-import type { Author } from "./git";
+import { classifyPath, listPacks, readPack } from "./files";
+import { lastCommitOf, type Author } from "./git";
 import { activate, commitFolder, commitOf, getWorkspace, loadFolder, manifestOf, workspaceDir, type Committed } from "./store";
+import { extname } from "node:path";
 
 const encode = (content: string): Uint8Array => new TextEncoder().encode(content);
 const slugOf = (words: string): string => words.normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^[^a-z]+|-+$/gu, "").slice(0, 40);
@@ -66,7 +67,43 @@ export const STARTER_PACK = "base";
 export const starterWorkspace = (gov: Gov): CommandInput<"workspace.create"> | undefined =>
   (readPack(gov.packsDir, STARTER_PACK) ? { name: "Starter", description: "A first workspace to try Brain in. Start the Play \"Say hello\" to see a goal become a checked result.", packs: [STARTER_PACK] } : undefined);
 
-export function registerWorkspace({ gov: { registry } }: Governor): void {
+const BINARY = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".pdf", ".zip", ".gz", ".tar", ".docx", ".xlsx", ".pptx", ".odt", ".ods", ".mp3", ".mp4", ".mov", ".woff", ".woff2"]);
+/** What a download says its bytes are. Anything a browser could run as a page is plain bytes; an SVG stays an image so that `<img>` can show it. */
+const MEDIA: Record<string, string> = {
+  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml", ".pdf": "application/pdf",
+  ".md": "text/plain; charset=utf-8", ".markdown": "text/plain; charset=utf-8", ".txt": "text/plain; charset=utf-8", ".csv": "text/csv; charset=utf-8", ".json": "application/json", ".toml": "text/plain; charset=utf-8",
+};
+/** A file is text when it is valid UTF-8 without NUL and not of a kind that is always bytes. */
+function textOf(path: string, bytes: Uint8Array): string | undefined {
+  if (BINARY.has(extname(path).toLowerCase()) || bytes.includes(0)) return undefined;
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return undefined; }
+}
+
+/** The bytes of a written file. Documents may arrive as base64; the limits are on the bytes, and are checked here whatever the caller. */
+function bytesOf(files: CommandInput<"file.write">["files"]): Map<string, Uint8Array> {
+  const bytes = new Map<string, Uint8Array>();
+  const refused: Array<{ path: string; message: string }> = [];
+  let total = 0;
+  for (const file of files) {
+    let content: Uint8Array;
+    if (file.encoding === "base64") {
+      if (classifyPath(file.path)?.kind !== "document") { refused.push({ path: file.path, message: "only a document can be sent as bytes; Brain's own files are text" }); continue; }
+      if (file.content.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/u.test(file.content)) { refused.push({ path: file.path, message: "the content is not valid base64" }); continue; }
+      content = new Uint8Array(Buffer.from(file.content, "base64"));
+    } else {
+      content = encode(file.content);
+    }
+    if (bytes.has(file.path)) refused.push({ path: file.path, message: "the path is written twice" });
+    if (content.length > MAX_FILE_BYTES) refused.push({ path: file.path, message: `a file is at most ${MAX_FILE_BYTES / 1024 / 1024} MB` });
+    total += content.length;
+    bytes.set(file.path, content);
+  }
+  if (total > MAX_WRITE_BYTES) refused.push({ path: "", message: `one upload is at most ${MAX_WRITE_BYTES / 1024 / 1024} MB in all` });
+  if (refused.length > 0) throw new BrainError("INVALID_INPUT", "The files cannot be written", refused);
+  return bytes;
+}
+
+export function registerWorkspace({ gov: { registry }, gov, app }: Governor): void {
   registry.command<"workspace.create", NewWorkspace>("workspace.create", {
     prepare: (ctx, input) => commitNewWorkspace(ctx.gov, input, author(ctx)),
     run(ctx, input, prepared) {
@@ -88,7 +125,7 @@ export function registerWorkspace({ gov: { registry } }: Governor): void {
     return { commit: committed.commit, snapshotDigest: committed.snapshotDigest };
   };
   registry.command<"file.write", Committed>("file.write", {
-    prepare: (ctx, input) => change(ctx, input.workspaceId, new Map(input.files.map((file) => [file.path, encode(file.content)])), [], input.message ?? `Change ${input.files.map((file) => file.path).join(", ")}`.slice(0, 200)),
+    prepare: (ctx, input) => change(ctx, input.workspaceId, bytesOf(input.files), input.remove, input.message ?? `Change ${[...input.files.map((file) => file.path), ...input.remove].join(", ")}`.slice(0, 200)),
     run: (ctx, input, committed) => activated(ctx, input.workspaceId, committed),
   });
   registry.command<"file.delete", Committed>("file.delete", {
@@ -102,15 +139,35 @@ export function registerWorkspace({ gov: { registry } }: Governor): void {
     return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot: manifestOf(ctx.gov, workspace.snapshotDigest) };
   });
 
-  const entries = async (ctx: Ctx, workspaceId: string): Promise<Array<FileEntry & { content: Uint8Array }>> => {
-    const loaded = await loadFolder(ctx.gov, getWorkspace(ctx.db, workspaceId).slug);
+  const entries = async (gov: Gov, workspaceId: string): Promise<Array<FileEntry & { content: Uint8Array }>> => {
+    const loaded = await loadFolder(gov, getWorkspace(gov.db, workspaceId).slug);
     return [...loaded.files].sort(([a], [b]) => a.localeCompare(b)).map(([path, file]) => ({ path, bytes: file.bytes.length, source: file.source, ...(file.replaces ? { replaces: file.replaces } : {}), content: file.bytes }));
   };
-  registry.query("workspace.files", async (ctx, input) => ({ files: (await entries(ctx, input.workspaceId)).map(({ content: _content, ...entry }) => entry) }));
+  registry.query("workspace.files", async (ctx, input) => ({ files: (await entries(ctx.gov, input.workspaceId)).map(({ content: _content, ...entry }) => entry) }));
   registry.query("file.read", async (ctx, input) => {
-    const file = (await entries(ctx, input.workspaceId)).find((entry) => entry.path === input.path);
+    const file = (await entries(ctx.gov, input.workspaceId)).find((entry) => entry.path === input.path);
     if (!file) throw new BrainError("NOT_FOUND", `The workspace has no file ${input.path}`);
-    return { ...file, content: new TextDecoder().decode(file.content) };
+    const { content: bytes, ...entry } = file;
+    const text = textOf(input.path, bytes);
+    const lastCommit = file.source === "workspace" ? await lastCommitOf(workspaceDir(ctx.gov, getWorkspace(ctx.db, input.workspaceId).slug), input.path) : undefined;
+    return { ...entry, content: text ?? "", binary: text === undefined, ...(lastCommit ? { lastCommit } : {}) };
+  });
+  // The bytes of a file, for a member of the workspace. Always a download, never a page of Brain: what is stored comes from people and agents.
+  app.get("/v1/workspaces/:id/files/*", async (c) => {
+    const user = await gov.auth.user(c.req.raw.headers);
+    if (!user) throw new BrainError("UNAUTHENTICATED", "Sign in first");
+    const workspaceId = c.req.param("id");
+    if (!gov.db.prepare("SELECT 1 FROM members WHERE workspace_id=? AND user_id=?").get(workspaceId, user.id)) throw new BrainError("NOT_FOUND", "Workspace not found");
+    const path = decodeURIComponent(c.req.path.slice(`/v1/workspaces/${workspaceId}/files/`.length));
+    const file = (await entries(gov, workspaceId)).find((entry) => entry.path === path);
+    if (!file) throw new BrainError("NOT_FOUND", `The workspace has no file ${path}`);
+    return new Response(Buffer.from(file.content), {
+      headers: {
+        "content-type": MEDIA[extname(path).toLowerCase()] ?? "application/octet-stream",
+        "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(path.split("/").at(-1) ?? "file")}`,
+        "x-content-type-options": "nosniff", "content-security-policy": "sandbox", "cache-control": "private, no-store",
+      },
+    });
   });
 
   registry.query("packs.list", (ctx) => ({ packs: listPacks(ctx.gov.packsDir) }));
