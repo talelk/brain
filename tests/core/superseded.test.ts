@@ -75,35 +75,43 @@ describe("a goal waiting for a person and a newer identical one", () => {
     strict = false;
   });
 
-  it("is not closed before it has waited the threshold, and is closed at the first change after it", async () => {
+  it("is not closed before it has waited the threshold, and is closed at the first change after it when the newer one is done", async () => {
     const workspaceId = await workspace();
     strict = true;
     const old = await start(workspaceId, "reviewed");
     await driver.drain();
     clock.advance(HOUR);
-    await start(workspaceId, "reviewed");
+    strict = false;
+    const newer = await start(workspaceId, "reviewed");
     await driver.drain();
+    expect(await state(workspaceId, newer)).toBe("done");
     expect(await state(workspaceId, old)).toBe("running");
     clock.advance(24 * HOUR);
     await start(workspaceId, "plain", "Anything");
-    expect(await state(workspaceId, old)).toBe("stopped");
+    const closed = await getTask(member, workspaceId, old.id);
+    expect(closed.state).toBe("stopped");
+    expect(closed.supersededBy).toMatchObject({ rootId: newer.id, state: "done", hours: 25 });
+    expect(events("task.superseded").some((event) => event.subject === `task:${old.id}` && event.payload["byState"] === "done" && event.payload["byRoot"] === newer.id)).toBe(true);
     await driver.drain();
-    strict = false;
   });
 
   it("is not closed when the threshold is 0", async () => {
     const workspaceId = await workspace("[cleanup]\nsuperseded_after_hours = 0\n");
-    const old = await start(workspaceId, "plain");
+    strict = true;
+    const old = await start(workspaceId, "reviewed");
     await driver.drain();
     clock.advance(200 * HOUR);
-    const [newer] = [await start(workspaceId, "plain")];
+    strict = false;
+    const newer = await start(workspaceId, "reviewed");
     await driver.drain();
     expect(await state(workspaceId, newer)).toBe("done");
-    expect(await state(workspaceId, old)).toBe("done");
+    expect(await state(workspaceId, old)).toBe("running");
+    expect(step(await getTask(member, workspaceId, old.id), "do")).toMatchObject({ state: "needs_you", needs: { kind: "check" } });
   });
 
   it("is closed when the newer one is done, with the heal task of its failed sub-task", async () => {
     const workspaceId = await workspace();
+    strict = false;
     devFails = true;
     const old = await start(workspaceId, "plain");
     await driver.drain();

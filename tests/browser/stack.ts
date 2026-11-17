@@ -29,6 +29,8 @@ export interface Stack {
   setUp(): Promise<Api>;
   /** The Starter workspace's id, once there is an account. */
   readonly runnerName: string;
+  /** The running Governor, for a test that has to age what is in its database. */
+  readonly governor: Governor;
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
@@ -67,7 +69,7 @@ async function startStack(): Promise<{ stack: Stack; stop(): Promise<void> }> {
   await runner.heartbeat();
 
   const stack: Stack = {
-    url, setupLink: `${url}/#token=${readFileSync(join(home, "data", "setup.token"), "utf8").trim()}`, runnerName: config.name,
+    url, governor, setupLink: `${url}/#token=${readFileSync(join(home, "data", "setup.token"), "utf8").trim()}`, runnerName: config.name,
     async setUp() {
       const response = await fetch(`${url}/v1/command`, {
         method: "POST", headers: { "content-type": "application/json", origin: url },
