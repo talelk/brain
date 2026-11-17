@@ -1,41 +1,53 @@
-import { createEffect, createMemo, createSignal, lazy, Show, Suspense, type JSX } from "solid-js";
-import { Navigate, Route, Router, useParams, type RouteSectionProps } from "@solidjs/router";
+import { createEffect, createMemo, lazy, Show, Suspense, type JSX } from "solid-js";
+import { Navigate, Route, Router, useLocation, useParams, type RouteSectionProps } from "@solidjs/router";
 import { EmptyState } from "@talelk/newui-molecules";
 import { Button } from "@talelk/newui-atoms";
+import type { QueryOutputs } from "@brain/contracts";
 import { useQuery } from "./data/api";
 import { connectLive } from "./data/live";
-import { PlaceProvider, recentGoals, SessionProvider, usePlace, useSession } from "./data/session";
+import { PlaceProvider, recentGoals, SessionProvider, useSession } from "./data/session";
 import { t } from "./i18n";
-import { Failure, Loading } from "./components/bits";
-import { ShareDialog, VisibilityBadge } from "./components/Share";
+import { Failure, Loading, type LoadingShape } from "./components/bits";
 import { remember, Shell } from "./components/Shell";
 import { SignIn } from "./screens/SignIn";
 
-const Overview = lazy(() => import("./screens/Overview"));
-const Today = lazy(() => import("./screens/Today"));
-const Tasks = lazy(() => import("./screens/Tasks"));
-const Task = lazy(() => import("./screens/Task"));
-const Workspace = lazy(() => import("./screens/Workspace"));
-const NewWorkspace = lazy(() => import("./screens/NewWorkspace"));
-const Health = lazy(() => import("./screens/Health"));
-const People = lazy(() => import("./screens/People"));
-const Schedules = lazy(() => import("./screens/Schedules"));
+const load = {
+  overview: () => import("./screens/Overview"),
+  today: () => import("./screens/Today"),
+  tasks: () => import("./screens/Tasks"),
+  task: () => import("./screens/Task"),
+  workspace: () => import("./screens/Workspace"),
+  newWorkspace: () => import("./screens/NewWorkspace"),
+  health: () => import("./screens/Health"),
+  people: () => import("./screens/People"),
+  schedules: () => import("./screens/Schedules"),
+};
+const Overview = lazy(load.overview);
+const Today = lazy(load.today);
+const Tasks = lazy(load.tasks);
+const Task = lazy(load.task);
+const Workspace = lazy(load.workspace);
+const NewWorkspace = lazy(load.newWorkspace);
+const Health = lazy(load.health);
+const People = lazy(load.people);
+const Schedules = lazy(load.schedules);
 
-/** What is true of the open workspace at a glance: private or public, whether the person only reads it because it is public, and Share for an admin. */
-function WorkspaceStrip(): JSX.Element {
-  const place = usePlace();
-  const [sharing, setSharing] = createSignal(false);
-  return (
-    <div class="mb-4 flex flex-wrap items-center gap-2">
-      <VisibilityBadge visibility={place.summary().visibility} />
-      <Show when={place.summary().viaPublic}><span class="t-small text-ink-2">{t("visibility.viaPublic")}</span></Show>
-      <Show when={place.can("admin")}>
-        <Button variant="outline" size="sm" iconLeft="lucide-share-2" onClick={() => setSharing(true)}>{t("share.action")}</Button>
-        <ShareDialog open={sharing()} onOpenChange={setSharing} />
-      </Show>
-    </div>
-  );
-}
+/** The page's own code starts downloading with the first request, beside the questions of who is signed in, instead of after them. */
+void (() => {
+  const path = location.pathname;
+  const chunk = path === "/" ? load.overview : path === "/new" ? load.newWorkspace : path === "/schedules" || path.endsWith("/schedules") ? load.schedules
+    : /^\/w\/[^/]+\/?$/u.test(path) ? load.today : /\/tasks\/[^/]+/u.test(path) ? load.task : path.endsWith("/tasks") ? load.tasks : path.includes("/workspace") ? load.workspace
+    : path.endsWith("/health") ? load.health : path.endsWith("/people") ? load.people : undefined;
+  void chunk?.().catch(() => undefined);
+})();
+
+/** Once the page is up and the browser is idle, the other pages' code comes down too, so moving around never waits on a download. */
+const idle = (work: () => void): void => { if ("requestIdleCallback" in window) window.requestIdleCallback(work); else setTimeout(work, 1500); };
+idle(() => { for (const chunk of [load.today, load.tasks, load.task, load.workspace, load.schedules, load.health, load.people, load.overview]) void chunk().catch(() => undefined); });
+
+const ME_KEY = "brain.me";
+/** The last `me` this tab saw, so a reload paints the signed-in page at once and asks again behind it. */
+const rememberedMe = (): QueryOutputs["me"] | undefined => { try { return JSON.parse(sessionStorage.getItem(ME_KEY) ?? "null") ?? undefined; } catch { return undefined; } };
 
 /** Everything under `/w/:slug`: finds the workspace among the person's own and gives its pages the workspace to work in. */
 function InWorkspace(props: RouteSectionProps): JSX.Element {
@@ -47,7 +59,6 @@ function InWorkspace(props: RouteSectionProps): JSX.Element {
     <Show when={summary()} fallback={<EmptyState icon="lucide-folder-x" size="lg" title={t("workspace.missing.title")} description={t("workspace.missing.text")} action={<Button variant="outline" size="md" route="/">{t("workspace.missing.back")}</Button>} />}>
       {(found) => (
         <PlaceProvider summary={() => summary() ?? found()}>
-          <WorkspaceStrip />
           {props.children}
         </PlaceProvider>
       )}
@@ -66,20 +77,33 @@ function Frame(props: RouteSectionProps): JSX.Element {
       ...recentGoals(),
     ];
   });
-  return <Shell recent={recent()}><Suspense fallback={<Loading />}>{props.children}</Suspense></Shell>;
+  const location = useLocation();
+  /** Which grey shape stands in for the page while its code and first answer come: by the address. */
+  const shape = (): LoadingShape => {
+    const path = location.pathname;
+    if (path === "/" || path.endsWith("/health")) return "cards";
+    if (path.endsWith("/tasks") || path.endsWith("/people") || path.endsWith("/schedules")) return "table";
+    if (path.includes("/workspace") || path.includes("/tasks/")) return "split";
+    return path === "/new" || /^\/w\/[^/]+\/?$/u.test(path) ? "form" : "lines";
+  };
+  return <Shell recent={recent()}><Suspense fallback={<Loading shape={shape()} />}>{props.children}</Suspense></Shell>;
 }
 
 export function App(): JSX.Element {
   const setup = useQuery("setup.status", () => ({}));
-  const me = useQuery("me", () => ({}));
-  const overview = useQuery("overview", () => (me.data()?.user ? {} : undefined));
-  createEffect(() => connectLive(Boolean(me.data()?.user)));
-  const refetch = (): void => { setup.refetch(); me.refetch(); overview.refetch(); };
+  const live = useQuery("me", () => ({}));
+  const before = rememberedMe();
+  /** The answer, else what this tab saw last, until the answer comes. */
+  const me = (): QueryOutputs["me"] | undefined => live.data() ?? before;
+  const overview = useQuery("overview", () => (me()?.user ? {} : undefined));
+  createEffect(() => { const answer = live.data(); if (answer) try { if (answer.user) sessionStorage.setItem(ME_KEY, JSON.stringify(answer)); else sessionStorage.removeItem(ME_KEY); } catch { /* a convenience only */ } });
+  createEffect(() => connectLive(Boolean(live.data()?.user)));
+  const refetch = (): void => { setup.refetch(); live.refetch(); overview.refetch(); };
   return (
-    <Show when={setup.data() && me.data()} fallback={<div class="mx-auto max-w-md px-4 py-24"><Show when={setup.error() ?? me.error()} fallback={<Loading />}><Failure error={setup.error() ?? me.error()} retry={refetch} /></Show></div>}>
-      <Show when={me.data()?.user} fallback={<SignIn setupRequired={setup.data()?.setupRequired ?? false} onDone={refetch} />}>
+    <Show when={me()?.user ? me() : setup.data() && live.data()} fallback={<div class="mx-auto max-w-md px-4 py-24"><Show when={setup.error() ?? live.error()} fallback={<Loading />}><Failure error={setup.error() ?? live.error()} retry={refetch} /></Show></div>}>
+      <Show when={me()?.user} fallback={<SignIn setupRequired={setup.data()?.setupRequired ?? false} onDone={refetch} />}>
         {(user) => (
-          <SessionProvider value={{ user, workspaces: () => me.data()?.workspaces ?? [], overview, refetch }}>
+          <SessionProvider value={{ user, workspaces: () => me()?.workspaces ?? [], overview, refetch }}>
             <Router root={Frame}>
               <Route path="/" component={Overview} />
               <Route path="/new" component={NewWorkspace} />

@@ -1,4 +1,4 @@
-import { createEffect, createSignal, on, onCleanup, type Accessor } from "solid-js";
+import { createRenderEffect, createSignal, on, onCleanup, type Accessor } from "solid-js";
 import type { ApiError, ApiResponse, CommandOutputs, CommandRequest, CommandType, ErrorCode, Problem, QueryOutputs, QueryRequest, QueryType } from "@brain/contracts";
 import { invalidate, markFresh, subscribe } from "./live";
 
@@ -58,7 +58,8 @@ export function useLive<T>(key: Accessor<string | undefined>, load: () => Promis
       (reason: unknown) => { if (mine === generation) setError(reason instanceof ApiFailure ? reason : new ApiFailure("INTERNAL", String(reason))); },
     );
   };
-  createEffect(on(key, (now, before) => {
+  // A render effect, not an effect: under a page whose code is still downloading, effects wait and the read would start after it.
+  createRenderEffect(on(key, (now, before) => {
     if (before !== undefined && now !== before) setData(undefined);
     read();
   }));

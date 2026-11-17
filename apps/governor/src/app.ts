@@ -2,6 +2,7 @@ import { BrainError, ERROR_STATUS, hmacSha256Hex, isDigest, MAX_UPLOAD_STRING, p
 import { Hono, type Context } from "hono";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
+import { brotliCompressSync, constants as zlib, gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { visibleWorkspaces } from "./access";
 import { registerGateway } from "./attempts/gateway";
@@ -60,6 +61,25 @@ const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".svg": "image/svg+xml",
   ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2", ".webmanifest": "application/manifest+json",
 };
+
+/** What the built web app sends: hashed files under /assets never change, so they are kept for a year; text is compressed once per file version and served from memory. */
+const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg", ".webmanifest"]);
+const packed = new Map<string, { readonly raw: Buffer; readonly br: Buffer; readonly gzip: Buffer }>();
+function staticResponse(file: string, path: string, acceptEncoding: string): Response {
+  const type = extname(file);
+  const headers: Record<string, string> = { "content-type": TYPES[type] ?? "application/octet-stream", vary: "accept-encoding", "cache-control": path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "no-cache" };
+  if (!COMPRESSIBLE.has(type)) return new Response(Buffer.from(readFileSync(file)), { headers });
+  const key = `${file}:${statSync(file).mtimeMs}`;
+  let entry = packed.get(key);
+  if (!entry) {
+    const raw = readFileSync(file);
+    entry = { raw, br: brotliCompressSync(raw, { params: { [zlib.BROTLI_PARAM_QUALITY]: 7 } }), gzip: gzipSync(raw) };
+    packed.set(key, entry);
+  }
+  const encoding = /\bbr\b/u.test(acceptEncoding) ? "br" : /\bgzip\b/u.test(acceptEncoding) ? "gzip" : undefined;
+  if (encoding) headers["content-encoding"] = encoding;
+  return new Response(Buffer.from(encoding ? entry[encoding] : entry.raw), { headers });
+}
 
 function refusal(c: Context, e: unknown): Response {
   const error: ApiError = e instanceof BrainError ? { code: e.code, message: e.message, ...(e.problems ? { problems: e.problems } : {}) } : { code: "INTERNAL", message: "Something went wrong in Brain" };
@@ -193,9 +213,10 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   app.get("*", (c) => {
     if (/^\/(?:v1|runner|api|model|hooks)(?:\/|$)/u.test(c.req.path)) return refusal(c, new BrainError("NOT_FOUND", "There is nothing at this address"));
     const asked = resolve(dist, `.${decodeURIComponent(c.req.path)}`);
+    if (c.req.path.startsWith("/assets/") && !(asked.startsWith(dist + sep) && existsSync(asked))) return refusal(c, new BrainError("NOT_FOUND", "There is nothing at this address"));
     const file = asked.startsWith(dist + sep) && existsSync(asked) && statSync(asked).isFile() ? asked : join(dist, "index.html");
     if (!existsSync(file)) return refusal(c, new BrainError("NOT_FOUND", "The web app is not built (pnpm build)"));
-    return new Response(Buffer.from(readFileSync(file)), { headers: { "content-type": TYPES[extname(file)] ?? "application/octet-stream" } });
+    return staticResponse(file, file === asked ? c.req.path : "/", c.req.header("accept-encoding") ?? "");
   });
   app.notFound((c) => refusal(c, new BrainError("NOT_FOUND", "There is nothing at this address")));
   return governor;

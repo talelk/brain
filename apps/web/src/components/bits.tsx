@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show, type Accessor, type JSX } from "solid-js";
+import { createMemo, createSignal, For, Match, Show, Switch, type Accessor, type JSX } from "solid-js";
 import { Button, Icon as GlyphIcon, Skeleton } from "@talelk/newui-atoms";
 import { Alert, Dialog, ItemListRow } from "@talelk/newui-molecules";
 import type { Problem, TaskNeed, TaskState, TaskSummary } from "@brain/contracts";
@@ -42,12 +42,40 @@ export function Failure(props: { error: ApiFailure | undefined; retry?: () => vo
   );
 }
 
-export const Loading = (): JSX.Element => <div role="status" aria-label={t("common.loading")} class="flex flex-col gap-2 py-4"><Skeleton lines={3} /></div>;
+/** What the page will look like, in grey, while its first answer is on its way: the same blocks in the same places, so nothing jumps when the answer lands. */
+export type LoadingShape = "lines" | "table" | "split" | "cards" | "form";
+const bar = (size: string): JSX.Element => <Skeleton class={size} />;
+export function Loading(props: { shape?: LoadingShape }): JSX.Element {
+  const rows = (count: number, size: string): JSX.Element => <For each={Array.from({ length: count })}>{() => bar(size)}</For>;
+  return (
+    <div role="status" aria-label={t("common.loading")} class="flex flex-col gap-4 py-2">
+      <Switch fallback={<Skeleton lines={3} />}>
+        <Match when={props.shape === "table"}>
+          <div class="flex gap-3">{bar("h-9 flex-1 max-w-80")}{bar("h-9 w-44")}</div>
+          <div class="flex flex-col gap-3 rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-4">{rows(5, "h-8 w-full")}</div>
+        </Match>
+        <Match when={props.shape === "split"}>
+          <div class="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+            <div class="flex flex-col gap-3">{rows(5, "h-14 w-full")}</div>
+            <div class="max-lg:hidden">{bar("h-80 w-full")}</div>
+          </div>
+        </Match>
+        <Match when={props.shape === "cards"}>
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{rows(4, "h-24 w-full")}</div>
+          <div class="grid gap-3 lg:grid-cols-2">{rows(2, "h-44 w-full")}</div>
+        </Match>
+        <Match when={props.shape === "form"}>
+          <div class="flex max-w-2xl flex-col gap-4">{bar("h-4 w-24")}{bar("h-9 w-full")}{bar("h-4 w-32")}{bar("h-20 w-full")}{bar("h-4 w-24")}{bar("h-9 w-2/3")}</div>
+        </Match>
+      </Switch>
+    </div>
+  );
+}
 
 /** Shows `children` with the data once it is there; the refusal or a quiet wait until then. A newer answer updates the page in place. */
-export function Ready<T>(props: { data: T | undefined; error: ApiFailure | undefined; retry?: () => void; children: (data: Accessor<T>) => JSX.Element }): JSX.Element {
+export function Ready<T>(props: { data: T | undefined; error: ApiFailure | undefined; retry?: () => void; shape?: LoadingShape; children: (data: Accessor<T>) => JSX.Element }): JSX.Element {
   return (
-    <Show when={props.data} fallback={<Show when={props.error} fallback={<Loading />}><Failure error={props.error} retry={props.retry} /></Show>}>
+    <Show when={props.data} fallback={<Show when={props.error} fallback={<Loading shape={props.shape} />}><Failure error={props.error} retry={props.retry} /></Show>}>
       {(data) => props.children(data as Accessor<T>)}
     </Show>
   );

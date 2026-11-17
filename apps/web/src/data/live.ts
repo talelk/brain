@@ -49,7 +49,8 @@ export function connectLive(enabled: boolean): void {
   source = new EventSource("/v1/events", { withCredentials: true });
   source.addEventListener("changed", () => invalidate());
   // The Governor ends a stream every few minutes; the browser reconnects by itself, and one read covers the gap.
-  source.addEventListener("open", () => { setConnected(true); invalidate(); });
+  let opened = false;
+  source.addEventListener("open", () => { setConnected(true); if (opened) invalidate(); opened = true; });
   source.addEventListener("error", () => setConnected(false));
 }
 

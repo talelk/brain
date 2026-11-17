@@ -403,6 +403,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 ## 10. Web app (`apps/web`)
 
 SolidJS, Vite, the `@talelk/newui-*` design system, English, French and Arabic (RTL).
+First paint: the Governor serves the built files compressed (Brotli or gzip) and caches `/assets` for a year; the page's own chunk downloads beside the questions of who is signed in; a reload paints from the tab's last `me` and asks again behind it; a page that waits shows grey blocks in the shape of its content. On a wide screen a Workspace list opens with its first item selected; a phone keeps the list first.
 Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones): Overview, Schedules, then the
 workspaces (grouped as My workspaces, Shared with me and Public workspaces, each with an orange count of what waits there; the open one expands to Today, Tasks and
 Workspace) and New workspace, Health and People at the foot with the account (language, theme, sign out).
