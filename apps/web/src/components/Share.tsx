@@ -1,4 +1,5 @@
-import { createSignal, For, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, For, Show, type JSX } from "solid-js";
+import { generatedPassword, nameFromEmail } from "../lib/people";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Dialog, Select, toast } from "@talelk/newui-molecules";
 import type { Member, Role } from "@brain/contracts";
@@ -52,7 +53,10 @@ export function ShareDialog(props: { open: boolean; onOpenChange: (open: boolean
     setEmail(""); setName(""); setPassword("");
   });
   // A person without an account needs a name and a first password: the refusal says so, and only then are they asked for.
+  const [generated, setGenerated] = createSignal(false);
   const newAccount = (): boolean => (add.error()?.problems ?? []).some((problem) => problem.path === "name" || problem.path === "password") || name() !== "" || password() !== "";
+  // The refusal that asks for a name is answered with one made from the address, which the person can change.
+  createEffect(() => { if ((add.error()?.problems ?? []).some((problem) => problem.path === "name") && name() === "") setName(nameFromEmail(email())); });
   const visibility = useAction(async (next: "private" | "public") => {
     const workspace = place.workspace.data();
     if (!workspace) return;
@@ -84,7 +88,10 @@ export function ShareDialog(props: { open: boolean; onOpenChange: (open: boolean
               <p class="t-small text-ink-2">{t("share.newAccount")}</p>
               <div class="grid gap-3 sm:grid-cols-2">
                 <TextInput size="md" label={t("people.add.name")} value={name()} onInput={(event) => setName(event.currentTarget.value)} maxlength={100} required />
-                <TextInput size="md" type="password" label={t("people.add.password")} description={t("setup.password.help")} autocomplete="new-password" minlength={12} maxlength={128} value={password()} onInput={(event) => setPassword(event.currentTarget.value)} required />
+                <div>
+                  <TextInput size="md" type={generated() ? "text" : "password"} class={generated() ? "t-code" : ""} label={t("people.add.password")} description={t("setup.password.help")} autocomplete="new-password" minlength={12} maxlength={128} value={password()} onInput={(event) => { setGenerated(false); setPassword(event.currentTarget.value); }} required />
+                  <button type="button" class="link mt-1 t-small" onClick={() => { setPassword(generatedPassword()); setGenerated(true); }}>{t("people.add.generate")}</button>
+                </div>
               </div>
             </Show>
             <Failure error={add.error()} />

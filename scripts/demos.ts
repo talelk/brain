@@ -30,7 +30,7 @@ interface Demo {
   readonly network?: readonly string[];
   readonly memory?: readonly string[];
   /** The platform workspace: reads every other and proposes changes to them, which their admins approve (docs/model.md). */
-  readonly platform?: boolean;
+  readonly platform?: "admin" | "read";
 }
 
 /** The containers the platform workspace may restart without waiting for a person: the demos' own web containers, never Brain, the model or memory. */
@@ -44,7 +44,7 @@ const DEMOS: readonly Demo[] = [
   { slug: "omniflow-docus", name: "Omniflow docs", description: "Documentation site (Docus).", packs: ["base", "software-factory"], repo: GH("keyrustunisie/omniflow-docus"), branch: "main", setup: "npm ci", network: ["registry.npmjs.org"] },
   { slug: "zain-docus", name: "Zain docs", description: "Documentation site for Zain (Docus).", packs: ["base", "software-factory"], repo: GH("keyrustunisie/zain-docus"), branch: "main", setup: "npm ci", network: ["registry.npmjs.org"] },
   { slug: "brain", name: "Brain", description: "Brain's own code.", packs: ["base", "software-factory"], repo: GH("talelk/brain"), branch: "main", setup: "pnpm install --frozen-lockfile", network: ["registry.npmjs.org"] },
-  { slug: "brain-admin", name: "Brain admin", description: "Optimizing the platform: its configuration, its workspaces and what they keep repeating. Reads every workspace; each change it proposes waits for an admin.", packs: ["base", "platform"], platform: true },
+  { slug: "brain-admin", name: "Brain admin", description: "Optimizing the platform: its configuration, its workspaces and what they keep repeating. Reads every workspace; each change it proposes waits for an admin.", packs: ["base", "platform"], platform: "admin" },
   { slug: "demos-platform", name: "Demos platform", description: "The demos server: health, incidents, restarts.", packs: ["base", "sre"], memory: ["inventory", "monitoring", "runbook"] },
 ];
 
@@ -79,7 +79,7 @@ for (const demo of DEMOS_AND_STARTER) {
   const known = ((await query("me")) as { workspaces: Array<{ id: string; slug: string }> }).workspaces.find((entry) => entry.slug === demo.slug);
   if (!known && demo.slug === "starter") continue;
   const id = known?.id ?? ((await command("workspace.create", {
-    name: demo.name, slug: demo.slug, description: demo.description, packs: demo.packs, model, ...(demo.platform ? { platform: true } : {}),
+    name: demo.name, slug: demo.slug, description: demo.description, packs: demo.packs, model, ...(demo.platform ? { platform: "admin" } : {}),
     ...(demo.repo ? { project: { repo: demo.repo, branch: demo.branch ?? "main", access: "write", credential: token } } : {}),
   })) as { workspaceId: string }).workspaceId;
   if (known && demo.repo) await command("secret.set", { workspaceId: id, name: "github", value: token });
@@ -89,7 +89,7 @@ for (const demo of DEMOS_AND_STARTER) {
   const config = parse(file.content) as Record<string, unknown> & { model?: Array<Record<string, unknown>>; project?: Array<Record<string, unknown>> };
   if (demo.slug === "starter" && !(config.model ?? []).length) config.model = [{ name: model.name, provider: model.provider, url: model.url, model: model.model }];
   config["limits"] = { ...(config["limits"] as object | undefined), daily_spend_usd: 0, running_tasks: 0 };
-  if (demo.platform) config["platform"] = true;
+  if (demo.platform) config["platform"] = demo.platform;
   config["timezone"] = env("BRAIN_TIMEZONE", "Africa/Tunis");
   if (prices.in && prices.out) for (const entry of config.model ?? []) { entry["input_usd_per_mtok"] = Number(prices.in); entry["output_usd_per_mtok"] = Number(prices.out); }
   for (const project of config.project ?? []) {

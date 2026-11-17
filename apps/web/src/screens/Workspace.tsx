@@ -9,7 +9,7 @@ import { usePlace } from "../data/session";
 import { direction, human, locale, t, tn, type MessageKey } from "../i18n";
 import { ago } from "../lib/format";
 import { paths } from "../lib/files";
-import { isSlug } from "../lib/model";
+import { isSlug, slugify, slugifyTool } from "../lib/model";
 import { TeamGraph } from "../components/TeamGraph";
 import { FilesTab } from "../components/FilesTab";
 import { CodeEditor } from "../components/CodeEditor";
@@ -31,7 +31,7 @@ const owns = (tab: Tab, name: string) => (file: FileEntry): boolean =>
 
 const NEW_AGENT: AgentFile = { description: "", engine: ["pi", "claude"], native: "read", tools: [], limits: { turns: 20, tokens: 200_000, spend_usd: 0 } };
 const NEW_TOOL: ToolFile = { description: "", effect: "read", timeout_seconds: 60, needs: ["bash"], network: [], secrets: [], inputs: {} };
-const newPlay = (name: string, agent: string): PlayFile => ({ title: name, description: "", inputs: {}, step: [{ id: "first", agent, goal: "", after: [], max_rounds: 2, approve: false }] });
+const newPlay = (title: string, agent: string): PlayFile => ({ title, description: "", inputs: {}, step: [{ id: slugify(agent) || "step", agent, goal: "", after: [], max_rounds: 2, approve: false }] });
 
 /** Where a file comes from, in words. */
 function origin(files: readonly FileEntry[], fallback: string): string {
@@ -85,10 +85,10 @@ function Proposal(props: { proposal: MemoryProposal }): JSX.Element {
 }
 
 /** A memory entry: Markdown whose first line is its title. */
-function MemoryEntry(props: { name: string; isNew: boolean; readOnly: boolean; onSaved: () => void }): JSX.Element {
+function MemoryEntry(props: { name: string; isNew: boolean; readOnly: boolean; title?: string | undefined; onSaved: () => void }): JSX.Element {
   const place = usePlace();
   const file = useQuery("file.read", () => (props.isNew ? undefined : { workspaceId: place.id(), path: paths.memory(props.name) }));
-  const [draft, setDraft] = createSignal<string | undefined>(props.isNew ? `# ${props.name.replaceAll("-", " ")}\n\n` : undefined);
+  const [draft, setDraft] = createSignal<string | undefined>(props.isNew ? `# ${props.title || props.name.replaceAll("-", " ")}\n\n` : undefined);
   const write = useWrite(props.onSaved);
   const text = (): string | undefined => draft() ?? file.data()?.content;
   /** The entry as written for people who read this language, when it has one: shown above the English file agents read. */
@@ -108,7 +108,7 @@ export default function WorkspaceScreen(): JSX.Element {
   const place = usePlace();
   const navigate = useNavigate();
   const params = useParams<{ tab?: string; name?: string }>();
-  const [search] = useSearchParams<{ new?: string }>();
+  const [search] = useSearchParams<{ new?: string; title?: string }>();
   const tab = (): Tab => (TABS as readonly string[]).includes(params.tab ?? "") ? (params.tab as Tab) : "agents";
   const name = (): string => params.name ?? "";
   const single = (): boolean => tab() === "projects" || tab() === "settings";
@@ -146,8 +146,13 @@ export default function WorkspaceScreen(): JSX.Element {
     const first = items(snapshot)[0];
     if (first) navigate(href(tab(), first.name), { replace: true });
   });
-  const create = (): void => { const made = (newName() ?? "").trim(); if (tab() === "tools" ? isToolName(made) : isSlug(made)) navigate(`${href(tab(), made)}?new=1`); };
-  const nameValid = (): boolean => { const made = (newName() ?? "").trim(); return made === "" || (tab() === "tools" ? isToolName(made) : isSlug(made)); };
+  /** What a person types in their own words, as the name its file takes: `Release manager` is `release-manager`; a tool keeps its dots. */
+  const fileName = (): string => (tab() === "tools" ? slugifyTool : slugify)((newName() ?? "").trim());
+  const filePath = (name: string): string => (tab() === "agents" ? `agents/${name}/agent.toml` : tab() === "tools" ? `tools/${name}/tool.toml` : tab() === "plays" ? `plays/${name}.toml` : `memory/${name}.md`);
+  const same = (): { source: string } | undefined => items(place.workspace.data()?.snapshot as SnapshotManifest).find((item) => item.name === fileName());
+  const taken = (): boolean => same()?.source === "workspace";
+  const create = (): void => { const made = fileName(); if (made !== "" && (tab() === "tools" ? isToolName(made) : isSlug(made)) && !taken()) navigate(`${href(tab(), made)}?new=1&title=${encodeURIComponent((newName() ?? "").trim())}`); };
+  const nameValid = (): boolean => (newName() ?? "").trim() === "" || (fileName() !== "" && !taken());
 
   const list = (snapshot: SnapshotManifest): JSX.Element => (
     <div class={name() ? "max-lg:hidden" : ""}>
@@ -171,8 +176,9 @@ export default function WorkspaceScreen(): JSX.Element {
       <Show when={!readOnly()}>
         <Show when={newName() !== undefined} fallback={<Button variant="ghost" size="md" class="mt-2" iconLeft="lucide-plus" onClick={() => setNewName("")}>{t(`workspace.new.${tab()}` as MessageKey)}</Button>}>
           <form class="mt-3 flex items-end gap-2 px-1" onSubmit={(event) => { event.preventDefault(); create(); }}>
-            <div class="min-w-0 flex-1"><TextInput size="md" class="t-code" label={t("workspace.new.name")} error={nameValid() ? undefined : t(tab() === "tools" ? "workspace.new.name.tool" : "workspace.new.name.slug")} value={newName() ?? ""} onInput={(event) => setNewName(event.currentTarget.value)} autofocus /></div>
-            <Button type="submit" variant="outline" size="md" disabled={(newName() ?? "").trim() === "" || !nameValid()}>{t("workspace.new.create")}</Button>
+            <div class="min-w-0 flex-1"><TextInput size="md" label={t("workspace.new.name")} description={t("workspace.new.name.help")} error={nameValid() ? undefined : taken() ? t("workspace.new.exists", { name: fileName() }) : t(tab() === "tools" ? "workspace.new.name.tool" : "workspace.new.name.slug")} value={newName() ?? ""} onInput={(event) => setNewName(event.currentTarget.value)} autofocus />
+              <Show when={fileName() !== ""}><p class="mt-1 t-small text-ink-2" data-testid="file-preview">{t("workspace.new.preview")} <code class="t-code code-ltr">{filePath(fileName())}</code><Show when={same() && !taken()}> {t("workspace.new.replaces", { pack: same()?.source ?? "" })}</Show></p></Show></div>
+            <Button type="submit" variant="outline" size="md" disabled={fileName() === "" || !nameValid()}>{t("workspace.new.create")}</Button>
           </form>
         </Show>
       </Show>
@@ -184,7 +190,7 @@ export default function WorkspaceScreen(): JSX.Element {
       <Head title={t("nav.workspace")} text={t("nav.workspace")} description={t("workspace.text", { name: place.summary().name })} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.workspace") }]} actions={<WorkspaceActions />} />
       <Tabs.Root value={tab()} onValueChange={(value) => navigate(href(value as Tab))} variant="underline" size="md">
         <Tabs.List aria-label={t("workspace.tabs")} class="tabs-scroll max-w-full overflow-x-auto overflow-y-hidden">
-          <For each={TABS.filter((entry) => entry !== "packs" || (place.summary().platform && place.can("admin")))}>{(entry) => <Tabs.Trigger value={entry}>{t(`workspace.tab.${entry}` as MessageKey)}</Tabs.Trigger>}</For>
+          <For each={TABS.filter((entry) => entry !== "packs" || (place.summary().platform === "admin" && place.can("admin")))}>{(entry) => <Tabs.Trigger value={entry}>{t(`workspace.tab.${entry}` as MessageKey)}</Tabs.Trigger>}</For>
         </Tabs.List>
         <Tabs.Content value={tab()} class="pt-5">
           {/* The tabs component fixes its own direction to left-to-right; what is in a tab follows the language. */}
@@ -242,8 +248,8 @@ export default function WorkspaceScreen(): JSX.Element {
                                   <Switch>
                                     <Match when={tab() === "agents"}><AgentForm name={current} initial={untrack(() => snapshot().agents[current] ?? NEW_AGENT)} isNew={untrack(isNew)} snapshot={snapshot()} readOnly={readOnly()} onSaved={saved} /></Match>
                                     <Match when={tab() === "tools"}><ToolForm name={current} initial={untrack(() => snapshot().tools[current] ?? NEW_TOOL)} isNew={untrack(isNew)} readOnly={readOnly()} onSaved={saved} /></Match>
-                                    <Match when={tab() === "plays"}><PlayForm name={current} initial={untrack(() => snapshot().plays[current] ?? newPlay(current, Object.keys(snapshot().agents)[0] ?? ""))} isNew={untrack(isNew)} snapshot={snapshot()} readOnly={readOnly()} onSaved={saved} /></Match>
-                                    <Match when={tab() === "memory"}><MemoryEntry name={current} isNew={untrack(isNew)} readOnly={readOnly()} onSaved={saved} /></Match>
+                                    <Match when={tab() === "plays"}><PlayForm name={current} initial={untrack(() => snapshot().plays[current] ?? newPlay(search.title || current, Object.keys(snapshot().agents)[0] ?? ""))} isNew={untrack(isNew)} snapshot={snapshot()} readOnly={readOnly()} onSaved={saved} /></Match>
+                                    <Match when={tab() === "memory"}><MemoryEntry name={current} title={search.title} isNew={untrack(isNew)} readOnly={readOnly()} onSaved={saved} /></Match>
                                   </Switch>
                                 </Show>
                               </div>

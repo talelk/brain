@@ -45,6 +45,8 @@ function Secrets(): JSX.Element {
   const [value, setValue] = createSignal("");
   const set = useAction(async () => { await command("secret.set", { workspaceId: place.id(), name: name().trim(), value: value() }); toast.success({ title: t("secrets.saved", { name: name().trim() }) }); setName(""); setValue(""); setOpen(false); });
   const remove = useAction((secret: string) => command("secret.delete", { workspaceId: place.id(), name: secret }));
+  /** Names worth setting: the ones the files refer to and the secrets lack, then the usual `github`. */
+  const suggestions = (): string[] => [...new Set([...(secrets.data()?.missing ?? []), ...((secrets.data()?.secrets ?? []).some((secret) => secret.name === "github") ? [] : ["github"])])];
   const edit = (secret: string): void => { setName(secret); setOpen(true); };
   const columns: DataTableColumn<SecretName & { id: string }>[] = [
     { accessorKey: "name", header: t("field.name"), meta: { mobile: "title" }, cell: (ctx) => <code class="t-code code-ltr font-medium">{ctx.row.original.name}</code> },
@@ -73,6 +75,9 @@ function Secrets(): JSX.Element {
           <Dialog.Header><Dialog.Title>{t("secrets.set")}</Dialog.Title><Dialog.Description>{t("secrets.set.text")}</Dialog.Description></Dialog.Header>
           <form class="mt-4 flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void set.run(); }}>
             <TextInput size="md" class="t-code" label={t("field.name")} placeholder="github" value={name()} onInput={(event) => setName(event.currentTarget.value)} required />
+            <Show when={suggestions().length > 0 && name() === ""}>
+              <p class="-mt-2 flex flex-wrap items-center gap-2 t-small text-ink-2">{t("secrets.suggest")} <For each={suggestions()}>{(suggested) => <button type="button" class="link t-code code-ltr" onClick={() => setName(suggested)}>{suggested}</button>}</For></p>
+            </Show>
             <TextInput size="md" type="password" autocomplete="off" label={t("secrets.value")} value={value()} onInput={(event) => setValue(event.currentTarget.value)} required />
             <Failure error={set.error()} />
             <div class="flex justify-end gap-2"><Button variant="ghost" size="md" onClick={() => setOpen(false)}>{t("action.cancel")}</Button><Button type="submit" variant="solid" theme="blue" size="md" loading={set.busy()}>{t("secrets.set.submit")}</Button></div>

@@ -72,10 +72,10 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   adds `pins` (`{name: n}`, left out when empty), so the same folder and the same releases always give the same snapshot digest. `workspace.get`
   carries `updates` (`{pack, pinned, latest}` for each pack used whose newest release is above its pin, the baseline being 0) and `overview` a count;
   nothing changes a pin but a write of `brain.toml`.
-  **Releasing** is the command `pack.release` (an admin of the platform workspace): it reads `packs/<name>/` of the platform folder, sets its
+  **Releasing** is the command `pack.release` (an admin of the admin workspace): it reads `packs/<name>/` of the admin workspace's folder, sets its
   `pack.toml` `version` to the last release plus one, checks that a workspace using that content is valid, writes `<data>/released/<name>@<n>/`, commits
   the version (`Release <name> n`) and tags the commit `<name>@<n>` (the audit event `pack.released`). At start `reconcile` rewrites a released
-  directory that is missing from its tag. The commit that makes a workspace the platform workspace also writes `packs/<name>/` for every shipped pack.
+  directory that is missing from its tag. The commit that makes a workspace the admin workspace also writes `packs/<name>/` for every shipped pack.
 - In a step, `goal` may contain `{{<input name>}}` and `{{steps.<id>.result}}` (or a
   field of a JSON result, `{{steps.<id>.result.<field>}}`); `when` is one comparison
   over such a value (`==`, `!=`, with a string, number or boolean); `for_each` names a
@@ -97,15 +97,26 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   documents under `docs/` (`.md`, `.markdown`, `.txt`, `.rst`, `.csv`, `.json`, `.yaml`, `.yml`, valid UTF-8, at most 1 MB) with `path`,
   `title` (the first `# ` line, else the file name), `digest` and `bytes`, so a task keeps the documents of its own
   snapshot. Other documents are only in git.
-- **The platform workspace** (docs/model.md): `platform = true` in `brain.toml` is carried by the manifest as `platform: true`
-  (left out when false, so no other workspace's digest changes). It is invalid with `visibility = "public"`, and a workspace that
+- **Platform workspaces** (docs/model.md): `platform = "admin"` or `"read"` in `brain.toml` is carried by the manifest as `platform: "admin" | "read"`
+  (left out when there is none, so no other workspace's digest changes). It is invalid with `visibility = "public"`, and a workspace that
   lists the pack `platform` without it is invalid. The guard is one check inside `commitFolder` (`workspace/platform.ts`), before
   anything is committed, so every way of writing the folder meets it (`file.write`, `file.delete`, a copy or a move, the
-  settings form, `workspace.fix`): a change that adds, changes or removes `platform` is refused with FORBIDDEN unless
+  settings form, `workspace.fix`, `workspace.create`): a change that adds, changes or removes `platform` is refused with FORBIDDEN unless
   `FolderChange.instanceAdmin` is true (a command's caller; `workspace.create` is itself instance-admin only; a fix is never),
-  and a second platform workspace is refused with CONFLICT. `access.ts` answers nothing for a person who is not an instance
-  admin in a workspace whose active manifest is platform, member or not, which hides its tasks, results, files and approvals
-  from everything that asks (dispatcher, `me`, `overview`, events, downloads).
+  and a second `admin` workspace is refused with CONFLICT (any number are `read`). `access.ts` answers nothing for a person who is not an instance
+  admin in a workspace whose active manifest has `platform`, member or not, which hides its tasks, results, files and approvals
+  from everything that asks (dispatcher, `me`, `overview`, events, downloads). Pack management exists only in the `admin` workspace: only it is
+  seeded with `packs/`, may `pack.release` or ask `pack.files` for `working`, and only its releases are read for a pin `base@N`. In a `read`
+  workspace a `packs/...` file is an ordinary document: stored, never read as a pack source, a pin or a release.
+- **The folder's remote**: `[git] remote` (an http or https address with no user or password) and an optional `credential` (the workspace's
+  GitHub credential when absent) are carried by the manifest as `git` (left out when absent) and may not be changed by `workspace.fix`.
+  `gov.onActivate` asks `workspace/push.ts` for a push of every activated snapshot of a workspace that has a remote; it runs after the
+  transaction (`setImmediate`), one at a time per workspace, with isomorphic-git over `gov.fetch`, the branch the folder is on to the same branch
+  of the remote, never forced (so the first push initialises an empty remote and one that has moved on is refused). Its result is the audit event
+  `workspace.pushed` or `workspace.push_failed` (the remote without credentials in it, the commit, and the error with any secret removed): there is
+  no table and no failure reaches the commit. `workspace.get` (`folderPush`) and `health` (`folderPush`) read the last of these events; Settings and Health show it.
+- **The address of a workspace** is `slugify(name)` (accents dropped, anything that is not a letter or digit one dash; `packages/contracts/src/slug.ts`, imported by the web app too), or the given `slug` read the same way. `workspace.create` refuses, with CONFLICT on the path `name`, an address any workspace (archived too) already has; it never numbers. The wizard checks the same against what it already knows and, when the Governor refuses, takes the person back to the name.
+  A first project's name comes from the last part of its address and its branch from the repository itself (`git.getRemoteInfo`, at most three seconds, with the typed token), else `main`.
 - A tool's inputs (`[inputs.<name>]` with `type`, `description`, `required`, `enum`,
   `items`) compile to a JSON Schema used to validate calls.
 - A tool with `runs = "brain"` is implemented by the Governor (section 7) and has no
@@ -156,7 +167,7 @@ imports the same definitions for types. `GET /v1/events` is server-sent events: 
 `changed` frame per workspace when anything changed (the client refetches).
 `GET /v1/artifacts/:digest` streams bytes to a member of the owning workspace.
 
-Commands: `setup.create`, `workspace.create` (its input may carry `platform: true`, kept in the first `brain.toml`), `pack.release`, `workspace.archive`, `workspace.stopAll`,
+Commands: `setup.create`, `workspace.create` (its input may carry `platform: "admin"` or `"read"`, a first project, and `folderRemote`, all kept in the first `brain.toml`; defaults are not written), `pack.release`, `workspace.archive`, `workspace.stopAll`,
 `file.write`, `file.delete`, `secret.set`, `secret.delete`, `member.set`,
 `member.remove`, `task.create` (a goal, optionally a Play and inputs), `task.confirm`
 (accept a proposed plan), `task.edit` (change, add or remove sub-tasks not yet started),
@@ -177,7 +188,7 @@ any `changed` frame, since the stream already carries every workspace of the cal
 
 `packs.list` also says, for each pack, the working `version` and whether the platform workspace's copy differs from its last release (`working`, when the platform
 workspace holds a copy), its `released` versions and `usedBy` (workspace address, name and pin). `pack.files` (an admin of the workspace) answers the text of
-the files of a pack at `shipped`, a released number or `working`: the platform workspace may ask for any pack and `working`; another workspace only for a
+the files of a pack at `shipped`, a released number or `working`: the admin workspace may ask for any pack and `working`; another workspace only for a
 pack it uses, at the baseline or a release (which is how its admin reads the difference before an update).
 
 `schedules.list` takes no workspace, like `overview`: for every active workspace the caller can see it answers each
@@ -373,15 +384,15 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   (question to a person: it returns `{"status": "waiting"}`, the attempt ends, the task is
   `needs_you`, and the answer is in the context of the next attempt), `memory.search`,
   `memory.propose`, `git.open-pr` (effect `write`), `message.send` (Teams; effect
-  `write`), `workspace.fix` (effect `write`, for the agent of a heal task and the task it heals, or, with `workspace`, for a task of the platform workspace), and the five `platform.*` tools. A
+  `write`), `workspace.fix` (effect `write`, for the agent of a heal task and the task it heals, or, with `workspace`, for a task of the admin workspace), and the five `platform.*` tools. A
   Brain-run call with an effect answers `pending` until its approval is decided;
   the runner then sends the same call again.
-- **`workspace.fix` in the platform workspace**: a task of the platform workspace that is not a heal task may call it with no failed task. It
+- **`workspace.fix` in the platform workspace**: a task of the admin workspace that is not a heal task may call it with no failed task. It
   changes only files under `packs/` (any other path is refused), at most 10 proposals a task, each its own approval, decided by an admin of the
   platform workspace; the commit message ends with `Proposed by platform task <id>`. Nothing else differs from a heal's fix, and there is no input
   that names another workspace: no tool writes to a workspace but its own.
 - **`platform.*`** (pack `platform`; effect `read`; run in the transaction that records the call): refused unless the calling task's
-  workspace is the platform workspace. Each call that reads another workspace appends a `platform.read` event (workspace = the target;
+  workspace is a platform workspace (`admin` or `read`; `platform.tool-drift` only `admin`). Each call that reads another workspace appends a `platform.read` event (workspace = the target;
   payload: source and target addresses, tool, what was read) in that transaction. A value of the target's secrets that appears in
   a returned text is replaced by `[secret]`, no secret is ever read otherwise, and every text is cut to a size. Inputs and outputs are in
   `packs/README.md`. `platform.repeats` reads `tasks`, `attempts` and `tool_calls` of every workspace on `gov.clock`:
@@ -392,7 +403,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   letters, at least 3 of them, without a short list of English and French stop words. Within one job, tasks are taken oldest first and
   each joins the first group whose first goal shares at least 0.6 of the words (Jaccard) or starts a group. A group of 4 or more is a
   candidate: agent, tools, count, workspaces with their counts, up to 3 goals and 8 task ids, first and last time.
-  `platform.tool-drift` compares, for every workspace but the platform, each tool with a `run.sh`, each agent and each Play whose files are
+  `platform.tool-drift` compares, for every workspace but the admin one, each tool with a `run.sh`, each agent and each Play whose files are
   the workspace's own (`source = "workspace"` in its snapshot) with the same file in `packs/<pack>/` of the platform workspace's folder:
   `differs` when a file's text is not the same, `new` when no pack has it. A tool with no `run.sh` (Brain-run, host command) is left out.
   Identical copies in several workspaces are one entry listing them; an entry says whether a tool has its `test.sh`, and at most 30 are returned.
@@ -465,7 +476,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 
 SolidJS, Vite, the `@talelk/newui-*` design system, English, French and Arabic (RTL).
 Text a pack or a workspace wrote for people (`[translations.<lang>]`, `memory/<name>.<lang>.md`; docs/model.md, Translations) is shown through `human()` of `src/i18n`: the page language's text when the file has it, the English otherwise, at every place that shows an agent, tool or Play description, a Play title or input description, a pack description or a memory title (the Schedules list, the Today Play chips, the Team graph and the New workspace packs included). The forms edit the English text and write the translations back untouched, dropping only a translated input the form removed.
-The platform workspace is shown with a "Platform" badge in the sidebar and in the Overview table; the New workspace wizard offers it, and the Settings form a switch for it, only to an instance admin (`me.instanceAdmin`); the wizard then adds the `platform` pack. Its Workspace screen has a Packs tab (`packs.list` and `pack.files`: each pack's working version, releases, the workspaces using each, the difference between two versions, and Release). Any workspace with `updates` shows an "Update available" badge (Settings, Overview) and, to its admin, the difference (`pack.files`) and "Update to vN", which writes the pin through `file.write`.
+The platform workspace is shown with a "Platform" badge in the sidebar and in the Overview table; the New workspace wizard offers the three kinds (ordinary, `read`, `admin`), and the Settings form the same choice, only to a platform administrator (`me.instanceAdmin`); the wizard then adds the `platform` pack. The admin workspace's Workspace screen has a Packs tab (`packs.list` and `pack.files`: each pack's working version, releases, the workspaces using each, the difference between two versions, and Release). Any workspace with `updates` shows an "Update available" badge (Settings, Overview) and, to its admin, the difference (`pack.files`) and "Update to vN", which writes the pin through `file.write`.
 First paint: the Governor serves the built files compressed (Brotli or gzip) and caches `/assets` for a year; the page's own chunk downloads beside the questions of who is signed in; a reload paints from the tab's last `me` and asks again behind it; a page that waits shows grey blocks in the shape of its content. On a wide screen a Workspace list opens with its first item selected; a phone keeps the list first.
 Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones): Overview, Schedules, then the
 workspaces (grouped as My workspaces, Shared with me and Public workspaces, each with an orange count of what waits there; the open one expands to Today, Tasks and
@@ -492,7 +503,7 @@ the handoffs between them, read from the Plays' steps and the recent tasks the w
   pull request against a local bare repository; a backup made while the Governor runs,
   restored and started again.
 - `tests/core/platform.test.ts`: the platform setting's guard (a workspace admin and a member refused, an instance admin allowed, a
-  second platform refused, a person who is not an instance admin sees nothing of it); the `platform.*` tools (only from the platform
+  second admin workspace refused, a `read` one allowed beside it with the `platform.*` tools but no pack management, a person who is not an instance admin sees nothing of it); the `platform.*` tools (only from the platform
   workspace, audited with both workspaces, secrets never shown); `platform.repeats` (4 done twice in two workspaces found, 3 not, runs
   older than 30 days not); `platform.tool-drift`; a capitalizer proposal lands only in the platform workspace's `packs/` after an admin approves it; a
   release freezes a version, a workspace pinned to it resolves exactly it whatever is edited later, Update available shows only for a newer release, and

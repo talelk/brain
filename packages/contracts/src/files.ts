@@ -34,6 +34,10 @@ export function isTimeZone(name: string): boolean {
     return false;
   }
 }
+/** A git remote the Governor pushes to: an http or https address, with no user or password written in it. */
+const isRemoteAddress = (value: string): boolean => {
+  try { const url = new URL(value); return (url.protocol === "https:" || url.protocol === "http:") && url.username === "" && url.password === "" && url.host !== ""; } catch { return false; }
+};
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "must be a date written YYYY-MM-DD");
 
 export const EFFECTS = ["read", "write", "privileged"] as const;
@@ -118,7 +122,7 @@ export const BrainFile = z.strictObject({
   })).default([]),
   github: z.strictObject({ credential: secretRef, webhook_secret: secretRef.optional() }).optional(),
   /** A git remote that receives the workspace folder after every commit (docs/model.md, "A workspace folder"). `credential` defaults to the GitHub one. */
-  git: z.strictObject({ remote: z.string().regex(/^https?:\/\/[^\s@/]+(?:\/\S*)?$/u, "must be an http or https address without a password in it"), credential: secretRef.optional() }).optional(),
+  git: z.strictObject({ remote: z.string().refine(isRemoteAddress, "must be an http or https address without a password in it"), credential: secretRef.optional() }).optional(),
   teams: z.strictObject({ webhook: secretRef }).optional(),
   approvals: z.record(toolName, z.strictObject({ targets: z.array(z.string().min(1)).min(1), per_day: z.int().min(1), until: day })).default({}),
 });

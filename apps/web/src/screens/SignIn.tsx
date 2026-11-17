@@ -1,4 +1,5 @@
 import { createSignal, Show, type JSX } from "solid-js";
+import { nameFromEmail } from "../lib/people";
 import { Button, TextInput } from "@talelk/newui-atoms";
 import { TabButtons } from "@talelk/newui-molecules";
 import { AuthCard } from "@talelk/newui-organisms";
@@ -27,6 +28,7 @@ function tokenFromAddress(): string {
 export function SignIn(props: { setupRequired: boolean; onDone: () => void }): JSX.Element {
   const [token, setToken] = createSignal(tokenFromAddress());
   const [name, setName] = createSignal("");
+  const [named, setNamed] = createSignal(false);
   const [email, setEmail] = createSignal("");
   const [password, setPassword] = createSignal("");
   const [code, setCode] = createSignal("");
@@ -77,9 +79,9 @@ export function SignIn(props: { setupRequired: boolean; onDone: () => void }): J
           }>
             <Show when={props.setupRequired}>
               <TextInput size="lg" label={t("setup.token")} description={t("setup.token.help")} value={token()} onInput={(event) => setToken(event.currentTarget.value)} required autocomplete="off" disabled={busy()} class="t-code" />
-              <TextInput size="lg" label={t("setup.name")} value={name()} onInput={(event) => setName(event.currentTarget.value)} required maxlength={100} autocomplete="name" disabled={busy()} />
+              <TextInput size="lg" label={t("setup.name")} value={name()} onInput={(event) => { setNamed(true); setName(event.currentTarget.value); }} required maxlength={100} autocomplete="name" disabled={busy()} />
             </Show>
-            <TextInput size="lg" type="email" label={t("signin.email")} value={email()} onInput={(event) => setEmail(event.currentTarget.value)} required autocomplete="username webauthn" disabled={busy()} />
+            <TextInput size="lg" type="email" label={t("signin.email")} value={email()} onInput={(event) => { setEmail(event.currentTarget.value); if (props.setupRequired && !named()) setName(nameFromEmail(event.currentTarget.value)); }} required autocomplete="username webauthn" disabled={busy()} />
             <TextInput size="lg" type="password" label={t("signin.password")} description={props.setupRequired ? t("setup.password.help") : undefined} value={password()} onInput={(event) => setPassword(event.currentTarget.value)} required minlength={12} maxlength={128}
               autocomplete={props.setupRequired ? "new-password" : "current-password webauthn"} disabled={busy()} />
           </Show>

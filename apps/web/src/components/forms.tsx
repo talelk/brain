@@ -8,11 +8,12 @@ import { usePlace, useSession } from "../data/session";
 import { said } from "../lib/said";
 import { t } from "../i18n";
 import { agentToml, brainOf, brainToml, paths, playToml, toolToml, type Brain, type Model, type Project } from "../lib/files";
-import { EFFECTS, ENGINES, NATIVE_LEVELS } from "../lib/model";
+import { EFFECTS, ENGINES, NATIVE_LEVELS, slugify } from "../lib/model";
+import { onGithub, projectNameOf } from "../lib/repo";
 import { CodeEditor } from "./CodeEditor";
 import { Choice, ListField, NumberField, PickMany, Rows } from "./fields";
 import { Markdown } from "./Markdown";
-import { Details, Failure } from "./bits";
+import { Details, Failure, PushStatus } from "./bits";
 import { ScheduleEditor } from "./Schedule";
 
 /** The forms of the Workspace screen. Each starts from the active snapshot, and saving writes whole files through `file.write`. */
@@ -196,6 +197,30 @@ export function PlayForm(props: { name: string; initial: PlayFile; isNew: boolea
   const file = (): PlayFile => ({ ...unwrap(play), inputs: fromRows(inputs()), trigger: trigger() === "none" ? undefined : trigger() === "schedule" ? { schedule: when(), ...(paused() ? { paused: true } : {}) } : { webhook: when() } });
   const save = (): void => void write.run([{ path: paths.play(props.name), content: playToml(file()) }], `${props.isNew ? "Add" : "Change"} the Play ${props.name}`);
   const step = (index: number, patch: Partial<StepSpec>): void => setPlay("step", index, patch);
+  /** A step's id is made from its agent (`developer`, then `developer-2`) until the person names it. A step already saved keeps its id: other steps and goals refer to it. */
+  const saved = new Set(props.isNew ? [] : props.initial.step.map((one) => one.id));
+  const [named, setNamed] = createSignal<ReadonlySet<string>>(new Set());
+  const [renaming, setRenaming] = createSignal<ReadonlySet<number>>(new Set());
+  const unique = (base: string, index: number): string => {
+    const used = new Set(unwrap(play).step.filter((_, at) => at !== index).map((other) => other.id));
+    let id = base;
+    for (let n = 2; used.has(id); n += 1) id = `${base}-${n}`;
+    return id;
+  };
+  const inferred = (index: number): boolean => { const id = (play.step[index] as StepSpec).id; return id === "" || (!saved.has(id) && !named().has(id)); };
+  /** Gives the step the id its agent suggests, and the steps that wait for it follow the new id. */
+  const infer = (index: number, agent: string | undefined): void => {
+    const before = (play.step[index] as StepSpec).id;
+    const id = unique(slugify(agent ?? "") || "step", index);
+    setPlay("step", index, { agent, id });
+    if (before !== "" && before !== id) setPlay("step", (_, at) => at !== index, "after", (list) => list.map((one) => (one === before ? id : one)));
+  };
+  const rename = (index: number, id: string): void => {
+    const before = (play.step[index] as StepSpec).id;
+    setNamed(new Set([...named(), id]));
+    setPlay("step", index, { id });
+    setPlay("step", (_, at) => at !== index, "after", (list) => list.map((one) => (one === before ? id : one)));
+  };
   const move = (index: number, by: number): void => { const steps = [...unwrap(play).step]; const [moved] = steps.splice(index, 1); if (moved) { steps.splice(index + by, 0, moved); setPlay("step", steps); } };
   return (
     <form onSubmit={(event) => { event.preventDefault(); save(); }}>
@@ -215,8 +240,14 @@ export function PlayForm(props: { name: string; initial: PlayFile; isNew: boolea
                   <span class="chain-link" aria-hidden="true"><svg viewBox="0 0 28 44"><rect class="ring" x="2.5" y="2.5" width="23" height="39" rx="11.5" /></svg></span>
                   <div class="min-w-0 pb-5 ps-2">
                     <div class="flex flex-wrap items-end gap-3">
-                      <div class="w-40"><TextInput size="md" label={t("play.step.id", { n: index + 1 })} class="t-code" value={current().id} onInput={(event) => step(index, { id: event.currentTarget.value })} required disabled={props.readOnly} /></div>
-                      <div class="w-48"><Select size="md" label={t("play.step.agent")} options={agents()} value={current().agent ?? null} onValueChange={(value) => step(index, { agent: value ?? undefined })} disabled={props.readOnly} /></div>
+                      <div class="w-48"><Select size="md" label={t("play.step.agent", { n: index + 1 })} options={agents()} value={current().agent ?? null} onValueChange={(value) => { if (inferred(index)) infer(index, value ?? undefined); else step(index, { agent: value ?? undefined }); }} disabled={props.readOnly} /></div>
+                      <Show when={renaming().has(index) && !saved.has(current().id)} fallback={
+                        <p class="pb-2 t-small text-ink-2" data-testid="step-id">{t("play.step.idAuto")} <code class="t-code code-ltr text-ink">{current().id}</code>
+                          <Show when={!props.readOnly && !saved.has(current().id)}> <button type="button" class="link" onClick={() => setRenaming(new Set([...renaming(), index]))}>{t("play.step.rename")}</button></Show>
+                        </p>
+                      }>
+                        <div class="w-40"><TextInput size="md" label={t("play.step.id", { n: index + 1 })} class="t-code" value={current().id} onInput={(event) => rename(index, event.currentTarget.value)} required /></div>
+                      </Show>
                       <Show when={!props.readOnly}>
                         <div class="ms-auto flex">
                           <Button variant="ghost" size="md" icon="lucide-arrow-up" aria-label={t("plan.earlier")} disabled={index === 0} onClick={() => move(index, -1)} />
@@ -248,7 +279,7 @@ export function PlayForm(props: { name: string; initial: PlayFile; isNew: boolea
             }}
           </For>
         </ol>
-        <Show when={!props.readOnly}><div><Button variant="ghost" size="md" iconLeft="lucide-plus" onClick={() => setPlay("step", [...play.step, { ...blankStep(agents()[0]?.value ?? ""), after: play.step.at(-1)?.id ? [play.step.at(-1)?.id ?? ""] : [] }])}>{t("play.step.add")}</Button></div></Show>
+        <Show when={!props.readOnly}><div><Button variant="ghost" size="md" iconLeft="lucide-plus" onClick={() => { const agent = agents()[0]?.value ?? ""; setPlay("step", [...play.step, { ...blankStep(agent), id: unique(slugify(agent) || "step", play.step.length), after: play.step.at(-1)?.id ? [play.step.at(-1)?.id ?? ""] : [] }]); }}>{t("play.step.add")}</Button></div></Show>
       </Group>
       <Group title={t("play.inputs")} text={t("play.inputs.text")}>
         <InputRows label={t("play.inputs")} rows={inputs()} onChange={setInputs} readOnly={props.readOnly} />
@@ -281,24 +312,32 @@ function useBrain(snapshot: SnapshotManifest): { brain: Brain; set: ReturnType<t
 }
 
 export function ProjectsForm(props: { snapshot: SnapshotManifest; readOnly: boolean }): JSX.Element {
+  const place = usePlace();
   const { brain, set, write, save } = useBrain(props.snapshot);
+  const secrets = useQuery("secrets.list", () => (props.readOnly ? undefined : { workspaceId: place.id() }));
+  const hasGithubSecret = (): boolean => (secrets.data()?.secrets ?? []).some((secret) => secret.name === "github");
+  /** Typing the address fills what follows from it, until the person writes their own: the name, and the GitHub credential when this workspace has one. */
+  const typed = (project: Project, repo: string): Project => {
+    const inferred = project.name === "" || project.name === projectNameOf(project.repo);
+    return { ...project, repo, ...(inferred ? { name: repo.trim() === "" ? "" : projectNameOf(repo) } : {}), ...(project.credential === undefined && onGithub(repo) && hasGithubSecret() ? { credential: "secret:github" } : {}) };
+  };
   return (
     <form onSubmit={(event) => { event.preventDefault(); save("Change the projects"); }}>
       <Problems items={problemsOf(write, paths.brain)} />
       <Rows<Project> label={t("projects.list")} items={brain.projects} onChange={(projects) => set("projects", projects)} add={t("projects.add")} disabled={props.readOnly} blank={() => ({ name: "", repo: "", branch: "main", access: "read", network: [] })}>
         {(project, change) => (
           <div class="flex flex-col gap-4">
-            <div class="grid gap-4 sm:grid-cols-[12rem_minmax(0,1fr)_9rem]">
-              <TextInput size="md" class="t-code" label={t("field.name")} value={project().name} onInput={(event) => change({ ...project(), name: event.currentTarget.value })} required />
-              <TextInput size="md" class="t-code" label={t("projects.repo")} placeholder="https://github.com/acme/shop.git" value={project().repo} onInput={(event) => change({ ...project(), repo: event.currentTarget.value })} required />
-              <TextInput size="md" class="t-code" label={t("projects.branch")} value={project().branch} onInput={(event) => change({ ...project(), branch: event.currentTarget.value })} required />
-            </div>
-            <Choice label={t("projects.access")} value={project().access} onChange={(access) => change({ ...project(), access })} options={[{ value: "read", label: t("projects.access.read"), help: t("projects.access.read.help") }, { value: "write", label: t("projects.access.write"), help: t("projects.access.write.help") }]} />
-            <div class="grid gap-4 sm:grid-cols-2">
-              <SecretField label={t("projects.credential")} description={t("projects.credential.help")} value={project().credential} onChange={(credential) => change({ ...project(), credential })} disabled={props.readOnly} />
-              <TextInput size="md" class="t-code" label={t("projects.setup")} description={t("projects.setup.help")} placeholder="pnpm install --frozen-lockfile" value={project().setup ?? ""} onInput={(event) => change({ ...project(), setup: event.currentTarget.value || undefined })} />
-            </div>
-            <ListField label={t("projects.network")} description={t("projects.network.help")} placeholder="registry.npmjs.org" value={project().network} onChange={(network) => change({ ...project(), network })} />
+            <TextInput size="md" class="t-code" label={t("projects.repo")} placeholder="https://github.com/acme/shop.git" value={project().repo} onInput={(event) => change(typed(project(), event.currentTarget.value))} required disabled={props.readOnly} />
+            <Switch label={t("new.repo.write")} description={t("new.repo.write.help")} checked={project().access === "write"} onCheckedChange={(on) => change({ ...project(), access: on ? "write" : "read" })} disabled={props.readOnly} />
+            <Details summary={<span>{t("form.more")} <span class="t-small font-normal text-ink-2">({t("projects.inferred", { name: project().name || "…", branch: project().branch, credential: project().credential ?? t("fields.none") })})</span></span>}>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <TextInput size="md" class="t-code" label={t("field.name")} placeholder={projectNameOf(project().repo)} value={project().name} onInput={(event) => change({ ...project(), name: event.currentTarget.value })} required disabled={props.readOnly} />
+                <TextInput size="md" class="t-code" label={t("projects.branch")} value={project().branch} onInput={(event) => change({ ...project(), branch: event.currentTarget.value })} required disabled={props.readOnly} />
+                <SecretField label={t("projects.credential")} description={t("projects.credential.help")} value={project().credential} onChange={(credential) => change({ ...project(), credential })} disabled={props.readOnly} />
+                <TextInput size="md" class="t-code" label={t("projects.setup")} description={t("projects.setup.help")} placeholder="pnpm install --frozen-lockfile" value={project().setup ?? ""} onInput={(event) => change({ ...project(), setup: event.currentTarget.value || undefined })} disabled={props.readOnly} />
+              </div>
+              <ListField label={t("projects.network")} description={t("projects.network.help")} placeholder="registry.npmjs.org" value={project().network} onChange={(network) => change({ ...project(), network })} disabled={props.readOnly} />
+            </Details>
           </div>
         )}
       </Rows>
@@ -307,8 +346,12 @@ export function ProjectsForm(props: { snapshot: SnapshotManifest; readOnly: bool
   );
 }
 
+/** The time zone this browser is in: what a workspace's clock is most likely to be. */
+const browserZone = (): string => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; } };
+
 export function SettingsForm(props: { snapshot: SnapshotManifest; readOnly: boolean }): JSX.Element {
   const session = useSession();
+  const place = usePlace();
   const { brain, set, write, save } = useBrain(props.snapshot);
   const approvals = (): Array<{ tool: string; targets: string[]; per_day: number; until: string }> => Object.entries(brain.approvals).map(([tool, rule]) => ({ tool, ...rule, targets: [...rule.targets] }));
   const effectTools = (): { label: string; value: string }[] => Object.entries(props.snapshot.tools).filter(([, tool]) => tool.effect !== "read").map(([name]) => ({ label: name, value: name }));
@@ -318,11 +361,15 @@ export function SettingsForm(props: { snapshot: SnapshotManifest; readOnly: bool
         <Problems items={problemsOf(write, paths.brain)} />
         <TextInput size="md" label={t("field.name")} value={brain.name} onInput={(event) => set("name", event.currentTarget.value)} required maxlength={100} disabled={props.readOnly} />
         <Textarea size="md" label={t("field.description")} description={t("settings.description.help")} rows={2} value={brain.description} onInput={(event) => set("description", event.currentTarget.value)} disabled={props.readOnly} />
-        <div class="max-w-sm"><TextInput size="md" label={t("settings.timezone")} description={t("settings.timezone.help")} placeholder="Africa/Tunis" value={brain.timezone ?? ""} onInput={(event) => set("timezone", event.currentTarget.value || undefined)} disabled={props.readOnly} /></div>
+        <div class="max-w-sm">
+          <TextInput size="md" label={t("settings.timezone")} description={t("settings.timezone.help")} placeholder={browserZone()} value={brain.timezone ?? ""} onInput={(event) => set("timezone", event.currentTarget.value || undefined)} disabled={props.readOnly} />
+          <Show when={!props.readOnly && (brain.timezone ?? "") === "" && browserZone() !== "UTC"}><button type="button" class="link mt-1 t-small" onClick={() => set("timezone", browserZone())}>{t("settings.timezone.use", { zone: browserZone() })}</button></Show>
+        </div>
         <Choice label={t("visibility.title")} value={brain.visibility ?? "private"} onChange={(value) => set("visibility", value)} disabled={props.readOnly}
           options={[{ value: "private", label: t("visibility.private"), help: t("visibility.private.help") }, { value: "public", label: t("visibility.public"), help: t("visibility.public.help") }]} />
         <Show when={session.user().instanceAdmin}>
-          <Switch label={t("settings.platform")} description={t("settings.platform.help")} checked={brain.platform === true} onCheckedChange={(on) => set("platform", on ? true : undefined)} disabled={props.readOnly} />
+          <Choice label={t("settings.platform")} value={brain.platform ?? ""} onChange={(value) => set("platform", value === "" ? undefined : value)} disabled={props.readOnly}
+            options={[{ value: "", label: t("new.platform.none"), help: t("new.platform.none.help") }, { value: "read", label: t("new.platform.read"), help: t("new.platform.read.help") }, { value: "admin", label: t("new.platform.admin"), help: t("new.platform.admin.help") }]} />
         </Show>
         <p class="t-small text-ink-2">{t("settings.packs", { packs: brain.packs.join(", ") || t("fields.none") })}</p>
       </Group>
@@ -361,6 +408,13 @@ export function SettingsForm(props: { snapshot: SnapshotManifest; readOnly: bool
           <SecretField label={t("settings.github.credential")} value={brain.github?.credential} onChange={(credential) => set("github", credential ? { ...brain.github, credential } : undefined)} disabled={props.readOnly} />
           <SecretField label={t("settings.github.webhook")} description={t("settings.github.webhook.help")} value={brain.github?.webhook_secret} onChange={(secret) => { if (brain.github) set("github", { credential: brain.github.credential, ...(secret ? { webhook_secret: secret } : {}) }); }} disabled={props.readOnly || !brain.github} />
         </div>
+      </Group>
+      <Group title={t("settings.git")} text={t("settings.git.text")}>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <TextInput size="md" class="t-code" type="url" label={t("settings.git.remote")} placeholder="https://github.com/acme/workspace-files.git" value={brain.git?.remote ?? ""} onInput={(event) => set("git", event.currentTarget.value.trim() === "" ? undefined : { ...brain.git, remote: event.currentTarget.value.trim() })} disabled={props.readOnly} />
+          <SecretField label={t("settings.git.credential")} description={t("settings.git.credential.help")} value={brain.git?.credential} onChange={(credential) => { if (brain.git) set("git", { remote: brain.git.remote, ...(credential ? { credential } : {}) }); }} disabled={props.readOnly || !brain.git} />
+        </div>
+        <Show when={props.snapshot.git}><PushStatus push={place.workspace.data()?.folderPush} /></Show>
       </Group>
       <Group title={t("settings.teams")} text={t("settings.teams.text")}>
         <div class="max-w-sm"><SecretField label={t("settings.teams.webhook")} value={brain.teams?.webhook} onChange={(webhook) => set("teams", webhook ? { webhook } : undefined)} disabled={props.readOnly} /></div>

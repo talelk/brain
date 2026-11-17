@@ -43,7 +43,7 @@ name = "Kios RH"
 description = "Workforce cost platform"
 timezone = "Africa/Tunis"   # schedules are read in it; UTC when not given
 visibility = "private"      # or "public": see People
-platform = false            # true only for the platform workspace: see The platform workspace
+# platform = "admin"      # or "read": only a platform workspace; see The platform workspace
 packs = ["base", "software-factory"]   # "base@2" uses release 2 of a pack (see The platform workspace)
 
 [limits]
@@ -76,6 +76,10 @@ network = ["registry.npmjs.org"]
 [github]
 credential = "secret:github"
 
+[git]                           # optional: where the folder itself is backed up or shared
+remote = "https://github.com/keyrustunisie/kios-newrh-workspace.git"
+credential = "secret:github"    # left out: the [github] credential
+
 [teams]
 webhook = "secret:teams-webhook"
 
@@ -84,6 +88,20 @@ targets = ["kios-rh-new-1"]
 per_day = 3
 until = 2027-01-31
 ```
+
+A workspace's folder name is its **address** (`/w/kios-rh`), made from its name when it is
+created: accents dropped, anything that is not a letter or a digit becomes one dash, so `Kios RH`
+is `kios-rh`. An address is never numbered: a name that makes the address of an existing
+workspace (archived ones included, whatever the case or accents) is refused, and the person
+changes the name. A new workspace's first project takes its name from the repository's address
+and its branch from the repository's own default (`main` when that cannot be asked). Values that
+are the default (`access = "read"`, `branch = "main"`, the limits above) are not written to a file.
+
+The folder is pushed to `[git] remote` after every change, in the background (an `http` or
+`https` address with no password in it; `credential` is the `[github]` one when left out). The
+first push initialises an empty remote; nothing is forced, so a remote that has moved on refuses.
+A failed push never blocks or undoes a change: it is recorded in the audit log and shown in
+Settings and Health with the time of the last push.
 
 A value written `secret:<name>` is a reference. The secret itself is set in the app and
 never appears in a file, a log or a result.
@@ -250,7 +268,7 @@ upload is limited to 5 MB per file and 20 MB in all.
 ### Packs
 
 A workspace lists the packs it uses, each as its shipped baseline (`base`) or as a release the
-platform workspace made (`base@2`). A file in the workspace with the same name as a
+admin workspace made (`base@2`). A file in the workspace with the same name as a
 pack's file replaces it. `base` holds the task, memory and pull request tools plus a
 planner and a checker; the other packs build on it.
 
@@ -297,45 +315,58 @@ A task is healed once, a heal task is never healed, and a failure that only infr
 caused (model unreachable, runner lost) is not healed; the failed task says so. The
 healer never edits project code and never retries by itself. `[healing]` in `brain.toml`
 turns this off or caps the heal tasks a workspace starts in a UTC day. `workspace.fix`
-changes only `brain.toml` (not its approvals, GitHub, Teams or secret references),
+changes only `brain.toml` (not its approvals, GitHub, git remote, Teams or secret references),
 `agents/`, `tools/`, `plays/`, `memory/` and `docs/`, and only an admin may approve it.
 
 ## The platform workspace
 
-One workspace may look after the others: optimizing the platform, its configuration and
-keeping it in shape. `platform = true` in its own `brain.toml` designates it. A Brain has at
-most one. Only an instance admin can add, change or remove that line: any other write that
-would (an edit, a copy or move, a delete, a fix, the settings form) is refused, and so is a
-second platform workspace. A platform workspace is private, and only instance admins see
-it, whatever its members list says. Only it may list the `platform` pack; any other workspace
-that lists it is invalid.
+A workspace may look after the others: optimizing the platform, its configuration and keeping
+it in shape. `platform` in its own `brain.toml` designates it, in one of two kinds:
+
+- `platform = "admin"`, the **admin workspace**: at most one in a Brain. It is the only place
+  where packs are kept, edited, versioned and released (below), and it also reads every
+  workspace.
+- `platform = "read"`: any number. It reads every workspace with the same tools and has no
+  pack management: no Packs tab, no `packs/<name>/` sources (a `packs/` file there is an
+  ordinary document that nothing reads as a pack), no release. Its `workspace.fix` is the one
+  every workspace has, for healing.
+
+Only a platform administrator (an instance admin) sees either kind in the app, in the new
+workspace wizard and in Settings; for everyone else the option is absent. Only a platform
+administrator can add, change or remove that line: any other write that would (an edit, a copy
+or move, a delete, a fix, the settings form, creating a workspace) is refused, and so is a
+second `admin`. A platform workspace is private, and only instance admins see it, whatever its
+members list says. Only a platform workspace may list the `platform` pack; any other workspace
+that lists it is invalid. The pack's Plays `capitalize` and `sync-tools` change pack sources, so
+they are for the admin workspace; a `read` workspace uses the pack for its `platform.*` tools.
 
 Its agents **read everything and change only their own workspace**:
 
-- **Read.** Read-only tools of the `platform` pack, usable only by a task of the platform
+- **Read.** Read-only tools of the `platform` pack, usable only by a task of a platform
   workspace: `platform.workspaces` (every workspace, with its spend and counts),
   `platform.tasks` (search the tasks of every workspace, failures included), `platform.task`
   (one task: goal, result, attempts, tool calls with inputs and outputs, checks, cost),
-  `platform.file` (any file of any workspace), `platform.repeats` and `platform.tool-drift`
-  (see below). Each call is recorded in the audit log with the source and the target
-  workspace. A secret's value is never shown (only `secret:<name>` references exist in files,
-  and a value that a tool call echoed is hidden), and every answer is cut to a size.
-- **Write.** A task of the platform workspace (not a heal task) may call `workspace.fix`, as
+  `platform.file` (any file of any workspace), `platform.repeats` and, for the admin workspace
+  only, `platform.tool-drift` (see below). Each call is recorded in the audit log with the
+  source and the target workspace. A secret's value is never shown (only `secret:<name>`
+  references exist in files, and a value that a tool call echoed is hidden), and every answer is
+  cut to a size.
+- **Write.** A task of the admin workspace (not a heal task) may call `workspace.fix`, as
   a heal task does, but only for files under `packs/` of its own workspace: the change is
   checked, shown as a diff with the reason, and applied only once an admin approves exactly
-  it. Nothing in another workspace is ever written by the platform workspace.
+  it. Nothing in another workspace is ever written by a platform workspace.
 
 ### Packs are kept and delivered here
 
-The packs shipped with Brain are the baseline. The platform workspace holds an editable copy
+The packs shipped with Brain are the baseline. The admin workspace holds an editable copy
 of each under `packs/<name>/` (same layout as a pack; made from the shipped ones in the
-commit that makes a workspace the platform workspace), and `pack.toml` there has a `version`,
-the last release (absent: none). An admin of the platform workspace edits those files like any
+commit that makes a workspace the admin workspace), and `pack.toml` there has a `version`,
+the last release (absent: none). An admin of the admin workspace edits those files like any
 others (Files, the forms, a proposal approved) and **releases** a pack: its version goes up
 by one, the content of that commit is frozen as version N (git tag `<name>@N`; it never changes),
 and any workspace may use it.
 
-A workspace chooses what it uses in `brain.toml`: `packs = ["base"]` is the shipped baseline,
+A pin `base@N` is read only from the admin workspace's releases. A workspace chooses what it uses in `brain.toml`: `packs = ["base"]` is the shipped baseline,
 `packs = ["base@2"]` is released version 2. A workspace whose pack has a newer release than the
 one it uses (the baseline counts as 0) shows **Update available**; an admin of that workspace
 sees the difference and presses **Update to vN**, which commits the new pin like any edit of
@@ -345,11 +376,11 @@ sees the difference and presses **Update to vN**, which commits the new pin like
 
 Work that keeps being done the same way should become something Brain has. The `platform`
 pack's Play `capitalize`, run by its agent `capitalizer`, starts every Monday at 07:00 on the
-platform workspace's clock and by hand. **Repeated work** is a job done four or more times
+admin workspace's clock and by hand. **Repeated work** is a job done four or more times
 in the last 30 days, in all workspaces together, by the same agent (by name) calling the same
 sequence of tools on similar goals. `platform.repeats` finds these deterministically, with no
 model. The `capitalizer` judges each one, and for each that is worth it proposes, in the pack
-sources of the platform workspace, one of:
+sources of the admin workspace, one of:
 
 1. a **new tool** (`tool.toml`, `run.sh`, `test.sh` that proves it without touching anything
    real) in a pack, and the agents' `tools` lists updated;
@@ -365,7 +396,7 @@ pack released, workspaces get them with Update.
 
 The Play `sync-tools` (Monday 07:30 and by hand), run by the agent `syncer`, brings home
 what workspaces improved on their own. `platform.tool-drift` compares, by name, the tools, agents
-and Plays that workspaces hold in their own folders with the platform workspace's pack sources: a
+and Plays that workspaces hold in their own folders with the admin workspace's pack sources: a
 workspace copy that differs, or one that no pack has. A tool that is a script (`run.sh`) is compared
 with its scripts; a tool Brain runs itself has none and is not compared. For each, the agent decides
 whether to adopt the workspace's version into a pack, as a `workspace.fix` proposal to approve; an

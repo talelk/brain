@@ -184,7 +184,7 @@ the outputs the descriptions promise to agents.
 
 ## The `platform` pack
 
-Only a workspace with `platform = true` may list it. Its tools are read-only Brain-run tools; each is refused for a task of any other
+Only a platform workspace (`platform = "admin"` or `"read"`) may list it. Its tools are read-only Brain-run tools; each is refused for a task of any other
 workspace, and each call is audited. Texts are cut (a cut text ends with `[cut: N more characters]`); a secret value is shown as `[secret]`.
 
 | Tool | Inputs (`*` required) | Output |

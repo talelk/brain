@@ -1,7 +1,7 @@
 import { createMemo, createSignal, For, Match, Show, Switch, type Accessor, type JSX } from "solid-js";
 import { Button, Icon as GlyphIcon, Skeleton } from "@talelk/newui-atoms";
 import { Alert, Dialog, ItemListRow } from "@talelk/newui-molecules";
-import type { Problem, TaskNeed, TaskState, TaskSummary } from "@brain/contracts";
+import type { FolderPush, Problem, TaskNeed, TaskState, TaskSummary } from "@brain/contracts";
 import type { ApiFailure } from "../data/api";
 import { t, tKey } from "../i18n";
 import { ago, money, shownState, stateLabel } from "../lib/format";
@@ -144,7 +144,7 @@ export function Details(props: { summary: JSX.Element; open?: boolean; class?: s
         <Icon name="lucide-chevron-right" class="details-mark size-3.5" />
         {props.summary}
       </summary>
-      <div class="mt-2">{props.children}</div>
+      <div class="mt-3 flex flex-col gap-4">{props.children}</div>
     </details>
   );
 }
@@ -165,5 +165,20 @@ export function ConfirmButton(props: { label: string; confirm: string; busy?: bo
         </Dialog.Content>
       </Dialog.Root>
     </>
+  );
+}
+
+/** The last push of the workspace folder to its git remote: when, and why not when it failed. */
+export function PushStatus(props: { push: FolderPush | null | undefined }): JSX.Element {
+  return (
+    <Show when={props.push} fallback={<p class="t-small text-ink-2">{t("push.none")}</p>}>
+      {(push) => (
+        <p class={`inline-flex flex-wrap items-center gap-x-1.5 t-small font-medium ${push().ok ? "text-ok" : "text-bad"}`} role={push().ok ? undefined : "alert"}>
+          <Icon name={push().ok ? "lucide-circle-check" : "lucide-circle-x"} />
+          {push().ok ? t("push.ok", { when: ago(push().atMs), commit: push().commit.slice(0, 7) }) : t("push.failed", { when: ago(push().atMs) })}
+          <Show when={!push().ok && push().message}><span class="font-normal text-ink-2">{push().message}</span></Show>
+        </p>
+      )}
+    </Show>
   );
 }

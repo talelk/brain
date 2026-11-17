@@ -1,4 +1,4 @@
-import { BrainError, isSlug, slugify, secretName, MAX_FILE_BYTES, MAX_WRITE_BYTES, type CommandInput, type CommandOutputs, type WorkspaceSummary } from "@brain/contracts";
+import { BrainError, isSlug, slugify, MAX_FILE_BYTES, MAX_WRITE_BYTES, type CommandInput, type CommandOutputs, type WorkspaceSummary } from "@brain/contracts";
 import { randomBytes } from "node:crypto";
 import git from "isomorphic-git";
 import { existsSync, rmSync } from "node:fs";

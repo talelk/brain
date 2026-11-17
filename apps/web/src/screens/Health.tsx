@@ -7,7 +7,7 @@ import { command, query, useAction, useQuery } from "../data/api";
 import { usePlace, useSession } from "../data/session";
 import { t, tn } from "../i18n";
 import { ago, count, dateTime } from "../lib/format";
-import { Code, ConfirmButton, Failure, Icon, Keyed, Ready } from "../components/bits";
+import { Code, ConfirmButton, Failure, Icon, Keyed, PushStatus, Ready } from "../components/bits";
 import { Head } from "../components/Shell";
 import { auditBreak, said } from "../lib/said";
 
@@ -134,6 +134,9 @@ export default function HealthScreen(): JSX.Element {
                     </ul>
                   </Show>
                 </Section>
+                <Show when={loaded().folderPush !== undefined}>
+                  <Section title={t("health.folderPush")} description={t("health.folderPush.aside")} headingLevel={2}><div class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-4"><PushStatus push={loaded().folderPush} /></div></Section>
+                </Show>
                 <Section title={t("health.audit")} description={t("health.audit.aside")} headingLevel={2}><div class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-4"><Audit audit={loaded().audit} admin={admin()} /></div></Section>
               </div>
             </div>

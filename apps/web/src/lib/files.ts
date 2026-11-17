@@ -1,4 +1,4 @@
-import type { AgentFile, PlayFile, SnapshotManifest, StepSpec, ToolFile } from "@brain/contracts";
+import type { AgentFile, PlatformKind, PlayFile, SnapshotManifest, StepSpec, ToolFile } from "@brain/contracts";
 import { compact, toToml, type TomlTable, type TomlValue } from "./toml";
 
 /**
@@ -15,23 +15,27 @@ export interface Brain {
   description: string;
   timezone?: string;
   visibility?: "private" | "public";
-  /** The platform workspace: kept as it is read, set only by an instance admin. */
-  platform?: true;
+  /** A platform workspace: kept as it is read, set only by a platform administrator. */
+  platform?: PlatformKind;
   packs: readonly string[];
   limits: SnapshotManifest["limits"];
   healing: SnapshotManifest["healing"];
   models: readonly Model[];
   projects: readonly Project[];
   github: SnapshotManifest["github"];
+  /** The remote the workspace folder is pushed to. */
+  git: SnapshotManifest["git"];
   teams: SnapshotManifest["teams"];
   approvals: Approvals;
 }
 
 export function brainOf(snapshot: SnapshotManifest): Brain {
-  const { name, description, packs, limits, healing, models, projects, github, teams, approvals } = snapshot;
+  const { name, description, packs, limits, healing, models, projects, github, git, teams, approvals } = snapshot;
   const pins = snapshot.pins ?? {};
-  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, ...(snapshot.platform ? { platform: true as const } : {}), packs: packs.map((pack) => (pins[pack] ? `${pack}@${pins[pack]}` : pack)), limits, healing, models, projects, github, teams, approvals };
+  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, ...(snapshot.platform ? { platform: snapshot.platform } : {}), packs: packs.map((pack) => (pins[pack] ? `${pack}@${pins[pack]}` : pack)), limits, healing, models, projects, github, git, teams, approvals };
 }
+
+const differs = <T>(value: T, standard: T): T | undefined => (value === standard ? undefined : value);
 
 export function brainToml(brain: Brain): string {
   return toToml(compact({
@@ -39,13 +43,15 @@ export function brainToml(brain: Brain): string {
     description: brain.description,
     timezone: brain.timezone,
     visibility: brain.visibility === "public" ? "public" : undefined,
-    platform: brain.platform ? true : undefined,
+    platform: brain.platform,
     packs: brain.packs,
-    limits: { ...brain.limits },
-    healing: { ...brain.healing },
+    // A value that is the default is not written: the file says only what was chosen.
+    limits: { daily_spend_usd: differs(brain.limits.daily_spend_usd, 0), running_tasks: differs(brain.limits.running_tasks, 4), confirm_plans: differs(brain.limits.confirm_plans, "person") },
+    healing: { mode: differs(brain.healing.mode, "auto"), per_day: differs(brain.healing.per_day, 5) },
     model: brain.models.map((model) => ({ ...model })),
-    project: brain.projects.map((project) => ({ ...project })),
+    project: brain.projects.map((project) => ({ ...project, branch: differs(project.branch, "main"), access: differs(project.access, "read"), network: project.network.length > 0 ? project.network : undefined })),
     github: brain.github ? { ...brain.github } : undefined,
+    git: brain.git ? { ...brain.git } : undefined,
     teams: brain.teams ? { ...brain.teams } : undefined,
     approvals: Object.fromEntries(Object.entries(brain.approvals).map(([tool, rule]) => [tool, { ...rule }])),
   }));
@@ -53,7 +59,7 @@ export function brainToml(brain: Brain): string {
 
 export function agentToml(agent: AgentFile): string {
   const { description, engine, native, tools, model, limits, translations } = agent;
-  return toToml(compact({ description, engine, native, tools, model, limits: { ...limits }, translations: translations as TomlTable | undefined }));
+  return toToml(compact({ description, engine, native: differs(native, "none"), tools, model, limits: { turns: differs(limits.turns, 20), tokens: differs(limits.tokens, 200_000), spend_usd: differs(limits.spend_usd, 0) }, translations: translations as TomlTable | undefined }));
 }
 
 const inputsTable = (inputs: ToolFile["inputs"]): TomlTable => Object.fromEntries(Object.entries(inputs).map(([name, spec]) => [name, { type: spec.type, description: spec.description || undefined, required: spec.required, enum: spec.enum, items: spec.items ? { ...spec.items } : undefined }]));
@@ -72,7 +78,7 @@ function keepInputs(translations: ToolFile["translations"] | PlayFile["translati
 export function toolToml(tool: ToolFile): string {
   const { description, effect, timeout_seconds, needs, network, secrets, runs, host_command, inputs, translations } = tool;
   // `inputs` is filled after `compact`, which would drop a `required = false` it must keep.
-  return toToml({ ...compact({ description, runs, host_command, effect, timeout_seconds, needs, network, secrets }), inputs: inputsTable(inputs), ...compact({ translations: keepInputs(translations, inputs) }) });
+  return toToml({ ...compact({ description, runs, host_command, effect, timeout_seconds: differs(timeout_seconds, 60), needs, network, secrets }), inputs: inputsTable(inputs), ...compact({ translations: keepInputs(translations, inputs) }) });
 }
 
 function stepTable(step: StepSpec): TomlTable {
