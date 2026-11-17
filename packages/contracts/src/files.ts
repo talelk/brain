@@ -59,7 +59,7 @@ export const BrainFile = z.strictObject({
   packs: z.array(slug("a pack name")).default([]),
   limits: z.strictObject({
     daily_spend_usd: z.number().min(0).default(0),
-    running_tasks: z.int().min(1).max(64).default(4),
+    running_tasks: z.int().min(0).max(64).default(4),
     confirm_plans: z.enum(["person", "auto"]).default("person"),
   }).prefault({}),
   model: z.array(z.strictObject({
@@ -96,8 +96,8 @@ export const AgentFile = z.strictObject({
   tools: z.array(toolName).default([]),
   model: slug("a model name").optional(),
   limits: z.strictObject({
-    turns: z.int().min(1).default(20),
-    tokens: z.int().min(1).default(200_000),
+    turns: z.int().min(0).default(20),
+    tokens: z.int().min(0).default(200_000),
     spend_usd: z.number().min(0).default(0),
   }).prefault({}),
 });

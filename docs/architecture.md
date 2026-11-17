@@ -195,7 +195,7 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   person rewrote with `task.edit` is kept as they wrote it.
 - The orchestrator runs after every change and on a timer. For each workspace it makes `ready` every `waiting` task
   whose prerequisites are `done` and whose `when` holds (a task whose `when` is false is `done` with result `skipped`),
-  and queues a `work` attempt for each `ready` task while fewer than `running_tasks` tasks have work queued or running.
+  and queues a `work` attempt for each `ready` task while fewer than `running_tasks` tasks have work queued or running (0 is no cap: every ready task is queued and the runners' slots set the pace).
   A task is `running` from the moment a runner claims its work.
 - A `work` attempt's result moves the task to checking: a `check` attempt for `review_by` (or the base pack's `checker`
   when the step names none) receives the goal, the result, the tool calls and the working-copy diff, and returns
@@ -254,8 +254,8 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   an attempt (an agent with `native` other than `none` needs `native-tools`; an `act` attempt needs only what its tool
   needs). `heartbeat` answers the attempts the runner should stop.
 - `claim` picks the oldest queued attempt this runner fits, fairest workspace first (fewest running), and leaves out a
-  workspace with `running_tasks` attempts offered or running, or whose spend of the day plus what the attempt's agent
-  may spend would pass the daily cap. It returns a **JobOffer** and reserves the agent's `spend_usd` in `usage`. An
+  workspace with `running_tasks` (when not 0) attempts offered or running, or whose spend of the day plus what the attempt's agent
+  may spend would pass the daily cap. It returns a **JobOffer** and reserves the agent's `spend_usd` in `usage`. For an agent `turns`, `tokens` and `spend_usd` of 0 are no cap: the engine is given no turn or token ceiling. An
   offer not acknowledged in 30 s is taken back; `ack` starts a 60 s lease that `renew` extends (`renew` answers `stop`
   for an attempt whose task was stopped); an expired lease requeues the attempt, and its next offer moves the fence.
 - JobOffer: attempt id, fence, kind, task (id, title, goal, round, prior findings), context (prerequisite results, notes,

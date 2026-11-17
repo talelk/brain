@@ -45,7 +45,7 @@ packs = ["base", "software-factory"]
 
 [limits]
 daily_spend_usd = 20        # 0 means no cap
-running_tasks = 4
+running_tasks = 4           # 0 means no cap
 confirm_plans = "person"    # or "auto"
 
 [[model]]                   # tried in order; the next one is used when one refuses
@@ -97,8 +97,8 @@ tools = ["git.open-pr", "task.note"]    # workspace and pack tools, by name
 model = "main"              # optional; the workspace's first model otherwise
 
 [limits]
-turns = 12
-tokens = 100000
+turns = 12                 # 0 means no cap
+tokens = 100000            # 0 means no cap
 spend_usd = 0.50            # 0 means no cap
 ```
 

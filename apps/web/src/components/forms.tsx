@@ -101,8 +101,8 @@ export function AgentForm(props: { name: string; initial: AgentFile; isNew: bool
       </Group>
       <Group title={t("agent.limits")} text={t("agent.limits.text")}>
         <div class="grid gap-4 sm:grid-cols-3">
-          <NumberField label={t("agent.limits.turns")} min={1} step={1} value={agent.limits.turns} onChange={(value) => setAgent("limits", "turns", value ?? 1)} disabled={props.readOnly} />
-          <NumberField label={t("agent.limits.tokens")} min={1} step={1000} value={agent.limits.tokens} onChange={(value) => setAgent("limits", "tokens", value ?? 1)} disabled={props.readOnly} />
+          <NumberField label={t("agent.limits.turns")} description={t("field.zeroNoCap")} min={0} step={1} value={agent.limits.turns} onChange={(value) => setAgent("limits", "turns", value ?? 0)} disabled={props.readOnly} />
+          <NumberField label={t("agent.limits.tokens")} description={t("field.zeroNoCap")} min={0} step={1000} value={agent.limits.tokens} onChange={(value) => setAgent("limits", "tokens", value ?? 0)} disabled={props.readOnly} />
           <NumberField label={t("agent.limits.spend")} description={t("field.zeroNoCap")} min={0} value={agent.limits.spend_usd} onChange={(value) => setAgent("limits", "spend_usd", value ?? 0)} disabled={props.readOnly} />
         </div>
       </Group>
@@ -316,7 +316,7 @@ export function SettingsForm(props: { snapshot: SnapshotManifest; readOnly: bool
       <Group title={t("settings.limits")}>
         <div class="grid gap-4 sm:grid-cols-2">
           <NumberField label={t("settings.limits.spend")} description={t("field.zeroNoCap")} min={0} value={brain.limits.daily_spend_usd} onChange={(value) => set("limits", "daily_spend_usd", value ?? 0)} disabled={props.readOnly} />
-          <NumberField label={t("settings.limits.running")} description={t("settings.limits.running.help")} min={1} max={64} step={1} value={brain.limits.running_tasks} onChange={(value) => set("limits", "running_tasks", value ?? 1)} disabled={props.readOnly} />
+          <NumberField label={t("settings.limits.running")} description={t("settings.limits.running.help")} min={0} max={64} step={1} value={brain.limits.running_tasks} onChange={(value) => set("limits", "running_tasks", value ?? 0)} disabled={props.readOnly} />
         </div>
         <Choice label={t("settings.limits.plans")} value={brain.limits.confirm_plans} onChange={(value) => set("limits", "confirm_plans", value)} disabled={props.readOnly} options={[{ value: "person", label: t("settings.limits.plans.person"), help: t("settings.limits.plans.person.help") }, { value: "auto", label: t("settings.limits.plans.auto"), help: t("settings.limits.plans.auto.help") }]} />
       </Group>

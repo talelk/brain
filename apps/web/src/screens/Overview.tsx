@@ -35,7 +35,7 @@ function WorkspacesTable(props: { workspaces: readonly OverviewWorkspace[] }): J
       const spend = ctx.row.original.spend;
       return (
         <span class="inline-flex min-w-28 flex-col items-end gap-1 tabular-nums">
-          <span>{money(spend.todayMicroUsd)}<Show when={spend.capMicroUsd > 0}><span class="text-ink-gray-7"> / {money(spend.capMicroUsd)}</span></Show></span>
+          <span>{money(spend.todayMicroUsd)}<span class="text-ink-gray-7"> / {spend.capMicroUsd > 0 ? money(spend.capMicroUsd) : t("overview.spend.nocap")}</span></span>
           <Show when={spend.capMicroUsd > 0}><Progress size="sm" value={Math.min(100, (spend.todayMicroUsd / spend.capMicroUsd) * 100)} class="w-24" aria-label={t("overview.spend.meter", { name: ctx.row.original.name })} /></Show>
         </span>
       );
@@ -103,7 +103,7 @@ function Content(props: { overview: Overview }): JSX.Element {
   const waiting = (): number => sum(o().workspaces, (workspace) => workspace.needsYou);
   const running = (): number => sum(o().workspaces, (workspace) => workspace.running);
   const spent = (): number => sum(o().workspaces, (workspace) => workspace.spend.todayMicroUsd);
-  const caps = (): number => sum(o().workspaces, (workspace) => workspace.spend.capMicroUsd);
+  const caps = (): number => (o().workspaces.some((workspace) => workspace.spend.capMicroUsd === 0) ? 0 : sum(o().workspaces, (workspace) => workspace.spend.capMicroUsd));
   const failed = (): number => sum(o().workspaces, (workspace) => workspace.failedToday);
   const stats = () => [
     { label: t("overview.stat.needs"), icon: "lucide-circle-alert", value: <span class={waiting() > 0 ? "text-needs-text" : ""}>{waiting()}</span>, hint: waiting() > 0 ? tn("overview.stat.needs.hint", o().workspaces.filter((workspace) => workspace.needsYou > 0).length) : t("overview.stat.needs.none") },

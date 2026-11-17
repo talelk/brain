@@ -85,6 +85,7 @@ for (const demo of DEMOS_AND_STARTER) {
   const file = (await query("file.read", { workspaceId: id, path: "brain.toml" })) as { content: string };
   const config = parse(file.content) as Record<string, unknown> & { model?: Array<Record<string, unknown>>; project?: Array<Record<string, unknown>> };
   if (demo.slug === "starter" && !(config.model ?? []).length) config.model = [{ name: model.name, provider: model.provider, url: model.url, model: model.model }];
+  config["limits"] = { ...(config["limits"] as object | undefined), daily_spend_usd: 0, running_tasks: 0 };
   config["timezone"] = env("BRAIN_TIMEZONE", "Africa/Tunis");
   if (prices.in && prices.out) for (const entry of config.model ?? []) { entry["input_usd_per_mtok"] = Number(prices.in); entry["output_usd_per_mtok"] = Number(prices.out); }
   for (const project of config.project ?? []) {

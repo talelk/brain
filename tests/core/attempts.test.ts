@@ -363,6 +363,18 @@ describe("the record of an attempt and the health of what runs it", () => {
 });
 
 describe("a workspace's limits", () => {
+  it("0 means no cap: running_tasks starts every ready task, and an agent's turns and tokens reach the runner as 0", async () => {
+    const open = await makeWorkspace(harness, "Open", { brain: "[limits]\nrunning_tasks = 0\ndaily_spend_usd = 0\n", agents: { dev: { uncapped: true } }, plays: { one: one("dev") } });
+    const ids = [await start("one", open.workspaceId), await start("one", open.workspaceId), await start("one", open.workspaceId)];
+    expect(await Promise.all(ids.map((id) => getTask(harness.admin, open.workspaceId, id).then((task) => task.attempts.length)))).toEqual([1, 1, 1]);
+    const offer = (await driver.claim()) as JobOffer;
+    expect(offer.agent.limits).toMatchObject({ turns: 0, tokens: 0, spendMicroUsd: 0 });
+    await driver.ack(offer);
+    expect(await driver.claim()).not.toBeNull();
+    await driver.finish(offer);
+    await driver.drain();
+  });
+
   it("running_tasks: no more tasks run at once, and the runner serves the workspace with the fewest running first", async () => {
     const limited = await makeWorkspace(harness, "Limited", { brain: "[limits]\nrunning_tasks = 1\n", agents: { dev: {} }, plays: { one: one("dev") } });
     const first = await start("one", limited.workspaceId);

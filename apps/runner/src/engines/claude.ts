@@ -74,7 +74,7 @@ export class ClaudeEngine implements EngineAdapter {
     let output = "";
     try {
       const { query, tool, createSdkMcpServer } = (await import(PACKAGE)) as typeof import("@anthropic-ai/claude-agent-sdk");
-      const requests = new ToolRequests(spec.tools, push, { maxCalls: spec.limits.maxTurns });
+      const requests = new ToolRequests(spec.tools, push, { ...(spec.limits.maxTurns > 0 ? { maxCalls: spec.limits.maxTurns } : {}) });
       this.requests = requests;
       const tools = requests.entries().map(([name, entry]) => tool(name, engineToolDescription(entry), shapeOf(entry.inputSchema as Record<string, JsonValue>), async (args) => ({ content: [{ type: "text" as const, text: await requests.execute(name, args as JsonValue) }] })));
       const mcpServer = tools.length ? createSdkMcpServer({ name: "brain", version: "1", tools }) : undefined;
@@ -83,7 +83,7 @@ export class ClaudeEngine implements EngineAdapter {
       const execution = query({
         prompt: spec.task,
         options: {
-          model: spec.model.name, cwd: spec.workDir ?? spec.stateDir, maxTurns: spec.limits.maxTurns, systemPrompt: spec.instructions,
+          model: spec.model.name, cwd: spec.workDir ?? spec.stateDir, ...(spec.limits.maxTurns > 0 ? { maxTurns: spec.limits.maxTurns } : {}), systemPrompt: spec.instructions,
           // `tools` is the whole set of built-in tools the model is offered; `allowedTools` lets exactly those and the workspace tools run, and
           // `dontAsk` refuses anything else instead of asking a person who is not there.
           tools: [...native], allowedTools: [...native, ...requests.names().map((name) => `${MCP_PREFIX}${name}`)], settingSources: [], permissionMode: "dontAsk",
@@ -91,7 +91,7 @@ export class ClaudeEngine implements EngineAdapter {
           ...(spec.limits.maxMicroUsd > 0 ? { maxBudgetUsd: spec.limits.maxMicroUsd / 1_000_000 } : {}),
           // The SDK process gets this environment and no other: the gateway and the attempt's token, never a key of the runner's.
           env: { PATH: process.env["PATH"] ?? "/usr/local/bin:/usr/bin:/bin", HOME: spec.stateDir, ANTHROPIC_BASE_URL: anthropicBase(spec.model.baseUrl), ANTHROPIC_API_KEY: spec.model.token, ANTHROPIC_AUTH_TOKEN: spec.model.token,
-            CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(Math.min(spec.limits.maxTokens, 32_000)), DISABLE_TELEMETRY: "1", DISABLE_AUTOUPDATER: "1",
+            CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(spec.limits.maxTokens > 0 ? Math.min(spec.limits.maxTokens, 32_000) : 32_000), DISABLE_TELEMETRY: "1", DISABLE_AUTOUPDATER: "1",
             ...Object.fromEntries(["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "no_proxy", "NO_PROXY"].flatMap((name) => (process.env[name] ? [[name, process.env[name]!]] : []))) },
           abortController: abort,
         } as never,
@@ -120,7 +120,7 @@ export class ClaudeEngine implements EngineAdapter {
           push({ kind: "usage", inputTokens, outputTokens, cachedInputTokens, microUsd, turns });
           if (m.subtype === "error_max_turns" || m.subtype === "error_max_budget_usd") { push({ kind: "stopped", reason: "limit", detail: `Claude stopped at the agent's limit (${m.subtype})` }); return; }
           if (m.subtype !== "success" || m.is_error) throw new Error(`Claude run did not succeed: ${m.subtype ?? "unknown result"}${typeof m.result === "string" ? `: ${m.result}` : ""}`);
-          if (!output.trim() && (inputTokens + outputTokens + cachedInputTokens > spec.limits.maxTokens || overCostCap(microUsd, spec.limits.maxMicroUsd))) { push({ kind: "stopped", reason: "limit", detail: "Claude used the agent's allowance before it wrote an answer" }); return; }
+          if (!output.trim() && ((spec.limits.maxTokens > 0 && inputTokens + outputTokens + cachedInputTokens > spec.limits.maxTokens) || overCostCap(microUsd, spec.limits.maxMicroUsd))) { push({ kind: "stopped", reason: "limit", detail: "Claude used the agent's allowance before it wrote an answer" }); return; }
           completed = true;
           if (typeof m.result === "string") resultText = m.result;
         }

@@ -82,7 +82,7 @@ function startReady(gov: Gov, workspaceId: string, ready: readonly TaskRow[]): v
   let busy = (gov.db.prepare(`SELECT COUNT(DISTINCT task_id) AS n FROM attempts WHERE workspace_id=? AND kind='work' AND state IN ${ACTIVE_ATTEMPT}`).get(workspaceId) as { n: number }).n;
   for (const task of ready) {
     if (activeAttempts(gov, task.id) > 0) continue;
-    if (busy >= limit) return;
+    if (limit > 0 && busy >= limit) return;
     const settings = settingsOf(task);
     for (const [index, agent] of doers(settings).entries()) queueAttempt(gov, { task, kind: "work", agent, candidate: settings.candidates === null ? null : index });
     busy += 1;

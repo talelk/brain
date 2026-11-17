@@ -121,7 +121,7 @@ function claim(gov: Gov, runnerId: string): AttemptRow | undefined {
   for (const attempt of queued) {
     if (full.has(attempt.workspace_id)) continue;
     const settings = activeManifest(gov, attempt.workspace_id);
-    if ((running.get(attempt.workspace_id) ?? 0) >= settings.limits.running_tasks) {
+    if (settings.limits.running_tasks > 0 && (running.get(attempt.workspace_id) ?? 0) >= settings.limits.running_tasks) {
       full.add(attempt.workspace_id);
       continue;
     }

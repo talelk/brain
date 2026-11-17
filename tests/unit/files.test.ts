@@ -53,6 +53,8 @@ describe("file schemas accept what docs/model.md shows", () => {
   it("fills in what a file leaves out", () => {
     expect(BrainFile.parse({ name: "Small" })).toMatchObject({ packs: [], limits: { daily_spend_usd: 0, running_tasks: 4, confirm_plans: "person" }, model: [], project: [], approvals: {} });
     expect(AgentFile.parse({ description: "x", engine: ["pi"] })).toMatchObject({ native: "none", tools: [], limits: { spend_usd: 0 } });
+    expect(BrainFile.parse({ name: "Open", limits: { running_tasks: 0 } }).limits.running_tasks).toBe(0);
+    expect(AgentFile.parse({ description: "x", engine: ["pi"], limits: { turns: 0, tokens: 0 } }).limits).toMatchObject({ turns: 0, tokens: 0 });
     expect(PlayFile.parse({ title: "x", step: [{ id: "a", agent: "b" }] }).step[0]).toMatchObject({ after: [], max_rounds: 2, approve: false });
   });
 });

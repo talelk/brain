@@ -258,7 +258,7 @@ export class AcpEngine implements EngineAdapter {
     this.toolCalls.clear();
     this.native = spec.native;
     const cwd = spec.workDir ?? spec.stateDir;
-    const requests = new ToolRequests(spec.tools, (event) => this.push(event), { maxCalls: spec.limits.maxTurns });
+    const requests = new ToolRequests(spec.tools, (event) => this.push(event), { ...(spec.limits.maxTurns > 0 ? { maxCalls: spec.limits.maxTurns } : {}) });
     this.requests = requests;
     try {
       this.spawnAgent(cwd, this.options.env(spec));
