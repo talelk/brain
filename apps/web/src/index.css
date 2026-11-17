@@ -201,12 +201,12 @@ body {
 .chain-item:not(:last-child)::before {
   content: "";
   position: absolute;
-  inset-inline-start: calc(var(--rail) / 2 - 2.5px);
+  inset-inline-start: calc(var(--rail) / 2 - 1.5px);
   top: 2.125rem;
   bottom: -1.125rem;
-  width: 5px;
-  border-radius: 4px;
-  background: var(--ink);
+  width: 3px;
+  border-radius: 2px;
+  background: var(--ink-3);
 }
 .chain-link {
   position: relative;
@@ -224,8 +224,8 @@ body {
   fill: none;
 }
 .chain-link .ring {
-  stroke: var(--ink);
-  stroke-width: 5;
+  stroke: var(--ink-3);
+  stroke-width: 3;
 }
 
 /*
