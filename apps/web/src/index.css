@@ -424,3 +424,6 @@ a[href="#app-shell-content"]:not(.skip-link) { display: none; }
 [data-slot="sparkline"] span[style*="clip"] { display: none; }
 /* The design system measures the sliding tab indicator from the left edge; in right-to-left it would otherwise start from the right. */
 :root[dir="rtl"] [data-slot="tab-indicator"] { left: 0; right: auto; }
+
+/* The charts' hidden data tables are absolutely placed and wider than a phone; they must not make the page scroll sideways. */
+main { overflow-x: clip; }
