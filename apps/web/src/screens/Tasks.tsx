@@ -2,15 +2,16 @@ import { createEffect, createSignal, onCleanup, Show, type JSX } from "solid-js"
 import { A } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
 import { EmptyState } from "@talelk/newui-molecules";
-import { DataTable, FilterBar, type DataTableColumn } from "@talelk/newui-organisms";
+import { FilterBar, type DataTableColumn } from "@talelk/newui-organisms";
 import type { TaskState, TaskSummary } from "@brain/contracts";
 import { command, query, useAction, useLive } from "../data/api";
 import { usePlace } from "../data/session";
-import { t } from "../i18n";
+import { t, tn } from "../i18n";
 import { ago, money, shownState } from "../lib/format";
 import { TASK_STATES } from "../lib/model";
 import { Head } from "../components/Shell";
 import { Failure, needText, Ready, StateWord } from "../components/bits";
+import { Table } from "../components/Table";
 
 const PAGE = 50;
 const OPEN: readonly TaskState[] = ["waiting", "ready", "running", "needs_you"];
@@ -44,16 +45,15 @@ export default function TasksScreen(): JSX.Element {
     <>
       <Head title={t("nav.tasks")} text={t("nav.tasks")} description={t("tasks.text")} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.tasks") }]}
         actions={<Button variant="solid" theme="blue" size="md" iconLeft="lucide-plus" route={`${place.to()}?new=1`}>{t("tasks.new")}</Button>} />
-      <Ready data={list.data()} error={list.error()} retry={list.refetch}>
+      <Ready shape="table" data={list.data()} error={list.error()} retry={list.refetch}>
         {(loaded) => (
           <div class="flex flex-col gap-3">
+            <Failure error={stop.error()} />
             <FilterBar surface="bare" query={{ value: search(), placeholder: t("tasks.search"), onInput: setSearch, width: "20rem" }}
               selects={[{ label: t("tasks.filter"), width: "11rem", value: state() ?? "", options: [{ label: t("tasks.filter.all"), value: "" }, ...TASK_STATES.map((value) => ({ label: t(`state.${value}`), value }))], onValueChange: (value) => { setState((value || undefined) as TaskState | undefined); setLimit(PAGE); } }]}
               chips={state() ? [{ label: `${t("tasks.filter")}: ${t(`state.${state() as TaskState}`)}`, onRemove: () => setState(undefined) }] : []}
               onClearAll={() => { setState(undefined); setSearch(""); }} />
-            <Failure error={stop.error()} />
-            <DataTable title={t("nav.tasks")} rows={[...loaded().tasks]} columns={columns} hideSearch selectable={place.can("member")} rowSelectable={(task) => OPEN.includes(task.state)} actionLabel={t("tasks.stop.selected")} onRowsAction={(ids) => void stop.run(ids)}
-              density="comfortable" pageSize={200} recordsLabel={t("tasks.records")} emptyTitle={filtered() ? t("tasks.none.match") : t("tasks.none")} emptyHint={filtered() ? t("tasks.none.match.text") : t("tasks.none.text")} onClearFilters={() => { setState(undefined); setSearch(""); }} />
+            <Table title={t("nav.tasks")} rows={[...loaded().tasks]} columns={columns} count={tn("table.goals", loaded().tasks.length)} {...(place.can("member") ? { bulk: { label: t("tasks.stop.selected"), summary: (count: number) => tn("table.selected", count), eligible: (task: TaskSummary) => OPEN.includes(task.state), run: (ids: string[]) => void stop.run(ids) } } : {})} emptyTitle={filtered() ? t("tasks.none.match") : t("tasks.none")} emptyHint={filtered() ? t("tasks.none.match.text") : t("tasks.none.text")} onClearFilters={() => { setState(undefined); setSearch(""); }} />
             <Show when={loaded().tasks.length >= limit()}><div class="text-center"><Button variant="outline" size="md" onClick={() => setLimit(limit() + PAGE)}>{t("tasks.more")}</Button></div></Show>
             <Show when={!filtered() && loaded().tasks.length === 0}><EmptyState icon="lucide-list-checks" title={t("tasks.none")} description={t("tasks.none.text")} action={<Button variant="solid" theme="blue" size="md" route={`${place.to()}?new=1`}>{t("tasks.new")}</Button>} /></Show>
           </div>

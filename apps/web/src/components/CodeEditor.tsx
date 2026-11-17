@@ -15,7 +15,7 @@ export function problemLine(text: string, message: string): number | undefined {
  * A plain editor for a workspace file: monospace, line numbers, Tab indents, Shift+Tab outdents, and each problem of a refused save
  * shown beside the line it names. No editor library: a textarea whose gutter scrolls with it.
  */
-export function CodeEditor(props: { value: string; onChange: (value: string) => void; label: string; problems?: readonly Problem[]; readOnly?: boolean; rows?: number }): JSX.Element {
+export function CodeEditor(props: { value: string; onChange: (value: string) => void; label: string; problems?: readonly Problem[]; readOnly?: boolean; rows?: number; wrap?: boolean }): JSX.Element {
   let gutter: HTMLDivElement | undefined;
   const lines = createMemo(() => props.value.split("\n").length);
   const marked = createMemo(() => new Map((props.problems ?? []).flatMap((problem) => { const line = problemLine(props.value, problem.message); return line ? [[line, problem.message] as const] : []; })));
@@ -39,11 +39,13 @@ export function CodeEditor(props: { value: string; onChange: (value: string) => 
 
   return (
     <div>
-      <div class="editor t-code">
-        <div ref={gutter} class="gutter" aria-hidden="true">
-          <For each={Array.from({ length: lines() }, (_, index) => index + 1)}>{(line) => <div data-problem={marked().has(line)}>{line}</div>}</For>
-        </div>
-        <textarea aria-label={props.label} spellcheck={false} autocomplete="off" autocapitalize="off" wrap="off" readOnly={props.readOnly}
+      <div class="editor t-code" data-wrap={props.wrap ? "" : undefined}>
+        <Show when={!props.wrap}>
+          <div ref={gutter} class="gutter" aria-hidden="true">
+            <For each={Array.from({ length: lines() }, (_, index) => index + 1)}>{(line) => <div data-problem={marked().has(line)}>{line}</div>}</For>
+          </div>
+        </Show>
+        <textarea aria-label={props.label} spellcheck={false} autocomplete="off" autocapitalize="off" wrap={props.wrap ? "soft" : "off"} readOnly={props.readOnly}
           rows={Math.min(Math.max(lines() + 1, props.rows ?? 12), 32)} value={props.value}
           onInput={(event) => props.onChange(event.currentTarget.value)} onKeyDown={onKeyDown} onScroll={(event) => { if (gutter) gutter.scrollTop = event.currentTarget.scrollTop; }} />
       </div>

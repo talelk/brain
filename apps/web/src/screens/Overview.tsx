@@ -2,7 +2,7 @@ import { createMemo, createSignal, For, lazy, Show, Suspense, type JSX } from "s
 import { A } from "@solidjs/router";
 import { Button, Progress } from "@talelk/newui-atoms";
 import { EmptyState, ItemListRow } from "@talelk/newui-molecules";
-import { Section, StatGrid, DataTable, type DataTableColumn } from "@talelk/newui-organisms";
+import { Section, StatGrid, type DataTableColumn } from "@talelk/newui-organisms";
 import { Sparkline } from "@talelk/newui-charts";
 import type { Overview, OverviewHealth, OverviewRun, OverviewWorkspace } from "@brain/contracts";
 import { useSession } from "../data/session";
@@ -13,6 +13,7 @@ import { useNow } from "../lib/clock";
 import { VisibilityBadge } from "../components/Share";
 import { Head } from "../components/Shell";
 import { Icon, Loading, NeedsCount, Ready } from "../components/bits";
+import { Table } from "../components/Table";
 import { NeedsList, type NeedsItem } from "../components/Needs";
 
 const ROWS = 8;
@@ -45,7 +46,7 @@ function WorkspacesTable(props: { workspaces: readonly OverviewWorkspace[] }): J
     { id: "spend7", header: t("overview.col.spend7"), enableSorting: false, cell: (ctx) => <div class="w-24"><Sparkline type="area" data={flat(week(ctx.row.original, (day) => day.microUsd))} height="1.5rem" /></div> },
     { accessorKey: "lastActivityAt", header: t("overview.col.last"), cell: (ctx) => <span class="whitespace-nowrap text-ink-gray-7">{ctx.row.original.lastActivityAt ? ago(ctx.row.original.lastActivityAt) : "—"}</span> },
   ];
-  return <DataTable title={t("overview.workspaces")} rows={[...props.workspaces]} columns={columns} hideSearch selectable={false} density="comfortable" recordsLabel={t("nav.workspaces")} pageSize={50} />;
+  return <Table title={t("overview.workspaces")} rows={[...props.workspaces]} columns={columns} count={tn("table.workspaces", props.workspaces.length)} />;
 }
 
 /** Attempts running now, across the workspaces. */
@@ -117,7 +118,7 @@ function Content(props: { overview: Overview }): JSX.Element {
   ];
   return (
     <div class="flex flex-col gap-6">
-      <StatGrid stats={stats()} columns={4} class="lg:grid-cols-5" />
+      <StatGrid stats={stats()} columns={4} class="md:grid-cols-5 min-[360px]:max-md:[&>*:last-child]:col-span-2" />
       <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Section title={t("today.needs")} description={waiting() > 0 ? tn("overview.needs.text", waiting()) : undefined} headingLevel={2}>
           <Show when={needs().length > 0} fallback={<EmptyState size="sm" icon="lucide-circle-check" title={t("overview.needs.none")} description={t("overview.needs.none.text")} bordered />}>
@@ -153,7 +154,7 @@ export default function OverviewScreen(): JSX.Element {
     <>
       <Head title={t("nav.overview")} text={t("nav.overview")} description={tn("overview.text", session.workspaces().filter((workspace) => workspace.status === "active").length)}
         actions={session.user().instanceAdmin ? <Button variant="outline" size="md" iconLeft="lucide-plus" route="/new">{t("nav.newWorkspace")}</Button> : undefined} />
-      <Ready data={overview.data()} error={overview.error()} retry={overview.refetch}>
+      <Ready shape="cards" data={overview.data()} error={overview.error()} retry={overview.refetch}>
         {(loaded) => (
           <Show when={loaded().workspaces.length > 0} fallback={
             <EmptyState icon="lucide-folder-git-2" size="lg" bordered title={t("overview.none")} description={session.user().instanceAdmin ? t("overview.none.text.admin") : t("overview.none.text")}

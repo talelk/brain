@@ -90,3 +90,19 @@ export function ShareDialog(props: { open: boolean; onOpenChange: (open: boolean
     </Dialog.Root>
   );
 }
+
+/** What is true of the open workspace at a glance, for the top of its page: private or public, whether the person only reads it because it is public, and Share for an admin. */
+export function WorkspaceActions(): JSX.Element {
+  const place = usePlace();
+  const [sharing, setSharing] = createSignal(false);
+  return (
+    <div class="flex flex-wrap items-center gap-2">
+      <VisibilityBadge visibility={place.summary().visibility} />
+      <Show when={place.summary().viaPublic}><span class="t-small text-ink-2">{t("visibility.viaPublic")}</span></Show>
+      <Show when={place.can("admin")}>
+        <Button variant="outline" size="md" iconLeft="lucide-share-2" onClick={() => setSharing(true)}>{t("share.action")}</Button>
+        <ShareDialog open={sharing()} onOpenChange={setSharing} />
+      </Show>
+    </div>
+  );
+}

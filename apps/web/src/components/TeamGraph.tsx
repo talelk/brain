@@ -31,8 +31,8 @@ export function TeamGraph(props: { snapshot: SnapshotManifest; tasks: readonly T
   return (
     <div>
       <Show when={edges().length > 0} fallback={<EmptyState bordered icon="lucide-network" title={t("team.empty.title")} description={t("team.empty.text")} />}>
-        <div class="graph-scroll">
-          <div class="graph" style={{ width: `${shape().width}px`, height: `${shape().height}px` }}>
+        <div class="graph-scroll max-sm:hidden">
+          <div class="graph mx-auto" style={{ width: `${shape().width}px`, height: `${shape().height}px` }}>
             <svg class="graph-edges" width={shape().width} height={shape().height} aria-hidden="true">
               <defs>
                 <For each={["quiet", "solid", "active"]}>{(kind) => <marker id={`team-arrow-${kind}`} class={`arrow-${kind}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1,1 L9,5 L1,9 z" /></marker>}</For>
@@ -71,7 +71,7 @@ export function TeamGraph(props: { snapshot: SnapshotManifest; tasks: readonly T
             </ol>
           </div>
         </div>
-        <ul class="sr-only" aria-label={t("team.handoffs")}><For each={edges()}>{(edge) => <li>{words(edge)}</li>}</For></ul>
+        <ul class="flex flex-col gap-2 sm:sr-only" aria-label={t("team.handoffs")}><For each={edges()}>{(edge) => <li class="rounded-control border border-outline-gray-1 bg-surface-elevation-1 px-3 py-2 t-small text-ink">{words(edge)}</li>}</For></ul>
         <p class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 t-small text-ink-2">
           <span class="inline-flex items-center gap-2"><svg width="28" height="8" aria-hidden="true" class="team-key"><path d="M0,4 H28" class="edge-solid" /></svg>{t("team.key.work")}</span>
           <span class="inline-flex items-center gap-2"><svg width="28" height="8" aria-hidden="true" class="team-key team-key-check"><path d="M0,4 H28" class="edge-solid" /></svg>{t("team.key.check")}</span>

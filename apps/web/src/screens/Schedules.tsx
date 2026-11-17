@@ -25,7 +25,7 @@ function Row(props: { item: ScheduleItem; onEdit: (item: ScheduleItem) => void }
     <li class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-4 sm:p-5">
       <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div class="min-w-0">
-          <h2 class="t-title text-ink"><A class="link" href={`${at()}/workspace/plays/${item().play}`}>{item().title}</A></h2>
+          <h2 class="t-title text-ink"><A class="rounded-control hover:underline focus-visible:focus-ring" href={`${at()}/workspace/plays/${item().play}`}>{item().title}</A></h2>
           <p class="mt-0.5 t-small text-ink-2"><A class="link" href={at()}>{item().workspaceName}</A> · <span class="t-code code-ltr" dir="ltr">{item().play}</span><Show when={item().source !== "workspace"}> · {t("workspace.source.pack", { pack: item().source })}</Show></p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -74,7 +74,7 @@ export default function SchedulesScreen(): JSX.Element {
     <>
       <Head title={t("nav.schedules")} text={t("nav.schedules")} description={t("schedule.text")}
         actions={canSchedule() ? <Button variant="solid" theme="blue" size="md" iconLeft="lucide-calendar-plus" onClick={() => setDialog({})}>{t("schedule.add")}</Button> : undefined} />
-      <Ready data={schedules.data()} error={schedules.error()} retry={schedules.refetch}>
+      <Ready shape="table" data={schedules.data()} error={schedules.error()} retry={schedules.refetch}>
         {(loaded) => (
           <Show when={shown(loaded().schedules).length > 0} fallback={
             <EmptyState bordered icon="lucide-calendar-clock" size="lg" title={t("schedule.empty")} description={t("schedule.empty.text")}

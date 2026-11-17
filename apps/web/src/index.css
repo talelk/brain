@@ -232,6 +232,11 @@ body {
  * The graph of a goal on the Task page, and the team graph in Workspace: boxes placed in columns, curved arrows between them.
  * The boxes are real buttons or links in reading order; the arrows are a picture only. In right-to-left the picture is mirrored.
  */
+/* The design system's table without its English-only title, column menu, footer and phone selection bar (components/Table.tsx writes the count). */
+.plain-table:not([data-bulk]) [data-slot="data-table-toolbar"] { display: none; }
+.plain-table [data-slot="data-table-toolbar"] > span, .plain-table [data-slot="data-table-columns"] { display: none; }
+.plain-table [data-slot="data-table"] > div.border-t, .plain-table [data-slot="data-table"] > div.sm\:hidden { display: none; }
+.localised-wizard [data-slot="wizard-footer"] { display: none; }
 .graph-scroll { max-width: 100%; max-height: calc(100dvh - 9rem); overflow: auto; padding: 0.25rem 0.25rem 0.75rem; }
 .graph { position: relative; }
 .graph-edges { position: absolute; inset-block-start: 0; inset-inline-start: 0; overflow: visible; pointer-events: none; }
@@ -354,6 +359,8 @@ details[open] > summary > .details-mark { transform: rotate(90deg); }
   overflow: hidden;
   direction: ltr;
 }
+.editor[data-wrap] { grid-template-columns: minmax(0, 1fr); }
+.editor[data-wrap] textarea { white-space: pre-wrap; }
 .editor:focus-within { border-color: var(--violet); box-shadow: 0 0 0 3px color-mix(in oklab, var(--violet) 16%, transparent); }
 .editor .gutter {
   padding: 0.75rem 0.625rem 0.75rem 0.875rem;

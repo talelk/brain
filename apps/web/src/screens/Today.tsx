@@ -11,6 +11,7 @@ import { brainOf, brainToml, paths } from "../lib/files";
 import { money } from "../lib/format";
 import { GoalBox } from "../components/GoalBox";
 import { NeedsList, type NeedsItem } from "../components/Needs";
+import { WorkspaceActions } from "../components/Share";
 import { Head } from "../components/Shell";
 import { Failure, Icon, Keyed, Ready, TaskRow } from "../components/bits";
 
@@ -112,13 +113,16 @@ function Lists(props: { today: TodayData }): JSX.Element {
       </div>
       <aside class="flex flex-col gap-4" aria-label={t("today.spend.title")}>
         <NumberCard title={t("today.spend.title")} value={spend().todayMicroUsd / 1_000_000} format={(value) => money(value * 1_000_000)} {...(spend().capMicroUsd > 0 ? { target: spend().capMicroUsd / 1_000_000 } : {})} negativeIsBetter
-          sparkline={{ data: [...days()], type: "bar" }} />
-        <NumberCard title={t("overview.stat.done")} value={doneToday()} sparkline={{ data: [...goals()], type: "bar" }} />
+          {...trend(days())} />
+        <NumberCard title={t("overview.stat.done")} value={doneToday()} {...trend(goals())} />
         <p class="px-1 t-small text-ink-3">{spend().capMicroUsd > 0 ? t("today.spend.cap", { spent: money(spend().todayMicroUsd), cap: money(spend().capMicroUsd) }) : t("today.spend", { spent: money(spend().todayMicroUsd) })}</p>
       </aside>
     </div>
   );
 }
+
+/** A week of bars, unless every day is nothing: bars scale from the smallest day, so a flat run of zeros would be drawn as a wall. */
+const trend = (days: readonly number[]): { sparkline?: { data: number[]; type: "bar" } } => (days.some((day) => day > 0) ? { sparkline: { data: [...days], type: "bar" } } : {});
 
 /** Today: what do you want done, what waits for you, what is running, what came back. */
 export default function TodayScreen(): JSX.Element {
@@ -127,8 +131,8 @@ export default function TodayScreen(): JSX.Element {
   const fresh = (today: TodayData | undefined): boolean => today !== undefined && today.needsYou.length + today.running.length + today.recent.length + today.approvals.length === 0;
   return (
     <>
-      <Head title={place.summary().name} text={place.summary().name} description={place.summary().description || undefined} breadcrumbs={[{ label: t("nav.overview"), route: "/" }, { label: place.summary().name }]} />
-      <Ready data={place.workspace.data()} error={place.workspace.error()} retry={place.workspace.refetch}>
+      <Head title={place.summary().name} text={place.summary().name} description={place.summary().description || undefined} breadcrumbs={[{ label: t("nav.overview"), route: "/" }, { label: place.summary().name }]} actions={<WorkspaceActions />} />
+      <Ready shape="form" data={place.workspace.data()} error={place.workspace.error()} retry={place.workspace.refetch}>
         {(workspace) => (
           <div class="flex flex-col gap-6">
             <GoalBox plays={workspace().snapshot.plays} play={search.play} autofocus={search.new !== undefined} />

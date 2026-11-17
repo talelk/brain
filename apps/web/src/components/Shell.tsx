@@ -26,8 +26,10 @@ interface HeadState { readonly title: JSX.Element; readonly description?: JSX.El
 const HeadContext = createContext<Setter<HeadState>>();
 export function Head(props: HeadState & { text?: string }): JSX.Element {
   const set = useContext(HeadContext);
+  /** Kept apart so a new title does not rebuild the actions: a dialog opened from one stays open. */
+  const actions = createMemo(() => props.actions);
   createEffect(() => {
-    set?.({ title: props.title, description: props.description, breadcrumbs: props.breadcrumbs, actions: props.actions });
+    set?.({ title: props.title, description: props.description, breadcrumbs: props.breadcrumbs, actions: actions() });
     document.title = props.text ? `${props.text} · Brain` : "Brain";
   });
   return null;

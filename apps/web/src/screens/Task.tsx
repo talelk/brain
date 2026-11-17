@@ -10,6 +10,7 @@ import { t } from "../i18n";
 import { ago, dateTime, duration, money, shortHash, titleOf, tokens } from "../lib/format";
 import { ApprovalView } from "../components/ApprovalView";
 import { TaskGraph } from "../components/TaskGraph";
+import { COL_GAP, NODE_W } from "../lib/graph";
 import { Evidence } from "../components/Evidence";
 import { Markdown } from "../components/Markdown";
 import { PlanEditor } from "../components/PlanEditor";
@@ -222,6 +223,26 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
   );
 }
 
+/** How wide the graph of a goal is: a column for the goal and one for each step a task waits behind, as a share of the page, so a long chain is not hidden behind a scrollbar. */
+function graphShare(task: Task): number {
+  const by = new Map(task.subtasks.map((sub) => [sub.id, sub]));
+  const depths = new Map<string, number>();
+  const depth = (id: string, seen: ReadonlySet<string>): number => {
+    const known = depths.get(id);
+    if (known !== undefined) return known;
+    const sub = by.get(id);
+    if (!sub || seen.has(id)) return 0;
+    const next = new Set(seen).add(id);
+    const value = 1 + Math.max(0, ...[...sub.waitsFor, ...(sub.parentId ? [sub.parentId] : [])].filter((other) => other !== task.id).map((other) => depth(other, next)));
+    depths.set(id, value);
+    return value;
+  };
+  const columns = 1 + Math.max(0, ...task.subtasks.map((sub) => depth(sub.id, new Set())));
+  const width = columns * NODE_W + (columns - 1) * COL_GAP + 56;
+  const room = typeof window === "undefined" ? 1100 : Math.max(700, window.innerWidth - 340);
+  return Math.min(76, Math.max(36, Math.ceil((width / room) * 100)));
+}
+
 /** One goal: its chain of sub-tasks in the start pane, and in the end pane what is recorded for the selected link. */
 export default function TaskScreen(): JSX.Element {
   const place = usePlace();
@@ -242,7 +263,7 @@ export default function TaskScreen(): JSX.Element {
   const selected = (): Task | undefined => (selectedId() === params.taskId ? record.data() : sub.data());
   const select = (id: string): void => { setSearch({ link: id }, { replace: true }); setPane("end"); };
   return (
-    <Ready data={record.data()} error={record.error()} retry={record.refetch}>
+    <Ready shape="split" data={record.data()} error={record.error()} retry={record.refetch}>
       {(task) => (
         <>
           <Head title={<bdi>{task().title}</bdi>} text={task().title}
@@ -252,7 +273,7 @@ export default function TaskScreen(): JSX.Element {
               <Show when={task().play}> {t("task.started.play", { play: place.workspace.data()?.snapshot.plays[task().play ?? ""]?.title ?? task().play ?? "" })}</Show>
               <Show when={task().usage.microUsd > 0}> {t(task().finishedAt ? "task.cost.total" : "task.cost.soFar", { cost: money(task().usage.microUsd) })}</Show>
             </>} />
-          <PaneLayout active={pane()} defaultSize={52} minStartSize={30} maxStartSize={72} resizeLabel={t("task.resize")} class="gap-0"
+          <PaneLayout active={pane()} defaultSize={graphShare(task())} minStartSize={30} maxStartSize={80} resizeLabel={t("task.resize")} class="gap-0"
             start={
               <div class="lg:sticky lg:top-3 lg:pe-5">
                 <TaskGraph record={task()} order={task().needs?.kind === "confirm-plan" ? order() : undefined} selected={selectedId()} onSelect={select} />

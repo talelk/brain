@@ -16,6 +16,7 @@ import { CodeEditor } from "../components/CodeEditor";
 import { AgentForm, MarkdownEditor, PlayForm, problemsOf, ProjectsForm, SaveBar, SettingsForm, ToolForm, useWrite } from "../components/forms";
 import { Markdown } from "../components/Markdown";
 import { ConfirmButton, Failure, Icon, Keyed, Ready } from "../components/bits";
+import { WorkspaceActions } from "../components/Share";
 import { Head } from "../components/Shell";
 
 const TABS = ["agents", "team", "tools", "plays", "memory", "projects", "settings", "files"] as const;
@@ -129,6 +130,14 @@ export default function WorkspaceScreen(): JSX.Element {
     await command("file.delete", { workspaceId: place.id(), paths: mine().filter((file) => file.source === "workspace").map((file) => file.path), message: `Remove ${name()}` });
     navigate(href(tab()));
   });
+  /** On a wide screen a list never opens beside an empty panel: its first item is open already. A phone keeps the list first. */
+  createEffect(() => {
+    const snapshot = place.workspace.data()?.snapshot;
+    if (!snapshot || name() || single() || tab() === "team" || tab() === "files" || search.new !== undefined) return;
+    if (!window.matchMedia("(min-width: 1024px)").matches || (tab() === "memory" && proposals().length > 0)) return;
+    const first = items(snapshot)[0];
+    if (first) navigate(href(tab(), first.name), { replace: true });
+  });
   const create = (): void => { const made = (newName() ?? "").trim(); if (tab() === "tools" ? isToolName(made) : isSlug(made)) navigate(`${href(tab(), made)}?new=1`); };
   const nameValid = (): boolean => { const made = (newName() ?? "").trim(); return made === "" || (tab() === "tools" ? isToolName(made) : isSlug(made)); };
 
@@ -142,7 +151,7 @@ export default function WorkspaceScreen(): JSX.Element {
           {(item) => (
             <li>
               <A href={href(tab(), item().name)} aria-current={name() === item().name ? "page" : undefined} class="block rounded-control px-3 py-2 hover:bg-surface-gray-2 aria-[current=page]:bg-surface-gray-3 focus-visible:focus-ring">
-                <span class="flex items-baseline justify-between gap-2"><span class={`min-w-0 truncate t-text font-semibold text-ink ${item().title ? "" : "t-code"}`}>{item().title ?? item().name}</span><span class="shrink-0 t-small text-ink-3">{item().source === "workspace" ? t("workspace.source.here") : item().source}</span></span>
+                <span class="flex items-baseline justify-between gap-2"><span class={`min-w-0 truncate t-text font-semibold text-ink ${item().title ? "" : "t-code"}`}>{item().title ?? item().name}</span><span class="shrink-0 t-small text-ink-2">{item().source === "workspace" ? t("workspace.source.here") : item().source}</span></span>
                 <Show when={item().text}><span class="line-clamp-2 t-small text-ink-2">{item().text}</span></Show>
               </A>
             </li>
@@ -163,7 +172,7 @@ export default function WorkspaceScreen(): JSX.Element {
 
   return (
     <>
-      <Head title={t("nav.workspace")} text={t("nav.workspace")} description={t("workspace.text", { name: place.summary().name })} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.workspace") }]} />
+      <Head title={t("nav.workspace")} text={t("nav.workspace")} description={t("workspace.text", { name: place.summary().name })} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.workspace") }]} actions={<WorkspaceActions />} />
       <Tabs.Root value={tab()} onValueChange={(value) => navigate(href(value as Tab))} variant="underline" size="md">
         <Tabs.List aria-label={t("workspace.tabs")} class="max-w-full overflow-x-auto">
           <For each={TABS}>{(entry) => <Tabs.Trigger value={entry}>{t(`workspace.tab.${entry}` as MessageKey)}</Tabs.Trigger>}</For>
@@ -171,7 +180,7 @@ export default function WorkspaceScreen(): JSX.Element {
         <Tabs.Content value={tab()} class="pt-5">
           {/* The tabs component fixes its own direction to left-to-right; what is in a tab follows the language. */}
           <div dir={direction()}>
-          <Ready data={place.workspace.data()} error={place.workspace.error()} retry={place.workspace.refetch}>
+          <Ready shape="split" data={place.workspace.data()} error={place.workspace.error()} retry={place.workspace.refetch}>
             {(workspace) => {
               const snapshot = (): SnapshotManifest => workspace().snapshot;
               const exists = (): boolean => items(snapshot()).some((item) => item.name === name());

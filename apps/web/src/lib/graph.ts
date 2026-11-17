@@ -4,8 +4,8 @@ export interface Link { readonly from: string; readonly to: string }
 export interface Placed { readonly id: string; readonly col: number; readonly x: number; readonly y: number; readonly h: number }
 export interface Layout { readonly placed: ReadonlyMap<string, Placed>; readonly order: readonly Placed[]; readonly width: number; readonly height: number }
 
-export const NODE_W = 176;
-export const COL_GAP = 44;
+export const NODE_W = 184;
+export const COL_GAP = 28;
 const ROW_GAP = 14;
 
 /** Columns by the longest way in (a link that would close a loop is ignored), rows by the average row of what feeds a box, boxes centred in their column. */

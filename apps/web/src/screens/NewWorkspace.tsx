@@ -1,4 +1,4 @@
-import { createMemo, For, Show, type JSX } from "solid-js";
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
 import { EmptyState } from "@talelk/newui-molecules";
@@ -53,6 +53,10 @@ export default function NewWorkspaceScreen(): JSX.Element {
     navigate(`/w/${made.slug}?new=1`);
   });
   const first = createMemo((): boolean => session.workspaces().length === 0);
+  /** The step the wizard is on, and its own buttons: the library draws them in English only, so they are hidden and ours press them. */
+  const [step, setStep] = createSignal("name");
+  let shell: HTMLDivElement | undefined;
+  const press = (button: "back" | "next" | "submit"): void => { const buttons = shell?.querySelectorAll<HTMLButtonElement>('[data-slot="wizard-footer"] button') ?? []; (button === "back" ? buttons[0] : buttons[buttons.length - 1])?.click(); };
   const noop = (): undefined => undefined;
   return (
     <>
@@ -60,7 +64,8 @@ export default function NewWorkspaceScreen(): JSX.Element {
       <Show when={session.user().instanceAdmin} fallback={<EmptyState bordered icon="lucide-lock" title={t("new.adminOnly")} description={t("new.adminOnly.text")} />}>
         <div class="max-w-[46rem]">
           <Failure error={create.error()} class="mb-4" />
-          <Wizard<Values> label={t("new.title")} form={form as unknown as WizardFormApi} submitLabel={t("new.create")} onSubmit={async (submitted) => { await create.run(submitted); }}
+          <div class="localised-wizard" ref={shell}>
+          <Wizard<Values> label={t("new.title")} form={form as unknown as WizardFormApi} submitLabel={t("new.create")} onSubmit={async (submitted) => { await create.run(submitted); }} onCurrentStepChange={setStep}
             steps={[
               { id: "name", label: t("new.name.title"), description: t("new.name.text"),
                 validate: (given): Record<string, string> | undefined => (given.name.trim() === "" ? { name: t("new.name.required") } : slugOf(given) !== "" && !isSlug(slugOf(given)) ? { address: t("workspace.new.name.slug") } : noop()),
@@ -116,7 +121,16 @@ export default function NewWorkspaceScreen(): JSX.Element {
                   </div>
                 ) },
             ]} />
-          <Button variant="ghost" size="md" class="mt-4" route="/">{t("action.cancel")}</Button>
+          </div>
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-outline-gray-1 pt-4">
+            <Button variant="outline" size="md" iconLeft="lucide-chevron-left" class="rtl:[&>span:first-child]:rotate-180" disabled={step() === "name"} onClick={() => press("back")}>{t("action.back")}</Button>
+            <div class="flex items-center gap-2">
+              <Button variant="ghost" size="md" route="/">{t("action.cancel")}</Button>
+              <Show when={step() === "repo"} fallback={<Button variant="solid" theme="blue" size="md" iconRight="lucide-chevron-right" class="rtl:[&>span:last-child]:rotate-180" onClick={() => press("next")}>{t("action.next")}</Button>}>
+                <Button variant="solid" theme="blue" size="md" loading={create.busy()} onClick={() => press("submit")}>{t("new.create")}</Button>
+              </Show>
+            </div>
+          </div>
         </div>
       </Show>
     </>

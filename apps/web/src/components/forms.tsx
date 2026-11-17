@@ -60,7 +60,7 @@ export function MarkdownEditor(props: { value: string; onChange: (value: string)
         <span class="t-small font-medium text-ink-2">{props.label}</span>
         <button type="button" class="link t-small" aria-pressed={preview()} onClick={() => setPreview(!preview())}>{preview() ? t("editor.write") : t("editor.preview")}</button>
       </div>
-      <Show when={preview()} fallback={<CodeEditor value={props.value} onChange={props.onChange} label={props.label} problems={props.problems} readOnly={props.readOnly} rows={14} />}>
+      <Show when={preview()} fallback={<CodeEditor value={props.value} onChange={props.onChange} label={props.label} problems={props.problems} readOnly={props.readOnly} rows={14} wrap />}>
         <div class="rounded-xl border border-rule-2 bg-sheet p-5"><Markdown text={props.value} /></div>
       </Show>
     </div>

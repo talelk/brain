@@ -101,7 +101,7 @@ export default function HealthScreen(): JSX.Element {
   return (
     <>
       <Head title={t("nav.health")} text={t("nav.health")} description={t("health.text")} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.health") }]} />
-      <Ready data={health.data()} error={health.error()} retry={health.refetch}>
+      <Ready shape="cards" data={health.data()} error={health.error()} retry={health.refetch}>
         {(loaded) => (
           <div class="flex flex-col gap-6">
             <StatGrid columns={4} stats={[

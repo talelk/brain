@@ -1,14 +1,15 @@
 import { createSignal, For, Show, type JSX } from "solid-js";
 import { Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog, EmptyState, Select, toast } from "@talelk/newui-molecules";
-import { DataTable, Section, type DataTableColumn } from "@talelk/newui-organisms";
+import { Section, type DataTableColumn } from "@talelk/newui-organisms";
 import type { Member, Role, SecretName } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { usePlace, useSession } from "../data/session";
-import { t } from "../i18n";
+import { t, tn } from "../i18n";
 import { ago } from "../lib/format";
 import { ROLES } from "../lib/model";
 import { ConfirmButton, Failure, Ready } from "../components/bits";
+import { Table } from "../components/Table";
 import { ShareDialog } from "../components/Share";
 import { Head } from "../components/Shell";
 
@@ -52,7 +53,7 @@ function Secrets(): JSX.Element {
   ];
   return (
     <Section title={t("secrets.title")} description={t("secrets.aside")} headingLevel={2} actions={<Button variant="outline" size="md" iconLeft="lucide-plus" onClick={() => { setName(""); setOpen(true); }}>{t("secrets.set")}</Button>}>
-      <Ready data={secrets.data()} error={secrets.error()} retry={secrets.refetch}>
+      <Ready shape="table" data={secrets.data()} error={secrets.error()} retry={secrets.refetch}>
         {(loaded) => (
           <div class="flex flex-col gap-3">
             <Show when={loaded().missing.length > 0}>
@@ -61,7 +62,7 @@ function Secrets(): JSX.Element {
               </Alert>
             </Show>
             <Show when={loaded().secrets.length > 0} fallback={<EmptyState size="sm" bordered icon="lucide-key-round" title={t("secrets.none")} description={t("secrets.none.text")} />}>
-              <DataTable title={t("secrets.title")} rows={loaded().secrets.map((secret) => ({ ...secret, id: secret.name }))} columns={columns} hideSearch selectable={false} recordsLabel={t("secrets.title")} pageSize={100} />
+              <Table title={t("secrets.title")} rows={loaded().secrets.map((secret) => ({ ...secret, id: secret.name }))} columns={columns} count={tn("table.secrets", loaded().secrets.length)} />
             </Show>
             <Failure error={remove.error()} />
           </div>
@@ -98,8 +99,8 @@ export default function PeopleScreen(): JSX.Element {
       <Show when={place.can("admin")} fallback={<EmptyState bordered icon="lucide-lock" title={t("people.adminOnly")} description={t("people.adminOnly.text", { role: t(`role.${place.summary().role}`) })} />}>
         <div class="flex flex-col gap-8">
           <Section title={t("people.members")} headingLevel={2} actions={<Button variant="outline" size="md" iconLeft="lucide-share-2" onClick={() => setAdding(true)}>{t("share.action")}</Button>}>
-            <Ready data={members.data()} error={members.error()} retry={members.refetch}>
-              {(loaded) => <DataTable title={t("people.members")} rows={loaded().members.map((member) => ({ ...member, id: member.userId }))} columns={columns} hideSearch selectable={false} density="comfortable" recordsLabel={t("people.members")} pageSize={100} />}
+            <Ready shape="table" data={members.data()} error={members.error()} retry={members.refetch}>
+              {(loaded) => <Table title={t("people.members")} rows={loaded().members.map((member) => ({ ...member, id: member.userId }))} columns={columns} count={tn("table.members", loaded().members.length)} />}
             </Ready>
           </Section>
           <Secrets />

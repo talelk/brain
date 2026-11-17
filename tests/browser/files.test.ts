@@ -228,6 +228,7 @@ test("in Arabic Files reads right to left", async ({ page, stack }) => {
   await page.locator('button[type="submit"]').click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await page.getByRole("link", { name: /Starter/u }).first().click();
+  await expect(page).toHaveURL(/\/w\/starter/u);
   await page.goto(`${page.url().replace(/\/$/u, "")}/workspace/files?folder=docs`);
   await expect(page.getByRole("button", { name: "رفع ملفات" }).first()).toBeVisible();
   await page.getByRole("link", { name: /handbook\.md/u }).click();
