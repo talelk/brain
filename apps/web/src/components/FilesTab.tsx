@@ -374,7 +374,7 @@ export function FilesTab(props: { files: readonly FileEntry[]; readOnly: boolean
       </div>
       <Show when={!props.readOnly}>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-control bg-surface-gray-2 px-3 py-2">
-          <label class="flex items-center gap-2 t-small font-medium text-ink"><span class="whitespace-nowrap">{t("files.upload.to")}</span><TextInput size="sm" class="t-code w-48" aria-label={t("files.upload.to")} value={target()} onInput={(event) => setTarget(event.currentTarget.value)} /></label>
+          <label class="flex max-w-full flex-wrap items-center gap-2 t-small font-medium text-ink"><span>{t("files.upload.to")}</span><TextInput size="sm" class="t-code w-48 max-w-full" aria-label={t("files.upload.to")} value={target()} onInput={(event) => setTarget(event.currentTarget.value)} /></label>
           <p class="t-small text-ink-2">{t("files.upload.limits", { file: mb(MAX_FILE), total: mb(MAX_UPLOAD) })}</p>
         </div>
         <Show when={naming() !== undefined}>

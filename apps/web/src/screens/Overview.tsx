@@ -15,11 +15,22 @@ import { Head } from "../components/Shell";
 import { Icon, Loading, NeedsCount, Ready } from "../components/bits";
 import { Table } from "../components/Table";
 import { NeedsList, type NeedsItem } from "../components/Needs";
+import { said } from "../lib/said";
 
 const ROWS = 8;
 const RUNS = 6;
 /** A series that never moved draws nothing instead of a solid block. */
 const flat = (values: number[]): number[] => (values.every((value) => value === 0) ? [] : values);
+/** A sparkline whose hidden English summary is replaced by one in the interface's language. */
+function Spark(props: { type: "bar" | "area"; data: number[]; show?: (value: number) => string }): JSX.Element {
+  const show = (value: number): string => (props.show ? props.show(value) : String(value));
+  return (
+    <div class="w-24">
+      <div aria-hidden="true"><Sparkline type={props.type} data={props.data} height="1.5rem" /></div>
+      <span class="sr-only">{props.data.length === 0 ? t("overview.spark.none") : t("overview.spark", { n: props.data.length, min: show(Math.min(...props.data)), max: show(Math.max(...props.data)), last: show(props.data.at(-1) ?? 0) })}</span>
+    </div>
+  );
+}
 const Charts = lazy(() => import("../components/Charts"));
 
 const sum = (list: readonly OverviewWorkspace[], pick: (workspace: OverviewWorkspace) => number): number => list.reduce((total, workspace) => total + pick(workspace), 0);
@@ -42,8 +53,8 @@ function WorkspacesTable(props: { workspaces: readonly OverviewWorkspace[] }): J
         </span>
       );
     } },
-    { id: "goals7", header: t("overview.col.goals7"), enableSorting: false, cell: (ctx) => <div class="w-24"><Sparkline type="bar" data={flat(week(ctx.row.original, (day) => day.done))} height="1.5rem" /></div> },
-    { id: "spend7", header: t("overview.col.spend7"), enableSorting: false, cell: (ctx) => <div class="w-24"><Sparkline type="area" data={flat(week(ctx.row.original, (day) => day.microUsd))} height="1.5rem" /></div> },
+    { id: "goals7", header: t("overview.col.goals7"), enableSorting: false, cell: (ctx) => <Spark type="bar" data={flat(week(ctx.row.original, (day) => day.done))} /> },
+    { id: "spend7", header: t("overview.col.spend7"), enableSorting: false, cell: (ctx) => <Spark type="area" data={flat(week(ctx.row.original, (day) => day.microUsd))} show={money} /> },
     { accessorKey: "lastActivityAt", header: t("overview.col.last"), cell: (ctx) => <span class="whitespace-nowrap text-ink-gray-7">{ctx.row.original.lastActivityAt ? ago(ctx.row.original.lastActivityAt) : "—"}</span> },
   ];
   return <Table title={t("overview.workspaces")} rows={[...props.workspaces]} columns={columns} count={tn("table.workspaces", props.workspaces.length)} />;
@@ -89,7 +100,7 @@ function HealthStrip(props: { health: OverviewHealth }): JSX.Element {
     <div class="grid gap-px overflow-hidden rounded-card border border-outline-gray-1 bg-outline-gray-1 sm:grid-cols-3 lg:grid-cols-1" role="group" aria-label={t("overview.health")}>
       {cell(h().runnersTotal === 0 ? false : h().runnersOnline > 0, t("overview.health.runners"), `${h().runnersOnline} / ${h().runnersTotal}`, t("overview.health.runners.hint"))}
       {cell(h().modelsTotal === 0 ? null : h().modelsReachable === h().modelsTotal, t("overview.health.models"), h().modelsTotal === 0 ? "—" : `${h().modelsReachable} / ${h().modelsTotal}`, t("overview.health.models.hint"))}
-      {cell(h().auditProblem === null, t("overview.health.audit"), h().auditProblem === null ? t("health.audit.ok") : t("health.audit.problem"), h().auditProblem ?? t("overview.health.audit.hint"))}
+      {cell(h().auditProblem === null, t("overview.health.audit"), h().auditProblem === null ? t("health.audit.ok") : t("health.audit.problem"), said(h().auditProblem ?? t("overview.health.audit.hint")))}
     </div>
   );
 }

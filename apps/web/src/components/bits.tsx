@@ -5,6 +5,7 @@ import type { Problem, TaskNeed, TaskState, TaskSummary } from "@brain/contracts
 import type { ApiFailure } from "../data/api";
 import { t, tKey } from "../i18n";
 import { ago, money, shownState, stateLabel } from "../lib/format";
+import { said } from "../lib/said";
 
 /** The small pieces every screen is made of. An icon is named by its full `lucide-*` class so the stylesheet build can see it. */
 
@@ -15,7 +16,7 @@ export function failureText(failure: ApiFailure): string {
   const known = tKey(`error.${failure.code}`, "");
   // For these the interface's sentence says it all; the Governor's would repeat it.
   const enough = failure.code === "INVALID_WORKSPACE" || failure.code === "STALE_VERSION";
-  return [known, enough && known !== "" ? "" : failure.message].filter((part) => part !== "").join(" ") || t("error.unknown");
+  return [known, enough && known !== "" ? "" : said(failure.message)].filter((part) => part !== "").join(" ") || t("error.unknown");
 }
 
 /** Each thing to fix, with the file or the field it names. */

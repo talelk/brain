@@ -1,7 +1,10 @@
 import type { TaskState, Usage } from "@brain/contracts";
-import { intlLocale, t, tn } from "../i18n";
+import { intlLocale, locale, t, tn } from "../i18n";
 
 /** How the app writes money, time, sizes and hashes. Money arrives in micro-USD, times in milliseconds. */
+
+/** A name inside a right-to-left sentence, kept in one piece (Unicode first-strong isolate). */
+export const isolate = (name: string): string => (locale() === "ar" ? `\u2068${name}\u2069` : name);
 
 export function money(microUsd: number): string {
   const usd = microUsd / 1_000_000;

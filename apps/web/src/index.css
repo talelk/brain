@@ -235,9 +235,17 @@ body {
 /* The design system's table without its English-only title, column menu, footer and phone selection bar (components/Table.tsx writes the count). */
 .plain-table:not([data-bulk]) [data-slot="data-table-toolbar"] { display: none; }
 .plain-table [data-slot="data-table-toolbar"] > span, .plain-table [data-slot="data-table-columns"] { display: none; }
-.plain-table [data-slot="data-table"] > div.border-t, .plain-table [data-slot="data-table"] > div.sm\:hidden { display: none; }
+.plain-table [data-slot="data-table"] > div.border-t, .plain-table [data-slot="data-table"] > div.sm\:hidden:not([data-slot]) { display: none; }
 .localised-wizard [data-slot="wizard-footer"] { display: none; }
 .graph-scroll { max-width: 100%; max-height: calc(100dvh - 9rem); overflow: auto; padding: 0.25rem 0.25rem 0.75rem; }
+.graph-frame { position: relative; max-width: 100%; }
+.graph-tools { display: flex; justify-content: flex-end; padding-block-end: 0.25rem; }
+/* More graph lies beyond a side: that edge fades out. The scroll offset is negative in right-to-left, so the sides swap with the direction. */
+.graph-scroll[data-more-end="true"] { mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent); }
+.graph-scroll[data-more-start="true"] { mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent); }
+.graph-scroll[data-more-start="true"][data-more-end="true"] { mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent); }
+:root[dir="rtl"] .graph-scroll[data-more-end="true"] { mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent); }
+:root[dir="rtl"] .graph-scroll[data-more-start="true"] { mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent); }
 .graph { position: relative; }
 .graph-edges { position: absolute; inset-block-start: 0; inset-inline-start: 0; overflow: visible; pointer-events: none; }
 :root[dir="rtl"] .graph-edges { transform: scaleX(-1); }
@@ -305,8 +313,9 @@ body {
 .gmark[data-state="stopped"] .glyph { color: var(--ink-3); }
 
 /* What hangs under a node: its checks and approvals, one line each. */
-.gnode-hangs { list-style: none; margin: 0; padding: 0 0.625rem 0.375rem; }
-.chain-hang { display: flex; align-items: center; gap: 0.375rem; height: 1.0625rem; color: var(--ink-2); }
+.gnode-hangs { list-style: none; margin: 0; padding: 0 0.5rem 0.375rem 0.625rem; }
+.chain-hang { display: flex; align-items: flex-start; gap: 0.375rem; color: var(--ink-2); font-size: 0.75rem; line-height: 1rem; }
+.chain-hang .small-ring { margin-block-start: 0.25rem; }
 .chain-hang .small-ring { flex: none; width: 0.5rem; height: 0.5rem; border-radius: 999px; border: 2px solid var(--ink); }
 .chain-hang[data-tone="ok"] .small-ring { border-color: var(--ok-mark); }
 .chain-hang[data-tone="needs"] .small-ring { border-color: var(--needs-mark); }
@@ -400,3 +409,18 @@ details[open] > summary > .details-mark { transform: rotate(90deg); }
 
 /* Files tab: while files are dragged over it, the whole area says it takes them. */
 .drop-active { outline: 2px dashed var(--violet); outline-offset: 6px; border-radius: 16px; }
+
+/* The skip link in the interface's language: the design system's own is English only, so it is hidden and this one comes first. */
+a[href="#app-shell-content"]:not(.skip-link) { display: none; }
+.skip-link { position: absolute; inset-inline-start: 0.5rem; inset-block-start: 0.5rem; z-index: 60; padding: 0.5rem 0.75rem; border-radius: 8px; background: var(--sheet); color: var(--ink); border: 1px solid var(--violet); transform: translateY(-300%); }
+.skip-link:focus { transform: none; }
+
+/* A row of tabs wider than a phone scrolls; its far end fades so the rest is known to be there. */
+@media (max-width: 639px) {
+  .tabs-scroll { padding-inline-end: 1.5rem; mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent); }
+  :root[dir="rtl"] .tabs-scroll { mask-image: linear-gradient(to left, #000 calc(100% - 1.5rem), transparent); }
+}
+/* The chart library's hidden sentence about a sparkline is English only: hidden here, and the number beside it says the same. */
+[data-slot="sparkline"] span[style*="clip"] { display: none; }
+/* The design system measures the sliding tab indicator from the left edge; in right-to-left it would otherwise start from the right. */
+:root[dir="rtl"] [data-slot="tab-indicator"] { left: 0; right: auto; }

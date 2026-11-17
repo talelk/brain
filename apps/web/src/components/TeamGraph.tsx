@@ -63,7 +63,7 @@ export function TeamGraph(props: { snapshot: SnapshotManifest; tasks: readonly T
                   <li class="gnode gnode-agent-box" style={{ "inset-inline-start": `${spot.x}px`, top: `${spot.y}px`, width: `${NODE_W}px`, height: `${spot.h}px` }}>
                     <A class="gnode-main" href={props.href(spot.id)}>
                       <span class="gnode-title t-code"><bdi>{spot.id}</bdi></span>
-                      <span class="t-small text-ink-2 gnode-phrase"><bdi>{props.snapshot.agents[spot.id]?.description}</bdi></span>
+                      <span class="t-small text-ink-2 gnode-phrase" dir="auto">{props.snapshot.agents[spot.id]?.description}</span>
                     </A>
                   </li>
                 )}

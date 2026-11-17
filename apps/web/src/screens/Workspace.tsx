@@ -21,7 +21,7 @@ import { Head } from "../components/Shell";
 
 const TABS = ["agents", "team", "tools", "plays", "memory", "projects", "settings", "files"] as const;
 type Tab = (typeof TABS)[number];
-interface Item { readonly name: string; readonly title?: string; readonly text: string; readonly source: string }
+interface Item { readonly name: string; readonly title?: string; readonly lead?: string; readonly text: string; readonly source: string }
 
 const isToolName = (name: string): boolean => name.length <= 80 && name.split(".").every(isSlug);
 /** The files that make one thing: an agent's folder, a tool's folder, a Play, a memory entry, or `brain.toml`. */
@@ -115,11 +115,13 @@ export default function WorkspaceScreen(): JSX.Element {
   const [raw, setRaw] = createSignal(false);
   const [newName, setNewName] = createSignal<string>();
   createEffect(on(() => [tab(), name()], () => { setRaw(false); setNewName(undefined); }));
+  /** On a phone the tabs scroll: the one open is brought into view. */
+  createEffect(on(tab, () => requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-slot="tabs-list"] [aria-selected="true"]')?.scrollIntoView({ inline: "center", block: "nearest" }))));
 
   const href = (to: Tab, item = ""): string => place.to(`/workspace/${to}${item ? `/${item}` : ""}`);
   const items = (snapshot: SnapshotManifest): Item[] => {
     if (tab() === "agents") return Object.entries(snapshot.agents).map(([key, agent]) => ({ name: key, text: agent.description, source: agent.source }));
-    if (tab() === "tools") return Object.entries(snapshot.tools).map(([key, tool]) => ({ name: key, text: `${t(`effect.${tool.effect}`)}. ${tool.description}`, source: tool.source }));
+    if (tab() === "tools") return Object.entries(snapshot.tools).map(([key, tool]) => ({ name: key, lead: t(`effect.${tool.effect}`), text: tool.description, source: tool.source }));
     if (tab() === "plays") return Object.entries(snapshot.plays).map(([key, play]) => ({ name: key, title: play.title, text: play.description, source: play.source }));
     if (tab() === "memory") return (memory.data()?.entries ?? snapshot.memory).map((entry) => ({ name: entry.name, title: entry.title, text: "", source: entry.source }));
     return [];
@@ -152,7 +154,8 @@ export default function WorkspaceScreen(): JSX.Element {
             <li>
               <A href={href(tab(), item().name)} aria-current={name() === item().name ? "page" : undefined} class="block rounded-control px-3 py-2 hover:bg-surface-gray-2 aria-[current=page]:bg-surface-gray-3 focus-visible:focus-ring">
                 <span class="flex items-baseline justify-between gap-2"><span class={`min-w-0 truncate t-text font-semibold text-ink ${item().title ? "" : "t-code"}`}>{item().title ?? item().name}</span><span class="shrink-0 t-small text-ink-2">{item().source === "workspace" ? t("workspace.source.here") : item().source}</span></span>
-                <Show when={item().text}><span class="line-clamp-2 t-small text-ink-2">{item().text}</span></Show>
+                <Show when={item().lead}><span class="block t-small text-ink-2">{item().lead}</span></Show>
+                <Show when={item().text}><span class="line-clamp-2 t-small text-ink-2" dir="auto">{item().text}</span></Show>
               </A>
             </li>
           )}
@@ -174,7 +177,7 @@ export default function WorkspaceScreen(): JSX.Element {
     <>
       <Head title={t("nav.workspace")} text={t("nav.workspace")} description={t("workspace.text", { name: place.summary().name })} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.workspace") }]} actions={<WorkspaceActions />} />
       <Tabs.Root value={tab()} onValueChange={(value) => navigate(href(value as Tab))} variant="underline" size="md">
-        <Tabs.List aria-label={t("workspace.tabs")} class="max-w-full overflow-x-auto">
+        <Tabs.List aria-label={t("workspace.tabs")} class="tabs-scroll max-w-full overflow-x-auto">
           <For each={TABS}>{(entry) => <Tabs.Trigger value={entry}>{t(`workspace.tab.${entry}` as MessageKey)}</Tabs.Trigger>}</For>
         </Tabs.List>
         <Tabs.Content value={tab()} class="pt-5">

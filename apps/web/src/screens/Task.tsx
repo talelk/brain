@@ -16,6 +16,7 @@ import { Markdown } from "../components/Markdown";
 import { PlanEditor } from "../components/PlanEditor";
 import { ConfirmButton, Details, Failure, Icon, Keyed, needText, NeedsMark, Ready, StateWord } from "../components/bits";
 import { Head } from "../components/Shell";
+import { said } from "../lib/said";
 
 const Part = (props: { title: string; aside?: JSX.Element; children: JSX.Element }): JSX.Element => <Section title={props.title} headingLevel={3} actions={props.aside ? <span class="t-small text-ink-3">{props.aside}</span> : undefined} class="border-t border-outline-gray-1 py-5 first:border-t-0 first:pt-0">{props.children}</Section>;
 
@@ -161,7 +162,7 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
       <Show when={task().result !== null || task().state === "failed"}>
         <Part title={task().state === "failed" ? t("task.failed") : t("task.result")}>
           <Show when={!skipped()} fallback={<p class="t-text text-ink-2">{t("task.skipped")}</p>}>
-            <Show when={task().state === "failed"} fallback={<Markdown text={task().result ?? ""} />}><p class="whitespace-pre-wrap rounded-xl bg-bad-soft px-4 py-3 t-text text-bad" dir="auto">{task().result ?? runs().at(-1)?.failure?.detail ?? t("task.failed.unknown")}</p></Show>
+            <Show when={task().state === "failed"} fallback={<Markdown text={task().result ?? ""} />}><p class="whitespace-pre-wrap rounded-xl bg-bad-soft px-4 py-3 t-text text-bad" dir="auto">{said(task().result ?? runs().at(-1)?.failure?.detail ?? t("task.failed.unknown"))}</p></Show>
           </Show>
         </Part>
       </Show>

@@ -9,6 +9,7 @@ import { t, tn } from "../i18n";
 import { ago, count, dateTime } from "../lib/format";
 import { Code, ConfirmButton, Failure, Icon, Keyed, Ready } from "../components/bits";
 import { Head } from "../components/Shell";
+import { auditBreak, said } from "../lib/said";
 
 /** Good or not, as a word with its own shape. */
 const Sign = (props: { ok: boolean; yes: string; no: string }): JSX.Element => (
@@ -79,12 +80,12 @@ function Audit(props: { audit: Health["audit"]; admin: boolean }): JSX.Element {
         </p>
         <Show when={props.admin}><Button variant="outline" size="md" loading={verify.busy()} onClick={() => void verify.run()}>{t("health.audit.verify")}</Button></Show>
       </div>
-      <Show when={props.audit.problem}><p class="mt-3 rounded-xl bg-bad-soft px-4 py-3 t-text text-bad" role="alert">{props.audit.problem}</p></Show>
+      <Show when={props.audit.problem}><p class="mt-3 rounded-xl bg-bad-soft px-4 py-3 t-text text-bad" role="alert">{said(props.audit.problem ?? "")}</p></Show>
       <Failure error={verify.error()} class="mt-3" />
       <Show when={result()}>
         {(verified) => (
           <p role="status" class={`mt-3 rounded-xl px-4 py-3 t-text ${verified().ok ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"}`}>
-            {verified().ok ? t("health.audit.verified", { events: count(verified().events), checkpoints: verified().checkpoints }) : t("health.audit.broken", { detail: verified().break?.detail ?? "" })}
+            {verified().ok ? t("health.audit.verified", { events: count(verified().events), checkpoints: verified().checkpoints }) : t("health.audit.broken", { detail: verified().break ? auditBreak(verified().break?.kind ?? "", verified().break?.seq ?? null, verified().break?.detail ?? "") : "" })}
           </p>
         )}
       </Show>
@@ -126,7 +127,7 @@ export default function HealthScreen(): JSX.Element {
                           <li class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-outline-gray-1 py-3 last:border-b-0">
                             <code class="t-code code-ltr font-medium text-ink">{model().name}</code>
                             <Sign ok={model().reachable} yes={t("health.models.reachable")} no={t("health.models.unreachable")} />
-                            <span class="min-w-0 flex-1 basis-48 t-small text-ink-2">{model().detail}</span>
+                            <span class="min-w-0 flex-1 basis-48 t-small text-ink-2">{said(model().detail)}</span>
                           </li>
                         )}
                       </Keyed>

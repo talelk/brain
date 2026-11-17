@@ -226,6 +226,7 @@ export function Shell(props: { children: JSX.Element; recent: readonly { rootId:
   const [searching, setSearching] = createSignal(false);
   return (
     <HeadContext.Provider value={setHead}>
+      <a class="skip-link" href="#app-shell-content">{t("shell.skip")}</a>
       <AppShell
         title={head().title} description={head().description} breadcrumbs={head().breadcrumbs} actions={head().actions} navLabel={t("nav.main")}
         brand={<a href="/" class="flex items-center gap-2 rounded-control px-1 py-1 text-ink-gray-9 focus-visible:focus-ring" aria-label={t("nav.home")}><Mark /><span class="font-display text-[1.125rem] font-semibold tracking-tight">Brain</span></a>}
@@ -236,7 +237,7 @@ export function Shell(props: { children: JSX.Element; recent: readonly { rootId:
           <>
             <Live />
             <Button variant="outline" size="md" iconLeft="lucide-search" aria-label={t("palette.open")} onClick={() => setSearching(true)} class="min-w-9 max-sm:[&>span:last-child]:sr-only">
-              <span class="flex items-center gap-3"><span class="max-md:sr-only">{t("palette.search")}</span><KeyboardShortcut combo="Mod+K" class="max-md:hidden" /></span>
+              <span class="flex items-center gap-3"><span class="max-md:sr-only">{t("palette.search")}</span><span dir="ltr" class="max-md:hidden"><KeyboardShortcut combo="Mod+K" /></span></span>
             </Button>
           </>
         }>

@@ -1,7 +1,8 @@
-import { createEffect, createMemo, For, on, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, type JSX } from "solid-js";
+import { Button } from "@talelk/newui-atoms";
 import type { Approval, Check, Task, TaskState, TaskSummary } from "@brain/contracts";
 import { t } from "../i18n";
-import { money, shownState, titleOf } from "../lib/format";
+import { isolate, money, shownState, titleOf } from "../lib/format";
 import { curve, layout, NODE_W, type Link, type Placed } from "../lib/graph";
 import { needText } from "./bits";
 
@@ -28,12 +29,12 @@ type Tone = "ok" | "needs" | "bad" | "quiet";
 interface Hang { readonly tone: Tone; readonly text: string }
 
 function hangs(checks: readonly Check[], approvals: readonly Approval[]): Hang[] {
-  const checked = checks.map((check): Hang => ({ tone: check.pass ? "ok" : "bad", text: t(check.pass ? "hang.check.pass" : "hang.check.fail", { by: check.by.name, round: check.round }) }));
+  const checked = checks.map((check): Hang => ({ tone: check.pass ? "ok" : "bad", text: t(check.pass ? "hang.check.pass" : "hang.check.fail", { by: isolate(check.by.name), round: check.round }) }));
   const approved = approvals.map((approval): Hang => {
-    if (approval.state === "pending") return { tone: "needs", text: t("hang.approval.pending", { tool: approval.tool }) };
-    if (approval.standing) return { tone: "ok", text: t("hang.approval.standing", { tool: approval.tool }) };
-    if (approval.state === "approved") return { tone: "ok", text: t("hang.approval.approved", { tool: approval.tool, by: approval.decidedBy?.name ?? "" }) };
-    return { tone: approval.state === "rejected" ? "bad" : "quiet", text: t(`hang.approval.${approval.state}`, { tool: approval.tool, by: approval.decidedBy?.name ?? "" }) };
+    if (approval.state === "pending") return { tone: "needs", text: t("hang.approval.pending", { tool: isolate(approval.tool) }) };
+    if (approval.standing) return { tone: "ok", text: t("hang.approval.standing", { tool: isolate(approval.tool) }) };
+    if (approval.state === "approved") return { tone: "ok", text: t("hang.approval.approved", { tool: isolate(approval.tool), by: isolate(approval.decidedBy?.name ?? "") }) };
+    return { tone: approval.state === "rejected" ? "bad" : "quiet", text: t(`hang.approval.${approval.state}`, { tool: isolate(approval.tool), by: isolate(approval.decidedBy?.name ?? "") }) };
   });
   return [...checked, ...approved];
 }
@@ -45,16 +46,18 @@ function phrase(task: TaskSummary, record: Task, shown: TaskState): string {
   if (shown === "needs_you") return t("link.needsYou");
   if (task.state === "done") {
     const last = record.checks.filter((check) => check.taskId === task.id).at(-1);
-    if (last) return t("link.done.checked", { by: last.by.name });
+    if (last) return t("link.done.checked", { by: isolate(last.by.name) });
     return task.agent !== null && !record.attempts.some((attempt) => attempt.taskId === task.id) ? t("link.skipped") : t("link.done");
   }
-  if (task.state === "running") return agent ? (task.round > 1 ? t("link.running.round", { agent, round: task.round }) : t("link.running", { agent })) : t("state.running");
-  if (task.state === "waiting" || task.state === "ready") return agent ? t(`link.${task.state}`, { agent }) : t(`state.${task.state}`);
+  if (task.state === "running") return agent ? (task.round > 1 ? t("link.running.round", { agent: isolate(agent), round: task.round }) : t("link.running", { agent: isolate(agent) })) : t("state.running");
+  if (task.state === "waiting" || task.state === "ready") return agent ? t(`link.${task.state}`, { agent: isolate(agent) }) : t(`state.${task.state}`);
   return t(`state.${task.state}`);
 }
 
 
 const HANG_H = 17;
+/** A check or approval line takes a second line when its words are long: the box is as tall as what hangs under it. */
+const hangHeight = (hang: Hang): number => (hang.text.length > 27 ? 2 * HANG_H - 2 : HANG_H);
 const NODE_H = 74;
 
 export function TaskGraph(props: { record: Task; order?: readonly string[]; selected: string; onSelect: (id: string) => void }): JSX.Element {
@@ -72,15 +75,36 @@ export function TaskGraph(props: { record: Task; order?: readonly string[]; sele
     const from = sub.parentId === props.record.id && waits.length > 0 ? waits : [...parent, ...waits];
     return [...new Set(from)].map((id) => ({ from: id, to: sub.id }));
   }));
-  const shape = createMemo(() => layout(tasks().map((task) => ({ id: task.id, h: NODE_H + HANG_H * mine(task.id).length })), links()));
+  const shape = createMemo(() => layout(tasks().map((task) => ({ id: task.id, h: NODE_H + mine(task.id).reduce((sum, hang) => sum + hangHeight(hang), 0) })), links()));
   const byId = (id: string): TaskSummary => tasks().find((task) => task.id === id) as TaskSummary;
   let scroller: HTMLDivElement | undefined;
   /** The selected node is brought into view inside the graph, which scrolls sideways when it is wider than its pane. */
   createEffect(on(() => [props.selected, shape().width], () => queueMicrotask(() => scroller?.querySelector<HTMLElement>('[data-selected="true"]')?.scrollIntoView({ inline: "center", block: "nearest" }))));
+  /** A graph wider than its pane scrolls sideways, with a fade where more lies beyond; "fit" shrinks it to the pane instead. */
+  const [pane, setPane] = createSignal(0);
+  const [fit, setFit] = createSignal(false);
+  const [more, setMore] = createSignal({ start: false, end: false });
+  const wider = (): boolean => pane() > 0 && shape().width + 8 > pane();
+  const scale = (): number => (fit() && wider() ? Math.max(0.2, (pane() - 8) / shape().width) : 1);
+  const edges = (): void => {
+    if (!scroller) return;
+    const at = Math.abs(scroller.scrollLeft);
+    setMore({ start: at > 2, end: at + scroller.clientWidth < scroller.scrollWidth - 2 });
+  };
+  onMount(() => {
+    const watch = new ResizeObserver(() => { setPane(scroller?.clientWidth ?? 0); edges(); });
+    if (scroller) watch.observe(scroller);
+    onCleanup(() => watch.disconnect());
+  });
+  createEffect(on([shape, scale], () => queueMicrotask(edges)));
   const touches = (link: Link): boolean => link.from === props.selected || link.to === props.selected;
   return (
-    <div class="graph-scroll" ref={scroller} role="group" aria-label={t("graph.label")}>
-      <div class="graph" style={{ width: `${shape().width}px`, height: `${shape().height}px` }}>
+    <div class="graph-frame">
+      <Show when={wider()}>
+        <div class="graph-tools"><Button variant="ghost" size="sm" iconLeft={fit() ? "lucide-maximize-2" : "lucide-minimize-2"} onClick={() => setFit(!fit())} aria-pressed={fit()}>{fit() ? t("graph.full") : t("graph.fit")}</Button></div>
+      </Show>
+    <div class="graph-scroll" ref={scroller} role="group" aria-label={t("graph.label")} onScroll={edges} data-more-start={more().start} data-more-end={more().end}>
+      <div class="graph" style={{ width: `${shape().width}px`, height: `${shape().height}px`, zoom: scale() === 1 ? undefined : scale() }}>
         <svg class="graph-edges" width={shape().width} height={shape().height} aria-hidden="true">
           <defs>
             <For each={["quiet", "solid", "active"]}>{(kind) => <marker id={`graph-arrow-${kind}`} class={`arrow-${kind}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1,1 L9,5 L1,9 z" /></marker>}</For>
@@ -115,7 +139,7 @@ export function TaskGraph(props: { record: Task; order?: readonly string[]; sele
                   </button>
                   <Show when={mine(task().id).length > 0}>
                     <ul class="gnode-hangs">
-                      <For each={mine(task().id)}>{(hang) => <li class="chain-hang t-small" data-tone={hang.tone} title={hang.text}><span class="small-ring" aria-hidden="true" /><span class="min-w-0 truncate">{hang.text}</span></li>}</For>
+                      <For each={mine(task().id)}>{(hang) => <li class="chain-hang t-small" data-tone={hang.tone} style={{ height: `${hangHeight(hang)}px` }}><span class="small-ring" aria-hidden="true" /><span class="min-w-0 line-clamp-2">{hang.text}</span></li>}</For>
                     </ul>
                   </Show>
                 </li>
@@ -124,6 +148,7 @@ export function TaskGraph(props: { record: Task; order?: readonly string[]; sele
           </For>
         </ol>
       </div>
+    </div>
     </div>
   );
 }
