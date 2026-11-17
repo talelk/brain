@@ -1,5 +1,5 @@
 import { nextCron } from "@brain/contracts/cron";
-import { intlLocale, t } from "../i18n";
+import { direction, intlLocale, t } from "../i18n";
 
 /** Schedules as people say them: the presets of the form, the plain-words reading of a cron expression, and the next times in a time zone. */
 export type Preset =
@@ -43,14 +43,16 @@ export const weekday = (day: number): string => new Intl.DateTimeFormat(intlLoca
 /** "Every Monday at 08:00, Africa/Tunis"; the raw expression for a shape that is not a preset. */
 export function words(cron: string, timeZone: string): string {
   const p = presetOf(cron);
-  const zone = timeZone;
+  // The zone name and the expression are left-to-right text inside a sentence that may run right to left: isolate each.
+  const isolate = (text: string): string => (direction() === "rtl" ? `\u2066${text}\u2069` : text);
+  const zone = isolate(timeZone);
   switch (p.kind) {
     case "hourly": return t("schedule.words.hourly", { minute: two(p.minute), zone });
     case "daily": return t("schedule.words.daily", { time: clock(p.hour, p.minute), zone });
     case "weekdays": return t("schedule.words.weekdays", { time: clock(p.hour, p.minute), zone });
     case "weekly": return t("schedule.words.weekly", { day: weekday(p.day), time: clock(p.hour, p.minute), zone });
     case "monthly": return t("schedule.words.monthly", { date: p.date, time: clock(p.hour, p.minute), zone });
-    case "custom": return t("schedule.words.custom", { cron: p.cron, zone });
+    case "custom": return t("schedule.words.custom", { cron: isolate(p.cron), zone });
   }
 }
 
