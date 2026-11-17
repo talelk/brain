@@ -211,7 +211,7 @@ body {
   background: var(--rule-2);
 }
 .chain-item[data-solid="true"]:not(:last-child)::before {
-  background: var(--ink);
+  background: var(--ink-3);
 }
 .chain-link {
   position: relative;
@@ -232,7 +232,7 @@ body {
   stroke: var(--rule-2);
   stroke-width: 5;
 }
-.chain-link[data-state="done"] .ring { stroke: var(--ink); }
+.chain-link[data-state="done"] .ring { stroke: var(--ink-3); }
 .chain-link[data-state="running"] .ring { stroke: var(--lilac-2); }
 .chain-link[data-state="ready"] .ring { stroke: var(--violet); stroke-dasharray: 0.1 6.15; stroke-linecap: round; }
 .chain-link[data-state="needs_you"] .ring { stroke: var(--needs-mark); }
