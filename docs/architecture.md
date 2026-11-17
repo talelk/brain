@@ -406,7 +406,7 @@ SolidJS, Vite, the `@talelk/newui-*` design system, English, French and Arabic (
 Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones): Overview, Schedules, then the
 workspaces (grouped as My workspaces, Shared with me and Public workspaces, each with an orange count of what waits there; the open one expands to Today, Tasks and
 Workspace) and New workspace, Health and People at the foot with the account (language, theme, sign out).
-The top bar has the live indicator and search (Cmd-K: pages, workspaces, goals). Screens (nine files in
+The top bar has the live indicator and search (Cmd-K: pages, workspaces, goals). Screens (ten files in
 `src/screens`): sign-in and first-run setup (`AuthLayout`); **Overview** (the home: headline numbers, needs
 you across all workspaces with the decision in place, what is running, a table of workspaces with week
 sparklines, spend and goals per day stacked by workspace, the instance's health); **Today** (goal box, Plays,
@@ -434,7 +434,7 @@ the handoffs between them, read from the Plays' steps and the recent tasks the w
   and the real runner on the fixture engine, in the test process (`stack.ts`). It acts as a first-time user: setup link to
   a checked result with its cost; a typed goal, its plan changed and confirmed; an approval approved and one rejected with
   a reason; an agent's prompt edited (pack file to workspace file) and a broken file refused on its line; a workspace made
-  from a pack with its first goal; Files (browse, edit and save a document, a broken `brain.toml` refused, upload with an overwrite confirmation and a size refusal, download, delete; axe light and dark at 390; Arabic); the Overview across several workspaces (needs-you list, a call decided in place, a jump into a task); axe on Today and Task (light and dark) and an Arabic right-to-left check. It is not
+  from a pack with its first goal; Files (browse, edit and save a document, a broken `brain.toml` refused, upload with an overwrite confirmation and a size refusal, download, delete; a pack's file listed and a copy edited; selection by box, range and key, copy, move, bulk download and delete, and a dropped file; axe light and dark at 390; Arabic); Schedules (the list, the form with its live check and preview, pause and remove); sharing (adding a person by email, the private and public switch, the invited person's grouped sidebar and a public workspace read only); the Overview across several workspaces (needs-you list, a call decided in place, a jump into a task); axe on Today and Task (light and dark) and an Arabic right-to-left check. It is not
   part of `pnpm verify`.
 
 `pnpm verify` = lint, typecheck, unit, runner, core and e2e tests, and `scripts/complexity.mjs`,

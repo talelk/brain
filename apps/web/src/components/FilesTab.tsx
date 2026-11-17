@@ -278,7 +278,7 @@ export function FilesTab(props: { files: readonly FileEntry[]; readOnly: boolean
   const crumbs = () => [{ label: place.summary().name, onClick: () => go(""), route: href(undefined, false, "") }, ...folder().split("/").filter(Boolean).map((name, index, parts) => ({ label: name, onClick: () => go(parts.slice(0, index + 1).join("/")), route: href(undefined, false, parts.slice(0, index + 1).join("/")) }))];
 
   const rowLink = (row: Row, children: JSX.Element): JSX.Element => (
-    <a href={row.kind === "folder" ? href(undefined, false, row.path) : href(row.path)} aria-current={selected() === row.path ? "page" : undefined} class="flex min-w-0 items-center gap-2 rounded-control focus-visible:focus-ring"
+    <a href={row.kind === "folder" ? href(undefined, false, row.path) : href(row.path)} aria-current={selected() === row.path ? "page" : undefined} class="flex min-w-0 flex-1 items-center gap-2 rounded-control focus-visible:focus-ring"
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey) { event.preventDefault(); pick(row.path, event); return; }
         if (event.button !== 0) return;
