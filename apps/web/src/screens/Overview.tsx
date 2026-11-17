@@ -118,7 +118,7 @@ function Content(props: { overview: Overview }): JSX.Element {
   ];
   return (
     <div class="flex flex-col gap-6">
-      <StatGrid stats={stats()} columns={4} class="md:grid-cols-5 min-[360px]:max-md:[&>*:last-child]:col-span-2" />
+      <StatGrid stats={stats()} columns={4} class="md:grid-cols-5 lg:grid-cols-5 min-[360px]:max-md:[&>*:last-child]:col-span-2" />
       <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Section title={t("today.needs")} description={waiting() > 0 ? tn("overview.needs.text", waiting()) : undefined} headingLevel={2}>
           <Show when={needs().length > 0} fallback={<EmptyState size="sm" icon="lucide-circle-check" title={t("overview.needs.none")} description={t("overview.needs.none.text")} bordered />}>
