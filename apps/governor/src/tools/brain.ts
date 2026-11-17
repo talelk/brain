@@ -11,6 +11,7 @@ import { manifestOf } from "../workspace/store";
 import { applyFix, commitFix, planFix, type FixPlan } from "./fix";
 import { runPlatform } from "./platform";
 import { inputProblem, ToolRefusal } from "./schema";
+import { errorFields, log } from "../log";
 
 /**
  * The tools the Governor carries out itself, as the attempt that calls them (docs/architecture.md section 7; inputs and outputs in
@@ -67,7 +68,7 @@ async function runOutside(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: st
 
 const words = (e: unknown): string => {
   if (e instanceof ToolRefusal || e instanceof BrainError) return e.message;
-  console.error(e);
+  log("error", "tool.failed", errorFields(e));
   return "Brain could not carry out the call";
 };
 const inFlight = new Map<string, Promise<BrainToolResponse>>();

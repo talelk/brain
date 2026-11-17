@@ -8,6 +8,37 @@ import { createEngine, engineHosting, nativeToolsAllowed } from "./engines/selec
 import { GovernorClient, GovernorError } from "./governor-client";
 import { loadOrCreateKeys, readCredential, type RunnerKeys, signNonce, writeCredential } from "./keys";
 
+/** The reason a request did not get through, as one short phrase: the error code of the connection (ECONNREFUSED, ETIMEDOUT) before its message. */
+export function causeOf(error: unknown): string {
+  for (let e: unknown = error, depth = 0; e instanceof Error && depth < 5; e = e.cause, depth++) {
+    const code = (e as { code?: unknown }).code;
+    if (typeof code === "string") return code;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** The Governor being unreachable, told once: one line when it begins, one when it ends, and the pause between tries grows meanwhile. */
+export class Outage {
+  private since: number | undefined;
+  private failures = 0;
+  constructor(private readonly governorUrl: string, private readonly nowMs: () => number = Date.now, private readonly write: (line: string) => void = console.error) {}
+  /** What went wrong, from where; logged only when it is the first failure of an outage. Returns how long to wait before trying again. */
+  failed(source: string, error: unknown, attemptId?: string): number {
+    this.failures++;
+    if (this.since === undefined) {
+      this.since = this.nowMs();
+      this.write(`runner ${source} failed: ${causeOf(error)} at ${this.governorUrl}${attemptId ? ` (attempt ${attemptId})` : ""}; retrying with backoff`);
+    }
+    return Math.min(30_000, 3000 * 2 ** Math.min(this.failures - 1, 4));
+  }
+  /** A request got through. */
+  ok(): void {
+    if (this.since !== undefined) this.write(`runner reconnected after ${Math.round((this.nowMs() - this.since) / 1000)} s`);
+    this.since = undefined;
+    this.failures = 0;
+  }
+}
+
 export const RUNNER_VERSION = "brain-runner/0.1.0";
 /** The capability a runner states itself, never the operator: an agent's native tools can run here. */
 const NATIVE_TOOLS = "native-tools";
@@ -23,8 +54,10 @@ export class Runner {
   private sessionExpiresAt = 0;
   private heartbeatMs = 15_000;
   private sandboxAvailable = false;
+  private readonly outage: Outage;
+  private readonly failedAttempts = new WeakMap<object, string>();
 
-  private constructor(readonly cfg: RunnerConfig, readonly client: GovernorClient, private readonly keys: RunnerKeys, readonly runnerId: string) {}
+  private constructor(readonly cfg: RunnerConfig, readonly client: GovernorClient, private readonly keys: RunnerKeys, readonly runnerId: string) { this.outage = new Outage(cfg.governorUrl); }
 
   static async connect(cfg: RunnerConfig): Promise<Runner> {
     const keys = loadOrCreateKeys(cfg.stateDir);
@@ -90,26 +123,39 @@ export class Runner {
     const abort = new AbortController();
     this.running.set(offer.attemptId, abort);
     const context: AttemptContext = { cfg: this.cfg, client: this.client, privateKeyPem: this.keys.privateKeyPem, sandboxAvailable: this.sandboxAvailable };
-    try { await runAttempt(context, offer, abort); } finally { this.running.delete(offer.attemptId); }
+    try { await runAttempt(context, offer, abort); }
+    catch (error) { if (typeof error === "object" && error !== null) this.failedAttempts.set(error, offer.attemptId); throw error; }
+    finally { this.running.delete(offer.attemptId); }
     return true;
   }
 
-  /** Heartbeats and claims until the signal aborts; attempts that are running then are stopped. */
+  /** Heartbeats and claims until the signal aborts; attempts that are running then are stopped, and `run` returns once they have ended (or after a grace period). */
   async run(signal: AbortSignal): Promise<void> {
     const pause = (ms: number): Promise<void> => new Promise((resolve) => { const timer = setTimeout(done, ms); function done(): void { clearTimeout(timer); signal.removeEventListener("abort", done); resolve(); } signal.addEventListener("abort", done, { once: true }); });
     const beat = async (): Promise<void> => {
       while (!signal.aborted) {
-        await this.heartbeat().catch((error: unknown) => { if (!(error instanceof GovernorError && error.status === 401)) console.error("runner heartbeat failed:", error instanceof Error ? error.message : error); });
-        await pause(this.heartbeatMs);
+        let wait = this.heartbeatMs;
+        try { await this.heartbeat(); this.outage.ok(); }
+        catch (error) {
+          if (isUnreachable(error)) wait = Math.max(wait, this.outage.failed("heartbeat", error));
+          else if (!(error instanceof GovernorError && error.status === 401)) console.error(`runner heartbeat failed: ${causeOf(error)}`);
+        }
+        await pause(wait);
       }
     };
     const slot = async (): Promise<void> => {
       while (!signal.aborted) {
-        try { if (!(await this.runOnce())) await pause(2000); }
-        catch (error) { console.error("runner attempt failed:", error instanceof Error ? error.message : error); await pause(3000); }
+        try { const worked = await this.runOnce(); this.outage.ok(); if (!worked) await pause(2000); }
+        catch (error) {
+          if (isUnreachable(error)) await pause(this.outage.failed("attempt", error, typeof error === "object" && error !== null ? this.failedAttempts.get(error) : undefined));
+          else { console.error(`runner attempt failed: ${error instanceof Error ? error.message : String(error)}`); await pause(3000); }
+        }
       }
     };
-    signal.addEventListener("abort", () => { for (const attempt of this.running.values()) attempt.abort("lease" satisfies AbortCause); }, { once: true });
-    await Promise.all([beat(), ...Array.from({ length: this.cfg.slots }, () => slot())]);
+    const grace = new Promise<void>((resolve) => signal.addEventListener("abort", () => { for (const attempt of this.running.values()) attempt.abort("lease" satisfies AbortCause); setTimeout(resolve, 10_000).unref(); }, { once: true }));
+    await Promise.race([Promise.all([beat(), ...Array.from({ length: this.cfg.slots }, () => slot())]), grace]);
   }
 }
+
+/** A request that never reached the Governor (a refused or dropped connection, a timeout) rather than one it answered. */
+const isUnreachable = (error: unknown): boolean => !(error instanceof GovernorError) && error instanceof Error && (error.name === "TypeError" || error.name === "TimeoutError" || error.name === "AbortError" || /fetch failed|ECONN|ETIMEDOUT/u.test(causeOf(error)));

@@ -3,6 +3,7 @@ import type { Context } from "hono";
 import type { Governor } from "../app";
 import type { Gov } from "../dispatch";
 import { markChanged } from "../events";
+import { errorFields, log } from "../log";
 import { taskOf } from "../tasks/store";
 import { readSecret } from "../trust/secrets";
 import { capOf, meterUsage, microUsd, spentToday } from "../trust/usage";
@@ -80,14 +81,17 @@ async function forward(gov: Gov, c: Context, provider: Provider): Promise<Respon
     else if (key) headers["authorization"] = `Bearer ${key}`;
     const abort = AbortSignal.any([request.signal, AbortSignal.timeout(CALL_TIMEOUT_MS)]);
     let upstream: Response;
+    const started = Date.now();
     try {
       upstream = await gov.fetch(url, { method: "POST", headers, body: JSON.stringify({ ...call, model: model.model }), signal: abort, redirect: "error" });
-    } catch {
+    } catch (e) {
+      log("warn", "gateway.upstream_unreachable", { attempt: attempt.id, model: model.name, ms: Date.now() - started, ...errorFields(e) });
       last = refusal(502, `The model ${model.name} could not be reached`);
       continue;
     }
     // Out of quota, rate limited or down: the next model of the workspace is tried.
     if (upstream.status === 402 || upstream.status === 429 || upstream.status >= 500) {
+      log("warn", "gateway.upstream_failed", { attempt: attempt.id, model: model.name, status: upstream.status, ms: Date.now() - started });
       last = new Response(await upstream.text(), { status: upstream.status, headers: { "content-type": upstream.headers.get("content-type") ?? "application/json" } });
       continue;
     }

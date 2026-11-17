@@ -10,6 +10,7 @@ import { commitChange, readHead, type Author } from "./git";
 import { loadWorkspace, type Loaded } from "./load";
 import { seedPacks } from "./packs";
 import { guardPlatform } from "./platform";
+import { log } from "../log";
 
 /** Workspace folders on disk and their snapshots in the database: validate, commit, activate. */
 export interface WorkspaceRow { readonly id: string; readonly slug: string; readonly name: string; readonly description: string; readonly status: "active" | "archived"; readonly snapshotDigest: Digest }
@@ -142,10 +143,13 @@ export async function reconcile(gov: Gov): Promise<void> {
   for (const workspace of gov.db.prepare("SELECT id, slug, active_snapshot AS snapshotDigest FROM workspaces WHERE status='active'").all() as Array<Pick<WorkspaceRow, "id" | "slug" | "snapshotDigest">>) {
     const loaded = await loadFolder(gov, workspace.slug);
     if (!loaded.manifest) {
-      console.error(`workspace ${workspace.slug} is not valid at its last commit and keeps its active snapshot: ${loaded.problems.map((problem) => `${problem.path}: ${problem.message}`).join("; ")}`);
+      log("warn", "workspace.reconcile_invalid", { workspace: workspace.slug, problems: loaded.problems.map((problem) => `${problem.path}: ${problem.message}`).join("; ") });
       continue;
     }
     const committed: Committed = { commit: loaded.commit, snapshotDigest: storeSnapshot(gov, { ...loaded, manifest: loaded.manifest }), manifest: loaded.manifest, paths: [] };
-    if (committed.snapshotDigest !== workspace.snapshotDigest) tx(gov.db, () => activate(gov, gov.db, workspace.id, committed, SYSTEM, "workspace.changed"));
+    if (committed.snapshotDigest !== workspace.snapshotDigest) {
+      tx(gov.db, () => activate(gov, gov.db, workspace.id, committed, SYSTEM, "workspace.changed"));
+      log("info", "workspace.reconciled", { workspace: workspace.slug, commit: committed.commit.slice(0, 12) });
+    }
   }
 }
