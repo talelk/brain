@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { isCron } from "./cron";
 import type { Digest, JsonValue } from "./protocol";
+import { isSlug, SLUG } from "./slug";
 
 /** The files of a workspace folder and of a pack (docs/model.md): zod schemas, parsed types, and the step template syntax. Unknown keys are errors. */
 
-const SLUG = /^[a-z][a-z0-9-]{0,62}$/u;
 const slug = (what: string) => z.string().regex(SLUG, `${what} must be lower-case letters, digits and dashes, starting with a letter`);
 /** A tool is named by its folder: slugs joined by dots, such as `git.open-pr`. */
 export const isToolName = (name: string): boolean => name.length <= 80 && name.split(".").every((part) => SLUG.test(part));
@@ -15,7 +15,7 @@ export const splitPackRef = (ref: string): { readonly name: string; readonly pin
   return { name, pin: pin === undefined ? 0 : Number(pin) };
 };
 const toolName = z.string().refine(isToolName, "a tool name must be lower-case words joined by dots, such as deploy.restart");
-export const isSlug = (name: string): boolean => SLUG.test(name);
+export { isSlug };
 
 /** A secret is named in a file, never written in one. */
 const SECRET_REF = /^secret:[a-z][a-z0-9-]{0,62}$/u;
@@ -42,6 +42,9 @@ export const NATIVE_LEVELS = ["none", "read", "all"] as const;
 export const BRAIN_TOOLS = ["task.create", "task.note", "task.ask", "memory.search", "memory.propose", "git.open-pr", "message.send", "workspace.fix", "platform.workspaces", "platform.tasks", "platform.task", "platform.file", "platform.repeats", "platform.tool-drift"] as const;
 /** The pack only the platform workspace may list, and the prefix of the Brain-run tools it holds. */
 export const PLATFORM_PACK = "platform";
+/** `admin`: the one workspace that keeps, edits and releases the packs and also reads the others. `read`: reads the others and nothing more. */
+export const PLATFORM_KINDS = ["admin", "read"] as const;
+export type PlatformKind = (typeof PLATFORM_KINDS)[number];
 
 // --- translations: what a person reads, in the page's language; agents read the English ---
 
@@ -83,8 +86,8 @@ export const BrainFile = z.strictObject({
   timezone: z.string().refine(isTimeZone, "must be an IANA time zone name, such as Europe/Paris").default("UTC"),
   /** `private`: only members see the workspace. `public`: every signed-in person of this Brain reads it, as a viewer. */
   visibility: z.enum(["private", "public"]).default("private"),
-  /** The one workspace that looks after the others (docs/model.md, "The platform workspace"). Only an instance admin may set it. */
-  platform: z.boolean().default(false),
+  /** A platform workspace (docs/model.md, "The platform workspace"): `admin` is the one that keeps the packs, `read` only reads the others. Only a platform administrator may set it. */
+  platform: z.enum(PLATFORM_KINDS).optional(),
   /** `<name>` is the shipped pack, `<name>@<n>` release `n` of it (docs/model.md, "The platform workspace"). */
   packs: z.array(packRef).default([]),
   limits: z.strictObject({
@@ -114,6 +117,8 @@ export const BrainFile = z.strictObject({
     network: z.array(host).default([]),
   })).default([]),
   github: z.strictObject({ credential: secretRef, webhook_secret: secretRef.optional() }).optional(),
+  /** A git remote that receives the workspace folder after every commit (docs/model.md, "A workspace folder"). `credential` defaults to the GitHub one. */
+  git: z.strictObject({ remote: z.string().regex(/^https?:\/\/[^\s@/]+(?:\/\S*)?$/u, "must be an http or https address without a password in it"), credential: secretRef.optional() }).optional(),
   teams: z.strictObject({ webhook: secretRef }).optional(),
   approvals: z.record(toolName, z.strictObject({ targets: z.array(z.string().min(1)).min(1), per_day: z.int().min(1), until: day })).default({}),
 });
@@ -299,8 +304,8 @@ export interface SnapshotManifest {
   readonly description: string;
   readonly timezone: string;
   readonly visibility: "private" | "public";
-  /** Present, and true, only for the platform workspace. */
-  readonly platform?: true;
+  /** Present only for a platform workspace. */
+  readonly platform?: PlatformKind;
   /** Every pack in use, required packs first. */
   readonly packs: readonly string[];
   /** The release each pinned pack is used at; left out when none is pinned. */
@@ -310,6 +315,8 @@ export interface SnapshotManifest {
   readonly models: BrainFile["model"];
   readonly projects: BrainFile["project"];
   readonly github: BrainFile["github"] | null;
+  /** The remote the folder is pushed to; left out when there is none. */
+  readonly git?: NonNullable<BrainFile["git"]>;
   readonly teams: BrainFile["teams"] | null;
   readonly approvals: BrainFile["approvals"];
   readonly agents: Readonly<Record<string, AgentFile & Sourced & { readonly prompt: { readonly digest: Digest; readonly bytes: number } }>>;

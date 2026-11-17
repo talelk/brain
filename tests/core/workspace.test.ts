@@ -60,7 +60,7 @@ describe("workspace.create", () => {
     });
     const { snapshot } = await harness.admin.query("workspace.get", { workspaceId: made.workspaceId });
     expect(snapshot.models).toEqual([{ name: "main", provider: "openai-compatible", url: "https://models.example/v1", model: "qwen3-coder", key: "secret:model-main" }]);
-    expect(snapshot.projects).toMatchObject([{ name: "shop", branch: "main", access: "write", credential: "secret:github" }]);
+    expect(snapshot.projects).toMatchObject([{ name: "shop", branch: "main", access: "write" }]);
     expect(snapshot.github).toEqual({ credential: "secret:github" });
     expect(await harness.admin.query("secrets.list", { workspaceId: made.workspaceId })).toMatchObject({ secrets: [{ name: "github" }, { name: "model-main" }], missing: [] });
   });

@@ -6,3 +6,4 @@ export * from "./hash";
 export * from "./audit-chain";
 export * from "./run-receipt";
 export * from "./cron";
+export { slugify, slugifyTool } from "./slug";

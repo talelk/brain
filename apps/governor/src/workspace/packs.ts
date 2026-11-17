@@ -8,7 +8,7 @@ import { append } from "../events";
 import { listPacks, readPack, releasedDirOf, releasedVersions, type Files } from "./files";
 import { readFolderAt, readHead, tagCommit, tags } from "./git";
 import { loadWorkspace } from "./load";
-import { platformWorkspace } from "./platform";
+import { adminWorkspace } from "./platform";
 import { activate, commitFolder, getWorkspace, manifestOf, workspaceDir, type Committed } from "./store";
 
 /**
@@ -45,7 +45,7 @@ const sameFiles = (a: Files, b: Files): boolean => {
 const packOf = (files: Files, prefix: string): Files => new Map([...files].filter(([path]) => path.startsWith(prefix)).map(([path, bytes]) => [path.slice(prefix.length), bytes] as const));
 
 async function platformFiles(gov: Gov): Promise<Files | undefined> {
-  const platform = platformWorkspace(gov);
+  const platform = adminWorkspace(gov);
   return platform ? (await readHead(workspaceDir(gov, platform.slug))).files : undefined;
 }
 
@@ -84,7 +84,7 @@ const unfreeze = (target: string): void => {
 
 /** At start: a release whose directory is gone is written again from its tag in the platform folder. */
 export async function restoreReleases(gov: Gov): Promise<void> {
-  const platform = platformWorkspace(gov);
+  const platform = adminWorkspace(gov);
   if (!platform) return;
   const dir = workspaceDir(gov, platform.slug);
   for (const [tag, commit] of await tags(dir)) {
@@ -101,7 +101,7 @@ export function registerPacks({ gov: { registry } }: Governor): void {
     const workspace = getWorkspace(ctx.db, input.workspaceId);
     const manifest = manifestOf(ctx.gov, workspace.snapshotDigest);
     let files: Files | undefined;
-    if (manifest.platform === true) {
+    if (manifest.platform === "admin") {
       files = input.version === "working" ? packOf((await platformFiles(ctx.gov)) ?? new Map(), `packs/${input.name}/`) : readPack(ctx.gov.packsDir, input.name, input.version, releasedDirOf(ctx.gov.dataDir));
     } else if (manifest.packs.includes(input.name) && input.version !== "working") {
       files = readPack(ctx.gov.packsDir, input.name, input.version, releasedDirOf(ctx.gov.dataDir));
@@ -113,7 +113,7 @@ export function registerPacks({ gov: { registry } }: Governor): void {
   registry.command<"pack.release", { readonly committed: Committed; readonly version: number; readonly name: string }>("pack.release", {
     async prepare(ctx, input) {
       const workspace = getWorkspace(ctx.db, input.workspaceId);
-      if (manifestOf(ctx.gov, workspace.snapshotDigest).platform !== true) throw new BrainError("FORBIDDEN", "Only the platform workspace releases packs");
+      if (manifestOf(ctx.gov, workspace.snapshotDigest).platform !== "admin") throw new BrainError("FORBIDDEN", "Only the admin workspace releases packs");
       const dir = workspaceDir(ctx.gov, workspace.slug);
       const files = packOf((await readHead(dir)).files, `packs/${input.name}/`);
       const packToml = files.get("pack.toml");
@@ -125,7 +125,7 @@ export function registerPacks({ gov: { registry } }: Governor): void {
       files.set("pack.toml", bumped);
       const target = freeze(ctx.gov, input.name, version, files);
       try {
-        const check = loadWorkspace(new Map([["brain.toml", encode(`name = "Check"\n${input.name === PLATFORM_PACK ? "platform = true\n" : ""}packs = ["${input.name}@${version}"]\n`)]]), ctx.gov.packsDir, releasedDirOf(ctx.gov.dataDir));
+        const check = loadWorkspace(new Map([["brain.toml", encode(`name = "Check"\n${input.name === PLATFORM_PACK ? "platform = \"admin\"\n" : ""}packs = ["${input.name}@${version}"]\n`)]]), ctx.gov.packsDir, releasedDirOf(ctx.gov.dataDir));
         if (!check.manifest) throw new BrainError("INVALID_WORKSPACE", `${input.name} would not be a valid pack as it is, so nothing was released`, check.problems);
         const committed = await commitFolder(ctx.gov, workspace.slug, {
           write: new Map([[`packs/${input.name}/pack.toml`, bumped]]), remove: [], message: `Release ${input.name} ${version}`, author: { name: ctx.user?.name ?? "Brain", email: ctx.user?.email ?? "brain@localhost" }, instanceAdmin: ctx.user?.instanceAdmin === true,

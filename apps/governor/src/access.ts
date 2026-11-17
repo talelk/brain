@@ -1,4 +1,4 @@
-import type { Role, WorkspaceSummary } from "@brain/contracts";
+import type { PlatformKind, Role, WorkspaceSummary } from "@brain/contracts";
 import type { Gov } from "./dispatch";
 import { manifestOf } from "./workspace/store";
 
@@ -14,13 +14,13 @@ const isPublic = (gov: Gov, row: Row): boolean => row.status === "active" && (ma
 const SELECT = `SELECT w.id, w.slug, w.name, w.description, w.status, w.active_snapshot AS snapshot, m.role FROM workspaces w LEFT JOIN members m ON m.workspace_id = w.id AND m.user_id = ?`;
 
 const isInstanceAdmin = (gov: Gov, userId: string): boolean => gov.db.prepare("SELECT 1 FROM instance_admins WHERE user_id=?").get(userId) !== undefined;
-const isPlatformRow = (gov: Gov, row: Row): boolean => row.snapshot !== "" && manifestOf(gov, row.snapshot as never).platform === true;
+const platformOfRow = (gov: Gov, row: Row): PlatformKind | null => (row.snapshot === "" ? null : (manifestOf(gov, row.snapshot as never).platform ?? null));
 
 export function accessOf(gov: Gov, userId: string, workspaceId: string): Access | undefined {
   const row = gov.db.prepare(`${SELECT} WHERE w.id = ?`).get(userId, workspaceId) as Row | undefined;
   if (!row) return undefined;
-  // The platform workspace holds what every workspace did: it exists only for instance admins, members or not (docs/model.md).
-  if (isPlatformRow(gov, row) && !isInstanceAdmin(gov, userId)) return undefined;
+  // A platform workspace holds what every workspace did: it exists only for instance admins, members or not (docs/model.md).
+  if (platformOfRow(gov, row) !== null && !isInstanceAdmin(gov, userId)) return undefined;
   if (row.role) return { role: row.role, status: row.status, viaPublic: false };
   return isPublic(gov, row) ? { role: "viewer", status: "active", viaPublic: true } : undefined;
 }
@@ -30,7 +30,7 @@ export function visibleWorkspaces(gov: Gov, userId: string): WorkspaceSummary[] 
   const rows = gov.db.prepare(`${SELECT} ORDER BY w.status, w.name, w.id`).all(userId) as Row[];
   const admin = isInstanceAdmin(gov, userId);
   return rows.flatMap((row): WorkspaceSummary[] => {
-    const platform = isPlatformRow(gov, row);
+    const platform = platformOfRow(gov, row);
     if (platform && !admin) return [];
     const open = isPublic(gov, row);
     if (!row.role && !open) return [];

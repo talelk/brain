@@ -6,6 +6,7 @@ import { listRunners } from "../attempts/runners";
 import type { Gov } from "../dispatch";
 import { verify } from "../trust/audit";
 import { readSecret } from "../trust/secrets";
+import { lastPush } from "../workspace/push";
 import { activeManifest } from "../workspace/store";
 
 /** What the Health screen shows (docs/architecture.md section 10): runners, whether each model answers, the state of the audit log, and the last backup. */
@@ -60,7 +61,8 @@ export function registerHealth({ gov, app }: Governor): void {
 
   gov.registry.query("health", async (ctx, input) => {
     const now = ctx.now();
-    const models = await Promise.all(activeManifest(gov, input.workspaceId).models.map((model) => modelHealth(gov, input.workspaceId, model, now)));
+    const manifest = activeManifest(gov, input.workspaceId);
+    const models = await Promise.all(manifest.models.map((model) => modelHealth(gov, input.workspaceId, model, now)));
     const marker = join(gov.dataDir, "backup.marker");
     return {
       version: VERSION, runners: listRunners(gov), models,
@@ -70,6 +72,7 @@ export function registerHealth({ gov, app }: Governor): void {
       },
       // The backup command leaves this file; its time is when the last backup finished.
       backup: { lastAt: existsSync(marker) ? Math.round(statSync(marker).mtimeMs) : null },
+      ...(manifest.git ? { folderPush: lastPush(gov, input.workspaceId) } : {}),
     };
   });
 }

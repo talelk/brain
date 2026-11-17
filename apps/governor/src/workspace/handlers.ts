@@ -1,5 +1,6 @@
-import { BrainError, isSlug, MAX_FILE_BYTES, MAX_WRITE_BYTES, type CommandInput, type CommandOutputs, type WorkspaceSummary } from "@brain/contracts";
+import { BrainError, isSlug, slugify, secretName, MAX_FILE_BYTES, MAX_WRITE_BYTES, type CommandInput, type CommandOutputs, type WorkspaceSummary } from "@brain/contracts";
 import { randomBytes } from "node:crypto";
+import git from "isomorphic-git";
 import { existsSync, rmSync } from "node:fs";
 import { stringify } from "smol-toml";
 import { accessOf } from "../access";
@@ -7,31 +8,48 @@ import type { Governor } from "../app";
 import type { Db } from "../db";
 import type { Ctx, Gov } from "../dispatch";
 import { append } from "../events";
+import { httpOver } from "../integrations/pull-request";
 import { setSecret } from "../trust/secrets";
 import { classifyPath, readPack } from "./files";
 import type { Author } from "./git";
 import { listFiles, readFileOf } from "./listing";
+import { lastPush, pushFolderSoon } from "./push";
 import { updatesOf } from "./packs";
 import { activate, commitFolder, commitOf, getWorkspace, manifestOf, workspaceDir, type Committed } from "./store";
 import { extname } from "node:path";
 
 const encode = (content: string): Uint8Array => new TextEncoder().encode(content);
-const slugOf = (words: string): string => words.normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^[^a-z]+|-+$/gu, "").slice(0, 40);
 const author = (ctx: Ctx) => ({ name: ctx.user?.name ?? "Brain", email: ctx.user?.email ?? "brain@localhost" });
 
-/** The first `brain.toml` of a workspace: its packs, a spend cap, and the model and project given at creation, with secrets by reference. */
-function firstBrainToml(input: CommandInput<"workspace.create">): string {
+/** The project's name when it is not given: the last part of its address (`https://github.com/acme/shop.git` is `shop`). */
+export const projectNameOf = (repo: string): string => slugify(repo.replace(/[/?#]+$/u, "").replace(/\.git$/u, "").split(/[/:]/u).at(-1) ?? "") || "project";
+
+/** The branch the repository itself calls its default, asked of the server in at most three seconds; undefined when it cannot be known. */
+export async function defaultBranchOf(gov: Gov, repo: string, token: string | undefined): Promise<string | undefined> {
+  if (!/^https?:\/\//u.test(repo)) return undefined;
+  try {
+    const headers = token ? { authorization: `Basic ${Buffer.from(token.includes(":") ? token : `x-access-token:${token}`).toString("base64")}` } : {};
+    const send: typeof fetch = (input, init) => gov.fetch(input, { ...init, signal: AbortSignal.timeout(3_000) });
+    const info = await git.getRemoteInfo({ http: httpOver(send), url: repo, headers });
+    const head = (info as { HEAD?: string }).HEAD;
+    return head?.startsWith("refs/heads/") ? head.slice("refs/heads/".length) : undefined;
+  } catch { return undefined; }
+}
+
+/** The first `brain.toml` of a workspace: its packs, a spend cap, and the model, project and folder remote given at creation, with secrets by reference. Defaults are left out. */
+function firstBrainToml(input: CommandInput<"workspace.create">, branch: string): string {
   const { model, project } = input;
-  const projectName = project ? (project.name ?? (slugOf(project.repo.replace(/\.git$/u, "").split("/").at(-1) ?? "") || "project")) : undefined;
+  const onGithub = project !== undefined && /^https:\/\/github\.com\//u.test(project.repo);
   return stringify({
     name: input.name,
     description: input.description,
-    ...(input.platform ? { platform: true } : {}),
+    ...(input.platform ? { platform: input.platform } : {}),
     packs: input.packs,
-    limits: { daily_spend_usd: 20, running_tasks: 4, confirm_plans: "person" },
+    limits: { daily_spend_usd: 20 },
     ...(model ? { model: [{ name: model.name, provider: model.provider, url: model.url, model: model.model, ...(model.key ? { key: `secret:model-${model.name}` } : {}) }] } : {}),
-    ...(project ? { project: [{ name: projectName, repo: project.repo, branch: project.branch, access: project.access, ...(project.credential ? { credential: "secret:github" } : {}) }] } : {}),
-    ...(project?.credential && project.repo.includes("github.com") ? { github: { credential: "secret:github" } } : {}),
+    ...(project ? { project: [{ name: project.name ?? projectNameOf(project.repo), repo: project.repo, ...(branch !== "main" ? { branch } : {}), ...(project.access === "write" ? { access: "write" } : {}), ...(project.credential && !onGithub ? { credential: "secret:github" } : {}) }] } : {}),
+    ...(project?.credential && onGithub ? { github: { credential: "secret:github" } } : {}),
+    ...(input.folderRemote ? { git: { remote: input.folderRemote } } : {}),
   });
 }
 
@@ -40,14 +58,18 @@ export interface NewWorkspace { readonly slug: string; readonly committed: Commi
 
 /** Writes and commits the folder of a new workspace. Git cannot run in a transaction, so this comes first. */
 export async function commitNewWorkspace(gov: Gov, input: CommandInput<"workspace.create">, by: Author): Promise<NewWorkspace> {
-  const slug = input.slug ?? slugOf(input.name);
-  if (!isSlug(slug)) throw new BrainError("INVALID_INPUT", "Give the workspace an address", [{ path: "slug", message: "an address is lower-case letters, digits and dashes, starting with a letter" }]);
-  if (gov.db.prepare("SELECT 1 FROM workspaces WHERE slug=?").get(slug)) throw new BrainError("CONFLICT", `A workspace already has the address ${slug}`);
+  // The address is the workspace's folder: it comes from the name unless given, and it is the same address whatever the case or accents typed.
+  const slug = slugify(input.slug ?? input.name);
+  if (!isSlug(slug)) throw new BrainError("INVALID_INPUT", "Give the workspace a name with letters in it: its address is made from it", [{ path: "name", message: "the name makes no address: use letters or digits" }]);
+  // Archived workspaces keep their address.
+  if (gov.db.prepare("SELECT 1 FROM workspaces WHERE slug=?").get(slug)) throw new BrainError("CONFLICT", `A workspace already has the address "${slug}". Change the name.`, [{ path: "name", message: `A workspace already has the address "${slug}": change the name` }]);
+  const project = input.project;
+  const branch = project?.branch ?? (project ? ((await defaultBranchOf(gov, project.repo, project.credential)) ?? "main") : "main");
   // A folder no workspace owns is what a creation that failed half-way left behind.
   const dir = workspaceDir(gov, slug);
   if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
   try {
-    return { slug, committed: await commitFolder(gov, slug, { write: new Map([["brain.toml", encode(firstBrainToml(input))]]), remove: [], message: "Create the workspace", author: by, instanceAdmin: true }) };
+    return { slug, committed: await commitFolder(gov, slug, { write: new Map([["brain.toml", encode(firstBrainToml(input, branch))]]), remove: [], message: "Create the workspace", author: by, instanceAdmin: true }) };
   } catch (e) {
     rmSync(dir, { recursive: true, force: true });
     throw e;
@@ -69,7 +91,7 @@ export function createWorkspace(gov: Gov, db: Db, input: CommandInput<"workspace
 /** The pack a first workspace is made from, and that workspace: what a person sees before they have made anything. Its `hello` Play is the sample goal. */
 export const STARTER_PACK = "base";
 export const starterWorkspace = (gov: Gov): CommandInput<"workspace.create"> | undefined =>
-  (readPack(gov.packsDir, STARTER_PACK) ? { name: "Starter", description: "A first workspace to try Brain in. Start the Play \"Say hello\" to see a goal become a checked result.", packs: [STARTER_PACK], platform: false } : undefined);
+  (readPack(gov.packsDir, STARTER_PACK) ? { name: "Starter", description: "A first workspace to try Brain in. Start the Play \"Say hello\" to see a goal become a checked result.", packs: [STARTER_PACK] } : undefined);
 
 const BINARY = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".pdf", ".zip", ".gz", ".tar", ".docx", ".xlsx", ".pptx", ".odt", ".ods", ".mp3", ".mp4", ".mov", ".woff", ".woff2"]);
 /** What a download says its bytes are. Anything a browser could run as a page is plain bytes; an SVG stays an image so that `<img>` can show it. */
@@ -108,6 +130,8 @@ function bytesOf(files: CommandInput<"file.write">["files"]): Map<string, Uint8A
 }
 
 export function registerWorkspace({ gov: { registry }, gov, app }: Governor): void {
+  // The folder's remote: every activated snapshot of a workspace that has one is pushed, in the background.
+  gov.onActivate.push((workspaceId, manifest) => { if (manifest.git) pushFolderSoon(gov, workspaceId); });
   registry.command<"workspace.create", NewWorkspace>("workspace.create", {
     prepare: (ctx, input) => commitNewWorkspace(ctx.gov, input, author(ctx)),
     run(ctx, input, prepared) {
@@ -142,9 +166,9 @@ export function registerWorkspace({ gov: { registry }, gov, app }: Governor): vo
     const snapshot = manifestOf(ctx.gov, workspace.snapshotDigest);
     const summary: WorkspaceSummary = {
       id: workspace.id, slug: workspace.slug, name: workspace.name, description: workspace.description, status: workspace.status, role: ctx.role ?? "viewer",
-      visibility: snapshot.visibility === "public" ? "public" : "private", platform: snapshot.platform === true, viaPublic: ctx.user ? (accessOf(ctx.gov, ctx.user.id, workspace.id)?.viaPublic ?? false) : false,
+      visibility: snapshot.visibility === "public" ? "public" : "private", platform: snapshot.platform ?? null, viaPublic: ctx.user ? (accessOf(ctx.gov, ctx.user.id, workspace.id)?.viaPublic ?? false) : false,
     };
-    return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot, updates: updatesOf(ctx.gov, snapshot) };
+    return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot, updates: updatesOf(ctx.gov, snapshot), folderPush: snapshot.git ? lastPush(ctx.gov, workspace.id) : null };
   });
 
   registry.query("workspace.files", async (ctx, input) => ({ files: await listFiles(ctx.gov, input.workspaceId) }));

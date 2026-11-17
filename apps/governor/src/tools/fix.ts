@@ -7,7 +7,7 @@ import { healedBy } from "../tasks/heal";
 import { taskOf, type AttemptRow, type TaskRow } from "../tasks/store";
 import { linkArtifact, putArtifact } from "../trust/artifacts";
 import { classifyPath, readPack, releasedDirOf } from "../workspace/files";
-import { platformWorkspace } from "../workspace/platform";
+import { platformOf } from "../workspace/platform";
 import { activate, checkFolder, commitFolder, commitOf, getWorkspace, manifestOf, workspaceDir, type Committed } from "../workspace/store";
 import { inputProblem, ToolRefusal } from "./schema";
 
@@ -116,7 +116,7 @@ export async function planFix(gov: Gov, attempt: AttemptRow, task: TaskRow, rowI
     if (failed.state !== "failed") throw new ToolRefusal(`The task ${healed} is ${failed.state}, not failed: nothing is left to fix`);
     if (earlier.n > 0) throw new ToolRefusal("One fix was already proposed for this task; make no other");
   } else {
-    if (platformWorkspace(gov)?.id !== task.workspace_id) throw new ToolRefusal("workspace.fix is only for the task that heals a failed task, or for a task of the platform workspace");
+    if (platformOf(gov, task.workspace_id)?.kind !== "admin") throw new ToolRefusal("workspace.fix is only for the task that heals a failed task, or for a task of the admin workspace");
     if (input.task !== undefined) throw new ToolRefusal('"task" is only for the task that heals a failed task: leave it out');
     if (earlier.n >= MAX_PROPOSALS) throw new ToolRefusal(`A task makes at most ${MAX_PROPOSALS} proposals`);
   }
@@ -139,7 +139,7 @@ export async function planFix(gov: Gov, attempt: AttemptRow, task: TaskRow, rowI
     throw new ToolRefusal(`The workspace would not be valid with this change: ${(problems ?? []).map((one) => `${one.path}: ${one.message}`).join("; ") || (e as Error).message}`);
   }
   const { manifest } = checked;
-  for (const key of ["approvals", "github", "teams", "platform"] as const) {
+  for (const key of ["approvals", "github", "git", "teams", "platform"] as const) {
     if (Buffer.compare(canonicalJsonBytes((manifest[key] ?? null) as JsonValue), canonicalJsonBytes((active[key] ?? null) as JsonValue)) !== 0) throw new ToolRefusal(`A fix does not change "${key}" of brain.toml: that is decided by an admin in the settings`);
   }
   if (failed?.agent && !manifest.agents[failed.agent]) throw new ToolRefusal(`The change removes the agent ${failed.agent}, which the failed task needs`);

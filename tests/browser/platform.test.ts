@@ -16,8 +16,8 @@ const model = { name: "main", provider: "openai-compatible" as const, url: "http
 
 test("the platform workspace is badged; a tool it proposes is approved, released with its pack, and a workspace updates to it", async ({ page, stack }) => {
   const api = await stack.setUp();
-  const alpha = await api.command("workspace.create", { name: "Alpha", slug: "alpha", description: "", packs: ["base"], platform: false, model });
-  const admin = await api.command("workspace.create", { name: "Brain admin", slug: "brain-admin", description: "", packs: ["base", "platform"], platform: true, model });
+  const alpha = await api.command("workspace.create", { name: "Alpha", slug: "alpha", description: "", packs: ["base"], model });
+  const admin = await api.command("workspace.create", { name: "Brain admin", slug: "brain-admin", description: "", packs: ["base", "platform"], platform: "admin", model });
   await api.command("file.write", { workspaceId: admin.workspaceId, files: [{ path: "agents/capitalizer/prompt.md", content: capitalizer }] });
   await signIn(page, stack);
 

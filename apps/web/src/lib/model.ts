@@ -10,6 +10,4 @@ export const roleAtLeast = (have: Role, need: Role): boolean => ROLES.indexOf(ha
 export const EFFECTS = ["read", "write", "privileged"] as const;
 export const NATIVE_LEVELS = ["none", "read", "all"] as const;
 export const ENGINES = ["pi", "claude"] as const;
-export const isSlug = (name: string): boolean => /^[a-z][a-z0-9-]{0,62}$/u.test(name);
-/** A name a person typed, as the lower-case, dashed name a file or an address needs. */
-export const slugify = (text: string): string => text.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/gu, "-").replace(/^[^a-z]+|-+$/gu, "").slice(0, 63);
+export { isSlug, slugify, slugifyTool } from "@brain/contracts/slug";

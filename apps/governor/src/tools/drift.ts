@@ -2,7 +2,7 @@ import type { JsonValue, SnapshotManifest } from "@brain/contracts";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Gov } from "../dispatch";
-import { platformWorkspace } from "../workspace/platform";
+import type { PlatformWorkspace } from "../workspace/platform";
 import { workspaceDir, manifestOf } from "../workspace/store";
 
 /**
@@ -27,9 +27,7 @@ function itemsOf(manifest: SnapshotManifest): Item[] {
   return items;
 }
 
-export function driftOf(gov: Gov): { readonly entries: JsonValue[]; readonly workspaces: string[] } {
-  const platform = platformWorkspace(gov);
-  if (!platform) return { entries: [], workspaces: [] };
+export function driftOf(gov: Gov, platform: PlatformWorkspace): { readonly entries: JsonValue[]; readonly workspaces: string[] } {
   const platformDir = workspaceDir(gov, platform.slug);
   const packs = existsSync(join(platformDir, "packs")) ? readdirSync(join(platformDir, "packs"), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort() : [];
   /** The platform's copy of a path: the first pack that has it. */

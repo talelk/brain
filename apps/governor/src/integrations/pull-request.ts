@@ -52,7 +52,7 @@ function writable(gov: Gov, task: TaskRow, name: string): SnapshotManifest["proj
 }
 
 /** isomorphic-git's HTTP client over the Governor's own `fetch`. */
-const httpOver = (send: typeof fetch): HttpClient => ({
+export const httpOver = (send: typeof fetch): HttpClient => ({
   async request({ url, method = "GET", headers = {}, body }) {
     const chunks: Uint8Array[] = [];
     if (body) for await (const chunk of body) chunks.push(chunk);

@@ -7,7 +7,7 @@ import { enrolRunner, type Driver, type Turn } from "./driver";
 import { createHarness, type Client, type Harness } from "./harness";
 import { getTask, makeWorkspace, pass, testClock } from "./work";
 
-/** The platform workspace (docs/model.md): one workspace that reads every other and proposes changes to them, each approved by an admin. */
+/** The platform workspaces (docs/model.md): the one admin workspace keeps the packs and, like any `read` one, reads every other workspace and proposes changes, each approved by an admin. */
 const PACKS = fileURLToPath(new URL("../../packs", import.meta.url));
 const DAY = 86_400_000;
 const clock = testClock();
@@ -42,25 +42,25 @@ beforeAll(async () => {
   const a = await make("Alpha");
   alpha = { ...a, member: await harness.member(a.workspaceId, "alpha-member@example.com", "member") };
   beta = await make("Beta");
-  ({ workspaceId: platformId } = await makeWorkspace(harness, "Brain admin", { platform: true, packs: ["base", "platform"], brain: 'timezone = "Africa/Tunis"\n' }));
+  ({ workspaceId: platformId } = await makeWorkspace(harness, "Brain admin", { platform: "admin", packs: ["base", "platform"], brain: 'timezone = "Africa/Tunis"\n' }));
 });
 afterAll(() => harness.close());
 
 describe("the platform setting", () => {
-  it("is set only by an instance admin, and a Brain has one platform workspace", async () => {
+  it("is set only by an instance admin, and a Brain has one admin workspace", async () => {
     const setting = async (client: Client, workspaceId: string, on: boolean) => {
       const { content } = await harness.admin.query("file.read", { workspaceId, path: "brain.toml" });
-      return client.command("file.write", { workspaceId, files: [{ path: "brain.toml", content: on ? `platform = true\n${content}` : content.replace("platform = true\n", "") }] });
+      return client.command("file.write", { workspaceId, files: [{ path: "brain.toml", content: on ? `platform = "admin"\n${content}` : content.replace('platform = "admin"\n', "") }] });
     };
     // A workspace admin, however it is written, cannot make their workspace the platform.
     await expect(setting(alpha.admin, alpha.workspaceId, true)).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(alpha.admin.command("file.write", { workspaceId: alpha.workspaceId, files: [{ path: "brain.toml", content: 'name = "Alpha"\nplatform = true\npacks = ["base"]\n' }] })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    // An instance admin may, but not for a second one, and a pack of the platform needs the setting.
+    await expect(alpha.admin.command("file.write", { workspaceId: alpha.workspaceId, files: [{ path: "brain.toml", content: 'name = "Alpha"\nplatform = "read"\npacks = ["base"]\n' }] })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    // An instance admin may, but not a second admin workspace, and a pack of the platform needs the setting.
     await expect(setting(harness.admin, alpha.workspaceId, true)).rejects.toMatchObject({ code: "CONFLICT" });
-    await expect(harness.createWorkspace({ name: "Another", packs: ["base"], platform: true })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(harness.createWorkspace({ name: "Another", packs: ["base"], platform: "admin" })).rejects.toMatchObject({ code: "CONFLICT" });
     await expect(harness.createWorkspace({ name: "Sneaky", packs: ["base", "platform"] })).rejects.toMatchObject({ code: "INVALID_WORKSPACE" });
-    expect((await harness.admin.query("workspace.get", { workspaceId: platformId })).platform).toBe(true);
-    expect((await harness.admin.query("workspace.get", { workspaceId: alpha.workspaceId })).platform).toBe(false);
+    expect((await harness.admin.query("workspace.get", { workspaceId: platformId })).platform).toBe("admin");
+    expect((await harness.admin.query("workspace.get", { workspaceId: alpha.workspaceId })).platform).toBeNull();
   });
 
   it("makes the workspace invisible to anyone who is not an instance admin, a member or not", async () => {
@@ -68,7 +68,7 @@ describe("the platform setting", () => {
     await expect(insider.query("workspace.get", { workspaceId: platformId })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(insider.command("file.write", { workspaceId: platformId, files: [{ path: "brain.toml", content: 'name = "Brain admin"\npacks = ["base", "platform"]\n' }] })).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect((await insider.query("me", {})).workspaces.map((workspace) => workspace.id)).not.toContain(platformId);
-    expect((await harness.admin.query("me", {})).workspaces.find((workspace) => workspace.id === platformId)).toMatchObject({ platform: true });
+    expect((await harness.admin.query("me", {})).workspaces.find((workspace) => workspace.id === platformId)).toMatchObject({ platform: "admin" });
   });
 });
 
@@ -92,9 +92,9 @@ describe("the platform tools", () => {
     const seen: JsonValue[] = [];
     driver.script({
       capitalizer: async ({ brain }) => {
-        const list = answerOf(await brain("platform.workspaces", {})) as { workspaces: Array<{ slug: string; platform: boolean; tasks: { done: number } }> };
+        const list = answerOf(await brain("platform.workspaces", {})) as { workspaces: Array<{ slug: string; platform: string | null; tasks: { done: number } }> };
         expect(list.workspaces.map((workspace) => workspace.slug)).toEqual(["alpha", "beta", "brain-admin", "starter"]);
-        expect(list.workspaces.find((workspace) => workspace.slug === "brain-admin")?.platform).toBe(true);
+        expect(list.workspaces.find((workspace) => workspace.slug === "brain-admin")?.platform).toBe("admin");
         const tasks = answerOf(await brain("platform.tasks", { workspace: "alpha", state: "done" })) as { tasks: Array<{ id: string; workspace: string; goal: string }> };
         const detail = answerOf(await brain("platform.task", { workspace: "alpha", id: (tasks.tasks[0] as { id: string }).id }));
         const file = answerOf(await brain("platform.file", { workspace: "alpha", path: "brain.toml" }));
@@ -159,7 +159,7 @@ describe("tool drift", () => {
 });
 
 describe("the capitalizer's proposals", () => {
-  it("land only in the platform workspace's pack sources, each approved by an admin of it, and no other workspace is written", async () => {
+  it("land only in the admin workspace's pack sources, each approved by an admin of it, and no other workspace is written", async () => {
     const worker = (await harness.admin.query("file.read", { workspaceId: platformId, path: "packs/base/agents/worker/agent.toml" })).content;
     const tool = (name: string): JsonValue[] => [
       { path: `packs/base/tools/${name}/tool.toml`, content: `description = "Lints the repository and reports the style problems."\neffect = "read"\nneeds = ["bash"]\n[inputs.path]\ntype = "string"\nrequired = false\n` },
@@ -269,5 +269,31 @@ describe("the weekly Plays", () => {
     const started = harness.governor.gov.db.prepare("SELECT title, created_by AS by FROM tasks WHERE workspace_id=? AND parent_id IS NULL ORDER BY rowid DESC LIMIT 1").get(platformId) as { title: string; by: string };
     expect(started.by).toBe("trigger:capitalize");
     expect(started.title).toContain("Capitalize");
+  });
+});
+
+describe("a read platform workspace", () => {
+  it("reads the other workspaces like the admin one, audited, and has no pack management", async () => {
+    // Several `read` workspaces are allowed beside the one admin workspace.
+    const { workspaceId: readerId } = await makeWorkspace(harness, "Reader", { platform: "read", packs: ["base", "platform"] });
+    expect(await harness.createWorkspace({ name: "Reader two", packs: ["base"], platform: "read" })).toMatchObject({ slug: "reader-two" });
+    expect((await harness.admin.query("workspace.get", { workspaceId: readerId })).platform).toBe("read");
+    let drift: unknown;
+    let listed: string[] = [];
+    driver.script({ capitalizer: async ({ brain }) => { listed = ((answerOf(await brain("platform.workspaces", {})) as { workspaces: Array<{ slug: string }> }).workspaces).map((workspace) => workspace.slug); return "Read."; }, syncer: async ({ brain }) => { drift = await brain("platform.tool-drift", {}); return "Compared."; } });
+    await harness.admin.command("task.create", { workspaceId: readerId, play: "capitalize" });
+    await harness.admin.command("task.create", { workspaceId: readerId, play: "sync-tools" });
+    await driver.drain();
+    expect(listed).toContain("alpha");
+    expect(events("platform.read", alpha.workspaceId).some((event) => event.payload["source"] === "reader")).toBe(true);
+    // Comparing with the pack sources is for the admin workspace, which alone keeps them.
+    expect(drift).toMatchObject({ state: "failed", error: expect.stringContaining("only the admin workspace") });
+    // No pack management: no release, no pack sources seeded, and a packs/ file is an ordinary document that no pack, pin or release ever reads.
+    await expect(harness.admin.command("pack.release", { workspaceId: readerId, name: "base" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(harness.admin.query("pack.files", { workspaceId: readerId, name: "base", version: "working" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect((await harness.admin.query("workspace.files", { workspaceId: readerId })).files.some((file) => file.path.startsWith("packs/"))).toBe(false);
+    await harness.admin.command("file.write", { workspaceId: readerId, files: [{ path: "packs/base/tools/sneaky/tool.toml", content: 'description = "Sneaky."\neffect = "read"\n' }] });
+    expect(Object.keys((await harness.admin.query("workspace.get", { workspaceId: readerId })).snapshot.tools)).not.toContain("sneaky");
+    expect((await harness.admin.query("packs.list", {})).packs.find((pack) => pack.name === "base")?.working).toEqual({ changed: false });
   });
 });

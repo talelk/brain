@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AuditVerifyResult } from "./audit-chain";
-import { isSlug, MAX_FILE_BYTES, type Language, type PackFile, type PlayFile, type Problem, type SnapshotManifest } from "./files";
+import { isSlug, MAX_FILE_BYTES, PLATFORM_KINDS, type PlatformKind, type Language, type PackFile, type PlayFile, type Problem, type SnapshotManifest } from "./files";
 import type { ApprovalState, AttemptEvent, AttemptFailure, AttemptKind, Digest, Effect, JsonValue, RunnerCapability, ToolOutcome } from "./protocol";
 
 /**
@@ -51,15 +51,17 @@ export interface WorkspaceSummary {
   readonly status: "active" | "archived";
   readonly role: Role;
   readonly visibility: "private" | "public";
-  /** True for the platform workspace (only an instance admin sees it). */
-  readonly platform: boolean;
+  /** The kind of platform workspace it is (only a platform administrator sees one); null for any other. */
+  readonly platform: PlatformKind | null;
   /** True when the person is not a member and sees the workspace only because it is public (always `viewer`). */
   readonly viaPublic: boolean;
 }
 /** A workspace as its screens show it: the active snapshot holds its agents, tools, Plays, memory entries, projects and settings. */
 /** A pack the workspace uses that has a newer release than the one it is pinned to (0: the shipped baseline). */
 export interface PackUpdate { readonly pack: string; readonly pinned: number; readonly latest: number }
-export interface Workspace extends WorkspaceSummary { readonly snapshotDigest: Digest; readonly commit: string; readonly snapshot: SnapshotManifest; readonly updates: readonly PackUpdate[] }
+/** The last push of the workspace folder to its git remote; null when it has none or has not pushed yet. A failure's message holds no secret. */
+export interface FolderPush { readonly ok: boolean; readonly atMs: number; readonly commit: string; readonly message: string }
+export interface Workspace extends WorkspaceSummary { readonly snapshotDigest: Digest; readonly commit: string; readonly snapshot: SnapshotManifest; readonly updates: readonly PackUpdate[]; readonly folderPush: FolderPush | null }
 export interface FileEntry {
   readonly path: string;
   readonly bytes: number;
@@ -86,7 +88,7 @@ export interface PackSummary {
 }
 /** A pack as the platform workspace manages it. */
 export interface PackInfo extends PackSummary {
-  /** The last release in the platform workspace's copy; 0 when none. */
+  /** The last release of the pack, of the admin workspace; 0 when none. */
   readonly version: number;
   /** Present when the platform workspace holds a copy: whether it differs from its last release. */
   readonly working?: { readonly changed: boolean };
@@ -261,7 +263,7 @@ export interface OverviewWorkspace {
   readonly name: string;
   readonly role: Role;
   readonly visibility: "private" | "public";
-  readonly platform: boolean;
+  readonly platform: PlatformKind | null;
   /** Packs with a newer release than the one used. */
   readonly updates: number;
   readonly viaPublic: boolean;
@@ -366,6 +368,8 @@ export interface Health {
   readonly models: ReadonlyArray<{ readonly name: string; readonly reachable: boolean; readonly detail: string }>;
   readonly audit: { readonly events: number; readonly lastCheckpointAt: number | null; readonly problem: string | null };
   readonly backup: { readonly lastAt: number | null };
+  /** Present when the workspace folder has a git remote. */
+  readonly folderPush?: FolderPush | null;
 }
 
 // --- inputs ---
@@ -392,15 +396,18 @@ export const commands = table({
   "setup.create": ["public", z.strictObject({ token: z.string().min(1).max(200), name: personName, email, password })],
   "workspace.create": ["instance-admin", z.strictObject({
     name: z.string().trim().min(1).max(100),
-    slug: name("a workspace address").optional(),
+    /** The address: made from the name when left out, and read the same whatever its case or accents. */
+    slug: z.string().trim().min(1).max(100).optional(),
     description: z.string().trim().max(2000).default(""),
     packs: z.array(name("a pack name")).max(20).default([]),
-    /** Makes it the platform workspace: only one may exist. */
-    platform: z.boolean().default(false),
+    /** Makes it a platform workspace (docs/model.md, "The platform workspace"): at most one `admin`, any number of `read`. */
+    platform: z.enum(PLATFORM_KINDS).optional(),
     /** A first model; `key` is stored as the secret `model-<name>`. */
     model: z.strictObject({ name: name("a model name").default("main"), provider: z.enum(["openai-compatible", "anthropic"]), url: z.string().min(1).max(500), model: z.string().min(1).max(200), key: z.string().min(1).max(10_000).optional() }).optional(),
-    /** A first project; `credential` is stored as the secret `github`. */
-    project: z.strictObject({ name: name("a project name").optional(), repo: z.string().min(1).max(500), branch: z.string().min(1).max(200).default("main"), access: z.enum(["read", "write"]).default("read"), credential: z.string().min(1).max(10_000).optional() }).optional(),
+    /** A first project; `credential` is stored as the secret `github`. The name is inferred from the address and the branch from the repository's own default (else `main`). */
+    project: z.strictObject({ name: name("a project name").optional(), repo: z.string().min(1).max(500), branch: z.string().min(1).max(200).optional(), access: z.enum(["read", "write"]).default("read"), credential: z.string().min(1).max(10_000).optional() }).optional(),
+    /** A git remote the workspace folder is pushed to after every commit (`[git]` of brain.toml). */
+    folderRemote: z.string().trim().min(1).max(500).optional(),
   })],
   /** Releases a pack of the platform workspace: its version goes up by one and that content is frozen. */
   "pack.release": ["admin", z.strictObject({ ...inWorkspace, name: name("a pack name") })],

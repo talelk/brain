@@ -4,7 +4,7 @@ import { append } from "../events";
 import { healedBy } from "../tasks/heal";
 import type { AttemptRow, TaskRow } from "../tasks/store";
 import { readSecret } from "../trust/secrets";
-import { platformWorkspace } from "../workspace/platform";
+import { platformOf } from "../workspace/platform";
 import { manifestOf } from "../workspace/store";
 import { currentText } from "./fix";
 import { driftOf } from "./drift";
@@ -32,8 +32,8 @@ function hider(gov: Gov, workspaceId: string): (text: string) => string {
 
 export function runPlatform(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: string, input: Input): JsonValue {
   const { db } = gov;
-  const platform = platformWorkspace(gov);
-  if (platform?.id !== task.workspace_id) throw new ToolRefusal(`${tool} is only for the tasks of the platform workspace`);
+  const platform = platformOf(gov, task.workspace_id);
+  if (!platform) throw new ToolRefusal(`${tool} is only for the tasks of the platform workspace`);
   const workspaceNamed = (slug: string): Target => {
     const row = db.prepare("SELECT id, slug FROM workspaces WHERE slug=?").get(slug) as Target | undefined;
     if (!row) throw new ToolRefusal(`There is no workspace "${slug}"; platform.workspaces lists them`);
@@ -57,7 +57,7 @@ export function runPlatform(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: 
         const manifest = manifestOf(gov, row.snapshot as never);
         const counts = Object.fromEntries((db.prepare("SELECT state, COUNT(*) AS n FROM tasks WHERE workspace_id=? AND parent_id IS NULL AND created_at_ms>=? GROUP BY state").all(row.id, since) as Array<{ state: string; n: number }>).map((count) => [count.state, count.n]));
         return {
-          slug: row.slug, name: row.name, packs: manifest.packs, platform: manifest.platform === true, agents: Object.keys(manifest.agents).length, tools: Object.keys(manifest.tools).length, plays: Object.keys(manifest.plays).length,
+          slug: row.slug, name: row.name, packs: manifest.packs, platform: manifest.platform ?? null, agents: Object.keys(manifest.agents).length, tools: Object.keys(manifest.tools).length, plays: Object.keys(manifest.plays).length,
           tasks: { done: counts["done"] ?? 0, failed: counts["failed"] ?? 0, needs_you: counts["needs_you"] ?? 0, running: counts["running"] ?? 0 }, spend_usd: dollars(cost("workspace_id", row.id)),
         };
       }),
@@ -118,7 +118,8 @@ export function runPlatform(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: 
   }
 
   if (tool === "platform.tool-drift") {
-    const drift = driftOf(gov);
+    if (platform.kind !== "admin") throw new ToolRefusal("platform.tool-drift compares workspaces with the pack sources, which only the admin workspace keeps");
+    const drift = driftOf(gov, platform);
     audit(drift.workspaces.map(workspaceNamed), "tool-drift");
     return { drift: drift.entries };
   }
