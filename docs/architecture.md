@@ -377,8 +377,9 @@ The top bar has the live indicator and search (Cmd-K: pages, workspaces, goals).
 you across all workspaces with the decision in place, what is running, a table of workspaces with week
 sparklines, spend and goals per day stacked by workspace, the instance's health); **Today** (goal box, Plays,
 needs you, running, recent, spend); **Tasks** (filterable, sortable table with bulk stop) and one **Task**
-page (the chain and the record in two panes); **Workspace** (tabs for agents, tools, Plays, memory, projects,
-settings: list and form panes over the files, plus a raw editor); **New workspace** (a wizard); **Health**;
+page (the goal drawn as a graph of its sub-tasks, in columns by what each waits for, and the record in two panes); **Workspace** (tabs for agents, a
+Team graph, tools, Plays, memory, projects, settings: list and form panes over the files, plus a raw editor; Team draws the agents and
+the handoffs between them, read from the Plays' steps and the recent tasks the web app already lists, with no query of its own); **New workspace** (a wizard); **Health**;
 **People and secrets**. Health and People belong to a workspace, so the sidebar leads to the open one's.
 
 ## 11. Tests

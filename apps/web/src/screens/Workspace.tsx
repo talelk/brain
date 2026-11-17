@@ -6,17 +6,18 @@ import { PaneLayout } from "@talelk/newui-templates";
 import type { AgentFile, FileEntry, MemoryProposal, PlayFile, SnapshotManifest, ToolFile } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
-import { t, tn, type MessageKey } from "../i18n";
+import { direction, t, tn, type MessageKey } from "../i18n";
 import { ago } from "../lib/format";
 import { paths } from "../lib/files";
 import { isSlug } from "../lib/model";
+import { TeamGraph } from "../components/TeamGraph";
 import { CodeEditor } from "../components/CodeEditor";
 import { AgentForm, MarkdownEditor, PlayForm, problemsOf, ProjectsForm, SaveBar, SettingsForm, ToolForm, useWrite } from "../components/forms";
 import { Markdown } from "../components/Markdown";
 import { ConfirmButton, Failure, Icon, Keyed, Ready } from "../components/bits";
 import { Head } from "../components/Shell";
 
-const TABS = ["agents", "tools", "plays", "memory", "projects", "settings"] as const;
+const TABS = ["agents", "team", "tools", "plays", "memory", "projects", "settings"] as const;
 type Tab = (typeof TABS)[number];
 interface Item { readonly name: string; readonly title?: string; readonly text: string; readonly source: string }
 
@@ -106,6 +107,8 @@ export default function WorkspaceScreen(): JSX.Element {
   const single = (): boolean => tab() === "projects" || tab() === "settings";
   const readOnly = (): boolean => !place.can("admin");
   const files = useQuery("workspace.files", () => ({ workspaceId: place.id() }));
+  /** The tasks the Team tab reads handoffs from: the most recent ones of the workspace, sub-tasks included. */
+  const recent = useQuery("tasks.list", () => (tab() === "team" ? { workspaceId: place.id(), limit: 200 } : undefined));
   const memory = useQuery("memory.list", () => ({ workspaceId: place.id() }));
   const [raw, setRaw] = createSignal(false);
   const [newName, setNewName] = createSignal<string>();
@@ -165,6 +168,8 @@ export default function WorkspaceScreen(): JSX.Element {
           <For each={TABS}>{(entry) => <Tabs.Trigger value={entry}>{t(`workspace.tab.${entry}` as MessageKey)}</Tabs.Trigger>}</For>
         </Tabs.List>
         <Tabs.Content value={tab()} class="pt-5">
+          {/* The tabs component fixes its own direction to left-to-right; what is in a tab follows the language. */}
+          <div dir={direction()}>
           <Ready data={place.workspace.data()} error={place.workspace.error()} retry={place.workspace.refetch}>
             {(workspace) => {
               const snapshot = (): SnapshotManifest => workspace().snapshot;
@@ -172,6 +177,7 @@ export default function WorkspaceScreen(): JSX.Element {
               const isNew = (): boolean => !exists() && search.new !== undefined;
               const saved = (): void => { if (search.new !== undefined) navigate(href(tab(), name()), { replace: true }); };
               return (
+                <Show when={tab() !== "team"} fallback={<TeamGraph snapshot={snapshot()} tasks={recent.data()?.tasks ?? []} href={(agent) => href("agents", agent)} />}>
                 <Show when={!single()} fallback={
                   <div class="max-w-[52rem] rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-5 sm:p-6">
                     <ModeSwitch raw={raw()} onChange={setRaw} class="mb-6" />
@@ -222,9 +228,11 @@ export default function WorkspaceScreen(): JSX.Element {
                       </div>
                     } />
                 </Show>
+                </Show>
               );
             }}
           </Ready>
+          </div>
         </Tabs.Content>
       </Tabs.Root>
     </>

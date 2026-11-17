@@ -185,11 +185,10 @@ body {
 }
 
 /*
- * The chain: the record of a goal, drawn down the leading side of the Task page. Every sub-task is a link; the bar between two
- * links passes through both. A check and an approval hang off their link as smaller links. Only a running link moves.
+ * The steps of a Play in its form: a plain chain of links, one per step, joined by a bar.
  */
 .chain {
-  --rail: 3.25rem;
+  --rail: 2.25rem;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -199,26 +198,22 @@ body {
   display: grid;
   grid-template-columns: var(--rail) minmax(0, 1fr);
 }
-/* The bar to the next link: it starts inside this link's hole and ends inside the next one's, behind both rings. */
 .chain-item:not(:last-child)::before {
   content: "";
   position: absolute;
-  inset-inline-start: calc(var(--rail) / 2 - 3.5px);
-  top: 3rem;
-  bottom: -1.375rem;
-  width: 7px;
+  inset-inline-start: calc(var(--rail) / 2 - 2.5px);
+  top: 2.125rem;
+  bottom: -1.125rem;
+  width: 5px;
   border-radius: 4px;
-  background: var(--rule-2);
-}
-.chain-item[data-solid="true"]:not(:last-child)::before {
-  background: var(--ink-3);
+  background: var(--ink);
 }
 .chain-link {
   position: relative;
   z-index: 1;
   display: block;
-  width: 2.125rem;
-  height: 3.375rem;
+  width: 1.375rem;
+  height: 2.25rem;
   margin: 0.5rem auto 0;
 }
 .chain-link svg {
@@ -229,92 +224,85 @@ body {
   fill: none;
 }
 .chain-link .ring {
-  stroke: var(--rule-2);
+  stroke: var(--ink);
   stroke-width: 5;
 }
-.chain-link[data-state="done"] .ring { stroke: var(--ink-3); }
-.chain-link[data-state="running"] .ring { stroke: var(--lilac-2); }
-.chain-link[data-state="ready"] .ring { stroke: var(--violet); stroke-dasharray: 0.1 6.15; stroke-linecap: round; }
-.chain-link[data-state="needs_you"] .ring { stroke: var(--needs-mark); }
-.chain-link[data-state="failed"] .ring { stroke: var(--bad); stroke-dasharray: 86 14; stroke-dashoffset: -32; }
-.chain-link[data-state="stopped"] .ring { stroke: var(--ink-3); }
-.chain-link .runner {
-  stroke: var(--violet);
-  stroke-width: 5;
-  stroke-linecap: round;
-  stroke-dasharray: 24 76;
-  animation: chain-run 1.8s linear infinite;
-}
-@keyframes chain-run {
-  to { stroke-dashoffset: -100; }
-}
-.chain-link .mark {
+
+/*
+ * The graph of a goal on the Task page, and the team graph in Workspace: boxes placed in columns, curved arrows between them.
+ * The boxes are real buttons or links in reading order; the arrows are a picture only. In right-to-left the picture is mirrored.
+ */
+.graph-scroll { max-width: 100%; max-height: calc(100dvh - 9rem); overflow: auto; padding: 0.25rem 0.25rem 0.75rem; }
+.graph { position: relative; }
+.graph-edges { position: absolute; inset-block-start: 0; inset-inline-start: 0; overflow: visible; pointer-events: none; }
+:root[dir="rtl"] .graph-edges { transform: scaleX(-1); }
+.graph-edges .edge, .graph-edges .link { fill: none; stroke-width: 1.75; }
+.edge-quiet { stroke: var(--rule-2); }
+.edge-solid { stroke: var(--ink-3); }
+.edge-active { stroke: var(--violet); stroke-width: 2.25; }
+.arrow-quiet path { fill: var(--rule-2); }
+.arrow-solid path { fill: var(--ink-3); }
+.arrow-active path { fill: var(--violet); }
+.graph-nodes { list-style: none; margin: 0; padding: 0; }
+.gnode {
   position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 0.875rem;
-  height: 0.875rem;
-  color: var(--ok-mark);
-}
-.chain-link .mark.dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: var(--needs-mark); }
-.chain-link[data-state="failed"] .mark { color: var(--bad); }
-.chain-link[data-state="stopped"] .mark { color: var(--ink-3); }
-/* A link inside a group (the copies of a for-each step) and a step of a Play in its form are a size smaller. */
-.chain .chain, .chain-plain { --rail: 2.25rem; }
-.chain .chain { margin-block: 0.25rem 0.5rem; }
-.chain .chain .chain-link, .chain-plain .chain-link { width: 1.375rem; height: 2.25rem; margin-top: 0.5rem; }
-.chain .chain .chain-item:not(:last-child)::before, .chain-plain .chain-item:not(:last-child)::before { top: 2.125rem; bottom: -1.125rem; width: 5px; inset-inline-start: calc(var(--rail) / 2 - 2.5px); }
-.chain .chain .chain-link .mark { width: 0.625rem; height: 0.625rem; }
-.chain-plain .chain-link .ring { stroke: var(--ink); }
-.chain-plain .chain-item:not(:last-child)::before { background: var(--ink); }
-
-.chain-row {
-  display: block;
-  width: 100%;
-  text-align: start;
-  padding: 0.625rem 0.75rem;
-  margin-block: 0.125rem;
-  border-radius: 12px;
-  cursor: pointer;
-}
-.chain-row:hover { background: var(--lilac); }
-.chain-item[data-selected="true"] > div > .chain-row { background: var(--lilac); }
-
-/* Smaller links hanging off a link: its check and its approvals. */
-.chain-hangs {
-  list-style: none;
-  margin: 0 0 0.5rem;
-  padding: 0;
-  padding-inline-start: 0.75rem;
-}
-.chain-hang {
-  position: relative;
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding-block: 0.1875rem;
-  color: var(--ink-2);
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--sheet);
+  border: 1px solid var(--rule-2);
+  border-radius: 12px;
+  transition: border-color 120ms ease, background-color 120ms ease;
 }
-/* The hook from the chain's bar to the small link. */
-.chain-hang::before {
-  content: "";
-  position: absolute;
-  inset-inline-start: calc(-0.75rem - var(--rail) / 2 + 1px);
-  width: calc(var(--rail) / 2 + 0.625rem);
-  top: -0.5rem;
-  height: calc(50% + 0.5rem);
-  border-bottom: 2px solid var(--rule-2);
-  border-inline-start: 2px solid transparent;
-  border-end-start-radius: 10px;
-}
-.chain-hang .small-ring {
-  position: relative;
+.gnode:hover { background: var(--lilac); }
+.gnode[data-selected="true"] { border-color: var(--violet); background: var(--lilac); box-shadow: 0 0 0 3px color-mix(in oklab, var(--violet) 18%, transparent); }
+.gnode[data-state="needs_you"] { border-color: var(--needs-line, var(--needs-mark)); }
+.gnode[data-state="failed"] { border-color: var(--bad); }
+.gnode[data-state="waiting"], .gnode[data-state="stopped"] { border-style: dashed; }
+.gnode:focus-within { outline: 2px solid var(--violet); outline-offset: 2px; }
+.gnode-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  width: 100%;
+  height: 4.625rem;
   flex: none;
-  width: 0.6875rem;
-  height: 1.0625rem;
-  border-radius: 999px;
-  border: 2.5px solid var(--ink);
+  padding: 0.5rem 0.625rem;
+  text-align: start;
+  cursor: pointer;
+  outline: none;
 }
+.gnode-top { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.gnode-title { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-size: 0.9375rem; font-weight: 600; line-height: 1.4; color: var(--ink); }
+.gnode[data-state="waiting"] .gnode-title, .gnode[data-state="stopped"] .gnode-title { color: var(--ink-2); }
+.gnode-line { display: flex; align-items: center; gap: 0.5rem; min-width: 0; white-space: nowrap; }
+.gnode-agent { overflow: hidden; text-overflow: ellipsis; }
+.gnode-round { display: inline-flex; flex: none; align-items: center; gap: 0.25rem; padding-inline: 0.375rem; border-radius: 999px; background: var(--lilac-2); color: var(--ink-2); }
+.gnode-round > span { width: 0.75rem; height: 0.75rem; }
+.gnode-phrase { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The mark of a state: a ring, and inside it what the state adds. Only a running one moves. */
+.gmark { position: relative; display: block; flex: none; width: 1.125rem; height: 1.125rem; }
+.gmark svg { display: block; width: 100%; height: 100%; overflow: visible; fill: none; }
+.gmark .ring { stroke: var(--rule-2); stroke-width: 2.25; }
+.gmark[data-state="done"] .ring { stroke: var(--ink-3); }
+.gmark[data-state="running"] .ring { stroke: var(--lilac-2); }
+.gmark[data-state="ready"] .ring { stroke: var(--violet); stroke-dasharray: 0.1 6.1; stroke-linecap: round; }
+.gmark[data-state="waiting"] .ring { stroke-dasharray: 4 4; }
+.gmark[data-state="needs_you"] .ring { stroke: var(--needs-mark); }
+.gmark[data-state="failed"] .ring { stroke: var(--bad); }
+.gmark[data-state="stopped"] .ring { stroke: var(--ink-3); }
+.gmark .runner { stroke: var(--violet); stroke-width: 2.25; stroke-linecap: round; stroke-dasharray: 24 76; animation: graph-run 1.8s linear infinite; transform-origin: center; }
+@keyframes graph-run { to { stroke-dashoffset: -100; } }
+.gmark .glyph { position: absolute; inset: 0; margin: auto; width: 0.625rem; height: 0.625rem; color: var(--ok-mark); }
+.gmark .glyph.dot { width: 0.4375rem; height: 0.4375rem; border-radius: 999px; background: var(--needs-mark); }
+.gmark[data-state="failed"] .glyph { color: var(--bad); }
+.gmark[data-state="stopped"] .glyph { color: var(--ink-3); }
+
+/* What hangs under a node: its checks and approvals, one line each. */
+.gnode-hangs { list-style: none; margin: 0; padding: 0 0.625rem 0.375rem; }
+.chain-hang { display: flex; align-items: center; gap: 0.375rem; height: 1.0625rem; color: var(--ink-2); }
+.chain-hang .small-ring { flex: none; width: 0.5rem; height: 0.5rem; border-radius: 999px; border: 2px solid var(--ink); }
 .chain-hang[data-tone="ok"] .small-ring { border-color: var(--ok-mark); }
 .chain-hang[data-tone="needs"] .small-ring { border-color: var(--needs-mark); }
 .chain-hang[data-tone="bad"] .small-ring { border-color: var(--bad); }
@@ -390,5 +378,15 @@ details[open] > summary > .details-mark { transform: rotate(90deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chain-link .runner { animation: none; stroke-dasharray: 100 0; opacity: 0.6; }
+  .gmark .runner { animation: none; stroke-dasharray: 100 0; opacity: 0.6; }
 }
+
+/* The team graph: a "checks" arrow is dashed; one only a Play names is faint; hovering one shows its counts. */
+.team-edge .hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; }
+.team-edge[data-kind="check"] .link, .team-key-check path { stroke-dasharray: 6 4; }
+.team-edge[data-planned="true"] .link { opacity: 0.75; }
+.team-edge .count rect { fill: var(--sheet); stroke: var(--rule-2); }
+.team-edge .count text { fill: var(--ink); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.team-key path { fill: none; stroke-width: 1.75; }
+.gnode-agent-box .gnode-main { height: 100%; justify-content: center; text-decoration: none; }
+:root[dir="rtl"] .team-edge .count text { transform: scaleX(-1); transform-box: fill-box; transform-origin: center; }

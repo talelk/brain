@@ -9,7 +9,7 @@ import { usePlace } from "../data/session";
 import { t } from "../i18n";
 import { ago, dateTime, duration, money, shortHash, titleOf, tokens } from "../lib/format";
 import { ApprovalView } from "../components/ApprovalView";
-import { Chain } from "../components/Chain";
+import { TaskGraph } from "../components/TaskGraph";
 import { Evidence } from "../components/Evidence";
 import { Markdown } from "../components/Markdown";
 import { PlanEditor } from "../components/PlanEditor";
@@ -136,7 +136,7 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
   const skipped = (): boolean => task().state === "done" && task().result === "skipped";
   return (
     <article aria-label={task().title}>
-      <DetailHeader class="mb-5" headingLevel={2} title={<bdi>{props.isGoal ? t("chain.goal") : titleOf(task())}</bdi>}
+      <DetailHeader class="mb-5" headingLevel={2} title={<bdi>{props.isGoal ? t("graph.goal") : titleOf(task())}</bdi>}
         subtitle={<span class="flex flex-wrap items-center gap-x-3 gap-y-1"><StateWord state={task().state} /><Show when={task().agent}><span>{t("task.agent", { agent: task().agent ?? "" })}</span></Show></span>}>
         <Show when={place.can("member")}>
           <Show when={task().state === "failed" || task().state === "stopped"}><Button variant="outline" size="md" iconLeft="lucide-rotate-cw" loading={retry.busy()} onClick={() => void retry.run()}>{t("task.retry")}</Button></Show>
@@ -252,16 +252,16 @@ export default function TaskScreen(): JSX.Element {
               <Show when={task().play}> {t("task.started.play", { play: place.workspace.data()?.snapshot.plays[task().play ?? ""]?.title ?? task().play ?? "" })}</Show>
               <Show when={task().usage.microUsd > 0}> {t(task().finishedAt ? "task.cost.total" : "task.cost.soFar", { cost: money(task().usage.microUsd) })}</Show>
             </>} />
-          <PaneLayout active={pane()} defaultSize={34} minStartSize={26} maxStartSize={50} resizeLabel={t("task.resize")} class="gap-0"
+          <PaneLayout active={pane()} defaultSize={52} minStartSize={30} maxStartSize={72} resizeLabel={t("task.resize")} class="gap-0"
             start={
-              <div class="lg:sticky lg:top-3 lg:max-h-[calc(100dvh-9rem)] lg:overflow-y-auto lg:pe-5">
-                <Chain record={task()} order={task().needs?.kind === "confirm-plan" ? order() : undefined} selected={selectedId()} onSelect={select} />
-                <Show when={task().subtasks.length === 0 && task().state === "running"}><p class="ms-11 mt-3 t-small text-ink-3">{t("task.planning")}</p></Show>
+              <div class="lg:sticky lg:top-3 lg:pe-5">
+                <TaskGraph record={task()} order={task().needs?.kind === "confirm-plan" ? order() : undefined} selected={selectedId()} onSelect={select} />
+                <Show when={task().subtasks.length === 0 && task().state === "running"}><p class="mt-3 t-small text-ink-3">{t("task.planning")}</p></Show>
               </div>
             }
             end={
               <div class="min-w-0 lg:ps-6">
-                <Button variant="ghost" size="md" iconLeft="lucide-chevron-left" class="mb-3 lg:hidden" onClick={() => setPane("start")}>{t("chain.label")}</Button>
+                <Button variant="ghost" size="md" iconLeft="lucide-chevron-left" class="mb-3 lg:hidden" onClick={() => setPane("start")}>{t("graph.label")}</Button>
                 <div class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-5 sm:p-6">
                   <Show when={selected()} fallback={<Failure error={sub.error()} retry={sub.refetch} />}>
                     {(current) => <Detail task={current()} isGoal={current().id === task().id} onSelect={select} onOrder={setOrder} />}

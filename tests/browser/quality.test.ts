@@ -29,6 +29,9 @@ for (const scheme of ["light", "dark"] as const) {
     await page.getByRole("link", { name: /Say hello/u }).first().click();
     await expect(page.getByRole("heading", { name: "Result" }).first()).toBeVisible();
     expect(await violations(page), "Task").toEqual([]);
+    await page.goto(page.url().replace(/\/tasks\/.*/u, "/workspace/team"));
+    await expect(page.getByText("Agents never message each other")).toBeVisible();
+    expect(await violations(page), "Team").toEqual([]);
     expect(taskId).toMatch(/^t_/u);
   });
 }
@@ -50,5 +53,12 @@ test("in Arabic the page reads right to left and nothing runs off its edge", asy
   await page.getByRole("link", { name: /Starter/u }).first().click();
   await page.getByRole("link", { name: /Say hello|قل مرحبا/u }).first().click();
   await expect(page.getByRole("article")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  // The graphs are mirrored: the first step stands on the right of the one that waits for it, and the Team graph fits the page too.
+  const first = await page.getByRole("group", { name: "سجل هذا الهدف" }).getByRole("button").first().boundingBox();
+  const last = await page.getByRole("group", { name: "سجل هذا الهدف" }).getByRole("button").last().boundingBox();
+  expect(first && last && first.x >= last.x).toBe(true);
+  await page.goto(page.url().replace(/\/tasks\/.*/u, "/workspace/team"));
+  await expect(page.getByRole("list", { name: "الوكلاء", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
