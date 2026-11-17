@@ -1,6 +1,4 @@
 @import "@talelk/newui-tailwind/style.css";
-@import "@fontsource-variable/bricolage-grotesque/opsz.css";
-@import "@fontsource-variable/hanken-grotesk/index.css";
 @import "@fontsource/ibm-plex-sans-arabic/arabic-400.css";
 @import "@fontsource/ibm-plex-sans-arabic/arabic-500.css";
 @import "@fontsource/ibm-plex-sans-arabic/arabic-600.css";
@@ -21,233 +19,34 @@
 @source not "../node_modules/@talelk/newui-charts/src/**/*.test.{ts,tsx}";
 
 /*
- * Brain's palette, written once and wired through the design system's own variables.
- *   ink      deep indigo, the text and the solid links of a finished record
- *   paper    near-white lavender, the page
- *   violet   the one colour of actions
- *   lilac    selected and hover surfaces
- *   ok       green: a checked result
- *   needs    orange: something needs you. Never used for anything else.
- * Contrast (WCAG): light ink/paper 16.3, ink-2/paper 8.3, ink-3/paper 5.2, violet text/paper 6.6, white/violet 6.1,
- * ok/paper 5.1, needs text/paper 5.4, ink on needs 5.6. Dark ink/paper 16.6, ink-2 10.0, ink-3 6.3, violet text 8.8,
- * paper on violet 7.7, ok 10.4, needs text 9.1.
+ * Brain's names for colours, spelled with the design system's own tokens: its grays, its blue for actions, its green for a checked
+ * result and its red for a failure. Orange is the design system's orange and means exactly one thing: it needs you.
  */
 :root {
-  --on-needs: #1a1446;
-  --paper: #faf9ff;
-  --sheet: #ffffff;
-  --ink: #1a1446;
-  --ink-2: #4b4674;
-  --ink-3: #6a6591;
-  --lilac: #efebff;
-  --lilac-2: #e3dcff;
-  --rule: #e2def3;
-  --rule-2: #c9c3e6;
-  --violet: #5b3df5;
-  --violet-text: #5235e8;
-  --ok: #157a4c;
-  --ok-mark: #1e9b63;
-  --ok-soft: #e3f6ec;
-  --needs: #f4692a;
-  --needs-mark: #ea5a1b;
-  --needs-text: #b5400b;
-  --needs-soft: #ffefe6;
-  --needs-line: #f3a983;
-  --bad: #b4233f;
-  --bad-soft: #fdecef;
-  --added: #e3f6ec;
-  --removed: #fdecef;
-
-  --surface-base: var(--sheet);
-  --surface-canvas: var(--paper);
-  --surface-sidebar: var(--paper);
-  --surface-elevation-1: var(--sheet);
-  --surface-elevation-2: var(--sheet);
-  --surface-elevation-3: var(--sheet);
-  --surface-gray-1: #f7f5ff;
-  --surface-gray-2: #efebff;
-  --surface-gray-3: #e3dcff;
-  --surface-gray-4: #d2caf5;
-  --surface-gray-5: #b4addb;
-  --surface-gray-6: #8f89bd;
-  --surface-gray-7: #6a6591;
-  --surface-gray-8: #4b4674;
-  --surface-gray-9: #2e2859;
-  --surface-gray-10: #1a1446;
-  --ink-base: #ffffff;
-  --ink-gray-1: #e3dcff;
-  --ink-gray-2: #d2caf5;
-  --ink-gray-3: #b4addb;
-  --ink-gray-4: #8f89bd;
-  --ink-gray-5: #6a6591;
-  --ink-gray-6: #5a557f;
-  --ink-gray-7: #4b4674;
-  --ink-gray-8: #2a2456;
-  --ink-gray-9: #1a1446;
-  --outline-gray-1: #e2def3;
-  --outline-gray-2: #c9c3e6;
-  --outline-gray-3: #a8a1d0;
-  --outline-gray-4: #8f89bd;
-  --outline-gray-5: #6a6591;
-  --surface-blue-1: #f5f2ff;
-  --surface-blue-2: #ece7ff;
-  --surface-blue-3: #ddd5ff;
-  --surface-blue-4: #c3b6ff;
-  --surface-blue-5: #a08cff;
-  --surface-blue-6: #7c63fa;
-  --surface-blue-7: #6a4ef7;
-  --surface-blue-8: #5b3df5;
-  --surface-blue-9: #4a2de0;
-  --surface-blue-10: #3a21b8;
-  --ink-blue-1: #ece7ff;
-  --ink-blue-2: #ddd5ff;
-  --ink-blue-3: #c3b6ff;
-  --ink-blue-4: #a08cff;
-  --ink-blue-5: #7c63fa;
-  --ink-blue-6: #6a4ef7;
-  --ink-blue-7: #5b3df5;
-  --ink-blue-8: #5235e8;
-  --ink-blue-9: #3a21b8;
-  --ink-blue-link: #5235e8;
-  --outline-blue-1: #c3b6ff;
-  --outline-blue-2: #a08cff;
-  --outline-blue-3: #8a73fb;
-  --outline-blue-4: #7c63fa;
-  --outline-blue-5: #6a4ef7;
-  --focus-outline-default: 2px solid #5b3df5;
-  --focus-outline-blue: 2px solid #5b3df5;
-  --surface-scrim: rgb(26 20 70 / 0.32);
-  /* Status colours of the design system's themes: green is a checked result, red a failure. Amber is never used: orange is only "needs you". */
-  --surface-green-1: #f0faf4;
-  --surface-green-2: var(--ok-soft);
-  --surface-green-6: var(--ok-mark);
-  --surface-green-7: var(--ok);
-  --surface-green-8: var(--ok);
-  --ink-green-5: var(--ok-mark);
-  --ink-green-6: var(--ok);
-  --ink-green-7: var(--ok);
-  --ink-green-8: var(--ok);
-  --surface-red-1: #fff6f7;
-  --surface-red-2: var(--bad-soft);
-  --surface-red-7: var(--bad);
-  --surface-red-8: var(--bad);
-  --ink-red-6: var(--bad);
-  --ink-red-7: var(--bad);
-  --ink-red-8: var(--bad);
-  /* Chart series: violets, blues, teal and magenta; never the orange of "needs you", the green of "checked" or the red of "failed". */
-  --chart-1: #5b3df5;
-  --chart-2: #0e8fb5;
-  --chart-3: #c2338b;
-  --chart-4: #2a2456;
-  --chart-5: #8a6dff;
-  --chart-6: #127c74;
-  --chart-7: #3e6be0;
-  --chart-8: #8f89bd;
-}
-
-[data-theme="dark"] {
-  --on-needs: #0f0b2b;
-  --paper: #0f0b2b;
-  --sheet: #171240;
-  --ink: #f0edff;
-  --ink-2: #bdb7e3;
-  --ink-3: #958fc2;
-  --lilac: #231c5c;
-  --lilac-2: #2e2675;
-  --rule: #2a2363;
-  --rule-2: #40388a;
-  --violet: #a796ff;
-  --violet-text: #b3a5ff;
-  --ok: #56d69e;
-  --ok-mark: #2fb67c;
-  --ok-soft: #11362b;
-  --needs: #ff8749;
-  --needs-mark: #ff8749;
-  --needs-text: #ff9a66;
-  --needs-soft: #3b1e12;
-  --needs-line: #8a4a2a;
-  --bad: #ff8098;
-  --bad-soft: #3d1422;
-  --added: #123a2c;
-  --removed: #451827;
-
-  --surface-gray-1: #130e36;
-  --surface-gray-2: #231c5c;
-  --surface-gray-3: #2e2675;
-  --surface-gray-4: #40388a;
-  --surface-gray-5: #5a52a3;
-  --surface-gray-6: #7770b3;
-  --surface-gray-7: #958fc2;
-  --surface-gray-8: #bdb7e3;
-  --surface-gray-9: #dcd7f7;
-  --surface-gray-10: #f0edff;
-  --ink-base: #0f0b2b;
-  --ink-gray-1: #2a2363;
-  --ink-gray-2: #40388a;
-  --ink-gray-3: #5a52a3;
-  --ink-gray-4: #8079b8;
-  --ink-gray-5: #958fc2;
-  --ink-gray-6: #a9a3d3;
-  --ink-gray-7: #bdb7e3;
-  --ink-gray-8: #dcd7f7;
-  --ink-gray-9: #f0edff;
-  --outline-gray-1: #2a2363;
-  --outline-gray-2: #40388a;
-  --outline-gray-3: #5a52a3;
-  --outline-gray-4: #7770b3;
-  --outline-gray-5: #958fc2;
-  --surface-blue-1: #1b1550;
-  --surface-blue-2: #261e6b;
-  --surface-blue-3: #332989;
-  --surface-blue-4: #4536ad;
-  --surface-blue-5: #5c49d6;
-  --surface-blue-6: #7a66f5;
-  --surface-blue-7: #907dff;
-  --surface-blue-8: #a796ff;
-  --surface-blue-9: #bdb0ff;
-  --surface-blue-10: #d6ceff;
-  --ink-blue-1: #332989;
-  --ink-blue-2: #4536ad;
-  --ink-blue-3: #5c49d6;
-  --ink-blue-4: #7a66f5;
-  --ink-blue-5: #907dff;
-  --ink-blue-6: #a796ff;
-  --ink-blue-7: #b3a5ff;
-  --ink-blue-8: #c6bbff;
-  --ink-blue-9: #e1dcff;
-  --ink-blue-link: #b3a5ff;
-  --outline-blue-1: #332989;
-  --outline-blue-2: #4536ad;
-  --outline-blue-3: #5c49d6;
-  --outline-blue-4: #7a66f5;
-  --outline-blue-5: #907dff;
-  --focus-outline-default: 2px solid #a796ff;
-  --focus-outline-blue: 2px solid #a796ff;
-  --surface-scrim: rgb(5 3 20 / 0.7);
-  --surface-green-1: #0e2a22;
-  --surface-green-2: var(--ok-soft);
-  --surface-green-6: var(--ok-mark);
-  --surface-green-7: var(--ok);
-  --surface-green-8: var(--ok);
-  --ink-green-5: var(--ok-mark);
-  --ink-green-6: var(--ok);
-  --ink-green-7: var(--ok);
-  --ink-green-8: var(--ok);
-  --surface-red-1: #2e101c;
-  --surface-red-2: var(--bad-soft);
-  --surface-red-7: var(--bad);
-  --surface-red-8: var(--bad);
-  --ink-red-6: var(--bad);
-  --ink-red-7: var(--bad);
-  --ink-red-8: var(--bad);
-  --chart-1: #a796ff;
-  --chart-2: #5cc8e8;
-  --chart-3: #f07cc0;
-  --chart-4: #dcd7f7;
-  --chart-5: #c3b6ff;
-  --chart-6: #4fcdbf;
-  --chart-7: #7fa0ff;
-  --chart-8: #7770b3;
+  --paper: var(--surface-canvas);
+  --sheet: var(--surface-elevation-1);
+  --ink: var(--ink-gray-9);
+  --ink-2: var(--ink-gray-7);
+  --ink-3: var(--ink-gray-6);
+  --lilac: var(--surface-gray-2);
+  --lilac-2: var(--surface-gray-3);
+  --rule: var(--outline-gray-1);
+  --rule-2: var(--outline-gray-2);
+  --violet: var(--surface-blue-8);
+  --violet-text: var(--ink-blue-8);
+  --ok: var(--ink-green-7);
+  --ok-mark: var(--ink-green-6);
+  --ok-soft: var(--surface-green-2);
+  --needs: var(--surface-orange-6);
+  --needs-mark: var(--surface-orange-6);
+  --needs-text: var(--ink-orange-7);
+  --needs-soft: var(--surface-orange-2);
+  --needs-line: var(--surface-orange-5);
+  --on-needs: oklch(0.2 0.03 50);
+  --bad: var(--ink-red-7);
+  --bad-soft: var(--surface-red-2);
+  --added: var(--surface-green-2);
+  --removed: var(--surface-red-2);
 }
 
 @theme inline {
@@ -271,70 +70,44 @@
   --color-needs-soft: var(--needs-soft);
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
-  --font-display: "Bricolage Grotesque Variable", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Hanken Grotesk Variable", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "IBM Plex Sans", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  /* The design system's controls, one step larger so they sit with 15px text. */
-  --text-sm: 0.8125rem;
-  --text-sm--line-height: 1.125rem;
-  --text-sm-medium: 0.8125rem;
-  --text-sm-medium--line-height: 1.125rem;
-  --text-base: 0.875rem;
-  --text-base--line-height: 1.25rem;
-  --text-base-medium: 0.875rem;
-  --text-base-medium--line-height: 1.25rem;
-  --text-lg: 0.9375rem;
-  --text-lg--line-height: 1.375rem;
-  --text-lg-medium: 0.9375rem;
-  --text-lg-medium--line-height: 1.375rem;
-  --radius-control: 8px;
-  --radius-card: 12px;
-  --radius-overlay: 14px;
 }
 
 /*
  * Type scale. Display is Bricolage Grotesque (the goal box and titles), text is Hanken Grotesk, monospace is only for real code.
- *   hero 2.125–3.5rem · title 1.75rem · head 1.1875rem · text 0.9375rem · small 0.8125rem
+ *   hero · title · head · text · small
  */
 @utility t-hero {
-  font-family: var(--font-display);
-  font-size: clamp(2.125rem, 1.4rem + 3.4vw, 3.5rem);
-  line-height: 1.04;
+  font-size: clamp(1.75rem, 1.4rem + 1.6vw, 2.5rem);
+  line-height: 1.1;
   font-weight: 600;
-  letter-spacing: -0.022em;
-  font-variation-settings: "opsz" 96;
+  letter-spacing: -0.02em;
 }
 @utility t-title {
-  font-family: var(--font-display);
-  font-size: clamp(1.5rem, 1.3rem + 0.9vw, 1.875rem);
-  line-height: 1.15;
-  font-weight: 600;
-  letter-spacing: -0.025em;
-  font-variation-settings: "opsz" 48;
-}
-@utility t-head {
-  font-family: var(--font-display);
-  font-size: 1.1875rem;
+  font-size: 1.25rem;
   line-height: 1.3;
   font-weight: 600;
-  letter-spacing: -0.015em;
-  font-variation-settings: "opsz" 24;
+  letter-spacing: -0.01em;
+}
+@utility t-head {
+  font-size: 1rem;
+  line-height: 1.35;
+  font-weight: 600;
 }
 @utility t-goal {
-  font-family: var(--font-display);
-  font-size: clamp(1.125rem, 1rem + 0.5vw, 1.3125rem);
-  line-height: 1.4;
+  font-size: 1.0625rem;
+  line-height: 1.5;
   font-weight: 400;
-  letter-spacing: -0.01em;
-  font-variation-settings: "opsz" 24;
 }
 @utility t-text {
-  font-size: 0.9375rem;
-  line-height: 1.55;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 @utility t-small {
   font-size: 0.8125rem;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 @utility t-code {
   font-family: var(--font-mono);
@@ -343,20 +116,8 @@
   font-variation-settings: normal;
 }
 
-/* Unlayered, so it wins over the design system's own base rule for the page face. */
-html {
-  font-family: var(--font-sans);
-  background: var(--paper);
-  color: var(--ink);
-}
-html, body, button, p, span, div {
-  font-variation-settings: normal;
-}
 body {
-  font-size: 0.9375rem;
-  line-height: 1.55;
   min-height: 100dvh;
-  background: var(--paper);
 }
 
 @layer base {
@@ -402,8 +163,9 @@ body {
 /* The goal box: one large link of the chain, drawn in ink. It is the hero of Today. */
 .goal-box {
   background: var(--sheet);
-  border: 2px solid var(--ink);
-  border-radius: 20px;
+  border: 1px solid var(--rule-2);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgb(0 0 0 / 0.06));
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .goal-box:focus-within {

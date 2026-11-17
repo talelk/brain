@@ -29,13 +29,13 @@ function WorkspacesTable(props: { workspaces: readonly OverviewWorkspace[] }): J
     { accessorKey: "name", header: t("overview.col.workspace"), meta: { mobile: "title" }, cell: (ctx) => <A href={`/w/${ctx.row.original.slug}`} class="font-medium text-ink-gray-9 hover:underline">{ctx.row.original.name}</A> },
     { id: "projects", header: t("overview.col.projects"), accessorFn: (workspace) => workspace.projects.join(", "), meta: { mobile: "meta" }, cell: (ctx) => <span class="block max-w-48 truncate text-ink-gray-7" title={ctx.row.original.projects.join(", ")}>{ctx.row.original.projects.length > 0 ? ctx.row.original.projects.join(", ") : "—"}</span> },
     { accessorKey: "running", header: t("overview.col.running"), meta: { align: "end" }, cell: (ctx) => <span class="tabular-nums">{ctx.row.original.running}</span> },
-    { accessorKey: "needsYou", header: t("overview.col.needs"), meta: { align: "end", mobile: "status" }, cell: (ctx) => (ctx.row.original.needsYou > 0 ? <NeedsCount n={ctx.row.original.needsYou} /> : <span class="text-ink-gray-5">0</span>) },
+    { accessorKey: "needsYou", header: t("overview.col.needs"), meta: { align: "end", mobile: "status" }, cell: (ctx) => (ctx.row.original.needsYou > 0 ? <NeedsCount n={ctx.row.original.needsYou} /> : <span class="text-ink-gray-7">0</span>) },
     { accessorKey: "doneToday", header: t("overview.col.done"), meta: { align: "end" }, cell: (ctx) => <span class="tabular-nums">{ctx.row.original.doneToday}</span> },
     { id: "spend", header: t("overview.col.spend"), accessorFn: (workspace) => workspace.spend.todayMicroUsd, meta: { align: "end", mobile: "amount" }, cell: (ctx) => {
       const spend = ctx.row.original.spend;
       return (
         <span class="inline-flex min-w-28 flex-col items-end gap-1 tabular-nums">
-          <span>{money(spend.todayMicroUsd)}<Show when={spend.capMicroUsd > 0}><span class="text-ink-gray-5"> / {money(spend.capMicroUsd)}</span></Show></span>
+          <span>{money(spend.todayMicroUsd)}<Show when={spend.capMicroUsd > 0}><span class="text-ink-gray-7"> / {money(spend.capMicroUsd)}</span></Show></span>
           <Show when={spend.capMicroUsd > 0}><Progress size="sm" value={Math.min(100, (spend.todayMicroUsd / spend.capMicroUsd) * 100)} class="w-24" aria-label={t("overview.spend.meter", { name: ctx.row.original.name })} /></Show>
         </span>
       );

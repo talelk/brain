@@ -15,9 +15,9 @@ export default function Charts(props: { workspaces: readonly OverviewWorkspace[]
     <div class="flex flex-col gap-3">
     <div class="grid gap-3 lg:grid-cols-2">
       <BarChart title={t("overview.chart.goals")} aria-label={t("overview.chart.goals.label")} data={rows((day) => day.done)} x="day" y={names()} stacked palette="categorical" height={220} dir={direction()}
-        xAxis={{ format: dayLabel }} yAxis={{ min: 0 }} />
+        xAxis={{ type: "category", format: dayLabel }} yAxis={{ min: 0 }} />
       <BarChart title={t("overview.chart.spend")} aria-label={t("overview.chart.spend.label")} data={rows((day) => day.microUsd / 1_000_000)} x="day" y={names()} stacked palette="categorical" height={220} dir={direction()}
-        xAxis={{ format: dayLabel }} yAxis={{ min: 0, format: (value) => money(value * 1_000_000) }} />
+        xAxis={{ type: "category", format: dayLabel }} yAxis={{ min: 0, format: (value) => money(value * 1_000_000) }} />
     </div>
     <ChartLegend items={props.workspaces.map((workspace, index) => ({ name: workspace.name, label: workspace.name, color: `var(--chart-${(index % 8) + 1})` }))} />
     </div>
