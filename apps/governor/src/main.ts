@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { createGovernor } from "./app";
+import { log } from "./log";
 
 /**
  * The Governor's environment variables, all of them:
@@ -9,6 +10,7 @@ import { createGovernor } from "./app";
  *   BRAIN_BASE_URL                 the address people reach Brain at (default http://localhost:<port>)
  *   BRAIN_GATEWAY_URL              the address engines reach the model gateway at, when sandboxes cannot use the base address
  *   BRAIN_PACKS_DIR                the packs directory (default the one shipped with Brain)
+ *   LOG_LEVEL                      the least level logged: debug, info, warn or error (default info)
  *   BRAIN_LOCAL_RUNNER_TOKEN_FILE  where to leave a one-use runner token while no runner is enrolled
  */
 const port = Number(process.env["PORT"] ?? 3100);
@@ -23,7 +25,7 @@ const governor = await createGovernor({
   ...(process.env["BRAIN_PACKS_DIR"] ? { packsDir: process.env["BRAIN_PACKS_DIR"] } : {}),
   ...(process.env["BRAIN_LOCAL_RUNNER_TOKEN_FILE"] ? { localRunnerTokenFile: process.env["BRAIN_LOCAL_RUNNER_TOKEN_FILE"] } : {}),
 });
-const servers = hostnames.map((hostname) => serve({ fetch: governor.app.fetch, port, hostname }, () => console.log(`Brain is listening on http://${hostname}:${port}`)));
+const servers = hostnames.map((hostname) => serve({ fetch: governor.app.fetch, port, hostname }, () => log("info", "governor.listening", { host: hostname, port, node: process.version })));
 governor.startTimers();
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {

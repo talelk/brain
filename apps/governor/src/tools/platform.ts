@@ -84,7 +84,10 @@ export function runPlatform(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: 
   if (tool === "platform.task") {
     const target = workspaceNamed(input["workspace"] as string);
     const row = db.prepare("SELECT * FROM tasks WHERE id=? AND workspace_id=?").get(input["id"] as string, target.id) as TaskRow | undefined;
-    if (!row) throw new ToolRefusal(`${target.slug} has no task ${input["id"] as string}`);
+    if (!row) {
+      const recent = (db.prepare("SELECT id FROM tasks WHERE workspace_id=? AND agent IS NOT NULL ORDER BY created_at_ms DESC, rowid DESC LIMIT 5").all(target.id) as Array<{ id: string }>).map((one) => one.id);
+      throw new ToolRefusal(`${target.slug} has no task ${input["id"] as string}; a task id is the full id that platform.tasks lists${recent.length > 0 ? ` (the latest of ${target.slug}: ${recent.join(", ")})` : ""}`);
+    }
     audit([target], `task ${row.id}`);
     const hide = hider(gov, target.id);
     const tree = "WITH RECURSIVE tree(id) AS (SELECT ? UNION ALL SELECT t.id FROM tasks t JOIN tree ON t.parent_id = tree.id)";

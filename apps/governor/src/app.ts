@@ -1,6 +1,7 @@
 import { BrainError, ERROR_STATUS, hmacSha256Hex, isDigest, MAX_UPLOAD_STRING, parseStrictJson, type ApiError, type Clock } from "@brain/contracts";
 import { Hono, type Context } from "hono";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { extname, join, resolve, sep } from "node:path";
 import { brotliCompressSync, constants as zlib, gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
@@ -11,6 +12,7 @@ import { offerLocalRunnerToken, registerRunners } from "./attempts/runners";
 import { createAuth } from "./auth/auth";
 import { ensureSetupToken, registerAuth } from "./auth/handlers";
 import { openDb } from "./db";
+import { errorFields, log } from "./log";
 import { Registry, runCommand, runQuery, type Gov } from "./dispatch";
 import { onChanged } from "./events";
 import { registerHealth } from "./health/health";
@@ -82,10 +84,16 @@ function staticResponse(file: string, path: string, acceptEncoding: string): Res
   return new Response(Buffer.from(encoding ? entry[encoding] : entry.raw), { headers });
 }
 
+const requestIds = new WeakMap<Request, string>();
+
 function refusal(c: Context, e: unknown): Response {
   const error: ApiError = e instanceof BrainError ? { code: e.code, message: e.message, ...(e.problems ? { problems: e.problems } : {}) } : { code: "INTERNAL", message: "Something went wrong in Brain" };
-  if (!(e instanceof BrainError)) console.error(e);
-  return c.json({ error }, ERROR_STATUS[error.code]);
+  const status = ERROR_STATUS[error.code];
+  const requestId = requestIds.get(c.req.raw);
+  if (status >= 500) log("error", e instanceof BrainError ? "request.failed" : "request.unhandled", { requestId, method: c.req.method, route: c.req.path, status, ...(e instanceof BrainError ? { code: e.code, message: e.message } : errorFields(e)) });
+  else if (e instanceof BrainError && e.code === "LEASE_LOST") log("warn", "runner.lease_lost", { requestId, route: c.req.path });
+  else if (e instanceof BrainError && c.req.path.startsWith("/runner/") && (status === 401 || status === 403)) log("warn", "runner.rejected", { requestId, route: c.req.path, code: e.code });
+  return c.json({ error }, status);
 }
 
 /** The body of a request, read as strict JSON. */
@@ -118,7 +126,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
     gov, app,
     every: (ms, work) => void timers.push({ ms, work }),
     startTimers() {
-      for (const { ms, work } of timers) running.add(setInterval(() => void Promise.resolve().then(work).catch((e: unknown) => console.error(e)), ms));
+      for (const { ms, work } of timers) running.add(setInterval(() => void Promise.resolve().then(work).catch((e: unknown) => log("error", "timer.failed", errorFields(e))), ms));
     },
     close() {
       for (const timer of running) clearInterval(timer);
@@ -127,6 +135,13 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
     },
   };
   app.onError((e, c) => refusal(c, e));
+  // Every request has an id, sent back as x-request-id and named by the log lines about it.
+  app.use("*", async (c, next) => {
+    const requestId = randomUUID().slice(0, 8);
+    requestIds.set(c.req.raw, requestId);
+    c.header("x-request-id", requestId);
+    await next();
+  });
 
   // A cookie is sent by the browser on its own, so a request that changes something with one must come from Brain's own pages.
   app.use("*", async (c, next) => {
@@ -209,6 +224,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   if (options.localRunnerTokenFile) offerLocalRunnerToken(gov, resolve(options.localRunnerTokenFile));
   await restoreReleases(gov);
   await reconcile(gov);
+  log("info", "governor.ready", { dataDir, baseUrl });
 
   // The built web app, when it is there; any other path is a page of it.
   const dist = resolve(options.webDist ?? repo("apps/web/dist"));
