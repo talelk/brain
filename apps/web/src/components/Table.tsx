@@ -12,7 +12,7 @@ export interface Bulk<T> { readonly label: string; readonly summary: (count: num
 export function Table<T extends { id: string }>(props: { title: string; rows: T[]; columns: DataTableColumn<T>[]; count: string; bulk?: Bulk<T>; emptyTitle?: string; emptyHint?: string; onClearFilters?: () => void }): JSX.Element {
   const bulk = (): Bulk<T> | undefined => (typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches ? props.bulk : undefined);
   return (
-    <div class="plain-table" data-bulk={bulk() ? "" : undefined}>
+    <div class="plain-table max-w-full overflow-x-auto" data-bulk={bulk() ? "" : undefined}>
       <DataTable title={props.title} rows={props.rows} columns={props.columns} hideSearch selectable={bulk() !== undefined} density="comfortable" pageSize={Math.max(1, props.rows.length)}
         {...(bulk() ? { actionLabel: bulk()?.label, rowSelectable: bulk()?.eligible, onRowsAction: bulk()?.run, selectionSummary: (ids: string[]) => bulk()?.summary(ids.length) } : {})}
         {...(props.emptyTitle ? { emptyTitle: props.emptyTitle } : {})} {...(props.emptyHint ? { emptyHint: props.emptyHint } : {})} {...(props.onClearFilters ? { onClearFilters: props.onClearFilters } : {})} />
