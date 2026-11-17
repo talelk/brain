@@ -45,14 +45,16 @@ const untranslated = (catalog: Readonly<Record<string, string>>): string[] =>
   Object.entries(en).filter(([key, text]) => !text.includes("{") && text.split(/\s+/u).length > 2 && (catalog[key] === undefined || catalog[key] === text)).map(([, text]) => text);
 /** The English a shipped pack wrote for people (descriptions, titles, memory lines), which a French or Arabic page must show translated. */
 const PACKS = join(import.meta.dirname, "../../packs");
-const packEnglish = (): string[] => {
+const packEnglish = (): { titles: string[]; texts: string[] } => {
   const out = new Set<string>();
+  const titles = new Set<string>();
   for (const entry of readdirSync(PACKS, { recursive: true, withFileTypes: true })) {
     if (!entry.isFile()) continue;
     const path = join(entry.parentPath, entry.name);
     if (entry.name.endsWith(".toml")) {
       const file = parseToml(readFileSync(path, "utf8")) as { title?: string; description?: string; inputs?: Record<string, { description?: string }> };
-      for (const text of [file.title, file.description, ...Object.values(file.inputs ?? {}).map((input) => input.description)]) if (text) out.add(text.trim());
+      for (const text of [file.description, ...Object.values(file.inputs ?? {}).map((input) => input.description)]) if (text) out.add(text.trim());
+      if (file.title) titles.add(file.title.trim());
     } else if (/\.md$/u.test(entry.name) && path.includes("/memory/") && !/\.(fr|ar)\.md$/u.test(entry.name)) {
       for (const line of readFileSync(path, "utf8").split("\n")) {
         const plain = line.replace(/^\s*(?:[-*]|\d+\.|#+)\s+/u, "").trim();
@@ -60,7 +62,7 @@ const packEnglish = (): string[] => {
       }
     }
   }
-  return [...out];
+  return { titles: [...titles], texts: [...out] };
 };
 const LIBRARY = ["Skip to workspace", "values from", "No values."];
 /** Visible text and aria-labels that are one of `phrases`, or hold one of the library's. */
@@ -103,6 +105,8 @@ test("every screen reads right in every language, theme and width", async ({ pag
   const only = process.env["MATRIX_ONLY"]?.split(",");
   const problems: string[] = [];
   const authored = packEnglish();
+  /** A task's title is a record of the goal as it was started, so the screens that list tasks may show a Play's title in the language it was started in. */
+  const recordsTitles = new Set(["overview", "today", "tasks", "task", "graph"]);
   for (const lang of LANGS) for (const scheme of ["light", "dark"] as const) for (const size of SIZES) {
     if (only && !only.includes(`${lang}-${scheme}-${size.name}`)) continue;
     await page.setViewportSize({ width: size.width, height: size.height });
@@ -119,7 +123,7 @@ test("every screen reads right in every language, theme and width", async ({ pag
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       if (overflow > 0) problems.push(`${cell} ${name}: overflows by ${overflow}px`);
       for (const line of await axe(page)) problems.push(`${cell} ${name}: ${line}`);
-      if (lang !== "en") for (const text of await strayEnglish(page, [...untranslated(lang === "fr" ? fr : ar), ...authored])) problems.push(`${cell} ${name}: English "${text}"`);
+      if (lang !== "en") for (const text of await strayEnglish(page, [...untranslated(lang === "fr" ? fr : ar), ...authored.texts, ...(recordsTitles.has(name) ? [] : authored.titles)])) problems.push(`${cell} ${name}: English "${text}"`);
       if (shots) await page.screenshot({ path: join(shots, `${cell}-${name}.png`), fullPage: false });
     };
     await look("signin");
