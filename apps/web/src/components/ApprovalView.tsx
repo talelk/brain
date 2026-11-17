@@ -29,8 +29,11 @@ export function ApprovalView(props: { approval: Approval; workspaceId: string; c
   const approval = (): Approval => props.approval;
   /** A change of the workspace's own files, proposed by a healer. */
   const fix = (): boolean => approval().tool === "workspace.fix";
+  /** A fix a platform task proposes for another workspace names it; a heal task's fix is for its own. */
+  const other = (): string | undefined => { const value = fix() ? (approval().subject.input as { workspace?: unknown } | null)?.workspace : undefined; return typeof value === "string" ? value : undefined; };
   return (
     <div class="flex flex-col gap-3">
+      <Show when={other()}>{(workspace) => <p class="t-head text-ink">{t("approval.fix.other", { workspace: workspace() })}</p>}</Show>
       <p class="t-text text-ink">
         {t("approval.asks", { agent: approval().agent })} <code class="t-code code-ltr rounded-md bg-lilac px-1.5 py-0.5 font-medium">{approval().tool}</code>
         <span class="text-ink-2"> {t(`approval.effect.${approval().effect}`)}</span>
@@ -61,7 +64,7 @@ export function ApprovalView(props: { approval: Approval; workspaceId: string; c
           <Failure error={decide.error()} />
           <div class="flex flex-wrap items-center gap-2">
             <Show when={rejecting()} fallback={<>
-              <Button variant="solid" theme="blue" size="md" loading={decide.busy()} onClick={() => void decide.run("approve")}>{fix() ? t("approval.approve.fix") : approval().subject.patchDigest ? t("approval.approve.pr") : t("approval.approve")}</Button>
+              <Button variant="solid" theme="blue" size="md" loading={decide.busy()} onClick={() => void decide.run("approve")}>{other() ? t("approval.approve.other", { workspace: other() ?? "" }) : fix() ? t("approval.approve.fix") : approval().subject.patchDigest ? t("approval.approve.pr") : t("approval.approve")}</Button>
               <Button variant="outline" size="md" disabled={decide.busy()} onClick={() => setRejecting(true)}>{t("approval.reject")}</Button>
             </>}>
               <Button variant="solid" theme="red" size="md" loading={decide.busy()} onClick={() => void decide.run("reject")}>{t("approval.reject.confirm")}</Button>

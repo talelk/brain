@@ -13,8 +13,8 @@ import { Choice } from "../components/fields";
 import { Head } from "../components/Shell";
 import { Failure, Ready } from "../components/bits";
 
-interface Values { name: string; description: string; address: string; packs: string[]; repo: string; branch: string; access: "read" | "write"; credential: string }
-const BLANK: Values = { name: "", description: "", address: "", packs: ["base"], repo: "", branch: "main", access: "read", credential: "" };
+interface Values { name: string; description: string; address: string; packs: string[]; repo: string; branch: string; access: "read" | "write"; credential: string; platform: boolean }
+const BLANK: Values = { name: "", description: "", address: "", platform: false, packs: ["base"], repo: "", branch: "main", access: "read", credential: "" };
 
 /** What a pack brings, in one line per kind. */
 function Brings(props: { pack: PackSummary }): JSX.Element {
@@ -48,7 +48,7 @@ export default function NewWorkspaceScreen(): JSX.Element {
   const create = useAction(async (values: Values) => {
     const project = values.repo.trim() === "" ? undefined : { repo: values.repo.trim(), branch: values.branch.trim() || "main", access: values.access, ...(values.credential ? { credential: values.credential } : {}) };
     const slug = slugOf(values);
-    const made = await command("workspace.create", { name: values.name.trim(), description: values.description.trim(), ...(isSlug(slug) ? { slug } : {}), packs: [...new Set([...required(values.packs), ...values.packs])], ...(project ? { project } : {}) });
+    const made = await command("workspace.create", { name: values.name.trim(), description: values.description.trim(), ...(isSlug(slug) ? { slug } : {}), ...(values.platform ? { platform: true } : {}), packs: [...new Set([...required(values.packs), ...values.packs, ...(values.platform ? ["platform"] : [])])].filter((pack) => values.platform || pack !== "platform"), ...(project ? { project } : {}) });
     session.refetch();
     navigate(`/w/${made.slug}?new=1`);
   });
@@ -76,6 +76,7 @@ export default function NewWorkspaceScreen(): JSX.Element {
                     <form.Field name="address">
                       {(field) => <div class="max-w-sm"><TextInput size="md" class="t-code" label={t("new.address")} description={t("new.address.help", { address: `/w/${slugOf(values()) || "…"}` })} error={fieldError(field())} value={field().state.value} placeholder={slugify(values().name)} onInput={(event) => field().handleChange(event.currentTarget.value)} /></div>}
                     </form.Field>
+                    <form.Field name="platform">{(field) => <div><Checkbox size="md" label={<span class="t-text font-semibold text-ink">{t("new.platform")}</span>} checked={field().state.value} onCheckedChange={(checked) => field().handleChange(checked === true)} /><p class="ps-7 mt-1 t-small text-ink-2">{t("new.platform.help")}</p></div>}</form.Field>
                   </div>
                 ) },
               { id: "packs", label: t("new.packs.title"), description: t("new.packs.text"),
@@ -85,9 +86,9 @@ export default function NewWorkspaceScreen(): JSX.Element {
                       <form.Field name="packs">
                         {(field) => (
                           <ul class="flex flex-col gap-3">
-                            <For each={loaded().packs}>
+                            <For each={loaded().packs.filter((pack) => pack.name !== "platform" || values().platform)}>
                               {(pack) => {
-                                const forced = (): boolean => required(field().state.value).has(pack.name) || pack.name === "base";
+                                const forced = (): boolean => required(field().state.value).has(pack.name) || pack.name === "base" || (pack.name === "platform" && values().platform);
                                 const on = (): boolean => forced() || field().state.value.includes(pack.name);
                                 return (
                                   <li class={`rounded-card border bg-surface-elevation-1 p-4 ${on() ? "border-violet" : "border-outline-gray-2"}`}>

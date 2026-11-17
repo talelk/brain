@@ -15,6 +15,8 @@ export interface Brain {
   description: string;
   timezone?: string;
   visibility?: "private" | "public";
+  /** The platform workspace: kept as it is read, set only by an instance admin. */
+  platform?: true;
   packs: readonly string[];
   limits: SnapshotManifest["limits"];
   healing: SnapshotManifest["healing"];
@@ -27,7 +29,7 @@ export interface Brain {
 
 export function brainOf(snapshot: SnapshotManifest): Brain {
   const { name, description, packs, limits, healing, models, projects, github, teams, approvals } = snapshot;
-  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, packs, limits, healing, models, projects, github, teams, approvals };
+  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, ...(snapshot.platform ? { platform: true as const } : {}), packs, limits, healing, models, projects, github, teams, approvals };
 }
 
 export function brainToml(brain: Brain): string {
@@ -36,6 +38,7 @@ export function brainToml(brain: Brain): string {
     description: brain.description,
     timezone: brain.timezone,
     visibility: brain.visibility === "public" ? "public" : undefined,
+    platform: brain.platform ? true : undefined,
     packs: brain.packs,
     limits: { ...brain.limits },
     healing: { ...brain.healing },

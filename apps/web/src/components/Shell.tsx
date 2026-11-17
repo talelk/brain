@@ -12,6 +12,7 @@ import { LOCALES, locale, setLocale, t, type Locale } from "../i18n";
 import { ago } from "../lib/format";
 import { setTheme, theme } from "../lib/theme";
 import { Icon, NeedsCount } from "./bits";
+import { PlatformBadge } from "./Share";
 
 /** Two links of a chain: the mark of the app. */
 export const Mark = (props: { class?: string }): JSX.Element => (
@@ -77,7 +78,7 @@ function Nav(): JSX.Element {
           <>
             <SidebarItem route={`/w/${workspace.slug}`} label={workspace.name} active={slug() === workspace.slug && !location.pathname.slice(`/w/${workspace.slug}`.length).replace(/^\//u, "")}
               prefix={<span aria-hidden="true"><WorkspaceMark name={workspace.name} needs={needs(workspace.id)} /></span>} suffix={<NeedsCount n={needs(workspace.id)} />}>
-              {workspace.name}
+              {workspace.name}<Show when={workspace.platform}> <PlatformBadge /></Show>
             </SidebarItem>
             <Show when={slug() === workspace.slug && !collapsed()}>
               <div class="ms-3.5 mb-1 flex flex-col gap-0.5 border-s border-outline-gray-1 ps-1.5">

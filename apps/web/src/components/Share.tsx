@@ -15,6 +15,11 @@ export function VisibilityBadge(props: { visibility: "private" | "public"; class
   return <Badge theme={props.visibility === "public" ? "blue" : "gray"} size="md" class={props.class} prefix={<Icon name={props.visibility === "public" ? "lucide-globe" : "lucide-lock"} class="size-3" />} label={t(props.visibility === "public" ? "visibility.public" : "visibility.private")} />;
 }
 
+/** The one workspace that looks after the others (docs/model.md, "The platform workspace"). */
+export function PlatformBadge(): JSX.Element {
+  return <Badge theme="violet" size="md" prefix={<Icon name="lucide-shield-check" class="size-3" />} label={t("platform.badge")} />;
+}
+
 const roleOptions = (): { label: string; value: string; description: string }[] => ROLES.map((role) => ({ label: t(`role.${role}`), value: role, description: t(`role.${role}.help`) }));
 
 function PersonRow(props: { member: Member }): JSX.Element {
@@ -98,6 +103,7 @@ export function WorkspaceActions(): JSX.Element {
   return (
     <div class="flex flex-wrap items-center gap-2">
       <VisibilityBadge visibility={place.summary().visibility} />
+      <Show when={place.summary().platform}><PlatformBadge /></Show>
       <Show when={place.summary().viaPublic}><span class="t-small text-ink-2">{t("visibility.viaPublic")}</span></Show>
       <Show when={place.can("admin")}>
         <Button variant="outline" size="md" iconLeft="lucide-share-2" onClick={() => setSharing(true)}>{t("share.action")}</Button>

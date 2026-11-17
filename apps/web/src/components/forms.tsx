@@ -4,7 +4,7 @@ import { Button, Switch, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Select, toast } from "@talelk/newui-molecules";
 import type { AgentFile, InputSpec, PlayFile, Problem, SnapshotManifest, StepSpec, ToolFile } from "@brain/contracts";
 import { command, useAction, useQuery, type Action } from "../data/api";
-import { usePlace } from "../data/session";
+import { usePlace, useSession } from "../data/session";
 import { said } from "../lib/said";
 import { t } from "../i18n";
 import { agentToml, brainOf, brainToml, paths, playToml, toolToml, type Brain, type Model, type Project } from "../lib/files";
@@ -308,6 +308,7 @@ export function ProjectsForm(props: { snapshot: SnapshotManifest; readOnly: bool
 }
 
 export function SettingsForm(props: { snapshot: SnapshotManifest; readOnly: boolean }): JSX.Element {
+  const session = useSession();
   const { brain, set, write, save } = useBrain(props.snapshot);
   const approvals = (): Array<{ tool: string; targets: string[]; per_day: number; until: string }> => Object.entries(brain.approvals).map(([tool, rule]) => ({ tool, ...rule, targets: [...rule.targets] }));
   const effectTools = (): { label: string; value: string }[] => Object.entries(props.snapshot.tools).filter(([, tool]) => tool.effect !== "read").map(([name]) => ({ label: name, value: name }));
@@ -320,6 +321,9 @@ export function SettingsForm(props: { snapshot: SnapshotManifest; readOnly: bool
         <div class="max-w-sm"><TextInput size="md" label={t("settings.timezone")} description={t("settings.timezone.help")} placeholder="Africa/Tunis" value={brain.timezone ?? ""} onInput={(event) => set("timezone", event.currentTarget.value || undefined)} disabled={props.readOnly} /></div>
         <Choice label={t("visibility.title")} value={brain.visibility ?? "private"} onChange={(value) => set("visibility", value)} disabled={props.readOnly}
           options={[{ value: "private", label: t("visibility.private"), help: t("visibility.private.help") }, { value: "public", label: t("visibility.public"), help: t("visibility.public.help") }]} />
+        <Show when={session.user().instanceAdmin}>
+          <Switch label={t("settings.platform")} description={t("settings.platform.help")} checked={brain.platform === true} onCheckedChange={(on) => set("platform", on ? true : undefined)} disabled={props.readOnly} />
+        </Show>
         <p class="t-small text-ink-2">{t("settings.packs", { packs: brain.packs.join(", ") || t("fields.none") })}</p>
       </Group>
       <Group title={t("settings.limits")}>
