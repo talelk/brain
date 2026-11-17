@@ -51,6 +51,8 @@ export interface WorkspaceSummary {
   readonly status: "active" | "archived";
   readonly role: Role;
   readonly visibility: "private" | "public";
+  /** True for the platform workspace (only an instance admin sees it). */
+  readonly platform: boolean;
   /** True when the person is not a member and sees the workspace only because it is public (always `viewer`). */
   readonly viaPublic: boolean;
 }
@@ -248,6 +250,7 @@ export interface OverviewWorkspace {
   readonly name: string;
   readonly role: Role;
   readonly visibility: "private" | "public";
+  readonly platform: boolean;
   readonly viaPublic: boolean;
   readonly projects: readonly string[];
   /** Tasks waiting for a person. */
@@ -379,6 +382,8 @@ export const commands = table({
     slug: name("a workspace address").optional(),
     description: z.string().trim().max(2000).default(""),
     packs: z.array(name("a pack name")).max(20).default([]),
+    /** Makes it the platform workspace: only one may exist. */
+    platform: z.boolean().default(false),
     /** A first model; `key` is stored as the secret `model-<name>`. */
     model: z.strictObject({ name: name("a model name").default("main"), provider: z.enum(["openai-compatible", "anthropic"]), url: z.string().min(1).max(500), model: z.string().min(1).max(200), key: z.string().min(1).max(10_000).optional() }).optional(),
     /** A first project; `credential` is stored as the secret `github`. */

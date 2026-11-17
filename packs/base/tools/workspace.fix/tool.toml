@@ -7,13 +7,21 @@ wait for the answer and do not call it again. Only brain.toml (but not its appro
 github or teams) and files under agents/, tools/, plays/, memory/ and docs/ can be \
 changed; never project code, never a secret. If the answer says the call is held, \
 declined or refused, nothing changed. One proposal per task. Returns \
-{"commit": "<commit>", "requeued": true or false}."""
+{"commit": "<commit>", "requeued": true or false}. The platform workspace's agents set \
+"workspace" to change another workspace instead: then there is no failed task, they may \
+propose several changes (each approved on its own, by an admin of that workspace or an \
+instance admin), and the answer is {"commit": "<commit>", "requeued": false}."""
 runs = "brain"
 effect = "write"
 
 [inputs.task]
 type = "string"
 description = "The id of the failed task your task heals, as your goal gives it. Left out, it is that task."
+required = false
+
+[inputs.workspace]
+type = "string"
+description = "Only for the platform workspace's agents: the address of the workspace to change. Left out, the change is for your own workspace's failed task."
 required = false
 
 [inputs.files]
@@ -33,10 +41,13 @@ description = "The cause of the repeated failure and why this change removes it,
 required = true
 
 [translations.fr]
-description = "Propose une modification des fichiers de cet espace de travail qui guérit la tâche en échec dont votre propre tâche s'occupe, puis relance cette tâche une fois la modification faite. Vous envoyez le nouveau contenu complet de chaque fichier, pas un patch. Brain vérifie que l'espace de travail reste valide, puis un admin lit la modification sous forme de diff avec votre raison et approuve exactement celle-ci, ce qui peut prendre plusieurs minutes : attendez la réponse et ne rappelez pas l'appel. Seuls brain.toml (hors approvals, github et teams) et les fichiers sous agents/, tools/, plays/, memory/ et docs/ peuvent être modifiés ; jamais le code d'un projet, jamais un secret. Si la réponse indique que l'appel est retenu, refusé ou rejeté, rien n'a changé. Une seule proposition par tâche. Renvoie {\"commit\": \"<commit>\", \"requeued\": true ou false}."
+description = "Propose une modification des fichiers de cet espace de travail qui guérit la tâche en échec dont votre propre tâche s'occupe, puis relance cette tâche une fois la modification faite. Vous envoyez le nouveau contenu complet de chaque fichier, pas un patch. Brain vérifie que l'espace de travail reste valide, puis un admin lit la modification sous forme de diff avec votre raison et approuve exactement celle-ci, ce qui peut prendre plusieurs minutes : attendez la réponse et ne rappelez pas l'appel. Seuls brain.toml (hors approvals, github et teams) et les fichiers sous agents/, tools/, plays/, memory/ et docs/ peuvent être modifiés ; jamais le code d'un projet, jamais un secret. Si la réponse indique que l'appel est retenu, refusé ou rejeté, rien n'a changé. Une seule proposition par tâche. Renvoie {\"commit\": \"<commit>\", \"requeued\": true ou false}. Les agents de l'espace de travail de plateforme renseignent \"workspace\" pour modifier un autre espace de travail : il n'y a alors pas de tâche en échec, ils peuvent proposer plusieurs modifications (chacune approuvée séparément, par un admin de cet espace ou un admin de l'instance), et la réponse est {\"commit\": \"<commit>\", \"requeued\": false}."
 
 [translations.fr.inputs.task]
 description = "L'identifiant de la tâche en échec dont s'occupe votre tâche, tel que votre objectif le donne. Omis, c'est cette tâche."
+
+[translations.fr.inputs.workspace]
+description = "Uniquement pour les agents de l'espace de travail de plateforme : l'adresse de l'espace de travail à modifier. Omis, la modification concerne la tâche en échec de votre propre espace."
 
 [translations.fr.inputs.files]
 description = "Les fichiers à modifier : une liste de {\"path\": \"agents/worker/prompt.md\", \"content\": \"<le nouveau texte complet>\"}. Partez du texte actuel que montre votre objectif ; ne réécrivez jamais un fichier qu'il montre tronqué."
@@ -48,10 +59,13 @@ description = "Le message du commit : ce qui change, en une ligne."
 description = "La cause de l'échec répété et pourquoi cette modification la supprime, pour la personne qui approuve. Dites ce que vous avez écarté."
 
 [translations.ar]
-description = "يقترح تعديلًا واحدًا لملفات مساحة العمل هذه يعالج المهمة الفاشلة التي تخصها مهمتك، ثم يعيد تشغيل تلك المهمة بعد إجراء التعديل. ترسل المحتوى الجديد الكامل لكل ملف، لا رقعة (patch). يتحقق Brain من أن مساحة العمل تبقى صالحة، ثم يقرأ مشرف التعديل على شكل diff مع سببك ويوافق على هذا التعديل بالضبط، وقد يستغرق ذلك دقائق: انتظر الإجابة ولا تكرر الاستدعاء. لا يمكن تعديل إلا brain.toml (دون approvals وgithub وteams) والملفات الموجودة تحت agents/ وtools/ وplays/ وmemory/ وdocs/؛ ولا يُعدَّل أبدًا كود مشروع ولا سرّ. إذا أفادت الإجابة بأن الاستدعاء معلّق أو مرفوض فلم يتغير شيء. اقتراح واحد لكل مهمة. يعيد {\"commit\": \"<commit>\", \"requeued\": true أو false}."
+description = "يقترح تعديلًا واحدًا لملفات مساحة العمل هذه يعالج المهمة الفاشلة التي تخصها مهمتك، ثم يعيد تشغيل تلك المهمة بعد إجراء التعديل. ترسل المحتوى الجديد الكامل لكل ملف، لا رقعة (patch). يتحقق Brain من أن مساحة العمل تبقى صالحة، ثم يقرأ مشرف التعديل على شكل diff مع سببك ويوافق على هذا التعديل بالضبط، وقد يستغرق ذلك دقائق: انتظر الإجابة ولا تكرر الاستدعاء. لا يمكن تعديل إلا brain.toml (دون approvals وgithub وteams) والملفات الموجودة تحت agents/ وtools/ وplays/ وmemory/ وdocs/؛ ولا يُعدَّل أبدًا كود مشروع ولا سرّ. إذا أفادت الإجابة بأن الاستدعاء معلّق أو مرفوض فلم يتغير شيء. اقتراح واحد لكل مهمة. يعيد {\"commit\": \"<commit>\", \"requeued\": true أو false}. يضبط وكلاء مساحة عمل المنصّة \"workspace\" لتعديل مساحة عمل أخرى: عندها لا توجد مهمة فاشلة، ويمكنهم اقتراح عدة تعديلات (يُوافَق على كل منها على حدة، من مشرف تلك المساحة أو مشرف النسخة)، وتكون الإجابة {\"commit\": \"<commit>\", \"requeued\": false}."
 
 [translations.ar.inputs.task]
 description = "معرّف المهمة الفاشلة التي تعالجها مهمتك، كما يذكره هدفك. إن حُذف فهو تلك المهمة."
+
+[translations.ar.inputs.workspace]
+description = "لوكلاء مساحة عمل المنصّة وحدهم: عنوان مساحة العمل المراد تعديلها. إن حُذف فالتعديل يخص المهمة الفاشلة في مساحة عملك."
 
 [translations.ar.inputs.files]
 description = "الملفات المراد تعديلها: قائمة من {\"path\": \"agents/worker/prompt.md\", \"content\": \"<النص الجديد كاملًا>\"}. ابدأ من النص الحالي الذي يعرضه هدفك، ولا تُعد كتابة ملف يعرضه مقتطعًا."

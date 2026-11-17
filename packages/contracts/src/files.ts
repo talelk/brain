@@ -33,7 +33,9 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "must be a date written YYY
 export const EFFECTS = ["read", "write", "privileged"] as const;
 export const NATIVE_LEVELS = ["none", "read", "all"] as const;
 /** The tools the Governor runs itself (`runs = "brain"`). */
-export const BRAIN_TOOLS = ["task.create", "task.note", "task.ask", "memory.search", "memory.propose", "git.open-pr", "message.send", "workspace.fix"] as const;
+export const BRAIN_TOOLS = ["task.create", "task.note", "task.ask", "memory.search", "memory.propose", "git.open-pr", "message.send", "workspace.fix", "platform.workspaces", "platform.tasks", "platform.task", "platform.file", "platform.repeats"] as const;
+/** The pack only the platform workspace may list, and the prefix of the Brain-run tools it holds. */
+export const PLATFORM_PACK = "platform";
 
 // --- translations: what a person reads, in the page's language; agents read the English ---
 
@@ -75,6 +77,8 @@ export const BrainFile = z.strictObject({
   timezone: z.string().refine(isTimeZone, "must be an IANA time zone name, such as Europe/Paris").default("UTC"),
   /** `private`: only members see the workspace. `public`: every signed-in person of this Brain reads it, as a viewer. */
   visibility: z.enum(["private", "public"]).default("private"),
+  /** The one workspace that looks after the others (docs/model.md, "The platform workspace"). Only an instance admin may set it. */
+  platform: z.boolean().default(false),
   packs: z.array(slug("a pack name")).default([]),
   limits: z.strictObject({
     daily_spend_usd: z.number().min(0).default(0),
@@ -286,6 +290,8 @@ export interface SnapshotManifest {
   readonly description: string;
   readonly timezone: string;
   readonly visibility: "private" | "public";
+  /** Present, and true, only for the platform workspace. */
+  readonly platform?: true;
   /** Every pack in use, required packs first. */
   readonly packs: readonly string[];
   readonly limits: BrainFile["limits"];

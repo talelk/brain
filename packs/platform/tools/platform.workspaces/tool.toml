@@ -1,0 +1,25 @@
+description = """
+Lists every workspace of this Brain with what it holds and what happened in it: its packs, the \
+number of agents, tools and Plays, the goals created in the last days by state, and what it \
+spent. Read only; only for the platform workspace. Returns {"workspaces": [{"slug", "name", \
+"packs", "platform", "agents", "tools", "plays", "tasks": {"done", "failed", "needs_you", \
+"running"}, "spend_usd"}]}. Use a slug as the workspace of the other platform tools."""
+runs = "brain"
+effect = "read"
+
+[inputs.days]
+type = "integer"
+description = "How many days back to count goals and spend. 30 when left out; at most 90."
+required = false
+
+[translations.fr]
+description = "Liste tous les espaces de travail de ce Brain avec ce qu'ils contiennent et ce qui s'y est passé : leurs packs, le nombre d'agents, d'outils et de Plays, les objectifs créés ces derniers jours par état, et ce qu'ils ont dépensé. Lecture seule ; uniquement pour l'espace de travail de plateforme. Renvoie {\"workspaces\": [{\"slug\", \"name\", \"packs\", \"platform\", \"agents\", \"tools\", \"plays\", \"tasks\": {\"done\", \"failed\", \"needs_you\", \"running\"}, \"spend_usd\"}]}. Utilisez un slug comme espace de travail des autres outils de plateforme."
+
+[translations.fr.inputs.days]
+description = "Sur combien de jours compter les objectifs et les dépenses. 30 si omis ; 90 au plus."
+
+[translations.ar]
+description = "يعرض كل مساحات العمل في Brain هذا مع ما تحويه وما جرى فيها: حزمها (packs) وعدد الوكلاء والأدوات والـ Play، والأهداف المنشأة خلال الأيام الأخيرة حسب الحالة، وما أنفقته. للقراءة فقط؛ ولمساحة عمل المنصّة وحدها. يعيد {\"workspaces\": [{\"slug\", \"name\", \"packs\", \"platform\", \"agents\", \"tools\", \"plays\", \"tasks\": {\"done\", \"failed\", \"needs_you\", \"running\"}, \"spend_usd\"}]}. استخدم الـ slug كمساحة عمل في أدوات المنصّة الأخرى."
+
+[translations.ar.inputs.days]
+description = "عدد الأيام الماضية لحساب الأهداف والإنفاق. 30 إذا تُرك فارغًا؛ وبحد أقصى 90."

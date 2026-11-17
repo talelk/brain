@@ -43,6 +43,7 @@ name = "Kios RH"
 description = "Workforce cost platform"
 timezone = "Africa/Tunis"   # schedules are read in it; UTC when not given
 visibility = "private"      # or "public": see People
+platform = false            # true only for the platform workspace: see The platform workspace
 packs = ["base", "software-factory"]
 
 [limits]
@@ -297,6 +298,51 @@ healer never edits project code and never retries by itself. `[healing]` in `bra
 turns this off or caps the heal tasks a workspace starts in a UTC day. `workspace.fix`
 changes only `brain.toml` (not its approvals, GitHub, Teams or secret references),
 `agents/`, `tools/`, `plays/`, `memory/` and `docs/`, and only an admin may approve it.
+
+## The platform workspace
+
+One workspace may look after the others: optimizing the platform, its configuration and
+keeping it in shape. `platform = true` in its own `brain.toml` designates it. A Brain has at
+most one. Only an instance admin can add, change or remove that line: any other write that
+would (an edit, a copy or move, a delete, a fix, the settings form) is refused, and so is a
+second platform workspace. A platform workspace is private, and only instance admins see
+it, whatever its members list says. Only it may list the `platform` pack; any other workspace
+that lists it is invalid.
+
+Its agents may **read everything and write with approval**:
+
+- **Read.** Five read-only tools of the `platform` pack, usable only by a task of the
+  platform workspace: `platform.workspaces` (every workspace, with its spend and counts),
+  `platform.tasks` (search the tasks of every workspace, failures included), `platform.task`
+  (one task: goal, result, attempts, tool calls with inputs and outputs, checks, cost),
+  `platform.file` (any file of any workspace) and `platform.repeats` (see below). Each call
+  is recorded in the audit log with the source and the target workspace. A secret's value is
+  never shown (only `secret:<name>` references exist in files, and a value that a tool call
+  echoed is hidden), and every answer is cut to a size.
+- **Write.** `workspace.fix` takes a `workspace` (an address) only from the platform
+  workspace. It is an effect `write`: the change is checked, shown as a diff with the reason,
+  and applied only once an admin of that workspace, or an instance admin, approves exactly
+  that change. It is committed in the target workspace, which keeps the platform task's id in
+  the commit and in its audit log. Each proposal is its own approval; nothing changes without
+  one. It never changes `platform`, `approvals`, `github` or `teams` of `brain.toml`.
+
+### Capitalisation
+
+Work that keeps being done the same way should become something Brain has. The `platform`
+pack's Play `capitalize`, run by its agent `capitalizer`, starts every Monday at 07:00 on the
+platform workspace's clock and by hand. **Repeated work** is a job done four or more times
+in the last 30 days, in all workspaces together, by the same agent (by name) calling the same
+sequence of tools on similar goals. `platform.repeats` finds these deterministically, with no
+model. The `capitalizer` judges each one, and for each that is worth it proposes one of:
+
+1. a **new tool** (`tools/<name>/tool.toml`, `run.sh`, `test.sh` that proves it without
+   touching anything real) for the workspaces concerned, and the agent's `tools` list updated;
+2. an **update** of an existing tool, agent or Play with what was learned (a better prompt, a
+   limit, a missing step, a fixed script);
+3. a **memory note**, when the lesson needs neither.
+
+It may also read the analyses the `workspace-healer` made (`platform.tasks` with that agent),
+since a failure that was healed is something learned.
 
 ## What is recorded for every task
 

@@ -8,6 +8,7 @@ import { putArtifact, readArtifact } from "../trust/artifacts";
 import { classifyPath, type Files } from "./files";
 import { commitChange, readHead, type Author } from "./git";
 import { loadWorkspace, type Loaded } from "./load";
+import { guardPlatform } from "./platform";
 
 /** Workspace folders on disk and their snapshots in the database: validate, commit, activate. */
 export interface WorkspaceRow { readonly id: string; readonly slug: string; readonly name: string; readonly description: string; readonly status: "active" | "archived"; readonly snapshotDigest: Digest }
@@ -55,7 +56,11 @@ function inTurn<T>(dir: string, work: () => Promise<T>): Promise<T> {
   return turn;
 }
 
-export interface FolderChange { readonly write: ReadonlyMap<string, Uint8Array>; readonly remove: readonly string[]; readonly message: string; readonly author: Author }
+export interface FolderChange {
+  readonly write: ReadonlyMap<string, Uint8Array>; readonly remove: readonly string[]; readonly message: string; readonly author: Author;
+  /** Whether an instance admin makes the change: only then may it add, change or remove `platform` (workspace/platform.ts). */
+  readonly instanceAdmin: boolean;
+}
 /** A committed, valid folder, ready to be made the active snapshot. */
 export interface Committed { readonly commit: string; readonly snapshotDigest: Digest; readonly manifest: SnapshotManifest; readonly paths: readonly string[] }
 
@@ -87,6 +92,7 @@ export function commitFolder(gov: Gov, slug: string, change: FolderChange): Prom
   return inTurn(dir, async () => {
     const head = existsSync(join(dir, ".git")) ? await readHead(dir) : undefined;
     const { write, loaded } = applied(head, change, gov.packsDir);
+    guardPlatform(gov, slug, head?.files, loaded.manifest, change.instanceAdmin);
     const paths = [...write.keys(), ...change.remove];
     const commit = head && paths.length === 0 ? head.commit : await commitChange(dir, { ...change, write });
     return { commit, snapshotDigest: storeSnapshot(gov, loaded), manifest: loaded.manifest, paths };

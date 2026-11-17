@@ -25,6 +25,7 @@ function firstBrainToml(input: CommandInput<"workspace.create">): string {
   return stringify({
     name: input.name,
     description: input.description,
+    ...(input.platform ? { platform: true } : {}),
     packs: input.packs,
     limits: { daily_spend_usd: 20, running_tasks: 4, confirm_plans: "person" },
     ...(model ? { model: [{ name: model.name, provider: model.provider, url: model.url, model: model.model, ...(model.key ? { key: `secret:model-${model.name}` } : {}) }] } : {}),
@@ -45,7 +46,7 @@ export async function commitNewWorkspace(gov: Gov, input: CommandInput<"workspac
   const dir = workspaceDir(gov, slug);
   if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
   try {
-    return { slug, committed: await commitFolder(gov, slug, { write: new Map([["brain.toml", encode(firstBrainToml(input))]]), remove: [], message: "Create the workspace", author: by }) };
+    return { slug, committed: await commitFolder(gov, slug, { write: new Map([["brain.toml", encode(firstBrainToml(input))]]), remove: [], message: "Create the workspace", author: by, instanceAdmin: true }) };
   } catch (e) {
     rmSync(dir, { recursive: true, force: true });
     throw e;
@@ -67,7 +68,7 @@ export function createWorkspace(gov: Gov, db: Db, input: CommandInput<"workspace
 /** The pack a first workspace is made from, and that workspace: what a person sees before they have made anything. Its `hello` Play is the sample goal. */
 export const STARTER_PACK = "base";
 export const starterWorkspace = (gov: Gov): CommandInput<"workspace.create"> | undefined =>
-  (readPack(gov.packsDir, STARTER_PACK) ? { name: "Starter", description: "A first workspace to try Brain in. Start the Play \"Say hello\" to see a goal become a checked result.", packs: [STARTER_PACK] } : undefined);
+  (readPack(gov.packsDir, STARTER_PACK) ? { name: "Starter", description: "A first workspace to try Brain in. Start the Play \"Say hello\" to see a goal become a checked result.", packs: [STARTER_PACK], platform: false } : undefined);
 
 const BINARY = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".pdf", ".zip", ".gz", ".tar", ".docx", ".xlsx", ".pptx", ".odt", ".ods", ".mp3", ".mp4", ".mov", ".woff", ".woff2"]);
 /** What a download says its bytes are. Anything a browser could run as a page is plain bytes; an SVG stays an image so that `<img>` can show it. */
@@ -121,7 +122,7 @@ export function registerWorkspace({ gov: { registry }, gov, app }: Governor): vo
   });
 
   const change = (ctx: Ctx, workspaceId: string, write: ReadonlyMap<string, Uint8Array>, remove: readonly string[], message: string): Promise<Committed> =>
-    commitFolder(ctx.gov, getWorkspace(ctx.db, workspaceId).slug, { write, remove, message, author: author(ctx) });
+    commitFolder(ctx.gov, getWorkspace(ctx.db, workspaceId).slug, { write, remove, message, author: author(ctx), instanceAdmin: ctx.user?.instanceAdmin === true });
   const activated = (ctx: Ctx, workspaceId: string, committed: Committed) => {
     activate(ctx.gov, ctx.db, workspaceId, committed, ctx.actor, "workspace.changed");
     return { commit: committed.commit, snapshotDigest: committed.snapshotDigest };
@@ -140,7 +141,7 @@ export function registerWorkspace({ gov: { registry }, gov, app }: Governor): vo
     const snapshot = manifestOf(ctx.gov, workspace.snapshotDigest);
     const summary: WorkspaceSummary = {
       id: workspace.id, slug: workspace.slug, name: workspace.name, description: workspace.description, status: workspace.status, role: ctx.role ?? "viewer",
-      visibility: snapshot.visibility === "public" ? "public" : "private", viaPublic: ctx.user ? (accessOf(ctx.gov, ctx.user.id, workspace.id)?.viaPublic ?? false) : false,
+      visibility: snapshot.visibility === "public" ? "public" : "private", platform: snapshot.platform === true, viaPublic: ctx.user ? (accessOf(ctx.gov, ctx.user.id, workspace.id)?.viaPublic ?? false) : false,
     };
     return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot };
   });

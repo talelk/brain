@@ -65,7 +65,7 @@ export function registerMemory({ gov }: Governor): void {
       if (input.decision === "reject") return undefined;
       const content = new TextEncoder().encode(`# ${proposal.title}\n\n${proposal.body.trim()}\n`);
       return commitFolder(ctx.gov, getWorkspace(ctx.db, input.workspaceId).slug, {
-        write: new Map([[`memory/${proposal.name}.md`, content]]), remove: [], message: `Accept the memory entry ${proposal.name}`, author: { name: ctx.user?.name ?? "Brain", email: ctx.user?.email ?? "brain@localhost" },
+        write: new Map([[`memory/${proposal.name}.md`, content]]), remove: [], instanceAdmin: false, message: `Accept the memory entry ${proposal.name}`, author: { name: ctx.user?.name ?? "Brain", email: ctx.user?.email ?? "brain@localhost" },
       });
     },
     run(ctx, input, committed) {

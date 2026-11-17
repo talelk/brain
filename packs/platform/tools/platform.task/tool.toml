@@ -1,0 +1,36 @@
+description = """
+Reads one task of any workspace in full: goal, result, its sub-tasks, every attempt with its \
+failure, every tool call with its input and output, the checks, the cost and the tokens. Read \
+only; only for the platform workspace; a secret's value is never shown. Returns {"id", \
+"workspace", "title", "agent", "state", "play", "step", "goal", "result", "heals", "tasks", \
+"attempts", "toolCalls", "checks", "cost_usd", "tokens"}, each text cut to a size."""
+runs = "brain"
+effect = "read"
+
+[inputs.workspace]
+type = "string"
+description = "The address of the workspace the task belongs to."
+required = true
+
+[inputs.id]
+type = "string"
+description = "The id of the task, as platform.tasks gives it."
+required = true
+
+[translations.fr]
+description = "Lit en entier une tâche de n'importe quel espace de travail : objectif, résultat, sous-tâches, chaque essai avec son échec, chaque appel d'outil avec son entrée et sa sortie, les vérifications, le coût et les jetons. Lecture seule ; uniquement pour l'espace de travail de plateforme ; la valeur d'un secret n'est jamais montrée. Renvoie {\"id\", \"workspace\", \"title\", \"agent\", \"state\", \"play\", \"step\", \"goal\", \"result\", \"heals\", \"tasks\", \"attempts\", \"toolCalls\", \"checks\", \"cost_usd\", \"tokens\"}, chaque texte étant tronqué à une taille."
+
+[translations.fr.inputs.workspace]
+description = "L'adresse de l'espace de travail auquel appartient la tâche."
+
+[translations.fr.inputs.id]
+description = "L'identifiant de la tâche, tel que le donne platform.tasks."
+
+[translations.ar]
+description = "يقرأ مهمة واحدة من أي مساحة عمل كاملةً: الهدف والنتيجة والمهام الفرعية وكل محاولة مع إخفاقها وكل استدعاء أداة مع مدخلاته ومخرجاته والفحوص والتكلفة والرموز (tokens). للقراءة فقط؛ ولمساحة عمل المنصّة وحدها؛ ولا تُعرض قيمة أي سرّ أبدًا. يعيد {\"id\", \"workspace\", \"title\", \"agent\", \"state\", \"play\", \"step\", \"goal\", \"result\", \"heals\", \"tasks\", \"attempts\", \"toolCalls\", \"checks\", \"cost_usd\", \"tokens\"}، وكل نص مقتطع بحجم محدد."
+
+[translations.ar.inputs.workspace]
+description = "عنوان مساحة العمل التي تنتمي إليها المهمة."
+
+[translations.ar.inputs.id]
+description = "معرّف المهمة كما يعطيه platform.tasks."

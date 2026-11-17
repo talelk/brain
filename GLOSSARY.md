@@ -41,6 +41,11 @@ _Avoid_: automation, listener, event rule
 signed-in person of this Brain reads it, as a viewer), set in `brain.toml`.
 _Avoid_: sharing mode, permission level
 
+**Platform workspace**: The one workspace (`platform = true` in its `brain.toml`, set only by an
+instance admin) whose agents read every workspace and propose changes to them, each change
+approved by that workspace's admin or an instance admin.
+_Avoid_: admin workspace, super workspace, root workspace
+
 **Memory**: What a workspace has learned, as Markdown entries in `memory/`, read only by
 that workspace's agents.
 _Avoid_: knowledge base, context, scope

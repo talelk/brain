@@ -1,5 +1,5 @@
 import {
-  AgentFile, BRAIN_TOOLS, BrainFile, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PackFile, parseRef, parseWhen, PlayFile, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
+  AgentFile, BRAIN_TOOLS, BrainFile, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PackFile, parseRef, parseWhen, PLATFORM_PACK, PlayFile, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
   type Digest, type InputSpec, type JsonSchema, type JsonValue, type Language, type Problem, type Ref, type SnapshotManifest, type StepSpec,
 } from "@brain/contracts";
 import { parse as parseToml } from "smol-toml";
@@ -278,11 +278,13 @@ export function loadWorkspace(workspace: Files, packsDir: string): Loaded {
     documents.push({ path, title: splitMemoryEntry(content).title || (path.split("/").at(-1) ?? path), ...blob(file.bytes) });
   }
 
+  if (brain.platform && brain.visibility === "public") problems.push({ path: "brain.toml", message: "the platform workspace is private: it holds what every workspace did, so it cannot also be public" });
+  if (!brain.platform && packs.some((pack) => pack.name === PLATFORM_PACK)) problems.push({ path: "brain.toml", message: `only the platform workspace (platform = true) may use the pack ${PLATFORM_PACK}` });
   if (brain.approvals["workspace.fix"]) problems.push({ path: "brain.toml", message: "a change of the workspace's own files is always decided by an admin: approvals cannot cover workspace.fix" });
   for (const tool of Object.keys(brain.approvals)) if (!toolFiles.has(tool)) problems.push({ path: "brain.toml", message: `approvals names tool "${tool}", which does not exist` });
 
   return done(JSON.parse(JSON.stringify({
-    name: brain.name, description: brain.description, timezone: brain.timezone, visibility: brain.visibility, packs: packs.map((pack) => pack.name), limits: brain.limits, healing: brain.healing, models: brain.model, projects: brain.project,
+    name: brain.name, description: brain.description, timezone: brain.timezone, visibility: brain.visibility, ...(brain.platform ? { platform: true as const } : {}), packs: packs.map((pack) => pack.name), limits: brain.limits, healing: brain.healing, models: brain.model, projects: brain.project,
     github: brain.github ?? null, teams: brain.teams ?? null, approvals: brain.approvals, agents, tools, plays, memory, documents,
   } satisfies SnapshotManifest)) as SnapshotManifest);
 }

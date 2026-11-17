@@ -1,0 +1,82 @@
+description = """
+Searches the tasks of every workspace, newest first. Use it to list failures (state "failed"), \
+the analyses of the workspace-healer (agent "workspace-healer": its result is the analysis, \
+and "heals" names the failed task), or the tasks of one agent. Read only; only for the \
+platform workspace. Returns {"tasks": [{"id", "workspace", "title", "agent", "state", "goal", \
+"result", "created", "cost_usd", "heals"}]} with goal and result cut short; read one in full \
+with platform.task."""
+runs = "brain"
+effect = "read"
+
+[inputs.workspace]
+type = "string"
+description = "The address of one workspace. Left out, every workspace."
+required = false
+
+[inputs.state]
+type = "string"
+description = "One state: waiting, ready, running, needs_you, done, failed or stopped."
+required = false
+enum = ["waiting", "ready", "running", "needs_you", "done", "failed", "stopped"]
+
+[inputs.agent]
+type = "string"
+description = "The name of an agent: only the tasks it did."
+required = false
+
+[inputs.query]
+type = "string"
+description = "Words that appear in the title or the goal."
+required = false
+
+[inputs.days]
+type = "integer"
+description = "How many days back. 30 when left out; at most 90."
+required = false
+
+[inputs.limit]
+type = "integer"
+description = "How many tasks at most. 20 when left out; at most 50."
+required = false
+
+[translations.fr]
+description = "Cherche dans les tâches de tous les espaces de travail, les plus récentes d'abord. Sert à lister les échecs (état \"failed\"), les analyses du workspace-healer (agent \"workspace-healer\" : son résultat est l'analyse, et \"heals\" désigne la tâche en échec), ou les tâches d'un agent. Lecture seule ; uniquement pour l'espace de travail de plateforme. Renvoie {\"tasks\": [{\"id\", \"workspace\", \"title\", \"agent\", \"state\", \"goal\", \"result\", \"created\", \"cost_usd\", \"heals\"}]} avec l'objectif et le résultat tronqués ; lisez-en une en entier avec platform.task."
+
+[translations.fr.inputs.workspace]
+description = "L'adresse d'un espace de travail. Omis, tous les espaces."
+
+[translations.fr.inputs.state]
+description = "Un état : waiting, ready, running, needs_you, done, failed ou stopped."
+
+[translations.fr.inputs.agent]
+description = "Le nom d'un agent : seulement les tâches qu'il a faites."
+
+[translations.fr.inputs.query]
+description = "Des mots présents dans le titre ou l'objectif."
+
+[translations.fr.inputs.days]
+description = "Sur combien de jours remonter. 30 si omis ; 90 au plus."
+
+[translations.fr.inputs.limit]
+description = "Le nombre maximal de tâches. 20 si omis ; 50 au plus."
+
+[translations.ar]
+description = "يبحث في مهام كل مساحات العمل، الأحدث أولًا. يُستخدم لعرض الإخفاقات (الحالة \"failed\") وتحليلات workspace-healer (الوكيل \"workspace-healer\": نتيجته هي التحليل، و\"heals\" يسمّي المهمة الفاشلة) أو مهام وكيل معيّن. للقراءة فقط؛ ولمساحة عمل المنصّة وحدها. يعيد {\"tasks\": [{\"id\", \"workspace\", \"title\", \"agent\", \"state\", \"goal\", \"result\", \"created\", \"cost_usd\", \"heals\"}]} مع اقتطاع الهدف والنتيجة؛ واقرأ إحداها كاملة بـ platform.task."
+
+[translations.ar.inputs.workspace]
+description = "عنوان مساحة عمل واحدة. إن حُذف فكل المساحات."
+
+[translations.ar.inputs.state]
+description = "حالة واحدة: waiting أو ready أو running أو needs_you أو done أو failed أو stopped."
+
+[translations.ar.inputs.agent]
+description = "اسم وكيل: المهام التي أنجزها فقط."
+
+[translations.ar.inputs.query]
+description = "كلمات تظهر في العنوان أو الهدف."
+
+[translations.ar.inputs.days]
+description = "عدد الأيام الماضية. 30 إذا تُرك فارغًا؛ وبحد أقصى 90."
+
+[translations.ar.inputs.limit]
+description = "أقصى عدد من المهام. 20 إذا تُرك فارغًا؛ وبحد أقصى 50."

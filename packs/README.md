@@ -10,6 +10,7 @@ conventions the pack files rely on, so the code that loads and runs them matches
 | `base` | | planner, checker, worker, workspace-healer | task.create, task.note, task.ask, memory.search, memory.propose, git.open-pr, message.send, workspace.fix, web.fetch | hello |
 | `software-factory` | base | analyst, developer, reviewer, release-manager | | fix-issue, build-feature, review-pull-request, dependency-check |
 | `sre` | base | sre-operator, incident-analyst, evaluator | host.status, host.logs, host.disk, http.check, host.restart, host.redeploy | keep-healthy, incident-triage, weekly-report |
+| `platform` | base | capitalizer | platform.workspaces, platform.tasks, platform.task, platform.file, platform.repeats | capitalize |
 | `customer-operations` | base | router, billing-agent, technical-agent, generalist, quality-reviewer | | handle-request, improve-answers |
 
 `pack.toml` has exactly `name`, `description` and `requires` (a list of pack names, empty
@@ -165,7 +166,7 @@ the outputs the descriptions promise to agents.
 | `memory.propose` | read | `name`* (file name slug), `title`*, `text`* | `{"id": "<proposal id>", "status": "proposed"}` |
 | `git.open-pr` | write | `project`*, `title`*, `body`* | `{"url", "number", "branch"}` |
 | `message.send` | write | `text`* | `{"sent": true}` |
-| `workspace.fix` | write | `task` (id of the failed task; by default the one the heal task heals), `files`* (list of `{"path", "content"}`), `message`*, `why`* | `{"commit", "requeued": true or false}` |
+| `workspace.fix` | write | `task` (id of the failed task; by default the one the heal task heals), `workspace` (platform workspace only: the address of the workspace to change), `files`* (list of `{"path", "content"}`), `message`*, `why`* | `{"commit", "requeued": true or false}` |
 
 - `task.create` adds the sub-task under the calling task. In `after`, the tool takes
   task ids; the planner's JSON takes titles.
@@ -177,8 +178,27 @@ the outputs the descriptions promise to agents.
 - `workspace.fix` is for `workspace-healer` only. `files` hold the whole new content of each file, not a patch; `message`
   becomes the commit message and `why` is shown to the approver. The healer's context holds, in its goal, the current
   text of the files involved (a file cut short is marked, and must not be rewritten).
+- `workspace.fix` with `workspace` (an address) is for the platform workspace only; see the `platform` pack below.
 - For a `write` call that is not approved in time, the agent is told the call is held.
   Every prompt says: held, declined or refused means it did not happen; do not repeat it.
+
+## The `platform` pack
+
+Only a workspace with `platform = true` may list it. Its tools are read-only Brain-run tools; each is refused for a task of any other
+workspace, and each call is audited. Texts are cut (a cut text ends with `[cut: N more characters]`); a secret value is shown as `[secret]`.
+
+| Tool | Inputs (`*` required) | Output |
+|---|---|---|
+| `platform.workspaces` | `days` (integer, 30 by default, at most 90) | `{"workspaces": [{"slug", "name", "packs", "platform", "agents", "tools", "plays", "tasks": {"done", "failed", "needs_you", "running"}, "spend_usd"}]}`, tasks created and spend within `days` |
+| `platform.tasks` | `workspace`, `state`, `agent`, `query` (words of the title or goal), `days` (30), `limit` (20, at most 50) | `{"tasks": [{"id", "workspace", "title", "agent", "state", "goal", "result", "created", "cost_usd", "heals"}]}`, newest first; `heals` is the failed task a heal task analyses |
+| `platform.task` | `workspace`*, `id`* | the task with its `attempts`, `toolCalls` (input and output), `checks`, `cost_usd`, `tokens` |
+| `platform.file` | `workspace`*, `path`* | `{"path", "content", "truncated"}` (text files only) |
+| `platform.repeats` | `days` (30, at most 90) | `{"days", "min": 4, "candidates": [{"agent", "tools", "count", "workspaces": [{"slug", "count"}], "goals", "tasks": [{"workspace", "id"}], "first", "last"}]}` |
+
+`capitalizer` (free text, ending with its proposals): it calls `platform.repeats`, reads the evidence with `platform.tasks`,
+`platform.task` and `platform.file` (including the analyses of `workspace-healer`), and for each candidate worth it calls
+`workspace.fix` with `workspace` once: a new tool (`tool.toml`, `run.sh`, `test.sh`) and the agent's `tools` list, an update of a
+tool, agent or Play, or a memory note. Its final answer lists what it proposed and what it left, with the reason.
 
 ## Script tools
 

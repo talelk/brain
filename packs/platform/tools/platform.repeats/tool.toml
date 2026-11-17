@@ -1,0 +1,27 @@
+description = """
+Finds work that was done the same way four times or more in the last days, in all workspaces \
+together: the same agent, the same sequence of tools called, similar goals. No model is used: \
+the answer is computed from the record. Read only; only for the platform workspace. Returns \
+{"days", "min": 4, "candidates": [{"agent", "tools", "count", "workspaces": [{"slug", "count"}], \
+"goals", "tasks": [{"workspace", "id"}], "first", "last"}]}, the most repeated first. An empty \
+"tools" list means the agent did the job with its native tools only. Read the tasks with \
+platform.task before judging a candidate."""
+runs = "brain"
+effect = "read"
+
+[inputs.days]
+type = "integer"
+description = "How many days back. 30 when left out; at most 90."
+required = false
+
+[translations.fr]
+description = "Repère le travail fait de la même façon quatre fois ou plus ces derniers jours, dans tous les espaces de travail ensemble : le même agent, la même suite d'outils appelés, des objectifs semblables. Aucun modèle n'est utilisé : la réponse est calculée à partir de l'enregistrement. Lecture seule ; uniquement pour l'espace de travail de plateforme. Renvoie {\"days\", \"min\": 4, \"candidates\": [{\"agent\", \"tools\", \"count\", \"workspaces\": [{\"slug\", \"count\"}], \"goals\", \"tasks\": [{\"workspace\", \"id\"}], \"first\", \"last\"}]}, le plus répété d'abord. Une liste \"tools\" vide signifie que l'agent a fait le travail avec ses seuls outils natifs. Lisez les tâches avec platform.task avant de juger un candidat."
+
+[translations.fr.inputs.days]
+description = "Sur combien de jours remonter. 30 si omis ; 90 au plus."
+
+[translations.ar]
+description = "يرصد العمل الذي أُنجز بالطريقة نفسها أربع مرات أو أكثر خلال الأيام الأخيرة في كل مساحات العمل معًا: الوكيل نفسه وتسلسل الأدوات المستدعاة نفسه وأهداف متشابهة. لا يُستخدم أي نموذج: تُحسب الإجابة من السجل. للقراءة فقط؛ ولمساحة عمل المنصّة وحدها. يعيد {\"days\", \"min\": 4, \"candidates\": [{\"agent\", \"tools\", \"count\", \"workspaces\": [{\"slug\", \"count\"}], \"goals\", \"tasks\": [{\"workspace\", \"id\"}], \"first\", \"last\"}]}، الأكثر تكرارًا أولًا. تعني قائمة \"tools\" الفارغة أن الوكيل أنجز العمل بأدواته الأصلية فقط. اقرأ المهام بـ platform.task قبل الحكم على مرشّح."
+
+[translations.ar.inputs.days]
+description = "عدد الأيام الماضية. 30 إذا تُرك فارغًا؛ وبحد أقصى 90."

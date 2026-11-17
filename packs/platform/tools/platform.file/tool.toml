@@ -1,0 +1,35 @@
+description = """
+Reads one text file of any workspace as it is now, from its own folder or from its packs: \
+brain.toml, an agent's agent.toml or prompt.md, a tool's files, a Play, a memory entry or a \
+document. Read only; only for the platform workspace. A file holds only secret references \
+(secret:name), never a value. Returns {"path", "content", "truncated"}."""
+runs = "brain"
+effect = "read"
+
+[inputs.workspace]
+type = "string"
+description = "The address of the workspace."
+required = true
+
+[inputs.path]
+type = "string"
+description = "The path of the file in the workspace, such as agents/worker/prompt.md."
+required = true
+
+[translations.fr]
+description = "Lit un fichier texte de n'importe quel espace de travail tel qu'il est maintenant, dans son propre dossier ou dans ses packs : brain.toml, agent.toml ou prompt.md d'un agent, les fichiers d'un outil, une Play, une entrée de mémoire ou un document. Lecture seule ; uniquement pour l'espace de travail de plateforme. Un fichier ne contient que des références de secret (secret:nom), jamais une valeur. Renvoie {\"path\", \"content\", \"truncated\"}."
+
+[translations.fr.inputs.workspace]
+description = "L'adresse de l'espace de travail."
+
+[translations.fr.inputs.path]
+description = "Le chemin du fichier dans l'espace de travail, par exemple agents/worker/prompt.md."
+
+[translations.ar]
+description = "يقرأ ملفًا نصيًا من أي مساحة عمل كما هو الآن، من مجلدها أو من حزمها: brain.toml أو agent.toml أو prompt.md لوكيل، أو ملفات أداة، أو Play، أو إدخال ذاكرة، أو مستند. للقراءة فقط؛ ولمساحة عمل المنصّة وحدها. لا يحوي الملف إلا مراجع أسرار (secret:name) ولا قيمة أبدًا. يعيد {\"path\", \"content\", \"truncated\"}."
+
+[translations.ar.inputs.workspace]
+description = "عنوان مساحة العمل."
+
+[translations.ar.inputs.path]
+description = "مسار الملف في مساحة العمل، مثل agents/worker/prompt.md."

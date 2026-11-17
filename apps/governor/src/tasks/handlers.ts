@@ -190,7 +190,7 @@ export function registerTasks(governor: Governor): void {
     needsYou: summaries(ctx.db, "t.workspace_id=? AND t.state='needs_you' ORDER BY t.updated_at_ms DESC LIMIT 100", input.workspaceId),
     running: summaries(ctx.db, "t.workspace_id=? AND t.parent_id IS NULL AND t.state IN ('waiting','ready','running') AND waiting_for_you = 0 ORDER BY t.created_at_ms DESC LIMIT 100", input.workspaceId),
     recent: summaries(ctx.db, "t.workspace_id=? AND t.parent_id IS NULL AND t.state IN ('done','failed','stopped') ORDER BY t.finished_at_ms DESC LIMIT 20", input.workspaceId),
-    approvals: approvalsWhere(ctx.db, "a.workspace_id=? AND a.state='pending' ORDER BY a.created_at_ms", input.workspaceId),
+    approvals: approvalsWhere(ctx.db, "(a.workspace_id=? OR t.workspace_id=?) AND a.state='pending' ORDER BY a.created_at_ms", input.workspaceId, input.workspaceId),
     spend: spendOf(ctx.gov, input.workspaceId),
   }));
 

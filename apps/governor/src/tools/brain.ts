@@ -9,6 +9,7 @@ import { insertTask, taskOf, type AttemptRow, type TaskRow } from "../tasks/stor
 import { authorizeCall, callRowId, finishCall, openCall, type PullRequestChange } from "../trust/approvals";
 import { manifestOf } from "../workspace/store";
 import { applyFix, commitFix, planFix, type FixPlan } from "./fix";
+import { runPlatform } from "./platform";
 import { inputProblem, ToolRefusal } from "./schema";
 
 /**
@@ -31,6 +32,7 @@ function runNow(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: string, inpu
     if (!isSlug(input["name"] as string)) throw new ToolRefusal("The name must be lower-case words joined by hyphens, such as release-checklist");
     return { id: proposeMemory(gov, attempt, { name: input["name"] as string, title: input["title"] as string, text: input["text"] as string }), status: "proposed" };
   }
+  if (tool.startsWith("platform.")) return runPlatform(gov, attempt, task, tool, input);
   // The two below change the course of the task itself, so only its own work may use them.
   if (attempt.kind !== "work" || attempt.candidate !== null) throw new ToolRefusal(`${tool} is only for the attempt that does a task's work, and not for one of several candidates`);
   if (tool === "task.ask") return { status: "waiting" };

@@ -22,6 +22,8 @@ export interface WorkspaceFiles {
   /** Lines of brain.toml after `name` and `packs`. */
   readonly brain?: string;
   readonly packs?: readonly string[];
+  /** Makes it the platform workspace (the instance admin creates it). */
+  readonly platform?: boolean;
   /** Agents by name: the tools each may use and the level of native tools. Each runs on the fixture engine. */
   readonly agents?: Record<string, { tools?: readonly string[]; native?: "none" | "read" | "all"; spend?: number; uncapped?: boolean }>;
   /** Plays by name, as TOML. */
@@ -33,7 +35,7 @@ export interface WorkspaceFiles {
 /** Creates a workspace from the `core` fixture pack and writes the given agents, tools, Plays and memory into its folder. */
 export async function makeWorkspace(harness: Harness, name: string, files: WorkspaceFiles = {}): Promise<CommandOutputs["workspace.create"]> {
   const packs = files.packs ?? ["core"];
-  const made = await harness.createWorkspace({ name, packs: [...packs] });
+  const made = await harness.createWorkspace({ name, packs: [...packs], ...(files.platform ? { platform: true } : {}) });
   const used = new Set(Object.values(files.agents ?? {}).flatMap((agent) => agent.tools ?? []));
   const tools = { ...Object.fromEntries(Object.entries(BRAIN_TOOLS).filter(([tool]) => used.has(tool))), ...files.tools };
   // A folder that does not validate is the test's own mistake: say which file and why.
@@ -41,7 +43,7 @@ export async function makeWorkspace(harness: Harness, name: string, files: Works
   await harness.admin.command("file.write", {
     workspaceId: made.workspaceId,
     files: [
-      { path: "brain.toml", content: `name = "${name}"\npacks = ${JSON.stringify(packs)}\n${files.brain ?? ""}\n` },
+      { path: "brain.toml", content: `name = "${name}"\n${files.platform ? "platform = true\n" : ""}packs = ${JSON.stringify(packs)}\n${files.brain ?? ""}\n` },
       ...Object.entries(files.agents ?? {}).flatMap(([agent, spec]) => [
         { path: `agents/${agent}/agent.toml`, content: `description = "The ${agent}."\nengine = ["fixture"]\nnative = "${spec.native ?? "none"}"\ntools = ${JSON.stringify(spec.tools ?? [])}\n[limits]\n${spec.uncapped ? "turns = 0\ntokens = 0\n" : ""}spend_usd = ${spec.spend ?? 0}\n` },
         { path: `agents/${agent}/prompt.md`, content: `You are the ${agent}.\n` },

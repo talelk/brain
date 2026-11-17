@@ -87,6 +87,15 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   documents under `docs/` (`.md`, `.markdown`, `.txt`, `.rst`, `.csv`, `.json`, `.yaml`, `.yml`, valid UTF-8, at most 1 MB) with `path`,
   `title` (the first `# ` line, else the file name), `digest` and `bytes`, so a task keeps the documents of its own
   snapshot. Other documents are only in git.
+- **The platform workspace** (docs/model.md): `platform = true` in `brain.toml` is carried by the manifest as `platform: true`
+  (left out when false, so no other workspace's digest changes). It is invalid with `visibility = "public"`, and a workspace that
+  lists the pack `platform` without it is invalid. The guard is one check inside `commitFolder` (`workspace/platform.ts`), before
+  anything is committed, so every way of writing the folder meets it (`file.write`, `file.delete`, a copy or a move, the
+  settings form, `workspace.fix`): a change that adds, changes or removes `platform` is refused with FORBIDDEN unless
+  `FolderChange.instanceAdmin` is true (a command's caller; `workspace.create` is itself instance-admin only; a fix is never),
+  and a second platform workspace is refused with CONFLICT. `access.ts` answers nothing for a person who is not an instance
+  admin in a workspace whose active manifest is platform, member or not, which hides its tasks, results, files and approvals
+  from everything that asks (dispatcher, `me`, `overview`, events, downloads).
 - A tool's inputs (`[inputs.<name>]` with `type`, `description`, `required`, `enum`,
   `items`) compile to a JSON Schema used to validate calls.
 - A tool with `runs = "brain"` is implemented by the Governor (section 7) and has no
@@ -137,7 +146,7 @@ imports the same definitions for types. `GET /v1/events` is server-sent events: 
 `changed` frame per workspace when anything changed (the client refetches).
 `GET /v1/artifacts/:digest` streams bytes to a member of the owning workspace.
 
-Commands: `setup.create`, `workspace.create`, `workspace.archive`, `workspace.stopAll`,
+Commands: `setup.create`, `workspace.create` (its input may carry `platform: true`, kept in the first `brain.toml`), `workspace.archive`, `workspace.stopAll`,
 `file.write`, `file.delete`, `secret.set`, `secret.delete`, `member.set`,
 `member.remove`, `task.create` (a goal, optionally a Play and inputs), `task.confirm`
 (accept a proposed plan), `task.edit` (change, add or remove sub-tasks not yet started),
@@ -349,9 +358,30 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   (question to a person: it returns `{"status": "waiting"}`, the attempt ends, the task is
   `needs_you`, and the answer is in the context of the next attempt), `memory.search`,
   `memory.propose`, `git.open-pr` (effect `write`), `message.send` (Teams; effect
-  `write`), `workspace.fix` (effect `write`, only for the agent of a heal task and only for the task it heals). A
+  `write`), `workspace.fix` (effect `write`, for the agent of a heal task and the task it heals, or, with `workspace`, for a task of the platform workspace), and the five `platform.*` tools. A
   Brain-run call with an effect answers `pending` until its approval is decided;
   the runner then sends the same call again.
+- **`workspace.fix` with `workspace`** (an address; honoured only when the calling task's workspace is the platform workspace, else refused):
+  the change is for that workspace, which may be the platform workspace itself. No heal task, no failed task and no limit of one proposal
+  (at most 10 for a task); `task` is not accepted. The files are checked against the target's folder and active snapshot exactly as above,
+  and `platform` joins `approvals`, `github` and `teams` among the keys a fix cannot change. The approval belongs to the target:
+  its `workspace_id` is the target's while its task is the platform task, so the target's admin finds it in their own workspace, and
+  `approvals.list`, `approval.get` and `approval.decide` match `a.workspace_id=? OR t.workspace_id=?`. The diff is linked to both workspaces. It is decided
+  by an admin of the target, or by an instance admin from the platform workspace; a member who is not an admin never. Approved, the Governor commits in
+  the target (the message ends with `Proposed by platform task <id>`), activates its snapshot, appends `workspace.changed` there and a
+  `platform.fix` event with the platform task, the attempt, the commit and the approval, and revives nothing.
+- **`platform.*`** (pack `platform`; effect `read`; run in the transaction that records the call): refused unless the calling task's
+  workspace is the platform workspace. Each call appends a `platform.read` event (workspace = the target, or the platform for a listing;
+  payload: source and target addresses, tool, what was read) in that transaction. A value of the target's secrets that appears in
+  a returned text is replaced by `[secret]`, no secret is ever read otherwise, and every text is cut to a size. Inputs and outputs are in
+  `packs/README.md`. `platform.repeats` reads `tasks`, `attempts` and `tool_calls` of every workspace on `gov.clock`:
+  a task counts when it is `done`, was created within the last `days` (30), has a `work` attempt, is not a heal task or a task of
+  `workspace-healer` or `capitalizer`. Its job is the agent's name plus the ordered names of its calls that `succeeded`, leaving out
+  the board and bookkeeping tools (`task.note`, `task.ask`, `task.create`, `memory.search`, `memory.propose`; a job with no call left is a
+  native-tools job and counts too). A goal is normalized to its set of words: lower case, URLs and any word with a digit removed, only
+  letters, at least 3 of them, without a short list of English and French stop words. Within one job, tasks are taken oldest first and
+  each joins the first group whose first goal shares at least 0.6 of the words (Jaccard) or starts a group. A group of 4 or more is a
+  candidate: agent, tools, count, workspaces with their counts, up to 3 goals and 8 task ids, first and last time.
 
 ## 8. Runner on disk and working copies
 
@@ -422,6 +452,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 
 SolidJS, Vite, the `@talelk/newui-*` design system, English, French and Arabic (RTL).
 Text a pack or a workspace wrote for people (`[translations.<lang>]`, `memory/<name>.<lang>.md`; docs/model.md, Translations) is shown through `human()` of `src/i18n`: the page language's text when the file has it, the English otherwise, at every place that shows an agent, tool or Play description, a Play title or input description, a pack description or a memory title (the Schedules list, the Today Play chips, the Team graph and the New workspace packs included). The forms edit the English text and write the translations back untouched, dropping only a translated input the form removed.
+The platform workspace is shown with a "Platform" badge in the sidebar and in the Overview table; the New workspace wizard offers it, and the Settings form a switch for it, only to an instance admin (`me.instanceAdmin`); the wizard then adds the `platform` pack. An approval of a change to another workspace says which one.
 First paint: the Governor serves the built files compressed (Brotli or gzip) and caches `/assets` for a year; the page's own chunk downloads beside the questions of who is signed in; a reload paints from the tab's last `me` and asks again behind it; a page that waits shows grey blocks in the shape of its content. On a wide screen a Workspace list opens with its first item selected; a phone keeps the list first.
 Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones): Overview, Schedules, then the
 workspaces (grouped as My workspaces, Shared with me and Public workspaces, each with an orange count of what waits there; the open one expands to Today, Tasks and
@@ -447,6 +478,11 @@ the handoffs between them, read from the Plays' steps and the recent tasks the w
   changed-subject refusal); daily cap; lease expiry and retry; roles; working copy and
   pull request against a local bare repository; a backup made while the Governor runs,
   restored and started again.
+- `tests/core/platform.test.ts`: the platform setting's guard (a workspace admin and a member refused, an instance admin allowed, a
+  second platform refused, a person who is not an instance admin sees nothing of it); the `platform.*` tools (only from the platform
+  workspace, audited with both workspaces, secrets never shown); `platform.repeats` (4 done twice in two workspaces found, 3 not, runs
+  older than 30 days not); a `capitalizer` proposal across workspaces (approval by the target's admin, the commit and the audit in the
+  target); the weekly schedule of `capitalize`.
 - `tests/e2e`: the real runner on its fixture engine against the Governor in one process: a pipeline to a checked
   result, a native edit that leaves as an approved pull request, a held call carried out later.
 - `tests/browser` (`pnpm test:browser`: builds the web app, then Playwright with Chromium at 1440 and, for the first
