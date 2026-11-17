@@ -47,6 +47,20 @@ describe("working copy", () => {
     expect(readFileSync(join(latest.root, "app", "src/a.txt"), "utf8")).toBe("changed upstream\n");
   });
 
+  it("works on a base commit far older than the fetched window, fetching it alone, and takes a patch from it", async () => {
+    const w = world();
+    const first = w.origin.head();
+    for (let i = 0; i < 60; i++) w.origin.commit({ "src/a.txt": `change ${i}\n`, [`gen/f${i}.txt`]: `${i}\n` }, `c${i}`);
+    const copy = (await w.prepare({}, { baseCommit: first }))!;
+    expect(copy.baseCommits).toEqual({ app: first });
+    const dir = join(copy.root, "app");
+    expect(readFileSync(join(dir, "src/a.txt"), "utf8")).toBe("one\ntwo\nthree\n");
+    writeFiles(dir, { "src/a.txt": "one\nTWO\nthree\n" });
+    expect(parsePatch(await copy.patch())).toHaveLength(1);
+    const lost = "0".repeat(40);
+    await expect(w.prepare({}, { baseCommit: lost })).rejects.toMatchObject({ name: "SetupError", infrastructure: false });
+  });
+
   it("uploads a diff that holds new, changed, deleted and binary files, leaves ignored files out, and applies again", async () => {
     const w = world();
     const copy = (await w.prepare())!;

@@ -19,6 +19,7 @@ The goal, the list of agents in this workspace with their descriptions, and the 
 
 - `title`: at most ten words, unique within the plan.
 - `goal`: two to five sentences that stand alone: what to do, on what, and what the result must contain so that a checker can verify it. The agent sees this goal and the results of the tasks it waits for, not your reasoning.
+- A goal that needs a file saved (a write-up "under /out", a report file, a patch) goes to an agent that can write files (`worker` or `developer`), never to a read-only agent such as `analyst`, which can only report in its answer.
 - No task asks anyone to clarify, confirm or decide something you can settle now.
 - No task exists only to check another: Brain already has every result checked by someone other than its author. Add a review task only when the goal itself asks for a review.
 

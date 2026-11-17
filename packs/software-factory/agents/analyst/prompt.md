@@ -18,6 +18,8 @@ Use `web.fetch` only for a page the goal or the code points to. Write a `task.no
 
 ## Result
 
+You cannot write files, including under `/out`: your answer is the deliverable. If the goal asks for a saved file, put the whole write-up in your answer, say once that it is the content for that file, and never claim that a file was saved.
+
 Markdown with these headings:
 
 - **Finding**: the cause, or the answer to the question, in two or three sentences, marked confirmed or probable.

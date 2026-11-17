@@ -68,12 +68,12 @@ export function parsePatch(bytes: Uint8Array): PatchSection[] {
 const GIT_ENV = { PATH: process.env["PATH"] ?? "/usr/local/bin:/usr/bin:/bin", HOME: "/nonexistent", LC_ALL: "C", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_ASKPASS: "/bin/false" };
 const IDENTITY = ["-c", "user.name=Brain", "-c", "user.email=brain@localhost"];
 
-interface GitOptions { readonly cwd?: string; readonly env?: Readonly<Record<string, string>>; readonly input?: Uint8Array; readonly signal?: AbortSignal | undefined }
+interface GitOptions { readonly timeoutMs?: number; readonly cwd?: string; readonly env?: Readonly<Record<string, string>>; readonly input?: Uint8Array; readonly signal?: AbortSignal | undefined }
 
 async function git(args: readonly string[], options: GitOptions = {}): Promise<{ ok: boolean; stdout: Uint8Array; text: string; stderr: string }> {
   const result = await execa("git", args, {
     ...(options.cwd ? { cwd: options.cwd } : {}), env: { ...GIT_ENV, ...options.env }, extendEnv: false, reject: false, encoding: "buffer", stripFinalNewline: false,
-    maxBuffer: MAX_PATCH_BYTES, timeout: 15 * 60_000, ...(options.input ? { input: options.input } : { stdin: "ignore" as const }), ...(options.signal ? { cancelSignal: options.signal } : {}),
+    maxBuffer: MAX_PATCH_BYTES, timeout: options.timeoutMs ?? 15 * 60_000, ...(options.input ? { input: options.input } : { stdin: "ignore" as const }), ...(options.signal ? { cancelSignal: options.signal } : {}),
   });
   const stdout = result.stdout instanceof Uint8Array ? result.stdout : new Uint8Array();
   const stderr = result.stderr instanceof Uint8Array ? Buffer.from(result.stderr).toString("utf8") : String(result.stderr ?? "");
@@ -145,9 +145,11 @@ async function fetchMirror(request: WorkingCopyRequest, project: OfferProject, m
     const has = async (commit: string): Promise<boolean> => (await git(["-C", mirror, "cat-file", "-e", `${commit}^{commit}`], { signal })).ok;
     if (project.baseCommit) {
       if (!/^[0-9a-f]{40,64}$/u.test(project.baseCommit)) throw new SetupError(`the base commit of project ${project.name} is not a commit id`);
-      // A commit that is not on the branch (a pull request's head) is fetched by its id.
-      if (!(await has(project.baseCommit))) await git(["-C", mirror, "fetch", "--quiet", "--no-tags", "--depth", "50", project.repo, project.baseCommit], { env, signal });
-      if (!(await has(project.baseCommit))) throw new SetupError(`commit ${project.baseCommit.slice(0, 12)} of project ${project.name} is not in its repository`);
+      // A commit the branch window does not hold (a pull request's head, or a base the branch has moved far past) is fetched by its id, alone:
+      // it is kept under a branch name of the mirror so that a clone of the mirror carries it; only its tree is needed to check it out and to take the patch, so a deep negotiation is avoided. A commit whose tree is not whole counts as absent.
+      const whole = async (commit: string): Promise<boolean> => (await has(commit)) && (await git(["-C", mirror, "ls-tree", "-r", "--name-only", commit], { signal })).ok;
+      if (!(await whole(project.baseCommit))) await git(["-C", mirror, "fetch", "--quiet", "--no-tags", "--depth", "1", project.repo, `+${project.baseCommit}:refs/heads/base-${project.baseCommit}`], { env, signal, timeoutMs: 120_000 });
+      if (!(await whole(project.baseCommit))) throw new SetupError(`commit ${project.baseCommit.slice(0, 12)} of project ${project.name} could not be obtained from its repository: the branch ${project.branch} has moved on and the commit this task started from is no longer served. Start the task again from the current head of the branch.`);
       return project.baseCommit;
     }
     const head = await git(["-C", mirror, "rev-parse", "--verify", "--quiet", `refs/heads/${project.branch}^{commit}`], { signal });

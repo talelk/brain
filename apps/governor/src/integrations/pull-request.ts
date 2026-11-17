@@ -81,8 +81,13 @@ export async function openPullRequest(gov: Gov, attempt: AttemptRow, task: TaskR
   const dir = fs.mkdtempSync(join(tmpdir(), "brain-pr-"));
   try {
     await git.clone({ fs, http, dir, url: project.repo, ref: project.branch, singleBranch: true, noTags: true, depth: 1, headers });
-    // The clone holds only the branch head; a task that worked on an older commit deepens it to reach that commit.
-    if (base !== undefined && !(await git.readCommit({ fs, dir, oid: base }).then(() => true, () => false))) await git.fetch({ fs, http, dir, url: project.repo, ref: project.branch, singleBranch: true, depth: 50, tags: false, headers }).catch(() => undefined);
+    // The clone holds only the branch head; a task that worked on an older commit deepens it step by step until that commit is there
+    // (isomorphic-git cannot fetch a commit by its id alone).
+    const present = (): Promise<boolean> => git.readCommit({ fs, dir, oid: base! }).then(() => true, () => false);
+    if (base !== undefined) for (const depth of [50, 500, 5000]) {
+      if (await present()) break;
+      await git.fetch({ fs, http, dir, url: project.repo, ref: project.branch, singleBranch: true, depth, tags: false, headers }).catch(() => undefined);
+    }
     if (base !== undefined) await git.checkout({ fs, dir, ref: base, force: true }).catch(() => { throw new ToolRefusal(`The commit ${base} this task worked on is not on the branch ${project.branch} of ${project.name}`); });
     await git.branch({ fs, dir, ref: branch, checkout: true, force: true });
     let changed;

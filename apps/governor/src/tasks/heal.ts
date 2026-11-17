@@ -84,6 +84,6 @@ export function healFailed(gov: Gov, failed: TaskRow): void {
   if (active.healing.per_day > 0 && today.n >= active.healing.per_day) return note(gov, failed, `"${failed.title}" was not analysed: the workspace already started ${active.healing.per_day} heal tasks today (healing.per_day in brain.toml).`);
   insertTask(gov, SYSTEM, {
     workspaceId: workspace.id, parent: null, snapshotDigest: workspace.snapshotDigest, title: `Heal: ${failed.title}`.slice(0, 200), agent: HEALER, state: "ready", createdBy: `${HEAL}${failed.id}`,
-    goal: `The task "${failed.title}" (id ${failed.id}) failed all its attempts. Find the cause of the repeated failure and either propose a fix with workspace.fix (task: "${failed.id}") or ask a person with task.ask.\n\n${evidenceOf(gov, failed, active)}`,
+    goal: `The task "${failed.title}" (id ${failed.id}) failed all its attempts. Find the cause of the repeated failure and either propose a fix with workspace.fix (task: "${failed.id}") or ask a person with task.ask. A task that is retried or healed runs on the workspace snapshot recorded when the task started, unless workspace.fix moved it; the files below are the workspace as it is now, so an older snapshot may have differed (for example a task started before the workspace had a model).\n\n${evidenceOf(gov, failed, active)}`,
   });
 }
