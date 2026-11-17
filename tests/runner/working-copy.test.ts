@@ -60,6 +60,23 @@ describe("working copy", () => {
     const lost = "0".repeat(40);
     await expect(w.prepare({}, { baseCommit: lost })).rejects.toMatchObject({ name: "SetupError", infrastructure: false });
   });
+  it("works on a base commit the mirror holds but no ref reaches, left by an earlier fetch of the branch before it moved far past", async () => {
+    const w = world();
+    const first = w.origin.head();
+    // The base was fetched earlier (the branch then was within the window)...
+    expect((await w.prepare({}, { baseCommit: first }))!.baseCommits).toEqual({ app: first });
+    // ...then the branch advanced past the window and was fetched again, so that no ref reaches the base any more.
+    for (let i = 0; i < 60; i++) w.origin.commit({ "src/a.txt": `change ${i}\n`, [`gen/f${i}.txt`]: `${i}\n` }, `c${i}`);
+    const mirror = join(w.stateDir, "repos", "ws1", "app.git");
+    await w.prepare();
+    git(mirror, "update-ref", "-d", `refs/heads/base-${first}`);
+    expect(git(mirror, "for-each-ref", "--contains", first)).toBe("");
+    expect(git(mirror, "cat-file", "-t", first)).toBe("commit");
+    const copy = (await w.prepare({}, { baseCommit: first }))!;
+    expect(copy.baseCommits).toEqual({ app: first });
+    expect(readFileSync(join(copy.root, "app", "src/a.txt"), "utf8")).toBe("one\ntwo\nthree\n");
+  });
+
 
   it("uploads a diff that holds new, changed, deleted and binary files, leaves ignored files out, and applies again", async () => {
     const w = world();

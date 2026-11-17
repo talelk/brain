@@ -13,6 +13,16 @@ export function engineToolName(name: string): string {
   return NATIVE_NAMES.has(plain.toLowerCase()) ? `tool_${plain}` : plain;
 }
 
+/**
+ * The prompts name tools by their real names, but the model's API knows them by the engine's name: a model that calls `memory.search` is told
+ * the tool does not exist. This text, added to the instructions, says which name to call for every tool whose two names differ.
+ */
+export function toolNameNote(tools: ReadonlyArray<{ readonly name: string }>): string {
+  const renamed = tools.filter((tool) => engineToolName(tool.name) !== tool.name);
+  if (renamed.length === 0) return "";
+  return `\n\n## Tool names\nCall each tool by the name this session lists: ${renamed.map((tool) => `\`${tool.name}\` is called \`${engineToolName(tool.name)}\``).join(", ")}. A call by any other name fails with "not found".`;
+}
+
 export const engineToolDescription = (tool: EngineTool): string => `[${tool.name}] ${tool.description}`.trim();
 
 /**

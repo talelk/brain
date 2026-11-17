@@ -147,9 +147,16 @@ async function fetchMirror(request: WorkingCopyRequest, project: OfferProject, m
       if (!/^[0-9a-f]{40,64}$/u.test(project.baseCommit)) throw new SetupError(`the base commit of project ${project.name} is not a commit id`);
       // A commit the branch window does not hold (a pull request's head, or a base the branch has moved far past) is fetched by its id, alone:
       // it is kept under a branch name of the mirror so that a clone of the mirror carries it; only its tree is needed to check it out and to take the patch, so a deep negotiation is avoided. A commit whose tree is not whole counts as absent.
-      const whole = async (commit: string): Promise<boolean> => (await has(commit)) && (await git(["-C", mirror, "ls-tree", "-r", "--name-only", commit], { signal })).ok;
-      if (!(await whole(project.baseCommit))) await git(["-C", mirror, "fetch", "--quiet", "--no-tags", "--depth", "1", project.repo, `+${project.baseCommit}:refs/heads/base-${project.baseCommit}`], { env, signal, timeoutMs: 120_000 });
-      if (!(await whole(project.baseCommit))) throw new SetupError(`commit ${project.baseCommit.slice(0, 12)} of project ${project.name} could not be obtained from its repository: the branch ${project.branch} has moved on and the commit this task started from is no longer served. Start the task again from the current head of the branch.`);
+      // Whole: the commit, its tree and every blob of it are here (a commit alone, or with a part of its tree, counts as absent).
+      const whole = async (commit: string): Promise<boolean> => (await has(commit)) && (await git(["-C", mirror, "rev-list", "--objects", "-n", "1", "--missing=error", commit], { signal })).ok;
+      const keep = `refs/heads/base-${project.baseCommit}`;
+      // A commit that is present but that no ref reaches (left by an earlier fetch, the branch having moved past it) is not in a clone of the mirror: it gets its name.
+      const reached = async (): Promise<boolean> => (await git(["-C", mirror, "for-each-ref", "--contains", project.baseCommit as string, "--count=1", "--format=%(refname)"], { signal })).text !== "";
+      if (await whole(project.baseCommit)) { if (!(await reached())) await git(["-C", mirror, "update-ref", keep, project.baseCommit], { signal }); }
+      else {
+        await git(["-C", mirror, "fetch", "--quiet", "--no-tags", "--depth", "1", project.repo, `+${project.baseCommit}:${keep}`], { env, signal, timeoutMs: 120_000 });
+        if (!(await whole(project.baseCommit)) || !(await reached())) throw new SetupError(`commit ${project.baseCommit.slice(0, 12)} of project ${project.name} could not be obtained from its repository: the branch ${project.branch} has moved on and the commit this task started from is no longer served. Start the task again from the current head of the branch.`);
+      }
       return project.baseCommit;
     }
     const head = await git(["-C", mirror, "rev-parse", "--verify", "--quiet", `refs/heads/${project.branch}^{commit}`], { signal });
@@ -164,7 +171,7 @@ async function checkout(request: WorkingCopyRequest, project: OfferProject, mirr
   // A copy of its own, not hard links into the mirror: the agent may write this folder.
   const cloned = await git(["clone", "--quiet", "--no-hardlinks", "--no-checkout", mirror, dir], { signal });
   const placed = cloned.ok ? await git(["-C", dir, "checkout", "--quiet", "--detach", base], { signal }) : cloned;
-  if (!placed.ok) throw new SetupError(`the working copy of project ${project.name} could not be created: ${placed.stderr.slice(-300)}`, true);
+  if (!placed.ok) throw new SetupError(`the working copy of project ${project.name} could not be created: ${placed.stderr.slice(-300)}`, !project.baseCommit);
   await git(["-C", dir, "remote", "remove", "origin"], { signal });
   return { name: project.name, dir, mirror, base, baseline: "" };
 }

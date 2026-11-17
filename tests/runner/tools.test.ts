@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { JobOffer, OfferTool } from "@brain/contracts";
 import { describe, expect, it } from "vitest";
 import { pickEngine } from "../../apps/runner/src/attempt";
-import { engineToolName } from "../../apps/runner/src/engines/tool-calls";
+import { engineToolName, toolNameNote } from "../../apps/runner/src/engines/tool-calls";
 import { composeTask } from "../../apps/runner/src/task-text";
 import { ToolCalls } from "../../apps/runner/src/tools/calls";
 import { scriptResult, secretEnvName } from "../../apps/runner/src/tools/script";
@@ -110,6 +110,9 @@ describe("choosing an engine and naming tools", () => {
   it("gives a workspace tool a name a model API accepts, apart from the engine's own tools", () => {
     expect(engineToolName("git.open-pr")).toBe("git_open-pr");
     expect(engineToolName("read")).toBe("tool_read");
+    // The prompts say `memory.search`; the model is told which name it must call.
+    expect(toolNameNote([{ name: "memory.search" }, { name: "plain" }])).toContain("`memory.search` is called `memory_search`");
+    expect(toolNameNote([{ name: "plain" }])).toBe("");
   });
 });
 

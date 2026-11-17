@@ -1,4 +1,4 @@
-import { type Approval, type BrainToolResponse, type JsonValue } from "@brain/contracts";
+import { type Approval, type BrainToolResponse, type JobOffer, type JsonValue } from "@brain/contracts";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { repeatsOf } from "../../apps/governor/src/tools/repeats";
@@ -159,6 +159,17 @@ describe("tool drift", () => {
 });
 
 describe("the capitalizer's proposals", () => {
+  it("is offered its eight tools with their schemas, whatever the admin workspace holds under packs/", async () => {
+    let offered: JobOffer | undefined;
+    driver.script({ capitalizer: ({ offer }) => { offered = offer; return "Looked."; } });
+    await harness.admin.command("task.create", { workspaceId: platformId, play: "capitalize" });
+    await driver.drain();
+    const names = ["platform.repeats", "platform.tasks", "platform.task", "platform.file", "platform.workspaces", "workspace.fix", "memory.search", "task.ask"];
+    expect(offered?.agent.tools).toEqual(names);
+    expect(offered?.tools.map((tool) => tool.name)).toEqual(names);
+    for (const tool of offered?.tools ?? []) expect(tool.inputSchema, tool.name).toMatchObject({ type: "object" });
+  });
+
   it("land only in the admin workspace's pack sources, each approved by an admin of it, and no other workspace is written", async () => {
     const worker = (await harness.admin.query("file.read", { workspaceId: platformId, path: "packs/base/agents/worker/agent.toml" })).content;
     const tool = (name: string): JsonValue[] => [

@@ -9,7 +9,7 @@ import type { EngineAdapter, EngineSessionSpec } from "./engines/port";
 import { type AbortCause, type AnswerFormat, engineFailure, runEngine } from "./engines/run";
 import { SANDBOX_PATHS, SandboxedEngine } from "./engines/sandboxed";
 import { createEngine, type EngineHosting, engineHosting, nativeToolsAllowed } from "./engines/select";
-import { boundedToolText } from "./engines/tool-calls";
+import { boundedToolText, toolNameNote } from "./engines/tool-calls";
 import { type GovernorClient, isLeaseLost } from "./governor-client";
 import { EventSpool } from "./spool";
 import { CHECK_SHAPE, composeTask, JUDGE_SHAPE, PLAN_SHAPE, type ReviewPatch } from "./task-text";
@@ -215,11 +215,12 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
       }
 
       emit({ kind: "status", phase: "engine", detail: `${picked.id} runs agent ${offer.agent.name}` });
+      const offered = offer.tools.filter((tool) => offer.agent.tools.includes(tool.name));
       const spec: EngineSessionSpec = {
-        attemptId, instructions: prompt, model, native: offer.agent.native, outDir: paths.out, stateDir: paths.state,
+        attemptId, instructions: prompt + toolNameNote(offered), model, native: offer.agent.native, outDir: paths.out, stateDir: paths.state,
         task: composeTask(offer, { ...(seesFiles ? { work: paths.work } : {}), out: paths.out }, reviewed, reviewedFiles) + (setupNotes.length > 0 ? `\n\n# Setup did not finish\n${setupNotes.join("\n")}\nDependencies may be missing; run what you need yourself, or say so in your result if you cannot.` : ""),
         ...(seesFiles ? { workDir: paths.work } : {}),
-        tools: offer.tools.filter((tool) => offer.agent.tools.includes(tool.name)).map((tool) => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, effect: tool.effect })),
+        tools: offered.map((tool) => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, effect: tool.effect })),
         limits: { timeoutMs: cfg.attemptTimeoutMs, maxTokens: offer.agent.limits.tokens, maxMicroUsd: offer.agent.limits.spendMicroUsd, maxTurns: offer.agent.limits.turns, ...(offer.kind === "check" || offer.kind === "judge" ? { maxOutputTokens: VERDICT_OUTPUT_TOKENS } : {}) },
       };
       const session = await runEngine({ engine, spec, emit, signal: abort.signal, executeTool: (tool, input) => tools.call(tool, input) }, answerFormat(offer));
