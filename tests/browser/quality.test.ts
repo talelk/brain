@@ -59,6 +59,6 @@ test("in Arabic the page reads right to left and nothing runs off its edge", asy
   const last = await page.getByRole("group", { name: "سجل هذا الهدف" }).getByRole("button").last().boundingBox();
   expect(first && last && first.x >= last.x).toBe(true);
   await page.goto(page.url().replace(/\/tasks\/.*/u, "/workspace/team"));
-  await expect(page.getByRole("list", { name: "الوكلاء", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^worker/u })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
