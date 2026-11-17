@@ -80,7 +80,7 @@ export function registerTriggers(governor: Governor): void {
           : (gov.db.prepare("SELECT id, state, created_at_ms AS at FROM tasks WHERE workspace_id=? AND parent_id IS NULL AND created_by=? ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get(workspace.id, `trigger:${play}`) as { id: string; state: TaskState; at: number } | undefined);
         schedules.push({
           workspaceId: workspace.id, workspaceSlug: workspace.slug, workspaceName: workspace.name, timezone: manifest.timezone, role: workspace.role,
-          play, title: spec.title, source: spec.source, kind, spec: trigger.schedule ?? trigger.webhook ?? "", paused: trigger.paused === true,
+          play, title: spec.title, translations: spec.translations, source: spec.source, kind, spec: trigger.schedule ?? trigger.webhook ?? "", paused: trigger.paused === true,
           nextRunAt: kind === "schedule" && trigger.paused !== true ? (kept?.next_run_at_ms ?? null) : null,
           lastRunAt: last?.at ?? null, lastTask: last ? { id: last.id, state: last.state } : null,
           skipsNext: kind === "schedule" && trigger.paused !== true && last !== undefined && !TERMINAL.includes(last.state),

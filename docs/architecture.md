@@ -82,7 +82,7 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   valid snapshot as `active`.
 - A **document** is any other file of the folder (`docs/handbook.md`, `docs/logo.png`). A path is refused when it is
   absolute, has a backslash or control character, a `..` or `.` segment, or a hidden segment other than the file
-  `.gitkeep`; a path under `agents/`, `tools/`, `plays/` or `memory/` must still be one Brain reads, and
+  `.gitkeep`; a path under `agents/`, `tools/`, `plays/` or `memory/` must still be one Brain reads (`memory/<name>.fr.md` and `.ar.md` are translations of an entry: kept in the manifest as `titles`, never indexed or offered), and
   `brain.toml` is the only file at the top that is not a document. The manifest lists the text and Markdown
   documents under `docs/` (`.md`, `.markdown`, `.txt`, `.rst`, `.csv`, `.json`, `.yaml`, `.yml`, valid UTF-8, at most 1 MB) with `path`,
   `title` (the first `# ` line, else the file name), `digest` and `bytes`, so a task keeps the documents of its own
@@ -403,6 +403,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 ## 10. Web app (`apps/web`)
 
 SolidJS, Vite, the `@talelk/newui-*` design system, English, French and Arabic (RTL).
+Text a pack or a workspace wrote for people (`[translations.<lang>]`, `memory/<name>.<lang>.md`; docs/model.md, Translations) is shown through `human()` of `src/i18n`: the page language's text when the file has it, the English otherwise, at every place that shows an agent, tool or Play description, a Play title or input description, a pack description or a memory title (the Schedules list, the Today Play chips, the Team graph and the New workspace packs included). The forms edit the English text and write the translations back untouched, dropping only a translated input the form removed.
 First paint: the Governor serves the built files compressed (Brotli or gzip) and caches `/assets` for a year; the page's own chunk downloads beside the questions of who is signed in; a reload paints from the tab's last `me` and asks again behind it; a page that waits shows grey blocks in the shape of its content. On a wide screen a Workspace list opens with its first item selected; a phone keeps the list first.
 Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones): Overview, Schedules, then the
 workspaces (grouped as My workspaces, Shared with me and Public workspaces, each with an orange count of what waits there; the open one expands to Today, Tasks and

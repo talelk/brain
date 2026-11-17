@@ -78,3 +78,10 @@ export function tn(base: PluralBase, count: number, params?: Params): string {
 
 /** The Intl locale for dates and numbers: Latin digits everywhere, day before month. */
 export const intlLocale = (): string => (locale() === "fr" ? "fr-FR" : locale() === "ar" ? "ar-TN" : "en-GB");
+
+/** The text a file wrote for people in the current language (`[translations.fr]`, `[translations.ar]`), else its English. `path` names the key, such as `["description"]` or `["inputs", name, "description"]`. */
+export function human(translations: unknown, path: readonly string[], english: string): string {
+  let at: unknown = (translations as Record<string, unknown> | undefined)?.[locale()];
+  for (const key of path) at = (at as Record<string, unknown> | undefined)?.[key];
+  return typeof at === "string" && at !== "" ? at : english;
+}

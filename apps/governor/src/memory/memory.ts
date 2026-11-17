@@ -46,7 +46,7 @@ export function registerMemory({ gov }: Governor): void {
   gov.onActivate.push((workspaceId, manifest) => indexMemory(gov, workspaceId, manifest));
 
   registry.query("memory.list", (ctx, input) => ({
-    entries: activeManifest(ctx.gov, input.workspaceId).memory.map((entry) => ({ name: entry.name, title: entry.title, source: entry.source })),
+    entries: activeManifest(ctx.gov, input.workspaceId).memory.map((entry) => ({ name: entry.name, title: entry.title, titles: entry.titles, source: entry.source })),
     proposals: ctx.db.prepare(`SELECT id, name, title, body, proposed_by AS proposedBy, task_id AS taskId, state, created_at_ms AS at FROM memory_proposals WHERE workspace_id=?
       ORDER BY state='pending' DESC, created_at_ms DESC LIMIT 200`).all(input.workspaceId) as MemoryProposal[],
   }));

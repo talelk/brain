@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AuditVerifyResult } from "./audit-chain";
-import { isSlug, MAX_FILE_BYTES, type Problem, type SnapshotManifest } from "./files";
+import { isSlug, MAX_FILE_BYTES, type Language, type PackFile, type PlayFile, type Problem, type SnapshotManifest } from "./files";
 import type { ApprovalState, AttemptEvent, AttemptFailure, AttemptKind, Digest, Effect, JsonValue, RunnerCapability, ToolOutcome } from "./protocol";
 
 /**
@@ -74,10 +74,11 @@ export interface FileContent extends FileEntry {
 export interface PackSummary {
   readonly name: string;
   readonly description: string;
+  readonly translations: PackFile["translations"];
   readonly requires: readonly string[];
   readonly agents: ReadonlyArray<{ readonly name: string; readonly description: string }>;
   readonly tools: ReadonlyArray<{ readonly name: string; readonly description: string; readonly effect: Effect }>;
-  readonly plays: ReadonlyArray<{ readonly name: string; readonly title: string; readonly description: string }>;
+  readonly plays: ReadonlyArray<{ readonly name: string; readonly title: string; readonly description: string; readonly translations: PlayFile["translations"] }>;
 }
 export interface Member { readonly userId: string; readonly name: string; readonly email: string; readonly role: Role }
 export interface SecretName { readonly name: string; readonly updatedAt: number }
@@ -302,6 +303,7 @@ export interface ScheduleItem {
   readonly role: Role;
   readonly play: string;
   readonly title: string;
+  readonly translations: PlayFile["translations"];
   /** `workspace`, or the pack whose Play it is (a change writes a workspace copy). */
   readonly source: string;
   readonly kind: "schedule" | "webhook";
@@ -316,7 +318,7 @@ export interface ScheduleItem {
   readonly skipsNext: boolean;
   readonly steps: ReadonlyArray<{ readonly id: string; readonly agent: string }>;
 }
-export interface MemoryItem { readonly name: string; readonly title: string; readonly source: string }
+export interface MemoryItem { readonly name: string; readonly title: string; readonly titles: Readonly<Partial<Record<Language, string>>>; readonly source: string }
 export interface MemoryProposal {
   readonly id: string;
   readonly name: string;

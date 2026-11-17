@@ -24,7 +24,7 @@ export function Problems(props: { problems: readonly Problem[] }): JSX.Element {
   return (
     <Show when={props.problems.length > 0}>
       <ul class="mt-1 flex flex-col gap-1 t-small">
-        <For each={props.problems}>{(problem) => <li><Show when={problem.path}><code class="t-code code-ltr me-2 font-medium">{problem.path}</code></Show>{problem.message}</li>}</For>
+        <For each={props.problems}>{(problem) => <li><Show when={problem.path}><code class="t-code code-ltr me-2 font-medium">{problem.path}</code></Show>{said(problem.message)}</li>}</For>
       </ul>
     </Show>
   );

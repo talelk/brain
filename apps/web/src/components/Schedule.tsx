@@ -4,7 +4,7 @@ import { Dialog, Select, toast } from "@talelk/newui-molecules";
 import type { PlayFile, ScheduleItem } from "@brain/contracts";
 import { command, query, useAction, useQuery } from "../data/api";
 import { useSession } from "../data/session";
-import { t, type MessageKey } from "../i18n";
+import { human, t, type MessageKey } from "../i18n";
 import { paths, playToml } from "../lib/files";
 import { clock, cronOf, inZone, isValidCron, presetOf, PRESETS, upcoming, weekday, words, type Preset } from "../lib/schedule";
 import { Failure } from "./bits";
@@ -99,12 +99,12 @@ export function ScheduleDialog(props: { open: boolean; onOpenChange: (open: bool
   return (
     <Dialog.Root open={props.open} onOpenChange={props.onOpenChange}>
       <Dialog.Content size="lg">
-        <Dialog.Header><Dialog.Title>{props.item ? t("schedule.edit", { play: props.item.title }) : t("schedule.add")}</Dialog.Title><Dialog.Description>{t("schedule.add.text")}</Dialog.Description></Dialog.Header>
+        <Dialog.Header><Dialog.Title>{props.item ? t("schedule.edit", { play: human(props.item.translations, ["title"], props.item.title) }) : t("schedule.add")}</Dialog.Title><Dialog.Description>{t("schedule.add.text")}</Dialog.Description></Dialog.Header>
         <form class="mt-4 flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void save.run(); }}>
           <Show when={!props.item}>
             <div class="grid gap-4 sm:grid-cols-2">
               <Select size="md" label={t("schedule.workspace")} options={admins().map((workspace) => ({ value: workspace.id, label: workspace.name }))} value={workspaceId() ?? null} onValueChange={(value) => { if (value) { setChosen(value); setPlay(undefined); } }} />
-              <Select size="md" label={t("schedule.play")} options={plays().map(([name, spec]) => ({ value: name, label: spec.title }))} value={playName() ?? null} onValueChange={(value) => { if (value) setPlay(value); }} />
+              <Select size="md" label={t("schedule.play")} options={plays().map(([name, spec]) => ({ value: name, label: human(spec.translations, ["title"], spec.title) }))} value={playName() ?? null} onValueChange={(value) => { if (value) setPlay(value); }} />
             </div>
           </Show>
           <Show when={Boolean(playName() && loaded.data())} fallback={<p class="t-small text-ink-2">{t("schedule.noPlays")}</p>}>

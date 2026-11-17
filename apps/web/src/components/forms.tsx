@@ -5,6 +5,7 @@ import { Select, toast } from "@talelk/newui-molecules";
 import type { AgentFile, InputSpec, PlayFile, Problem, SnapshotManifest, StepSpec, ToolFile } from "@brain/contracts";
 import { command, useAction, useQuery, type Action } from "../data/api";
 import { usePlace } from "../data/session";
+import { said } from "../lib/said";
 import { t } from "../i18n";
 import { agentToml, brainOf, brainToml, paths, playToml, toolToml, type Brain, type Model, type Project } from "../lib/files";
 import { EFFECTS, ENGINES, NATIVE_LEVELS } from "../lib/model";
@@ -49,7 +50,7 @@ const Group = (props: { title: string; text?: string; children: JSX.Element }): 
     <div class="mt-4 flex flex-col gap-4">{props.children}</div>
   </section>
 );
-const Problems = (props: { items: readonly Problem[] }): JSX.Element => <Show when={props.items.length > 0}><ul class="flex flex-col gap-1 rounded-xl bg-bad-soft px-4 py-3 t-small text-bad" role="alert"><For each={props.items}>{(problem) => <li>{problem.message}</li>}</For></ul></Show>;
+const Problems = (props: { items: readonly Problem[] }): JSX.Element => <Show when={props.items.length > 0}><ul class="flex flex-col gap-1 rounded-xl bg-bad-soft px-4 py-3 t-small text-bad" role="alert"><For each={props.items}>{(problem) => <li>{said(problem.message)}</li>}</For></ul></Show>;
 
 /** Markdown with a preview: a prompt, a memory entry. */
 export function MarkdownEditor(props: { value: string; onChange: (value: string) => void; label: string; problems?: readonly Problem[]; readOnly?: boolean }): JSX.Element {

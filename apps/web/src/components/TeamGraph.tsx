@@ -2,7 +2,7 @@ import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import { A } from "@solidjs/router";
 import { EmptyState } from "@talelk/newui-molecules";
 import type { SnapshotManifest, TaskSummary } from "@brain/contracts";
-import { t, tn } from "../i18n";
+import { human, t, tn } from "../i18n";
 import { chord, NODE_W, ring } from "../lib/graph";
 import { handoffs, type Handoff } from "../lib/team";
 
@@ -63,7 +63,7 @@ export function TeamGraph(props: { snapshot: SnapshotManifest; tasks: readonly T
                   <li class="gnode gnode-agent-box" style={{ "inset-inline-start": `${spot.x}px`, top: `${spot.y}px`, width: `${NODE_W}px`, height: `${spot.h}px` }}>
                     <A class="gnode-main" href={props.href(spot.id)}>
                       <span class="gnode-title t-code"><bdi>{spot.id}</bdi></span>
-                      <span class="t-small text-ink-2 gnode-phrase" dir="auto">{props.snapshot.agents[spot.id]?.description}</span>
+                      <span class="t-small text-ink-2 gnode-phrase" dir="auto">{human(props.snapshot.agents[spot.id]?.translations, ["description"], props.snapshot.agents[spot.id]?.description ?? "")}</span>
                     </A>
                   </li>
                 )}

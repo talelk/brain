@@ -18,10 +18,17 @@ const PENDING_FOR_MS = 7 * 86_400_000;
 /** What a pull request would carry: the patch, and the commit it is made on when one is known. */
 export interface PullRequestChange { readonly patchDigest?: Digest | undefined; readonly baseCommit?: string | undefined }
 
+/** The tool as agents and runners know it: the translations only people read are not part of what an approval binds. */
+function toolWithoutTranslations(tool: SnapshotManifest["tools"][string] | undefined): JsonValue {
+  if (!tool) return null;
+  const { translations: _translations, ...rest } = tool;
+  return rest as unknown as JsonValue;
+}
+
 /** What an approver is shown and what their decision is bound to. */
 export function approvalSubject(manifest: SnapshotManifest, call: { tool: string; input: JsonValue; taskId: string; snapshotDigest: Digest } & PullRequestChange): ApprovalSubject {
   return {
-    tool: call.tool, toolDigest: domainDigest("brain:tool:v1", (manifest.tools[call.tool] ?? null) as unknown as JsonValue), input: call.input, inputDigest: domainDigest("brain:tool-input:v1", call.input),
+    tool: call.tool, toolDigest: domainDigest("brain:tool:v1", toolWithoutTranslations(manifest.tools[call.tool])), input: call.input, inputDigest: domainDigest("brain:tool-input:v1", call.input),
     taskId: call.taskId, snapshotDigest: call.snapshotDigest, ...(call.patchDigest !== undefined ? { patchDigest: call.patchDigest } : {}), ...(call.baseCommit !== undefined ? { baseCommit: call.baseCommit } : {}),
   };
 }

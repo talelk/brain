@@ -3,10 +3,10 @@ import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Button, TextInput } from "@talelk/newui-atoms";
 import { EmptyState, TabButtons, Tabs } from "@talelk/newui-molecules";
 import { PaneLayout } from "@talelk/newui-templates";
-import type { AgentFile, FileEntry, MemoryProposal, PlayFile, SnapshotManifest, ToolFile } from "@brain/contracts";
+import type { AgentFile, FileEntry, Language, MemoryProposal, PlayFile, SnapshotManifest, ToolFile } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
-import { direction, t, tn, type MessageKey } from "../i18n";
+import { direction, human, locale, t, tn, type MessageKey } from "../i18n";
 import { ago } from "../lib/format";
 import { paths } from "../lib/files";
 import { isSlug } from "../lib/model";
@@ -26,7 +26,7 @@ interface Item { readonly name: string; readonly title?: string; readonly lead?:
 const isToolName = (name: string): boolean => name.length <= 80 && name.split(".").every(isSlug);
 /** The files that make one thing: an agent's folder, a tool's folder, a Play, a memory entry, or `brain.toml`. */
 const owns = (tab: Tab, name: string) => (file: FileEntry): boolean =>
-  tab === "agents" ? file.path.startsWith(`agents/${name}/`) : tab === "tools" ? file.path.startsWith(`tools/${name}/`) : tab === "plays" ? file.path === paths.play(name) : tab === "memory" ? file.path === paths.memory(name) : file.path === paths.brain;
+  tab === "agents" ? file.path.startsWith(`agents/${name}/`) : tab === "tools" ? file.path.startsWith(`tools/${name}/`) : tab === "plays" ? file.path === paths.play(name) : tab === "memory" ? file.path === paths.memory(name) || file.path === paths.memoryIn(name, "fr") || file.path === paths.memoryIn(name, "ar") : file.path === paths.brain;
 
 const NEW_AGENT: AgentFile = { description: "", engine: ["pi", "claude"], native: "read", tools: [], limits: { turns: 20, tokens: 200_000, spend_usd: 0 } };
 const NEW_TOOL: ToolFile = { description: "", effect: "read", timeout_seconds: 60, needs: ["bash"], network: [], secrets: [], inputs: {} };
@@ -90,8 +90,12 @@ function MemoryEntry(props: { name: string; isNew: boolean; readOnly: boolean; o
   const [draft, setDraft] = createSignal<string | undefined>(props.isNew ? `# ${props.name.replaceAll("-", " ")}\n\n` : undefined);
   const write = useWrite(props.onSaved);
   const text = (): string | undefined => draft() ?? file.data()?.content;
+  /** The entry as written for people who read this language, when it has one: shown above the English file agents read. */
+  const lang = (): Language | undefined => { const titles = (place.workspace.data()?.snapshot.memory.find((entry) => entry.name === props.name))?.titles; return locale() !== "en" && titles?.[locale() as Language] !== undefined ? (locale() as Language) : undefined; };
+  const translated = useQuery("file.read", () => { const at = lang(); return at && !props.isNew ? { workspaceId: place.id(), path: paths.memoryIn(props.name, at) } : undefined; });
   return (
     <Show when={text() !== undefined} fallback={<Failure error={file.error()} />}>
+      <Show when={translated.data()?.content}>{(content) => <div class="mb-5 rounded-control bg-surface-gray-2 px-4 py-3" dir="auto"><Markdown text={content()} /><p class="mt-3 t-small text-ink-3">{t("memory.translated")}</p></div>}</Show>
       <MarkdownEditor label={paths.memory(props.name)} value={text() ?? ""} onChange={setDraft} problems={problemsOf(write, paths.memory(props.name))} readOnly={props.readOnly} />
       <Show when={!props.readOnly}><SaveBar write={write} onSave={() => void write.run([{ path: paths.memory(props.name), content: text() ?? "" }], `${props.isNew ? "Add" : "Change"} the memory entry ${props.name}`)} shown={[paths.memory(props.name)]} disabled={draft() === undefined} /></Show>
     </Show>
@@ -119,11 +123,12 @@ export default function WorkspaceScreen(): JSX.Element {
   createEffect(on(tab, () => requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-slot="tabs-list"] [aria-selected="true"]')?.scrollIntoView({ inline: "center", block: "nearest" }))));
 
   const href = (to: Tab, item = ""): string => place.to(`/workspace/${to}${item ? `/${item}` : ""}`);
+  const titleOf = (entry: { title: string; titles?: Readonly<Partial<Record<Language, string>>> }): string => (locale() === "en" ? undefined : entry.titles?.[locale() as Language]) ?? entry.title;
   const items = (snapshot: SnapshotManifest): Item[] => {
-    if (tab() === "agents") return Object.entries(snapshot.agents).map(([key, agent]) => ({ name: key, text: agent.description, source: agent.source }));
-    if (tab() === "tools") return Object.entries(snapshot.tools).map(([key, tool]) => ({ name: key, lead: t(`effect.${tool.effect}`), text: tool.description, source: tool.source }));
-    if (tab() === "plays") return Object.entries(snapshot.plays).map(([key, play]) => ({ name: key, title: play.title, text: play.description, source: play.source }));
-    if (tab() === "memory") return (memory.data()?.entries ?? snapshot.memory).map((entry) => ({ name: entry.name, title: entry.title, text: "", source: entry.source }));
+    if (tab() === "agents") return Object.entries(snapshot.agents).map(([key, agent]) => ({ name: key, text: human(agent.translations, ["description"], agent.description), source: agent.source }));
+    if (tab() === "tools") return Object.entries(snapshot.tools).map(([key, tool]) => ({ name: key, lead: t(`effect.${tool.effect}`), text: human(tool.translations, ["description"], tool.description), source: tool.source }));
+    if (tab() === "plays") return Object.entries(snapshot.plays).map(([key, play]) => ({ name: key, title: human(play.translations, ["title"], play.title), text: human(play.translations, ["description"], play.description), source: play.source }));
+    if (tab() === "memory") return (memory.data()?.entries ?? snapshot.memory).map((entry) => ({ name: entry.name, title: titleOf(entry), text: "", source: entry.source }));
     return [];
   };
   const mine = createMemo((): FileEntry[] => (files.data()?.files ?? []).filter(owns(tab(), name())));
@@ -219,6 +224,7 @@ export default function WorkspaceScreen(): JSX.Element {
                                   <div class="min-w-0">
                                     <h2 class="t-title break-words text-ink">{current}</h2>
                                     <p class="mt-1 t-small text-ink-2">{isNew() ? t("workspace.source.new") : origin(mine(), items(snapshot()).find((item) => item.name === current)?.source ?? "")}</p>
+                                    <Show when={!isNew() && tab() !== "memory" && locale() !== "en" && items(snapshot()).find((item) => item.name === current)?.text}>{(text) => <p class="mt-2 t-text text-ink" dir="auto">{text()}</p>}</Show>
                                   </div>
                                   <div class="flex items-center gap-2">
                                     <Show when={!isNew() && tab() !== "memory"}><ModeSwitch raw={raw()} onChange={setRaw} /></Show>

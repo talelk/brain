@@ -63,6 +63,34 @@ const SAID: readonly (readonly [string, RegExp])[] = [
   ["attemptFailed", /^The attempt failed\.?$/u],
   ["planMade", /^The plan could not be made: (?<why>.+)\.?$/u],
   ["planUsed", /^The plan could not be used: (?<why>.+)\.?$/u],
+  ["audit.sequence-gap", /^event (?<seq>\d+) \(.*\) is where position \d+ was expected: .*/u],
+  ["audit.broken-link", /^event (?<seq>\d+) \(.*\) does not continue the event before it: .*/u],
+  ["audit.payload-edited", /^event (?<seq>\d+) \(.*\) (?:has a payload that is not valid JSON|was edited: its payload no longer matches .*)/u],
+  ["audit.event-edited", /^event (?<seq>\d+) \(.*\) was edited: what it records no longer matches .*/u],
+  ["audit.key-mismatch", /^key \S+ (?:is not the key its id was derived from|differs from the key the audit log recorded under that id)/u],
+  ["audit.checkpoint-unknown-key", /^.* was signed by key \S+, which is not an audit key of this Governor/u],
+  ["audit.checkpoint-unsigned", /^.* does not carry a valid signature from key \S+/u],
+  ["audit.tail-truncated", /^.* covers events beyond the last one present \(\d+\): the end of the log was cut/u],
+  ["audit.checkpoint-mismatch", /^.* signed a different history than the log now holds at that position: .*/u],
+  ["audit.receipt", /^event (?<seq>\d+) .*(?:receipt|runner).*/u],
+  ["problemNoBrain", /^the workspace has no brain\.toml$/u],
+  ["problemToml", /^not valid TOML(?<at>[^:]*): (?<why>.+)$/u],
+  ["problemNoTool", /^tool "(?<name>[^"]+)" has no tool\.toml$/u],
+  ["problemNoAgentToml", /^agent "(?<name>[^"]+)" has no agent\.toml$/u],
+  ["problemNoPrompt", /^agent "(?<name>[^"]+)" has no prompt\.md$/u],
+  ["problemPromptEmpty", /^the prompt is empty$/u],
+  ["problemToolMissing", /^tool "(?<name>[^"]+)" does not exist$/u],
+  ["problemModelMissing", /^model "(?<name>[^"]+)" is not a \[\[model\]\] of brain\.toml$/u],
+  ["problemNoScript", /^the tool needs a run\.sh beside it \(or runs = "brain", or host_command\)$/u],
+  ["problemScriptBrain", /^a tool Brain runs has no run\.sh$/u],
+  ["problemScriptHost", /^a host command tool has no run\.sh$/u],
+  ["problemTwoModels", /^two models are named "(?<name>[^"]+)"$/u],
+  ["problemTwoProjects", /^two projects are named "(?<name>[^"]+)"$/u],
+  ["problemApprovalTool", /^approvals names tool "(?<name>[^"]+)", which does not exist$/u],
+  ["problemMemoryTitle", /^a memory entry starts with its title, written as a line `# Title`$/u],
+  ["problemMemoryTranslation", /^translates the memory entry (?<name>\S+), which does not exist$/u],
+  ["workspaceInvalid", /^The workspace would not be valid, so nothing was changed$/u],
+  ["auditUnverifiedDetail", /^The audit log does not verify$/u],
 ];
 
 /** A state word inside a sentence, translated: a task state, or an approval or proposal state. */
@@ -72,6 +100,7 @@ export function said(message: string): string {
   for (const [id, pattern] of SAID) {
     const found = pattern.exec(message.trim());
     if (!found) continue;
+    if (id === "problemToml") return tKey("said.problemToml", message, { at: /\d+/u.exec(found.groups?.["at"] ?? "")?.[0] ? tKey("said.problemToml.at", found.groups?.["at"] ?? "", { line: /\d+/u.exec(found.groups?.["at"] ?? "")?.[0] ?? "" }) : "", why: found.groups?.["why"] ?? "" });
     const params = Object.fromEntries(Object.entries(found.groups ?? {}).map(([name, value]) => [name, name === "state" ? word(value) : value]));
     return tKey(`said.${id}`, message, params);
   }

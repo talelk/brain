@@ -35,6 +35,22 @@ export const NATIVE_LEVELS = ["none", "read", "all"] as const;
 /** The tools the Governor runs itself (`runs = "brain"`). */
 export const BRAIN_TOOLS = ["task.create", "task.note", "task.ask", "memory.search", "memory.propose", "git.open-pr", "message.send"] as const;
 
+// --- translations: what a person reads, in the page's language; agents read the English ---
+
+export const LANGUAGES = ["fr", "ar"] as const;
+export type Language = (typeof LANGUAGES)[number];
+export const isLanguage = (value: string): value is Language => (LANGUAGES as readonly string[]).includes(value);
+const INPUT_NAME = /^[a-z][a-z0-9_]{0,62}$/u;
+/** `[translations.fr]` and `[translations.ar]`: the human-facing keys of the file, and nothing else. Optional in every language. */
+const translations = <S extends z.ZodRawShape>(shape: S) => z.strictObject({ fr: z.strictObject(shape).optional(), ar: z.strictObject(shape).optional() }).optional();
+const translatedInputs = z.record(z.string().regex(INPUT_NAME), z.strictObject({ description: z.string() })).optional();
+/** A translation of an input names an input the file has. */
+function translatedInputsExist(file: { inputs: Record<string, unknown>; translations?: Partial<Record<Language, { inputs?: Record<string, unknown> | undefined } | undefined>> | undefined }, ctx: z.RefinementCtx): void {
+  for (const lang of LANGUAGES) for (const name of Object.keys(file.translations?.[lang]?.inputs ?? {})) {
+    if (!(name in file.inputs)) ctx.addIssue({ code: "custom", path: ["translations", lang, "inputs", name], message: `translates the input ${name}, which the file does not have` });
+  }
+}
+
 // --- inputs of a tool or a Play ---
 
 const INPUT_TYPES = ["string", "number", "integer", "boolean", "array", "object"] as const;
@@ -103,6 +119,7 @@ export const AgentFile = z.strictObject({
     tokens: z.int().min(0).default(200_000),
     spend_usd: z.number().min(0).default(0),
   }).prefault({}),
+  translations: translations({ description: z.string().min(1).optional() }),
 });
 export type AgentFile = z.infer<typeof AgentFile>;
 
@@ -118,7 +135,9 @@ export const ToolFile = z.strictObject({
   runs: z.literal("brain").optional(),
   host_command: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/u, "must be the name of a command declared on the runner host").optional(),
   inputs,
+  translations: translations({ description: z.string().min(1).optional(), inputs: translatedInputs }),
 }).superRefine((tool, ctx) => {
+  translatedInputsExist(tool, ctx);
   if (tool.runs !== undefined && tool.host_command !== undefined) ctx.addIssue({ code: "custom", path: ["host_command"], message: "a tool is run by Brain or by a host command, not both" });
   if (tool.host_command !== undefined && tool.effect === "write") ctx.addIssue({ code: "custom", path: ["effect"], message: "a host command that changes anything must have effect privileged" });
 });
@@ -157,7 +176,8 @@ export const PlayFile = z.strictObject({
   }).refine((trigger) => (trigger.schedule === undefined) !== (trigger.webhook === undefined), "a trigger has either schedule or webhook")
     .refine((trigger) => trigger.paused === undefined || trigger.schedule !== undefined, { path: ["paused"], message: "only a schedule can be paused" }).optional(),
   step: z.array(StepSpec).min(1),
-});
+  translations: translations({ title: z.string().min(1).max(200).optional(), description: z.string().optional(), inputs: translatedInputs }),
+}).superRefine(translatedInputsExist);
 export type PlayFile = z.infer<typeof PlayFile>;
 
 // --- packs/<name>/pack.toml ---
@@ -166,6 +186,7 @@ export const PackFile = z.strictObject({
   name: slug("a pack name"),
   description: z.string().default(""),
   requires: z.array(slug("a pack name")).default([]),
+  translations: translations({ description: z.string().optional() }),
 });
 export type PackFile = z.infer<typeof PackFile>;
 
@@ -177,6 +198,12 @@ export type MemoryEntry = z.infer<typeof MemoryEntry>;
 export function splitMemoryEntry(text: string): { title: string; body: string } {
   const [first = "", ...rest] = text.replace(/^﻿/u, "").trimStart().split("\n");
   return first.startsWith("# ") ? { title: first.slice(2).trim(), body: rest.join("\n").trim() } : { title: "", body: text.trim() };
+}
+
+/** `memory/<name>.<lang>.md`: the entry written for people who read that language. Agents never see it. Returns the entry's name and language. */
+export function parseMemoryTranslationName(file: string): { name: string; lang: Language } | undefined {
+  const found = /^([a-z][a-z0-9-]{0,62})\.(fr|ar)\.md$/u.exec(file);
+  return found ? { name: found[1] as string, lang: found[2] as Language } : undefined;
 }
 
 // --- documents: any other file of the workspace folder ---
@@ -269,7 +296,8 @@ export interface SnapshotManifest {
   /** `files` are the files beside `tool.toml` (`run.sh`, `test.sh`, ...); `input_schema` is the JSON Schema a call's input must satisfy. */
   readonly tools: Readonly<Record<string, ToolFile & Sourced & { readonly input_schema: JsonSchema; readonly files: readonly FileRef[] }>>;
   readonly plays: Readonly<Record<string, PlayFile & Sourced>>;
-  readonly memory: ReadonlyArray<Sourced & { readonly name: string; readonly title: string; readonly digest: Digest; readonly bytes: number }>;
+  /** `titles` are the titles of the entry's translations (`memory/<name>.fr.md`), which only people read. */
+  readonly memory: ReadonlyArray<Sourced & { readonly name: string; readonly title: string; readonly titles: Readonly<Partial<Record<Language, string>>>; readonly digest: Digest; readonly bytes: number }>;
   /** The text documents of the workspace under `docs/` that agents can search. */
   readonly documents: ReadonlyArray<{ readonly path: string; readonly title: string; readonly digest: Digest; readonly bytes: number }>;
 }

@@ -194,6 +194,38 @@ A Markdown file per entry, with a title line. Agents read memory through the
 `memory.search` tool and add to it with `memory.propose`; a person accepts a proposal,
 which commits the file. A workspace never reads another workspace's memory.
 
+### Translations
+
+An agent, a tool or a Play may carry the text people read in another language, so a French
+or Arabic page does not show English that a pack wrote for people. The file says it in
+`[translations.fr]` and `[translations.ar]` (only these two languages; anything else is
+an error):
+
+```toml
+# plays/fix-issue.toml
+title = "Fix an issue"
+description = "Investigate, change, review, and open a pull request."
+
+[inputs.issue]
+type = "string"
+description = "The issue to fix"
+
+[translations.fr]
+title = "Corriger un ticket"
+description = "Enquêter, modifier, faire relire et ouvrir une pull request."
+inputs.issue.description = "Le ticket à corriger"
+```
+
+The keys are the human-facing ones: `description` (agent, tool, Play, pack), `title` (Play)
+and `inputs.<name>.description` (tool, Play; the input must exist). Everything else (a
+step's goal, a prompt, an input's name) is read by agents and stays English. A memory entry
+is translated by a sibling file, `memory/<name>.fr.md` or `.ar.md`, whose first line is the
+translated title; it is read by people only, is never searched, offered or proposed, and
+needs the English entry beside it. The app shows the translation when the page is in that
+language and the English otherwise. Agents, tool calls, approvals and every digest of what
+ran use the English text; editing a file in the form keeps its translations, and the Files
+tab shows them as they are. The packs shipped with Brain are translated.
+
 ### Documents
 
 A workspace folder may also hold documents: any other file, usually under `docs/`

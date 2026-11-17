@@ -4,7 +4,7 @@ import { Button, Switch, TextInput } from "@talelk/newui-atoms";
 import type { CommandRequest, InputSpec, JsonValue, PlayFile } from "@brain/contracts";
 import { command, useAction } from "../data/api";
 import { usePlace } from "../data/session";
-import { t } from "../i18n";
+import { human, t } from "../i18n";
 import { Failure, Icon } from "./bits";
 
 type Plays = Readonly<Record<string, PlayFile>>;
@@ -32,6 +32,7 @@ export function GoalBox(props: { plays: Plays; play?: string; autofocus?: boolea
 
   const chosen = (): PlayFile | undefined => { const name = play(); return name ? props.plays[name] : undefined; };
   const inputs = (): Array<[string, InputSpec]> => Object.entries(chosen()?.inputs ?? {});
+  const inputText = (name: string, spec: InputSpec): string => human(chosen()?.translations, ["inputs", name, "description"], spec.description);
   /** The one text input the big field stands for, if the Play has exactly one. */
   const main = (): string | undefined => { const all = inputs(); return all.length === 1 && all[0]?.[1].type === "string" ? all[0][0] : undefined; };
   const ready = (): boolean => {
@@ -59,8 +60,8 @@ export function GoalBox(props: { plays: Plays; play?: string; autofocus?: boolea
           {(file) => (
             <div class="mb-3 flex items-start gap-3">
               <div class="min-w-0 flex-1">
-                <p class="t-text font-semibold text-ink">{file().title}</p>
-                <p class="t-small text-ink-2">{file().description}</p>
+                <p class="t-text font-semibold text-ink" dir="auto">{human(file().translations, ["title"], file().title)}</p>
+                <p class="t-small text-ink-2" dir="auto">{human(file().translations, ["description"], file().description)}</p>
               </div>
               <button type="button" class="rounded-full p-1.5 text-ink-3 hover:bg-lilac hover:text-ink" aria-label={t("goal.play.clear")} onClick={() => pick(undefined)}><Icon name="lucide-x" /></button>
             </div>
@@ -71,10 +72,10 @@ export function GoalBox(props: { plays: Plays; play?: string; autofocus?: boolea
             <For each={inputs()}>
               {([name, spec]) => (
                 <Show when={spec.type === "boolean"} fallback={
-                  <TextInput size="md" label={name} description={spec.description || (spec.type === "array" || spec.type === "object" ? t("goal.input.json") : undefined)} required={spec.required} type={spec.type === "number" || spec.type === "integer" ? "number" : "text"}
+                  <TextInput size="md" label={name} description={inputText(name, spec) || (spec.type === "array" || spec.type === "object" ? t("goal.input.json") : undefined)} required={spec.required} type={spec.type === "number" || spec.type === "integer" ? "number" : "text"}
                     value={values()[name] ?? ""} onInput={(event) => setValues({ ...values(), [name]: event.currentTarget.value })} />
                 }>
-                  <Switch label={name} description={spec.description} checked={values()[name] === "true"} onCheckedChange={(on) => setValues({ ...values(), [name]: String(on) })} />
+                  <Switch label={name} description={inputText(name, spec)} checked={values()[name] === "true"} onCheckedChange={(on) => setValues({ ...values(), [name]: String(on) })} />
                 </Show>
               )}
             </For>
@@ -82,7 +83,7 @@ export function GoalBox(props: { plays: Plays; play?: string; autofocus?: boolea
           </div>
         }>
           <textarea ref={field} class="t-goal block w-full bg-transparent text-ink" rows={2} dir={goal() === "" ? undefined : "auto"} value={goal()} disabled={!place.can("member")}
-            aria-label={main() ?? t("goal.label")} placeholder={main() ? inputs()[0]?.[1].description || t("goal.play.placeholder", { name: main() ?? "" }) : t("goal.placeholder")}
+            aria-label={main() ?? t("goal.label")} placeholder={main() ? inputText(inputs()[0]?.[0] ?? "", inputs()[0]?.[1] as InputSpec) || t("goal.play.placeholder", { name: main() ?? "" }) : t("goal.placeholder")}
             onInput={(event) => setGoal(event.currentTarget.value)}
             onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); submit(); } }} />
         </Show>
@@ -96,7 +97,7 @@ export function GoalBox(props: { plays: Plays; play?: string; autofocus?: boolea
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <span class="me-1 shrink-0 t-small text-ink-3">{t("goal.plays")}</span>
           <For each={Object.entries(props.plays)}>
-            {([name, file]) => <Button variant="outline" size="md" iconLeft="lucide-play" title={file.description} onClick={() => pick(name)}>{file.title}</Button>}
+            {([name, file]) => <Button variant="outline" size="md" iconLeft="lucide-play" title={human(file.translations, ["description"], file.description)} onClick={() => pick(name)}><bdi>{human(file.translations, ["title"], file.title)}</bdi></Button>}
           </For>
         </div>
       </Show>

@@ -16,4 +16,25 @@ describe("the packs shipped with Brain", () => {
     expect(loaded.manifest?.packs).toContain(name);
     expect(Object.keys(loaded.manifest?.agents ?? {})).toEqual(expect.arrayContaining(["planner", "checker"]));
   });
+  it.each(shipped)("%s is written for people in French and Arabic as well (docs/model.md, Translations)", (name) => {
+    const loaded = loadWorkspace(new Map([["brain.toml", new TextEncoder().encode(`name = "Uses ${name}"\npacks = ["${name}"]\n`)]]), packsDir);
+    const manifest = loaded.manifest;
+    const own = (source: string): boolean => source === name;
+    const missing: string[] = [];
+    for (const lang of ["fr", "ar"] as const) {
+      for (const [id, agent] of Object.entries(manifest?.agents ?? {})) if (own(agent.source) && !agent.translations?.[lang]?.description) missing.push(`agent ${id} ${lang}`);
+      for (const [id, tool] of Object.entries(manifest?.tools ?? {})) {
+        if (!own(tool.source)) continue;
+        if (!tool.translations?.[lang]?.description) missing.push(`tool ${id} ${lang}`);
+        for (const [input, spec] of Object.entries(tool.inputs)) if (spec.description && !tool.translations?.[lang]?.inputs?.[input]) missing.push(`tool ${id} input ${input} ${lang}`);
+      }
+      for (const [id, play] of Object.entries(manifest?.plays ?? {})) {
+        if (!own(play.source)) continue;
+        if (!play.translations?.[lang]?.title || !play.translations[lang]?.description) missing.push(`play ${id} ${lang}`);
+        for (const [input, spec] of Object.entries(play.inputs)) if (spec.description && !play.translations?.[lang]?.inputs?.[input]) missing.push(`play ${id} input ${input} ${lang}`);
+      }
+      for (const entry of manifest?.memory ?? []) if (own(entry.source) && !entry.titles[lang]) missing.push(`memory ${entry.name} ${lang}`);
+    }
+    expect(missing).toEqual([]);
+  });
 });

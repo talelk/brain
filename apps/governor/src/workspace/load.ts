@@ -1,6 +1,6 @@
 import {
   AgentFile, BRAIN_TOOLS, BrainFile, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PackFile, parseRef, parseWhen, PlayFile, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
-  type Digest, type InputSpec, type JsonSchema, type JsonValue, type Problem, type Ref, type SnapshotManifest, type StepSpec,
+  type Digest, type InputSpec, type JsonSchema, type JsonValue, type Language, type Problem, type Ref, type SnapshotManifest, type StepSpec,
 } from "@brain/contracts";
 import { parse as parseToml } from "smol-toml";
 import type { z } from "zod";
@@ -187,12 +187,14 @@ export function loadWorkspace(workspace: Files, packsDir: string): Loaded {
   const toolFiles = new Map<string, string[]>();
   const playNames: string[] = [];
   const memoryNames: string[] = [];
+  const memoryTranslations: Array<{ name: string; lang: Language; path: string }> = [];
   for (const path of [...files.keys()].sort()) {
     const kind = classifyPath(path);
     if (kind?.kind === "agent") agentNames.add(kind.name);
     else if (kind?.kind === "tool") toolFiles.set(kind.name, [...(toolFiles.get(kind.name) ?? []), kind.file]);
     else if (kind?.kind === "play") playNames.push(kind.name);
-    else if (kind?.kind === "memory") memoryNames.push(kind.name);
+    else if (kind?.kind === "memory" && !kind.lang) memoryNames.push(kind.name);
+    else if (kind?.kind === "memory" && kind.lang) memoryTranslations.push({ name: kind.name, lang: kind.lang, path });
   }
 
   const duplicate = (names: readonly string[]): string | undefined => names.find((name, index) => names.indexOf(name) !== index);
@@ -256,7 +258,15 @@ export function loadWorkspace(workspace: Files, packsDir: string): Loaded {
     const file = files.get(path) as LoadedFile;
     const entry = MemoryEntry.safeParse(splitMemoryEntry(text(file.bytes)));
     if (!entry.success) problems.push({ path: shown(path), message: "a memory entry starts with its title, written as a line `# Title`" });
-    else memory.push({ name, title: entry.data.title, source: file.source, ...blob(file.bytes) });
+    else memory.push({ name, title: entry.data.title, titles: {}, source: file.source, ...blob(file.bytes) });
+  }
+  // A translation of an entry is read by people only: it is not indexed, and agents are not offered it.
+  for (const { name, lang, path } of memoryTranslations) {
+    const entry = memory.find((candidate) => candidate.name === name);
+    const parsed = MemoryEntry.safeParse(splitMemoryEntry(text((files.get(path) as LoadedFile).bytes)));
+    if (!parsed.success) problems.push({ path: shown(path), message: "a memory entry starts with its title, written as a line `# Title`" });
+    else if (!entry) problems.push({ path: shown(path), message: `translates the memory entry ${name}, which does not exist` });
+    else (entry.titles as Partial<Record<Language, string>>)[lang] = parsed.data.title;
   }
 
   // The text documents agents can search; a file that is not valid text, or is too long, is a document that is only stored.

@@ -46,16 +46,27 @@ export function brainToml(brain: Brain): string {
 }
 
 export function agentToml(agent: AgentFile): string {
-  const { description, engine, native, tools, model, limits } = agent;
-  return toToml(compact({ description, engine, native, tools, model, limits: { ...limits } }));
+  const { description, engine, native, tools, model, limits, translations } = agent;
+  return toToml(compact({ description, engine, native, tools, model, limits: { ...limits }, translations: translations as TomlTable | undefined }));
 }
 
 const inputsTable = (inputs: ToolFile["inputs"]): TomlTable => Object.fromEntries(Object.entries(inputs).map(([name, spec]) => [name, { type: spec.type, description: spec.description || undefined, required: spec.required, enum: spec.enum, items: spec.items ? { ...spec.items } : undefined }]));
 
+/** The translations of a file, written back as they are; a translated input the form removed or renamed is dropped with it. */
+function keepInputs(translations: ToolFile["translations"] | PlayFile["translations"], inputs: ToolFile["inputs"]): TomlTable | undefined {
+  if (!translations) return undefined;
+  const out: Record<string, TomlTable> = {};
+  for (const [lang, entry] of Object.entries(translations)) {
+    const { inputs: translated, ...rest } = entry as { inputs?: Record<string, TomlTable> } & TomlTable;
+    out[lang] = { ...rest, ...(translated ? { inputs: Object.fromEntries(Object.entries(translated).filter(([name]) => name in inputs)) } : {}) };
+  }
+  return out;
+}
+
 export function toolToml(tool: ToolFile): string {
-  const { description, effect, timeout_seconds, needs, network, secrets, runs, host_command, inputs } = tool;
+  const { description, effect, timeout_seconds, needs, network, secrets, runs, host_command, inputs, translations } = tool;
   // `inputs` is filled after `compact`, which would drop a `required = false` it must keep.
-  return toToml({ ...compact({ description, runs, host_command, effect, timeout_seconds, needs, network, secrets }), inputs: inputsTable(inputs) });
+  return toToml({ ...compact({ description, runs, host_command, effect, timeout_seconds, needs, network, secrets }), inputs: inputsTable(inputs), ...compact({ translations: keepInputs(translations, inputs) }) });
 }
 
 function stepTable(step: StepSpec): TomlTable {
@@ -64,8 +75,8 @@ function stepTable(step: StepSpec): TomlTable {
 }
 
 export function playToml(play: PlayFile): string {
-  const { title, description, inputs, trigger, step } = play;
-  return toToml({ ...compact({ title, description }), inputs: inputsTable(inputs), ...compact({ trigger: trigger ? { ...trigger } : undefined }), step: step.map(stepTable) });
+  const { title, description, inputs, trigger, step, translations } = play;
+  return toToml({ ...compact({ title, description }), inputs: inputsTable(inputs), ...compact({ trigger: trigger ? { ...trigger } : undefined }), step: step.map(stepTable), ...compact({ translations: keepInputs(translations, inputs) }) });
 }
 
 /** Where each kind of thing lives in the workspace folder. */
@@ -77,4 +88,5 @@ export const paths = {
   script: (name: string): string => `tools/${name}/run.sh`,
   play: (name: string): string => `plays/${name}.toml`,
   memory: (name: string): string => `memory/${name}.md`,
+  memoryIn: (name: string, lang: "fr" | "ar"): string => `memory/${name}.${lang}.md`,
 };

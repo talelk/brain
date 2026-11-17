@@ -7,7 +7,7 @@ import { createAppForm, fieldError } from "@talelk/newui-data/form";
 import type { PackSummary } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { useSession } from "../data/session";
-import { t, tn } from "../i18n";
+import { human, t, tn } from "../i18n";
 import { isSlug, slugify } from "../lib/model";
 import { Choice } from "../components/fields";
 import { Head } from "../components/Shell";
@@ -23,7 +23,7 @@ function Brings(props: { pack: PackSummary }): JSX.Element {
     <div class="mt-2 flex flex-col gap-0.5">
       {line(tn("new.packs.agents", props.pack.agents.length), props.pack.agents.map((agent) => agent.name))}
       {line(tn("new.packs.tools", props.pack.tools.length), props.pack.tools.map((tool) => tool.name))}
-      {line(tn("new.packs.plays", props.pack.plays.length), props.pack.plays.map((play) => play.title))}
+      {line(tn("new.packs.plays", props.pack.plays.length), props.pack.plays.map((play) => human(play.translations, ["title"], play.title)))}
     </div>
   );
 }
@@ -93,7 +93,7 @@ export default function NewWorkspaceScreen(): JSX.Element {
                                   <li class={`rounded-card border bg-surface-elevation-1 p-4 ${on() ? "border-violet" : "border-outline-gray-2"}`}>
                                     <Checkbox size="md" label={<span class="t-text font-semibold text-ink">{pack.name}</span>} checked={on()} disabled={forced()} onCheckedChange={(checked) => field().handleChange(checked ? [...field().state.value, pack.name] : field().state.value.filter((other) => other !== pack.name))} />
                                     <div class="ps-7">
-                                      <p class="mt-1 t-small text-ink-2">{pack.description}</p>
+                                      <p class="mt-1 t-small text-ink-2">{human(pack.translations, ["description"], pack.description)}</p>
                                       <Show when={forced()}><p class="mt-1 t-small text-ink-3">{pack.name === "base" ? t("new.packs.always") : t("new.packs.required")}</p></Show>
                                       <Brings pack={pack} />
                                     </div>

@@ -71,7 +71,7 @@ export function commitFolder(gov: Gov, slug: string, change: FolderChange): Prom
     const refused: Problem[] = [];
     const write = new Map<string, Uint8Array>();
     for (const [path, bytes] of change.write) {
-      if (!classifyPath(path)) refused.push({ path, message: pathProblem(path) ?? "Under agents/, tools/, plays/ and memory/ Brain reads agents/<name>/agent.toml and prompt.md, tools/<name>/<file>, plays/<name>.toml and memory/<name>.md; this path is none of them" });
+      if (!classifyPath(path)) refused.push({ path, message: pathProblem(path) ?? "Under agents/, tools/, plays/ and memory/ Brain reads agents/<name>/agent.toml and prompt.md, tools/<name>/<file>, plays/<name>.toml and memory/<name>.md (or memory/<name>.fr.md, .ar.md); this path is none of them" });
       else if ([...files.keys()].some((other) => other.startsWith(`${path}/`) || path.startsWith(`${other}/`))) refused.push({ path, message: "a file and a folder cannot have the same name" });
       const before = files.get(path);
       if (!before || Buffer.compare(before, bytes) !== 0) write.set(path, bytes);
