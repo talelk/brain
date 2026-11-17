@@ -145,7 +145,7 @@ Commands: `setup.create`, `workspace.create`, `workspace.archive`, `workspace.st
 `approval.decide`, `memory.decide`, `runner.token`, `runner.remove`.
 
 Queries: `setup.status`, `me`, `packs.list`, `workspace.get`, `workspace.files`,
-`file.read`, `today`, `overview`, `tasks.list`, `task.get`, `task.events`, `approvals.list`,
+`file.read`, `today`, `overview`, `schedules.list`, `tasks.list`, `task.get`, `task.events`, `approvals.list`,
 `approval.get`, `usage.summary`, `memory.list`, `members.list`, `secrets.list` (names
 only), `runners.list`, `health`, `audit.verify`. `overview` takes no workspace: for the active
 workspaces the caller is a member of it answers per-workspace counts (needs you, running, done and
@@ -155,6 +155,22 @@ and, for a call, the approval itself) and one of the 30 attempts running now; an
 only, runners online, models reachable and the audit chain. It is declared `public` like `me` and answers
 UNAUTHENTICATED without a session; a person never sees a workspace they are not in. A client refetches it on
 any `changed` frame, since the stream already carries every workspace of the caller.
+
+`schedules.list` takes no workspace, like `overview`: for every active workspace the caller can see it answers each
+Play with a trigger: the workspace and its time zone, the Play's title and steps (id and agent), the trigger (`schedule`
+or `webhook`, `paused`), and for a schedule the next time the Governor will start it (the `triggers` row's
+`next_run_at_ms`; none when paused) and the last start with the state of the task it made (`last_task_id`; a webhook's
+last start is the latest goal of that Play a trigger made). A schedule whose previous task still runs says its next time will be
+skipped. `workspace.files` is built from the folder's file list and the packs' files, not from a full load of the folder: it
+gives each file's size, source and, for a workspace file, the last commit that changed it (one pass over the history,
+kept per head commit). `file.read` and the download route read that one file.
+
+Visibility: `brain.toml` `visibility` (`private`, the default, or `public`) is carried by the snapshot. One function
+(`access.ts`) answers a person's role in a workspace and is used by the dispatcher, `me`, `overview`, the events stream, the
+file download and artifact downloads: a member has their role; otherwise a person signed in has role `viewer` in an
+active workspace whose active snapshot is `public`; otherwise the workspace does not exist for them. Every command needs
+`member` or more, so a public viewer cannot write; `secrets.list` and `members.list` need `admin`. `activate` appends a
+`workspace.visibility` event when a change flips it.
 
 Roles: `viewer` reads; `member` also creates and steers tasks, answers, checks and
 decides approvals; `admin` also writes files, secrets and members. A person never
@@ -361,6 +377,11 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   when `brain.toml` names none; five fields; lists, ranges and steps). A time the clock skips when it is set forward does
   not come, and one it shows twice comes twice. Missed times are not replayed (a time more than five minutes past is
   missed); an occurrence is skipped while the previous one is still running.
+- `[trigger] paused = true` keeps a schedule in the file without firing it: its `triggers` row stays (so its last start is
+  kept) with no next time, and one that is resumed gets its next time again. The cron fields are read by one parser in
+  `packages/contracts/src/cron.ts`, used by the scheduler, by `PlayFile` validation (so a schedule that could never fire is
+  refused when written) and by the web app's form (live check and the next three times). Only numbers, lists, ranges and
+  steps are accepted; day and month names are not.
 - `[trigger] webhook = "github.<event>"` starts the Play for each matching delivery of a
   project's repository, with the delivery as the Play input named `delivery`.
   `POST /hooks/github/:workspace` (the workspace's address or id) verifies the signature with the workspace's
@@ -382,8 +403,8 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 ## 10. Web app (`apps/web`)
 
 SolidJS, Vite, the `@talelk/newui-*` design system, English, French and Arabic (RTL).
-Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones): Overview, then the
-workspaces (each with an orange count of what waits there; the open one expands to Today, Tasks and
+Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones): Overview, Schedules, then the
+workspaces (grouped as My workspaces, Shared with me and Public workspaces, each with an orange count of what waits there; the open one expands to Today, Tasks and
 Workspace) and New workspace, Health and People at the foot with the account (language, theme, sign out).
 The top bar has the live indicator and search (Cmd-K: pages, workspaces, goals). Screens (nine files in
 `src/screens`): sign-in and first-run setup (`AuthLayout`); **Overview** (the home: headline numbers, needs
@@ -391,16 +412,16 @@ you across all workspaces with the decision in place, what is running, a table o
 sparklines, spend and goals per day stacked by workspace, the instance's health); **Today** (goal box, Plays,
 needs you, running, recent, spend); **Tasks** (filterable, sortable table with bulk stop) and one **Task**
 page (the goal drawn as a graph of its sub-tasks, in columns by what each waits for, and the record in two panes); **Workspace** (tabs for agents, a
-Team graph, tools, Plays, memory, projects, settings, Files: list and form panes over the files, plus a raw editor; Files shows the whole folder as a tree to browse, edit, rename, delete and upload documents into, one commit per change; Team draws the agents and
+Team graph, tools, Plays, memory, projects, settings, Files: list and form panes over the files, plus a raw editor; Files shows every file of the workspace (its folder and its packs' files, which are read only until a copy is edited) as a tree with sizes and last commits, a list or grid, multi-select with bulk download and delete, and browse, edit, rename, delete and upload to browse, edit, rename, delete and upload documents into, one commit per change; Team draws the agents and
 the handoffs between them, read from the Plays' steps and the recent tasks the web app already lists, with no query of its own); **New workspace** (a wizard); **Health**;
-**People and secrets**. Health and People belong to a workspace, so the sidebar leads to the open one's.
+**Schedules** (every scheduled or webhook Play of the visible workspaces with its next and last run, and a form to schedule, pause or remove one; also at `/w/<slug>/schedules` for one workspace); **People and secrets** (with Share: add people by email with a role, and the private or public switch). Health and People belong to a workspace, so the sidebar leads to the open one's.
 
 ## 11. Tests
 
 - `tests/unit`: file schemas and folder validation (valid and each kind of invalid),
   snapshot determinism, pack override, orchestration decisions as pure functions, the
   approval subject digest, the audit chain.
-- `tests/core`: a Governor in a temp directory plus an in-process runner on the fixture
+- `tests/core`: access rules (private hides, public is read only, the roles of a shared workspace), schedules' next and last run, the files listing with pack files; a Governor in a temp directory plus an in-process runner on the fixture
   engine. Each of the twelve patterns as a Play; done requires a check by another agent;
   effect approval (fast path, held path, rejection, standing approval and its limits,
   changed-subject refusal); daily cap; lease expiry and retry; roles; working copy and

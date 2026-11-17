@@ -5,6 +5,7 @@ import {
 } from "@brain/contracts";
 import { z } from "zod";
 import type { Auth } from "./auth/auth";
+import { accessOf } from "./access";
 import { tx, type Db } from "./db";
 
 /** Everything a module of the Governor works with. One per process (or per test). */
@@ -93,7 +94,7 @@ function authorize(gov: Gov, need: ApiRole, user: User | null, input: unknown, w
     return null;
   }
   const workspaceId = (input as { workspaceId: string }).workspaceId;
-  const row = gov.db.prepare("SELECT m.role, w.status FROM members m JOIN workspaces w ON w.id = m.workspace_id WHERE m.workspace_id=? AND m.user_id=?").get(workspaceId, user.id) as { role: Role; status: string } | undefined;
+  const row = accessOf(gov, user.id, workspaceId);
   if (!row) throw new BrainError("NOT_FOUND", "Workspace not found");
   if (!roleAtLeast(row.role, need)) throw new BrainError("FORBIDDEN", `This needs the ${need} role in the workspace`);
   if (writes && row.status !== "active") throw new BrainError("CONFLICT", "The workspace is archived");

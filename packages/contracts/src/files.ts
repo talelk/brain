@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isCron } from "./cron";
 import type { Digest, JsonValue } from "./protocol";
 
 /** The files of a workspace folder and of a pack (docs/model.md): zod schemas, parsed types, and the step template syntax. Unknown keys are errors. */
@@ -56,6 +57,8 @@ export const BrainFile = z.strictObject({
   description: z.string().max(2000).default(""),
   /** The IANA time zone schedules are read in. */
   timezone: z.string().refine(isTimeZone, "must be an IANA time zone name, such as Europe/Paris").default("UTC"),
+  /** `private`: only members see the workspace. `public`: every signed-in person of this Brain reads it, as a viewer. */
+  visibility: z.enum(["private", "public"]).default("private"),
   packs: z.array(slug("a pack name")).default([]),
   limits: z.strictObject({
     daily_spend_usd: z.number().min(0).default(0),
@@ -123,10 +126,7 @@ export type ToolFile = z.infer<typeof ToolFile>;
 
 // --- plays/<name>.toml ---
 
-const cron = z.string().refine((text) => {
-  const fields = text.trim().split(/\s+/u);
-  return fields.length === 5 && fields.every((field) => /^[0-9A-Za-z*/,-]+$/u.test(field));
-}, "must be a five-field cron expression, such as 0 8 * * 1");
+const cron = z.string().refine((text) => text.trim().split(/\s+/u).length === 5 && isCron(text), "must be a five-field cron expression of numbers, lists, ranges and steps that names a time, such as 0 8 * * 1");
 export const StepSpec = z.strictObject({
   id: slug("a step id"),
   agent: slug("an agent name").optional(),
@@ -152,7 +152,10 @@ export const PlayFile = z.strictObject({
       const [source, ...event] = value.split(".");
       return source === "github" && (event.length === 1 || event.length === 2) && event.every((part) => /^[a-z_]+$/u.test(part));
     }, "must name a GitHub event, such as github.issues.opened").optional(),
-  }).refine((trigger) => (trigger.schedule === undefined) !== (trigger.webhook === undefined), "a trigger has either schedule or webhook").optional(),
+    /** A paused schedule stays in the file and never fires. */
+    paused: z.boolean().optional(),
+  }).refine((trigger) => (trigger.schedule === undefined) !== (trigger.webhook === undefined), "a trigger has either schedule or webhook")
+    .refine((trigger) => trigger.paused === undefined || trigger.schedule !== undefined, { path: ["paused"], message: "only a schedule can be paused" }).optional(),
   step: z.array(StepSpec).min(1),
 });
 export type PlayFile = z.infer<typeof PlayFile>;
@@ -253,6 +256,7 @@ export interface SnapshotManifest {
   readonly name: string;
   readonly description: string;
   readonly timezone: string;
+  readonly visibility: "private" | "public";
   /** Every pack in use, required packs first. */
   readonly packs: readonly string[];
   readonly limits: BrainFile["limits"];

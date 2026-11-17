@@ -37,6 +37,10 @@ _Avoid_: node, stage, job
 **Trigger**: What starts a Play without a person: a schedule or a webhook.
 _Avoid_: automation, listener, event rule
 
+**Visibility**: Whether a workspace is `private` (only its members see it) or `public` (every
+signed-in person of this Brain reads it, as a viewer), set in `brain.toml`.
+_Avoid_: sharing mode, permission level
+
 **Memory**: What a workspace has learned, as Markdown entries in `memory/`, read only by
 that workspace's agents.
 _Avoid_: knowledge base, context, scope

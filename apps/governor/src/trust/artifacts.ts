@@ -1,6 +1,7 @@
 import { BrainError, isDigest, sha256Digest, type Digest } from "@brain/contracts";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { accessOf } from "../access";
 import type { Db } from "../db";
 import type { Gov } from "../dispatch";
 
@@ -53,8 +54,8 @@ export function linkArtifact(tx: Db, link: ArtifactLinkInput, atMs: number): voi
     .run(link.digest, link.workspaceId, link.taskId ?? null, link.attemptId ?? null, link.name, link.kind, link.mediaType, atMs);
 }
 
-/** The link under which this person may read the bytes: one in a workspace they are a member of. */
-export function readableLink(db: Db, digest: Digest, userId: string): { name: string; mediaType: string } | undefined {
-  return db.prepare(`SELECT l.name, l.media_type AS mediaType FROM artifact_links l JOIN members m ON m.workspace_id = l.workspace_id
-    WHERE l.digest=? AND m.user_id=? ORDER BY l.id LIMIT 1`).get(digest, userId) as { name: string; mediaType: string } | undefined;
+/** The link under which this person may read the bytes: one in a workspace they can see. */
+export function readableLink(gov: Gov, digest: Digest, userId: string): { name: string; mediaType: string } | undefined {
+  const links = gov.db.prepare("SELECT l.workspace_id AS workspaceId, l.name, l.media_type AS mediaType FROM artifact_links l WHERE l.digest=? ORDER BY l.id").all(digest) as Array<{ workspaceId: string; name: string; mediaType: string }>;
+  return links.find((link) => accessOf(gov, userId, link.workspaceId));
 }

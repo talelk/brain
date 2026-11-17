@@ -271,7 +271,7 @@ export function loadWorkspace(workspace: Files, packsDir: string): Loaded {
   for (const tool of Object.keys(brain.approvals)) if (!toolFiles.has(tool)) problems.push({ path: "brain.toml", message: `approvals names tool "${tool}", which does not exist` });
 
   return done(JSON.parse(JSON.stringify({
-    name: brain.name, description: brain.description, timezone: brain.timezone, packs: packs.map((pack) => pack.name), limits: brain.limits, models: brain.model, projects: brain.project,
+    name: brain.name, description: brain.description, timezone: brain.timezone, visibility: brain.visibility, packs: packs.map((pack) => pack.name), limits: brain.limits, models: brain.model, projects: brain.project,
     github: brain.github ?? null, teams: brain.teams ?? null, approvals: brain.approvals, agents, tools, plays, memory, documents,
   } satisfies SnapshotManifest)) as SnapshotManifest);
 }

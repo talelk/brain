@@ -97,3 +97,31 @@ describe("documents", () => {
     expect((await viewer.query("workspace.files", { workspaceId })).files.length).toBeGreaterThan(1);
   });
 });
+
+describe("the files of a workspace", () => {
+  it("lists the folder and its packs' files; a folder file hides the pack file it replaces, a later pack wins, and each row says where it is from", async () => {
+    const { workspaceId: id } = await harness.createWorkspace({ name: "Listing" });
+    await harness.admin.command("file.write", { workspaceId: id, files: [{ path: "agents/worker/prompt.md", content: "My own worker prompt.\n" }, { path: "docs/a.md", content: "# A\n" }], message: "Own the worker" });
+    const { files } = await harness.admin.query("workspace.files", { workspaceId: id });
+    const row = (path: string) => files.find((file) => file.path === path);
+    expect(row("agents/worker/prompt.md")).toMatchObject({ source: "workspace", replaces: "extra", lastCommit: { message: "Own the worker" } });
+    expect(row("agents/reviewer/prompt.md")).toMatchObject({ source: "extra" });
+    expect(row("agents/reviewer/prompt.md")?.lastCommit).toBeUndefined();
+    expect(row("tools/echo/run.sh")).toMatchObject({ source: "core" });
+    expect(row("brain.toml")).toMatchObject({ source: "workspace", lastCommit: { message: "Create the workspace" } });
+    expect(row("pack.toml")).toBeUndefined();
+    expect(files.filter((file) => file.path === "agents/worker/prompt.md")).toHaveLength(1);
+    // Reading one file does not depend on the rest: a pack file, then a folder file over a pack file.
+    expect(await harness.admin.query("file.read", { workspaceId: id, path: "tools/echo/run.sh" })).toMatchObject({ source: "core", binary: false });
+    expect(await harness.admin.query("file.read", { workspaceId: id, path: "agents/worker/prompt.md" })).toMatchObject({ source: "workspace", replaces: "extra", content: "My own worker prompt.\n" });
+    await expect(harness.admin.query("file.read", { workspaceId: id, path: "nothing.md" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    // Copying a pack file into the folder replaces it, and a move is one commit.
+    const pack = (await harness.admin.query("file.read", { workspaceId: id, path: "agents/reviewer/prompt.md" })).content;
+    await harness.admin.command("file.write", { workspaceId: id, files: [{ path: "agents/reviewer/prompt.md", content: pack }] });
+    expect((await harness.admin.query("workspace.files", { workspaceId: id })).files.find((file) => file.path === "agents/reviewer/prompt.md")).toMatchObject({ source: "workspace", replaces: "extra" });
+    const log = async () => (await git.log({ fs, dir: join(harness.dataDir, "workspaces", (await harness.admin.query("workspace.get", { workspaceId: id })).slug) })).length;
+    const before = await log();
+    await harness.admin.command("file.write", { workspaceId: id, files: [{ path: "docs/moved/a.md", content: "# A\n" }], remove: ["docs/a.md"] });
+    expect(await log()).toBe(before + 1);
+  });
+});

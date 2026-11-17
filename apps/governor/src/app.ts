@@ -3,6 +3,7 @@ import { Hono, type Context } from "hono";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { visibleWorkspaces } from "./access";
 import { registerGateway } from "./attempts/gateway";
 import { registerAttempts } from "./attempts/routes";
 import { offerLocalRunnerToken, registerRunners } from "./attempts/runners";
@@ -144,7 +145,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
           try { controller.enqueue(encoder.encode(frame)); } catch { end(); }
         };
         const stop = onChanged(db, (workspaceIds) => {
-          const mine = new Set((db.prepare("SELECT workspace_id AS id FROM members WHERE user_id=?").all(user.id) as Array<{ id: string }>).map((row) => row.id));
+          const mine = new Set(visibleWorkspaces(gov, user.id).map((workspace) => workspace.id));
           for (const workspaceId of workspaceIds) if (mine.has(workspaceId)) send(`event: changed\ndata: ${JSON.stringify({ workspaceId })}\n\n`);
         });
         const keepalive = setInterval(() => send(": keepalive\n\n"), 15_000);
@@ -170,7 +171,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
     const user = await gov.auth.user(c.req.raw.headers);
     if (!user) throw new BrainError("UNAUTHENTICATED", "Sign in first");
     const digest = c.req.param("digest");
-    const link = isDigest(digest) ? readableLink(db, digest, user.id) : undefined;
+    const link = isDigest(digest) ? readableLink(gov, digest, user.id) : undefined;
     if (!link) throw new BrainError("NOT_FOUND", "No such file");
     // Stored bytes come from agents: they are downloaded, never rendered as a page of Brain.
     return new Response(Buffer.from(readArtifact(gov, digest)), {

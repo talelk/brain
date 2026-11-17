@@ -1,4 +1,5 @@
-import { BrainError, type Approval, type Overview, type OverviewDay, type OverviewHealth, type OverviewNeed, type OverviewRun, type OverviewWorkspace, type Role } from "@brain/contracts";
+import { BrainError, type Approval, type Overview, type OverviewDay, type OverviewHealth, type OverviewNeed, type OverviewRun, type OverviewWorkspace } from "@brain/contracts";
+import { visibleWorkspaces } from "../access";
 import type { Governor } from "../app";
 import type { Db } from "../db";
 import type { Gov } from "../dispatch";
@@ -18,7 +19,6 @@ const RUNNING_LIMIT = 30;
 /** How long the Overview waits for a model's answer; a model that has not answered by then is left out of the count (its probe goes on and is kept). */
 const MODEL_WAIT_MS = 1500;
 
-interface Mine { readonly id: string; readonly slug: string; readonly name: string; readonly role: Role }
 const marks = (values: readonly unknown[]): string => values.map(() => "?").join(",");
 const rows = <T>(db: Db, sql: string, ...values: unknown[]): T[] => db.prepare(sql).all(...values) as T[];
 
@@ -47,7 +47,7 @@ export function registerOverview({ gov }: Governor): void {
     if (!user) throw new BrainError("UNAUTHENTICATED", "Sign in first");
     const now = ctx.now();
     const health = user.instanceAdmin ? await healthOf(gov, now) : null;
-    const mine = rows<Mine>(db, "SELECT w.id, w.slug, w.name, m.role FROM members m JOIN workspaces w ON w.id = m.workspace_id WHERE m.user_id=? AND w.status='active' ORDER BY w.name, w.id", user.id);
+    const mine = visibleWorkspaces(gov, user.id).filter((workspace) => workspace.status === "active").sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
     if (mine.length === 0) return { workspaces: [], needsYou: [], running: [], health };
     const ids = mine.map((workspace) => workspace.id);
     const inMine = `IN (${marks(ids)})`;
@@ -80,7 +80,7 @@ export function registerOverview({ gov }: Governor): void {
       const series = days.map((day): OverviewDay => ({ day, done: done.get(day) ?? 0, microUsd: cost.get(day) ?? 0 }));
       const manifest = activeManifest(gov, workspace.id);
       return {
-        ...workspace, projects: manifest.projects.map((project) => project.name), needsYou: waiting.get(workspace.id) ?? 0, running: running.get(workspace.id) ?? 0,
+        id: workspace.id, slug: workspace.slug, name: workspace.name, role: workspace.role, visibility: workspace.visibility, viaPublic: workspace.viaPublic, projects: manifest.projects.map((project) => project.name), needsYou: workspace.viaPublic ? 0 : (waiting.get(workspace.id) ?? 0), running: running.get(workspace.id) ?? 0,
         doneToday: done.get(today) ?? 0, failedToday, spend: { todayMicroUsd: spentToday(gov, workspace.id), capMicroUsd: capOf(manifest) }, lastActivityAt: last.get(workspace.id) ?? null, days: series,
       };
     });
@@ -88,7 +88,8 @@ export function registerOverview({ gov }: Governor): void {
     const place = (task: { workspaceId: string }): { workspaceName: string; workspaceSlug: string } => ({ workspaceName: named.get(task.workspaceId)?.name ?? "", workspaceSlug: named.get(task.workspaceId)?.slug ?? "" });
 
     // A call waits for an approval only while its task is `needs_you`, so the waiting tasks are the whole list.
-    const waitingTasks = summaries(db, `t.workspace_id ${inMine} AND t.state='needs_you' ORDER BY t.updated_at_ms DESC, t.rowid DESC LIMIT ?`, ...ids, NEEDS_LIMIT);
+    const actionable = ids.filter((id) => !named.get(id)?.viaPublic);
+    const waitingTasks = summaries(db, `t.workspace_id IN (${marks(actionable)}) AND t.state='needs_you' ORDER BY t.updated_at_ms DESC, t.rowid DESC LIMIT ?`, ...actionable, NEEDS_LIMIT);
     const approvals = new Map<string, Approval>(approvalsWhere(db, `a.state='pending' AND a.task_id IN (${marks(waitingTasks)})`, ...waitingTasks.map((task) => task.id)).map((approval) => [approval.id, approval]));
     const needsYou = waitingTasks.map((task): OverviewNeed => ({ ...task, ...place(task), approval: task.needs?.kind === "approval" ? (approvals.get(task.needs.approvalId) ?? null) : null }));
 

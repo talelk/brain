@@ -43,7 +43,17 @@ export class BrainError extends Error {
 // --- views ---
 
 export interface User { readonly id: string; readonly name: string; readonly email: string; readonly instanceAdmin: boolean }
-export interface WorkspaceSummary { readonly id: string; readonly slug: string; readonly name: string; readonly description: string; readonly status: "active" | "archived"; readonly role: Role }
+export interface WorkspaceSummary {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly description: string;
+  readonly status: "active" | "archived";
+  readonly role: Role;
+  readonly visibility: "private" | "public";
+  /** True when the person is not a member and sees the workspace only because it is public (always `viewer`). */
+  readonly viaPublic: boolean;
+}
 /** A workspace as its screens show it: the active snapshot holds its agents, tools, Plays, memory entries, projects and settings. */
 export interface Workspace extends WorkspaceSummary { readonly snapshotDigest: Digest; readonly commit: string; readonly snapshot: SnapshotManifest }
 export interface FileEntry {
@@ -53,12 +63,13 @@ export interface FileEntry {
   readonly source: string;
   /** For a workspace file: the pack whose file of the same path it replaces. */
   readonly replaces?: string;
+  /** For a workspace file with history: the last commit that changed it. */
+  readonly lastCommit?: { readonly message: string; readonly atMs: number };
 }
-/** A file's text, or `binary` and no content when it is not text. `lastCommit` is the commit that last changed a file of the workspace. */
+/** A file's text, or `binary` and no content when it is not text. */
 export interface FileContent extends FileEntry {
   readonly content: string;
   readonly binary: boolean;
-  readonly lastCommit?: { readonly message: string; readonly atMs: number };
 }
 export interface PackSummary {
   readonly name: string;
@@ -231,6 +242,8 @@ export interface OverviewWorkspace {
   readonly slug: string;
   readonly name: string;
   readonly role: Role;
+  readonly visibility: "private" | "public";
+  readonly viaPublic: boolean;
   readonly projects: readonly string[];
   /** Tasks waiting for a person. */
   readonly needsYou: number;
@@ -277,6 +290,31 @@ export interface Overview {
   /** The 30 attempts that started last and still run. */
   readonly running: readonly OverviewRun[];
   readonly health: OverviewHealth | null;
+}
+/** A Play with a trigger, as the Schedules screen shows it. Times are from the Governor's own `triggers` row. */
+export interface ScheduleItem {
+  readonly workspaceId: string;
+  readonly workspaceSlug: string;
+  readonly workspaceName: string;
+  /** The IANA time zone a schedule is read in. */
+  readonly timezone: string;
+  /** The caller's role there: an admin can change the trigger. */
+  readonly role: Role;
+  readonly play: string;
+  readonly title: string;
+  /** `workspace`, or the pack whose Play it is (a change writes a workspace copy). */
+  readonly source: string;
+  readonly kind: "schedule" | "webhook";
+  /** The cron expression, or the webhook event (`github.issues.opened`). */
+  readonly spec: string;
+  readonly paused: boolean;
+  /** When the Governor will next start it; null for a webhook, a paused schedule or one that names no time. */
+  readonly nextRunAt: number | null;
+  readonly lastRunAt: number | null;
+  readonly lastTask: { readonly id: string; readonly state: TaskState } | null;
+  /** True when the last start's task still runs, so the next time will be skipped. */
+  readonly skipsNext: boolean;
+  readonly steps: ReadonlyArray<{ readonly id: string; readonly agent: string }>;
 }
 export interface MemoryItem { readonly name: string; readonly title: string; readonly source: string }
 export interface MemoryProposal {
@@ -384,6 +422,8 @@ export const queries = table({
   today: ["viewer", z.strictObject(inWorkspace)],
   /** What all the caller's workspaces are doing. Like `me` it takes no workspace; it answers UNAUTHENTICATED without a session and never shows a workspace the caller is not a member of. */
   overview: ["public", z.strictObject({})],
+  /** Every scheduled and webhook Play of the active workspaces the caller can see; like `overview` it takes no workspace and answers UNAUTHENTICATED without a session. */
+  "schedules.list": ["public", z.strictObject({})],
   /** `search` matches the title or the goal text; `rootsOnly` leaves out sub-tasks. Both are applied before `limit`. */
   "tasks.list": ["viewer", z.strictObject({ ...inWorkspace, state: z.enum(TASK_STATES).optional(), parentId: id.optional(), rootsOnly: z.boolean().optional(), search: z.string().trim().min(1).max(200).optional(), before: z.int().optional(), limit: z.int().min(1).max(200).default(50) })],
   "task.get": ["viewer", z.strictObject({ ...inWorkspace, taskId: id })],
@@ -436,6 +476,7 @@ export interface QueryOutputs {
   "file.read": FileContent;
   today: Today;
   overview: Overview;
+  "schedules.list": { readonly schedules: readonly ScheduleItem[] };
   "tasks.list": { readonly tasks: readonly TaskSummary[] };
   "task.get": Task;
   "task.events": { readonly events: readonly AttemptEvent[] };

@@ -1,15 +1,17 @@
-import { BrainError, isSlug, MAX_FILE_BYTES, MAX_WRITE_BYTES, type CommandInput, type CommandOutputs, type FileEntry, type WorkspaceSummary } from "@brain/contracts";
+import { BrainError, isSlug, MAX_FILE_BYTES, MAX_WRITE_BYTES, type CommandInput, type CommandOutputs, type WorkspaceSummary } from "@brain/contracts";
 import { randomBytes } from "node:crypto";
 import { existsSync, rmSync } from "node:fs";
 import { stringify } from "smol-toml";
+import { accessOf } from "../access";
 import type { Governor } from "../app";
 import type { Db } from "../db";
 import type { Ctx, Gov } from "../dispatch";
 import { append } from "../events";
 import { setSecret } from "../trust/secrets";
 import { classifyPath, listPacks, readPack } from "./files";
-import { lastCommitOf, type Author } from "./git";
-import { activate, commitFolder, commitOf, getWorkspace, loadFolder, manifestOf, workspaceDir, type Committed } from "./store";
+import type { Author } from "./git";
+import { listFiles, readFileOf } from "./listing";
+import { activate, commitFolder, commitOf, getWorkspace, manifestOf, workspaceDir, type Committed } from "./store";
 import { extname } from "node:path";
 
 const encode = (content: string): Uint8Array => new TextEncoder().encode(content);
@@ -135,33 +137,29 @@ export function registerWorkspace({ gov: { registry }, gov, app }: Governor): vo
 
   registry.query("workspace.get", (ctx, input) => {
     const workspace = getWorkspace(ctx.db, input.workspaceId);
-    const summary: WorkspaceSummary = { id: workspace.id, slug: workspace.slug, name: workspace.name, description: workspace.description, status: workspace.status, role: ctx.role ?? "viewer" };
-    return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot: manifestOf(ctx.gov, workspace.snapshotDigest) };
+    const snapshot = manifestOf(ctx.gov, workspace.snapshotDigest);
+    const summary: WorkspaceSummary = {
+      id: workspace.id, slug: workspace.slug, name: workspace.name, description: workspace.description, status: workspace.status, role: ctx.role ?? "viewer",
+      visibility: snapshot.visibility === "public" ? "public" : "private", viaPublic: ctx.user ? (accessOf(ctx.gov, ctx.user.id, workspace.id)?.viaPublic ?? false) : false,
+    };
+    return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot };
   });
 
-  const entries = async (gov: Gov, workspaceId: string): Promise<Array<FileEntry & { content: Uint8Array }>> => {
-    const loaded = await loadFolder(gov, getWorkspace(gov.db, workspaceId).slug);
-    return [...loaded.files].sort(([a], [b]) => a.localeCompare(b)).map(([path, file]) => ({ path, bytes: file.bytes.length, source: file.source, ...(file.replaces ? { replaces: file.replaces } : {}), content: file.bytes }));
-  };
-  registry.query("workspace.files", async (ctx, input) => ({ files: (await entries(ctx.gov, input.workspaceId)).map(({ content: _content, ...entry }) => entry) }));
+  registry.query("workspace.files", async (ctx, input) => ({ files: await listFiles(ctx.gov, input.workspaceId) }));
   registry.query("file.read", async (ctx, input) => {
-    const file = (await entries(ctx.gov, input.workspaceId)).find((entry) => entry.path === input.path);
-    if (!file) throw new BrainError("NOT_FOUND", `The workspace has no file ${input.path}`);
-    const { content: bytes, ...entry } = file;
+    const { bytes, ...origin } = await readFileOf(ctx.gov, input.workspaceId, input.path);
     const text = textOf(input.path, bytes);
-    const lastCommit = file.source === "workspace" ? await lastCommitOf(workspaceDir(ctx.gov, getWorkspace(ctx.db, input.workspaceId).slug), input.path) : undefined;
-    return { ...entry, content: text ?? "", binary: text === undefined, ...(lastCommit ? { lastCommit } : {}) };
+    return { path: input.path, bytes: bytes.length, ...origin, content: text ?? "", binary: text === undefined };
   });
   // The bytes of a file, for a member of the workspace. Always a download, never a page of Brain: what is stored comes from people and agents.
   app.get("/v1/workspaces/:id/files/*", async (c) => {
     const user = await gov.auth.user(c.req.raw.headers);
     if (!user) throw new BrainError("UNAUTHENTICATED", "Sign in first");
     const workspaceId = c.req.param("id");
-    if (!gov.db.prepare("SELECT 1 FROM members WHERE workspace_id=? AND user_id=?").get(workspaceId, user.id)) throw new BrainError("NOT_FOUND", "Workspace not found");
+    if (!accessOf(gov, user.id, workspaceId)) throw new BrainError("NOT_FOUND", "Workspace not found");
     const path = decodeURIComponent(c.req.path.slice(`/v1/workspaces/${workspaceId}/files/`.length));
-    const file = (await entries(gov, workspaceId)).find((entry) => entry.path === path);
-    if (!file) throw new BrainError("NOT_FOUND", `The workspace has no file ${path}`);
-    return new Response(Buffer.from(file.content), {
+    const file = await readFileOf(gov, workspaceId, path);
+    return new Response(Buffer.from(file.bytes), {
       headers: {
         "content-type": MEDIA[extname(path).toLowerCase()] ?? "application/octet-stream",
         "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(path.split("/").at(-1) ?? "file")}`,

@@ -123,6 +123,28 @@ describe("a schedule", () => {
     expect(next()).toBe("09:00");
   });
 
+  it("is listed with the time it will really start, the last start and its state, and a pause keeps the last start but stops it", async () => {
+    const listed = async () => (await harness.admin.query("schedules.list", {})).schedules.filter((item) => item.workspaceId === workspaceId);
+    const patrol = (await listed()).find((item) => item.play === "patrol");
+    const row = harness.governor.gov.db.prepare("SELECT next_run_at_ms AS next, last_run_at_ms AS last FROM triggers WHERE workspace_id=? AND play='patrol'").get(workspaceId) as { next: number; last: number };
+    expect(patrol).toMatchObject({ kind: "schedule", spec: "*/15 * * * *", paused: false, nextRunAt: row.next, lastRunAt: row.last, timezone: "UTC", steps: [{ id: "look", agent: "reviewer" }] });
+    expect(patrol?.nextRunAt).toBeGreaterThan(clock.nowMs());
+    expect(patrol?.lastTask).toMatchObject({ state: expect.any(String) });
+    expect((await listed()).filter((item) => item.kind === "webhook").map((item) => [item.play, item.spec])).toEqual([["on-pull-request", "github.pull_request.opened"], ["on-push", "github.push"]]);
+    // Paused: the row (and the last start) stays, nothing is next, and a time that comes does not start it.
+    const file = (await harness.admin.query("file.read", { workspaceId, path: "plays/patrol.toml" })).content;
+    await harness.admin.command("file.write", { workspaceId, files: [{ path: "plays/patrol.toml", content: file.replace('schedule = "*/15 * * * *"', 'schedule = "*/15 * * * *"\npaused = true') }] });
+    const before = patrols();
+    expect((await listed()).find((item) => item.play === "patrol")).toMatchObject({ paused: true, nextRunAt: null, lastRunAt: row.last });
+    tick(QUARTER);
+    expect(patrols()).toBe(before);
+    // Resumed, it has a next time again.
+    await harness.admin.command("file.write", { workspaceId, files: [{ path: "plays/patrol.toml", content: file }] });
+    expect((await listed()).find((item) => item.play === "patrol")?.nextRunAt).toBeGreaterThan(clock.nowMs());
+    // A schedule that can never fire is refused when written.
+    await expect(harness.admin.command("file.write", { workspaceId, files: [{ path: "plays/patrol.toml", content: file.replace("*/15 * * * *", "0 8 * * MON") }] })).rejects.toMatchObject({ code: "INVALID_WORKSPACE" });
+  });
+
   it("follows the workspace's files: a Play that is removed no longer starts", async () => {
     await harness.admin.command("file.delete", { workspaceId, paths: ["plays/patrol.toml"] });
     tick(QUARTER);

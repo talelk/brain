@@ -92,7 +92,12 @@ export function activate(gov: Gov, db: Db, workspaceId: string, committed: Commi
   const { manifest, snapshotDigest, commit } = committed;
   db.prepare(`INSERT INTO snapshots(workspace_id, digest, commit_sha, created_at_ms) VALUES (?,?,?,?)
     ON CONFLICT(workspace_id, digest) DO UPDATE SET commit_sha=excluded.commit_sha`).run(workspaceId, snapshotDigest, commit, gov.clock.nowMs());
+  const before = (db.prepare("SELECT active_snapshot AS digest FROM workspaces WHERE id=?").get(workspaceId) as { digest: string } | undefined)?.digest;
+  const wasPublic = before !== undefined && before !== "" && (manifestOf(gov, before as Digest) as { visibility?: string }).visibility === "public";
   db.prepare("UPDATE workspaces SET active_snapshot=?, name=?, description=? WHERE id=?").run(snapshotDigest, manifest.name, manifest.description, workspaceId);
+  if (type === "workspace.changed" && wasPublic !== (manifest.visibility === "public")) {
+    append(db, { type: "workspace.visibility", workspaceId, subject: `workspace:${workspaceId}`, payload: { visibility: manifest.visibility, commit }, actor });
+  }
   for (const hook of gov.onActivate) hook(workspaceId, manifest);
   append(db, { type, workspaceId, subject: `workspace:${workspaceId}`, payload: { commit, snapshotDigest, paths: [...committed.paths] }, actor });
 }

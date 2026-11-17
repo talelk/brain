@@ -1,7 +1,8 @@
-import { BrainError, hmacSha256Hex, type CommandInput, type Role, type WorkspaceSummary } from "@brain/contracts";
+import { BrainError, hmacSha256Hex, type CommandInput, type Role } from "@brain/contracts";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { visibleWorkspaces } from "../access";
 import { getInstance, setInstance, type Db } from "../db";
 import type { Governor } from "../app";
 import type { Gov } from "../dispatch";
@@ -63,9 +64,7 @@ export function registerAuth({ gov: { registry } }: Governor): void {
 
   registry.query("me", (ctx) => {
     if (!ctx.user) return { user: null, workspaces: [] };
-    const workspaces = ctx.db.prepare(`SELECT w.id, w.slug, w.name, w.description, w.status, m.role FROM members m JOIN workspaces w ON w.id = m.workspace_id
-      WHERE m.user_id=? ORDER BY w.status, w.name`).all(ctx.user.id) as WorkspaceSummary[];
-    return { user: ctx.user, workspaces };
+    return { user: ctx.user, workspaces: visibleWorkspaces(ctx.gov, ctx.user.id) };
   });
 
   registry.command<"member.set", { userId: string; created: boolean }>("member.set", {

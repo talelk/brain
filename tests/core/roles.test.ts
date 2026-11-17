@@ -66,7 +66,7 @@ describe("roles", () => {
         checked += 1;
       }
     }
-    expect(checked).toBe(Object.keys(commands).length + Object.keys(queries).length - 10);
+    expect(checked).toBe(Object.keys(commands).length + Object.keys(queries).length - 11);
   });
 
   it("a viewer reads the workspace and cannot write a file", async () => {
@@ -219,5 +219,44 @@ describe("secrets", () => {
     expect(readSecret(harness.governor.gov, workspaceId, "model-main")).toBeUndefined();
     expect((await harness.admin.query("secrets.list", { workspaceId })).missing).toEqual(["model-main", "teams-webhook"]);
     expect(PASSWORD).not.toBe(value);
+  });
+});
+
+describe("visibility", () => {
+  const publicToml = (name: string) => `name = "${name}"\nvisibility = "public"\npacks = ["core"]\n`;
+  it("a private workspace is hidden from other people, and a public one is read only for every signed-in person", async () => {
+    const { workspaceId: id } = await harness.createWorkspace({ name: "Open house", packs: ["core"] });
+    expect((await outsider.query("me", {})).workspaces.map((workspace) => workspace.id)).not.toContain(id);
+    await expect(outsider.query("workspace.get", { workspaceId: id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect((await outsider.query("overview", {})).workspaces.map((workspace) => workspace.id)).not.toContain(id);
+
+    await harness.admin.command("file.write", { workspaceId: id, files: [{ path: "brain.toml", content: publicToml("Open house") }] });
+    const listed = (await outsider.query("me", {})).workspaces.find((workspace) => workspace.id === id);
+    expect(listed).toMatchObject({ role: "viewer", visibility: "public", viaPublic: true });
+    expect((await outsider.query("overview", {})).workspaces.find((workspace) => workspace.id === id)).toMatchObject({ role: "viewer", viaPublic: true, needsYou: 0 });
+    expect(await outsider.query("workspace.get", { workspaceId: id })).toMatchObject({ visibility: "public", role: "viewer" });
+    expect((await outsider.query("workspace.files", { workspaceId: id })).files.map((file) => file.path)).toContain("brain.toml");
+    expect((await outsider.fetch(`/v1/workspaces/${id}/files/brain.toml`)).status).toBe(200);
+    expect((await outsider.query("schedules.list", {})).schedules.every((item) => item.role === "viewer" || item.workspaceId !== id)).toBe(true);
+    // Read only: no command, and nothing that holds secrets or people.
+    const attempts = [
+      () => outsider.command("file.write", { workspaceId: id, files: [{ path: "memory/x.md", content: "# x\n" }] }), () => outsider.command("task.create", { workspaceId: id, goal: "Do it" }),
+      () => outsider.query("secrets.list", { workspaceId: id }), () => outsider.query("members.list", { workspaceId: id }), () => outsider.command("member.set", { workspaceId: id, email: "omar@example.com", role: "admin" }),
+    ];
+    for (const attempt of attempts) await expect(attempt()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect((await harness.anonymous.fetch(`/v1/workspaces/${id}/files/brain.toml`)).status).toBe(401);
+    // The change was audited, and making it private again hides it.
+    const audited = harness.governor.gov.db.prepare("SELECT payload_json AS p FROM events WHERE type='workspace.visibility' AND workspace_id=?").all(id) as Array<{ p: string }>;
+    expect(audited.map((event) => JSON.parse(event.p).visibility)).toEqual(["public"]);
+    await harness.admin.command("file.write", { workspaceId: id, files: [{ path: "brain.toml", content: 'name = "Open house"\npacks = ["core"]\n' }] });
+    await expect(outsider.query("workspace.get", { workspaceId: id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("a member keeps their own role in a public workspace", async () => {
+    const { workspaceId: id } = await harness.createWorkspace({ name: "Open team", packs: ["core"] });
+    const mine = await harness.member(id, "meg@example.com", "member");
+    await harness.admin.command("file.write", { workspaceId: id, files: [{ path: "brain.toml", content: publicToml("Open team") }] });
+    expect((await mine.query("me", {})).workspaces.find((workspace) => workspace.id === id)).toMatchObject({ role: "member", viaPublic: false, visibility: "public" });
+    await expect(mine.command("task.create", { workspaceId: id, play: "hello", inputs: { name: "Meg" } })).resolves.toBeDefined();
   });
 });

@@ -1,6 +1,5 @@
-import { approvalSubjectDigest, type JsonValue, type SnapshotManifest } from "@brain/contracts";
+import { approvalSubjectDigest, nextCron, type JsonValue, type SnapshotManifest } from "@brain/contracts";
 import { describe, expect, it } from "vitest";
-import { nextCron } from "../../apps/governor/src/tasks/triggers";
 import { inputProblem } from "../../apps/governor/src/tools/schema";
 import { approvalSubject, standingCovers } from "../../apps/governor/src/trust/approvals";
 import { inputSchema } from "../../apps/governor/src/workspace/load";

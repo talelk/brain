@@ -41,6 +41,7 @@ kios-newrh/
 name = "Kios RH"
 description = "Workforce cost platform"
 timezone = "Africa/Tunis"   # schedules are read in it; UTC when not given
+visibility = "private"      # or "public": see People
 packs = ["base", "software-factory"]
 
 [limits]
@@ -147,6 +148,7 @@ required = true
 
 [trigger]                   # optional; a Play can always be started by hand
 schedule = "0 8 * * 1"      # or: webhook = "github.issues.opened"
+paused = false              # true keeps the trigger in the file but never fires it
 
 [[step]]
 id = "investigate"
@@ -166,6 +168,13 @@ agent = "release-manager"
 after = ["change"]
 approve = true
 ```
+
+A schedule is five cron fields (minute, hour, day of month, month, day of week; numbers,
+lists, ranges and steps) read on the workspace's clock. The Schedules screen lists every
+scheduled and webhook Play of the workspaces a person can see, with its next time (when
+the Governor will start it), its last start and that task's state. Scheduling, pausing and
+removing is an edit of the Play's `[trigger]` by an admin; scheduling a pack's Play writes
+a workspace copy of it that replaces the pack's.
 
 Step fields, and nothing else:
 
@@ -194,7 +203,9 @@ can be reverted. Brain does not interpret it. Text and Markdown documents under 
 are searched by agents through `memory.search`, next to the memory entries, and each
 result says it comes from a document. Other documents (images, PDFs, office files) are
 stored and downloadable only. Viewers read and download documents; admins add, edit,
-rename and delete them in the Files tab. A document never holds a secret. A path may not
+rename and delete them in the Files tab. The Files tab lists every file that belongs to the
+workspace: its own folder, and the files its packs supply, each marked with its pack and
+read only until an admin edits a copy, which writes the same path into the folder. A document never holds a secret. A path may not
 climb out of the folder (`..`) or start a hidden name (only `.gitkeep` is allowed), and an
 upload is limited to 5 MB per file and 20 MB in all.
 
@@ -242,4 +253,11 @@ proxy.
 
 A person signs in and is a member of workspaces as `viewer`, `member` or `admin`.
 Members start and steer work and approve calls. Admins also edit the workspace's files,
-secrets and members.
+secrets and members. An admin shares a workspace by adding people by email with a role.
+
+A person's workspaces are grouped as **My workspaces** (those they admin), **Shared with
+me** (those they are a viewer or member of) and **Public workspaces**. A workspace is
+`private` (only its members see it) unless `brain.toml` says `visibility = "public"`: then
+every signed-in person of this Brain sees it as a viewer, read only. That person can read
+its tasks, files and results; they cannot start work, approve, edit, or see its secrets or
+members. Changing visibility is a change of `brain.toml` and is audited.

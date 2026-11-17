@@ -32,12 +32,65 @@ export async function commitChange(dir: string, change: Change): Promise<string>
   return git.commit({ fs, dir, message: change.message, author: change.author, cache });
 }
 
-/** The message and time of the last commit that changed a file, or undefined when the file has no history. */
-export async function lastCommitOf(dir: string, filepath: string): Promise<{ message: string; atMs: number } | undefined> {
+/** HEAD's commit and, for every file, its blob id: no file is read. */
+export async function listHead(dir: string): Promise<{ commit: string; blobs: Map<string, string> }> {
+  const commit = await git.resolveRef({ fs, dir, ref: "HEAD" });
+  const blobs = new Map<string, string>();
+  await git.walk({
+    fs, dir, trees: [git.TREE({ ref: commit })],
+    map: async (filepath, [entry]) => {
+      if (entry && (await entry.type()) === "blob") blobs.set(filepath, await entry.oid());
+      return filepath;
+    },
+  });
+  return { commit, blobs };
+}
+
+const sizes = new Map<string, number>();
+/** The size of a blob; a blob never changes, so it is read once. */
+export async function blobSize(dir: string, oid: string): Promise<number> {
+  let size = sizes.get(oid);
+  if (size === undefined) {
+    size = (await git.readBlob({ fs, dir, oid })).blob.length;
+    if (sizes.size > 20_000) sizes.clear();
+    sizes.set(oid, size);
+  }
+  return size;
+}
+
+/** One file of a commit. */
+export async function readBlobAt(dir: string, commit: string, filepath: string): Promise<Uint8Array | undefined> {
   try {
-    const [entry] = await git.log({ fs, dir, filepath, depth: 1 });
-    return entry ? { message: entry.commit.message.trim().split("\n")[0] ?? "", atMs: entry.commit.committer.timestamp * 1000 } : undefined;
+    return (await git.readBlob({ fs, dir, oid: commit, filepath })).blob;
   } catch {
     return undefined;
   }
+}
+
+export interface LastCommit { readonly message: string; readonly atMs: number }
+const history = new Map<string, Map<string, LastCommit>>();
+/** For each file of a commit, the last commit that changed it: one pass over the last 300 commits, kept per head commit. A file older than that has none. */
+export async function lastCommits(dir: string, head: string, paths: ReadonlySet<string>): Promise<Map<string, LastCommit>> {
+  const key = `${dir}\0${head}`;
+  const kept = history.get(key);
+  if (kept) return kept;
+  const found = new Map<string, LastCommit>();
+  try {
+    for (const entry of await git.log({ fs, dir, ref: head, depth: 300 })) {
+      const parent = entry.commit.parent[0];
+      const changed: string[] = [];
+      await git.walk({
+        fs, dir, trees: [git.TREE({ ref: entry.oid }), ...(parent ? [git.TREE({ ref: parent })] : [])],
+        map: async (filepath, [now, before]) => {
+          if (now && (await now.type()) === "blob" && (!before || (await now.oid()) !== (await before.oid()))) changed.push(filepath);
+          return filepath;
+        },
+      });
+      for (const path of changed) if (paths.has(path) && !found.has(path)) found.set(path, { message: entry.commit.message.trim().split("\n")[0] ?? "", atMs: entry.commit.committer.timestamp * 1000 });
+      if (found.size === paths.size) break;
+    }
+  } catch { /* a folder without history lists without commits */ }
+  if (history.size >= 32) history.clear();
+  history.set(key, found);
+  return found;
 }
