@@ -75,7 +75,7 @@ export class PiEngine implements EngineAdapter {
           name: "Brain model gateway", baseUrl: spec.model.baseUrl, api: "openai-completions", apiKey: spec.model.token,
           models: [{
             id: spec.model.name, name: spec.model.name, reasoning: true, input: ["text"],
-            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: CONTEXT_WINDOW, maxTokens: spec.limits.maxTokens > 0 ? Math.min(spec.limits.maxTokens, 16384, Math.max(8192, spec.limits.maxTokens - 4096)) : 16384,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: CONTEXT_WINDOW, maxTokens: spec.limits.maxOutputTokens ?? (spec.limits.maxTokens > 0 ? Math.min(spec.limits.maxTokens, 16384, Math.max(8192, spec.limits.maxTokens - 4096)) : 16384),
           }],
         },
       },
@@ -87,7 +87,11 @@ export class PiEngine implements EngineAdapter {
     settings.applyOverrides({ retry: { provider: { maxRetries: 1, maxRetryDelayMs: 1 } } });
     const runtime = await ModelRuntime.create({ modelsPath: modelsFile });
     const model = runtime.getModel(PROVIDER as never, spec.model.name as never);
-    if (!model) throw new Error("Pi did not find the gateway model in its models file");
+    if (!model) {
+      // Pi drops a provider whose models file it cannot read or validate; its own error says why, and the ids it did load show a name mismatch.
+      const known = runtime.getModels(PROVIDER).map((entry) => entry.id).join(", ") || "none";
+      throw new Error(`Pi did not find the gateway model "${spec.model.name}" in its models file (models loaded: ${known}; Pi says: ${runtime.getError() ?? "no error"})`);
+    }
     const requests = new ToolRequests(spec.tools, (event) => this.push(event), { ...(spec.limits.maxTurns > 0 ? { maxCalls: spec.limits.maxTurns } : {}), refuse: () => this.allowanceStop(spec) });
     this.requests = requests;
     const customTools = requests.entries().map(([name, tool]) => ({

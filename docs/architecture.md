@@ -417,6 +417,15 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 - The engine sandbox mounts `work/` (read-write for `native = "all"`, read-only for
   `"read"`, absent for `"none"`), `state/` and `out/`. Its network is the egress proxy
   with the model gateway, the project `network` hosts, and nothing else.
+  The image (`deploy/engine-sandbox.Dockerfile`) carries what a project's `setup` commonly
+  needs: node, pnpm, bun, git, and a compiler, make and python3 for native Node modules.
+  node-gyp reads the Node headers from the image (`npm_config_nodedir`), so a native build
+  needs no host beyond the package registry in the project's `network`.
+- Logs: the Governor writes one `key=value` line per event to stdout (`LOG_LEVEL`, default
+  `info`): startup, 5xx and unhandled errors with a request id (also the `x-request-id`
+  header), runner rejections, model gateway upstream failures, workspace reconciles. A line
+  never holds a secret, a prompt or a result. A runner whose Governor is unreachable logs one
+  line with the cause code and attempt id, backs off, and logs one line when it reconnects.
 - At the end the runner uploads `git diff` of each project (including new files) as the
   task's working-copy patch, and everything in `out/` as artifacts. The base commit of
   each project is recorded on the attempt.

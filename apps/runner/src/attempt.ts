@@ -28,6 +28,8 @@ export interface AttemptContext {
 /** How often the lease is renewed, and how long before its end the attempt is given up when no renewal got through. */
 const RENEW_MS = 15_000;
 const LEASE_MARGIN_MS = 5_000;
+/** A check or judge answers in one short JSON object, but a reasoning model may think at length first: its reply gets room for both. */
+const VERDICT_OUTPUT_TOKENS = 32_768;
 const SETUP_TIMEOUT_MS = 20 * 60_000;
 const PATCH_MEDIA_TYPE = "text/x-diff";
 const INLINE_PATCH_CHARS = 20_000;
@@ -218,7 +220,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
         task: composeTask(offer, { ...(seesFiles ? { work: paths.work } : {}), out: paths.out }, reviewed, reviewedFiles) + (setupNotes.length > 0 ? `\n\n# Setup did not finish\n${setupNotes.join("\n")}\nDependencies may be missing; run what you need yourself, or say so in your result if you cannot.` : ""),
         ...(seesFiles ? { workDir: paths.work } : {}),
         tools: offer.tools.filter((tool) => offer.agent.tools.includes(tool.name)).map((tool) => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, effect: tool.effect })),
-        limits: { timeoutMs: cfg.attemptTimeoutMs, maxTokens: offer.agent.limits.tokens, maxMicroUsd: offer.agent.limits.spendMicroUsd, maxTurns: offer.agent.limits.turns },
+        limits: { timeoutMs: cfg.attemptTimeoutMs, maxTokens: offer.agent.limits.tokens, maxMicroUsd: offer.agent.limits.spendMicroUsd, maxTurns: offer.agent.limits.turns, ...(offer.kind === "check" || offer.kind === "judge" ? { maxOutputTokens: VERDICT_OUTPUT_TOKENS } : {}) },
       };
       const session = await runEngine({ engine, spec, emit, signal: abort.signal, executeTool: (tool, input) => tools.call(tool, input) }, answerFormat(offer));
       usage = { inputTokens: session.usage.inputTokens, outputTokens: session.usage.outputTokens, cachedInputTokens: session.usage.cachedInputTokens, microUsd: session.usage.microUsd };
