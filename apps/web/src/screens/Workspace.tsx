@@ -161,7 +161,7 @@ export default function WorkspaceScreen(): JSX.Element {
     <>
       <Head title={t("nav.workspace")} text={t("nav.workspace")} description={t("workspace.text", { name: place.summary().name })} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.workspace") }]} />
       <Tabs.Root value={tab()} onValueChange={(value) => navigate(href(value as Tab))} variant="underline" size="md">
-        <Tabs.List aria-label={t("workspace.tabs")}>
+        <Tabs.List aria-label={t("workspace.tabs")} class="max-w-full overflow-x-auto">
           <For each={TABS}>{(entry) => <Tabs.Trigger value={entry}>{t(`workspace.tab.${entry}` as MessageKey)}</Tabs.Trigger>}</For>
         </Tabs.List>
         <Tabs.Content value={tab()} class="pt-5">

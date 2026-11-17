@@ -50,7 +50,7 @@ export default function TasksScreen(): JSX.Element {
             <FilterBar surface="bare" query={{ value: search(), placeholder: t("tasks.search"), onInput: setSearch, width: "20rem" }}
               selects={[{ label: t("tasks.filter"), width: "11rem", value: state() ?? "", options: [{ label: t("tasks.filter.all"), value: "" }, ...TASK_STATES.map((value) => ({ label: t(`state.${value}`), value }))], onValueChange: (value) => { setState((value || undefined) as TaskState | undefined); setLimit(PAGE); } }]}
               chips={state() ? [{ label: `${t("tasks.filter")}: ${t(`state.${state() as TaskState}`)}`, onRemove: () => setState(undefined) }] : []}
-              onClearAll={() => { setState(undefined); setSearch(""); }} resultCount={loaded().tasks.length} />
+              onClearAll={() => { setState(undefined); setSearch(""); }} />
             <Failure error={stop.error()} />
             <DataTable title={t("nav.tasks")} rows={[...loaded().tasks]} columns={columns} hideSearch selectable={place.can("member")} rowSelectable={(task) => OPEN.includes(task.state)} actionLabel={t("tasks.stop.selected")} onRowsAction={(ids) => void stop.run(ids)}
               density="comfortable" pageSize={200} recordsLabel={t("tasks.records")} emptyTitle={filtered() ? t("tasks.none.match") : t("tasks.none")} emptyHint={filtered() ? t("tasks.none.match.text") : t("tasks.none.text")} onClearFilters={() => { setState(undefined); setSearch(""); }} />
