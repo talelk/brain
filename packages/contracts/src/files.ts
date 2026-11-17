@@ -8,6 +8,12 @@ const SLUG = /^[a-z][a-z0-9-]{0,62}$/u;
 const slug = (what: string) => z.string().regex(SLUG, `${what} must be lower-case letters, digits and dashes, starting with a letter`);
 /** A tool is named by its folder: slugs joined by dots, such as `git.open-pr`. */
 export const isToolName = (name: string): boolean => name.length <= 80 && name.split(".").every((part) => SLUG.test(part));
+const packRef = z.string().refine((ref) => { const [name = "", pin, ...more] = ref.split("@"); return SLUG.test(name) && more.length === 0 && (pin === undefined || /^[1-9][0-9]{0,5}$/u.test(pin)); }, "a pack is its name, or its name and a release such as base@2");
+/** A pack entry of brain.toml split into its name and the release it pins (0: the shipped baseline). */
+export const splitPackRef = (ref: string): { readonly name: string; readonly pin: number } => {
+  const [name = "", pin] = ref.split("@");
+  return { name, pin: pin === undefined ? 0 : Number(pin) };
+};
 const toolName = z.string().refine(isToolName, "a tool name must be lower-case words joined by dots, such as deploy.restart");
 export const isSlug = (name: string): boolean => SLUG.test(name);
 
@@ -33,7 +39,7 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "must be a date written YYY
 export const EFFECTS = ["read", "write", "privileged"] as const;
 export const NATIVE_LEVELS = ["none", "read", "all"] as const;
 /** The tools the Governor runs itself (`runs = "brain"`). */
-export const BRAIN_TOOLS = ["task.create", "task.note", "task.ask", "memory.search", "memory.propose", "git.open-pr", "message.send", "workspace.fix", "platform.workspaces", "platform.tasks", "platform.task", "platform.file", "platform.repeats"] as const;
+export const BRAIN_TOOLS = ["task.create", "task.note", "task.ask", "memory.search", "memory.propose", "git.open-pr", "message.send", "workspace.fix", "platform.workspaces", "platform.tasks", "platform.task", "platform.file", "platform.repeats", "platform.tool-drift"] as const;
 /** The pack only the platform workspace may list, and the prefix of the Brain-run tools it holds. */
 export const PLATFORM_PACK = "platform";
 
@@ -79,7 +85,8 @@ export const BrainFile = z.strictObject({
   visibility: z.enum(["private", "public"]).default("private"),
   /** The one workspace that looks after the others (docs/model.md, "The platform workspace"). Only an instance admin may set it. */
   platform: z.boolean().default(false),
-  packs: z.array(slug("a pack name")).default([]),
+  /** `<name>` is the shipped pack, `<name>@<n>` release `n` of it (docs/model.md, "The platform workspace"). */
+  packs: z.array(packRef).default([]),
   limits: z.strictObject({
     daily_spend_usd: z.number().min(0).default(0),
     running_tasks: z.int().min(0).max(64).default(4),
@@ -192,6 +199,8 @@ export const PackFile = z.strictObject({
   name: slug("a pack name"),
   description: z.string().default(""),
   requires: z.array(slug("a pack name")).default([]),
+  /** The last release of a copy kept in the platform workspace (none: not released yet). */
+  version: z.int().min(1).optional(),
   translations: translations({ description: z.string().optional() }),
 });
 export type PackFile = z.infer<typeof PackFile>;
@@ -294,6 +303,8 @@ export interface SnapshotManifest {
   readonly platform?: true;
   /** Every pack in use, required packs first. */
   readonly packs: readonly string[];
+  /** The release each pinned pack is used at; left out when none is pinned. */
+  readonly pins?: Readonly<Record<string, number>>;
   readonly limits: BrainFile["limits"];
   readonly healing: BrainFile["healing"];
   readonly models: BrainFile["model"];

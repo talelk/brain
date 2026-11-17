@@ -5,9 +5,10 @@ import { tx, type Db } from "../db";
 import type { Gov } from "../dispatch";
 import { append, SYSTEM } from "../events";
 import { putArtifact, readArtifact } from "../trust/artifacts";
-import { classifyPath, type Files } from "./files";
+import { classifyPath, releasedDirOf, type Files } from "./files";
 import { commitChange, readHead, type Author } from "./git";
 import { loadWorkspace, type Loaded } from "./load";
+import { seedPacks } from "./packs";
 import { guardPlatform } from "./platform";
 
 /** Workspace folders on disk and their snapshots in the database: validate, commit, activate. */
@@ -37,7 +38,7 @@ export const activeManifest = (gov: Gov, workspaceId: string): SnapshotManifest 
 /** The folder as it is committed, read with its packs. */
 export async function loadFolder(gov: Gov, slug: string): Promise<Loaded & { commit: string }> {
   const head = await readHead(workspaceDir(gov, slug));
-  return { ...loadWorkspace(head.files, gov.packsDir), commit: head.commit };
+  return { ...loadWorkspace(head.files, gov.packsDir, releasedDirOf(gov.dataDir)), commit: head.commit };
 }
 
 /** Stores a valid folder's manifest and the bytes it names; the manifest's digest is the snapshot digest. */
@@ -65,7 +66,7 @@ export interface FolderChange {
 export interface Committed { readonly commit: string; readonly snapshotDigest: Digest; readonly manifest: SnapshotManifest; readonly paths: readonly string[] }
 
 /** The folder as it would be after a change: the files to write (those that differ), or the problems. A folder that would not be valid is refused. */
-function applied(head: { readonly files: Files } | undefined, change: Pick<FolderChange, "write" | "remove">, packsDir: string): { readonly files: Files; readonly write: Map<string, Uint8Array>; readonly loaded: Loaded & { manifest: SnapshotManifest } } {
+function applied(head: { readonly files: Files } | undefined, change: Pick<FolderChange, "write" | "remove">, packs: { readonly shipped: string; readonly released: string }): { readonly files: Files; readonly write: Map<string, Uint8Array>; readonly loaded: Loaded & { manifest: SnapshotManifest } } {
   const files: Files = new Map(head?.files);
   const refused: Problem[] = [];
   const write = new Map<string, Uint8Array>();
@@ -78,7 +79,7 @@ function applied(head: { readonly files: Files } | undefined, change: Pick<Folde
   }
   for (const path of change.remove) if (!files.delete(path)) refused.push({ path, message: "the workspace has no such file" });
   if (refused.length > 0) throw new BrainError("INVALID_INPUT", "The change names files that cannot be written or removed", refused);
-  const loaded = loadWorkspace(files, packsDir);
+  const loaded = loadWorkspace(files, packs.shipped, packs.released);
   if (!loaded.manifest) throw new BrainError("INVALID_WORKSPACE", "The workspace would not be valid, so nothing was changed", loaded.problems);
   return { files, write, loaded: { ...loaded, manifest: loaded.manifest } };
 }
@@ -91,8 +92,14 @@ export function commitFolder(gov: Gov, slug: string, change: FolderChange): Prom
   const dir = workspaceDir(gov, slug);
   return inTurn(dir, async () => {
     const head = existsSync(join(dir, ".git")) ? await readHead(dir) : undefined;
-    const { write, loaded } = applied(head, change, gov.packsDir);
-    guardPlatform(gov, slug, head?.files, loaded.manifest, change.instanceAdmin);
+    const packs = { shipped: gov.packsDir, released: releasedDirOf(gov.dataDir) };
+    let made = applied(head, change, packs);
+    // The commit that makes a workspace the platform workspace also gives it an editable copy of every shipped pack.
+    if (guardPlatform(gov, slug, head?.files, made.loaded.manifest, change.instanceAdmin)) {
+      const seeds = [...seedPacks(gov)].filter(([path]) => !head?.files.has(path) && !change.write.has(path));
+      made = applied(head, { ...change, write: new Map([...seeds, ...change.write]) }, packs);
+    }
+    const { write, loaded } = made;
     const paths = [...write.keys(), ...change.remove];
     const commit = head && paths.length === 0 ? head.commit : await commitChange(dir, { ...change, write });
     return { commit, snapshotDigest: storeSnapshot(gov, loaded), manifest: loaded.manifest, paths };
@@ -104,7 +111,7 @@ export function checkFolder(gov: Gov, slug: string, change: Pick<FolderChange, "
   const dir = workspaceDir(gov, slug);
   return inTurn(dir, async () => {
     const head = await readHead(dir);
-    return { before: head.files, manifest: applied(head, change, gov.packsDir).loaded.manifest };
+    return { before: head.files, manifest: applied(head, change, { shipped: gov.packsDir, released: releasedDirOf(gov.dataDir) }).loaded.manifest };
   });
 }
 

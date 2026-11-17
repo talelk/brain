@@ -7,6 +7,7 @@ import { readSecret } from "../trust/secrets";
 import { platformWorkspace } from "../workspace/platform";
 import { manifestOf } from "../workspace/store";
 import { currentText } from "./fix";
+import { driftOf } from "./drift";
 import { repeatsOf } from "./repeats";
 import { ToolRefusal } from "./schema";
 
@@ -114,6 +115,12 @@ export function runPlatform(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: 
     if (content.includes("\0")) throw new ToolRefusal(`${path} is not a text file`);
     audit([target], `file ${path}`);
     return { path, content: hider(gov, target.id)(cut(content, FILE_MAX)), truncated: content.length > FILE_MAX };
+  }
+
+  if (tool === "platform.tool-drift") {
+    const drift = driftOf(gov);
+    audit(drift.workspaces.map(workspaceNamed), "tool-drift");
+    return { drift: drift.entries };
   }
 
   // platform.repeats

@@ -18,8 +18,9 @@ import { Markdown } from "../components/Markdown";
 import { ConfirmButton, Failure, Icon, Keyed, Ready } from "../components/bits";
 import { WorkspaceActions } from "../components/Share";
 import { Head } from "../components/Shell";
+import { PacksTab, PackUpdates } from "../components/Packs";
 
-const TABS = ["agents", "team", "tools", "plays", "memory", "projects", "settings", "files"] as const;
+const TABS = ["agents", "team", "tools", "plays", "memory", "projects", "settings", "files", "packs"] as const;
 type Tab = (typeof TABS)[number];
 interface Item { readonly name: string; readonly title?: string; readonly lead?: string; readonly text: string; readonly source: string }
 
@@ -183,7 +184,7 @@ export default function WorkspaceScreen(): JSX.Element {
       <Head title={t("nav.workspace")} text={t("nav.workspace")} description={t("workspace.text", { name: place.summary().name })} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.workspace") }]} actions={<WorkspaceActions />} />
       <Tabs.Root value={tab()} onValueChange={(value) => navigate(href(value as Tab))} variant="underline" size="md">
         <Tabs.List aria-label={t("workspace.tabs")} class="tabs-scroll max-w-full overflow-x-auto">
-          <For each={TABS}>{(entry) => <Tabs.Trigger value={entry}>{t(`workspace.tab.${entry}` as MessageKey)}</Tabs.Trigger>}</For>
+          <For each={TABS.filter((entry) => entry !== "packs" || (place.summary().platform && place.can("admin")))}>{(entry) => <Tabs.Trigger value={entry}>{t(`workspace.tab.${entry}` as MessageKey)}</Tabs.Trigger>}</For>
         </Tabs.List>
         <Tabs.Content value={tab()} class="pt-5">
           {/* The tabs component fixes its own direction to left-to-right; what is in a tab follows the language. */}
@@ -195,15 +196,16 @@ export default function WorkspaceScreen(): JSX.Element {
               const isNew = (): boolean => !exists() && search.new !== undefined;
               const saved = (): void => { if (search.new !== undefined) navigate(href(tab(), name()), { replace: true }); };
               return (
-                <Show when={tab() !== "team" && tab() !== "files"} fallback={
-                  <Show when={tab() === "team"} fallback={<Show when={files.data()} fallback={<Failure error={files.error()} />}>{(listed) => <FilesTab files={listed().files} readOnly={readOnly()} />}</Show>}>
+                <Show when={tab() !== "team" && tab() !== "files" && tab() !== "packs"} fallback={
+                  <Show when={tab() === "packs"} fallback={<Show when={tab() === "team"} fallback={<Show when={files.data()} fallback={<Failure error={files.error()} />}>{(listed) => <FilesTab files={listed().files} readOnly={readOnly()} />}</Show>}>
                     <TeamGraph snapshot={snapshot()} tasks={recent.data()?.tasks ?? []} href={(agent) => href("agents", agent)} />
-                  </Show>
+                  </Show>}><PacksTab /></Show>
                 }>
                 <Show when={!single()} fallback={
                   <div class="max-w-[52rem] rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-5 sm:p-6">
+                    <Show when={tab() === "settings"}><PackUpdates snapshot={snapshot()} updates={workspace().updates} admin={place.can("admin")} /></Show>
                     <ModeSwitch raw={raw()} onChange={setRaw} class="mb-6" />
-                    <Show when={raw()} fallback={<Show when={tab() === "projects"} fallback={<SettingsForm snapshot={untrack(snapshot)} readOnly={readOnly()} />}><ProjectsForm snapshot={untrack(snapshot)} readOnly={readOnly()} /></Show>}>
+                    <Show when={raw()} fallback={<Show when={tab() === "projects"} fallback={<Show when={workspace().commit} keyed><SettingsForm snapshot={untrack(snapshot)} readOnly={readOnly()} /></Show>}><ProjectsForm snapshot={untrack(snapshot)} readOnly={readOnly()} /></Show>}>
                       <FileEditor files={[{ path: paths.brain, bytes: 0, source: "workspace" }]} readOnly={readOnly()} />
                     </Show>
                   </div>

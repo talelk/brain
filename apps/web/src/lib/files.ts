@@ -29,7 +29,8 @@ export interface Brain {
 
 export function brainOf(snapshot: SnapshotManifest): Brain {
   const { name, description, packs, limits, healing, models, projects, github, teams, approvals } = snapshot;
-  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, ...(snapshot.platform ? { platform: true as const } : {}), packs, limits, healing, models, projects, github, teams, approvals };
+  const pins = snapshot.pins ?? {};
+  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, ...(snapshot.platform ? { platform: true as const } : {}), packs: packs.map((pack) => (pins[pack] ? `${pack}@${pins[pack]}` : pack)), limits, healing, models, projects, github, teams, approvals };
 }
 
 export function brainToml(brain: Brain): string {

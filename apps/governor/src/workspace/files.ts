@@ -29,9 +29,17 @@ export function classifyPath(path: string): FileKind | undefined {
   return top === "agents" || top === "tools" || top === "plays" || top === "memory" ? undefined : { kind: "document" };
 }
 
-/** Every file under `<packs>/<name>`, or undefined when there is no such pack. */
-export function readPack(packsDir: string, name: string): Files | undefined {
-  const root = join(packsDir, name);
+/** Where released packs live: `<data>/released/<name>@<n>/`, written once and never changed. */
+export const releasedDirOf = (dataDir: string): string => join(dataDir, "released");
+/** The releases of a pack, oldest first. */
+export function releasedVersions(releasedDir: string, name: string): number[] {
+  if (!existsSync(releasedDir)) return [];
+  return readdirSync(releasedDir).flatMap((entry) => (entry.startsWith(`${name}@`) && /^[1-9][0-9]*$/u.test(entry.slice(name.length + 1)) ? [Number(entry.slice(name.length + 1))] : [])).sort((a, b) => a - b);
+}
+
+/** Every file under `<packs>/<name>` (the shipped pack), or under `<released>/<name>@<pin>` for a release; undefined when there is no such pack. */
+export function readPack(packsDir: string, name: string, pin = 0, releasedDir?: string): Files | undefined {
+  const root = pin === 0 ? join(packsDir, name) : join(releasedDir ?? join(packsDir, "..", "released"), `${name}@${pin}`);
   if (!isSlug(name) || !existsSync(join(root, "pack.toml"))) return undefined;
   const files: Files = new Map();
   for (const entry of readdirSync(root, { recursive: true, withFileTypes: true })) {

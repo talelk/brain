@@ -8,9 +8,10 @@ import type { Db } from "../db";
 import type { Ctx, Gov } from "../dispatch";
 import { append } from "../events";
 import { setSecret } from "../trust/secrets";
-import { classifyPath, listPacks, readPack } from "./files";
+import { classifyPath, readPack } from "./files";
 import type { Author } from "./git";
 import { listFiles, readFileOf } from "./listing";
+import { updatesOf } from "./packs";
 import { activate, commitFolder, commitOf, getWorkspace, manifestOf, workspaceDir, type Committed } from "./store";
 import { extname } from "node:path";
 
@@ -143,7 +144,7 @@ export function registerWorkspace({ gov: { registry }, gov, app }: Governor): vo
       id: workspace.id, slug: workspace.slug, name: workspace.name, description: workspace.description, status: workspace.status, role: ctx.role ?? "viewer",
       visibility: snapshot.visibility === "public" ? "public" : "private", platform: snapshot.platform === true, viaPublic: ctx.user ? (accessOf(ctx.gov, ctx.user.id, workspace.id)?.viaPublic ?? false) : false,
     };
-    return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot };
+    return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot, updates: updatesOf(ctx.gov, snapshot) };
   });
 
   registry.query("workspace.files", async (ctx, input) => ({ files: await listFiles(ctx.gov, input.workspaceId) }));
@@ -169,5 +170,4 @@ export function registerWorkspace({ gov: { registry }, gov, app }: Governor): vo
     });
   });
 
-  registry.query("packs.list", (ctx) => ({ packs: listPacks(ctx.gov.packsDir) }));
 }

@@ -56,7 +56,7 @@ export function groupRepeats(jobs: readonly Job[], min = MIN_REPEATS): JsonValue
 /** The done jobs of every workspace in the last `days` days, with the tools each called. Heal tasks and the platform's own agents are not work to repeat. */
 export function repeatsOf(gov: Gov, days: number): JsonValue {
   const since = gov.clock.nowMs() - days * DAY_MS;
-  const eligible = `FROM tasks t JOIN workspaces w ON w.id = t.workspace_id WHERE t.state='done' AND t.agent IS NOT NULL AND t.agent NOT IN ('workspace-healer','capitalizer') AND t.created_at_ms >= ?
+  const eligible = `FROM tasks t JOIN workspaces w ON w.id = t.workspace_id WHERE t.state='done' AND t.agent IS NOT NULL AND t.agent NOT IN ('workspace-healer','capitalizer','syncer') AND t.created_at_ms >= ?
     AND (SELECT created_by FROM tasks r WHERE r.id = t.root_id) NOT LIKE 'heal:%' AND EXISTS (SELECT 1 FROM attempts a WHERE a.task_id = t.id AND a.kind = 'work')`;
   const tasks = gov.db.prepare(`SELECT t.id, w.slug AS workspace, t.agent, t.goal, t.created_at_ms AS at ${eligible} ORDER BY t.created_at_ms, t.rowid`).all(since) as Array<Omit<Job, "tools">>;
   const calls = new Map<string, string[]>();

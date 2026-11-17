@@ -1,5 +1,5 @@
 title = "Capitalize"
-description = "Every Monday at 07:00, find work that was done the same way four or more times in the last 30 days across all workspaces, and propose for approval a new tool, an update, or a memory note."
+description = "Every Monday at 07:00, find work that was done the same way four or more times in the last 30 days across all workspaces, and propose, in the platform packs and for approval, a new tool, an update, or a memory note."
 
 [trigger]
 schedule = "0 7 * * 1"
@@ -10,14 +10,14 @@ agent = "capitalizer"
 goal = """
 Capitalize what the workspaces did repeatedly in the last 30 days. Call platform.repeats, read \
 the evidence of each candidate and the analyses of the workspace-healer, and for each \
-candidate worth it propose one change with workspace.fix: a new tool (tool.toml, run.sh, \
+candidate worth it propose one change in the pack sources of this workspace with workspace.fix: a new tool (tool.toml, run.sh, \
 test.sh and the agent's tools list), an update of a tool, agent or Play with what was \
 learned, or a memory note. End with the report your instructions describe."""
 
 [translations.fr]
 title = "Capitaliser"
-description = "Chaque lundi à 07h00, repère le travail fait de la même façon quatre fois ou plus au cours des 30 derniers jours dans tous les espaces de travail, et propose, pour approbation, un nouvel outil, une mise à jour ou une note de mémoire."
+description = "Chaque lundi à 07h00, repère le travail fait de la même façon quatre fois ou plus au cours des 30 derniers jours dans tous les espaces de travail, et propose, dans les packs de la plateforme et pour approbation, un nouvel outil, une mise à jour ou une note de mémoire."
 
 [translations.ar]
 title = "الترسيخ"
-description = "كل يوم اثنين في الساعة 07:00، يرصد العمل الذي أُنجز بالطريقة نفسها أربع مرات أو أكثر خلال آخر 30 يومًا في كل مساحات العمل، ويقترح للموافقة أداة جديدة أو تحديثًا أو ملاحظة ذاكرة."
+description = "كل يوم اثنين في الساعة 07:00، يرصد العمل الذي أُنجز بالطريقة نفسها أربع مرات أو أكثر خلال آخر 30 يومًا في كل مساحات العمل، ويقترح في حزم المنصّة وللموافقة أداة جديدة أو تحديثًا أو ملاحظة ذاكرة."

@@ -139,73 +139,125 @@ describe("repeated work", () => {
   });
 });
 
+describe("tool drift", () => {
+  it("lists the tools, agents and Plays workspaces hold that differ from the packs or that no pack has, and not the tools Brain runs", async () => {
+    const own = (await harness.admin.query("file.read", { workspaceId: beta.workspaceId, path: "tools/web.fetch/run.sh" })).content;
+    const files = ["tool.toml", "run.sh", "test.sh"];
+    const fetched = await Promise.all(files.map(async (name) => ({ path: `tools/web.fetch/${name}`, content: (await harness.admin.query("file.read", { workspaceId: beta.workspaceId, path: `tools/web.fetch/${name}` })).content })));
+    await harness.admin.command("file.write", { workspaceId: beta.workspaceId, files: [
+      ...fetched.map((file) => (file.path.endsWith("run.sh") ? { ...file, content: `${own}# retries once\n` } : file)),
+      { path: "tools/repo.report/tool.toml", content: lint }, { path: "tools/repo.report/run.sh", content: "#!/bin/sh\ncat\n" }, { path: "tools/repo.report/test.sh", content: "#!/bin/sh\necho 'repo.report: ok'\n" },
+    ] });
+    let drift: Array<{ kind: string; name: string; status: string; pack: string | null; workspaces: string[]; hasTest: boolean }> = [];
+    driver.script({ syncer: async ({ brain }) => { drift = (answerOf(await brain("platform.tool-drift", {})) as { drift: typeof drift }).drift; return "Compared."; } });
+    await harness.admin.command("task.create", { workspaceId: platformId, play: "sync-tools" });
+    await driver.drain();
+    expect(drift.filter((entry) => entry.kind === "tool")).toMatchObject(expect.arrayContaining([expect.objectContaining({ name: "repo.report", status: "new", pack: null, workspaces: ["beta"], hasTest: true }), expect.objectContaining({ name: "web.fetch", status: "differs", pack: "base", workspaces: ["beta"] })]));
+    expect(drift.map((entry) => entry.name)).not.toContain("task.create");
+    expect(drift.filter((entry) => entry.kind === "agent").map((entry) => entry.name)).toEqual(expect.arrayContaining(["dev", "scribe"]));
+  });
+});
+
 describe("the capitalizer's proposals", () => {
-  it("change another workspace only when an admin of it, or an instance admin, approves each one; the commit and the audit are in the target", async () => {
+  it("land only in the platform workspace's pack sources, each approved by an admin of it, and no other workspace is written", async () => {
+    const worker = (await harness.admin.query("file.read", { workspaceId: platformId, path: "packs/base/agents/worker/agent.toml" })).content;
     const tool = (name: string): JsonValue[] => [
-      { path: `tools/${name}/tool.toml`, content: `description = "Lints the repository and reports the style problems."\neffect = "read"\nneeds = ["bash"]\n[inputs.path]\ntype = "string"\nrequired = false\n` },
-      { path: `tools/${name}/run.sh`, content: "#!/bin/sh\ncat >/dev/null\necho '{\"ok\": true}'\n" }, { path: `tools/${name}/test.sh`, content: `#!/bin/sh\necho "${name}: ok"\n` },
-      { path: "agents/dev/agent.toml", content: `description = "The dev."\nengine = ["fixture"]\nnative = "none"\ntools = ["lint.run", "${name}"]\n[limits]\nspend_usd = 0\n` },
+      { path: `packs/base/tools/${name}/tool.toml`, content: `description = "Lints the repository and reports the style problems."\neffect = "read"\nneeds = ["bash"]\n[inputs.path]\ntype = "string"\nrequired = false\n` },
+      { path: `packs/base/tools/${name}/run.sh`, content: "#!/bin/sh\ncat >/dev/null\necho '{\"ok\": true}'\n" }, { path: `packs/base/tools/${name}/test.sh`, content: `#!/bin/sh\necho "${name}: ok"\n` },
+      { path: "packs/base/agents/worker/agent.toml", content: worker.replace(/tools = \[/u, `tools = ["${name}", `) },
     ];
     const proposals: Array<{ state: string; error?: string }> = [];
     driver.script({
       capitalizer: async (turn) => {
         if (turn.offer.act) return act(turn);
-        if (turn.offer.task.findings.length > 0) return "Proposed two changes.";
+        if (turn.offer.task.findings.length > 0) return "Proposed one change.";
         const send = async (input: JsonValue) => { const answer = await turn.brain("workspace.fix", input); proposals.push(answer as { state: string }); return answer; };
-        await send({ workspace: "alpha", files: tool("style.lint"), message: "Add the style.lint tool", why: "dev ran lint.run four times in alpha and beta." });
-        await send({ workspace: "beta", files: [{ path: "memory/lint-lesson.md", content: "# Lint lesson\n\nRun the linter before the review.\n" }], message: "Note the lint lesson", why: "Lint was done the same way four times." });
-        // Refused at once: the platform setting, a workspace that does not exist, and a heal's task input.
-        await send({ workspace: "alpha", files: [{ path: "brain.toml", content: 'name = "Alpha"\nplatform = true\npacks = ["base"]\n' }], message: "Make it the platform", why: "No." });
-        await send({ workspace: "nowhere", files: [{ path: "memory/x.md", content: "# X\n" }], message: "x", why: "x" });
-        await send({ workspace: "alpha", task: "t_x", files: [{ path: "memory/x.md", content: "# X\n" }], message: "x", why: "x" });
-        return { outcome: "held", result: "I proposed two changes and stopped." };
+        await send({ files: tool("style.lint"), message: "Add the style.lint tool", why: "dev ran lint.run four times in alpha and beta." });
+        // Refused at once: another workspace, a file outside packs/, the platform setting, a heal's task input.
+        await send({ workspace: "alpha", files: [{ path: "packs/base/memory/x.md", content: "# X\n" }], message: "x", why: "x" });
+        await send({ files: [{ path: "tools/style.lint/tool.toml", content: lint }], message: "x", why: "x" });
+        await send({ files: [{ path: "brain.toml", content: 'name = "Brain admin"\npackages = []\n' }], message: "x", why: "x" });
+        await send({ task: "t_x", files: [{ path: "packs/base/memory/x.md", content: "# X\n" }], message: "x", why: "x" });
+        return { outcome: "held", result: "I proposed a change and stopped." };
       },
     });
-    const goal = await harness.admin.command("task.create", { workspaceId: platformId, play: "capitalize" });
+    await harness.admin.command("task.create", { workspaceId: platformId, play: "capitalize" });
     await driver.drain();
-    expect(proposals.map((proposal) => proposal.state)).toEqual(["pending", "pending", "failed", "failed", "failed"]);
-    expect(proposals[2]?.error).toContain("platform");
-    expect(proposals[3]?.error).toContain("no workspace");
+    expect(proposals.map((proposal) => proposal.state)).toEqual(["pending", "failed", "failed", "failed", "failed"]);
+    expect(proposals[1]?.error).toContain("not an input");
+    expect(proposals[2]?.error).toContain("packs/");
+    expect(proposals[4]?.error).toContain("leave it out");
 
-    // The approver sees the diff; the target's admin finds the approval in their own workspace, a member who is no admin cannot decide it.
-    const pendingIn = async (client: Client, workspaceId: string): Promise<Approval[]> => [...(await client.query("approvals.list", { workspaceId, state: "pending" })).approvals];
-    const [forAlpha] = await pendingIn(alpha.admin, alpha.workspaceId);
-    const [forBeta] = await pendingIn(beta.admin, beta.workspaceId);
-    expect(forAlpha).toMatchObject({ tool: "workspace.fix", workspaceId: alpha.workspaceId, subject: { input: { workspace: "alpha" }, patchDigest: expect.any(String) } });
-    expect((await alpha.admin.fetch(`/v1/artifacts/${forAlpha?.subject.patchDigest as string}`)).status).toBe(200);
-    expect(await pendingIn(alpha.member, alpha.workspaceId)).toHaveLength(1);
-    await expect(decide(alpha.member, alpha.workspaceId, forAlpha as Approval, "approve")).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(decide(alpha.admin, alpha.workspaceId, forBeta as Approval, "approve")).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(decide(beta.admin, beta.workspaceId, forAlpha as Approval, "approve")).rejects.toMatchObject({ code: "NOT_FOUND" });
-    const before = (await harness.admin.query("workspace.get", { workspaceId: alpha.workspaceId })).snapshotDigest;
-    await decide(alpha.admin, alpha.workspaceId, forAlpha as Approval, "approve");
-    // The instance admin decides the other one from the platform workspace.
-    expect(await pendingIn(harness.admin, platformId)).toHaveLength(1);
-    await decide(harness.admin, platformId, forBeta as Approval, "approve");
-    await driver.drain();
-
-    const after = await alpha.admin.query("workspace.get", { workspaceId: alpha.workspaceId });
-    expect(after.snapshotDigest).not.toBe(before);
-    expect(Object.keys(after.snapshot.tools)).toContain("style.lint");
-    expect(after.snapshot.agents["dev"]?.tools).toEqual(["lint.run", "style.lint"]);
-    const file = await alpha.admin.query("file.read", { workspaceId: alpha.workspaceId, path: "tools/style.lint/test.sh" });
-    expect(file.lastCommit?.message).toContain("Add the style.lint tool");
-    expect((await beta.admin.query("file.read", { workspaceId: beta.workspaceId, path: "memory/lint-lesson.md" })).content).toContain("Run the linter");
-    // The audit log of the target says which platform task proposed the change, and the platform's own folder did not change.
-    expect(events("platform.fix", alpha.workspaceId)).toMatchObject([{ payload: { taskId: expect.any(String), commit: expect.any(String) } }]);
-    expect(events("workspace.changed", alpha.workspaceId).at(-1)?.payload["paths"]).toContain("tools/style.lint/run.sh");
-    const platformTask = events("platform.fix", alpha.workspaceId)[0]?.payload["taskId"] as string;
-    expect((await getTask(harness.admin, platformId, platformTask)).toolCalls.map((call) => call.tool)).toContain("workspace.fix");
-    expect((await harness.admin.query("tasks.list", { workspaceId: platformId, rootsOnly: true, limit: 10 })).tasks.some((task) => task.id === goal.taskId)).toBe(true);
-    // The platform workspace is still invisible to the people of the others.
+    const pending = [...(await harness.admin.query("approvals.list", { workspaceId: platformId, state: "pending" })).approvals];
+    expect(pending).toMatchObject([{ tool: "workspace.fix", workspaceId: platformId, subject: { patchDigest: expect.any(String) } }]);
+    // The people of another workspace see nothing of it, and an admin of the platform workspace decides.
     await expect(alpha.admin.query("approvals.list", { workspaceId: platformId, state: "pending" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    const alphaBefore = (await alpha.admin.query("workspace.get", { workspaceId: alpha.workspaceId })).snapshotDigest;
+    await decide(harness.admin, platformId, pending[0] as Approval, "approve");
+    await driver.drain();
+    expect((await harness.admin.query("file.read", { workspaceId: platformId, path: "packs/base/tools/style.lint/test.sh" })).content).toContain("style.lint: ok");
+    expect((await harness.admin.query("file.read", { workspaceId: platformId, path: "packs/base/tools/style.lint/test.sh" })).lastCommit?.message).toContain("Add the style.lint tool");
+    expect((await alpha.admin.query("workspace.get", { workspaceId: alpha.workspaceId })).snapshotDigest).toBe(alphaBefore);
+    expect(events("workspace.changed", alpha.workspaceId).at(-1)?.payload["paths"]).not.toContain("packs/base/tools/style.lint/run.sh");
   });
 });
 
-describe("the weekly Play", () => {
-  it("is scheduled on Monday at 07:00 in the platform workspace's time zone", async () => {
+describe("releases and pins", () => {
+  const packs = (client: Client, workspaceId: string) => client.query("workspace.get", { workspaceId });
+  const setPacks = async (client: Client, workspaceId: string, list: string[]) => {
+    const { content } = await harness.admin.query("file.read", { workspaceId, path: "brain.toml" });
+    return client.command("file.write", { workspaceId, files: [{ path: "brain.toml", content: content.replace(/^packs = .*$/mu, `packs = ${JSON.stringify(list)}`) }] });
+  };
+
+  it("a release freezes a version; a workspace pinned to it resolves exactly it whatever is edited later", async () => {
+    expect((await packs(alpha.admin, alpha.workspaceId)).updates).toEqual([]);
+    await expect(alpha.admin.command("pack.release", { workspaceId: alpha.workspaceId, name: "base" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(alpha.admin.command("pack.release", { workspaceId: platformId, name: "base" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(harness.admin.command("pack.release", { workspaceId: platformId, name: "no-such" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await harness.admin.command("pack.release", { workspaceId: platformId, name: "base" })).toEqual({ version: 1 });
+    const list = (await harness.admin.query("packs.list", {})).packs.find((pack) => pack.name === "base");
+    expect(list).toMatchObject({ version: 1, released: [1], working: { changed: false }, usedBy: expect.arrayContaining([{ slug: "alpha", name: "Alpha", pin: 0 }]) });
+    expect(events("pack.released", platformId)).toMatchObject([{ payload: { name: "base", version: 1 } }]);
+
+    // Update available: only for a workspace whose release is newer than its pin.
+    expect((await packs(alpha.admin, alpha.workspaceId)).updates).toEqual([{ pack: "base", pinned: 0, latest: 1 }]);
+    expect((await harness.admin.query("overview", {})).workspaces.find((workspace) => workspace.slug === "alpha")?.updates).toBe(1);
+    await expect(setPacks(alpha.admin, alpha.workspaceId, ["base@9"])).rejects.toMatchObject({ code: "INVALID_WORKSPACE" });
+    await setPacks(alpha.admin, alpha.workspaceId, ["base@1"]);
+    const pinned = await packs(alpha.admin, alpha.workspaceId);
+    expect(pinned.updates).toEqual([]);
+    expect(pinned.snapshot.pins).toEqual({ base: 1 });
+    expect(events("workspace.changed", alpha.workspaceId).at(-1)?.payload["paths"]).toEqual(["brain.toml"]);
+
+    // The platform edits its copy and releases again: the pinned workspace keeps what it pinned until its admin updates.
+    const before = (await alpha.admin.query("file.read", { workspaceId: alpha.workspaceId, path: "agents/planner/prompt.md" })).content;
+    await harness.admin.command("file.write", { workspaceId: platformId, files: [{ path: "packs/base/agents/planner/prompt.md", content: `${before}\nAlways answer in French.\n` }] });
+    expect((await harness.admin.query("packs.list", {})).packs.find((pack) => pack.name === "base")?.working).toEqual({ changed: true });
+    expect((await alpha.admin.query("file.read", { workspaceId: alpha.workspaceId, path: "agents/planner/prompt.md" })).content).toBe(before);
+    expect(await harness.admin.command("pack.release", { workspaceId: platformId, name: "base" })).toEqual({ version: 2 });
+    expect((await alpha.admin.query("file.read", { workspaceId: alpha.workspaceId, path: "agents/planner/prompt.md" })).content).toBe(before);
+    expect((await packs(alpha.admin, alpha.workspaceId)).updates).toEqual([{ pack: "base", pinned: 1, latest: 2 }]);
+    // Its admin reads the difference, then the update commits the new pin; the first release is still readable as it was.
+    const files = async (version: number) => (await alpha.admin.query("pack.files", { workspaceId: alpha.workspaceId, name: "base", version })).files.find((file) => file.path === "agents/planner/prompt.md")?.content;
+    expect(await files(1)).toBe(before);
+    expect(await files(2)).toContain("Always answer in French.");
+    await expect(alpha.admin.query("pack.files", { workspaceId: alpha.workspaceId, name: "base", version: "working" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(alpha.admin.query("pack.files", { workspaceId: platformId, name: "base", version: 2 })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await setPacks(alpha.admin, alpha.workspaceId, ["base@2"]);
+    expect((await packs(alpha.admin, alpha.workspaceId)).updates).toEqual([]);
+    expect((await alpha.admin.query("file.read", { workspaceId: alpha.workspaceId, path: "agents/planner/prompt.md" })).content).toContain("Always answer in French.");
+    // Same folder and same releases give the same snapshot, on every load.
+    const digest = (await packs(alpha.admin, alpha.workspaceId)).snapshotDigest;
+    await harness.restart();
+    expect((await (await harness.signIn("alpha-admin@example.com")).query("workspace.get", { workspaceId: alpha.workspaceId })).snapshotDigest).toBe(digest);
+  });
+});
+
+describe("the weekly Plays", () => {
+  it("are scheduled on Monday at 07:00 (and 07:30) in the platform workspace's time zone", async () => {
     const row = harness.governor.gov.db.prepare("SELECT spec, next_run_at_ms AS next FROM triggers WHERE workspace_id=? AND play='capitalize'").get(platformId) as { spec: string; next: number };
     expect(row.spec).toBe("0 7 * * 1");
+    expect((harness.governor.gov.db.prepare("SELECT spec FROM triggers WHERE workspace_id=? AND play='sync-tools'").get(platformId) as { spec: string }).spec).toBe("30 7 * * 1");
     const next = new Date(row.next);
     expect(next.getUTCDay()).toBe(1);
     // 07:00 in Tunis (UTC+1) is 06:00 UTC.

@@ -1,0 +1,17 @@
+description = """
+Compares, by name, the tools, agents and Plays that workspaces hold in their own folders with \
+the pack sources of this workspace (packs/<pack>/): a copy that differs from the pack's, or one \
+no pack has. Only tools with a script (run.sh) are compared; tools Brain runs itself are not. \
+No model is used; the answer is computed from the folders. Read only; only for the platform \
+workspace. Returns {"drift": [{"kind": "tool" or "agent" or "play", "name", "status": "differs" \
+or "new", "pack", "workspaces", "files": [{"path", "workspace"}], "hasTest"}]}, the most \
+widespread first, at most 30; identical copies in several workspaces are one entry. Read the \
+files with platform.file before judging an entry."""
+runs = "brain"
+effect = "read"
+
+[translations.fr]
+description = "Compare, par nom, les outils, agents et Plays que les espaces de travail gardent dans leurs propres dossiers avec les sources de packs de cet espace de travail (packs/<pack>/) : une copie qui diffère de celle du pack, ou une qu'aucun pack n'a. Seuls les outils avec un script (run.sh) sont comparés ; ceux que Brain exécute lui-même ne le sont pas. Aucun modèle n'est utilisé ; la réponse est calculée à partir des dossiers. Lecture seule ; uniquement pour l'espace de travail de plateforme. Renvoie {\"drift\": [{\"kind\": \"tool\" ou \"agent\" ou \"play\", \"name\", \"status\": \"differs\" ou \"new\", \"pack\", \"workspaces\", \"files\": [{\"path\", \"workspace\"}], \"hasTest\"}]}, le plus répandu d'abord, 30 au plus ; des copies identiques dans plusieurs espaces de travail forment une seule entrée. Lisez les fichiers avec platform.file avant de juger une entrée."
+
+[translations.ar]
+description = "يقارن بالاسم الأدوات والوكلاء والـ Play التي تحتفظ بها مساحات العمل في مجلداتها بمصادر الحزم (packs) في مساحة العمل هذه (packs/<pack>/): نسخة تختلف عن نسخة الحزمة أو نسخة لا توجد في أي حزمة. تُقارن الأدوات ذات السكربت (run.sh) فقط؛ أما الأدوات التي ينفذها Brain بنفسه فلا. لا يُستخدم أي نموذج؛ تُحسب الإجابة من المجلدات. للقراءة فقط؛ ولمساحة عمل المنصّة وحدها. يعيد {\"drift\": [{\"kind\": \"tool\" أو \"agent\" أو \"play\", \"name\", \"status\": \"differs\" أو \"new\", \"pack\", \"workspaces\", \"files\": [{\"path\", \"workspace\"}], \"hasTest\"}]}، الأوسع انتشارًا أولًا وبحد أقصى 30؛ والنسخ المتطابقة في عدة مساحات إدخال واحد. اقرأ الملفات بـ platform.file قبل الحكم على إدخال."

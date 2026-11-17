@@ -42,7 +42,7 @@ describe("roles", () => {
       "secret.set": { workspaceId, name: "x", value: "y" }, "secret.delete": { workspaceId, name: "x" }, "member.set": { workspaceId, email: "vera@example.com", role: "viewer" }, "member.remove": { workspaceId, userId: "u_none" },
       "task.create": { workspaceId, goal: "Do something" }, "task.confirm": t, "task.edit": { ...t, changes: [{ op: "remove", id: "t_other" }] }, "task.stop": t, "task.retry": t, "task.check": { ...t, pass: true }, "task.answer": { ...t, answer: "yes" },
       "approval.decide": { workspaceId, approvalId: "ap_none", decision: "approve", subjectDigest: "sha256:0" }, "memory.decide": { workspaceId, proposalId: "mp_none", decision: "accept" },
-      "runner.remove": { runnerId: "r_none" }, "file.read": { workspaceId, path: "brain.toml" }, "task.get": t, "task.events": { ...t, attemptId: "a_none" }, "approval.get": { workspaceId, approvalId: "ap_none" },
+      "runner.remove": { runnerId: "r_none" }, "pack.release": { workspaceId, name: "base" }, "pack.files": { workspaceId, name: "extra", version: 0 }, "file.read": { workspaceId, path: "brain.toml" }, "task.get": t, "task.events": { ...t, attemptId: "a_none" }, "approval.get": { workspaceId, approvalId: "ap_none" },
     };
     const rank = { viewer: 0, member: 1, admin: 2 } as const;
     const refusal = async (call: Promise<unknown>): Promise<string> => call.then(() => "answered", (e: { code: string }) => e.code);
@@ -197,7 +197,7 @@ describe("secrets", () => {
   it("never appear in the output of any query", async () => {
     await harness.admin.command("file.write", { workspaceId, files: [{ path: "brain.toml", content: 'name = "Shared"\npacks = ["extra"]\n[[model]]\nname = "main"\nprovider = "openai-compatible"\nurl = "https://models.example/v1"\nmodel = "m"\nkey = "secret:model-main"\n[teams]\nwebhook = "secret:teams-webhook"\n' }] });
     expect(await harness.admin.query("secrets.list", { workspaceId })).toMatchObject({ missing: ["teams-webhook"] });
-    const inputs: Partial<Record<QueryType, object>> = { "file.read": { workspaceId, path: "brain.toml" }, "task.get": { workspaceId, taskId: "t" }, "task.events": { workspaceId, taskId: "t", attemptId: "a" }, "approval.get": { workspaceId, approvalId: "a" } };
+    const inputs: Partial<Record<QueryType, object>> = { "file.read": { workspaceId, path: "brain.toml" }, "pack.files": { workspaceId, name: "extra", version: 0 }, "task.get": { workspaceId, taskId: "t" }, "task.events": { workspaceId, taskId: "t", attemptId: "a" }, "approval.get": { workspaceId, approvalId: "a" } };
     let answered = 0;
     for (const entry of Object.values(queries)) {
       const input = inputs[entry.type] ?? (entry.input.safeParse({}).success ? {} : { workspaceId });

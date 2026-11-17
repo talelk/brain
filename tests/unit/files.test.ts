@@ -90,7 +90,7 @@ describe("file schemas refuse", () => {
     ["a webhook that is not a GitHub event", PlayFile, { ...play, trigger: { webhook: "gitlab.push" } }, /GitHub event/u],
     ["a single candidate", PlayFile, { ...play, step: [{ id: "a", agent: "b", candidates: 1 }] }, /candidates/u],
     ["max_rounds of zero", PlayFile, { ...play, step: [{ id: "a", agent: "b", max_rounds: 0 }] }, /max_rounds/u],
-    ["a pack with an unknown key", PackFile, { name: "base", version: 2 }, /Unrecognized key/u],
+    ["a pack with an unknown key", PackFile, { name: "base", versions: 2 }, /Unrecognized key/u],
     ["a memory entry without a title line", MemoryEntry, splitMemoryEntry("Tag, then deploy."), /title/u],
   ])("%s", (_name, schema, value, expected) => {
     expect(messages(schema, value).join("\n")).toMatch(expected);

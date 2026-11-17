@@ -1,4 +1,4 @@
-description = "Finds work that keeps being done the same way across workspaces and proposes, for approval, a new tool, an update of a tool, agent or Play, or a memory note."
+description = "Finds work that keeps being done the same way across workspaces and proposes, in the platform workspace's pack sources and for approval, a new tool, an update of a tool, agent or Play, or a memory note."
 engine = ["pi", "claude"]
 native = "none"
 tools = ["platform.repeats", "platform.tasks", "platform.task", "platform.file", "platform.workspaces", "workspace.fix", "memory.search", "task.ask"]
@@ -9,7 +9,7 @@ tokens = 200000
 spend_usd = 1.00
 
 [translations.fr]
-description = "Repère le travail qui se fait toujours de la même façon dans les espaces de travail et propose, pour approbation, un nouvel outil, la mise à jour d'un outil, d'un agent ou d'une Play, ou une note de mémoire."
+description = "Repère le travail qui se fait toujours de la même façon dans les espaces de travail et propose, dans les sources de packs de l'espace de travail de plateforme et pour approbation, un nouvel outil, la mise à jour d'un outil, d'un agent ou d'une Play, ou une note de mémoire."
 
 [translations.ar]
-description = "يرصد العمل الذي يُنجَز دائمًا بالطريقة نفسها عبر مساحات العمل ويقترح، لتتم الموافقة عليه، أداة جديدة أو تحديثًا لأداة أو وكيل أو Play أو ملاحظة ذاكرة."
+description = "يرصد العمل الذي يُنجَز دائمًا بالطريقة نفسها عبر مساحات العمل ويقترح، في مصادر الحزم (packs) لمساحة عمل المنصّة وللموافقة عليه، أداة جديدة أو تحديثًا لأداة أو وكيل أو Play أو ملاحظة ذاكرة."

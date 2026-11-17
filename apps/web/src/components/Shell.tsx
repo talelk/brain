@@ -1,6 +1,6 @@
 import { createContext, createEffect, createMemo, createSignal, For, onCleanup, Show, useContext, type JSX, type Setter } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
-import { Avatar, Button, KeyboardShortcut } from "@talelk/newui-atoms";
+import { Avatar, Badge, Button, KeyboardShortcut } from "@talelk/newui-atoms";
 import { Menu, type BreadcrumbItem } from "@talelk/newui-molecules";
 import { CommandGroup, CommandItem, CommandPalette, SidebarItem, SidebarLabel, useSidebar } from "@talelk/newui-organisms";
 import { AppShell } from "@talelk/newui-templates";
@@ -57,6 +57,7 @@ function Nav(): JSX.Element {
   const slug = (): string | undefined => slugOf(location.pathname);
   const here = (path: string): boolean => location.pathname === path || location.pathname === `${path}/`;
   const needs = (id: string): number => session.overview.data()?.workspaces.find((workspace) => workspace.id === id)?.needsYou ?? 0;
+  const updates = (id: string): number => session.overview.data()?.workspaces.find((workspace) => workspace.id === id)?.updates ?? 0;
   const active = (): readonly WorkspaceSummary[] => session.workspaces().filter((workspace) => workspace.status === "active");
   const groups = (): ReadonlyArray<{ label: "nav.workspaces.mine" | "nav.workspaces.shared" | "nav.workspaces.public"; list: readonly WorkspaceSummary[] }> => [
     { label: "nav.workspaces.mine", list: active().filter((workspace) => !workspace.viaPublic && workspace.role === "admin") },
@@ -78,7 +79,7 @@ function Nav(): JSX.Element {
           <>
             <SidebarItem route={`/w/${workspace.slug}`} label={workspace.name} active={slug() === workspace.slug && !location.pathname.slice(`/w/${workspace.slug}`.length).replace(/^\//u, "")}
               prefix={<span aria-hidden="true"><WorkspaceMark name={workspace.name} needs={needs(workspace.id)} /></span>} suffix={<NeedsCount n={needs(workspace.id)} />}>
-              {workspace.name}<Show when={workspace.platform}> <PlatformBadge /></Show>
+              {workspace.name}<Show when={workspace.platform}> <PlatformBadge /></Show><Show when={updates(workspace.id) > 0}> <Badge theme="amber" size="sm" label={t("packs.update.badge")} /></Show>
             </SidebarItem>
             <Show when={slug() === workspace.slug && !collapsed()}>
               <div class="ms-3.5 mb-1 flex flex-col gap-0.5 border-s border-outline-gray-1 ps-1.5">

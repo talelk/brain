@@ -94,3 +94,22 @@ export async function lastCommits(dir: string, head: string, paths: ReadonlySet<
   history.set(key, found);
   return found;
 }
+
+/** Marks a commit with a name (`base@2`) that is never moved. */
+export async function tagCommit(dir: string, name: string, commit: string): Promise<void> {
+  await git.tag({ fs, dir, ref: name, object: commit });
+}
+/** The tags of the folder with the commit each names. */
+export async function tags(dir: string): Promise<Map<string, string>> {
+  const found = new Map<string, string>();
+  if (!fs.existsSync(join(dir, ".git"))) return found;
+  for (const name of await git.listTags({ fs, dir })) found.set(name, await git.resolveRef({ fs, dir, ref: `refs/tags/${name}` }));
+  return found;
+}
+/** The files of a commit under a folder, with paths relative to it. */
+export async function readFolderAt(dir: string, commit: string, prefix: string): Promise<Files> {
+  const cache = {};
+  const files: Files = new Map();
+  for (const path of await git.listFiles({ fs, dir, ref: commit, cache })) if (path.startsWith(prefix)) files.set(path.slice(prefix.length), (await git.readBlob({ fs, dir, oid: commit, filepath: path, cache })).blob);
+  return files;
+}

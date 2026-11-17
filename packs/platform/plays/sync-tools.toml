@@ -1,0 +1,22 @@
+title = "Sync tools"
+description = "Every Monday at 07:30, compare the tools, agents and Plays that workspaces improved in their own folders with the platform packs, and propose to adopt the better ones into the pack sources."
+
+[trigger]
+schedule = "30 7 * * 1"
+
+[[step]]
+id = "sync"
+agent = "syncer"
+goal = """
+Bring home what the workspaces improved. Call platform.tool-drift, read each entry's files, and \
+for each copy worth adopting propose it into the pack sources of this workspace with \
+workspace.fix: general, with its run.sh, and with a test.sh that proves it without touching \
+anything real. End with the report your instructions describe."""
+
+[translations.fr]
+title = "Synchroniser les outils"
+description = "Chaque lundi à 07h30, compare les outils, agents et Plays que les espaces de travail ont améliorés dans leurs propres dossiers avec les packs de la plateforme, et propose d'adopter les meilleurs dans les sources des packs."
+
+[translations.ar]
+title = "مزامنة الأدوات"
+description = "كل يوم اثنين في الساعة 07:30، يقارن الأدوات والوكلاء والـ Play التي حسّنتها مساحات العمل في مجلداتها بحزم المنصّة، ويقترح اعتماد الأفضل منها في مصادر الحزم."

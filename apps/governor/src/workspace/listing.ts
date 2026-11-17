@@ -1,7 +1,7 @@
 import { BrainError, type FileEntry } from "@brain/contracts";
 import type { Gov } from "../dispatch";
 import { blobSize, lastCommits, listHead, readBlobAt } from "./git";
-import { readPack } from "./files";
+import { readPack, releasedDirOf } from "./files";
 import { getWorkspace, manifestOf, workspaceDir } from "./store";
 
 /**
@@ -13,8 +13,9 @@ async function placed(gov: Gov, workspaceId: string): Promise<{ dir: string; com
   const dir = workspaceDir(gov, workspace.slug);
   const head = await listHead(dir);
   const packs = new Map<string, { source: string; bytes: Uint8Array }>();
-  for (const name of manifestOf(gov, workspace.snapshotDigest).packs) {
-    for (const [path, bytes] of readPack(gov.packsDir, name) ?? []) if (path !== "pack.toml") packs.set(path, { source: name, bytes });
+  const manifest = manifestOf(gov, workspace.snapshotDigest);
+  for (const name of manifest.packs) {
+    for (const [path, bytes] of readPack(gov.packsDir, name, manifest.pins?.[name], releasedDirOf(gov.dataDir)) ?? []) if (path !== "pack.toml") packs.set(path, { source: name, bytes });
   }
   return { dir, ...head, packs };
 }
@@ -39,8 +40,9 @@ export async function readFileOf(gov: Gov, workspaceId: string, path: string): P
   const head = await listHead(dir);
   let pack: { source: string; bytes: Uint8Array } | undefined;
   if (path !== "pack.toml") {
-    for (const name of manifestOf(gov, workspace.snapshotDigest).packs) {
-      const bytes = readPack(gov.packsDir, name)?.get(path);
+    const manifest = manifestOf(gov, workspace.snapshotDigest);
+    for (const name of manifest.packs) {
+      const bytes = readPack(gov.packsDir, name, manifest.pins?.[name], releasedDirOf(gov.dataDir))?.get(path);
       if (bytes) pack = { source: name, bytes };
     }
   }

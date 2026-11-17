@@ -5,6 +5,7 @@ import type { Db } from "../db";
 import type { Gov } from "../dispatch";
 import { auditProblem, modelHealth } from "../health/health";
 import { listRunners } from "../attempts/runners";
+import { updatesOf } from "../workspace/packs";
 import { approvalsWhere } from "../trust/approvals";
 import { COST, capOf, spentToday } from "../trust/usage";
 import { activeManifest } from "../workspace/store";
@@ -80,7 +81,7 @@ export function registerOverview({ gov }: Governor): void {
       const series = days.map((day): OverviewDay => ({ day, done: done.get(day) ?? 0, microUsd: cost.get(day) ?? 0 }));
       const manifest = activeManifest(gov, workspace.id);
       return {
-        id: workspace.id, slug: workspace.slug, name: workspace.name, role: workspace.role, visibility: workspace.visibility, platform: workspace.platform, viaPublic: workspace.viaPublic, projects: manifest.projects.map((project) => project.name), needsYou: workspace.viaPublic ? 0 : (waiting.get(workspace.id) ?? 0), running: running.get(workspace.id) ?? 0,
+        id: workspace.id, slug: workspace.slug, name: workspace.name, role: workspace.role, visibility: workspace.visibility, platform: workspace.platform, updates: updatesOf(gov, manifest).length, viaPublic: workspace.viaPublic, projects: manifest.projects.map((project) => project.name), needsYou: workspace.viaPublic ? 0 : (waiting.get(workspace.id) ?? 0), running: running.get(workspace.id) ?? 0,
         doneToday: done.get(today) ?? 0, failedToday, spend: { todayMicroUsd: spentToday(gov, workspace.id), capMicroUsd: capOf(manifest) }, lastActivityAt: last.get(workspace.id) ?? null, days: series,
       };
     });

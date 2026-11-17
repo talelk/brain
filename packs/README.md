@@ -10,7 +10,7 @@ conventions the pack files rely on, so the code that loads and runs them matches
 | `base` | | planner, checker, worker, workspace-healer | task.create, task.note, task.ask, memory.search, memory.propose, git.open-pr, message.send, workspace.fix, web.fetch | hello |
 | `software-factory` | base | analyst, developer, reviewer, release-manager | | fix-issue, build-feature, review-pull-request, dependency-check |
 | `sre` | base | sre-operator, incident-analyst, evaluator | host.status, host.logs, host.disk, http.check, host.restart, host.redeploy | keep-healthy, incident-triage, weekly-report |
-| `platform` | base | capitalizer | platform.workspaces, platform.tasks, platform.task, platform.file, platform.repeats | capitalize |
+| `platform` | base | capitalizer, syncer | platform.workspaces, platform.tasks, platform.task, platform.file, platform.repeats, platform.tool-drift | capitalize, sync-tools |
 | `customer-operations` | base | router, billing-agent, technical-agent, generalist, quality-reviewer | | handle-request, improve-answers |
 
 `pack.toml` has exactly `name`, `description` and `requires` (a list of pack names, empty
@@ -166,7 +166,7 @@ the outputs the descriptions promise to agents.
 | `memory.propose` | read | `name`* (file name slug), `title`*, `text`* | `{"id": "<proposal id>", "status": "proposed"}` |
 | `git.open-pr` | write | `project`*, `title`*, `body`* | `{"url", "number", "branch"}` |
 | `message.send` | write | `text`* | `{"sent": true}` |
-| `workspace.fix` | write | `task` (id of the failed task; by default the one the heal task heals), `workspace` (platform workspace only: the address of the workspace to change), `files`* (list of `{"path", "content"}`), `message`*, `why`* | `{"commit", "requeued": true or false}` |
+| `workspace.fix` | write | `task` (id of the failed task; by default the one the heal task heals), `files`* (list of `{"path", "content"}`), `message`*, `why`* | `{"commit", "requeued": true or false}` |
 
 - `task.create` adds the sub-task under the calling task. In `after`, the tool takes
   task ids; the planner's JSON takes titles.
@@ -178,7 +178,7 @@ the outputs the descriptions promise to agents.
 - `workspace.fix` is for `workspace-healer` only. `files` hold the whole new content of each file, not a patch; `message`
   becomes the commit message and `why` is shown to the approver. The healer's context holds, in its goal, the current
   text of the files involved (a file cut short is marked, and must not be rewritten).
-- `workspace.fix` with `workspace` (an address) is for the platform workspace only; see the `platform` pack below.
+- In the platform workspace a task that is not a heal task may also call `workspace.fix`, for files under `packs/` only; see the `platform` pack below.
 - For a `write` call that is not approved in time, the agent is told the call is held.
   Every prompt says: held, declined or refused means it did not happen; do not repeat it.
 
@@ -194,11 +194,16 @@ workspace, and each call is audited. Texts are cut (a cut text ends with `[cut: 
 | `platform.task` | `workspace`*, `id`* | the task with its `attempts`, `toolCalls` (input and output), `checks`, `cost_usd`, `tokens` |
 | `platform.file` | `workspace`*, `path`* | `{"path", "content", "truncated"}` (text files only) |
 | `platform.repeats` | `days` (30, at most 90) | `{"days", "min": 4, "candidates": [{"agent", "tools", "count", "workspaces": [{"slug", "count"}], "goals", "tasks": [{"workspace", "id"}], "first", "last"}]}` |
+| `platform.tool-drift` | (none) | `{"drift": [{"kind": "tool" or "agent" or "play", "name", "status": "differs" or "new", "pack", "workspaces", "files": [{"path", "workspace"}], "hasTest"}]}`; `pack` is the platform pack holding the same name (none for `new`) |
 
-`capitalizer` (free text, ending with its proposals): it calls `platform.repeats`, reads the evidence with `platform.tasks`,
-`platform.task` and `platform.file` (including the analyses of `workspace-healer`), and for each candidate worth it calls
-`workspace.fix` with `workspace` once: a new tool (`tool.toml`, `run.sh`, `test.sh`) and the agent's `tools` list, an update of a
-tool, agent or Play, or a memory note. Its final answer lists what it proposed and what it left, with the reason.
+`capitalizer` and `syncer` (free text, ending with their proposals): the platform workspace changes only itself. Each proposal is a
+`workspace.fix` call (no `workspace` input) for files under `packs/<pack>/` of the platform workspace, each approved on its own; the
+packs are then released and workspaces update. `capitalizer` calls `platform.repeats`, reads the evidence with `platform.tasks`,
+`platform.task` and `platform.file` (including the analyses of `workspace-healer`), and for each candidate worth it proposes a new
+tool (`tool.toml`, `run.sh`, `test.sh` and the agents' `tools` lists), an update of a tool, agent or Play, or a memory note.
+`syncer` calls `platform.tool-drift` and, for each copy worth adopting, reads it with `platform.file` and proposes it into the pack
+that holds that name (or the pack it belongs in when new); an adopted tool keeps its `run.sh` and has a `test.sh`. Each final
+answer lists what was proposed and left, with the reason.
 
 ## Script tools
 

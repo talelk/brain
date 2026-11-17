@@ -1,5 +1,5 @@
 import {
-  AgentFile, BRAIN_TOOLS, BrainFile, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PackFile, parseRef, parseWhen, PLATFORM_PACK, PlayFile, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
+  AgentFile, BRAIN_TOOLS, BrainFile, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PackFile, parseRef, parseWhen, PLATFORM_PACK, PlayFile, splitPackRef, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
   type Digest, type InputSpec, type JsonSchema, type JsonValue, type Language, type Problem, type Ref, type SnapshotManifest, type StepSpec,
 } from "@brain/contracts";
 import { parse as parseToml } from "smol-toml";
@@ -67,7 +67,15 @@ function readToml<S extends z.ZodType>(schema: S, bytes: Uint8Array, path: strin
 }
 
 /** The packs in use, required packs first, each once. */
-function resolvePacks(names: readonly string[], packsDir: string, problems: Problem[]): Array<{ name: string; files: Files }> {
+function resolvePacks(refs: readonly string[], packsDir: string, releasedDir: string | undefined, problems: Problem[]): { order: Array<{ name: string; files: Files }>; pins: Record<string, number> } {
+  const pins: Record<string, number> = {};
+  const names: string[] = [];
+  for (const ref of refs) {
+    const { name, pin } = splitPackRef(ref);
+    if (names.includes(name)) problems.push({ path: "brain.toml", message: `pack "${name}" is listed twice` });
+    else names.push(name);
+    if (pin > 0) pins[name] = pin;
+  }
   const order: Array<{ name: string; files: Files }> = [];
   const state = new Map<string, "visiting" | "done">();
   const visit = (name: string, namedIn: string): void => {
@@ -76,10 +84,10 @@ function resolvePacks(names: readonly string[], packsDir: string, problems: Prob
       problems.push({ path: namedIn, message: `pack "${name}" requires itself through the packs it requires` });
       return;
     }
-    const files = readPack(packsDir, name);
+    const files = readPack(packsDir, name, pins[name] ?? 0, releasedDir);
     const packFile = files?.get("pack.toml");
     if (!files || !packFile) {
-      problems.push({ path: namedIn, message: `pack "${name}" does not exist` });
+      problems.push({ path: namedIn, message: pins[name] ? `pack "${name}@${pins[name]}" is not a release of this Brain` : `pack "${name}" does not exist` });
       return;
     }
     state.set(name, "visiting");
@@ -91,7 +99,7 @@ function resolvePacks(names: readonly string[], packsDir: string, problems: Prob
     order.push({ name, files });
   };
   for (const name of names) visit(name, "brain.toml");
-  return order;
+  return { order, pins };
 }
 
 /** What is wrong with one Play: its steps, the agents they name and the values their templates refer to. */
@@ -155,7 +163,7 @@ function playProblems(play: PlayFile, agents: ReadonlySet<string>): string[] {
   return found;
 }
 
-export function loadWorkspace(workspace: Files, packsDir: string): Loaded {
+export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: string): Loaded {
   const problems: Problem[] = [];
   const files = new Map<string, LoadedFile>();
   const blobs = new Map<Digest, Uint8Array>();
@@ -170,7 +178,7 @@ export function loadWorkspace(workspace: Files, packsDir: string): Loaded {
   if (!brainBytes) problems.push({ path: "brain.toml", message: "the workspace has no brain.toml" });
   const brain = brainBytes ? readToml(BrainFile, brainBytes, "brain.toml", problems) : undefined;
 
-  const packs = resolvePacks(brain?.packs ?? [], packsDir, problems);
+  const { order: packs, pins } = resolvePacks(brain?.packs ?? [], packsDir, releasedDir, problems);
   for (const pack of packs) for (const [path, bytes] of pack.files) if (path !== "pack.toml") files.set(path, { bytes, source: pack.name });
   for (const [path, bytes] of workspace) {
     const replaced = files.get(path)?.source;
@@ -284,7 +292,7 @@ export function loadWorkspace(workspace: Files, packsDir: string): Loaded {
   for (const tool of Object.keys(brain.approvals)) if (!toolFiles.has(tool)) problems.push({ path: "brain.toml", message: `approvals names tool "${tool}", which does not exist` });
 
   return done(JSON.parse(JSON.stringify({
-    name: brain.name, description: brain.description, timezone: brain.timezone, visibility: brain.visibility, ...(brain.platform ? { platform: true as const } : {}), packs: packs.map((pack) => pack.name), limits: brain.limits, healing: brain.healing, models: brain.model, projects: brain.project,
+    name: brain.name, description: brain.description, timezone: brain.timezone, visibility: brain.visibility, ...(brain.platform ? { platform: true as const } : {}), packs: packs.map((pack) => pack.name), ...(Object.keys(pins).length > 0 ? { pins } : {}), limits: brain.limits, healing: brain.healing, models: brain.model, projects: brain.project,
     github: brain.github ?? null, teams: brain.teams ?? null, approvals: brain.approvals, agents, tools, plays, memory, documents,
   } satisfies SnapshotManifest)) as SnapshotManifest);
 }

@@ -6,10 +6,9 @@ import { reviveTask, settle } from "../tasks/orchestrator";
 import { healedBy } from "../tasks/heal";
 import { taskOf, type AttemptRow, type TaskRow } from "../tasks/store";
 import { linkArtifact, putArtifact } from "../trust/artifacts";
-import { classifyPath, readPack } from "../workspace/files";
-import { append } from "../events";
+import { classifyPath, readPack, releasedDirOf } from "../workspace/files";
 import { platformWorkspace } from "../workspace/platform";
-import { activate, checkFolder, commitFolder, commitOf, getWorkspace, manifestOf, workspaceDir, type Committed, type WorkspaceRow } from "../workspace/store";
+import { activate, checkFolder, commitFolder, commitOf, getWorkspace, manifestOf, workspaceDir, type Committed } from "../workspace/store";
 import { inputProblem, ToolRefusal } from "./schema";
 
 /**
@@ -20,12 +19,14 @@ const MAX_FILES = 20;
 /** Proposals one platform task may make, each with its own approval. */
 const MAX_PROPOSALS = 10;
 const WRITABLE = /^(?:brain\.toml|(?:agents|tools|plays|memory|docs)\/.+)$/u;
+/** What a task of the platform workspace that is not a heal task may change: the pack sources it keeps. */
+const PLATFORM_WRITABLE = /^packs\/[a-z][a-z0-9-]*\/.+$/u;
 const text = (bytes: Uint8Array): string => new TextDecoder().decode(bytes);
 const bytes = (value: string): Uint8Array => new TextEncoder().encode(value);
 
-export interface FixInput { readonly task?: string | undefined; readonly workspace?: string | undefined; readonly files: ReadonlyArray<{ readonly path: string; readonly content: string }>; readonly message: string; readonly why: string }
-/** What a proposal is bound to: the diff the approver reads and the commit it was made on; `workspaceId` is the workspace it changes. */
-export interface FixPlan { readonly patchDigest: Digest; readonly baseCommit: string; readonly workspaceId: string }
+export interface FixInput { readonly task?: string | undefined; readonly files: ReadonlyArray<{ readonly path: string; readonly content: string }>; readonly message: string; readonly why: string }
+/** What a proposal is bound to: the diff the approver reads and the commit it was made on. */
+export interface FixPlan { readonly patchDigest: Digest; readonly baseCommit: string }
 
 function inputOf(input: JsonValue): FixInput {
   const value = input as { readonly [name: string]: JsonValue };
@@ -38,7 +39,7 @@ function inputOf(input: JsonValue): FixInput {
     }
     return { path: entry["path"], content: entry["content"] };
   });
-  return { task: value["task"] as string | undefined, workspace: value["workspace"] as string | undefined, files: named, message: (value["message"] as string).trim(), why: value["why"] as string };
+  return { task: value["task"] as string | undefined, files: named, message: (value["message"] as string).trim(), why: value["why"] as string };
 }
 
 /** The text of a file as the workspace has it now: its own folder first, then the packs it uses, the last pack first. */
@@ -47,7 +48,7 @@ export function currentText(gov: Gov, slug: string, manifest: SnapshotManifest, 
   const own = join(workspaceDir(gov, slug), path);
   if (existsSync(own)) return text(new Uint8Array(readFileSync(own)));
   for (const pack of [...manifest.packs].reverse()) {
-    const found = readPack(gov.packsDir, pack)?.get(path);
+    const found = readPack(gov.packsDir, pack, manifest.pins?.[pack], releasedDirOf(gov.dataDir))?.get(path);
     if (found) return text(found);
   }
   return undefined;
@@ -106,28 +107,29 @@ export async function planFix(gov: Gov, attempt: AttemptRow, task: TaskRow, rowI
   const input = inputOf(rawInput);
   const earlier = db.prepare("SELECT COUNT(*) AS n FROM tool_calls WHERE task_id=? AND tool='workspace.fix' AND id != ? AND outcome IN ('pending','held','succeeded','rejected')").get(task.id, rowId) as { n: number };
   let failed: TaskRow | undefined;
-  if (input.workspace === undefined) {
-    const root = taskOf(db, task.root_id);
-    const healed = healedBy(root);
-    if (healed === undefined || root.id !== task.id) throw new ToolRefusal("workspace.fix is only for the task that heals a failed task");
+  const root = taskOf(db, task.root_id);
+  const healed = healedBy(root);
+  if (healed !== undefined) {
+    if (root.id !== task.id) throw new ToolRefusal("workspace.fix is only for the task that heals a failed task");
     if (input.task !== undefined && input.task !== healed) throw new ToolRefusal(`Your task heals ${healed}; "task" must be that id`);
     failed = taskOf(db, healed);
     if (failed.state !== "failed") throw new ToolRefusal(`The task ${healed} is ${failed.state}, not failed: nothing is left to fix`);
     if (earlier.n > 0) throw new ToolRefusal("One fix was already proposed for this task; make no other");
   } else {
-    if (platformWorkspace(gov)?.id !== task.workspace_id) throw new ToolRefusal('"workspace" is only for the tasks of the platform workspace');
-    if (input.task !== undefined) throw new ToolRefusal('A change to another workspace has no failed task: leave "task" out');
+    if (platformWorkspace(gov)?.id !== task.workspace_id) throw new ToolRefusal("workspace.fix is only for the task that heals a failed task, or for a task of the platform workspace");
+    if (input.task !== undefined) throw new ToolRefusal('"task" is only for the task that heals a failed task: leave it out');
     if (earlier.n >= MAX_PROPOSALS) throw new ToolRefusal(`A task makes at most ${MAX_PROPOSALS} proposals`);
   }
   const seen = new Set<string>();
   for (const { path } of input.files) {
-    if (!WRITABLE.test(path) || !classifyPath(path) || pathProblem(path) !== undefined) throw new ToolRefusal(`${path} is not a file you may change: only brain.toml and files under agents/, tools/, plays/, memory/ and docs/`);
+    const allowed = failed === undefined ? PLATFORM_WRITABLE.test(path) : WRITABLE.test(path);
+    if (!allowed || !classifyPath(path) || pathProblem(path) !== undefined) throw new ToolRefusal(`${path} is not a file you may change: ${failed === undefined ? "only the pack sources under packs/<pack>/" : "only brain.toml and files under agents/, tools/, plays/, memory/ and docs/"}`);
     if (seen.has(path)) throw new ToolRefusal(`${path} is written twice`);
     seen.add(path);
   }
   const write = new Map(input.files.map((file) => [file.path, bytes(file.content)] as const));
   for (const [path, content] of write) if (content.length > MAX_FILE_BYTES) throw new ToolRefusal(`${path} is too large`);
-  const workspace = targetOf(gov, task, input);
+  const workspace = getWorkspace(db, task.workspace_id);
   const active = manifestOf(gov, workspace.snapshotDigest);
   let checked;
   try {
@@ -149,49 +151,34 @@ export async function planFix(gov: Gov, attempt: AttemptRow, task: TaskRow, rowI
   }
   if (parts.length === 0) throw new ToolRefusal("The files you sent are the files the workspace already has; there is nothing to fix");
   const patchDigest = putArtifact(gov, bytes(`${parts.join("\n")}\n`));
-  // The diff is read by the approver, who may be an admin of the other workspace only.
-  for (const workspaceId of new Set([task.workspace_id, workspace.id])) linkArtifact(db, { digest: patchDigest, workspaceId, taskId: task.id, attemptId: attempt.id, name: "workspace-fix.patch", kind: "patch", mediaType: "text/x-diff" }, gov.clock.nowMs());
-  return { patchDigest, baseCommit: commitOf(db, workspace.id, workspace.snapshotDigest), workspaceId: workspace.id };
-}
-
-/** The workspace a fix changes: the task's own, or the one the platform task names. */
-function targetOf(gov: Gov, task: TaskRow, input: FixInput): WorkspaceRow {
-  if (input.workspace === undefined) return getWorkspace(gov.db, task.workspace_id);
-  const row = gov.db.prepare("SELECT id FROM workspaces WHERE slug=?").get(input.workspace) as { id: string } | undefined;
-  if (!row) throw new ToolRefusal(`There is no workspace "${input.workspace}"; platform.workspaces lists them`);
-  const workspace = getWorkspace(gov.db, row.id);
-  if (workspace.status !== "active") throw new ToolRefusal(`${input.workspace} is archived`);
-  return workspace;
+  linkArtifact(db, { digest: patchDigest, workspaceId: task.workspace_id, taskId: task.id, attemptId: attempt.id, name: "workspace-fix.patch", kind: "patch", mediaType: "text/x-diff" }, gov.clock.nowMs());
+  return { patchDigest, baseCommit: commitOf(db, workspace.id, workspace.snapshotDigest) };
 }
 
 // --- carrying it out ---
 
 /** Commits an approved proposal, as `file.write` does. Refused when the workspace changed since the proposal was made. */
-export async function commitFix(gov: Gov, task: TaskRow, rawInput: JsonValue, baseCommit: string | undefined): Promise<Committed & { readonly workspaceId: string; readonly named: boolean }> {
+export async function commitFix(gov: Gov, task: TaskRow, rawInput: JsonValue, baseCommit: string | undefined): Promise<Committed> {
   const input = inputOf(rawInput);
-  const workspace = targetOf(gov, task, input);
+  const workspace = getWorkspace(gov.db, task.workspace_id);
   if (baseCommit !== commitOf(gov.db, workspace.id, workspace.snapshotDigest)) throw new ToolRefusal("The workspace changed after this fix was proposed, so the approval no longer fits it. Propose the fix again from the new files");
-  const committed = await commitFolder(gov, workspace.slug, {
+  const healed = healedBy(task);
+  return commitFolder(gov, workspace.slug, {
     write: new Map(input.files.map((file) => [file.path, bytes(file.content)] as const)), remove: [], instanceAdmin: false,
-    message: `${input.message.slice(0, 160)}\n\n${input.workspace === undefined ? `Heals task ${healedBy(task)}` : `Proposed by platform task ${task.id}`}`,
+    message: `${input.message.slice(0, 160)}\n\n${healed !== undefined ? `Heals task ${healed}` : `Proposed by platform task ${task.id}`}`,
     author: { name: task.agent ?? "workspace-healer", email: "brain@localhost" },
   });
-  return { ...committed, workspaceId: workspace.id, named: input.workspace !== undefined };
 }
 
 /**
  * In the transaction that records the call: the committed folder becomes the active snapshot. For a heal, the failed task, with the sub-tasks that failed under it,
- * is moved onto it and queued again (a task a person already retried or stopped is left as it is). For a change to a workspace by a platform task, the target's
- * audit log says which task proposed it, and nothing is revived.
+ * is moved onto it and queued again (a task a person already retried or stopped is left as it is). A platform task's change revives nothing.
  */
-export function applyFix(gov: Gov, attempt: AttemptRow, task: TaskRow, committed: Committed & { readonly workspaceId: string; readonly named: boolean }): JsonValue {
+export function applyFix(gov: Gov, attempt: AttemptRow, task: TaskRow, committed: Committed): JsonValue {
   const actor = { kind: "agent" as const, id: attempt.agent, attemptId: attempt.id };
-  activate(gov, gov.db, committed.workspaceId, committed, actor, "workspace.changed");
+  activate(gov, gov.db, task.workspace_id, committed, actor, "workspace.changed");
   const healed = healedBy(task);
-  if (healed === undefined || committed.named) {
-    append(gov.db, { type: "platform.fix", workspaceId: committed.workspaceId, subject: `workspace:${committed.workspaceId}`, payload: { taskId: task.id, attemptId: attempt.id, commit: committed.commit, paths: [...committed.paths] }, actor });
-    return { commit: committed.commit, requeued: false };
-  }
+  if (healed === undefined) return { commit: committed.commit, requeued: false };
   const failed = taskOf(gov.db, healed);
   const requeued = failed.state === "failed";
   if (requeued) {

@@ -3,8 +3,7 @@ import {
 } from "@brain/contracts";
 import type { Governor } from "../app";
 import { tx, type Db } from "../db";
-import { accessOf } from "../access";
-import type { Ctx, Gov } from "../dispatch";
+import type { Gov } from "../dispatch";
 import { append, SYSTEM } from "../events";
 import { attemptEnded } from "../tasks/orchestrator";
 import { attemptOf, needOf, newId, payloadOf, queueAttempt, setState, taskOf, utcDay, type AttemptRow, type TaskRow } from "../tasks/store";
@@ -76,7 +75,7 @@ export interface CallDecision { readonly rowId: string; readonly state: Approval
  * Whether a call may run now. A `read` call may. A call with an effect is approved at once when a standing approval covers it; otherwise
  * an approval is pending and the task needs a person. Asking again for the same call answers what was decided.
  */
-export function authorizeCall(gov: Gov, attempt: AttemptRow, call: { callId: string; tool: string; effect: Effect; input: JsonValue; workspaceId?: string } & PullRequestChange): CallDecision {
+export function authorizeCall(gov: Gov, attempt: AttemptRow, call: { callId: string; tool: string; effect: Effect; input: JsonValue } & PullRequestChange): CallDecision {
   const { db } = gov;
   const rowId = callRowId(attempt, call.callId);
   const known = db.prepare("SELECT approval_id FROM tool_calls WHERE id=?").get(rowId) as { approval_id: string | null } | undefined;
@@ -94,10 +93,8 @@ export function authorizeCall(gov: Gov, attempt: AttemptRow, call: { callId: str
   const used = (db.prepare("SELECT count FROM standing_uses WHERE workspace_id=? AND tool=? AND day=?").get(task.workspace_id, call.tool, today) as { count: number } | undefined)?.count ?? 0;
   const standing = standingCovers(manifest.approvals[call.tool], call.input, used, today);
   const id = newId("ap");
-  // A change to another workspace is the other workspace's to decide: the approval belongs to it, while its task stays in the platform workspace.
-  const workspaceId = call.workspaceId ?? task.workspace_id;
   db.prepare("INSERT INTO approvals(id, workspace_id, task_id, attempt_id, tool, effect, subject_json, subject_digest, state, standing, expires_at_ms, decided_at_ms, created_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
-    .run(id, workspaceId, task.id, attempt.id, call.tool, call.effect, JSON.stringify(subject), approvalSubjectDigest(subject as unknown as JsonValue), standing ? "approved" : "pending", standing ? 1 : 0, standing ? null : now + PENDING_FOR_MS, standing ? now : null, now);
+    .run(id, task.workspace_id, task.id, attempt.id, call.tool, call.effect, JSON.stringify(subject), approvalSubjectDigest(subject as unknown as JsonValue), standing ? "approved" : "pending", standing ? 1 : 0, standing ? null : now + PENDING_FOR_MS, standing ? now : null, now);
   db.prepare("UPDATE tool_calls SET approval_id=? WHERE id=?").run(id, rowId);
   const actor = { kind: "agent" as const, id: attempt.agent, attemptId: attempt.id };
   if (standing) {
@@ -105,7 +102,7 @@ export function authorizeCall(gov: Gov, attempt: AttemptRow, call: { callId: str
     append(db, { type: "approval.standing", workspaceId: task.workspace_id, subject: `approval:${id}`, payload: { taskId: task.id, tool: call.tool, subjectDigest: approvalSubjectDigest(subject as unknown as JsonValue), use: used + 1 }, actor });
     return { rowId, state: "approved", approvalId: id, subject };
   }
-  append(db, { type: "approval.requested", workspaceId, subject: `approval:${id}`, payload: { taskId: task.id, tool: call.tool, subjectDigest: approvalSubjectDigest(subject as unknown as JsonValue) }, actor });
+  append(db, { type: "approval.requested", workspaceId: task.workspace_id, subject: `approval:${id}`, payload: { taskId: task.id, tool: call.tool, subjectDigest: approvalSubjectDigest(subject as unknown as JsonValue) }, actor });
   if (task.state === "running") setState(gov, task, "needs_you", { need: { kind: "approval", approvalId: id } });
   return { rowId, state: "pending", approvalId: id, subject };
 }
@@ -147,33 +144,24 @@ export function approvalsWhere(db: Db, where: string, ...values: unknown[]): App
   return (db.prepare(`${VIEW} WHERE ${where}`).all(...values) as ViewRow[]).map(view);
 }
 
-/** Whether the caller may decide a `workspace.fix` approval: an admin of the workspace it changes, or, when a platform task proposed it for another workspace, an instance admin. */
-function mayDecideFix(ctx: Ctx, row: ApprovalRow): boolean {
-  if (!ctx.user) return false;
-  const task = taskOf(ctx.db, row.task_id);
-  if (row.workspace_id !== task.workspace_id && ctx.user.instanceAdmin) return true;
-  return accessOf(ctx.gov, ctx.user.id, row.workspace_id)?.role === "admin";
-}
-
 export function registerApprovals(governor: Governor): void {
   const { gov } = governor;
   gov.registry.query("approvals.list", (ctx, input) => ({
-    approvals: approvalsWhere(ctx.db, "(a.workspace_id=? OR t.workspace_id=?) AND (? IS NULL OR a.state=?) ORDER BY a.created_at_ms DESC, a.rowid DESC LIMIT ?", input.workspaceId, input.workspaceId, input.state ?? null, input.state ?? null, input.limit),
+    approvals: approvalsWhere(ctx.db, "a.workspace_id=? AND (? IS NULL OR a.state=?) ORDER BY a.created_at_ms DESC, a.rowid DESC LIMIT ?", input.workspaceId, input.state ?? null, input.state ?? null, input.limit),
   }));
   gov.registry.query("approval.get", (ctx, input) => {
-    const [approval] = approvalsWhere(ctx.db, "(a.workspace_id=? OR t.workspace_id=?) AND a.id=?", input.workspaceId, input.workspaceId, input.approvalId);
+    const [approval] = approvalsWhere(ctx.db, "a.workspace_id=? AND a.id=?", input.workspaceId, input.approvalId);
     if (!approval) throw new BrainError("NOT_FOUND", "Approval not found");
     return approval;
   });
 
   gov.registry.command("approval.decide", (ctx, input) => {
     const { db } = ctx;
-    const row = db.prepare("SELECT a.* FROM approvals a JOIN tasks t ON t.id = a.task_id WHERE a.id=? AND (a.workspace_id=? OR t.workspace_id=?)").get(input.approvalId, input.workspaceId, input.workspaceId) as ApprovalRow | undefined;
+    const row = db.prepare("SELECT * FROM approvals WHERE id=? AND workspace_id=?").get(input.approvalId, input.workspaceId) as ApprovalRow | undefined;
     if (!row) throw new BrainError("NOT_FOUND", "Approval not found");
     if (row.state !== "pending") throw new BrainError("CONFLICT", `This approval is already ${row.state}`);
-    // A change of a workspace's files is an admin's to allow, as an edit of them is. One a platform task proposes for another workspace is decided by that
-    // workspace's admin or by an instance admin.
-    if (row.tool === "workspace.fix" && !mayDecideFix(ctx, row)) throw new BrainError("FORBIDDEN", "Only an admin can approve a change of the workspace's files");
+    // A change of the workspace's own files is an admin's to allow, as an edit of them is.
+    if (row.tool === "workspace.fix" && ctx.role !== "admin") throw new BrainError("FORBIDDEN", "Only an admin can approve a change of the workspace's files");
     if (row.expires_at_ms !== null && row.expires_at_ms <= ctx.now()) throw new BrainError("CONFLICT", "This approval expired; the call did not happen");
     // The decision is for exactly what the approver was shown, and what is stored must still be what was asked.
     if (input.subjectDigest !== row.subject_digest || approvalSubjectDigest(JSON.parse(row.subject_json) as JsonValue) !== row.subject_digest) {

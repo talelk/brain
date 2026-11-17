@@ -44,7 +44,7 @@ description = "Workforce cost platform"
 timezone = "Africa/Tunis"   # schedules are read in it; UTC when not given
 visibility = "private"      # or "public": see People
 platform = false            # true only for the platform workspace: see The platform workspace
-packs = ["base", "software-factory"]
+packs = ["base", "software-factory"]   # "base@2" uses release 2 of a pack (see The platform workspace)
 
 [limits]
 daily_spend_usd = 20        # 0 means no cap
@@ -249,7 +249,8 @@ upload is limited to 5 MB per file and 20 MB in all.
 
 ### Packs
 
-A workspace lists the packs it uses. A file in the workspace with the same name as a
+A workspace lists the packs it uses, each as its shipped baseline (`base`) or as a release the
+platform workspace made (`base@2`). A file in the workspace with the same name as a
 pack's file replaces it. `base` holds the task, memory and pull request tools plus a
 planner and a checker; the other packs build on it.
 
@@ -309,22 +310,36 @@ second platform workspace. A platform workspace is private, and only instance ad
 it, whatever its members list says. Only it may list the `platform` pack; any other workspace
 that lists it is invalid.
 
-Its agents may **read everything and write with approval**:
+Its agents **read everything and change only their own workspace**:
 
-- **Read.** Five read-only tools of the `platform` pack, usable only by a task of the
-  platform workspace: `platform.workspaces` (every workspace, with its spend and counts),
+- **Read.** Read-only tools of the `platform` pack, usable only by a task of the platform
+  workspace: `platform.workspaces` (every workspace, with its spend and counts),
   `platform.tasks` (search the tasks of every workspace, failures included), `platform.task`
   (one task: goal, result, attempts, tool calls with inputs and outputs, checks, cost),
-  `platform.file` (any file of any workspace) and `platform.repeats` (see below). Each call
-  is recorded in the audit log with the source and the target workspace. A secret's value is
-  never shown (only `secret:<name>` references exist in files, and a value that a tool call
-  echoed is hidden), and every answer is cut to a size.
-- **Write.** `workspace.fix` takes a `workspace` (an address) only from the platform
-  workspace. It is an effect `write`: the change is checked, shown as a diff with the reason,
-  and applied only once an admin of that workspace, or an instance admin, approves exactly
-  that change. It is committed in the target workspace, which keeps the platform task's id in
-  the commit and in its audit log. Each proposal is its own approval; nothing changes without
-  one. It never changes `platform`, `approvals`, `github` or `teams` of `brain.toml`.
+  `platform.file` (any file of any workspace), `platform.repeats` and `platform.tool-drift`
+  (see below). Each call is recorded in the audit log with the source and the target
+  workspace. A secret's value is never shown (only `secret:<name>` references exist in files,
+  and a value that a tool call echoed is hidden), and every answer is cut to a size.
+- **Write.** A task of the platform workspace (not a heal task) may call `workspace.fix`, as
+  a heal task does, but only for files under `packs/` of its own workspace: the change is
+  checked, shown as a diff with the reason, and applied only once an admin approves exactly
+  it. Nothing in another workspace is ever written by the platform workspace.
+
+### Packs are kept and delivered here
+
+The packs shipped with Brain are the baseline. The platform workspace holds an editable copy
+of each under `packs/<name>/` (same layout as a pack; made from the shipped ones in the
+commit that makes a workspace the platform workspace), and `pack.toml` there has a `version`,
+the last release (absent: none). An admin of the platform workspace edits those files like any
+others (Files, the forms, a proposal approved) and **releases** a pack: its version goes up
+by one, the content of that commit is frozen as version N (git tag `<name>@N`; it never changes),
+and any workspace may use it.
+
+A workspace chooses what it uses in `brain.toml`: `packs = ["base"]` is the shipped baseline,
+`packs = ["base@2"]` is released version 2. A workspace whose pack has a newer release than the
+one it uses (the baseline counts as 0) shows **Update available**; an admin of that workspace
+sees the difference and presses **Update to vN**, which commits the new pin like any edit of
+`brain.toml` and is audited. Brain never changes a workspace's pins by itself.
 
 ### Capitalisation
 
@@ -333,16 +348,28 @@ pack's Play `capitalize`, run by its agent `capitalizer`, starts every Monday at
 platform workspace's clock and by hand. **Repeated work** is a job done four or more times
 in the last 30 days, in all workspaces together, by the same agent (by name) calling the same
 sequence of tools on similar goals. `platform.repeats` finds these deterministically, with no
-model. The `capitalizer` judges each one, and for each that is worth it proposes one of:
+model. The `capitalizer` judges each one, and for each that is worth it proposes, in the pack
+sources of the platform workspace, one of:
 
-1. a **new tool** (`tools/<name>/tool.toml`, `run.sh`, `test.sh` that proves it without
-   touching anything real) for the workspaces concerned, and the agent's `tools` list updated;
+1. a **new tool** (`tool.toml`, `run.sh`, `test.sh` that proves it without touching anything
+   real) in a pack, and the agents' `tools` lists updated;
 2. an **update** of an existing tool, agent or Play with what was learned (a better prompt, a
    limit, a missing step, a fixed script);
-3. a **memory note**, when the lesson needs neither.
+3. a **memory note** of a pack, when the lesson needs neither.
 
 It may also read the analyses the `workspace-healer` made (`platform.tasks` with that agent),
-since a failure that was healed is something learned.
+since a failure that was healed is something learned. Once the proposals are approved and the
+pack released, workspaces get them with Update.
+
+### Tool sync
+
+The Play `sync-tools` (Monday 07:30 and by hand), run by the agent `syncer`, brings home
+what workspaces improved on their own. `platform.tool-drift` compares, by name, the tools, agents
+and Plays that workspaces hold in their own folders with the platform workspace's pack sources: a
+workspace copy that differs, or one that no pack has. A tool that is a script (`run.sh`) is compared
+with its scripts; a tool Brain runs itself has none and is not compared. For each, the agent decides
+whether to adopt the workspace's version into a pack, as a `workspace.fix` proposal to approve; an
+adopted tool includes its `run.sh` and a `test.sh` that proves it. Then the pack can be released.
 
 ## What is recorded for every task
 

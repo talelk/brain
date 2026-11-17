@@ -66,6 +66,16 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   `requires = [...]` naming other packs, which are pulled in with it) and the same
   `agents/`, `tools/`, `plays/`, `memory/` layout as a workspace. `packs/README.md`
   documents the conventions the shipped packs rely on.
+- **Pins and releases.** An entry of `packs` is `<name>` (the shipped baseline in `packs/` of the repository) or `<name>@<n>` (release `n`,
+  `n >= 1`; one pin per pack, and it must be released). A released pack is read from `<data>/released/<name>@<n>/`, written once by `pack.release`
+  and never changed; its own `requires` and any pack the workspace does not pin are the baseline. The manifest keeps `packs` as names and
+  adds `pins` (`{name: n}`, left out when empty), so the same folder and the same releases always give the same snapshot digest. `workspace.get`
+  carries `updates` (`{pack, pinned, latest}` for each pack used whose newest release is above its pin, the baseline being 0) and `overview` a count;
+  nothing changes a pin but a write of `brain.toml`.
+  **Releasing** is the command `pack.release` (an admin of the platform workspace): it reads `packs/<name>/` of the platform folder, sets its
+  `pack.toml` `version` to the last release plus one, checks that a workspace using that content is valid, writes `<data>/released/<name>@<n>/`, commits
+  the version (`Release <name> n`) and tags the commit `<name>@<n>` (the audit event `pack.released`). At start `reconcile` rewrites a released
+  directory that is missing from its tag. The commit that makes a workspace the platform workspace also writes `packs/<name>/` for every shipped pack.
 - In a step, `goal` may contain `{{<input name>}}` and `{{steps.<id>.result}}` (or a
   field of a JSON result, `{{steps.<id>.result.<field>}}`); `when` is one comparison
   over such a value (`==`, `!=`, with a string, number or boolean); `for_each` names a
@@ -146,7 +156,7 @@ imports the same definitions for types. `GET /v1/events` is server-sent events: 
 `changed` frame per workspace when anything changed (the client refetches).
 `GET /v1/artifacts/:digest` streams bytes to a member of the owning workspace.
 
-Commands: `setup.create`, `workspace.create` (its input may carry `platform: true`, kept in the first `brain.toml`), `workspace.archive`, `workspace.stopAll`,
+Commands: `setup.create`, `workspace.create` (its input may carry `platform: true`, kept in the first `brain.toml`), `pack.release`, `workspace.archive`, `workspace.stopAll`,
 `file.write`, `file.delete`, `secret.set`, `secret.delete`, `member.set`,
 `member.remove`, `task.create` (a goal, optionally a Play and inputs), `task.confirm`
 (accept a proposed plan), `task.edit` (change, add or remove sub-tasks not yet started),
@@ -154,7 +164,7 @@ Commands: `setup.create`, `workspace.create` (its input may carry `platform: tru
 `approval.decide`, `memory.decide`, `runner.token`, `runner.remove`.
 
 Queries: `setup.status`, `me`, `packs.list`, `workspace.get`, `workspace.files`,
-`file.read`, `today`, `overview`, `schedules.list`, `tasks.list`, `task.get`, `task.events`, `approvals.list`,
+`file.read`, `pack.files`, `today`, `overview`, `schedules.list`, `tasks.list`, `task.get`, `task.events`, `approvals.list`,
 `approval.get`, `usage.summary`, `memory.list`, `members.list`, `secrets.list` (names
 only), `runners.list`, `health`, `audit.verify`. `overview` takes no workspace: for the active
 workspaces the caller is a member of it answers per-workspace counts (needs you, running, done and
@@ -164,6 +174,11 @@ and, for a call, the approval itself) and one of the 30 attempts running now; an
 only, runners online, models reachable and the audit chain. It is declared `public` like `me` and answers
 UNAUTHENTICATED without a session; a person never sees a workspace they are not in. A client refetches it on
 any `changed` frame, since the stream already carries every workspace of the caller.
+
+`packs.list` also says, for each pack, the working `version` and whether the platform workspace's copy differs from its last release (`working`, when the platform
+workspace holds a copy), its `released` versions and `usedBy` (workspace address, name and pin). `pack.files` (an admin of the workspace) answers the text of
+the files of a pack at `shipped`, a released number or `working`: the platform workspace may ask for any pack and `working`; another workspace only for a
+pack it uses, at the baseline or a release (which is how its admin reads the difference before an update).
 
 `schedules.list` takes no workspace, like `overview`: for every active workspace the caller can see it answers each
 Play with a trigger: the workspace and its time zone, the Play's title and steps (id and agent), the trigger (`schedule`
@@ -361,28 +376,26 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   `write`), `workspace.fix` (effect `write`, for the agent of a heal task and the task it heals, or, with `workspace`, for a task of the platform workspace), and the five `platform.*` tools. A
   Brain-run call with an effect answers `pending` until its approval is decided;
   the runner then sends the same call again.
-- **`workspace.fix` with `workspace`** (an address; honoured only when the calling task's workspace is the platform workspace, else refused):
-  the change is for that workspace, which may be the platform workspace itself. No heal task, no failed task and no limit of one proposal
-  (at most 10 for a task); `task` is not accepted. The files are checked against the target's folder and active snapshot exactly as above,
-  and `platform` joins `approvals`, `github` and `teams` among the keys a fix cannot change. The approval belongs to the target:
-  its `workspace_id` is the target's while its task is the platform task, so the target's admin finds it in their own workspace, and
-  `approvals.list`, `approval.get` and `approval.decide` match `a.workspace_id=? OR t.workspace_id=?`. The diff is linked to both workspaces. It is decided
-  by an admin of the target, or by an instance admin from the platform workspace; a member who is not an admin never. Approved, the Governor commits in
-  the target (the message ends with `Proposed by platform task <id>`), activates its snapshot, appends `workspace.changed` there and a
-  `platform.fix` event with the platform task, the attempt, the commit and the approval, and revives nothing.
+- **`workspace.fix` in the platform workspace**: a task of the platform workspace that is not a heal task may call it with no failed task. It
+  changes only files under `packs/` (any other path is refused), at most 10 proposals a task, each its own approval, decided by an admin of the
+  platform workspace; the commit message ends with `Proposed by platform task <id>`. Nothing else differs from a heal's fix, and there is no input
+  that names another workspace: no tool writes to a workspace but its own.
 - **`platform.*`** (pack `platform`; effect `read`; run in the transaction that records the call): refused unless the calling task's
-  workspace is the platform workspace. Each call appends a `platform.read` event (workspace = the target, or the platform for a listing;
+  workspace is the platform workspace. Each call that reads another workspace appends a `platform.read` event (workspace = the target;
   payload: source and target addresses, tool, what was read) in that transaction. A value of the target's secrets that appears in
   a returned text is replaced by `[secret]`, no secret is ever read otherwise, and every text is cut to a size. Inputs and outputs are in
   `packs/README.md`. `platform.repeats` reads `tasks`, `attempts` and `tool_calls` of every workspace on `gov.clock`:
   a task counts when it is `done`, was created within the last `days` (30), has a `work` attempt, is not a heal task or a task of
-  `workspace-healer` or `capitalizer`. Its job is the agent's name plus the ordered names of its calls that `succeeded`, leaving out
+  `workspace-healer`, `capitalizer` or `syncer`. Its job is the agent's name plus the ordered names of its calls that `succeeded`, leaving out
   the board and bookkeeping tools (`task.note`, `task.ask`, `task.create`, `memory.search`, `memory.propose`; a job with no call left is a
   native-tools job and counts too). A goal is normalized to its set of words: lower case, URLs and any word with a digit removed, only
   letters, at least 3 of them, without a short list of English and French stop words. Within one job, tasks are taken oldest first and
   each joins the first group whose first goal shares at least 0.6 of the words (Jaccard) or starts a group. A group of 4 or more is a
   candidate: agent, tools, count, workspaces with their counts, up to 3 goals and 8 task ids, first and last time.
-
+  `platform.tool-drift` compares, for every workspace but the platform, each tool with a `run.sh`, each agent and each Play whose files are
+  the workspace's own (`source = "workspace"` in its snapshot) with the same file in `packs/<pack>/` of the platform workspace's folder:
+  `differs` when a file's text is not the same, `new` when no pack has it. A tool with no `run.sh` (Brain-run, host command) is left out.
+  Identical copies in several workspaces are one entry listing them; an entry says whether a tool has its `test.sh`, and at most 30 are returned.
 ## 8. Runner on disk and working copies
 
 ```
@@ -452,7 +465,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 
 SolidJS, Vite, the `@talelk/newui-*` design system, English, French and Arabic (RTL).
 Text a pack or a workspace wrote for people (`[translations.<lang>]`, `memory/<name>.<lang>.md`; docs/model.md, Translations) is shown through `human()` of `src/i18n`: the page language's text when the file has it, the English otherwise, at every place that shows an agent, tool or Play description, a Play title or input description, a pack description or a memory title (the Schedules list, the Today Play chips, the Team graph and the New workspace packs included). The forms edit the English text and write the translations back untouched, dropping only a translated input the form removed.
-The platform workspace is shown with a "Platform" badge in the sidebar and in the Overview table; the New workspace wizard offers it, and the Settings form a switch for it, only to an instance admin (`me.instanceAdmin`); the wizard then adds the `platform` pack. An approval of a change to another workspace says which one.
+The platform workspace is shown with a "Platform" badge in the sidebar and in the Overview table; the New workspace wizard offers it, and the Settings form a switch for it, only to an instance admin (`me.instanceAdmin`); the wizard then adds the `platform` pack. Its Workspace screen has a Packs tab (`packs.list` and `pack.files`: each pack's working version, releases, the workspaces using each, the difference between two versions, and Release). Any workspace with `updates` shows an "Update available" badge (Settings, Overview) and, to its admin, the difference (`pack.files`) and "Update to vN", which writes the pin through `file.write`.
 First paint: the Governor serves the built files compressed (Brotli or gzip) and caches `/assets` for a year; the page's own chunk downloads beside the questions of who is signed in; a reload paints from the tab's last `me` and asks again behind it; a page that waits shows grey blocks in the shape of its content. On a wide screen a Workspace list opens with its first item selected; a phone keeps the list first.
 Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones): Overview, Schedules, then the
 workspaces (grouped as My workspaces, Shared with me and Public workspaces, each with an orange count of what waits there; the open one expands to Today, Tasks and
@@ -481,8 +494,9 @@ the handoffs between them, read from the Plays' steps and the recent tasks the w
 - `tests/core/platform.test.ts`: the platform setting's guard (a workspace admin and a member refused, an instance admin allowed, a
   second platform refused, a person who is not an instance admin sees nothing of it); the `platform.*` tools (only from the platform
   workspace, audited with both workspaces, secrets never shown); `platform.repeats` (4 done twice in two workspaces found, 3 not, runs
-  older than 30 days not); a `capitalizer` proposal across workspaces (approval by the target's admin, the commit and the audit in the
-  target); the weekly schedule of `capitalize`.
+  older than 30 days not); `platform.tool-drift`; a capitalizer proposal lands only in the platform workspace's `packs/` after an admin approves it; a
+  release freezes a version, a workspace pinned to it resolves exactly it whatever is edited later, Update available shows only for a newer release, and
+  Update commits the pin; the weekly schedules of `capitalize` and `sync-tools`.
 - `tests/e2e`: the real runner on its fixture engine against the Governor in one process: a pipeline to a checked
   result, a native edit that leaves as an approved pull request, a held call carried out later.
 - `tests/browser` (`pnpm test:browser`: builds the web app, then Playwright with Chromium at 1440 and, for the first

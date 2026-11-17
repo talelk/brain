@@ -1,0 +1,15 @@
+description = "Compares the tools, agents and Plays that workspaces improved in their own folders with the platform workspace's packs, and proposes to adopt the improvements into the pack sources, for approval."
+engine = ["pi", "claude"]
+native = "none"
+tools = ["platform.tool-drift", "platform.file", "platform.workspaces", "platform.tasks", "workspace.fix", "memory.search", "task.ask"]
+
+[limits]
+turns = 40
+tokens = 200000
+spend_usd = 1.00
+
+[translations.fr]
+description = "Compare les outils, agents et Plays que les espaces de travail ont améliorés dans leurs propres dossiers avec les packs de l'espace de travail de plateforme, et propose d'adopter les améliorations dans les sources des packs, pour approbation."
+
+[translations.ar]
+description = "يقارن الأدوات والوكلاء والـ Play التي حسّنتها مساحات العمل في مجلداتها بحزم (packs) مساحة عمل المنصّة، ويقترح اعتماد التحسينات في مصادر الحزم، للموافقة عليها."

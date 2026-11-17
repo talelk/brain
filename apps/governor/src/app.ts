@@ -27,6 +27,7 @@ import { registerTrust } from "./trust/handlers";
 import { instanceKeys } from "./trust/secrets";
 import { registerUsage } from "./trust/usage";
 import { registerWorkspace } from "./workspace/handlers";
+import { registerPacks, restoreReleases } from "./workspace/packs";
 import { reconcile } from "./workspace/store";
 
 export interface GovernorOptions {
@@ -200,12 +201,13 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   });
 
   // Each module registers its commands, queries, routes and timers here, before the web app's catch-all route below.
-  for (const register of [registerAuth, registerWorkspace, registerTrust, registerUsage, registerApprovals, registerMemory, registerTriggers, registerTasks, registerOverview, registerRunners, registerAttempts, registerGateway, registerGithub, registerTeams, registerHealth]) register(governor);
+  for (const register of [registerAuth, registerWorkspace, registerPacks, registerTrust, registerUsage, registerApprovals, registerMemory, registerTriggers, registerTasks, registerOverview, registerRunners, registerAttempts, registerGateway, registerGithub, registerTeams, registerHealth]) register(governor);
   governor.every(15 * 60_000, () => void checkpoint(gov));
 
   ensureAuditKey(gov);
   ensureSetupToken(db, dataDir);
   if (options.localRunnerTokenFile) offerLocalRunnerToken(gov, resolve(options.localRunnerTokenFile));
+  await restoreReleases(gov);
   await reconcile(gov);
 
   // The built web app, when it is there; any other path is a page of it.

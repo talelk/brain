@@ -57,7 +57,9 @@ export interface WorkspaceSummary {
   readonly viaPublic: boolean;
 }
 /** A workspace as its screens show it: the active snapshot holds its agents, tools, Plays, memory entries, projects and settings. */
-export interface Workspace extends WorkspaceSummary { readonly snapshotDigest: Digest; readonly commit: string; readonly snapshot: SnapshotManifest }
+/** A pack the workspace uses that has a newer release than the one it is pinned to (0: the shipped baseline). */
+export interface PackUpdate { readonly pack: string; readonly pinned: number; readonly latest: number }
+export interface Workspace extends WorkspaceSummary { readonly snapshotDigest: Digest; readonly commit: string; readonly snapshot: SnapshotManifest; readonly updates: readonly PackUpdate[] }
 export interface FileEntry {
   readonly path: string;
   readonly bytes: number;
@@ -81,6 +83,15 @@ export interface PackSummary {
   readonly agents: ReadonlyArray<{ readonly name: string; readonly description: string }>;
   readonly tools: ReadonlyArray<{ readonly name: string; readonly description: string; readonly effect: Effect }>;
   readonly plays: ReadonlyArray<{ readonly name: string; readonly title: string; readonly description: string; readonly translations: PlayFile["translations"] }>;
+}
+/** A pack as the platform workspace manages it. */
+export interface PackInfo extends PackSummary {
+  /** The last release in the platform workspace's copy; 0 when none. */
+  readonly version: number;
+  /** Present when the platform workspace holds a copy: whether it differs from its last release. */
+  readonly working?: { readonly changed: boolean };
+  readonly released: readonly number[];
+  readonly usedBy: ReadonlyArray<{ readonly slug: string; readonly name: string; readonly pin: number }>;
 }
 export interface Member { readonly userId: string; readonly name: string; readonly email: string; readonly role: Role }
 export interface SecretName { readonly name: string; readonly updatedAt: number }
@@ -251,6 +262,8 @@ export interface OverviewWorkspace {
   readonly role: Role;
   readonly visibility: "private" | "public";
   readonly platform: boolean;
+  /** Packs with a newer release than the one used. */
+  readonly updates: number;
   readonly viaPublic: boolean;
   readonly projects: readonly string[];
   /** Tasks waiting for a person. */
@@ -389,6 +402,8 @@ export const commands = table({
     /** A first project; `credential` is stored as the secret `github`. */
     project: z.strictObject({ name: name("a project name").optional(), repo: z.string().min(1).max(500), branch: z.string().min(1).max(200).default("main"), access: z.enum(["read", "write"]).default("read"), credential: z.string().min(1).max(10_000).optional() }).optional(),
   })],
+  /** Releases a pack of the platform workspace: its version goes up by one and that content is frozen. */
+  "pack.release": ["admin", z.strictObject({ ...inWorkspace, name: name("a pack name") })],
   "workspace.archive": ["admin", z.strictObject(inWorkspace)],
   "workspace.stopAll": ["member", z.strictObject(inWorkspace)],
   /** Writes files of the workspace folder in one commit, and removes the paths of `remove` in it (a rename). A `base64` file is bytes of a document. Refused with INVALID_WORKSPACE, and nothing written, when the folder would not be valid. */
@@ -427,6 +442,8 @@ export const queries = table({
   me: ["public", z.strictObject({})],
   "packs.list": ["instance-admin", z.strictObject({})],
   "workspace.get": ["viewer", z.strictObject(inWorkspace)],
+  /** The text files of a pack at `0` (shipped), a release, or `working` (the platform workspace's copy). */
+  "pack.files": ["admin", z.strictObject({ ...inWorkspace, name: name("a pack name"), version: z.union([z.int().min(0), z.literal("working")]) })],
   /** Every file of the workspace folder and of its packs, a workspace file hiding the pack file it replaces. */
   "workspace.files": ["viewer", z.strictObject(inWorkspace)],
   "file.read": ["viewer", z.strictObject({ ...inWorkspace, path: filePath })],
@@ -458,6 +475,7 @@ export interface FileChange { readonly commit: string; readonly snapshotDigest: 
 export interface CommandOutputs {
   "setup.create": { readonly userId: string };
   "workspace.create": { readonly workspaceId: string; readonly slug: string; readonly snapshotDigest: Digest };
+  "pack.release": { readonly version: number };
   "workspace.archive": Record<string, never>;
   "workspace.stopAll": { readonly stopped: number };
   "file.write": FileChange;
@@ -481,7 +499,8 @@ export interface CommandOutputs {
 export interface QueryOutputs {
   "setup.status": { readonly setupRequired: boolean };
   me: { readonly user: User | null; readonly workspaces: readonly WorkspaceSummary[] };
-  "packs.list": { readonly packs: readonly PackSummary[] };
+  "packs.list": { readonly packs: readonly PackInfo[] };
+  "pack.files": { readonly files: ReadonlyArray<{ readonly path: string; readonly content: string }> };
   "workspace.get": Workspace;
   "workspace.files": { readonly files: readonly FileEntry[] };
   "file.read": FileContent;
