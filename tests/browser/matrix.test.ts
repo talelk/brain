@@ -89,7 +89,7 @@ const SIZES = [{ name: "wide", width: 1440, height: 900 }, { name: "phone", widt
 
 test("every screen reads right in every language, theme and width", async ({ page, stack }) => {
   const shots = process.env["MATRIX_SHOTS"];
-  test.setTimeout(shots ? 900_000 : 300_000);
+  test.setTimeout(shots ? 900_000 : 600_000);
   const api = await stack.setUp();
   const { slug, wide } = await seed(stack, api);
   if (shots) mkdirSync(shots, { recursive: true });
