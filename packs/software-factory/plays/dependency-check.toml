@@ -27,3 +27,11 @@ risk of updating, judged from where the code uses it. End with one line per proj
 the totals. Report only what the scan shows; mark as unknown what it could not check. \
 Post the top three as one note with task.note."""
 after = ["scan"]
+
+[translations.fr]
+title = "Vérifier les dépendances"
+description = "Chaque semaine, liste les dépendances de chaque projet qui sont obsolètes ou ont une vulnérabilité connue, et indique lesquelles mettre à jour en premier."
+
+[translations.ar]
+title = "فحص الاعتماديات"
+description = "كل أسبوع، يسرد اعتماديات كل مشروع القديمة أو التي فيها ثغرة معروفة، ويحدّد أيّها يُحدَّث أولًا."

@@ -7,3 +7,9 @@ tools = ["host.status", "host.logs", "host.disk", "http.check", "memory.search"]
 turns = 15
 tokens = 80000
 spend_usd = 0.40
+
+[translations.fr]
+description = "Vérifie qu'une remédiation a réellement fonctionné en relançant les vérifications, et que les règles de sécurité ont été respectées. Valide ou renvoie le travail."
+
+[translations.ar]
+description = "يتحقق من أن المعالجة نجحت فعلًا بإعادة تشغيل الفحوص، ومن احترام قواعد السلامة. يقبل العمل أو يعيده."

@@ -7,3 +7,9 @@ tools = ["host.status", "host.logs", "host.disk", "http.check", "task.note", "me
 turns = 25
 tokens = 150000
 spend_usd = 0.75
+
+[translations.fr]
+description = "Trouve la cause racine d'un incident à partir des journaux et des vérifications, et recommande le plus petit correctif. Ne modifie rien."
+
+[translations.ar]
+description = "يجد السبب الجذري لحادث انطلاقًا من السجلات والفحوص، ويوصي بأصغر إصلاح ممكن. لا يغيّر أي شيء."

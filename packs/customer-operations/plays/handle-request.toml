@@ -82,3 +82,11 @@ it, and repeat the draft's Notes for the team so the person who signs off sees w
 reply depends on."""
 after = ["route", "billing", "technical", "other"]
 approve = true
+
+[translations.fr]
+title = "Traiter une demande client"
+description = "Orienter la demande vers l'agent de facturation, l'agent technique ou le généraliste, améliorer le brouillon avec un relecteur qualité jusqu'à une note d'au moins 0,8, puis publier la réponse sur le canal de l'équipe une fois qu'une personne l'a approuvée."
+
+[translations.ar]
+title = "معالجة طلب عميل"
+description = "توجيه الطلب إلى وكيل الفوترة أو الوكيل التقني أو الوكيل العام، وتحسين المسودة مع مراجع الجودة حتى تبلغ درجتها 0.8 على الأقل، ثم نشر الرد في قناة الفريق بعد موافقة شخص."

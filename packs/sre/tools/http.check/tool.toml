@@ -16,3 +16,15 @@ secrets = []
 type = "string"
 description = "The full address to check, starting with http:// or https://. No user name or password in it."
 required = true
+
+[translations.fr]
+description = "Vérifie si une adresse http ou https répond : envoie un seul GET, ne suit aucune redirection et renvoie {\"url\", \"ok\", \"status\", \"time_ms\"}, plus \"redirect\" lorsque la réponse pointe ailleurs et \"error\" lorsqu'il n'y a eu aucune réponse (status vaut alors 0). \"ok\" est vrai pour un statut de 200 à 399. Lecture seule. Il n'atteint que les hôtes listés sous `network`, et ce pack livre cette liste vide : chaque vérification signale donc une erreur tant que l'espace de travail n'a pas remplacé ce fichier d'outil par sa propre copie nommant les hôtes de ses services. Prenez les adresses à vérifier dans le runbook en mémoire."
+
+[translations.fr.inputs.url]
+description = "L'adresse complète à vérifier, commençant par http:// ou https://. Sans nom d'utilisateur ni mot de passe."
+
+[translations.ar]
+description = "يفحص ما إذا كان عنوان http أو https يستجيب: يرسل طلب GET واحدًا ولا يتبع أي إعادة توجيه، ويعيد {\"url\", \"ok\", \"status\", \"time_ms\"}، مع \"redirect\" إذا أشارت الإجابة إلى عنوان آخر و\"error\" إذا لم تكن هناك إجابة أصلًا (فتكون status صفرًا). تكون \"ok\" صحيحة للحالة من 200 إلى 399. للقراءة فقط. لا يصل إلا إلى المضيفين المدرجين تحت `network`، وهذه الحزمة (pack) تشحن تلك القائمة فارغة، فيبلّغ كل فحص عن خطأ حتى تستبدل مساحة العمل ملف الأداة هذا بنسختها الخاصة التي تسمّي مضيفي خدماتها. خذ العناوين المراد فحصها من runbook في الذاكرة."
+
+[translations.ar.inputs.url]
+description = "العنوان الكامل المراد فحصه، ويبدأ بـ http:// أو https://. دون اسم مستخدم أو كلمة مرور."

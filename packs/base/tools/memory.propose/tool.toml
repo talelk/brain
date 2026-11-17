@@ -21,3 +21,27 @@ required = true
 type = "string"
 description = "The body of the entry, in Markdown, without the title line."
 required = true
+
+[translations.fr]
+description = "Propose une nouvelle entrée de mémoire pour cet espace de travail. Rien n'est enregistré tant qu'une personne n'a pas accepté la proposition, ce qui commite l'entrée sous memory/<name>.md. Ne proposez que ce dont l'espace de travail aura de nouveau besoin et que vous avez vérifié dans cette tâche : une convention, un correctif qui a fonctionné, une réponse. Cherchez d'abord dans la mémoire pour ne pas proposer ce qui s'y trouve déjà. Un seul sujet par entrée, rédigée pour pouvoir être lue seule. Renvoie {\"id\": \"<id de la proposition>\", \"status\": \"proposed\"}."
+
+[translations.fr.inputs.name]
+description = "Le nom de fichier de l'entrée sans extension : des mots en minuscules reliés par des tirets, par exemple release-checklist."
+
+[translations.fr.inputs.title]
+description = "La ligne de titre de l'entrée."
+
+[translations.fr.inputs.text]
+description = "Le corps de l'entrée, en Markdown, sans la ligne de titre."
+
+[translations.ar]
+description = "يقترح إدخالًا جديدًا في ذاكرة مساحة العمل هذه. لا يُحفظ شيء حتى يقبل شخص الاقتراح، فيُثبَّت الإدخال باسم memory/<name>.md. لا تقترح إلا ما ستحتاجه مساحة العمل مرة أخرى وما تحقّقت منه في هذه المهمة: قاعدة معتمدة، أو إصلاحًا نجح، أو إجابة. ابحث في الذاكرة أولًا حتى لا تقترح ما هو موجود فيها. موضوع واحد لكل إدخال، يُكتب بحيث يمكن قراءته منفردًا. يعيد {\"id\": \"<معرّف الاقتراح>\", \"status\": \"proposed\"}."
+
+[translations.ar.inputs.name]
+description = "اسم ملف الإدخال دون الامتداد: كلمات بأحرف صغيرة تفصل بينها شرطات، مثل release-checklist."
+
+[translations.ar.inputs.title]
+description = "سطر عنوان الإدخال."
+
+[translations.ar.inputs.text]
+description = "متن الإدخال بصيغة Markdown، دون سطر العنوان."

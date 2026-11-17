@@ -7,3 +7,9 @@ tools = ["memory.search", "task.note"]
 turns = 10
 tokens = 60000
 spend_usd = 0.25
+
+[translations.fr]
+description = "Rédige des réponses aux demandes techniques (erreurs, accès, configuration, intégrations) à partir de la mémoire de l'espace de travail. Rédige uniquement ; donne les étapes que la mémoire confirme et demande ce qui manque."
+
+[translations.ar]
+description = "يصوغ ردودًا على الطلبات التقنية (الأخطاء والوصول والإعداد والتكامل) انطلاقًا من ذاكرة مساحة العمل. يكتب المسودات فقط، ويقدّم الخطوات التي تؤيدها الذاكرة، ويطلب ما ينقص."

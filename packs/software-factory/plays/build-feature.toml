@@ -47,3 +47,11 @@ request's address in your result.
 Feature: {{feature}}"""
 after = ["build"]
 approve = true
+
+[translations.fr]
+title = "Construire une fonctionnalité"
+description = "Un planificateur découpe la fonctionnalité en parties indépendantes, des développeurs les construisent en parallèle avec une relecture de chacune, et une seule pull request est soumise à l'accord d'une personne."
+
+[translations.ar]
+title = "بناء ميزة"
+description = "يقسّم المخطِّط الميزة إلى أجزاء مستقلة، ويبنيها المطوّرون بالتوازي مع مراجعة كل جزء، ثم يُرفع pull request واحد إلى شخص ليوافق عليه."

@@ -32,6 +32,12 @@ requires.
   `[trigger]` with `schedule` or `webhook`, and `[[step]]` with `id` plus the step fields
   of model.md. Every step in the packs has a `goal`.
 - A memory entry: Markdown whose first line is `# <title>`.
+- Translations: every pack file that people read carries `[translations.fr]` and
+  `[translations.ar]` (`pack.toml`, `agent.toml`: `description`; `tool.toml`:
+  `description` and `[translations.<lang>.inputs.<name>] description`; a Play: `title`,
+  `description`), and every memory entry has `memory/<name>.fr.md` and `.ar.md`. Product
+  words (Brain, Play, pack, agent and tool names, code, cron) stay as they are. A test
+  fails when a shipped pack lacks one.
 
 ## Goal templates
 

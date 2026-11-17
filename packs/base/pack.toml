@@ -1,3 +1,9 @@
 name = "base"
 description = "The task, memory, pull request and message tools, one web tool, and three agents: a planner, a checker and a general worker. Every workspace uses it."
 requires = []
+
+[translations.fr]
+description = "Les outils de tâche, de mémoire, de pull request et de message, un outil web, et trois agents : un planificateur, un vérificateur et un agent polyvalent. Chaque espace de travail l'utilise."
+
+[translations.ar]
+description = "أدوات المهام والذاكرة وطلبات السحب (pull request) والرسائل، وأداة ويب واحدة، وثلاثة وكلاء: مخطِّط ومدقِّق ووكيل عام. تستخدمها كل مساحة عمل."

@@ -14,3 +14,11 @@ README. Describe only what you can see, and say plainly what you could not see. 
 call task.ask or task.create for this.
 
 Save the page as `/out/workspace.md` and give the same page as your final answer."""
+
+[translations.fr]
+title = "Dire bonjour"
+description = "Un agent rédige une courte page décrivant le contenu de cet espace de travail. Lancez-la sur une installation neuve pour voir une tâche aller de l'objectif au résultat vérifié."
+
+[translations.ar]
+title = "قل مرحبًا"
+description = "يكتب وكيل واحد صفحة قصيرة تصف محتوى مساحة العمل هذه. شغّلها على تثبيت جديد لترى مهمة تمرّ من الهدف إلى نتيجة تم فحصها."

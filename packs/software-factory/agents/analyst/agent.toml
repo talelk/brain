@@ -7,3 +7,9 @@ tools = ["task.note", "memory.search", "web.fetch"]
 turns = 25
 tokens = 150000
 spend_usd = 0.75
+
+[translations.fr]
+description = "Étudie un projet sans le modifier : trouve la cause d'une issue, cartographie ce qu'un changement touche et rédige des conclusions exploitables par un développeur."
+
+[translations.ar]
+description = "يستقصي مشروعًا دون تغييره: يجد سبب الـ issue ويحدّد ما يمسّه أي تغيير ويكتب نتائج يستطيع المطوّر البناء عليها."

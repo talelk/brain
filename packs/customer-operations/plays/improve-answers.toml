@@ -36,3 +36,11 @@ In your result, list each proposal with its name and the reason for it, then lis
 "Questions for a person" every finding whose answer is not known, each as one question \
 that can be answered in a sentence."""
 after = ["gaps"]
+
+[translations.fr]
+title = "Améliorer nos réponses"
+description = "Chaque semaine, repérer les endroits où la mémoire de l'espace de travail a fait défaut, ou ferait défaut, aux agents qui répondent aux clients, et proposer des entrées de mémoire qu'une personne pourra accepter."
+
+[translations.ar]
+title = "تحسين إجاباتنا"
+description = "كل أسبوع، البحث عن المواضع التي أخفقت فيها ذاكرة مساحة العمل أو قد تُخفق في إفادة الوكلاء الذين يردّون على العملاء، واقتراح مدخلات للذاكرة ليقبلها شخص."

@@ -7,3 +7,9 @@ tools = ["memory.search"]
 turns = 10
 tokens = 60000
 spend_usd = 0.30
+
+[translations.fr]
+description = "Transforme un objectif en une courte liste de sous-tâches, chacune pour un agent de l'espace de travail. Ne fait aucun travail lui-même."
+
+[translations.ar]
+description = "يحوّل الهدف إلى قائمة قصيرة من المهام الفرعية، لكل منها وكيل من وكلاء مساحة العمل. لا ينفّذ أي عمل بنفسه."

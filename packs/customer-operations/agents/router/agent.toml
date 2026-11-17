@@ -7,3 +7,9 @@ tools = []
 turns = 3
 tokens = 20000
 spend_usd = 0.05
+
+[translations.fr]
+description = "Classe une demande de client par catégorie et par urgence pour que le bon agent rédige la réponse. Ne répond pas au client."
+
+[translations.ar]
+description = "يصنّف طلب العميل بحسب الفئة والاستعجال ليتولى الوكيل المناسب صياغة الرد. لا يردّ على العميل."

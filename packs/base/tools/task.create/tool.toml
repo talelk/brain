@@ -27,3 +27,33 @@ type = "array"
 items = { type = "string" }
 description = "Ids of tasks the new sub-task waits for, as returned by earlier task.create calls. Leave out when it waits for nothing."
 required = false
+
+[translations.fr]
+description = "Ajoute une sous-tâche sous votre tâche en cours et renvoie son id. C'est le seul moyen de confier une partie du travail à un autre agent : vous ne pouvez pas démarrer un agent directement. La sous-tâche démarre une fois terminées les tâches qu'elle attend, s'exécute avec son propre agent et est vérifiée comme toute autre tâche. Rédigez un objectif qui se suffit à lui-même, car l'autre agent voit l'objectif, pas votre raisonnement. Renvoie {\"id\": \"<id de la tâche>\"}."
+
+[translations.fr.inputs.title]
+description = "Un nom court pour la sous-tâche, dix mots au plus."
+
+[translations.fr.inputs.goal]
+description = "Ce que la sous-tâche doit accomplir et ce que son résultat doit contenir, en quelques phrases autonomes."
+
+[translations.fr.inputs.agent]
+description = "Le nom de l'agent de cet espace de travail qui fait la sous-tâche."
+
+[translations.fr.inputs.after]
+description = "Les ids des tâches que la nouvelle sous-tâche attend, tels que renvoyés par les appels précédents de task.create. À omettre si elle n'attend rien."
+
+[translations.ar]
+description = "يضيف مهمة فرعية تحت مهمتك الحالية ويعيد معرّفها. هذه هي الطريقة الوحيدة لتسليم جزء من العمل إلى وكيل آخر: لا يمكنك تشغيل وكيل مباشرةً. تبدأ المهمة الفرعية عند اكتمال المهام التي تنتظرها، وتعمل بوكيلها الخاص، ويجري فحصها مثل أي مهمة أخرى. اكتب هدفًا مكتفيًا بذاته، لأن الوكيل الآخر يرى الهدف لا تفكيرك. يعيد {\"id\": \"<معرّف المهمة>\"}."
+
+[translations.ar.inputs.title]
+description = "اسم قصير للمهمة الفرعية، عشر كلمات على الأكثر."
+
+[translations.ar.inputs.goal]
+description = "ما يجب أن تحققه المهمة الفرعية وما ينبغي أن تتضمنه نتيجتها، في بضع جمل مكتفية بذاتها."
+
+[translations.ar.inputs.agent]
+description = "اسم وكيل مساحة العمل هذه الذي ينفّذ المهمة الفرعية."
+
+[translations.ar.inputs.after]
+description = "معرّفات المهام التي تنتظرها المهمة الفرعية الجديدة، كما أعادتها استدعاءات task.create السابقة. اتركه فارغًا إذا كانت لا تنتظر شيئًا."

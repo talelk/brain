@@ -7,3 +7,9 @@ tools = []
 turns = 10
 tokens = 60000
 spend_usd = 0.30
+
+[translations.fr]
+description = "Vérifie un résultat par rapport à son objectif, à partir des preuves enregistrées. Rejette un résultat qui prétend avoir fait un travail qu'il ne peut pas montrer."
+
+[translations.ar]
+description = "يفحص النتيجة مقابل هدفها اعتمادًا على الأدلة المسجَّلة. يرفض أي نتيجة تدّعي عملًا لا تستطيع إثباته."

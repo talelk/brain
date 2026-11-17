@@ -11,3 +11,15 @@ effect = "write"
 type = "string"
 description = "The message, in plain text or simple Markdown."
 required = true
+
+[translations.fr]
+description = "Publie un message sur le canal Teams de cet espace de travail, où ses membres le lisent. L'appel reste en attente jusqu'à ce qu'une personne approuve exactement ce message, ce qui peut prendre plusieurs minutes : attendez la réponse et ne renvoyez pas le message. Si la réponse indique que l'appel est retenu, refusé ou rejeté, rien n'a été publié. Rédigez le message pour qu'il puisse être lu seul, et n'y mettez jamais la valeur d'un secret. Renvoie {\"sent\": true}."
+
+[translations.fr.inputs.text]
+description = "Le message, en texte brut ou en Markdown simple."
+
+[translations.ar]
+description = "ينشر رسالة واحدة في قناة Teams الخاصة بمساحة العمل هذه، حيث يقرؤها أشخاصها. يتوقف الاستدعاء حتى يوافق شخص على هذه الرسالة بعينها، وقد يستغرق ذلك دقائق: انتظر الإجابة ولا ترسل الرسالة مرة أخرى. إذا أفادت الإجابة بأن الاستدعاء معلَّق أو مرفوض، فلم يُنشر شيء. اكتب الرسالة بحيث يمكن قراءتها منفردة، ولا تضمّنها قيمة أي سر. يعيد {\"sent\": true}."
+
+[translations.ar.inputs.text]
+description = "الرسالة، بنص عادي أو بصيغة Markdown بسيطة."

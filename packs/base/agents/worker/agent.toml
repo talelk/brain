@@ -7,3 +7,9 @@ tools = ["task.note", "task.ask", "task.create", "memory.search", "memory.propos
 turns = 30
 tokens = 200000
 spend_usd = 1.00
+
+[translations.fr]
+description = "Un généraliste compétent : recherche, rédige, analyse et modifie des fichiers dans la copie de travail. À utiliser quand aucun spécialiste ne convient."
+
+[translations.ar]
+description = "وكيل عام كفء: يبحث ويكتب ويحلّل ويعدّل الملفات في نسخة العمل. استخدمه عندما لا يناسب أي وكيل متخصص."

@@ -22,3 +22,27 @@ required = true
 type = "string"
 description = "The pull request description in Markdown: what changed, why, and how it was verified."
 required = true
+
+[translations.fr]
+description = "Ouvre une pull request sur un projet à partir des modifications de la copie de travail de votre tâche. Brain prend le diff de /work/<project>, le commit sur une nouvelle branche et ouvre la pull request ; vous ne commitez ni ne poussez jamais vous-même, et rien n'est fusionné. L'appel reste en attente jusqu'à ce qu'une personne approuve exactement cet appel, ce qui peut prendre plusieurs minutes : attendez la réponse et ne le rappelez pas. Si la réponse indique que l'appel est retenu, refusé ou rejeté, aucune pull request n'a été ouverte. Renvoie {\"url\": \"<adresse>\", \"number\": <numéro>, \"branch\": \"<branche>\"}."
+
+[translations.fr.inputs.project]
+description = "Le nom du projet, comme dans /work/<project>. Son accès doit être en écriture."
+
+[translations.fr.inputs.title]
+description = "Le titre de la pull request : ce que fait la modification, en une ligne."
+
+[translations.fr.inputs.body]
+description = "La description de la pull request en Markdown : ce qui a changé, pourquoi, et comment cela a été vérifié."
+
+[translations.ar]
+description = "يفتح طلب سحب (pull request) على مشروع واحد من التغييرات الموجودة في نسخة عمل مهمتك. يأخذ Brain الفرق (diff) من /work/<project> ويثبّته في فرع جديد ثم يفتح طلب السحب؛ لا تثبّت التغييرات (commit) ولا ترفعها (push) بنفسك، ولا يُدمج شيء. يتوقف الاستدعاء حتى يوافق شخص على هذا الاستدعاء بعينه، وقد يستغرق ذلك دقائق: انتظر الإجابة ولا تستدعه مرة أخرى. إذا أفادت الإجابة بأن الاستدعاء معلَّق أو مرفوض، فلم يُفتح أي طلب سحب. يعيد {\"url\": \"<العنوان>\", \"number\": <الرقم>, \"branch\": \"<الفرع>\"}."
+
+[translations.ar.inputs.project]
+description = "اسم المشروع كما في /work/<project>. يجب أن يكون الوصول إليه بالكتابة."
+
+[translations.ar.inputs.title]
+description = "عنوان طلب السحب: ما يفعله التغيير، في سطر واحد."
+
+[translations.ar.inputs.body]
+description = "وصف طلب السحب بصيغة Markdown: ما الذي تغيّر، ولماذا، وكيف تم التحقق منه."

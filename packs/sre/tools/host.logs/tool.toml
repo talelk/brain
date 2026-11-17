@@ -18,3 +18,21 @@ required = true
 type = "integer"
 description = "How many lines from the end of the log to return, from 1 to 500. 100 is the usual choice."
 required = true
+
+[translations.fr]
+description = "Renvoie les dernières lignes du journal d'un conteneur de l'hôte de cet espace de travail. Lecture seule. À utiliser sur un conteneur que host.status montre comme arrêté, en redémarrage ou défaillant, ou dont la vérification a échoué ; lisez les lignes qui précèdent la première erreur plutôt que seulement la dernière. Demandez d'abord 100 lignes, et davantage seulement si la cause n'y figure pas. L'opérateur de l'hôte du runner a fixé la ligne de commande réelle ; vous ne fournissez que le nom du conteneur et le nombre de lignes. Renvoie le texte du journal. Ne recopiez jamais la valeur d'un secret d'un journal dans une note ou un résultat."
+
+[translations.fr.inputs.container]
+description = "Le nom du conteneur, exactement tel que host.status l'affiche."
+
+[translations.fr.inputs.lines]
+description = "Le nombre de lignes à renvoyer en partant de la fin du journal, de 1 à 500. 100 est le choix habituel."
+
+[translations.ar]
+description = "يعيد آخر أسطر سجل حاوية واحدة على الجهاز المضيف لمساحة العمل هذه. للقراءة فقط. استخدمه مع حاوية يعرضها host.status متوقفة أو معاد تشغيلها باستمرار أو غير سليمة، أو فشل فحصها، واقرأ الأسطر التي تسبق أول خطأ لا آخر سطر فقط. اطلب 100 سطر أولًا، ولا تطلب أكثر إلا إذا لم يكن السبب فيها. حدّد مشغّل الجهاز المضيف للـ runner سطر الأوامر الفعلي، وأنت تقدّم فقط اسم الحاوية وعدد الأسطر. يعيد نص السجل. لا تنسخ أبدًا قيمة سر من سجل إلى ملاحظة أو نتيجة."
+
+[translations.ar.inputs.container]
+description = "اسم الحاوية تمامًا كما يطبعه host.status."
+
+[translations.ar.inputs.lines]
+description = "عدد الأسطر المطلوب إعادتها من نهاية السجل، من 1 إلى 500. القيمة المعتادة 100."

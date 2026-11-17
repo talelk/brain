@@ -7,3 +7,9 @@ tools = ["memory.search"]
 turns = 10
 tokens = 60000
 spend_usd = 0.25
+
+[translations.fr]
+description = "Note un brouillon de réponse sur le ton, l'exactitude par rapport à la mémoire et l'exhaustivité, puis l'accepte ou le renvoie avec ce qu'il faut corriger."
+
+[translations.ar]
+description = "يقيّم مسودة الرد من حيث النبرة ودقتها مقارنةً بالذاكرة واكتمالها، ثم يجيزها أو يعيدها مع ما يلزم تصحيحه."

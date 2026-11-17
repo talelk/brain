@@ -15,3 +15,15 @@ timeout_seconds = 300
 type = "string"
 description = "The stack's name, as the workspace's runbook in memory gives it."
 required = true
+
+[translations.fr]
+description = "Redéploie UNE pile nommée sur l'hôte de cet espace de travail : récupère les images que sa définition nomme et recrée ses conteneurs. C'est une modification plus lourde qu'un redémarrage et elle interrompt tous les services de la pile. L'appel reste en attente jusqu'à ce qu'une personne approuve exactement cet appel, ce qui peut prendre des minutes. À n'utiliser que si les preuves de cette tâche montrent qu'un redémarrage ne peut pas aider (un conteneur qui n'existe plus, une mauvaise image) et que le runbook en mémoire nomme la pile. Si la réponse indique que l'appel est retenu, refusé ou rejeté, rien n'a été redéployé : ne répétez pas l'appel. Renvoie la sortie de la commande sous forme de texte ; lancez ensuite les vérifications de chaque service de la pile."
+
+[translations.fr.inputs.stack]
+description = "Le nom de la pile, tel que le runbook de l'espace de travail le donne en mémoire."
+
+[translations.ar]
+description = "يعيد نشر حزمة خدمات واحدة مسمّاة على الجهاز المضيف لمساحة العمل هذه: يسحب الصور التي يسمّيها تعريفها ويعيد إنشاء حاوياتها. وهو تغيير أكبر من إعادة التشغيل ويقطع كل خدمات الحزمة. يتوقف الاستدعاء حتى يوافق شخص على هذا الاستدعاء بعينه، وقد يستغرق ذلك دقائق. لا تستخدمه إلا إذا بيّنت أدلة هذه المهمة أن إعادة التشغيل لا تفيد (حاوية لم تعد موجودة، أو صورة خاطئة) وكان runbook في الذاكرة يسمّي الحزمة. إذا قالت الإجابة إن الاستدعاء معلّق أو مرفوض، فلم يُعَد نشر شيء: لا تكرر الاستدعاء. يعيد مخرجات الأمر نصًّا؛ شغّل بعدها فحوص كل خدمة في الحزمة."
+
+[translations.ar.inputs.stack]
+description = "اسم الحزمة (stack) كما يرد في runbook مساحة العمل في الذاكرة."

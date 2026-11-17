@@ -14,3 +14,15 @@ timeout_seconds = 90
 type = "string"
 description = "The container's name, exactly as host.status prints it."
 required = true
+
+[translations.fr]
+description = "Redémarre UN conteneur nommé de l'hôte de cet espace de travail. C'est une modification : l'appel reste en attente jusqu'à ce qu'une personne approuve exactement cet appel, ce qui peut prendre des minutes, sauf si l'espace de travail détient une approbation permanente pour ce conteneur. À n'appeler que pour un conteneur dont vous avez vu la vérification échouer dans cette tâche, une seule fois, et un conteneur à la fois. Si la réponse indique que l'appel est retenu, refusé ou rejeté, le conteneur n'a PAS été redémarré : ne répétez pas l'appel et ne cherchez pas un autre moyen. Un redémarrage interrompt les personnes qui utilisent le service. Renvoie la sortie de la commande sous forme de texte ; relancez ensuite la vérification qui avait échoué."
+
+[translations.fr.inputs.container]
+description = "Le nom du conteneur, exactement tel que host.status l'affiche."
+
+[translations.ar]
+description = "يعيد تشغيل حاوية واحدة مسمّاة على الجهاز المضيف لمساحة العمل هذه. هذا تغيير: يتوقف الاستدعاء حتى يوافق شخص على هذا الاستدعاء بعينه، وقد يستغرق ذلك دقائق، ما لم تكن لمساحة العمل موافقة دائمة على تلك الحاوية. لا تستدعه إلا لحاوية رأيت فحصها يفشل في هذه المهمة، مرة واحدة، وحاوية واحدة في كل مرة. إذا قالت الإجابة إن الاستدعاء معلّق أو مرفوض، فلم تُعَد تشغيل الحاوية: لا تكرر الاستدعاء ولا تبحث عن طريقة أخرى. إعادة التشغيل تقطع الخدمة عمّن يستخدمها. يعيد مخرجات الأمر نصًّا؛ أعد بعدها الفحص الذي فشل."
+
+[translations.ar.inputs.container]
+description = "اسم الحاوية تمامًا كما يطبعه host.status."

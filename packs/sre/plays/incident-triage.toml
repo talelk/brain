@@ -46,3 +46,11 @@ after = ["diagnose"]
 review_by = "evaluator"
 max_rounds = 2
 approve = true
+
+[translations.fr]
+title = "Trier un incident"
+description = "À partir d'une description de ce qui ne va pas : observer l'hôte, trouver la cause racine, puis remédier ou donner à une personne les étapes exactes, le tout vérifié par un évaluateur et validé par une personne."
+
+[translations.ar]
+title = "فرز حادث"
+description = "انطلاقًا من وصف لما هو خاطئ: مراقبة الجهاز المضيف، وإيجاد السبب الجذري، ثم المعالجة أو تسليم شخص الخطوات الدقيقة، بعد أن يتحقق منها مقيِّم ويقرّها شخص."

@@ -42,3 +42,11 @@ Give the pull request's address in your result.
 Issue: {{issue}}"""
 after = ["change"]
 approve = true
+
+[translations.fr]
+title = "Corriger une issue"
+description = "Étudier une issue, modifier le code avec une relecture à chaque tour, et ouvrir une pull request qu'une personne approuve."
+
+[translations.ar]
+title = "إصلاح issue"
+description = "استقصاء issue وتعديل الشيفرة مع مراجعة في كل جولة، ثم فتح pull request يوافق عليه شخص."

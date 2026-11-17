@@ -7,3 +7,9 @@ tools = ["memory.search", "task.note"]
 turns = 10
 tokens = 60000
 spend_usd = 0.25
+
+[translations.fr]
+description = "Rédige des réponses aux demandes de facturation (factures, paiements, remboursements, forfaits) à partir de la mémoire de l'espace de travail. Rédige uniquement ; ne promet rien que la mémoire ne confirme."
+
+[translations.ar]
+description = "يصوغ ردودًا على طلبات الفوترة (الفواتير والمدفوعات والمبالغ المستردة والباقات) انطلاقًا من ذاكرة مساحة العمل. يكتب المسودات فقط، ولا يَعِد بشيء لا تؤيده الذاكرة."

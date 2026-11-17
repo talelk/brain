@@ -7,3 +7,9 @@ tools = ["memory.search", "web.fetch"]
 turns = 20
 tokens = 150000
 spend_usd = 0.75
+
+[translations.fr]
+description = "Un regard critique sur les changements de code : confronte un diff à son objectif, aux conventions du projet et aux exécutions de tests enregistrées, puis l'accepte ou le renvoie."
+
+[translations.ar]
+description = "ناقد لتغييرات الشيفرة: يفحص الـ diff قياسًا إلى هدفه وأعراف المشروع وتشغيلات الاختبارات المسجّلة، ثم يقبله أو يعيده."

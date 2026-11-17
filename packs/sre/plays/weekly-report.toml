@@ -31,3 +31,11 @@ Report only what the collected facts show and mark as unknown what was not check
 everything is healthy, say so in two lines and skip the rest. Post the three fixes as one \
 note with task.note."""
 after = ["collect"]
+
+[translations.fr]
+title = "Rapport hebdomadaire de l'hôte"
+description = "Chaque semaine, un rapport sur l'état de l'hôte : ce qui ne va pas, ce qui se dégrade, et les trois correctifs les plus utiles."
+
+[translations.ar]
+title = "التقرير الأسبوعي للجهاز المضيف"
+description = "كل أسبوع، تقرير عن حالة الجهاز المضيف: ما هو غير سليم، وما يتجه نحو الأسوأ، وأنفع ثلاثة إصلاحات."

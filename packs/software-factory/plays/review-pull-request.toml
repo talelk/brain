@@ -39,3 +39,11 @@ review does not say. Give the same text as your result.
 Pull request: #{{delivery.pull_request.number}} {{delivery.pull_request.title}}
 Address: {{delivery.pull_request.html_url}}"""
 after = ["review"]
+
+[translations.fr]
+title = "Relire une pull request"
+description = "Quand une pull request est ouverte sur l'un des projets de l'espace de travail, un relecteur lit le changement et un résumé de la relecture est publié sur le tableau."
+
+[translations.ar]
+title = "مراجعة pull request"
+description = "عند فتح pull request على أحد مشاريع مساحة العمل، يقرأ مراجع التغيير وتُنشر خلاصة المراجعة على اللوحة."

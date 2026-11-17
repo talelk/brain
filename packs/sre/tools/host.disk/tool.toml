@@ -7,3 +7,9 @@ line; you cannot change it. Returns the command's output as text."""
 effect = "read"
 host_command = "host.disk"
 timeout_seconds = 30
+
+[translations.fr]
+description = "Montre le taux de remplissage des disques de l'hôte de cet espace de travail : taille, utilisé, libre et pourcentage par système de fichiers. Lecture seule, sans entrée. À consulter dès qu'un conteneur ne démarre pas, écrit des erreurs d'espace ou qu'une base de données refuse les écritures, et à chaque vérification de santé de routine : un redémarrage ne règle pas un disque plein. L'opérateur de l'hôte du runner a fixé la ligne de commande réelle ; vous ne pouvez pas la modifier. Renvoie la sortie de la commande sous forme de texte."
+
+[translations.ar]
+description = "يعرض مدى امتلاء أقراص الجهاز المضيف لمساحة العمل هذه: الحجم والمستخدَم والمتاح والنسبة المئوية لكل نظام ملفات. للقراءة فقط وبلا مدخلات. افحصه كلما تعذّر تشغيل حاوية أو كتبت أخطاء عن المساحة أو رفضت قاعدة بيانات الكتابة، وفي كل فحص سلامة دوري: إعادة التشغيل لا تعالج قرصًا ممتلئًا. حدّد مشغّل الجهاز المضيف للـ runner سطر الأوامر الفعلي ولا يمكنك تغييره. يعيد مخرجات الأمر نصًّا."

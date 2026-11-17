@@ -7,3 +7,9 @@ tools = ["memory.search", "memory.propose", "task.note", "message.send"]
 turns = 12
 tokens = 80000
 spend_usd = 0.30
+
+[translations.fr]
+description = "Rédige des réponses aux demandes qui ne relèvent ni de la facturation ni de la technique, envoie une réponse approuvée sur le canal de l'équipe et propose des améliorations aux réponses de l'espace de travail."
+
+[translations.ar]
+description = "يصوغ ردودًا على الطلبات التي ليست من الفوترة ولا من الشؤون التقنية، ويرسل الرد المعتمد إلى قناة الفريق، ويقترح تحسينات لإجابات مساحة العمل."

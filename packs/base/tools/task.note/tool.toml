@@ -11,3 +11,15 @@ effect = "read"
 type = "string"
 description = "The note, in plain text or Markdown."
 required = true
+
+[translations.fr]
+description = "Écrit une note sur le tableau partagé de l'objectif sur lequel vous travaillez. Tous les agents qui travaillent sur le même objectif lisent le tableau, ainsi que les personnes qui le suivent. Servez-vous-en pour un fait dont les autres ont besoin, une décision, une observation avec sa source ou une impasse. Gardez la note courte et autonome ; n'y mettez jamais la valeur d'un secret. Une note ne prévient personne et n'approuve rien. Renvoie {\"id\": \"<id de la note>\"}."
+
+[translations.fr.inputs.text]
+description = "La note, en texte brut ou en Markdown."
+
+[translations.ar]
+description = "يكتب ملاحظة واحدة على اللوحة المشتركة للهدف الذي تعمل عليه. يقرأ اللوحةَ كل وكيل يعمل على الهدف نفسه، وكذلك الأشخاص الذين يتابعونه. استخدمها لمعلومة يحتاجها الآخرون، أو قرار، أو ملاحظة مع مصدرها، أو طريق مسدود. اجعل الملاحظة قصيرة ومكتفية بذاتها، ولا تضع فيها قيمة أي سر. الملاحظة لا تراسل أحدًا ولا توافق على شيء. يعيد {\"id\": \"<معرّف الملاحظة>\"}."
+
+[translations.ar.inputs.text]
+description = "الملاحظة، بنص عادي أو بصيغة Markdown."

@@ -7,3 +7,9 @@ tools = ["git.open-pr", "task.note", "memory.search"]
 turns = 50
 tokens = 400000
 spend_usd = 2.00
+
+[translations.fr]
+description = "Modifie le code dans la copie de travail d'un projet, avec des tests, en suivant les conventions du projet. Laisse le changement à la relecture ; ne pousse jamais."
+
+[translations.ar]
+description = "يعدّل الشيفرة في نسخة العمل لمشروع ما، مع اختبارات، ويتبع أعراف المشروع. يترك التغيير للمراجعة ولا يدفع (push) أبدًا."

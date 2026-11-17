@@ -7,3 +7,9 @@ tools = ["host.status", "host.logs", "host.disk", "http.check", "host.restart", 
 turns = 30
 tokens = 150000
 spend_usd = 0.75
+
+[translations.fr]
+description = "Veille sur les conteneurs de l'hôte : contrôle leur état, leurs journaux, le disque et les adresses de santé, consigne ses constats sur le tableau, et ne propose un redémarrage ou un redéploiement que sur la base de preuves."
+
+[translations.ar]
+description = "يتولى رعاية حاويات الجهاز المضيف: يفحص حالتها وسجلاتها والقرص وعناوين السلامة، ويدوّن ملاحظاته على اللوحة، ولا يقترح إعادة تشغيل أو إعادة نشر إلا بالأدلة."

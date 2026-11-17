@@ -7,3 +7,9 @@ fixed the real command line; you cannot change it. Returns the command's output 
 effect = "read"
 host_command = "host.status"
 timeout_seconds = 30
+
+[translations.fr]
+description = "Liste tous les conteneurs de l'hôte de cet espace de travail : nom, image, état (running, exited, restarting, unhealthy) et depuis combien de temps ils sont dans cet état. Lecture seule, sans entrée. À appeler une fois au début d'une tâche : c'est l'inventaire auquel renvoient les autres outils d'hôte, et les noms de conteneurs qu'il affiche sont les seuls qu'ils acceptent. L'opérateur de l'hôte du runner a fixé la ligne de commande réelle ; vous ne pouvez pas la modifier. Renvoie la sortie de la commande sous forme de texte."
+
+[translations.ar]
+description = "يسرد كل الحاويات على الجهاز المضيف لمساحة العمل هذه: الاسم والصورة والحالة (running وexited وrestarting وunhealthy) ومدة بقائها في تلك الحالة. للقراءة فقط وبلا مدخلات. استدعه مرة واحدة في بداية المهمة: فهو الجرد الذي تعتمد عليه أدوات الجهاز المضيف الأخرى، وأسماء الحاويات التي يطبعها هي وحدها المقبولة لديها. حدّد مشغّل الجهاز المضيف للـ runner سطر الأوامر الفعلي ولا يمكنك تغييره. يعيد مخرجات الأمر نصًّا."

@@ -46,3 +46,11 @@ after = ["check", "diagnose"]
 when = "steps.check.result.healthy == false"
 review_by = "evaluator"
 max_rounds = 2
+
+[translations.fr]
+title = "Maintenir les services en bonne santé"
+description = "Toutes les 15 minutes, vérifier les conteneurs de l'hôte et les adresses de santé. Seulement quand quelque chose ne va pas : trouver la cause, puis remédier, un évaluateur vérifiant le résultat."
+
+[translations.ar]
+title = "الحفاظ على سلامة الخدمات"
+description = "كل 15 دقيقة، فحص حاويات الجهاز المضيف وعناوين السلامة. فقط عند وجود خلل: إيجاد السبب ثم المعالجة، مع تحقق مقيِّم من النتيجة."

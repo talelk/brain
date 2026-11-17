@@ -7,3 +7,9 @@ tools = ["git.open-pr", "message.send"]
 turns = 12
 tokens = 80000
 spend_usd = 0.40
+
+[translations.fr]
+description = "Ouvre la pull request d'un changement relu et en informe l'équipe. Ne modifie aucun code."
+
+[translations.ar]
+description = "يفتح الـ pull request لتغيير تمّت مراجعته ويُعلم الفريق. لا يغيّر أي شيفرة."
