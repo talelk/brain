@@ -21,10 +21,10 @@ test("an admin browses the folder, edits a document, uploads files and downloads
   const listing = page.getByRole("table", { name: "Files in this folder" });
 
   // Browse: folders open from the list and from the breadcrumbs, and the filter narrows the whole workspace to a name.
-  await expect(listing.getByRole("link", { name: "docs", exact: true })).toBeVisible();
-  await listing.getByRole("link", { name: "docs", exact: true }).click();
+  await expect(listing.getByRole("link", { name: /^docs/u })).toBeVisible();
+  await listing.getByRole("link", { name: /^docs/u }).click();
   await expect(listing.getByRole("link", { name: /handbook\.md/u })).toBeVisible();
-  await listing.getByRole("link", { name: "notes", exact: true }).click();
+  await listing.getByRole("link", { name: /^notes/u }).click();
   await expect(listing.getByRole("link", { name: /todo\.txt/u })).toBeVisible();
   await page.getByRole("navigation", { name: "Folder path" }).getByRole("link", { name: "docs" }).click();
   await expect(listing.getByRole("link", { name: /todo\.txt/u })).toBeHidden();
@@ -70,6 +70,7 @@ test("an admin browses the folder, edits a document, uploads files and downloads
   await expect(listing.getByRole("link", { name: /big\.pdf/u })).toHaveCount(0);
 
   // Download: the picture previews, and the bytes that come back are the bytes that went in.
+  await page.goto(`${files}?folder=docs`);
   await listing.getByRole("link", { name: /logo\.png/u }).click();
   await expect(page.getByRole("img", { name: "docs/logo.png" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "docs/logo.png" })).toBeVisible();
