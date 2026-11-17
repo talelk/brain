@@ -161,12 +161,20 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
       <DetailHeader class="mb-5" headingLevel={2} title={<bdi>{props.isGoal ? t("graph.goal") : titleOf(task())}</bdi>}
         subtitle={<span class="flex flex-wrap items-center gap-x-3 gap-y-1"><StateWord state={task().state} /><Show when={task().agent}><span>{t("task.agent", { agent: task().agent ?? "" })}</span></Show></span>}>
         <Show when={place.can("member")}>
-          <Show when={task().state === "failed" || task().state === "stopped"}><Button variant="outline" size="md" iconLeft="lucide-rotate-cw" loading={retry.busy()} onClick={() => void retry.run()}>{t("task.retry")}</Button></Show>
+          <Show when={task().state === "failed" || (task().state === "stopped" && !task().supersededBy)}><Button variant="outline" size="md" iconLeft="lucide-rotate-cw" loading={retry.busy()} onClick={() => void retry.run()}>{t("task.retry")}</Button></Show>
           <Show when={open()}><ConfirmButton label={props.isGoal ? t("task.stop.goal") : t("task.stop")} confirm={t("task.stop.confirm")} busy={stop.busy()} onConfirm={() => void stop.run()} icon="lucide-square" /></Show>
         </Show>
       </DetailHeader>
       <Failure error={stop.error() ?? retry.error()} class="mb-4" />
       <Show when={task().needs}>{(need) => <Needs task={task()} need={need()} onSelect={props.onSelect} onOrder={props.onOrder} />}</Show>
+      <Show when={task().supersededBy}>
+        {(newer) => (
+          <p class="mb-6 rounded-xl bg-paper px-4 py-3 t-text text-ink-2" role="note" data-superseded>
+            {t(`task.superseded.${newer().state}`, { when: dateTime(newer().at), hours: newer().hours })}{" "}
+            <A href={`${place.to(`/tasks/${newer().rootId}`)}?link=${newer().taskId}`} class="link">{t("task.superseded.open")}</A>
+          </p>
+        )}
+      </Show>
 
       <Show when={task().heals}>{(failed) => <p class="mb-6 t-text text-ink-2">{t("heal.for")} <A href={`${place.to(`/tasks/${failed().rootId}`)}?link=${failed().id}`} class="link"><bdi>{failed().title}</bdi></A></p>}</Show>
       <Show when={props.isGoal && !task().heals} fallback={

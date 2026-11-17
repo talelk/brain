@@ -55,6 +55,9 @@ confirm_plans = "person"    # or "auto"
 mode = "auto"              # or "off"
 per_day = 5                 # heal tasks a day; 0 means no cap
 
+[cleanup]
+superseded_after_hours = 24 # close a goal waiting for a person once a newer identical one has a result; 0 means never
+
 [[model]]                   # tried in order; the next one is used when one refuses
 name = "main"
 provider = "openai-compatible"
@@ -317,6 +320,26 @@ healer never edits project code and never retries by itself. `[healing]` in `bra
 turns this off or caps the heal tasks a workspace starts in a UTC day. `workspace.fix`
 changes only `brain.toml` (not its approvals, GitHub, git remote, Teams or secret references),
 `agents/`, `tools/`, `plays/`, `memory/` and `docs/`, and only an admin may approve it.
+
+## When a newer identical task made a waiting one useless
+
+A task waits for a person (a check, an answer, an approval, the confirmation of a plan, a
+failed sub-task) and nobody comes. When the same work has been started again since, the old
+wait no longer helps anyone. A goal is **closed automatically** (it becomes `stopped`, is
+never deleted, and the audit chain says why) when all of this holds:
+
+- one of its tasks has waited for a person at least `superseded_after_hours` (`[cleanup]` in
+  `brain.toml`, 24 by default, 0 turns it off);
+- a newer goal in the workspace is exactly the same: the same Play with equal inputs, or,
+  without a Play, the same goal text; and its task that corresponds to the waiting one (the
+  same step, agent and title; the goal itself for a waiting goal) is `done` or itself waits
+  for a check. A merely running or waiting one does not count;
+- nothing else of the old goal is running or about to run, and every task of it that
+  waits for a person is of the kinds above and superseded the same way.
+
+Its attempts end, its approvals are cancelled, and the heal tasks of its failed tasks are
+closed with it. The closed goal's page says which newer goal replaced it, and when. It is
+not reopened; starting the Play again does the work again.
 
 ## The platform workspace
 

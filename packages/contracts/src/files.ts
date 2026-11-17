@@ -101,6 +101,8 @@ export const BrainFile = z.strictObject({
   }).prefault({}),
   /** What happens when a task has failed all its attempts: a heal task analyses it. `per_day` is the heal tasks of a UTC day; 0 is no cap. */
   healing: z.strictObject({ mode: z.enum(["auto", "off"]).default("auto"), per_day: z.int().min(0).default(5) }).prefault({}),
+  /** A goal waiting for a person is closed when a newer identical one has a result and it has waited this many hours; 0 is never. */
+  cleanup: z.strictObject({ superseded_after_hours: z.int().min(0).default(24) }).prefault({}),
   model: z.array(z.strictObject({
     name: slug("a model name"),
     provider: z.enum(["openai-compatible", "anthropic"]),
@@ -316,6 +318,7 @@ export interface SnapshotManifest {
   readonly pins?: Readonly<Record<string, number>>;
   readonly limits: BrainFile["limits"];
   readonly healing: BrainFile["healing"];
+  readonly cleanup: BrainFile["cleanup"];
   readonly models: BrainFile["model"];
   readonly projects: BrainFile["project"];
   readonly github: BrainFile["github"] | null;

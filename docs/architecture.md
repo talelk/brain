@@ -291,6 +291,16 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   holds the evidence, each part cut to a size, and the files of the agents, tools, Play and `brain.toml` involved, read from
   the workspace folder or the pack. `task.get` carries `heal` (the heal task's id, state, result) on the failed task, and a
   task summary carries `heals` (id and title of the failed task) on a heal task, which is how the screens link the two.
+- Closing a waiting goal that a newer identical one superseded (`tasks/superseded.ts`, docs/model.md) runs at the end of
+  `settle`, so after every change and on its timer, which also visits workspaces whose only open tasks wait for a person.
+  Candidates are `needs_you` tasks of kind `check`, `answer`, `approval`, `confirm-plan` or `failed-subtask` whose
+  `updated_at_ms` is at least `[cleanup] superseded_after_hours` old. The newer match is a task created later, in
+  another goal of the workspace, with the same Play and deep-equal inputs (or, without a Play, the same goal text), and
+  for a sub-task the same `step_id`, `item_index`, agent and title (and goal when it has no step), in state `done` or
+  `needs_you` with kind `check`. The goal is stopped with `stopTask` only when no task of its tree is `ready` or
+  `running` and every `needs_you` task of it is superseded; each stopped task, and the heal goals of any of them, gets a
+  `task.superseded` event (`by` the newer task, `byState`, `hours`) in the same transaction. `task.get` and the task
+  summaries read the latest such event as `supersededBy`.
 - The decisions are pure functions over plain data (`tasks/decide.ts`); `tasks/orchestrator.ts` reads the facts and
   writes what they decide.
 

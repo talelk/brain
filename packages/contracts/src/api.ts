@@ -131,6 +131,8 @@ export interface TaskSummary {
   readonly createdByName?: string;
   /** How many tasks of this task's tree (itself included) wait for a person; a goal is shown as needing you when this is above zero. */
   readonly waitingForYou: number;
+  /** For a task closed automatically because a newer identical one had a result: that task, its state, and when and after how many hours it was closed. */
+  readonly supersededBy?: { readonly taskId: string; readonly rootId: string; readonly state: "done" | "check"; readonly hours: number; readonly at: number };
   /** For a heal task: the failed task it looks into. */
   readonly heals?: { readonly id: string; readonly rootId: string; readonly title: string };
 }

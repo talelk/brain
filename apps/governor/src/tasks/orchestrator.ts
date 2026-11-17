@@ -5,6 +5,7 @@ import { expireApprovals } from "../trust/approvals";
 import { settleUsage } from "../trust/usage";
 import { manifestOf } from "../workspace/store";
 import { healFailed } from "./heal";
+import { closeSuperseded } from "./superseded";
 import { afterCheck, afterPersonCheck, afterWork, checkerOf, doers, groupOutcome, promote, readJudgement, readPlan, readVerdict, passes, renderGoal, retryOf, SKIPPED, type WorkFacts, type WorkState } from "./decide";
 import {
   ACTIVE_ATTEMPT, agentsOf, attemptOf, createPlanned, failureOf, insertTask, json, needOf, payloadOf, queueAttempt, scopeOf, setState, settingsOf, stepOf, taskOf, TERMINAL,
@@ -90,8 +91,8 @@ function startReady(gov: Gov, workspaceId: string, ready: readonly TaskRow[]): v
   }
 }
 
-/** Brings a workspace's tasks to rest: promotes what can start, makes the copies of `for_each` steps, follows sub-tasks up to their parents, and queues work. */
-export function settle(gov: Gov, workspaceId: string): void {
+/** Brings a workspace's tasks to rest, closing the goals a newer identical one made useless (superseded.ts): promotes what can start, makes the copies of `for_each` steps, follows sub-tasks up to their parents, and queues work. */
+function rest(gov: Gov, workspaceId: string): void {
   const open = (): TaskRow[] => gov.db.prepare("SELECT * FROM tasks WHERE workspace_id=? AND state IN ('waiting','ready','running','needs_you') ORDER BY rowid").all(workspaceId) as TaskRow[];
   for (let pass = 0; pass < 10_000; pass += 1) {
     let changed = false;
@@ -104,6 +105,11 @@ export function settle(gov: Gov, workspaceId: string): void {
     if (!changed) break;
   }
   startReady(gov, workspaceId, open().filter((task) => task.state === "ready" && task.agent !== null));
+}
+
+export function settle(gov: Gov, workspaceId: string): void {
+  rest(gov, workspaceId);
+  if (closeSuperseded(gov, workspaceId, stopTask) > 0) rest(gov, workspaceId);
 }
 
 // --- when an attempt ends ---

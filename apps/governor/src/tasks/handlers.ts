@@ -20,15 +20,21 @@ import { createFromPlay, insertTask, json, needOf, setState, taskIn, TERMINAL, t
 const SUMMARY = `SELECT t.*, r.title AS goal_title, r.play AS root_play, u.name AS created_by_name,
   (SELECT f.title FROM tasks f WHERE t.created_by LIKE 'heal:%' AND f.id = substr(t.created_by, 6)) AS heals_title,
   (SELECT f.root_id FROM tasks f WHERE t.created_by LIKE 'heal:%' AND f.id = substr(t.created_by, 6)) AS heals_root,
+  (SELECT json_patch(e.payload_json, json_object('at', e.created_at_ms)) FROM events e WHERE e.subject = 'task:' || t.id AND e.type = 'task.superseded' ORDER BY e.seq DESC LIMIT 1) AS superseded,
   CASE WHEN t.parent_id IS NULL THEN (SELECT COALESCE(SUM(${COST}), 0) FROM usage u JOIN tasks x ON x.id = u.task_id WHERE x.root_id = t.id)
   ELSE (SELECT COALESCE(SUM(${COST}), 0) FROM usage u WHERE u.task_id = t.id) END AS micro_usd,
   (WITH RECURSIVE tree(id) AS (SELECT t.id UNION ALL SELECT c.id FROM tasks c JOIN tree ON c.parent_id = tree.id) SELECT COUNT(*) FROM tasks x WHERE x.state = 'needs_you' AND x.id IN (SELECT id FROM tree)) AS waiting_for_you
   FROM tasks t JOIN tasks r ON r.id = t.root_id LEFT JOIN "user" u ON u.id = t.created_by`;
-type SummaryRow = TaskRow & { readonly micro_usd: number; readonly goal_title: string; readonly root_play: string | null; readonly created_by_name: string | null; readonly waiting_for_you: number; readonly heals_title: string | null; readonly heals_root: string | null };
+type SummaryRow = TaskRow & { readonly micro_usd: number; readonly goal_title: string; readonly root_play: string | null; readonly created_by_name: string | null; readonly waiting_for_you: number; readonly superseded: string | null; readonly heals_title: string | null; readonly heals_root: string | null };
+const supersededOf = (text: string): NonNullable<TaskSummary["supersededBy"]> => {
+  const event = JSON.parse(text) as { by: string; byRoot: string; byState: "done" | "check"; hours: number; at: number };
+  return { taskId: event.by, rootId: event.byRoot, state: event.byState, hours: event.hours, at: event.at };
+};
 const summary = (row: SummaryRow): TaskSummary => ({
   id: row.id, workspaceId: row.workspace_id, parentId: row.parent_id, rootId: row.root_id, title: row.title, goalTitle: row.goal_title, agent: row.agent, state: row.state, needs: needOf(row),
   play: row.root_play, stepId: row.step_id, round: row.round, microUsd: row.micro_usd, createdAt: row.created_at_ms, updatedAt: row.updated_at_ms, finishedAt: row.finished_at_ms,
   ...(row.created_by_name !== null ? { createdByName: row.created_by_name } : {}), waitingForYou: row.waiting_for_you,
+  ...(row.superseded !== null && row.state === "stopped" ? { supersededBy: supersededOf(row.superseded) } : {}),
   ...(row.heals_title !== null ? { heals: { id: row.created_by.slice(HEAL.length), rootId: row.heals_root as string, title: row.heals_title } } : {}),
 });
 export const summaries = (db: Db, where: string, ...values: unknown[]): TaskSummary[] => (db.prepare(`${SUMMARY} WHERE ${where}`).all(...values) as SummaryRow[]).map(summary);
@@ -79,9 +85,9 @@ function assertAcyclic(db: Db, parent: TaskRow): void {
 export function registerTasks(governor: Governor): void {
   const { gov } = governor;
   const { registry } = gov;
-  // Besides after every change, the orchestrator runs on a timer: a limit that was raised, or a day that began, lets waiting work start.
+  // Besides after every change, the orchestrator runs on a timer: a limit that was raised, or a day that began, lets waiting work start, and a wait for a person can reach the age at which a newer identical goal closes it.
   governor.every(15_000, () => tx(gov.db, () => {
-    for (const { id } of gov.db.prepare("SELECT DISTINCT workspace_id AS id FROM tasks WHERE state IN ('waiting','ready')").all() as Array<{ id: string }>) settle(gov, id);
+    for (const { id } of gov.db.prepare("SELECT DISTINCT workspace_id AS id FROM tasks WHERE state IN ('waiting','ready','needs_you')").all() as Array<{ id: string }>) settle(gov, id);
   }));
 
   registry.command("task.create", (ctx, input) => {

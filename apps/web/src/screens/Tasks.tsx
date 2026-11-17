@@ -34,6 +34,7 @@ export default function TasksScreen(): JSX.Element {
       <span class="flex min-w-0 flex-col">
         <A href={place.to(`/tasks/${ctx.row.original.id}`)} class="truncate font-medium text-ink-gray-9 hover:underline" dir="auto">{ctx.row.original.title}</A>
         <Show when={ctx.row.original.needs}>{(need) => <span class="truncate text-needs-text">{needText(need())}</span>}</Show>
+        <Show when={ctx.row.original.supersededBy}><span class="truncate text-ink-gray-7">{t("tasks.superseded")}</span></Show>
       </span>
     ) },
     { accessorKey: "createdByName", header: t("tasks.col.by"), meta: { mobile: "meta" }, cell: (ctx) => <span class="text-ink-gray-7">{ctx.row.original.createdByName ?? ctx.row.original.play ?? "—"}</span> },

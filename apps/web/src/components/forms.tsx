@@ -386,6 +386,9 @@ export function SettingsForm(props: { snapshot: SnapshotManifest; readOnly: bool
           <NumberField label={t("settings.healing.perDay")} description={t("field.zeroNoCap")} min={0} step={1} value={brain.healing.per_day} onChange={(value) => set("healing", "per_day", value ?? 0)} disabled={props.readOnly} />
         </div>
       </Group>
+      <Group title={t("settings.cleanup")} text={t("settings.cleanup.text")}>
+        <NumberField label={t("settings.cleanup.hours")} description={t("settings.cleanup.never")} min={0} step={1} value={brain.cleanup.superseded_after_hours} onChange={(value) => set("cleanup", "superseded_after_hours", value ?? 0)} disabled={props.readOnly} />
+      </Group>
       <Group title={t("settings.models")} text={t("settings.models.text")}>
         <Rows<Model> label={t("settings.models")} items={brain.models} onChange={(models) => set("models", models)} add={t("settings.models.add")} disabled={props.readOnly} blank={() => ({ name: brain.models.length === 0 ? "main" : "", provider: "openai-compatible", url: "", model: "" })}>
           {(model, change) => (

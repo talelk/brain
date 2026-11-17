@@ -20,6 +20,7 @@ export interface Brain {
   packs: readonly string[];
   limits: SnapshotManifest["limits"];
   healing: SnapshotManifest["healing"];
+  cleanup: SnapshotManifest["cleanup"];
   models: readonly Model[];
   projects: readonly Project[];
   github: SnapshotManifest["github"];
@@ -30,9 +31,9 @@ export interface Brain {
 }
 
 export function brainOf(snapshot: SnapshotManifest): Brain {
-  const { name, description, packs, limits, healing, models, projects, github, git, teams, approvals } = snapshot;
+  const { name, description, packs, limits, healing, cleanup, models, projects, github, git, teams, approvals } = snapshot;
   const pins = snapshot.pins ?? {};
-  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, ...(snapshot.platform ? { platform: snapshot.platform } : {}), packs: packs.map((pack) => (pins[pack] ? `${pack}@${pins[pack]}` : pack)), limits, healing, models, projects, github, git, teams, approvals };
+  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, ...(snapshot.platform ? { platform: snapshot.platform } : {}), packs: packs.map((pack) => (pins[pack] ? `${pack}@${pins[pack]}` : pack)), limits, healing, cleanup, models, projects, github, git, teams, approvals };
 }
 
 const differs = <T>(value: T, standard: T): T | undefined => (value === standard ? undefined : value);
@@ -48,6 +49,7 @@ export function brainToml(brain: Brain): string {
     // A value that is the default is not written: the file says only what was chosen.
     limits: { daily_spend_usd: differs(brain.limits.daily_spend_usd, 0), running_tasks: differs(brain.limits.running_tasks, 4), confirm_plans: differs(brain.limits.confirm_plans, "person") },
     healing: { mode: differs(brain.healing.mode, "auto"), per_day: differs(brain.healing.per_day, 5) },
+    cleanup: { superseded_after_hours: differs(brain.cleanup.superseded_after_hours, 24) },
     model: brain.models.map((model) => ({ ...model })),
     project: brain.projects.map((project) => ({ ...project, branch: differs(project.branch, "main"), access: differs(project.access, "read"), network: project.network.length > 0 ? project.network : undefined })),
     github: brain.github ? { ...brain.github } : undefined,

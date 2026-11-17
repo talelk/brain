@@ -292,7 +292,7 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
   for (const tool of Object.keys(brain.approvals)) if (!toolFiles.has(tool)) problems.push({ path: "brain.toml", message: `approvals names tool "${tool}", which does not exist` });
 
   return done(JSON.parse(JSON.stringify({
-    name: brain.name, description: brain.description, timezone: brain.timezone, visibility: brain.visibility, ...(brain.platform ? { platform: brain.platform } : {}), packs: packs.map((pack) => pack.name), ...(Object.keys(pins).length > 0 ? { pins } : {}), limits: brain.limits, healing: brain.healing, models: brain.model, projects: brain.project,
+    name: brain.name, description: brain.description, timezone: brain.timezone, visibility: brain.visibility, ...(brain.platform ? { platform: brain.platform } : {}), packs: packs.map((pack) => pack.name), ...(Object.keys(pins).length > 0 ? { pins } : {}), limits: brain.limits, healing: brain.healing, cleanup: brain.cleanup, models: brain.model, projects: brain.project,
     github: brain.github ?? null, ...(brain.git ? { git: brain.git } : {}), teams: brain.teams ?? null, approvals: brain.approvals, agents, tools, plays, memory, documents,
   } satisfies SnapshotManifest)) as SnapshotManifest);
 }
