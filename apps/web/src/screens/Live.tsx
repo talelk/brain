@@ -74,7 +74,7 @@ export default function LiveScreen(): JSX.Element {
     }
     before = current;
   }));
-  const ending = (taskId: string): Ending => { const state = placed().find((entry) => entry.task.id === taskId)?.task.state; return state === "failed" ? "failed" : state === "stopped" ? "stopped" : "done"; };
+  const ending = (taskId: string): Ending => { const state = placed().find((entry) => entry.task.id === taskId)?.task.state; return state ?? "done"; };
   const leavers = createMemo((): readonly Leaving[] => leaving().map((entry) => ({ ...entry, state: ending(entry.run.taskId) })));
 
   // A goal that finishes while the page is open rings once.
@@ -111,7 +111,7 @@ export default function LiveScreen(): JSX.Element {
   };
   const key = (event: KeyboardEvent): void => { if (event.key === "Escape" && ambient()) leave(); };
   document.addEventListener("keydown", key);
-  const fullscreen = (): void => { if (!document.fullscreenElement && ambient()) setAmbient(false); };
+  const fullscreen = (): void => { if (!document.fullscreenElement && ambient()) leave(); };
   document.addEventListener("fullscreenchange", fullscreen);
   onCleanup(() => { document.removeEventListener("keydown", key); document.removeEventListener("fullscreenchange", fullscreen); clearTimeout(hush); void wake?.release().catch(() => undefined); if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined); });
 
@@ -140,7 +140,7 @@ export default function LiveScreen(): JSX.Element {
           </Show>
           <For each={celebrating()}>{(goal) => <Celebration title={goal.title} />}</For>
           <Show when={needs().length > 0}>
-            <section class="live-attn-bar flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-[var(--needs-line)] bg-needs-soft px-4 py-3" aria-label={t("live.need.title")} data-testid="live-attention">
+            <section class="live-attn-bar flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-[var(--needs-line)] bg-needs-soft px-4 py-3" aria-label={t("live.need.title", { n: needs().length })} data-testid="live-attention">
               <span class="live-dot size-2.5 rounded-full bg-needs" aria-hidden="true" />
               <p class="t-text font-medium text-ink">{t("live.need.title", { n: needs().length })}</p>
               <ul class="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-1 t-small">

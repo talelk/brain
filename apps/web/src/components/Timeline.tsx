@@ -19,7 +19,10 @@ const tickLabel = (at: number, span: number): string =>
 
 export function Timeline(props: { record: Task; selected: string; onSelect: (id: string) => void }): JSX.Element {
   const now = useNow(3000);
-  const model = createMemo((): Model => buildTimeline(props.record, now()));
+  /** The clock only moves while the goal can still change: a finished goal's model is built once, so its rows and bars keep their identity (and a keyboard user's focus). */
+  const settled = (): boolean => ["done", "failed", "stopped"].includes(props.record.state) && props.record.subtasks.every((task) => ["done", "failed", "stopped"].includes(task.state));
+  const clock = createMemo((previous: number): number => (settled() ? previous : now()), Date.now());
+  const model = createMemo((): Model => buildTimeline(props.record, clock()));
   const whole = (): View => ({ from: model().start, to: model().end });
   const [custom, setCustom] = createSignal<View>();
   const view = (): View => custom() ?? whole();

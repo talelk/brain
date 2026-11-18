@@ -25,13 +25,18 @@ function recent(gov: Gov, key: string, now: number): number[] {
   const all = refusals.get(gov) ?? new Map<string, number[]>();
   refusals.set(gov, all);
   const kept = (all.get(key) ?? []).filter((at) => now - at < 60_000);
-  all.set(key, kept);
+  if (kept.length > 0) all.set(key, kept);
+  else all.delete(key);
   return kept;
 }
 const assertNotLimited = (gov: Gov, key: string, now: number, max: number): void => {
   if (recent(gov, key, now).length >= max) throw new BrainError("CONFLICT", "Too many attempts: wait a minute and try again");
 };
-const noteRefusal = (gov: Gov, key: string, now: number): void => void recent(gov, key, now).push(now);
+const noteRefusal = (gov: Gov, key: string, now: number): void => {
+  const kept = recent(gov, key, now);
+  kept.push(now);
+  refusals.get(gov)?.set(key, kept);
+};
 const invalidLink = (): BrainError => new BrainError("NOT_FOUND", "This link is not valid, or it has expired or been used");
 
 const activeAdmins = (ctx: Ctx): number => (ctx.db.prepare("SELECT COUNT(*) AS n FROM instance_admins a WHERE NOT EXISTS (SELECT 1 FROM deactivated_users d WHERE d.user_id = a.user_id)").get() as { n: number }).n;

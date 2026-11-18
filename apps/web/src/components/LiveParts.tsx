@@ -123,7 +123,8 @@ const THEMES = ["violet", "blue", "green", "amber", "red"] as const;
 export const themeOf = (name: string): (typeof THEMES)[number] => THEMES[[...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % THEMES.length] ?? "violet";
 
 /** What ended an attempt, for the pill that is leaving. */
-export type Ending = "done" | "failed" | "stopped";
+/** How a run left its slot: the state its task is in now, so a retried or checked attempt is not shown as done. */
+export type Ending = "done" | "failed" | "stopped" | "running" | "ready" | "waiting" | "needs_you";
 export interface Leaving { readonly runner: string; readonly run: QueueRun; readonly state: Ending }
 
 /** A small line of numbers: tokens used so far, sampled each time the page read them. */
@@ -149,7 +150,7 @@ function Pill(props: { run: QueueRun; samples: readonly number[]; now: number; e
     <li class={`live-pill flex items-center gap-3 rounded-control border border-outline-gray-2 bg-surface-elevation-1 px-3 py-2.5 ${props.ending ? "live-leave" : ""}`} data-testid="live-run" data-ending={props.ending}>
       <Ring fraction={props.ending ? 1 : Math.min(1, elapsed() / TEN_MINUTES)} tone={tone()} size={props.ambient ? 52 : 44}>
         <Show when={props.ending} fallback={<Avatar size="md" theme={themeOf(run().agent)} label={run().agent} />}>
-          <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke={tone()} stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={props.ending === "failed" ? "M7 7l10 10M17 7L7 17" : props.ending === "stopped" ? "M8 8h8v8H8z" : "M5 12.5l4.5 4.5L19 7.5"} pathLength="1" class="live-check" /></svg>
+          <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke={tone()} stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={props.ending === "failed" ? "M7 7l10 10M17 7L7 17" : props.ending === "stopped" ? "M8 8h8v8H8z" : props.ending === "done" ? "M5 12.5l4.5 4.5L19 7.5" : "M12 12h.01"} pathLength="1" class="live-check" /></svg>
         </Show>
       </Ring>
       <div class="min-w-0 flex-1">

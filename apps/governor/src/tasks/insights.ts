@@ -22,7 +22,7 @@ const all = <T>(db: Db, sql: string, ...values: unknown[]): T[] => db.prepare(sq
 const PERCENTILES = (inner: string): string => `WITH x AS (SELECT g, v, ROW_NUMBER() OVER (PARTITION BY g ORDER BY v) AS rn, COUNT(*) OVER (PARTITION BY g) AS n FROM (${inner}))
   SELECT g, MAX(n) AS n, MAX(CASE WHEN rn = (n * 50 + 99) / 100 THEN v END) AS p50, MAX(CASE WHEN rn = (n * 90 + 99) / 100 THEN v END) AS p90 FROM x GROUP BY g`;
 
-const BUCKET = `CASE WHEN la.id IS NULL THEN 'other' WHEN la.state != 'failed' THEN 'checks' ELSE CASE json_extract(la.failure_json, '$.reason')
+const BUCKET = `CASE WHEN la.id IS NULL THEN 'other' WHEN la.state = 'succeeded' THEN 'checks' WHEN la.state != 'failed' THEN 'other' ELSE CASE json_extract(la.failure_json, '$.reason')
   WHEN 'limit' THEN 'limits' WHEN 'setup' THEN 'setup' WHEN 'engine' THEN 'engine' WHEN 'model-refused' THEN 'engine' WHEN 'timeout' THEN 'engine' WHEN 'runner' THEN 'engine' ELSE 'other' END END`;
 
 function compute(gov: Gov, ids: readonly string[], names: ReadonlyMap<string, { name: string; slug: string }>, days: number, tz: number, now: number): Insights {

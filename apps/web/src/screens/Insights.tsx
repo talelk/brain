@@ -90,7 +90,8 @@ function Outcomes(props: { data: Insights }): JSX.Element {
 /** Where time and money go, ranked, by workspace, agent, Play or tool. */
 function Goes(props: { data: Insights; shared: boolean }): JSX.Element {
   const dimensions = (): Dimension[] => (props.shared ? ["workspace", "agent", "play", "tool"] : ["agent", "play", "tool"]);
-  const [dimension, setDimension] = createSignal<Dimension>(props.shared ? "workspace" : "agent");
+  const [chosen, setDimension] = createSignal<Dimension>(props.shared ? "workspace" : "agent");
+  const dimension = (): Dimension => (dimensions().includes(chosen()) ? chosen() : dimensions()[0] ?? "agent");
   const [measure, setMeasure] = createSignal<Measure>("money");
   const ranks = (): readonly InsightRank[] => (dimension() === "workspace" ? props.data.byWorkspace : dimension() === "agent" ? props.data.byAgent : props.data.byPlay);
   const rows = createMemo((): RankRow[] => {

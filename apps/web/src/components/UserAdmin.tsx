@@ -264,7 +264,7 @@ export function UserDrawer(props: { userId: string | undefined; onClose: () => v
                   </p>
                 </Block>
                 <Block title={t("detail.access")}><AccessMatrix rows={loaded().access} /></Block>
-                <Block title={t("detail.sessions")}><SessionList sessions={loaded().sessions} userId={person().id} self={false} /></Block>
+                <Block title={t("detail.sessions")}><SessionList sessions={loaded().sessions} userId={person().id} self={self()} /></Block>
                 <Block title={t("detail.signins")}><SignInLog entries={loaded().signIns} /></Block>
               </div>
             );
