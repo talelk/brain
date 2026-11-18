@@ -33,7 +33,7 @@ describe("first-run setup", () => {
   it("setup.create makes the first person the instance admin, signs them in and can not be repeated", async () => {
     harness = await createHarness();
     expect(await harness.anonymous.query("setup.status", {})).toEqual({ setupRequired: false });
-    expect(await harness.admin.query("me", {})).toEqual({ user: { id: expect.any(String), name: "Ada Admin", email: "ada@example.com", instanceAdmin: true }, workspaces: [] });
+    expect(await harness.admin.query("me", {})).toEqual({ user: { id: expect.any(String), name: "Ada Admin", email: "ada@example.com", instanceAdmin: true, sessionId: expect.any(String) }, workspaces: [] });
     expect(existsSync(join(harness.dataDir, "setup.token"))).toBe(false);
     await expect(harness.anonymous.command("setup.create", { token: "anything", name: "Eve", email: "eve@example.com", password: PASSWORD })).rejects.toMatchObject({ code: "CONFLICT" });
   });

@@ -413,3 +413,49 @@ CREATE TABLE idempotency (
   created_at_ms INTEGER NOT NULL,
   PRIMARY KEY (actor_id, key)
 ) STRICT, WITHOUT ROWID;
+
+-- Users (docs/model.md, Users, invitations and groups). Invitation and reset links keep only a keyed digest of their one-use token; a
+-- reset names the user it is for, an invitation the address and what it grants (`{instanceAdmin, workspaces, groups}`).
+CREATE TABLE invitations (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('invite', 'reset')),
+  email TEXT NOT NULL,
+  user_id TEXT REFERENCES "user"(id) ON DELETE CASCADE,
+  token_digest TEXT NOT NULL UNIQUE,
+  grants_json TEXT NOT NULL DEFAULT '{}',
+  state TEXT NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'used', 'revoked')),
+  created_by TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL,
+  expires_at_ms INTEGER NOT NULL,
+  used_at_ms INTEGER
+) STRICT;
+CREATE INDEX invitations_email ON invitations(email, kind, state);
+
+-- A person who cannot sign in. Their rows and history stay.
+CREATE TABLE deactivated_users (
+  user_id TEXT PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
+  at_ms INTEGER NOT NULL,
+  by_user_id TEXT NOT NULL
+) STRICT, WITHOUT ROWID;
+
+CREATE TABLE groups (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  created_at_ms INTEGER NOT NULL
+) STRICT;
+
+CREATE TABLE group_members (
+  group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  PRIMARY KEY (group_id, user_id)
+) STRICT, WITHOUT ROWID;
+CREATE INDEX group_members_user ON group_members(user_id);
+
+-- The role a group gives its people on a workspace; a person has the highest of this and their own `members` role.
+CREATE TABLE group_grants (
+  group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  role TEXT NOT NULL CHECK (role IN ('viewer', 'member', 'admin')),
+  PRIMARY KEY (group_id, workspace_id)
+) STRICT, WITHOUT ROWID;
+CREATE INDEX group_grants_workspace ON group_grants(workspace_id);

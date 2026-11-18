@@ -513,3 +513,36 @@ me** (those they are a viewer or member of) and **Public workspaces**. A workspa
 every signed-in person of this Brain sees it as a viewer, read only. That person can read
 its tasks, files and results; they cannot start work, approve, edit, or see its secrets or
 members. Changing visibility is a change of `brain.toml` and is audited.
+
+### Users, invitations and groups
+
+An **instance admin** (shown as a platform administrator) looks after the people of the whole
+Brain at `/users`; everyone else is an instance **member**. A person is `active`, `invited`
+(an invitation not yet accepted) or `deactivated`.
+
+- **Invitation.** An admin invites an email address with an instance role, optional workspace
+  roles and optional groups. Brain may have no mail server, so the invitation is a one-use link
+  the admin copies (mail is also sent when `BRAIN_SMTP_URL` is set). The link works once, for
+  seven days; inviting the same address again, or revoking, makes the earlier link useless. The
+  person opens it, chooses a name and a password, and is signed in with what was granted. An
+  address that already has an account cannot be invited.
+- **Reset link.** An admin can make a one-use link, valid for one day, with which a person
+  chooses a new password; using it signs that person out everywhere.
+- **Group.** A named set of people that is given a role on workspaces. A person's role in a
+  workspace is the highest of their own role and the roles of their groups. A workspace's
+  People tab and Share dialog list the groups with a role there, and each person's access says
+  whether it is direct or through which group. Groups are made and changed by instance admins.
+  A workspace still keeps at least one admin of its own: a role a group gives does not count.
+- **Deactivation.** A deactivated person cannot sign in, and their sessions end at once. Their
+  history, tasks, approvals waiting for them and audit trail stay; the workspace roles stay and
+  work again when the person is reactivated. At least one active instance admin always exists:
+  the last one cannot be demoted or deactivated, and nobody deactivates themselves.
+- **Sign-in log.** A person's detail shows their open sessions, their recent sign-ins and
+  failed attempts (from the audit log), and their access: every workspace with the role and
+  whether it comes directly or through a group.
+- **Profile.** At `/profile` anyone changes their name and password, sees their sessions and
+  signs out the others; language and theme stay a choice of the browser.
+
+Every change above is an audit event written in the same transaction as the change; links are
+kept only as keyed digests and shown once.
+

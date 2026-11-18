@@ -25,6 +25,8 @@ export interface Gov {
   readonly registry: Registry;
   /** Called inside the transaction that activates a snapshot (memory index, triggers). */
   readonly onActivate: Array<(workspaceId: string, manifest: SnapshotManifest) => void>;
+  /** Called when a person's sessions end or they are deactivated: their open event streams end too. */
+  readonly onSignedOut: Array<(userId: string) => void>;
 }
 
 export interface Ctx {
@@ -37,6 +39,8 @@ export interface Ctx {
   /** The caller's role in `input.workspaceId`, for an entry that takes one. */
   readonly role: Role | null;
   now(): number;
+  /** The address the request came from, for limits on repeated attempts. */
+  readonly ip: string;
   /** Cookies to set on the HTTP response. */
   readonly cookies: string[];
 }
@@ -73,7 +77,7 @@ export class Registry {
 }
 
 /** Who calls: the signed-in person, and where cookies for the response are collected. */
-export interface Caller { readonly user: User | null; readonly cookies?: string[] }
+export interface Caller { readonly user: User | null; readonly cookies?: string[]; readonly ip?: string }
 
 const commandBody = z.strictObject({ type: z.string(), input: z.unknown().optional(), idempotencyKey: z.string().min(8).max(200) });
 const queryBody = z.strictObject({ type: z.string(), input: z.unknown().optional() });
@@ -103,7 +107,7 @@ function authorize(gov: Gov, need: ApiRole, user: User | null, input: unknown, w
 
 function context(gov: Gov, caller: Caller, role: Role | null): Ctx {
   return {
-    gov, db: gov.db, user: caller.user, role, cookies: caller.cookies ?? [],
+    gov, db: gov.db, user: caller.user, role, cookies: caller.cookies ?? [], ip: caller.ip ?? "unknown",
     actor: caller.user ? { kind: "person", id: caller.user.id } : { kind: "system", id: "anonymous" },
     now: () => gov.clock.nowMs(),
   };

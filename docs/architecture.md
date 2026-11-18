@@ -21,7 +21,7 @@ packages/contracts/src/   shared types and zod schemas (the only shared package)
 apps/governor/src/
   main.ts  app.ts (HTTP)  db.ts (SQLite + schema.sql)  events.ts (append + audit chain)
   dispatch.ts  commands and queries: input, role, idempotency, one transaction
-  auth/        sign-in (better-auth), members, roles
+  auth/        sign-in (better-auth), members, roles, users, groups, invitations
   workspace/   folders, TOML loading, validation, packs, git commits, snapshots
   tasks/       tasks, Plays to tasks, orchestrator, checks, notes
   attempts/    queue, claim, lease, completion, runner registry, placement
@@ -134,6 +134,9 @@ Everything else:
 | `instance` | key/value: setup state, schema digest, audit key id |
 | `workspaces` | id, slug, name, status, active snapshot digest |
 | `members` | workspace, user, role (`viewer`, `member`, `admin`); `instance_admins` lists users who may create workspaces and manage runners |
+| `groups`, `group_members`, `group_grants` | a named set of users and the role it gives on a workspace (`group_grants`); `access.ts` takes the highest of a person's own and their groups' roles |
+| `invitations` | invitation and password-reset links: kind, email (a reset: the user), keyed digest of the one-use token, what it grants, state, creator, expiry |
+| `deactivated_users` | users who cannot sign in; their rows and history stay |
 | `snapshots` | digest, workspace, commit, created at |
 | `secrets` | workspace, name, encrypted value |
 | `tasks` | id, workspace, parent, root, title, goal, agent, state, snapshot digest, origin (Play + step id, `for_each` item), step settings (review_by, max_rounds, target_score, approve, when, candidates, judge), round, result, needs (why it needs a person), timestamps, version |
@@ -172,12 +175,12 @@ Commands: `setup.create`, `workspace.create` (its input may carry `platform: "ad
 `member.remove`, `task.create` (a goal, optionally a Play and inputs), `task.confirm`
 (accept a proposed plan), `task.edit` (change, add or remove sub-tasks not yet started),
 `task.stop`, `task.steer` (a task's priority and pause), `task.retry`, `task.check` (a person's check or sign-off), `task.answer`,
-`approval.decide`, `memory.decide`, `runner.token`, `runner.remove`.
+`approval.decide`, `memory.decide`, `runner.token`, `runner.remove`; and for users (docs/model.md, Users, invitations and groups) `user.invite`, `invitation.revoke`, `invitation.accept` (public: it redeems an invitation or a reset link), `user.set` (instance role, active), `user.resetLink`, `session.revoke` (the caller's own, or any person's for an instance admin), `profile.set` (name, password), `group.set`, `group.delete`.
 
 Queries: `setup.status`, `me`, `packs.list`, `workspace.get`, `workspace.files`,
 `file.read`, `pack.files`, `today`, `overview`, `schedules.list`, `tasks.list`, `task.get`, `task.events`, `approvals.list`,
 `approval.get`, `queue`, `usage.summary`, `memory.list`, `members.list`, `secrets.list` (names
-only), `runners.list`, `health`, `audit.verify`. `overview` takes no workspace: for the active
+only), `runners.list`, `health`, `audit.verify`, `users.list` (instance admin: people, pending invitations, groups), `user.get` (oneself, or any person for an instance admin: sessions, sign-in log, access matrix). `overview` takes no workspace: for the active
 workspaces the caller is a member of it answers per-workspace counts (needs you, running, done and
 failed today), spend against the cap, projects, last activity and a dense 14-day series (UTC days, oldest
 first) of goals done and spend; one list of up to 50 tasks waiting for a person (each with its workspace
@@ -215,7 +218,7 @@ produced a result never checks it.
 An answer is `{output}`, or `{error: {code, message, problems?}}` with the matching HTTP
 status. Besides the three workspace roles an entry is `public` (`setup.status`,
 `setup.create`, `me`, `overview`) or needs an instance admin (`workspace.create`, `packs.list`,
-`runner.token`, `runner.remove`, `runners.list`, `audit.verify`). Every other entry takes
+`runner.token`, `runner.remove`, `runners.list`, `audit.verify`, and the user entries above except `invitation.accept`, `session.revoke`, `profile.set` and `user.get`, which are `public` and check the caller themselves). Every other entry takes
 `workspaceId`; a person who is not a member is told the workspace does not exist.
 `file.write` (up to 200 files, 500 removals) and `file.delete` (up to 500 paths) take several paths and make one commit; a copy or a move of files and folders in the Files tab is one such commit. A `file.write` file is text, or
 `encoding: "base64"` for a document of any kind; a write may also name `remove` paths, so a rename is one commit.
@@ -228,7 +231,13 @@ by `setup.create` and by `member.set` (with a name and a first password for a pe
 has none); signing up from outside is closed. `setup.create` also makes the first workspace,
 named Starter, from the `base` pack with the new person as its admin, so the first screen is
 never empty; the pack's `hello` Play is the sample goal. A packs directory without `base`
-gets no Starter. The answer of `runner.token` is shown once: it is not kept for
+gets no Starter. Users: `access.ts` gives a person the highest of their own role and their groups' roles; `members.list` also lists the groups with a role in the
+workspace, with their people. Invitation and reset links carry a 32-byte token in the address fragment (`/#invite=` and `/#reset=`, so it never reaches a log), stored as a keyed digest,
+valid 7 days (a reset 1 day), single use, answered by one refusal whatever is wrong with a token, and redeemed at most 10 times a minute per client address that fail. `auth.user()` answers
+nobody for a deactivated user, `session.create` is refused for one (password, passkey and second factor alike), deactivating or a forced sign-out deletes the sessions and ends the user's
+event streams, and the `/api/auth` routes that change an account outside the audit log (`update-user`, `change-password`, reset and session revocation) are closed. A person has no
+API tokens: a session is the only credential of a person, and runners and attempts use their own. Outgoing mail (`BRAIN_SMTP_URL`, `BRAIN_SMTP_FROM`) is optional and best effort. Sign-ins
+and failed sign-ins of existing accounts are audit events. The answers of `user.invite`, `user.resetLink` are shown once, like `runner.token`. The answer of `runner.token` is shown once: it is not kept for
 idempotency, and the same key sent again is refused.
 
 ## 5. Tasks and orchestration (`tasks/`)
@@ -504,16 +513,16 @@ The platform workspace is shown with a "Platform" badge in the sidebar and in th
 First paint: the Governor serves the built files compressed (Brotli or gzip) and caches `/assets` for a year; the page's own chunk downloads beside the questions of who is signed in; a reload paints from the tab's last `me` and asks again behind it; a page that waits shows grey blocks in the shape of its content. On a wide screen a Workspace list opens with its first item selected; a phone keeps the list first.
 Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones): Overview, Schedules, then the
 workspaces (grouped as My workspaces, Shared with me and Public workspaces, each with an orange count of what waits there; the open one expands to Today, Tasks and
-Workspace) and New workspace, Health and People at the foot with the account (language, theme, sign out).
+Workspace) and New workspace, Health and People at the foot with the account (Profile, language, theme, sign out); a platform admin also sees a This Brain group with Users.
 A **Limits** panel in Settings and in each agent's form lists the limits that apply with their use, their source (agent file, pack, workspace file or default) and a field to change them (`src/components/Limits.tsx` holds the list; the defaults and the retry count are `LIMIT_DEFAULTS` and `MAX_ATTEMPTS` of `contracts/src/limits.ts`, which the web app imports through `@brain/contracts/limits` so no hashing code reaches the browser). An attempt's failure may carry `limit` (`{name, value, used, agent?}`), set by the Governor when an engine reports `reason = "limit"`, when a retry count or the daily cap stopped it; the Task page shows it with **Raise the limit**, a link to the form.
-The top bar has the live indicator and search (Cmd-K: pages, workspaces, goals). Screens (eleven files in
+The top bar has the live indicator and search (Cmd-K: pages, workspaces, goals). Screens (thirteen files in
 `src/screens`): sign-in and first-run setup (`AuthLayout`); **Overview** (the home: headline numbers, needs
 you across all workspaces with the decision in place, what is running, a table of workspaces with week
 sparklines, spend and goals per day stacked by workspace, the instance's health); **Today** (goal box, Plays,
 needs you, running, recent, spend); **Tasks** (filterable, sortable table with bulk stop) and one **Task**
 page (the goal drawn as a graph of its sub-tasks, in columns by what each waits for, and the record in two panes); **Workspace** (tabs for agents, a
 Team graph, tools, Plays, memory, projects, settings, Files: list and form panes over the files, plus a raw editor; Files shows every file of the workspace (its folder and its packs' files, which are read only until a copy is edited) as a tree with sizes and last commits, a list or grid, multi-select with bulk download and delete, and browse, edit, rename, delete and upload to browse, edit, rename, delete and upload documents into, one commit per change; Team draws the agents and
-the handoffs between them, read from the Plays' steps and the recent tasks the web app already lists, with no query of its own); **New workspace** (a wizard); **Health**;
+the handoffs between them, read from the Plays' steps and the recent tasks the web app already lists, with no query of its own); **New workspace** (a wizard); **Users** (`/users`, instance admins: the people table with search and filters, Invite people with the copyable link, groups, and a detail drawer with the access matrix, sessions and sign-in log); **Profile** (`/profile`, from the account menu); **Health**;
 **Queue** (`queue`, at `/queue` and `/w/<slug>/queue`: runners as lanes with their slots and the attempts in them, then the waiting list in dispatch order with rank, kind, age, the plain-words reason and an estimated start, with priority, Run next, pause and stop for a member; reorders animate with a short FLIP move that `prefers-reduced-motion` turns off; it is read again on every live change; Today and the Overview show a "3 running, 5 waiting" line that links to it, and the sidebar the count waiting); **Schedules** (every scheduled or webhook Play of the visible workspaces with its next and last run, and a form to schedule, pause or remove one; also at `/w/<slug>/schedules` for one workspace); **People and secrets** (with Share: add people by email with a role, and the private or public switch). Health and People belong to a workspace, so the sidebar leads to the open one's.
 
 ## 11. Tests
@@ -533,6 +542,7 @@ the handoffs between them, read from the Plays' steps and the recent tasks the w
   older than 30 days not); `platform.tool-drift`; a capitalizer proposal lands only in the platform workspace's `packs/` after an admin approves it; a
   release freezes a version, a workspace pinned to it resolves exactly it whatever is edited later, Update available shows only for a newer release, and
   Update commits the pin; the weekly schedules of `capitalize` and `sync-tools`.
+- `tests/core/users.test.ts`: the access resolver with groups (highest role wins, direct or via which group); invite, accept, revoke, expiry and one use; the last-admin guard; deactivation (an issued session refused, sessions ended, sign-in refused, history kept); reset links; audit entries; the admin-only matrix.
 - `tests/e2e`: the real runner on its fixture engine against the Governor in one process: a pipeline to a checked
   result, a native edit that leaves as an approved pull request, a held call carried out later.
 - `tests/browser` (`pnpm test:browser`: builds the web app, then Playwright with Chromium at 1440 and, for the first
@@ -540,7 +550,7 @@ the handoffs between them, read from the Plays' steps and the recent tasks the w
   and the real runner on the fixture engine, in the test process (`stack.ts`). It acts as a first-time user: setup link to
   a checked result with its cost; a typed goal, its plan changed and confirmed; an approval approved and one rejected with
   a reason; an agent's prompt edited (pack file to workspace file) and a broken file refused on its line; a workspace made
-  from a pack with its first goal; Files (browse, edit and save a document, a broken `brain.toml` refused, upload with an overwrite confirmation and a size refusal, download, delete; a pack's file listed and a copy edited; selection by box, range and key, copy, move, bulk download and delete, and a dropped file; axe light and dark at 390; Arabic); Schedules (the list, the form with its live check and preview, pause and remove); sharing (adding a person by email, the private and public switch, the invited person's grouped sidebar and a public workspace read only); the Overview across several workspaces (needs-you list, a call decided in place, a jump into a task); axe on Today and Task (light and dark) and an Arabic right-to-left check. It is not
+  from a pack with its first goal; Files (browse, edit and save a document, a broken `brain.toml` refused, upload with an overwrite confirmation and a size refusal, download, delete; a pack's file listed and a copy edited; selection by box, range and key, copy, move, bulk download and delete, and a dropped file; axe light and dark at 390; Arabic); Schedules (the list, the form with its live check and preview, pause and remove); users (invite, accept, sign in, deactivate); sharing (adding a person by email, the private and public switch, the invited person's grouped sidebar and a public workspace read only); the Overview across several workspaces (needs-you list, a call decided in place, a jump into a task); axe on Today and Task (light and dark) and an Arabic right-to-left check. It is not
   part of `pnpm verify`.
 
 `pnpm verify` = lint, typecheck, unit, runner, core and e2e tests, and `scripts/complexity.mjs`,

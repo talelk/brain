@@ -11,6 +11,7 @@ import { registerAttempts } from "./attempts/routes";
 import { offerLocalRunnerToken, registerRunners } from "./attempts/runners";
 import { createAuth } from "./auth/auth";
 import { ensureSetupToken, registerAuth } from "./auth/handlers";
+import { registerUsers } from "./auth/users";
 import { openDb } from "./db";
 import { errorFields, log } from "./log";
 import { Registry, runCommand, runQuery, type Gov } from "./dispatch";
@@ -116,12 +117,13 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   const keys = instanceKeys(dataDir);
   const gov: Gov = {
     db, dataDir, baseUrl, gatewayUrl: (options.gatewayUrl ?? baseUrl).replace(/\/+$/u, ""), keys, packsDir: resolve(options.packsDir ?? repo("packs")), clock: options.clock ?? systemClock, fetch: options.fetch ?? ((input, init) => fetch(input, init)),
-    auth: createAuth(db, { secret: hmacSha256Hex(keys.digests, Buffer.from("better-auth")), baseUrl }), registry: new Registry(), onActivate: [],
+    auth: createAuth(db, { secret: hmacSha256Hex(keys.digests, Buffer.from("better-auth")), baseUrl }), registry: new Registry(), onActivate: [], onSignedOut: [],
   };
   const app = new Hono();
   const timers: Array<{ ms: number; work: () => void | Promise<void> }> = [];
   const running = new Set<NodeJS.Timeout>();
-  const streams = new Set<() => void>();
+  /** The open event streams, each with the person it belongs to. */
+  const streams = new Map<() => void, string>();
   const governor: Governor = {
     gov, app,
     every: (ms, work) => void timers.push({ ms, work }),
@@ -130,7 +132,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
     },
     close() {
       for (const timer of running) clearInterval(timer);
-      for (const end of streams) end();
+      for (const end of [...streams.keys()]) end();
       if (db.open) db.close();
     },
   };
@@ -154,13 +156,22 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
     return next();
   });
 
-  // Sign-in. Accounts are made by setup and by a workspace admin (member.set), so signing up from outside is closed.
+  gov.onSignedOut.push((userId) => { for (const [end, owner] of [...streams]) if (owner === userId) end(); });
+
+  // Sign-in. Accounts are made by setup, by an invitation and by a workspace admin (member.set), so signing up from outside is closed; what changes an
+  // account (name, password, sessions) goes through the commands `profile.set`, `session.revoke` and the reset links, which are audited.
   app.on(["GET", "POST"], "/api/auth/*", (c) => {
     if (c.req.path === "/api/auth/sign-up/email") return refusal(c, new BrainError("FORBIDDEN", "Ask an admin of a workspace to add you"));
+    if (/^\/api\/auth\/(?:update-user|change-|delete-user|request-password-reset|reset-password|revoke-|set-password)/u.test(c.req.path)) return refusal(c, new BrainError("FORBIDDEN", "This is done from the Profile page"));
     return gov.auth.handler(c.req.raw);
   });
 
-  const caller = async (c: Context) => ({ user: await gov.auth.user(c.req.raw.headers), cookies: [] as string[] });
+  /** Where a request came from: when the install trusts a proxy, the last address it appended (the first is whatever the client sent), else the connection. */
+  const clientIp = (c: Context): string => {
+    if (process.env["BRAIN_AUTH_TRUSTED_PROXIES"]) return c.req.header("x-forwarded-for")?.split(",").at(-1)?.trim() || "unknown";
+    return (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress ?? "local";
+  };
+  const caller = async (c: Context) => ({ user: await gov.auth.user(c.req.raw.headers), cookies: [] as string[], ip: clientIp(c) });
   app.post("/v1/command", async (c) => {
     const who = await caller(c);
     const output = await runCommand(gov, who, await readJson(c.req.raw, who.user !== null));
@@ -194,7 +205,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
           streams.delete(end);
           try { controller.close(); } catch { /* already closed */ }
         };
-        streams.add(end);
+        streams.set(end, user.id);
         c.req.raw.signal.addEventListener("abort", () => end(), { once: true });
         send(": connected\n\n");
       },
@@ -216,7 +227,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   });
 
   // Each module registers its commands, queries, routes and timers here, before the web app's catch-all route below.
-  for (const register of [registerAuth, registerWorkspace, registerPacks, registerTrust, registerUsage, registerApprovals, registerMemory, registerTriggers, registerTasks, registerOverview, registerRunners, registerAttempts, registerGateway, registerGithub, registerTeams, registerHealth]) register(governor);
+  for (const register of [registerAuth, registerUsers, registerWorkspace, registerPacks, registerTrust, registerUsage, registerApprovals, registerMemory, registerTriggers, registerTasks, registerOverview, registerRunners, registerAttempts, registerGateway, registerGithub, registerTeams, registerHealth]) register(governor);
   governor.every(15 * 60_000, () => void checkpoint(gov));
 
   ensureAuditKey(gov);

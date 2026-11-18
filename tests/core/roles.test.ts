@@ -31,7 +31,7 @@ describe("roles", () => {
     for (const entry of [...Object.values(commands), ...Object.values(queries)]) {
       expect(["public", "viewer", "member", "admin", "instance-admin"]).toContain(entry.role);
       const needsWorkspace = ["viewer", "member", "admin"].includes(entry.role);
-      expect(entry.input.safeParse({}).success, `${entry.type} takes a workspace exactly when its role is a workspace role`).toBe(!needsWorkspace && !["setup.create", "workspace.create", "runner.remove"].includes(entry.type));
+      expect(entry.input.safeParse({}).success, `${entry.type} takes a workspace exactly when its role is a workspace role`).toBe(!needsWorkspace && !["setup.create", "workspace.create", "runner.remove", "user.invite", "invitation.revoke", "invitation.accept", "user.set", "user.resetLink", "profile.set", "group.set", "group.delete"].includes(entry.type));
     }
   });
 
@@ -42,7 +42,7 @@ describe("roles", () => {
       "secret.set": { workspaceId, name: "x", value: "y" }, "secret.delete": { workspaceId, name: "x" }, "member.set": { workspaceId, email: "vera@example.com", role: "viewer" }, "member.remove": { workspaceId, userId: "u_none" },
       "task.create": { workspaceId, goal: "Do something" }, "task.confirm": t, "task.edit": { ...t, changes: [{ op: "remove", id: "t_other" }] }, "task.stop": t, "task.steer": { ...t, paused: true }, "task.retry": t, "task.check": { ...t, pass: true }, "task.answer": { ...t, answer: "yes" },
       "approval.decide": { workspaceId, approvalId: "ap_none", decision: "approve", subjectDigest: "sha256:0" }, "memory.decide": { workspaceId, proposalId: "mp_none", decision: "accept" },
-      "runner.remove": { runnerId: "r_none" }, "pack.release": { workspaceId, name: "base" }, "pack.files": { workspaceId, name: "extra", version: 0 }, "file.read": { workspaceId, path: "brain.toml" }, "task.get": t, "task.events": { ...t, attemptId: "a_none" }, "approval.get": { workspaceId, approvalId: "ap_none" },
+      "runner.remove": { runnerId: "r_none" }, "user.invite": { email: "new@example.com" }, "invitation.revoke": { invitationId: "inv_none" }, "user.set": { userId: "u_none", active: true }, "user.resetLink": { userId: "u_none" }, "group.set": { name: "Group" }, "group.delete": { groupId: "grp_none" }, "pack.release": { workspaceId, name: "base" }, "pack.files": { workspaceId, name: "extra", version: 0 }, "file.read": { workspaceId, path: "brain.toml" }, "task.get": t, "task.events": { ...t, attemptId: "a_none" }, "approval.get": { workspaceId, approvalId: "ap_none" },
     };
     const rank = { viewer: 0, member: 1, admin: 2 } as const;
     const refusal = async (call: Promise<unknown>): Promise<string> => call.then(() => "answered", (e: { code: string }) => e.code);
@@ -66,7 +66,7 @@ describe("roles", () => {
         checked += 1;
       }
     }
-    expect(checked).toBe(Object.keys(commands).length + Object.keys(queries).length - 12);
+    expect(checked).toBe(Object.keys(commands).length + Object.keys(queries).length - 23);
   });
 
   it("a viewer reads the workspace and cannot write a file", async () => {

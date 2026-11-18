@@ -1,4 +1,4 @@
-import { createEffect, createMemo, lazy, Show, Suspense, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, lazy, Show, Suspense, type JSX } from "solid-js";
 import { Navigate, Route, Router, useLocation, useParams, type RouteSectionProps } from "@solidjs/router";
 import { EmptyState } from "@talelk/newui-molecules";
 import { Button } from "@talelk/newui-atoms";
@@ -10,6 +10,7 @@ import { t } from "./i18n";
 import { Failure, Loading, type LoadingShape } from "./components/bits";
 import { remember, Shell } from "./components/Shell";
 import { SignIn } from "./screens/SignIn";
+import { linkFromAddress, Redeem } from "./components/Redeem";
 
 const load = {
   overview: () => import("./screens/Overview"),
@@ -22,6 +23,8 @@ const load = {
   people: () => import("./screens/People"),
   schedules: () => import("./screens/Schedules"),
   queue: () => import("./screens/Queue"),
+  users: () => import("./screens/Users"),
+  profile: () => import("./screens/Profile"),
 };
 const Overview = lazy(load.overview);
 const Today = lazy(load.today);
@@ -33,6 +36,8 @@ const NewWorkspace = lazy(load.newWorkspace);
 const Health = lazy(load.health);
 const People = lazy(load.people);
 const Schedules = lazy(load.schedules);
+const Users = lazy(load.users);
+const Profile = lazy(load.profile);
 
 /** The page's own code starts downloading with the first request, beside the questions of who is signed in, instead of after them. */
 void (() => {
@@ -84,7 +89,7 @@ function Frame(props: RouteSectionProps): JSX.Element {
   const shape = (): LoadingShape => {
     const path = location.pathname;
     if (path === "/" || path.endsWith("/health")) return "cards";
-    if (path.endsWith("/tasks") || path.endsWith("/queue") || path.endsWith("/people") || path.endsWith("/schedules")) return "table";
+    if (path.endsWith("/tasks") || path.endsWith("/queue") || path.endsWith("/people") || path.endsWith("/schedules") || path === "/users") return "table";
     if (path.includes("/workspace") || path.includes("/tasks/")) return "split";
     return path === "/new" || /^\/w\/[^/]+\/?$/u.test(path) ? "form" : "lines";
   };
@@ -101,7 +106,10 @@ export function App(): JSX.Element {
   createEffect(() => { const answer = live.data(); if (answer) try { if (answer.user) sessionStorage.setItem(ME_KEY, JSON.stringify(answer)); else sessionStorage.removeItem(ME_KEY); } catch { /* a convenience only */ } });
   createEffect(() => connectLive(Boolean(live.data()?.user)));
   const refetch = (): void => { setup.refetch(); live.refetch(); overview.refetch(); };
+  // An invitation or reset link opens its own page, signed in or not.
+  const [link, setLink] = createSignal(linkFromAddress());
   return (
+    <Show when={link()} fallback={
     <Show when={me()?.user ? me() : setup.data() && live.data()} fallback={<div class="mx-auto max-w-md px-4 py-24"><Show when={setup.error() ?? live.error()} fallback={<Loading />}><Failure error={setup.error() ?? live.error()} retry={refetch} /></Show></div>}>
       <Show when={me()?.user} fallback={<SignIn setupRequired={setup.data()?.setupRequired ?? false} onDone={refetch} />}>
         {(user) => (
@@ -111,6 +119,8 @@ export function App(): JSX.Element {
               <Route path="/new" component={NewWorkspace} />
               <Route path="/schedules" component={Schedules} />
               <Route path="/queue" component={Queue} />
+              <Route path="/users" component={Users} />
+              <Route path="/profile" component={Profile} />
               <Route path="/w/:slug" component={InWorkspace}>
                 <Route path="/" component={Today} />
                 <Route path="/tasks" component={Tasks} />
@@ -126,6 +136,9 @@ export function App(): JSX.Element {
           </SessionProvider>
         )}
       </Show>
+    </Show>
+    }>
+      {(found) => <Redeem link={found()} signedInAs={me()?.user?.name} onDone={() => { setLink(linkFromAddress()); refetch(); }} />}
     </Show>
   );
 }
