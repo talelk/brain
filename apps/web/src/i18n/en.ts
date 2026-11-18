@@ -1100,7 +1100,7 @@ export const en = {
   "queue.runner.slots": "{used} of {total} slots in use",
   "queue.slot.free": "Free slot",
   "queue.slot.hidden": "Busy with another workspace",
-  "queue.runner.how": "Slots are set on the runner: start it with BRAIN_RUNNER_SLOTS=<number> and restart it to change them. To add a runner, issue a token in Health.",
+  "queue.runner.how": "Slots are set on the runner: start it with BRAIN_RUNNER_SLOTS=<number> and restart it to change them. To add a runner, issue a token in Health, then run: pnpm brain runner --governor <address> --token <token>",
   "queue.run.tokens": "{n} tokens",
   "queue.waiting": "Waiting",
   "queue.waiting.none": "Nothing is waiting.",

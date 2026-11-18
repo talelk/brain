@@ -31,7 +31,7 @@ export function LimitsPanel(props: { snapshot: SnapshotManifest; agent?: string;
   const [search] = useSearchParams<{ limit?: string }>();
   const queue = useQuery("queue", () => (props.agent === undefined ? {} : undefined));
   const [editing, setEditing] = createSignal<string | undefined>(search.limit);
-  const [draft, setDraft] = createSignal("");
+  const [draft, setDraft] = createSignal<string>();
   const mine = (): { attemptsRunning: number } | undefined => session.overview.data()?.workspaces.find((workspace) => workspace.id === place.id());
   const brainFrom = (value: number, standard: number): string => (value === standard ? t("limits.from.default") : t("limits.from.brain"));
   const rows = (): Row[] => {
@@ -63,7 +63,7 @@ export function LimitsPanel(props: { snapshot: SnapshotManifest; agent?: string;
     ];
   };
   const save = useAction(async (row: Row) => {
-    const value = Number(draft());
+    const value = Number(draft() ?? row.value);
     if (!row.where || Number.isNaN(value) || value < 0) return;
     if (row.where.kind === "brain") {
       const brain = brainOf(props.snapshot);
@@ -93,7 +93,7 @@ export function LimitsPanel(props: { snapshot: SnapshotManifest; agent?: string;
                   <td class="px-3 py-2 tabular-nums text-ink" dir="ltr">
                     <Show when={editing() === row.id} fallback={row.shown}>
                       <form class="flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); void save.run(row); }}>
-                        <TextInput size="md" type="number" min={0} step={row.where?.field === "spend_usd" || row.where?.field === "daily_spend_usd" ? "any" : 1} label={row.label} value={draft()} onInput={(event) => setDraft(event.currentTarget.value)} autofocus />
+                        <TextInput size="md" type="number" min={0} step={row.where?.field === "spend_usd" || row.where?.field === "daily_spend_usd" ? "any" : 1} label={row.label} value={draft() ?? String(row.value ?? 0)} onInput={(event) => setDraft(event.currentTarget.value)} autofocus />
                         <Button type="submit" variant="solid" theme="blue" size="md" loading={save.busy()}>{t("limits.save")}</Button>
                         <Button variant="ghost" size="md" onClick={() => setEditing(undefined)}>{t("limits.cancel")}</Button>
                       </form>
@@ -102,7 +102,7 @@ export function LimitsPanel(props: { snapshot: SnapshotManifest; agent?: string;
                   <td class="px-3 py-2 text-ink-2">{row.used ?? "—"}</td>
                   <td class="px-3 py-2 text-ink-2" dir="auto">{row.from}</td>
                   <td class="px-3 py-2 text-end">
-                    <Show when={row.where && !props.readOnly && editing() !== row.id}><Button variant="outline" size="sm" onClick={() => { setDraft(String(row.value ?? 0)); setEditing(row.id); }}>{t("limits.change")}</Button></Show>
+                    <Show when={row.where && !props.readOnly && editing() !== row.id}><Button variant="outline" size="sm" onClick={() => { setDraft(undefined); setEditing(row.id); }}>{t("limits.change")}</Button></Show>
                     <Show when={row.id === "slots"}><A href={place.to("/queue")} class="link">{t("nav.queue")}</A></Show>
                   </td>
                 </tr>
@@ -130,9 +130,9 @@ export function LimitNotice(props: { task: Task }): JSX.Element {
   };
   const shown = (value: number | null, name: string): string => (value === null ? t("limit.hit.unknown") : spending(name) || name === "workspace.daily_spend_usd" ? money(value * 1_000_000) : value.toLocaleString());
   const where = (h: { name: string; agent?: string | undefined }): string =>
-    h.name.startsWith("agent.") ? t("limits.from.agent", { name: h.agent ?? "" }) : h.name === "step.max_rounds" ? `plays/${props.task.play ?? ""}.toml` : h.name === "timeout" ? t("limits.from.runner", { name: "BRAIN_RUNNER_ATTEMPT_TIMEOUT_SECONDS" }) : h.name === "attempts" ? t("limits.from.fixed") : t("limits.from.brain");
+    h.name.startsWith("agent.") ? t("limits.from.agent", { name: h.agent ?? "" }) : h.name === "step.max_rounds" ? `plays/${props.task.play ?? ""}.toml` : h.name === "attempts" ? t("limits.from.fixed") : t("limits.from.brain");
   const raise = (h: { name: string; agent?: string | undefined }): string | undefined =>
-    h.name === "attempts" || h.name === "timeout" ? undefined : h.name === "step.max_rounds" ? (props.task.play ? place.to(`/workspace/plays/${props.task.play}`) : undefined) : limitPlace(place.summary().slug, h.name, h.agent);
+    h.name === "attempts" ? undefined : h.name === "step.max_rounds" ? (props.task.play ? place.to(`/workspace/plays/${props.task.play}`) : undefined) : limitPlace(place.summary().slug, h.name, h.agent);
   return (
     <Show when={hit()}>
       {(h) => (
@@ -153,7 +153,7 @@ export function QueuedNotice(props: { task: Task }): JSX.Element {
     <Show when={props.task.queued}>
       {(queued) => (
         <div class="mb-6 rounded-xl bg-paper px-4 py-3" role="note" data-testid="queued-notice">
-          <p class="t-text font-medium text-ink">{t("queue.task.waiting")}{queued().rank !== null ? ` · ${t("queue.rank", { n: queued().rank as number })}` : ""}</p>
+          <p class="t-text font-medium text-ink">{queued().taskId !== props.task.id ? <><bdi>{queued().title}</bdi> · </> : ""}{t("queue.task.waiting")}{queued().rank !== null ? ` · ${t("queue.rank", { n: queued().rank as number })}` : ""}</p>
           <p class="mt-1 t-text text-ink-2">{waitText(queued().wait)}</p>
           <div class="mt-2 flex flex-wrap gap-2">
             <Show when={queued().wait.kind === "running-tasks" || queued().wait.kind === "daily-cap"}>

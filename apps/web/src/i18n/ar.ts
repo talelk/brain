@@ -1174,7 +1174,7 @@ export const ar: Catalog = {
   "queue.runner.slots": "{used} من {total} خانات مستخدمة",
   "queue.slot.free": "خانة فارغة",
   "queue.slot.hidden": "مشغولة بمساحة عمل أخرى",
-  "queue.runner.how": "تُضبط الخانات على المنفّذ: شغّله مع BRAIN_RUNNER_SLOTS=<عدد> وأعد تشغيله لتغييرها. لإضافة منفّذ أنشئ رمزًا في الصحة.",
+  "queue.runner.how": "تُضبط الخانات على المنفّذ: شغّله مع BRAIN_RUNNER_SLOTS=<عدد> وأعد تشغيله لتغييرها. لإضافة منفّذ أنشئ رمزًا في الصحة ثم نفّذ: pnpm brain runner --governor <العنوان> --token <الرمز>",
   "queue.run.tokens": "{n} رمز",
   "queue.waiting": "في الانتظار",
   "queue.waiting.none": "لا شيء ينتظر.",

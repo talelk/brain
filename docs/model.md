@@ -348,11 +348,11 @@ button to change it. Defaults are generous and no money cap is set unless a pers
 | `spend_usd` | one attempt of an agent | 0 (no cap) | `agent.toml [limits]` |
 | `max_rounds` | check rounds of one step | 3 | the step in the Play |
 | attempts | one attempt is retried after an infrastructure failure up to 5 times in all | 5 (not editable) | Brain |
-| slots | one runner | 1 | `BRAIN_RUNNER_SLOTS` of the runner, then restart it |
+| slots | one runner | 1 | `BRAIN_RUNNER_SLOTS` of the runner, then restart it; another runner is `pnpm brain runner --governor <address> --token <token>` |
 | uploads | a document | 5 MB each, 20 MB per upload | Brain |
 
-A reply the model writes may be as long as 64,000 tokens (a thinking model needs room), unless
-the agent's `tokens` is smaller.
+A reply the model writes may be as long as 32,768 tokens (a thinking model needs room; the
+checks and judgements get the same), unless the agent's `tokens` is smaller.
 When a limit stops or delays a task, the attempt's failure or the task's page says so: the
 limit's name, its value, what was used, where it is set, and **Raise the limit**, which opens
 the form that holds it. It is never shown as a generic failure.

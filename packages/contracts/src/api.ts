@@ -230,7 +230,7 @@ export interface Task extends TaskSummary {
   readonly waitsFor: readonly string[];
   /** The task's priority and pause (its own, else its goal's), and for a task that is queued why it is not running: see `Wait`. */
   readonly steer: { readonly priority: Priority; readonly paused: boolean };
-  readonly queued: { readonly wait: Wait; readonly rank: number | null; readonly startsAt: number | null } | null;
+  readonly queued: { readonly taskId: string; readonly title: string; readonly wait: Wait; readonly rank: number | null; readonly startsAt: number | null } | null;
   readonly settings: { readonly reviewBy: string | null; readonly maxRounds: number; readonly targetScore: number | null; readonly approve: boolean; readonly when: string | null; readonly candidates: number | readonly string[] | null; readonly judge: string | null };
   readonly subtasks: readonly SubtaskSummary[];
   readonly attempts: readonly Attempt[];

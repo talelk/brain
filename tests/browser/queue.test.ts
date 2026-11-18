@@ -38,4 +38,16 @@ test("the queue shows the runner's slots, the waiting tasks in order with the re
   // The task's own page says the same, with the way to the queue.
   await rows.nth(0).getByRole("link", { name: "Third job" }).click();
   await expect(page.getByTestId("queued-notice")).toContainText("No runner has the capability docker.");
+
+  // A task a limit stopped says which, and its button opens the form that holds the limit with the editor open.
+  const failing = (await api.query("task.get", { workspaceId: workspace.id, taskId: (await api.query("tasks.list", { workspaceId: workspace.id, rootsOnly: true })).tasks.find((task) => task.title === "Second job")?.id ?? "" }));
+  const sub = failing.subtasks[0]?.id ?? "";
+  const db = stack.governor.gov.db;
+  db.prepare("UPDATE attempts SET state='failed', failure_json=? WHERE task_id=? AND state='queued'").run(JSON.stringify({ reason: "limit", detail: "stopped", infrastructure: false, limit: { name: "agent.tokens", value: 2000000, used: 2013442, agent: "needy" } }), sub);
+  db.prepare("UPDATE tasks SET state='failed', result='Stopped.' WHERE id IN (?,?)").run(sub, failing.id);
+  await page.goto(`${page.url().split("/tasks/")[0]}/tasks/${failing.id}`);
+  const notice = page.getByTestId("limit-notice");
+  await expect(notice).toContainText("Tokens per attempt: 2,000,000. Used: 2,013,442. It is set in agents/needy/agent.toml.");
+  await notice.getByRole("link", { name: "Raise the limit" }).click();
+  await expect(page.locator('[data-limit="agent.tokens"] input')).toHaveValue("2000000");
 });

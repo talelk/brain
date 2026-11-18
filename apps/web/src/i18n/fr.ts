@@ -1102,7 +1102,7 @@ export const fr: Catalog = {
   "queue.runner.slots": "{used} places sur {total} utilisées",
   "queue.slot.free": "Place libre",
   "queue.slot.hidden": "Occupée par un autre espace de travail",
-  "queue.runner.how": "Les places se règlent sur l'exécuteur : lancez-le avec BRAIN_RUNNER_SLOTS=<nombre> et redémarrez-le pour les changer. Pour ajouter un exécuteur, créez un jeton dans Santé.",
+  "queue.runner.how": "Les places se règlent sur l'exécuteur : lancez-le avec BRAIN_RUNNER_SLOTS=<nombre> et redémarrez-le pour les changer. Pour ajouter un exécuteur, créez un jeton dans Santé, puis lancez : pnpm brain runner --governor <adresse> --token <jeton>",
   "queue.run.tokens": "{n} tokens",
   "queue.waiting": "En attente",
   "queue.waiting.none": "Rien n'attend.",

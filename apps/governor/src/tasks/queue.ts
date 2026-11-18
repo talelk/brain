@@ -132,10 +132,11 @@ function placed(gov: Gov): { readonly items: Placed[]; readonly runners: ReturnT
   return { items: [...ranked, ...held], runners };
 }
 
-/** The wait of a task that has a queued attempt, with its place; null when it has none. */
-export function queuedOf(gov: Gov, taskId: string): { wait: Wait; rank: number | null; startsAt: number | null } | null {
-  const found = placed(gov).items.find((item) => item.entry.task.id === taskId);
-  return found ? { wait: found.wait, rank: found.rank, startsAt: found.startsAt } : null;
+/** The wait of a task, or of the sub-task of its tree that is first in line, when something under it is queued; null when nothing is. */
+export function queuedOf(gov: Gov, taskId: string): { taskId: string; title: string; wait: Wait; rank: number | null; startsAt: number | null } | null {
+  const tree = new Set((gov.db.prepare("WITH RECURSIVE tree(id) AS (SELECT ? UNION ALL SELECT t.id FROM tasks t JOIN tree ON t.parent_id = tree.id) SELECT id FROM tree").all(taskId) as Array<{ id: string }>).map((row) => row.id));
+  const found = placed(gov).items.filter((item) => tree.has(item.entry.task.id)).sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))[0];
+  return found ? { taskId: found.entry.task.id, title: found.entry.task.title, wait: found.wait, rank: found.rank, startsAt: found.startsAt } : null;
 }
 
 /** The queue for a person: every workspace they see (an instance admin sees all of them), or one. */

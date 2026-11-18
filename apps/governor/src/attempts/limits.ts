@@ -16,6 +16,9 @@ export function withLimit(gov: Gov, attempt: AttemptRow, failure: AttemptFailure
   const agent = { agent: attempt.agent };
   const active = activeManifest(gov, attempt.workspace_id);
   const cap = capOf(active);
+  // The money limits explain only a refusal or an end the attempt chose; a failed setup or a lost runner has other causes.
+  const refused = failure.reason === "limit" || failure.reason === "model-refused" || failure.reason === "engine";
+  if (!refused) return failure;
   if (cap > 0 && spentToday(gov, attempt.workspace_id) >= cap) return hit({ name: "workspace.daily_spend_usd", value: active.limits.daily_spend_usd, used: spentToday(gov, attempt.workspace_id) / 1_000_000 });
   if (limits.spend_usd > 0 && micro >= microUsd(limits.spend_usd) * 0.98) return hit({ name: "agent.spend_usd", value: limits.spend_usd, used: micro / 1_000_000, ...agent });
   if (failure.reason !== "limit") return failure;
