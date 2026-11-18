@@ -1,7 +1,7 @@
 import { createEffect, createSignal, on, onCleanup, For, Show, type JSX } from "solid-js";
 import { Avatar, Badge, Button, Checkbox, TextInput } from "@talelk/newui-atoms";
 import { Dialog, Select, toast } from "@talelk/newui-molecules";
-import type { AccessRow, GroupRow, Grants, LinkOutput, Role, SessionRow, SignInRow, UserDetail, UserRow, UserState } from "@brain/contracts";
+import type { AccessRow, GroupRow, Grants, LinkOutput, Role, SessionRow, SignInRow, UserDetail, UserState } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { useSession } from "../data/session";
 import { t } from "../i18n";

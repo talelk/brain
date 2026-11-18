@@ -12,7 +12,6 @@ test("schedules: one list of every Play that starts by itself, a form to schedul
     "plays/digest.toml": PLAY("Daily digest", ""),
   });
   await signIn(page, stack);
-  const nav = page.getByRole("navigation", { name: "Main" });
   if (onPhone(page)) await page.getByRole("button", { name: "Open application navigation" }).click();
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Schedules" }).first().click();
   await expect(page.getByRole("heading", { level: 1, name: "Schedules" })).toBeVisible();

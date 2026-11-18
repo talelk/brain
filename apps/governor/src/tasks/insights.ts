@@ -11,7 +11,6 @@ import { activeManifest } from "../workspace/store";
  * Insights (docs/model.md, "The timeline and Insights"): what happened over the last 7, 30 or 90 days, in the caller's own days, computed with grouped SQL from the rows
  * that already exist and kept for the minute of the Governor's clock. Every task and attempt is reached through `tasks_workspace_updated` and `attempts_task`.
  */
-const DAY_MS = 86_400_000;
 const TOP = 8;
 const CACHE_MAX = 64;
 const cache = new Map<string, Insights>();
