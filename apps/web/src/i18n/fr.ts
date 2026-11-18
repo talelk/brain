@@ -1497,6 +1497,7 @@ export const fr: Catalog = {
   "live.world.bubbles.selected": "Sélection seulement",
   "live.world.opt.names": "Noms",
   "live.world.opt.effects": "Effets",
+  "live.world.opt.music": "Musique",
   "live.world.opt.sound": "Son",
   "live.world.on": "Oui",
   "live.world.off": "Non",

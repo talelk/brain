@@ -183,13 +183,17 @@ export function path(map: Pick<Layout, "w" | "h" | "walk">, from: { x: number; y
   return out.reverse();
 }
 
-export type Mode = "arrive" | "work" | "done" | "failed" | "leave" | "wander";
-export type Emote = "!" | "ok" | "no" | "note" | "zz" | "dots" | "heart" | "?";
+export type Mode = "arrive" | "work" | "done" | "failed" | "leave" | "wander" | "handoff";
+export type Emote = "!" | "ok" | "no" | "note" | "zz" | "dots" | "heart" | "?" | "scroll";
 export interface Hero {
   readonly id: string;
   readonly agent: string;
   readonly kind: string;
   readonly slug: string;
+  /** The goal the attempt works for: a hero that finishes carries its scroll to the next one on the same goal. */
+  readonly rootId: string;
+  /** Who a hero walks to with the scroll. */
+  partner: string | null;
   /** Distinguishes parallel attempts of one agent: the colour of the cape. */
   readonly variant: number;
   x: number;
@@ -207,7 +211,7 @@ export interface Hero {
 }
 
 export interface Roster {
-  readonly runs: ReadonlyArray<{ id: string; agent: string; kind: string; slug: string }>;
+  readonly runs: ReadonlyArray<{ id: string; agent: string; kind: string; slug: string; rootId: string }>;
   /** Attempts that just ended, and how. */
   readonly leaving: ReadonlyArray<{ id: string; state: string }>;
   /** Agents that acted lately and work nowhere now, by workspace. */
@@ -246,15 +250,26 @@ export function reconcile(heroes: Map<string, Hero>, map: Layout, roster: Roster
       continue;
     }
     const start = first ? spot : map.spawn;
-    heroes.set(run.id, { id: run.id, agent: run.agent, kind: run.kind, slug: run.slug, variant: variantOf(run.id), x: start.x, y: start.y, dir: 0, mode: first ? "work" : "arrive", route: first ? [] : [...path(map, start, spot), spot], walked: 0, until: 0, emote: null, hop: 0, gone: false });
+    heroes.set(run.id, { id: run.id, agent: run.agent, kind: run.kind, slug: run.slug, rootId: run.rootId, partner: null, variant: variantOf(run.id), x: start.x, y: start.y, dir: 0, mode: first ? "work" : "arrive", route: first ? [] : [...path(map, start, spot), spot], walked: 0, until: 0, emote: null, hop: 0, gone: false });
   }
   for (const hero of heroes.values()) {
-    if (hero.mode === "wander" || running.has(hero.id) || hero.mode === "done" || hero.mode === "failed" || hero.mode === "leave") continue;
+    if (hero.mode === "wander" || running.has(hero.id) || hero.mode === "done" || hero.mode === "failed" || hero.mode === "leave" || hero.mode === "handoff") continue;
     const ended = roster.leaving.find((entry) => entry.id === hero.id)?.state;
     hero.route = [];
-    if (ended === "done") { hero.mode = "done"; hero.until = now + 1800; hero.emote = { kind: "ok", until: now + 2600 }; }
+    if (ended === "done") { hero.mode = "done"; hero.until = now + 4000; hero.emote = { kind: "ok", until: now + 2600 }; }
     else if (ended === "failed" || ended === "stopped") { hero.mode = "failed"; hero.until = now + 1800; hero.emote = { kind: "no", until: now + 2600 }; }
     else { hero.mode = "leave"; hero.route = path(map, hero, map.spawn); }
+  }
+  // A hero that just finished walks its scroll to the next hero of the same goal, in whatever house that one works.
+  for (const hero of heroes.values()) {
+    if (hero.mode !== "done" || hero.partner !== null || hero.rootId === "") continue;
+    const next = [...heroes.values()].find((other) => other.id !== hero.id && other.rootId === hero.rootId && running.has(other.id));
+    if (!next) continue;
+    const lot = lotOf.get(next.slug);
+    const spot = lot ? workSpot(lot, (count.get(next.slug) ?? 0) + 1) : { x: next.x + 1, y: next.y };
+    hero.partner = next.id;
+    hero.mode = "handoff";
+    hero.route = [...path(map, hero, spot), spot];
   }
   // Wanderers: one per agent that acted lately in a workspace and runs nowhere now.
   const busy = new Set(roster.runs.map((run) => `${run.slug}|${run.agent}`));
@@ -264,7 +279,7 @@ export function reconcile(heroes: Map<string, Hero>, map: Layout, roster: Roster
     const lot = lotOf.get(entry.slug);
     if (!wanted.has(id) || heroes.has(id) || !lot) continue;
     const spot = yardTile(map, lot, random);
-    heroes.set(id, { id, agent: entry.agent, kind: "work", slug: entry.slug, variant: variantOf(entry.agent), x: spot.x, y: spot.y, dir: 0, mode: "wander", route: [], walked: 0, until: now + 1000 + random() * 3000, emote: null, hop: 0, gone: false });
+    heroes.set(id, { id, agent: entry.agent, kind: "work", slug: entry.slug, rootId: "", partner: null, variant: variantOf(entry.agent), x: spot.x, y: spot.y, dir: 0, mode: "wander", route: [], walked: 0, until: now + 1000 + random() * 3000, emote: null, hop: 0, gone: false });
   }
   for (const hero of heroes.values()) if (hero.mode === "wander" && !wanted.has(hero.id)) hero.gone = true;
   for (const [id, hero] of heroes) if (hero.gone) heroes.delete(id);
@@ -301,7 +316,7 @@ export function step(heroes: Map<string, Hero>, map: Layout, dt: number, now: nu
     }
     const target = hero.route[0];
     if (target) {
-      const speed = SPEED * (hero.mode === "failed" || hero.mode === "leave" ? 0.75 : hero.mode === "wander" ? 0.55 : 1);
+      const speed = SPEED * (hero.mode === "failed" || hero.mode === "leave" ? 0.75 : hero.mode === "wander" ? 0.55 : hero.mode === "handoff" ? 1.25 : 1);
       const dx = target.x - hero.x;
       const dy = target.y - hero.y;
       const distance = Math.hypot(dx, dy);
@@ -314,6 +329,13 @@ export function step(heroes: Map<string, Hero>, map: Layout, dt: number, now: nu
         if (hero.mode === "arrive") { hero.mode = "work"; hero.dir = 0; }
         if (hero.mode === "work") hero.dir = 0;
         if (hero.mode === "leave") hero.gone = true;
+        if (hero.mode === "handoff") {
+          const partner = hero.partner ? heroes.get(hero.partner) : undefined;
+          hero.emote = { kind: "scroll", until: now + 1800 };
+          if (partner) { partner.emote = { kind: "heart", until: now + 1800 }; hero.dir = partner.x < hero.x ? 1 : 2; }
+          hero.mode = "done";
+          hero.until = now + 1600;
+        }
       }
     }
   }

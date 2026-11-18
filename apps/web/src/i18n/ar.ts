@@ -1585,6 +1585,7 @@ export const ar: Catalog = {
   "live.world.bubbles.selected": "المحدّد فقط",
   "live.world.opt.names": "الأسماء",
   "live.world.opt.effects": "المؤثرات",
+  "live.world.opt.music": "الموسيقى",
   "live.world.opt.sound": "الصوت",
   "live.world.on": "نعم",
   "live.world.off": "لا",

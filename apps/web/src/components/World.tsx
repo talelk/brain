@@ -3,7 +3,8 @@ import { A } from "@solidjs/router";
 import type { QueueAction } from "@brain/contracts";
 import { t, tn } from "../i18n";
 import { count, duration } from "../lib/format";
-import { CH, classOf, CW, frameAt, paintCastle, paintCottage, paintEmote, paintGround, paintProp, roofOf, sheetOf, type Class } from "../lib/rpg/art";
+import { classOf, drawEmote, drawHero, GROUND_SCALE, HERO_H, HERO_W, lookOf, paintCastle, paintCottage, paintGround, paintProp, roofOf, type Art, type Class, type Mood } from "../lib/rpg/art";
+import { startMusic, type Music } from "../lib/rpg/music";
 import { hashOf, layout, reconcile, seeded, step, TILE, walking, type Hero, type Lot } from "../lib/rpg/world";
 import { Icon } from "./bits";
 import { reduced, visible, watch } from "./LiveParts";
@@ -35,6 +36,7 @@ export interface WorldRun {
   readonly slug: string;
   readonly workspace: string;
   readonly goal: string;
+  readonly rootId: string;
   readonly href: string;
   readonly doing: readonly QueueAction[];
   readonly startedAt: number | null;
@@ -43,11 +45,12 @@ export interface WorldRun {
 
 type Time = "auto" | "day" | "dusk" | "night";
 type Weather = "auto" | "clear" | "rain" | "snow";
-interface Options { time: Time; weather: Weather; names: boolean; bubbles: "all" | "selected"; sound: boolean; effects: boolean; tour: boolean }
-const DEFAULTS: Options = { time: "auto", weather: "auto", names: true, bubbles: "all", sound: false, effects: true, tour: true };
+interface Options { time: Time; weather: Weather; names: boolean; bubbles: "all" | "selected"; sound: boolean; music: boolean; effects: boolean; tour: boolean }
+const DEFAULTS: Options = { time: "auto", weather: "auto", names: true, bubbles: "all", sound: false, music: false, effects: true, tour: true };
 const KEY = "brain.village";
 function loadOptions(): Options {
-  try { return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Options>) }; } catch { return DEFAULTS; }
+  // Sound and music start off on every visit: a page may not play before the person asks.
+  try { return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Options>), sound: false, music: false }; } catch { return DEFAULTS; }
 }
 
 const CLASS_ICON: Record<Class, string> = { knight: "lucide-shield", mage: "lucide-wand-sparkles", cleric: "lucide-heart-pulse", scribe: "lucide-feather", builder: "lucide-hammer", ranger: "lucide-binoculars" };
@@ -124,7 +127,15 @@ export function World(props: {
     if (on && !sound) { try { sound = chiptune(); sound.play("arrive"); } catch { sound = undefined; } }
     if (!on) { sound?.close(); sound = undefined; }
   };
-  onCleanup(() => sound?.close());
+  let music: Music | undefined;
+  const toggleMusic = (): void => {
+    const on = !options().music;
+    set("music", on);
+    if (on && !music) { try { music = startMusic(); } catch { music = undefined; } }
+    if (!on) { music?.close(); music = undefined; }
+  };
+  createEffect(() => music?.pause(!visible()));
+  onCleanup(() => { sound?.close(); music?.close(); });
   const [menu, setMenu] = createSignal(false);
   const [selected, setSelected] = createSignal<{ kind: "hero"; id: string } | { kind: "lot"; slug: string } | null>(null);
   const [size, setSize] = createSignal({ w: 800, h: 480 });
@@ -148,7 +159,7 @@ export function World(props: {
   let last = performance.now();
 
   const fitZoom = (): number => Math.max(0.5, Math.min(size().w / (map().w * TILE), size().h / (map().h * TILE)));
-  const baseZoom = (): number => Math.max(fitZoom(), size().w < 640 ? 2.25 : 3);
+  const baseZoom = (): number => Math.max(fitZoom(), size().w < 640 ? 2 : 2.5);
   const center = (x: number, y: number, zoom?: number): void => { camera.tx = x; camera.ty = y; if (zoom !== undefined) camera.tz = zoom; };
   const lotCenter = (lot: Lot): { x: number; y: number } => ({ x: (lot.building.x + lot.building.w / 2) * TILE, y: (lot.building.y + lot.building.h) * TILE });
 
@@ -180,7 +191,7 @@ export function World(props: {
   let knownNeeds = new Map<string, number>();
   createEffect(() => {
     const roster = {
-      runs: props.runs.map((run) => ({ id: run.id, agent: run.agent, kind: run.kind, slug: run.slug })),
+      runs: props.runs.map((run) => ({ id: run.id, agent: run.agent, kind: run.kind, slug: run.slug, rootId: run.rootId })),
       leaving: props.leaving,
       idle: props.stations.flatMap((station) => station.recent.map((agent) => ({ slug: station.slug, agent }))),
     };
@@ -221,13 +232,7 @@ export function World(props: {
   }
 
   // ——— Drawing ———
-  const buildingArt = new Map<string, ReturnType<typeof paintCastle> | ReturnType<typeof paintCottage>>();
-  const artOf = (lot: Lot, name: string, lit: boolean): ReturnType<typeof paintCastle> | ReturnType<typeof paintCottage> => {
-    const key = `${lot.slug}|${name}|${lit}|${lot.platform}`;
-    let art = buildingArt.get(key);
-    if (!art) { art = lot.platform ? paintCastle(name, lot.building.w, lot.building.h, lit) : paintCottage(name, lot.building.w, lot.building.h, lit); buildingArt.set(key, art); }
-    return art;
-  };
+  const artOf = (lot: Lot, name: string, lit: boolean): Art => (lot.platform ? paintCastle(name, lot.building.w, lot.building.h, lit) : paintCottage(name, lot.building.w, lot.building.h, lit));
   const feet = (hero: Hero): { x: number; y: number } => ({ x: (hero.x + 0.5) * TILE, y: (hero.y + 1) * TILE - 2 });
   const toScreen = (x: number, y: number): { x: number; y: number } => ({ x: (x - camera.x) * camera.zoom + size().w / 2, y: (y - camera.y) * camera.zoom + size().h / 2 });
   const toWorld = (x: number, y: number): { x: number; y: number } => ({ x: (x - size().w / 2) / camera.zoom + camera.x, y: (y - size().h / 2) / camera.zoom + camera.y });
@@ -245,25 +250,33 @@ export function World(props: {
     const z = camera.zoom;
     const opts = options();
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = "#4f8a3c";
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.fillStyle = "#5f9e48";
     ctx.fillRect(0, 0, size().w, size().h);
     ctx.save();
     ctx.translate(size().w / 2, size().h / 2);
     ctx.scale(z, z);
-    ctx.translate(-Math.round(camera.x * z) / z, -Math.round(camera.y * z) / z);
-    ctx.drawImage(ground(), 0, 0);
+    ctx.translate(-camera.x, -camera.y);
+    ctx.drawImage(ground(), 0, 0, m.w * TILE, m.h * TILE);
 
     const t = now / 1000;
     const night = darkness(opts.time, wall);
-    // Water that glitters in the fountain and the ponds.
+    music?.setNight(night > 0.3);
+    const still = reduced();
+    // Ponds lie flat; their water glitters.
+    for (const prop of m.props) {
+      if (prop.kind !== "pond") continue;
+      const art = paintProp(prop);
+      ctx.drawImage(art.image, prop.x * TILE, prop.y * TILE, art.width, art.height);
+    }
     for (const prop of m.props) {
       if (prop.kind !== "fountain" && prop.kind !== "pond") continue;
-      const w = prop.kind === "fountain" ? 40 : 90;
-      for (let i = 0; i < 6; i += 1) {
-        const phase = (t * 0.8 + i * 0.37) % 1;
-        ctx.fillStyle = `rgba(255,255,255,${0.9 - phase})`;
-        ctx.fillRect(prop.x * TILE + 12 + ((i * 53 + Math.floor(t)) % w), prop.y * TILE + 18 + ((i * 29) % (prop.kind === "fountain" ? 20 : 40)), 2, 1);
+      const w = prop.kind === "fountain" ? 40 : 80;
+      for (let i = 0; i < 7; i += 1) {
+        const phase = (t * 0.6 + i * 0.37) % 1;
+        ctx.fillStyle = `rgba(255,255,255,${(0.85 - phase) * 0.9})`;
+        ctx.beginPath(); ctx.ellipse(prop.x * TILE + 14 + ((i * 53 + Math.floor(t * 0.5) * 17) % w), prop.y * TILE + 20 + ((i * 29) % (prop.kind === "fountain" ? 16 : 34)), 2 + phase * 2, 0.5 + phase * 0.4, 0, 0, Math.PI * 2); ctx.fill();
       }
     }
 
@@ -276,77 +289,111 @@ export function World(props: {
       if (!station) continue;
       const busy = station.running > 0;
       const art = artOf(lot, station.name, busy || night > 0.25);
+      const base = (lot.building.y + lot.building.h) * TILE;
       const x0 = lot.building.x * TILE;
-      const y0 = (lot.building.y + lot.building.h) * TILE - art.image.height;
-      things.push({ base: (lot.building.y + lot.building.h) * TILE, paint: () => {
-        ctx.drawImage(art.image, x0, y0);
-        if ("flags" in art) for (const flag of art.flags) {
-          ctx.fillStyle = "#553419"; ctx.fillRect(x0 + flag.x, y0 + flag.y - 14, 1, 16);
-          ctx.fillStyle = roofOf(station.name);
-          for (let i = 0; i < 9; i += 1) ctx.fillRect(x0 + flag.x + 1 + i, y0 + flag.y - 14 + Math.round(Math.sin(t * 5 + i * 0.7) * 1.2), 1, 5);
+      const y0 = base - art.height;
+      things.push({ base, paint: () => {
+        ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.beginPath(); ctx.ellipse(x0 + art.width / 2, base, art.width / 2 + 2, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.drawImage(art.image, x0, y0, art.width, art.height);
+        for (const flag of art.flags) {
+          const fx = x0 + flag.x;
+          const fy = y0 + flag.y - 16;
+          ctx.strokeStyle = "#3b2a20"; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(fx, fy - 1); ctx.lineTo(fx, fy + 18); ctx.stroke();
+          const wave = (k: number): number => (still ? 0 : Math.sin(t * 4 + k) * 1.4 * (k / 3));
+          ctx.beginPath(); ctx.moveTo(fx, fy); ctx.bezierCurveTo(fx + 4, fy + wave(1), fx + 8, fy + wave(2), fx + 12, fy + 1 + wave(3)); ctx.lineTo(fx + 12, fy + 6 + wave(3)); ctx.bezierCurveTo(fx + 8, fy + 6 + wave(2), fx + 4, fy + 6 + wave(1), fx, fy + 6); ctx.closePath();
+          ctx.fillStyle = roofOf(station.name); ctx.fill(); ctx.strokeStyle = "#2a2236"; ctx.lineWidth = 0.5; ctx.stroke();
         }
         // Smoke from the chimney while someone works inside.
-        if (busy && opts.effects && !lot.platform && random() < 0.06) particles.push({ x: x0 + lot.building.w * TILE - 25, y: y0 - 2, vx: 4 + random() * 4, vy: -10 - random() * 5, life: 0, max: 2.6, color: "#e8e6ef", size: 3, kind: "smoke" });
+        if (busy && opts.effects && art.chimney && !still && random() < 0.08) particles.push({ x: x0 + art.chimney.x, y: y0 + art.chimney.y, vx: 3 + random() * 4, vy: -9 - random() * 5, life: 0, max: 3, color: "#eeecf4", size: 2.5, kind: "smoke" });
         // The quest marker: a golden "!" over a building that needs the person.
         if (station.needs > 0) {
-          const bob = reduced() ? 0 : Math.round(Math.abs(Math.sin(t * 3)) * 4);
-          const glyph = paintEmote("!");
-          ctx.drawImage(glyph, x0 + lot.building.w * TILE / 2 - 13, y0 - 30 - bob, 26, 28);
+          const bob = still ? 0 : Math.abs(Math.sin(t * 3)) * 4;
+          ctx.save(); ctx.translate(x0 + art.width / 2, y0 - 2 - bob); ctx.scale(2, 2); drawEmote(ctx, "!", 0, 0); ctx.restore();
         }
         // A rain cloud over a building whose work failed today.
-        if ((opts.weather === "auto" && station.failed > 0) || false) {
-          const cx = x0 + lot.building.w * TILE / 2;
-          const cy = y0 - 8 + Math.sin(t) * 2;
-          ctx.fillStyle = "#8c8aa0"; ctx.fillRect(cx - 18, cy - 6, 36, 8); ctx.fillRect(cx - 12, cy - 11, 20, 6); ctx.fillStyle = "#a9a7bd"; ctx.fillRect(cx - 10, cy - 10, 10, 3);
-          if (!reduced()) for (let i = 0; i < 5; i += 1) { ctx.fillStyle = "#7dc4ff"; ctx.fillRect(cx - 14 + i * 7, cy + 4 + ((t * 40 + i * 9) % 16), 1, 3); }
+        if (opts.weather === "auto" && station.failed > 0) {
+          const cx = x0 + art.width / 2 + Math.sin(t * 0.5) * 6;
+          const cy = y0 + 4;
+          if (!still) for (let i = 0; i < 7; i += 1) { ctx.strokeStyle = "rgba(125,196,255,0.8)"; ctx.lineWidth = 0.8; const yy = cy + 4 + ((t * 40 + i * 9) % 22); ctx.beginPath(); ctx.moveTo(cx - 15 + i * 5, yy); ctx.lineTo(cx - 16 + i * 5, yy + 3); ctx.stroke(); }
+          ctx.fillStyle = "#9895ad";
+          for (const [dx, dy, r] of [[-10, 0, 7], [0, -4, 9], [11, 0, 7], [4, 2, 7], [-4, 2, 7]] as const) { ctx.beginPath(); ctx.ellipse(cx + dx, cy + dy, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill(); }
+          ctx.fillStyle = "#b8b5ca"; ctx.beginPath(); ctx.ellipse(cx - 2, cy - 6, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
         }
       } });
     }
     for (const prop of m.props) {
-      if (prop.kind === "pond") { ctx.drawImage(paintProp(prop), prop.x * TILE, prop.y * TILE); continue; }
-      const image = paintProp(prop);
-      const base = (prop.y + 1) * TILE;
-      const width = prop.kind === "tree" || prop.kind === "board" || prop.kind === "bench" || prop.kind === "well" ? 32 : prop.kind === "fountain" ? 64 : 16;
-      const x = prop.x * TILE + (width === 64 ? 0 : (width === 32 ? 0 : (TILE - image.width) / 2));
-      const y = prop.kind === "fountain" ? prop.y * TILE - 4 : base - image.height + (prop.kind === "lamp" ? 2 : 0);
-      things.push({ base: prop.kind === "fountain" ? (prop.y + 3) * TILE : base, paint: () => {
-        ctx.drawImage(image, x, y);
+      if (prop.kind === "pond") continue;
+      const art = paintProp(prop);
+      const place: Record<string, { x: number; base: number }> = {
+        tree: { x: prop.x * TILE - 2, base: (prop.y + 2) * TILE - 2 },
+        board: { x: prop.x * TILE - 1, base: (prop.y + 1) * TILE + 3 },
+        bench: { x: prop.x * TILE, base: (prop.y + 1) * TILE },
+        well: { x: prop.x * TILE, base: (prop.y + 1) * TILE + 2 },
+        fountain: { x: prop.x * TILE, base: (prop.y + 3) * TILE + 1 },
+        lamp: { x: prop.x * TILE + 2, base: (prop.y + 1) * TILE + 1 },
+      };
+      const at = place[prop.kind] ?? { x: prop.x * TILE + (TILE - art.width) / 2, base: (prop.y + 1) * TILE };
+      const sway = prop.kind === "tree" && !still ? Math.sin(t * 0.9 + prop.seed) * 0.025 : 0;
+      things.push({ base: at.base, paint: () => {
+        ctx.save();
+        ctx.translate(at.x + art.width / 2, at.base);
+        if (sway) ctx.transform(1, 0, sway, 1, 0, 0);
+        ctx.drawImage(art.image, -art.width / 2, -art.height, art.width, art.height);
+        ctx.restore();
         if (prop.kind === "board") {
           // One paper for each quest waiting on the board.
-          for (let i = 0; i < Math.min(12, props.queued); i += 1) { ctx.fillStyle = i % 3 === 0 ? "#fff6d8" : "#f4ecd8"; ctx.fillRect(x + 5 + (i % 6) * 4, y + 6 + Math.floor(i / 6) * 6, 3, 4); ctx.fillStyle = "#c0453b"; ctx.fillRect(x + 6 + (i % 6) * 4, y + 6 + Math.floor(i / 6) * 6, 1, 1); }
+          for (let i = 0; i < Math.min(12, props.queued); i += 1) {
+            const px = at.x + 5 + (i % 6) * 4.2;
+            const py = at.base - 30 + Math.floor(i / 6) * 6.5;
+            ctx.save(); ctx.translate(px, py); ctx.rotate(((i * 37) % 7 - 3) * 0.04);
+            ctx.fillStyle = "#fbf5e6"; ctx.fillRect(-1.6, 0, 3.2, 4.4); ctx.fillStyle = "#c0453b"; ctx.beginPath(); ctx.arc(0, 0.4, 0.6, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+          }
         }
-        if (prop.kind === "fountain" && !reduced()) { for (let i = 0; i < 4; i += 1) { const phase = (t * 1.5 + i / 4) % 1; ctx.fillStyle = "#cfe9ff"; ctx.fillRect(x + 31 + Math.round(Math.sin(i * 1.7) * phase * 10), y + 4 + Math.round(phase * phase * 18), 2, 2); } }
+        if (prop.kind === "fountain" && !still) {
+          for (let i = 0; i < 10; i += 1) {
+            const phase = (t * 1.2 + i / 10) % 1;
+            const angle = (i / 10) * Math.PI * 2;
+            ctx.fillStyle = `rgba(207,233,255,${1 - phase})`;
+            ctx.beginPath(); ctx.ellipse(at.x + 32 + Math.cos(angle) * phase * 9, at.base - 41 + phase * phase * 14 - Math.sin(phase * Math.PI) * 6, 1, 1, 0, 0, Math.PI * 2); ctx.fill();
+          }
+        }
       } });
     }
     // The line of quests waiting at the board: pilgrims in hoods.
     const waiting = Math.min(6, props.queued);
     for (let i = 0; i < waiting; i += 1) {
-      const sheet = sheetOf(`pilgrim ${i} monitor`, i);
-      const fx = (m.plaza.x + 2.2 + i * 1.05) * TILE;
-      const fy = (m.plaza.y + 3) * TILE;
-      things.push({ base: fy, paint: () => { const f = frameAt(3, reduced() ? 0 : Math.floor(t * 2 + i) % 7 === 0 ? 3 : 0); ctx.drawImage(sheet, f.sx, f.sy, CW, CH, fx - 8, fy - CH, CW, CH); } });
+      const fx = (m.plaza.x + 2.4 + i * 1.15) * TILE;
+      const fy = (m.plaza.y + 3) * TILE + 2;
+      const look = lookOf(`pilgrim ${i} watch`, i);
+      things.push({ base: fy, paint: () => {
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(fx, fy, 5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.save(); ctx.translate(fx, fy); ctx.scale(0.8, 0.8); drawHero(ctx, look, { dir: 3, walk: null, work: null, t: still ? 0 : t, mood: "neutral", seed: i * 13 }); ctx.restore();
+      } });
     }
     const pick = selected();
     for (const hero of heroes.values()) {
       const at = feet(hero);
       things.push({ base: at.y, paint: () => {
+        const hop = hero.hop * TILE;
         ctx.fillStyle = "rgba(0,0,0,0.22)";
-        ctx.beginPath(); ctx.ellipse(at.x, at.y + 1, 6, 2.2, 0, 0, Math.PI * 2); ctx.fill();
-        if (pick?.kind === "hero" && pick.id === hero.id) { ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(at.x, at.y + 1, 9, 3.5, 0, 0, Math.PI * 2); ctx.stroke(); }
-        const frame = walking(hero) ? [1, 0, 2, 0][Math.floor(hero.walked * 4) % 4] as number : hero.mode === "work" && !reduced() ? (Math.floor(t * 3.2 + (hashOf(hero.id) % 7)) % 2 === 0 ? 3 : 4) : 0;
-        const f = frameAt(hero.dir, frame);
-        const hop = Math.round(hero.hop * TILE);
-        if (hero.mode === "failed") ctx.globalAlpha = 0.75;
-        ctx.drawImage(sheetOf(hero.agent, hero.variant), f.sx, f.sy, CW, CH, at.x - CW / 2, at.y - CH - hop, CW, CH);
-        ctx.globalAlpha = 1;
-        if (hero.emote) ctx.drawImage(paintEmote(hero.emote.kind), at.x - 6, at.y - CH - 15 - hop);
+        ctx.beginPath(); ctx.ellipse(at.x, at.y, 6.5 - hop * 0.1, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+        if (pick?.kind === "hero" && pick.id === hero.id) { ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(at.x, at.y, 10, 3.8, 0, 0, Math.PI * 2); ctx.stroke(); }
+        const seed = hashOf(hero.id) % 97;
+        const mood: Mood = hero.mode === "done" || hero.emote?.kind === "heart" ? "happy" : hero.mode === "failed" ? "sad" : hero.mode === "work" ? "focus" : "neutral";
+        ctx.save();
+        ctx.translate(at.x, at.y - hop);
+        if (hero.mode === "failed") ctx.globalAlpha = 0.85;
+        drawHero(ctx, lookOf(hero.agent, hero.variant), { dir: hero.dir, walk: walking(hero) && !still ? hero.walked * Math.PI : null, work: hero.mode === "work" && !still ? t * 5 + seed : null, t: still ? 0 : t, mood, seed });
+        ctx.restore();
+        if (hero.emote) drawEmote(ctx, hero.emote.kind, at.x, at.y - HERO_H - 3 - hop);
         // What each class leaves in the air while it works.
-        if (hero.mode === "work" && opts.effects && !reduced() && frame === 3 && random() < 0.35) {
+        if (hero.mode === "work" && opts.effects && !still && random() < 0.12) {
           const kind = classOf(hero.agent);
-          const colors: Record<Class, string> = { knight: "#ffffff", mage: random() < 0.5 ? "#b48cff" : "#7dd3fc", cleric: "#6be38a", scribe: "#f4ecd8", builder: "#ffd23f", ranger: "#8bd36a" };
-          particles.push({ x: at.x + (random() - 0.5) * 14, y: at.y - 16, vx: (random() - 0.5) * 16, vy: -14 - random() * 14, life: 0, max: 0.9, color: colors[kind], size: kind === "scribe" ? 2 : 1, kind: kind === "cleric" ? "plus" : kind === "ranger" ? "leaf" : kind === "scribe" ? "page" : "spark" });
+          const colors: Record<Class, string> = { knight: "#ffffff", mage: random() < 0.5 ? "#c4a6ff" : "#8fe3ff", cleric: "#7cf09a", scribe: "#fbf5e6", builder: "#ffd23f", ranger: "#9ee07a" };
+          particles.push({ x: at.x + (random() - 0.5) * 16, y: at.y - 18, vx: (random() - 0.5) * 16, vy: -14 - random() * 14, life: 0, max: 1, color: colors[kind], size: kind === "scribe" ? 2 : 1.4, kind: kind === "cleric" ? "plus" : kind === "ranger" ? "leaf" : kind === "scribe" ? "page" : "spark" });
         }
-        if (hero.mode === "done" && opts.effects && !reduced() && random() < 0.5) particles.push({ x: at.x + (random() - 0.5) * 10, y: at.y - 26, vx: (random() - 0.5) * 40, vy: -30 - random() * 20, life: 0, max: 1.2, color: ["#ffd23f", "#ff7eb6", "#7dd3fc", "#9be15d"][Math.floor(random() * 4)] as string, size: 2, kind: "confetti" });
+        if (hero.mode === "done" && hero.partner === null && opts.effects && !still && random() < 0.4) particles.push({ x: at.x + (random() - 0.5) * 10, y: at.y - 30, vx: (random() - 0.5) * 40, vy: -30 - random() * 20, life: 0, max: 1.2, color: ["#ffd23f", "#ff7eb6", "#7dd3fc", "#9be15d"][Math.floor(random() * 4)] as string, size: 1.8, kind: "confetti" });
       } });
     }
     things.sort((a, b) => a.base - b.base);
@@ -361,9 +408,10 @@ export function World(props: {
       const fade = 1 - p.life / p.max;
       ctx.globalAlpha = p.kind === "smoke" ? fade * 0.7 : fade;
       ctx.fillStyle = p.color;
-      const s = p.kind === "smoke" ? p.size + p.life * 3 : p.size;
-      if (p.kind === "plus") { ctx.fillRect(p.x - 1, p.y, 3, 1); ctx.fillRect(p.x, p.y - 1, 1, 3); }
-      else ctx.fillRect(Math.round(p.x), Math.round(p.y), s, s);
+      const s = p.kind === "smoke" ? p.size + p.life * 2.4 : p.size;
+      if (p.kind === "plus") { ctx.fillRect(p.x - 1.5, p.y - 0.5, 3, 1); ctx.fillRect(p.x - 0.5, p.y - 1.5, 1, 3); }
+      else if (p.kind === "confetti" || p.kind === "page") { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.life * 6); ctx.fillRect(-s / 2, -s / 4, s, s / 2); ctx.restore(); }
+      else { ctx.beginPath(); ctx.ellipse(p.x, p.y, s, s, 0, 0, Math.PI * 2); ctx.fill(); }
     }
     ctx.globalAlpha = 1;
     // Birds by day, fireflies by night.
@@ -422,7 +470,7 @@ export function World(props: {
         if (!station) continue;
         const art = artOf(lot, station.name, true);
         const x0 = lot.building.x * TILE;
-        const y0 = (lot.building.y + lot.building.h) * TILE - art.image.height;
+        const y0 = (lot.building.y + lot.building.h) * TILE - art.height;
         for (const w of art.windows) hole(x0 + w.x, y0 + w.y + 6, station.running > 0 ? 40 : 26, station.running > 0 ? 0.9 : 0.6);
       }
       for (const hero of heroes.values()) { const at = feet(hero); hole(at.x, at.y - 10, classOf(hero.agent) === "mage" ? 34 : 18, 0.6); }
@@ -449,7 +497,7 @@ export function World(props: {
       const hero = heroes.get(id);
       if (!hero) { element.style.visibility = "hidden"; continue; }
       const at = feet(hero);
-      const s = toScreen(at.x, at.y - CH - hero.hop * TILE);
+      const s = toScreen(at.x, at.y - HERO_H - 1 - hero.hop * TILE);
       element.style.transform = `translate(${Math.round(s.x)}px, ${Math.round(s.y)}px) translate(-50%, -100%)`;
       element.style.visibility = s.x < -100 || s.y < -20 || s.x > size().w + 100 || s.y > size().h + 120 || (hero.mode === "wander" && camera.zoom < 1.6) ? "hidden" : "visible";
     }
@@ -461,8 +509,8 @@ export function World(props: {
     const m = map();
     const scale = 2;
     if (mini.width !== m.w * scale) { mini.width = m.w * scale; mini.height = m.h * scale; }
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(ground(), 0, 0, m.w * TILE, m.h * TILE, 0, 0, m.w * scale, m.h * scale);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(ground(), 0, 0, m.w * TILE * GROUND_SCALE, m.h * TILE * GROUND_SCALE, 0, 0, m.w * scale, m.h * scale);
     for (const lot of m.lots) {
       if (lot.slug === null) continue;
       const station = stationOf().get(lot.slug);
@@ -542,7 +590,7 @@ export function World(props: {
     if (!was || was.moved) return;
     const rect = view.getBoundingClientRect();
     const at = toWorld(event.clientX - rect.left, event.clientY - rect.top);
-    const hit = [...heroes.values()].filter((hero) => { const f = feet(hero); return Math.abs(at.x - f.x) <= 9 && at.y <= f.y + 2 && at.y >= f.y - CH - 2; }).sort((a, b) => b.y - a.y)[0];
+    const hit = [...heroes.values()].filter((hero) => { const f = feet(hero); return Math.abs(at.x - f.x) <= HERO_W / 2 + 1 && at.y <= f.y + 3 && at.y >= f.y - HERO_H - 2; }).sort((a, b) => b.y - a.y)[0];
     if (hit) { setSelected({ kind: "hero", id: hit.id }); return; }
     const lot = map().lots.find((l) => l.slug !== null && at.x >= l.building.x * TILE && at.x <= (l.building.x + l.building.w) * TILE && at.y >= (l.building.y - 2) * TILE && at.y <= (l.building.y + l.building.h) * TILE);
     setSelected(lot?.slug ? { kind: "lot", slug: lot.slug } : null);
@@ -628,6 +676,7 @@ export function World(props: {
             <WorldButton icon="lucide-map" label={t("live.world.fit")} onClick={overview} />
             <WorldButton icon="lucide-video" label={t("live.world.tour")} pressed={options().tour} onClick={() => { set("tour", !options().tour); tourAt = 0; }} />
             <WorldButton icon={options().sound ? "lucide-volume-2" : "lucide-volume-x"} label={t("live.world.opt.sound")} pressed={options().sound} onClick={toggleSound} />
+            <WorldButton icon={options().music ? "lucide-music" : "lucide-music-2"} label={t("live.world.opt.music")} pressed={options().music} onClick={toggleMusic} />
             <WorldButton icon="lucide-settings-2" label={t("live.world.options")} pressed={menu()} onClick={() => setMenu(!menu())} />
           </div>
           <div class="absolute bottom-2 start-2 hidden flex-col gap-1 sm:flex">
@@ -752,19 +801,22 @@ function Stat(props: { icon: string; label: string }): JSX.Element {
   return <li class="flex items-center gap-1.5 rounded-[3px] bg-surface-gray-1 px-2 py-1.5 text-ink-2"><Icon name={props.icon} class="size-3.5" />{props.label}</li>;
 }
 
-/** A character drawn large, standing and facing the person. */
+/** A character drawn large, standing and facing the person, smiling. */
 function Portrait(props: { agent: string; variant: number; small?: boolean }): JSX.Element {
   let element!: HTMLCanvasElement;
-  const scale = (): number => (props.small ? 2 : 3);
   createEffect(() => {
     const ctx = element.getContext("2d");
     if (!ctx) return;
-    element.width = CW * scale();
-    element.height = CH * scale();
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(sheetOf(props.agent, props.variant), 0, 0, CW, CH, 0, 0, CW * scale(), CH * scale());
+    const ratio = window.devicePixelRatio || 1;
+    const w = props.small ? 32 : 60;
+    const h = props.small ? 38 : 72;
+    element.width = w * ratio;
+    element.height = h * ratio;
+    const scale = (h / (HERO_H + 6)) * ratio;
+    ctx.setTransform(scale, 0, 0, scale, (w * ratio) / 2, h * ratio - 2 * ratio);
+    drawHero(ctx, lookOf(props.agent, props.variant), { dir: 0, walk: null, work: null, t: 0, mood: "happy", seed: 3 });
   });
-  return <span class={`rpg-portrait grid shrink-0 place-items-center ${props.small ? "h-10 w-9" : "h-[4.75rem] w-16"}`} aria-hidden="true"><canvas ref={element} style={{ "image-rendering": "pixelated" }} class={props.small ? "h-9 w-6" : "h-[4.5rem] w-12"} /></span>;
+  return <span class={`rpg-portrait grid shrink-0 place-items-end justify-center overflow-hidden ${props.small ? "h-10 w-9" : "h-[4.75rem] w-16"}`} aria-hidden="true"><canvas ref={element} class={props.small ? "h-[38px] w-8" : "h-[72px] w-[60px]"} /></span>;
 }
 
 const HEARTS = 5;

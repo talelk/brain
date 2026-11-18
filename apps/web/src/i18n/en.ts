@@ -1495,6 +1495,7 @@ export const en = {
   "live.world.bubbles.selected": "Selected only",
   "live.world.opt.names": "Names",
   "live.world.opt.effects": "Effects",
+  "live.world.opt.music": "Music",
   "live.world.opt.sound": "Sound",
   "live.world.on": "On",
   "live.world.off": "Off",

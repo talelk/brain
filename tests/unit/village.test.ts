@@ -28,26 +28,49 @@ describe("the village", () => {
     const map = layout(places);
     const heroes = new Map<string, Hero>();
     const random = seeded(1);
-    reconcile(heroes, map, { runs: [{ id: "a1", agent: "builder", kind: "work", slug: "w0" }], leaving: [], idle: [] }, 0, true, random);
+    reconcile(heroes, map, { runs: [{ id: "a1", agent: "builder", kind: "work", slug: "w0", rootId: "g1" }], leaving: [], idle: [] }, 0, true, random);
     const first = heroes.get("a1");
     expect(first?.mode).toBe("work");
     expect(first?.route).toEqual([]);
 
-    reconcile(heroes, map, { runs: [{ id: "a1", agent: "builder", kind: "work", slug: "w0" }, { id: "a2", agent: "reviewer", kind: "check", slug: "w2" }], leaving: [], idle: [] }, 1000, false, random);
+    reconcile(heroes, map, { runs: [{ id: "a1", agent: "builder", kind: "work", slug: "w0", rootId: "g1" }, { id: "a2", agent: "reviewer", kind: "check", slug: "w2", rootId: "g2" }], leaving: [], idle: [] }, 1000, false, random);
     const second = heroes.get("a2");
     expect(second?.mode).toBe("arrive");
     expect([second?.x, second?.y]).toEqual([map.spawn.x, map.spawn.y]);
     for (let t = 0; t < 400 && heroes.get("a2")?.mode === "arrive"; t += 1) step(heroes, map, 100, 1000 + t * 100, random);
     expect(heroes.get("a2")?.mode).toBe("work");
     const before = { x: heroes.get("a1")?.x, y: heroes.get("a1")?.y };
-    reconcile(heroes, map, { runs: [{ id: "a1", agent: "builder", kind: "work", slug: "w0" }, { id: "a2", agent: "reviewer", kind: "check", slug: "w2" }], leaving: [], idle: [] }, 60_000, false, random);
+    reconcile(heroes, map, { runs: [{ id: "a1", agent: "builder", kind: "work", slug: "w0", rootId: "g1" }, { id: "a2", agent: "reviewer", kind: "check", slug: "w2", rootId: "g2" }], leaving: [], idle: [] }, 60_000, false, random);
     expect({ x: heroes.get("a1")?.x, y: heroes.get("a1")?.y }).toEqual(before);
 
-    reconcile(heroes, map, { runs: [{ id: "a2", agent: "reviewer", kind: "check", slug: "w2" }], leaving: [{ id: "a1", state: "done" }], idle: [] }, 70_000, false, random);
+    reconcile(heroes, map, { runs: [{ id: "a2", agent: "reviewer", kind: "check", slug: "w2", rootId: "g2" }], leaving: [{ id: "a1", state: "done" }], idle: [] }, 70_000, false, random);
     expect(heroes.get("a1")?.mode).toBe("done");
     expect(heroes.get("a1")?.emote?.kind).toBe("ok");
     for (let t = 0; t < 600 && heroes.has("a1"); t += 1) step(heroes, map, 100, 70_000 + t * 100, random);
     expect(heroes.has("a1")).toBe(false);
+  });
+
+  it("sends a hero that finished to the next hero of the same goal with its scroll, across the village, before it leaves", () => {
+    const map = layout(places);
+    const heroes = new Map<string, Hero>();
+    const random = seeded(3);
+    reconcile(heroes, map, { runs: [{ id: "p1", agent: "planner", kind: "work", slug: "w0", rootId: "g" }], leaving: [], idle: [] }, 0, true, random);
+    reconcile(heroes, map, { runs: [{ id: "b1", agent: "builder", kind: "work", slug: "w5", rootId: "g" }], leaving: [{ id: "p1", state: "done" }], idle: [] }, 1000, false, random);
+    const planner = heroes.get("p1");
+    expect(planner?.mode).toBe("handoff");
+    expect(planner?.partner).toBe("b1");
+    const lot = map.lots.find((entry) => entry.slug === "w5");
+    let gave = false;
+    for (let t = 0; t < 800 && heroes.has("p1"); t += 1) {
+      step(heroes, map, 100, 1000 + t * 100, random);
+      if (heroes.get("p1")?.emote?.kind === "scroll") {
+        gave = true;
+        expect(heroes.get("p1")?.x).toBeGreaterThanOrEqual(lot?.x ?? 0);
+        expect(heroes.get("b1")?.emote?.kind).toBe("heart");
+      }
+    }
+    expect(gave).toBe(true);
+    expect(heroes.has("p1")).toBe(false);
   });
 
   it("lets an agent that acted lately wander in its own yard, and sends it away when it works or is forgotten", () => {
