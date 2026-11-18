@@ -7,7 +7,7 @@ import { en } from "../../apps/web/src/i18n/en";
 import { fr } from "../../apps/web/src/i18n/fr";
 import { ar } from "../../apps/web/src/i18n/ar";
 import { joinPerson } from "./people";
-import { EMAIL, expect, PASSWORD, signIn, starter, test, type Api, type Stack } from "./stack";
+import { EMAIL, expect, onPhone, PASSWORD, signIn, starter, test, type Api, type Stack } from "./stack";
 
 /**
  * Every screen in every language, theme and width: nothing runs off the page, no text fails contrast, and French and Arabic show no English
@@ -144,7 +144,7 @@ test("every screen reads right in every language, theme and width", async ({ pag
       if (name === "task") {
         // On a phone the goal opens on its record; its graph is behind a button.
         const open = page.getByRole("button", { name: { en, fr, ar }[lang]["graph.label"], exact: true });
-        if (await open.isVisible()) { await open.click(); await look("graph"); }
+        if (onPhone(page)) { await open.click(); await look("graph"); }
       }
       if (name === "users") {
         const words = { en, fr, ar }[lang];

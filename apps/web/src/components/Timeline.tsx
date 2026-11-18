@@ -1,4 +1,5 @@
 import { createMemo, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
+import { Keyed } from "./bits";
 import { Button } from "@talelk/newui-atoms";
 import type { Task, TaskSummary } from "@brain/contracts";
 import { direction, intlLocale, t } from "../i18n";
@@ -12,7 +13,8 @@ import { buildTimeline, fractionOf, pan, ticks, zoom, type Timeline as Model, ty
  */
 const KINDS = ["work", "plan", "check", "judge", "act"] as const;
 const LANE = 28;
-const STRIP = 7;
+/** The strip above a row's bars that holds the waits for a person: as tall as the least a finger or a pointer can hit. */
+const STRIP = 24;
 
 const tickLabel = (at: number, span: number): string =>
   new Intl.DateTimeFormat(intlLocale(), span > 2 * 86_400_000 ? { day: "numeric", month: "short" } : span > 600_000 ? { hour: "2-digit", minute: "2-digit" } : { minute: "2-digit", second: "2-digit" }).format(at);
@@ -77,6 +79,7 @@ export function Timeline(props: { record: Task; selected: string; onSelect: (id:
     return last ? `${label(last.taskId)}: ${describe(last)}${mine.length > 1 ? ` (${t("timeline.attempts", { n: mine.length })})` : ""}` : t("timeline.hint");
   };
   const height = (row: TimelineRow): number => row.lanes * LANE + (row.waits.length > 0 ? STRIP : 0) + 8;
+  const top = (row: TimelineRow, lane: number): number => (row.waits.length > 0 ? STRIP : 0) + lane * LANE + 4;
 
   return (
     <section class="tl" data-critical={critical()} aria-label={t("timeline.label")} data-testid="timeline" onKeyDown={(event) => {
@@ -103,53 +106,55 @@ export function Timeline(props: { record: Task; selected: string; onSelect: (id:
         <div class="tl-axis" aria-hidden="true" ref={setPlot}>
           <For each={ticks(view(), 7, offset())}>{(tick) => <span class="tl-tick-label" style={{ "inset-inline-start": at(tick) }}>{tickLabel(tick, view().to - view().from)}</span>}</For>
         </div>
-        <For each={model().groups}>
+        {/* Groups, rows, waits, bars and ticks are kept by their ids: an answer every few seconds changes the bars that changed and nothing else. */}
+        <Keyed each={model().groups} by={(group) => group.agent}>
           {(group) => (
-            <section class="tl-group" aria-label={isolate(group.agent || "Brain")}>
-              <h4 class="tl-agent">{isolate(group.agent || "Brain")}</h4>
+            <section class="tl-group" aria-label={isolate(group().agent || t("timeline.agent.none"))}>
+              <h4 class="tl-agent">{isolate(group().agent || t("timeline.agent.none"))}</h4>
               <ul>
-                <For each={group.rows}>
+                <Keyed each={group().rows} by={(row) => row.taskId}>
                   {(row) => (
-                    <li class="tl-row" data-selected={props.selected === row.taskId} data-critical-row={model().critical.has(row.taskId)} data-state={row.state}>
-                      <button type="button" class="tl-label" aria-current={props.selected === row.taskId ? "true" : undefined} onClick={() => props.onSelect(row.taskId)}>
-                        <span class="truncate" dir="auto">{label(row.taskId)}</span>
-                        <Show when={model().critical.has(row.taskId)}><span class="tl-flag" title={t("timeline.critical.row")}><span class="lucide-flag" aria-hidden="true" /><span class="sr-only">{t("timeline.critical.row")}</span></span></Show>
+                    <li class="tl-row" data-selected={props.selected === row().taskId} data-critical-row={model().critical.has(row().taskId)} data-state={row().state}>
+                      <button type="button" class="tl-label" aria-current={props.selected === row().taskId ? "true" : undefined} onClick={() => props.onSelect(row().taskId)}>
+                        <span class="truncate" dir="auto">{label(row().taskId)}</span>
+                        <Show when={model().critical.has(row().taskId)}><span class="tl-flag" title={t("timeline.critical.row")}><span class="lucide-flag" aria-hidden="true" /><span class="sr-only">{t("timeline.critical.row")}</span></span></Show>
                       </button>
-                      <div class="tl-plot" style={{ height: `${height(row)}px` }} onPointerDown={(event) => { if (!(event.target as HTMLElement).closest("button")) { drag = { x: event.clientX, from: view() }; event.currentTarget.setPointerCapture(event.pointerId); } }} onPointerMove={move} onPointerUp={() => { drag = undefined; }} onPointerCancel={() => { drag = undefined; }}>
+                      <div class="tl-plot" style={{ height: `${height(row())}px` }} onPointerDown={(event) => { if (!(event.target as HTMLElement).closest("button")) { drag = { x: event.clientX, from: view() }; event.currentTarget.setPointerCapture(event.pointerId); } }} onPointerMove={move} onPointerUp={() => { drag = undefined; }} onPointerCancel={() => { drag = undefined; }}>
                         <For each={ticks(view(), 7, offset())}>{(tick) => <span class="tl-grid-line" aria-hidden="true" style={{ "inset-inline-start": at(tick) }} />}</For>
-                        <For each={row.waits}>
+                        <Keyed each={row().waits} by={(wait) => wait.id}>
                           {(wait) => (
-                            <Show when={inView(wait.from, wait.to)}>
-                              <button type="button" class="tl-wait" data-open={wait.open} data-kind={wait.kind} style={{ "inset-inline-start": at(wait.from), "inline-size": wide(wait.from, wait.to) }} title={waitText(wait)} aria-label={waitText(wait)} onClick={() => props.onSelect(row.taskId)} />
+                            <Show when={inView(wait().from, wait().to)}>
+                              <button type="button" class="tl-wait" data-open={wait().open} data-kind={wait().kind} style={{ "inset-inline-start": at(wait().from), "inline-size": wide(wait().from, wait().to) }} title={waitText(wait())} aria-label={waitText(wait())} onClick={() => props.onSelect(row().taskId)} />
                             </Show>
                           )}
-                        </For>
-                        <For each={row.bars}>
+                        </Keyed>
+                        <Keyed each={row().bars} by={(bar) => bar.id}>
                           {(bar) => (
-                            <Show when={inView(bar.queuedAt, bar.end)}>
-                              <Show when={bar.start - bar.queuedAt > 0}><span class="tl-queued" aria-hidden="true" style={{ "inset-inline-start": at(bar.queuedAt), "inline-size": wide(bar.queuedAt, bar.start), top: `${(row.waits.length > 0 ? STRIP : 0) + bar.lane * LANE + 4}px` }} /></Show>
-                              <button type="button" class="tl-bar" data-kind={bar.kind} data-state={bar.state} data-selected={props.selected === row.taskId} title={describe(bar)} aria-label={`${label(row.taskId)}: ${describe(bar)}`}
-                                style={{ "inset-inline-start": at(bar.start), "inline-size": wide(bar.start, bar.end), top: `${(row.waits.length > 0 ? STRIP : 0) + bar.lane * LANE + 4}px` }}
-                                onClick={() => props.onSelect(row.taskId)} onPointerEnter={() => setFocus(bar.id)} onPointerLeave={() => setFocus(undefined)} onFocus={() => setFocus(bar.id)} onBlur={() => setFocus(undefined)}>
-                                <span class="tl-bar-text">{kindOf(bar)}{bar.round > 1 ? ` R${bar.round}` : ""}{bar.retry ? " ↻" : ""}</span>
+                            <Show when={inView(bar().queuedAt, bar().end)}>
+                              <Show when={bar().start - bar().queuedAt > 0}><span class="tl-queued" aria-hidden="true" style={{ "inset-inline-start": at(bar().queuedAt), "inline-size": wide(bar().queuedAt, bar().start), top: `${top(row(), bar().lane)}px` }} /></Show>
+                              <button type="button" class="tl-bar" data-kind={bar().kind} data-state={bar().state} data-selected={props.selected === row().taskId} title={describe(bar())} aria-label={`${label(row().taskId)}: ${describe(bar())}`}
+                                style={{ "inset-inline-start": at(bar().start), "inline-size": wide(bar().start, bar().end), top: `${top(row(), bar().lane)}px` }}
+                                onClick={() => props.onSelect(row().taskId)} onPointerEnter={() => setFocus(bar().id)} onPointerLeave={() => setFocus(undefined)} onFocus={() => setFocus(bar().id)} onBlur={() => setFocus(undefined)}>
+                                <span class="tl-bar-text">{kindOf(bar())}{bar().round > 1 ? ` ${t("timeline.round.short", { round: bar().round })}` : ""}<Show when={bar().retry}> <span class="lucide-rotate-cw" aria-hidden="true" /></Show></span>
                               </button>
                             </Show>
                           )}
-                        </For>
-                        <For each={row.ticks}>
+                        </Keyed>
+                        <Keyed each={row().ticks} by={(call) => `${call.attemptId}:${call.at}:${call.tool}`}>
                           {(call) => {
-                            const lane = (): number => row.bars.find((bar) => bar.id === call.attemptId)?.lane ?? 0;
-                            return <Show when={inView(call.at, call.at)}><span class="tl-call" data-failed={call.failed} aria-hidden="true" style={{ "inset-inline-start": at(call.at), top: `${(row.waits.length > 0 ? STRIP : 0) + lane() * LANE + 4 + 16}px` }} /></Show>;
+                            const lane = (): number => row().bars.find((bar) => bar.id === call().attemptId)?.lane ?? 0;
+                            const text = (): string => t(call().failed ? "timeline.call.failed" : "timeline.call", { tool: isolate(call().tool) });
+                            return <Show when={inView(call().at, call().at)}><button type="button" class="tl-call" data-failed={call().failed} title={text()} aria-label={`${label(row().taskId)}: ${text()}`} style={{ "inset-inline-start": at(call().at), top: `${top(row(), lane()) - 1}px` }} onClick={() => props.onSelect(row().taskId)} /></Show>;
                           }}
-                        </For>
+                        </Keyed>
                       </div>
                     </li>
                   )}
-                </For>
+                </Keyed>
               </ul>
             </section>
           )}
-        </For>
+        </Keyed>
       </div>
 
       <Show when={model().groups.length === 0}><p class="py-6 text-center t-text text-ink-3">{t("timeline.empty")}</p></Show>
@@ -170,19 +175,19 @@ export function Timeline(props: { record: Task; selected: string; onSelect: (id:
               <For each={["timeline.col.task", "timeline.col.attempt", "timeline.col.state", "timeline.col.start", "timeline.col.duration", "timeline.col.waited", "timeline.col.cost"] as const}>{(key) => <th scope="col" class="py-1 pe-3 text-start font-medium">{t(key)}</th>}</For>
             </tr></thead>
             <tbody>
-              <For each={bars()}>
+              <Keyed each={bars()} by={(bar) => bar.id}>
                 {(bar) => (
                   <tr class="border-t border-outline-gray-1">
-                    <td class="py-1.5 pe-3"><bdi>{label(bar.taskId)}</bdi></td>
-                    <td class="py-1.5 pe-3 whitespace-nowrap">{kindOf(bar)}, <bdi>{bar.agent}</bdi>{bar.round > 1 ? `, ${t("graph.round", { round: bar.round })}` : ""}</td>
-                    <td class="py-1.5 pe-3 whitespace-nowrap">{t(`attempt.state.${bar.state}`)}</td>
-                    <td class="py-1.5 pe-3 whitespace-nowrap">{dateTime(bar.start)}</td>
-                    <td class="py-1.5 pe-3 whitespace-nowrap tabular-nums">{duration(bar.end - bar.start)}</td>
-                    <td class="py-1.5 pe-3 whitespace-nowrap tabular-nums">{duration(bar.start - bar.queuedAt)}</td>
-                    <td class="py-1.5 whitespace-nowrap tabular-nums">{bar.microUsd > 0 ? money(bar.microUsd) : "–"}</td>
+                    <td class="py-1.5 pe-3"><bdi>{label(bar().taskId)}</bdi></td>
+                    <td class="py-1.5 pe-3 whitespace-nowrap">{kindOf(bar())}, <bdi>{bar().agent}</bdi>{bar().round > 1 ? `, ${t("graph.round", { round: bar().round })}` : ""}</td>
+                    <td class="py-1.5 pe-3 whitespace-nowrap">{t(`attempt.state.${bar().state}`)}</td>
+                    <td class="py-1.5 pe-3 whitespace-nowrap">{dateTime(bar().start)}</td>
+                    <td class="py-1.5 pe-3 whitespace-nowrap tabular-nums">{duration(bar().end - bar().start)}</td>
+                    <td class="py-1.5 pe-3 whitespace-nowrap tabular-nums">{duration(bar().start - bar().queuedAt)}</td>
+                    <td class="py-1.5 whitespace-nowrap tabular-nums">{bar().microUsd > 0 ? money(bar().microUsd) : "–"}</td>
                   </tr>
                 )}
-              </For>
+              </Keyed>
             </tbody>
           </table>
         </div>

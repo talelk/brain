@@ -62,7 +62,7 @@ beforeAll(async () => {
 });
 afterAll(() => harness.close());
 
-const ask = (client: Client, days: 7 | 30 | 90, extra: { workspaceId?: string; tzOffsetMinutes?: number } = {}): Promise<Insights> => client.query("insights", { days, ...extra });
+const ask = (client: Client, days: 7 | 30 | 90, extra: { workspaceId?: string; timeZone?: string } = {}): Promise<Insights> => client.query("insights", { days, ...extra });
 const sum = (values: readonly number[]): number => values.reduce((total, value) => total + value, 0);
 
 describe("insights", () => {
@@ -97,11 +97,11 @@ describe("insights", () => {
     expect(utc.load[0 * 24 + 9]).toBeGreaterThan(0);
     expect(utc.load[1 * 24 + 9]).toBeGreaterThan(0);
     expect(sum(utc.load)).toBe(utc.totals.attempts);
-    const ahead = await ask(ann, 30, { tzOffsetMinutes: 180 });
+    const ahead = await ask(ann, 30, { timeZone: "Etc/GMT-3" });
     expect(ahead.load[0 * 24 + 12]).toBe(utc.load[0 * 24 + 9]);
     expect(ahead.load[0 * 24 + 9]).toBe(0);
     // Late on Tuesday in a zone behind UTC is still Monday there.
-    expect((await ask(ann, 30, { tzOffsetMinutes: -600 })).days.at(-1)).toBe("2026-11-16");
+    expect((await ask(ann, 30, { timeZone: "Etc/GMT+10" })).days.at(-1)).toBe("2026-11-16");
   });
 
   it("gives p50 and p90 by nearest rank, per Play and per agent", async () => {

@@ -230,7 +230,7 @@ export default function InsightsScreen(): JSX.Element {
   const [search, setSearch] = useSearchParams<{ days?: string }>();
   const days = (): InsightDays => (INSIGHT_DAYS.find((entry) => String(entry) === search.days) ?? 30);
   const place = createMemo(() => session.workspaces().find((workspace) => workspace.slug === params.slug));
-  const insights = useQuery("insights", () => (params.slug === undefined ? { days: days(), tzOffsetMinutes: -new Date().getTimezoneOffset() } : place() ? { workspaceId: (place() as { id: string }).id, days: days(), tzOffsetMinutes: -new Date().getTimezoneOffset() } : undefined));
+  const insights = useQuery("insights", () => (params.slug === undefined ? { days: days(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } : place() ? { workspaceId: (place() as { id: string }).id, days: days(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } : undefined));
   const crumbs = (): Array<{ label: string; route?: string }> => (place() ? [{ label: place()?.name ?? "", route: `/w/${params.slug}` }, { label: t("nav.insights") }] : [{ label: t("nav.overview"), route: "/" }, { label: t("nav.insights") }]);
   const stats = (d: Insights) => {
     const ended = d.totals.done + d.totals.failed;

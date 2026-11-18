@@ -115,10 +115,13 @@ export async function signIn(page: Page, stack: Stack): Promise<void> {
   await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
 }
 
+/** Whether the page has a phone's width: the navigation is a drawer and a goal shows its chain or its record, one at a time. Decided by the width, never by what happens to be visible. */
+export const onPhone = (page: Page): boolean => (page.viewportSize()?.width ?? 1440) < 640;
+
 /** The main navigation, opened first when it is a drawer (a phone). */
 export async function sidebar(page: Page): Promise<Locator> {
   const nav = page.getByRole("navigation", { name: "Main" });
-  if (!(await nav.isVisible())) await page.getByRole("button", { name: "Open application navigation" }).click();
+  if (onPhone(page)) await page.getByRole("button", { name: "Open application navigation" }).click();
   return nav;
 }
 

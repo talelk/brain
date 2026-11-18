@@ -404,7 +404,7 @@ export interface InsightFailure {
   /** The five most recent. */
   readonly tasks: ReadonlyArray<{ readonly id: string; readonly rootId: string; readonly title: string; readonly goalTitle: string; readonly workspaceSlug: string; readonly at: number }>;
 }
-/** What a person who steers asks of the past: see docs/model.md, "The timeline and Insights". Days are the caller's own (`tzOffsetMinutes`). */
+/** What a person who steers asks of the past: see docs/model.md, "The timeline and Insights". Days are the caller's own (`timeZone`, an IANA name). */
 export interface Insights {
   readonly now: number;
   /** Local days (`YYYY-MM-DD`), oldest first, the last one today. */
@@ -679,7 +679,7 @@ export const queries = table({
   /** Runners and the waiting list, for every workspace the caller sees, or for one; like `overview` it answers UNAUTHENTICATED without a session. */
   queue: ["public", z.strictObject({ workspaceId: id.optional() })],
   /** What happened over the last `days` days, for every workspace the caller sees or for one, in the caller's own days; like `queue` it answers UNAUTHENTICATED without a session. */
-  insights: ["public", z.strictObject({ workspaceId: id.optional(), days: z.union([z.literal(7), z.literal(30), z.literal(90)]).default(30), tzOffsetMinutes: z.int().min(-840).max(840).default(0) })],
+  insights: ["public", z.strictObject({ workspaceId: id.optional(), days: z.union([z.literal(7), z.literal(30), z.literal(90)]).default(30), timeZone: z.string().max(64).refine((zone) => { try { new Intl.DateTimeFormat("en", { timeZone: zone }); return true; } catch { return false; } }, "a time zone name such as Europe/Paris").default("UTC") })],
   /** Every scheduled and webhook Play of the active workspaces the caller can see; like `overview` it takes no workspace and answers UNAUTHENTICATED without a session. */
   "schedules.list": ["public", z.strictObject({})],
   /** `search` matches the title or the goal text; `rootsOnly` leaves out sub-tasks. Both are applied before `limit`. */

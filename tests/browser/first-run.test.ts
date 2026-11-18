@@ -1,4 +1,4 @@
-import { EMAIL, expect, NAME, PASSWORD, sidebar, test } from "./stack";
+import { EMAIL, expect, onPhone, NAME, PASSWORD, sidebar, test } from "./stack";
 
 test("from the setup link to a checked result @phone", async ({ page, stack }) => {
   await page.goto(stack.setupLink);
@@ -29,7 +29,7 @@ test("from the setup link to a checked result @phone", async ({ page, stack }) =
   // The step: what it produced, who checked it, what it cost.
   // On a phone the chain and the record take turns: go back to the chain first.
   const chain = page.getByRole("button", { name: "The record of this goal", exact: true });
-  if (await chain.isVisible()) await chain.click();
+  if (onPhone(page)) await chain.click();
   await expect(page.getByText("Done, checked by checker")).toBeVisible();
   await page.getByRole("button", { name: /Describe/u }).click();
   await expect(page.getByRole("heading", { name: "Result" })).toBeVisible();

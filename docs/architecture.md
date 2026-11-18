@@ -190,8 +190,7 @@ UNAUTHENTICATED without a session; a person never sees a workspace they are not 
 any `changed` frame, since the stream already carries every workspace of the caller.
 
 `insights` (declared `public` like `queue`: UNAUTHENTICATED without a session, only workspaces the caller sees, or the one named) takes
-`days` (7, 30 or 90) and `tzOffsetMinutes` (the caller's offset from UTC, so days and hours are theirs; a daylight-saving change inside the
-window is approximate) and answers, in one pass of grouped SQL over `tasks`, `attempts`, `usage`, `tool_calls` and `approvals` (reached through
+`days` (7, 30 or 90) and `timeZone` (the caller's IANA time zone, so days and hours are theirs; the offset is taken at every instant of the window, so a daylight-saving change inside it is exact: `tasks/zone.ts`) and answers, in one pass of grouped SQL over `tasks`, `attempts`, `usage`, `tool_calls` and `approvals` (reached through
 `tasks_workspace_updated` and `attempts_task`, so no new index): the calendar and weekday-by-hour counts, the per-day outcomes, the top
 eight by time and by money for workspace, agent and Play with a per-day series, tools by calls and time, p50 and p90 (nearest rank, by window functions) of goal
 duration per Play, attempt duration per agent and queue wait per day, the failed tasks bucketed by the reason of their last attempt (up to five of each

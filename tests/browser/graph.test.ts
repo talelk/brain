@@ -1,4 +1,4 @@
-import { expect, openWorkspace, signIn, starter, test } from "./stack";
+import { expect, openWorkspace, onPhone, signIn, starter, test } from "./stack";
 
 const editor = 'description = "Polishes what the others wrote."\nengine = ["pi"]\nnative = "none"\ntools = []\n[limits]\nturns = 5\ntokens = 20000\nspend_usd = 0\n';
 const step = (id: string, agent: string, after: string[], reply: string, review = false): string =>
@@ -18,7 +18,7 @@ test("a goal is drawn as a graph by what waits for what, and Team shows who hand
 
   // Task: one node per step, a column further right for each step it waits behind, and a click selects it.
   const back = page.getByRole("button", { name: "The record of this goal", exact: true });
-  if (await back.isVisible()) await back.click();
+  if (onPhone(page)) await back.click();
   const graph = page.getByRole("group", { name: "The record of this goal" });
   const nodes = graph.getByRole("button");
   await expect(nodes).toHaveCount(4);

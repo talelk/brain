@@ -4,6 +4,7 @@ import type { Governor } from "../app";
 import type { Db } from "../db";
 import type { Gov } from "../dispatch";
 import { COST } from "../trust/usage";
+import { dayWindow, offsetSql } from "./zone";
 import { activeManifest } from "../workspace/store";
 
 /**
@@ -25,14 +26,13 @@ const PERCENTILES = (inner: string): string => `WITH x AS (SELECT g, v, ROW_NUMB
 const BUCKET = `CASE WHEN la.id IS NULL THEN 'other' WHEN la.state = 'succeeded' THEN 'checks' WHEN la.state != 'failed' THEN 'other' ELSE CASE json_extract(la.failure_json, '$.reason')
   WHEN 'limit' THEN 'limits' WHEN 'setup' THEN 'setup' WHEN 'engine' THEN 'engine' WHEN 'model-refused' THEN 'engine' WHEN 'timeout' THEN 'engine' WHEN 'runner' THEN 'engine' ELSE 'other' END END`;
 
-function compute(gov: Gov, ids: readonly string[], names: ReadonlyMap<string, { name: string; slug: string }>, days: number, tz: number, now: number): Insights {
+function compute(gov: Gov, ids: readonly string[], names: ReadonlyMap<string, { name: string; slug: string }>, days: number, zone: string, now: number): Insights {
   const { db } = gov;
-  const off = tz * 60_000;
-  const first = Math.floor((now + off) / DAY_MS) * DAY_MS - (days - 1) * DAY_MS;
-  const since = first - off;
-  const list = Array.from({ length: days }, (_, index) => new Date(first + index * DAY_MS).toISOString().slice(0, 10));
+  const window = dayWindow(zone, days, now);
+  const { since } = window;
+  const list = [...window.days];
   const at = new Map(list.map((day, index) => [day, index]));
-  const local = (column: string): string => `date((${column} + ${off}) / 1000, 'unixepoch')`;
+  const local = (column: string): string => `date((${column} + ${offsetSql(window, column)}) / 1000, 'unixepoch')`;
   const inWs = (column: string): string => `${column} IN (${marks(ids)})`;
   const series = <T extends { d: string }>(rows: readonly T[], value: (row: T) => number): number[] => {
     const out = Array.from({ length: days }, () => 0);
@@ -48,7 +48,7 @@ function compute(gov: Gov, ids: readonly string[], names: ReadonlyMap<string, { 
   const approvals = all<{ d: string; n: number }>(db, `SELECT ${local("created_at_ms")} AS d, COUNT(*) AS n FROM approvals WHERE ${inWs("workspace_id")} AND standing = 0 AND created_at_ms >= ? GROUP BY d`, ...ids, since);
   const questions = all<{ d: string; n: number }>(db, `SELECT ${local("c.created_at_ms")} AS d, COUNT(*) AS n FROM tasks t JOIN tool_calls c ON c.task_id = t.id WHERE ${inWs("t.workspace_id")} AND t.updated_at_ms >= ? AND c.tool = 'task.ask' AND c.created_at_ms >= ? GROUP BY d`, ...ids, since, since);
   const load = Array.from({ length: 168 }, () => 0);
-  for (const row of all<{ wd: number; h: number; n: number }>(db, `SELECT CAST(strftime('%w', (a.started_at_ms + ${off}) / 1000, 'unixepoch') AS INTEGER) AS wd, CAST(strftime('%H', (a.started_at_ms + ${off}) / 1000, 'unixepoch') AS INTEGER) AS h, COUNT(*) AS n
+  for (const row of all<{ wd: number; h: number; n: number }>(db, `SELECT CAST(strftime('%w', (a.started_at_ms + ${offsetSql(window, "a.started_at_ms")}) / 1000, 'unixepoch') AS INTEGER) AS wd, CAST(strftime('%H', (a.started_at_ms + ${offsetSql(window, "a.started_at_ms")}) / 1000, 'unixepoch') AS INTEGER) AS h, COUNT(*) AS n
     FROM tasks t JOIN attempts a ON a.task_id = t.id WHERE ${inWs("t.workspace_id")} AND t.updated_at_ms >= ? AND a.started_at_ms >= ? GROUP BY wd, h`, ...ids, since, since)) {
     load[((row.wd + 6) % 7) * 24 + row.h] = row.n;
   }
@@ -100,9 +100,13 @@ function compute(gov: Gov, ids: readonly string[], names: ReadonlyMap<string, { 
     buckets.set(row.bucket, bucket);
   }
 
-  const repeats = all<{ id: string; title: string; play: string | null; workspace_id: string; n: number; micro: number; at: number }>(db, `SELECT id, title, play, workspace_id, COUNT(*) AS n, SUM(micro) AS micro, MAX(created_at_ms) AS at FROM (
-      SELECT t.*, (SELECT COALESCE(SUM(${COST}), 0) FROM usage u JOIN tasks x ON x.id = u.task_id WHERE x.root_id = t.id) AS micro FROM tasks t WHERE ${inWs("t.workspace_id")} AND t.parent_id IS NULL AND t.created_at_ms >= ?)
-    GROUP BY workspace_id, COALESCE(play, ''), COALESCE(inputs_json, ''), CASE WHEN play IS NULL THEN goal ELSE '' END HAVING n > 1 ORDER BY n DESC, at DESC LIMIT 6`, ...ids, since);
+  // Goals asked again: counted by the Play and inputs (or the words) they were started with, in the window only, the six most often; what they cost is added for those six alone.
+  const same = "workspace_id = ? AND parent_id IS NULL AND created_at_ms >= ?";
+  const repeats = all<{ id: string; title: string; play: string | null; inputs: string | null; goal: string; workspace_id: string; n: number; at: number }>(db, `SELECT id, title, play, inputs_json AS inputs, goal, workspace_id, COUNT(*) AS n, MAX(created_at_ms) AS at FROM tasks WHERE ${inWs("workspace_id")} AND parent_id IS NULL AND created_at_ms >= ?
+    GROUP BY workspace_id, COALESCE(play, ''), COALESCE(inputs_json, ''), CASE WHEN play IS NULL THEN goal ELSE '' END HAVING n > 1 ORDER BY n DESC, at DESC LIMIT 6`, ...ids, since).map((row) => ({
+    ...row, micro: (db.prepare(`SELECT COALESCE(SUM(${COST}), 0) AS micro FROM usage u JOIN tasks x ON x.id = u.task_id WHERE x.root_id IN (SELECT id FROM tasks WHERE ${same} AND COALESCE(play, '') = ? AND COALESCE(inputs_json, '') = ? AND (play IS NOT NULL OR goal = ?))`)
+      .get(row.workspace_id, since, row.play ?? "", row.inputs ?? "", row.goal) as { micro: number }).micro,
+  }));
 
   return {
     now, days: list,
@@ -128,10 +132,10 @@ export function registerInsights({ gov }: Governor): void {
     for (const workspace of visibleWorkspaces(gov, user.id)) if (workspace.status === "active") mine.set(workspace.id, workspace);
     const ids = [...mine.keys()].filter((id) => input.workspaceId === undefined || id === input.workspaceId).sort();
     const now = ctx.now();
-    const key = `${ids.join(",")}|${input.days}|${input.tzOffsetMinutes}|${Math.floor(now / 60_000)}`;
+    const key = `${ids.join(",")}|${input.days}|${input.timeZone}|${Math.floor(now / 60_000)}`;
     const known = cache.get(key);
     if (known) return known;
-    const answer = ids.length === 0 ? compute(gov, ["-"], mine, input.days, input.tzOffsetMinutes, now) : compute(gov, ids, mine, input.days, input.tzOffsetMinutes, now);
+    const answer = ids.length === 0 ? compute(gov, ["-"], mine, input.days, input.timeZone, now) : compute(gov, ids, mine, input.days, input.timeZone, now);
     if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
     cache.set(key, answer);
     return answer;

@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, openWorkspace, PASSWORD, signIn, starter, test } from "./stack";
+import { expect, openWorkspace, onPhone, PASSWORD, signIn, starter, test } from "./stack";
 
 test("an admin shares a workspace by email and makes another public; the invited person sees them grouped, and a public one only to read @phone", async ({ page, browser, stack }) => {
   const api = await stack.setUp();
@@ -44,7 +44,7 @@ test("an admin shares a workspace by email and makes another public; the invited
   await guest.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(guest.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
   const nav = guest.getByRole("navigation", { name: "Main" });
-  if (!(await nav.isVisible())) await guest.getByRole("button", { name: "Open application navigation" }).click();
+  if (onPhone(guest)) await guest.getByRole("button", { name: "Open application navigation" }).click();
   await expect(nav.getByText("Shared with me")).toBeVisible();
   await expect(nav.getByText("Public workspaces")).toBeVisible();
   await expect(nav.getByText("My workspaces")).toHaveCount(0);
@@ -65,7 +65,7 @@ test("an admin shares a workspace by email and makes another public; the invited
   await guest.goto(stack.url);
   await expect(guest.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
   const again = guest.getByRole("navigation", { name: "Main" });
-  if (!(await again.isVisible())) await guest.getByRole("button", { name: "Open application navigation" }).click();
+  if (onPhone(guest)) await guest.getByRole("button", { name: "Open application navigation" }).click();
   await expect(again.getByRole("link", { name: /^Open Lab/u })).toHaveCount(0);
   await context.close();
 });

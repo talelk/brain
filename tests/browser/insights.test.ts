@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { expect, openWorkspace, signIn, starter, test, type Stack } from "./stack";
+import { expect, openWorkspace, onPhone, signIn, starter, test, type Stack } from "./stack";
 
 const editor = 'description = "Polishes what the others wrote."\nengine = ["pi"]\nnative = "none"\ntools = []\n[limits]\nturns = 5\ntokens = 20000\nspend_usd = 0\n';
 const step = (id: string, agent: string, after: string[], reply: string, review = false): string =>
@@ -60,7 +60,7 @@ test("a goal's timeline selects the attempt a bar shows, and Insights counts goa
   await page.getByRole("tab", { name: "Graph" }).click();
   await expect(page).not.toHaveURL(/view=timeline/u);
   const back = page.getByRole("button", { name: "The record of this goal", exact: true });
-  if (await back.isVisible()) await back.click();
+  if (onPhone(page)) await back.click();
   await expect(page.getByRole("group", { name: "The record of this goal" }).getByRole("button", { name: /^Draft/u })).toHaveAttribute("aria-current", "true");
 
   // Insights: the range changes what is counted; the grids can be walked with the keys.
@@ -79,6 +79,43 @@ test("a goal's timeline selects the attempt a bar shows, and Insights counts goa
   await expect(page.getByText(/attempts? started$/u).first()).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Where time and money go" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Agent", exact: true })).toBeVisible();
+  expect(await serious(page)).toEqual([]);
+  await page.emulateMedia({ colorScheme: "dark" });
+  expect(await serious(page)).toEqual([]);
+});
+
+const operator = 'description = "Restarts containers."\nengine = ["pi"]\nnative = "none"\ntools = ["deploy.restart"]\n[limits]\nturns = 5\ntokens = 20000\nspend_usd = 0\n';
+const restart = 'description = "Restarts one container."\neffect = "privileged"\nneeds = ["bash"]\n[inputs.container]\ntype = "string"\nrequired = true\n';
+const restartPlay = 'title = "Restart a container"\n[[step]]\nid = "restart"\nagent = "operator"\ngoal = """Restart the web container.\nFIXTURE @work tool deploy.restart {"container": "web-1"}"""\n';
+
+test("on a goal that waits for a call, the wait and the call are buttons a finger can hit, the bars stay the same elements as time passes, and what is off the critical path keeps its contrast", async ({ page, stack }) => {
+  const api = await stack.setUp();
+  const workspace = await starter(api);
+  await workspace.connectModel();
+  await workspace.write({ "agents/operator/agent.toml": operator, "agents/operator/prompt.md": "You are the operator.\n", "tools/deploy.restart/tool.toml": restart, "tools/deploy.restart/run.sh": "#!/bin/sh\ncat\n", "plays/restart.toml": restartPlay });
+  const { taskId } = await api.command("task.create", { workspaceId: workspace.id, play: "restart", inputs: {} });
+  await expect.poll(async () => (await api.query("overview", {})).needsYou.length, { timeout: 60_000 }).toBe(1);
+  await signIn(page, stack);
+  await page.goto(`${stack.url}/w/starter/tasks/${taskId}?view=timeline`);
+  const timeline = page.getByTestId("timeline");
+  const wait = timeline.getByRole("button", { name: /Waiting for an approval of deploy\.restart/u });
+  const call = timeline.getByRole("button", { name: /Call of deploy\.restart/u });
+  for (const target of [wait, call]) {
+    await expect(target).toBeVisible();
+    const box = await target.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(24);
+    expect(box?.height).toBeGreaterThanOrEqual(24);
+    await target.focus();
+    await expect(target).toBeFocused();
+  }
+  // The timeline moves with the clock while the goal waits, and does it in place: the same bar, not a new one.
+  const bar = timeline.locator(".tl-bar").first();
+  await bar.evaluate((node) => { node.setAttribute("data-mark", "kept"); });
+  const before = await bar.evaluate((node) => (node as HTMLElement).style.insetInlineStart + (node as HTMLElement).style.inlineSize);
+  await expect.poll(async () => bar.evaluate((node) => (node as HTMLElement).style.insetInlineStart + (node as HTMLElement).style.inlineSize), { timeout: 15_000 }).not.toBe(before);
+  await expect(timeline.locator('.tl-bar[data-mark="kept"]')).toHaveCount(1);
+  // Off the critical path is dimmed in colour, and every text on it still reads.
+  await timeline.getByLabel("Highlight the critical path").check();
   expect(await serious(page)).toEqual([]);
   await page.emulateMedia({ colorScheme: "dark" });
   expect(await serious(page)).toEqual([]);
