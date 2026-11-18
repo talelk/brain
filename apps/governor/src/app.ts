@@ -166,9 +166,9 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
     return gov.auth.handler(c.req.raw);
   });
 
-  /** Where a request came from: the proxy's word when the install trusts one, else the connection. */
+  /** Where a request came from: when the install trusts a proxy, the last address it appended (the first is whatever the client sent), else the connection. */
   const clientIp = (c: Context): string => {
-    if (process.env["BRAIN_AUTH_TRUSTED_PROXIES"]) return c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (process.env["BRAIN_AUTH_TRUSTED_PROXIES"]) return c.req.header("x-forwarded-for")?.split(",").at(-1)?.trim() || "unknown";
     return (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress ?? "local";
   };
   const caller = async (c: Context) => ({ user: await gov.auth.user(c.req.raw.headers), cookies: [] as string[], ip: clientIp(c) });

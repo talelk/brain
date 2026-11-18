@@ -101,7 +101,7 @@ export default function UsersScreen(): JSX.Element {
   return (
     <>
       <Head title={t("users.title")} text={t("users.title")} description={t("users.text")}
-        actions={<Button variant="solid" theme="blue" size="md" iconLeft="lucide-user-plus" onClick={() => invite()}>{t("users.invite")}</Button>} />
+        actions={session.user().instanceAdmin ? <Button variant="solid" theme="blue" size="md" iconLeft="lucide-user-plus" onClick={() => invite()}>{t("users.invite")}</Button> : undefined} />
       <Show when={session.user().instanceAdmin} fallback={<EmptyState bordered icon="lucide-lock" title={t("users.adminOnly")} description={t("users.adminOnly.text")} />}>
         <Ready shape="table" data={list.data()} error={list.error()} retry={list.refetch}>
           {(loaded) => {

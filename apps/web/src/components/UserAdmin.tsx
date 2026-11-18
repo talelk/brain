@@ -230,7 +230,7 @@ export function UserDrawer(props: { userId: string | undefined; onClose: () => v
   return (
     <Dialog.Root open={props.userId !== undefined} onOpenChange={(open) => { if (!open) { setReset(undefined); props.onClose(); } }}>
       <Dialog.Content size="lg" position="end">
-        <div class="mb-1 flex justify-end"><Dialog.Close class="grid size-9 place-items-center rounded-control text-ink-gray-7 hover:bg-surface-gray-3 focus-visible:focus-ring" aria-label={t("users.close")}><Icon name="lucide-x" /></Dialog.Close></div>
+        <div class="mb-1 flex justify-end"><Dialog.Close class="grid size-9 place-items-center rounded-control text-ink-gray-7 hover:bg-surface-gray-3 focus-visible:focus-ring"><Icon name="lucide-x" /><span class="sr-only">{t("users.close")}</span></Dialog.Close></div>
         <Ready data={detail.data()} error={detail.error()} retry={detail.refetch} shape="lines">
           {(loaded) => {
             const person = (): UserDetail["user"] => loaded().user;
