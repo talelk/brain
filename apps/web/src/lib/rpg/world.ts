@@ -289,7 +289,8 @@ function yardTile(map: Layout, lot: Lot, random: () => number): { x: number; y: 
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const x = lot.x + 1 + Math.floor(random() * (LOT_W - 2));
     const y = lot.building.y + lot.building.h + 1 + Math.floor(random() * Math.max(1, lot.y + LOT_H - 2 - (lot.building.y + lot.building.h)));
-    if (map.walk[y * map.w + x] === 1) return { x, y };
+    const nearDoor = Math.abs(x - lot.door.x) < 3 && y <= lot.door.y + 2;
+    if (map.walk[y * map.w + x] === 1 && !nearDoor) return { x, y };
   }
   return { x: lot.door.x, y: lot.door.y + 1 };
 }
