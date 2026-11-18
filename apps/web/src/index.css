@@ -463,4 +463,3 @@ main { overflow-x: clip; }
   .live-attn::after { opacity: 0.35; }
   .live-glow::after { opacity: 0; }
 }
-}

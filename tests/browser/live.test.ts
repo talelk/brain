@@ -95,7 +95,7 @@ test("Live shows the runner's lane, the numbers of the flow, what just happened 
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
 });
 
-test("Live reads right to left in Arabic, and an address that is no workspace says so", async ({ page, stack }) => {
+test("Live reads right to left in Arabic, and an archived workspace says there is nothing to show", async ({ page, stack }) => {
   const api = await stack.setUp();
   await starter(api);
   await signIn(page, stack);
@@ -105,7 +105,10 @@ test("Live reads right to left in Arabic, and an address that is no workspace sa
   const failed = await page.locator('[data-stage="failed"]').boundingBox();
   expect(queued && failed && queued.x > failed.x).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  await page.goto(`${stack.url}/w/no-such-place/live`);
+  // A workspace that is archived has no Live view: the screen says so instead of waiting for it.
+  const old = await api.command("workspace.create", { name: "Old one", packs: [] });
+  await api.command("workspace.archive", { workspaceId: old.workspaceId });
+  await page.goto(`${stack.url}/w/${old.slug}/live?lang=ar`);
   await expect(page.getByText("لا توجد مساحة عمل هنا")).toBeVisible();
   await expect(page.getByTestId("live-lane")).toHaveCount(0);
 });
