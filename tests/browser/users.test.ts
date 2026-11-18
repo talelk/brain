@@ -68,7 +68,7 @@ test("an admin invites someone, they accept the link and sign in, and a deactiva
   await guest.getByLabel("Email").fill("nora@example.com");
   await guest.getByLabel("Password").fill(PASSWORD);
   await guest.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(guest.getByText("This account is deactivated")).toBeVisible();
+  await expect(guest.getByText("That email and password do not match an account")).toBeVisible();
   // Her history stays: she is still a member of Starter, shown as deactivated.
   expect((await api.query("members.list", { workspaceId: workspace.id })).members.find((member) => member.email === "nora@example.com")).toMatchObject({ role: "member", active: false });
 

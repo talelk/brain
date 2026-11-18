@@ -36,6 +36,6 @@ test("Workspace settings fit a phone: the limits table scrolls inside its own bo
   await starter(await stack.setUp());
   await signIn(page, stack);
   await page.goto(`${stack.url}/w/starter/workspace/settings`);
-  await expect(page.getByRole("heading", { level: 3, name: "Limits" })).toBeVisible();
+  await expect(page.locator("#limits-title")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });

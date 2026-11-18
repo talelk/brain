@@ -59,12 +59,6 @@ test("Live shows the runner's lane, the numbers of the flow, what just happened 
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "no-preference" });
     expect(await serious(page), `${scheme}`).toEqual([]);
   }
-  // Every animated element has its animation, and all of them are still under reduced motion (the pulse and the glow are drawn by `::after`).
-  const animated = [[".live-flow", ""], [".live-dot", ""], [".live-breathe", ""], [".live-attn", "::after"], [".live-arrive", ""], ["path.live-spark", ""]] as const;
-  const names = (): Promise<string[]> => page.evaluate((list) => list.map(([selector, pseudo]) => { const node = document.querySelector(selector); return node ? getComputedStyle(node, pseudo || null).animationName : "missing"; }), animated);
-  expect(await names()).toEqual(["live-flow", "live-dim", "live-dim", "live-pulse", "live-in", "live-fade"]);
-  // Only transform and opacity move: no animation here changes a painted property.
-  expect(await page.evaluate(() => { const painted = /stroke|box-shadow|width|height|filter|background|color/u; return [...document.getAnimations()].filter((animation) => animation instanceof CSSAnimation && animation.animationName.startsWith("live-") && (animation.effect as KeyframeEffect | null)?.getKeyframes().some((frame) => Object.keys(frame).some((key) => painted.test(key)))).length; })).toBe(0);
   // The attempt in the slot has a ring that fills over ten minutes, and a line for its tokens that waits for a second sample.
   const pill = page.getByTestId("live-run");
   const filled = async (): Promise<number> => Number.parseFloat((await pill.locator("circle.live-arc").getAttribute("stroke-dasharray")) ?? "0");
@@ -72,6 +66,12 @@ test("Live shows the runner's lane, the numbers of the flow, what just happened 
   await expect.poll(filled, { timeout: 30_000 }).toBeGreaterThan(first + 0.1);
   // The line of tokens is drawn once the page has read two answers.
   await expect.poll(async () => (await pill.locator("path.live-spark").first().getAttribute("d", { timeout: 1000 }).catch(() => "")) ?? "", { timeout: 30_000 }).toMatch(/^M/u);
+  // Every animated element has its animation, and all of them are still under reduced motion (the pulse and the glow are drawn by `::after`).
+  const animated = [[".live-flow", ""], [".live-dot", ""], [".live-breathe", ""], [".live-attn", "::after"], [".live-arrive", ""], ["path.live-spark", ""]] as const;
+  const names = (): Promise<string[]> => page.evaluate((list) => list.map(([selector, pseudo]) => { const node = document.querySelector(selector); return node ? getComputedStyle(node, pseudo || null).animationName : "missing"; }), animated);
+  expect(await names()).toEqual(["live-flow", "live-dim", "live-dim", "live-pulse", "live-in", "live-fade"]);
+  // Only transform and opacity move: no animation here changes a painted property.
+  expect(await page.evaluate(() => { const painted = /stroke|box-shadow|width|height|filter|background|color/u; return [...document.getAnimations()].filter((animation) => animation instanceof CSSAnimation && animation.animationName.startsWith("live-") && (animation.effect as KeyframeEffect | null)?.getKeyframes().some((frame) => Object.keys(frame).some((key) => painted.test(key)))).length; })).toBe(0);
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
   expect(await names()).toEqual(["none", "none", "none", "none", "none", "none"]);
   expect(await serious(page), "reduced motion").toEqual([]);
@@ -90,7 +90,7 @@ test("Live shows the runner's lane, the numbers of the flow, what just happened 
   const leaving = page.locator('[data-testid="live-run"][data-ending]');
   await expect(leaving).toHaveCount(1, { timeout: 20_000 });
   await expect(page.getByTestId("live-celebration")).toContainText("Restart a container");
-  expect(await leaving.locator("path.live-check").evaluate((node) => getComputedStyle(node).animationName)).toBe("live-pop");
+  expect(await leaving.locator("path.live-check").first().evaluate((node) => getComputedStyle(node).animationName)).toBe("live-pop");
   await expect(page.getByTestId("stage-done")).not.toHaveAttribute("data-value", "0");
   await expect(page.getByTestId("live-feed")).toContainText("is done");
   await expect(page.getByTestId("live-attention")).toHaveCount(0);
