@@ -330,6 +330,11 @@ and on which runner, what waits and in which order, and why each waiting task is
 The Queue is also shown as a short line on Today and the Overview ("3 running, 5 waiting")
 and as the count of waiting tasks beside each workspace in the sidebar.
 
+**Live** is the same facts drawn as they happen, with nothing added to the model: the runners as lanes
+with their attempts, the counts of Queued, Running, Checking, Needs you, Done and Failed as one flow,
+a feed of what just happened and today's spend. It reads the Overview, the Queue and the tasks; it
+stores nothing and starts nothing.
+
 ## Limits
 
 A limit stops or delays work so a mistake cannot cost without end. Each one is shown, with its
