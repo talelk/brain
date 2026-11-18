@@ -47,12 +47,6 @@ test("Live shows the runner's lane, the numbers of the flow, what just happened 
   // The feed says what happened, and the attention bar names what waits.
   await expect(page.getByTestId("live-feed")).toContainText("waits for a call to be approved");
   await expect(page.getByTestId("live-attention")).toContainText("Restart a container");
-  // The village: the party names the hero at work, and choosing it opens its panel with the goal.
-  await expect(page.getByTestId("live-world").getByTestId("live-hero")).toContainText("operator");
-  await page.getByTestId("live-hero").first().click();
-  await expect(page.getByTestId("live-panel")).toContainText("Restart a container");
-  await page.getByTestId("live-panel").getByRole("button", { name: "Close" }).click();
-  await expect(page.getByTestId("live-panel")).toHaveCount(0);
   // A workspace tile opens into its details.
   const tile = page.getByTestId("live-tile");
   await tile.getByRole("button").click();
@@ -90,6 +84,27 @@ test("Live shows the runner's lane, the numbers of the flow, what just happened 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Ambient" })).toBeVisible();
 
+  // Village is its own screen: the party names the hero at work, choosing it opens its panel, and Ambient fills the screen with the village.
+  await (await sidebar(page)).getByRole("link", { name: "Village", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Village" })).toBeVisible();
+  await expect(page.getByTestId("river")).toHaveCount(0);
+  await expect(page.getByTestId("live-world").getByTestId("live-hero")).toContainText("operator");
+  await page.getByTestId("live-hero").first().click();
+  await expect(page.getByTestId("live-panel")).toContainText("Restart a container");
+  await page.getByTestId("live-panel").getByRole("button", { name: "Close" }).click();
+  await expect(page.getByTestId("live-panel")).toHaveCount(0);
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "no-preference" });
+    expect(await serious(page), `village ${scheme}`).toEqual([]);
+  }
+  await page.getByRole("button", { name: "Ambient" }).click();
+  const fill = async (): Promise<{ w: number; h: number }> => page.getByRole("region", { name: /Village map/u }).evaluate((node) => { const box = node.getBoundingClientRect(); return { w: box.width / innerWidth, h: box.height / innerHeight }; });
+  expect((await fill()).w).toBeGreaterThan(0.6);
+  expect((await fill()).h).toBeGreaterThan(0.6);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Ambient" })).toBeVisible();
+  await (await sidebar(page)).getByRole("link", { name: "Live", exact: true }).click();
+  await expect(page.getByTestId("stage-queued")).toBeVisible();
   // The person approves the call while the page is open: the attempt leaves its slot in the colour of its end, the goal rings once, the flow counts it and the feed says so.
   const need = (await api.query("overview", {})).needsYou[0];
   await api.command("approval.decide", { workspaceId: workspace.id, approvalId: need?.approval?.id ?? "", decision: "approve", subjectDigest: need?.approval?.subjectDigest ?? "" });

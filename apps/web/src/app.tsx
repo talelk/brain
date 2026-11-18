@@ -27,12 +27,14 @@ const load = {
   profile: () => import("./screens/Profile"),
   insights: () => import("./screens/Insights"),
   live: () => import("./screens/Live"),
+  village: () => import("./screens/Village"),
 };
 const Overview = lazy(load.overview);
 const Today = lazy(load.today);
 const Queue = lazy(load.queue);
 const Insights = lazy(load.insights);
 const Live = lazy(load.live);
+const Village = lazy(load.village);
 const Tasks = lazy(load.tasks);
 const Task = lazy(load.task);
 const Workspace = lazy(load.workspace);
@@ -92,7 +94,7 @@ function Frame(props: RouteSectionProps): JSX.Element {
   /** Which grey shape stands in for the page while its code and first answer come: by the address. */
   const shape = (): LoadingShape => {
     const path = location.pathname;
-    if (path === "/" || path.endsWith("/health") || path.endsWith("/live")) return "cards";
+    if (path === "/" || path.endsWith("/health") || path.endsWith("/live") || path.endsWith("/village")) return "cards";
     if (path.endsWith("/tasks") || path.endsWith("/queue") || path.endsWith("/insights") || path.endsWith("/people") || path.endsWith("/schedules") || path === "/users") return "table";
     if (path.includes("/workspace") || path.includes("/tasks/")) return "split";
     return path === "/new" || /^\/w\/[^/]+\/?$/u.test(path) ? "form" : "lines";
@@ -127,6 +129,7 @@ export function App(): JSX.Element {
               <Route path="/users" component={Users} />
               <Route path="/profile" component={Profile} />
               <Route path="/live" component={Live} />
+              <Route path="/village" component={Village} />
               <Route path="/w/:slug" component={InWorkspace}>
                 <Route path="/" component={Today} />
                 <Route path="/tasks" component={Tasks} />
@@ -138,6 +141,7 @@ export function App(): JSX.Element {
                 <Route path="/queue" component={Queue} />
                 <Route path="/insights" component={Insights} />
                 <Route path="/live" component={Live} />
+                <Route path="/village" component={Village} />
               </Route>
               <Route path="*" component={() => <Navigate href="/" />} />
             </Router>

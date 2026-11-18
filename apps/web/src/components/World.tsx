@@ -633,7 +633,7 @@ export function World(props: {
   const showBubble = (id: string): boolean => options().bubbles === "all" || (selected()?.kind === "hero" && (selected() as { id: string }).id === id);
 
   return (
-    <section class="flex flex-col gap-3" aria-labelledby="live-village" data-testid="live-world">
+    <section class={`flex flex-col gap-3 ${props.ambient ? "min-h-0 flex-1" : ""}`} aria-labelledby="live-village" data-testid="live-world">
       <div class="rpg-panel flex flex-wrap items-center gap-x-5 gap-y-2 px-3 py-2">
         <h2 id="live-village" class="t-head text-ink">{t("live.rpg.title")}</h2>
         <span class="flex items-center gap-1.5 t-small text-ink-2"><Hearts rate={props.rate} /><span>{props.rate === null ? t("live.tile.rate.none") : t("live.tile.rate", { n: Math.round(props.rate * 100) })}</span></span>
@@ -646,9 +646,9 @@ export function World(props: {
         </span>
       </div>
 
-      <div class="flex flex-col gap-3 lg:flex-row">
+      <div class={`flex flex-col gap-3 lg:flex-row ${props.ambient ? "min-h-0 flex-1" : ""}`}>
         <div ref={(element) => { box = element; watch(element); }} tabindex="0" role="region" aria-label={t("live.world.map", { n: props.stations.length, m: props.runs.length })} onKeyDown={keys}
-          class={`rpg-world relative w-full min-w-0 shrink-0 overflow-hidden lg:w-auto lg:flex-1 focus-visible:focus-ring ${props.ambient ? "h-[calc(100vh-14rem)]" : "h-[clamp(22rem,64vh,42rem)]"}`}>
+          class={`rpg-world relative w-full min-w-0 overflow-hidden lg:w-auto lg:flex-1 focus-visible:focus-ring ${props.ambient ? "min-h-[16rem] flex-1 lg:h-auto" : "h-[clamp(22rem,64vh,42rem)]"}`}>
           <canvas ref={view} class="absolute inset-0 size-full" aria-hidden="true" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag = null; }} onWheel={wheel} style={{ "image-rendering": options().pixels === "smooth" ? "auto" : "pixelated", cursor: "grab" }} />
           <div class="pointer-events-none absolute inset-0 overflow-hidden">
             <For each={props.stations}>{(station) => (

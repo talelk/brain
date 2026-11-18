@@ -28,6 +28,12 @@ function Celebration(props: { title: string }): JSX.Element {
 
 /** Live: what Brain is doing right now, drawn from the Overview, the Queue and the tasks, which every other screen reads too. */
 export default function LiveScreen(): JSX.Element {
+  return <Board view="live" />;
+}
+
+/** The one board behind both screens: Live is the flow, the runners, the workspaces and the feed; Village is the same answers as a game map. */
+export function Board(props: { view: "live" | "village" }): JSX.Element {
+  const village = (): boolean => props.view === "village";
   const session = useSession();
   const params = useParams<{ slug?: string }>();
   const places = createMemo(() => session.workspaces().filter((workspace) => workspace.status === "active" && (params.slug === undefined || workspace.slug === params.slug)));
@@ -125,7 +131,7 @@ export default function LiveScreen(): JSX.Element {
   document.addEventListener("fullscreenchange", fullscreen);
   onCleanup(() => { document.removeEventListener("keydown", key); document.removeEventListener("fullscreenchange", fullscreen); clearTimeout(hush); void wake?.release().catch(() => undefined); if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined); });
 
-  const crumbs = (): Array<{ label: string; route?: string }> => (place() ? [{ label: place()?.name ?? "", route: `/w/${params.slug}` }, { label: t("nav.live") }] : [{ label: t("nav.overview"), route: "/" }, { label: t("nav.live") }]);
+  const crumbs = (): Array<{ label: string; route?: string }> => (place() ? [{ label: place()?.name ?? "", route: `/w/${params.slug}` }, { label: t(village() ? "nav.village" : "nav.live") }] : [{ label: t("nav.overview"), route: "/" }, { label: t(village() ? "nav.village" : "nav.live") }]);
   const spent = (): number => (overview()?.workspaces ?? []).reduce((sum, workspace) => sum + workspace.spend.todayMicroUsd, 0);
   const cap = (): number => ((overview()?.workspaces ?? []).some((workspace) => workspace.spend.capMicroUsd === 0) ? 0 : (overview()?.workspaces ?? []).reduce((sum, workspace) => sum + workspace.spend.capMicroUsd, 0));
   const days = (): number[] => (overview()?.workspaces[0]?.days ?? []).map((_, index) => (overview()?.workspaces ?? []).reduce((sum, workspace) => sum + (workspace.days[index]?.microUsd ?? 0), 0) / 1_000_000);
@@ -143,7 +149,7 @@ export default function LiveScreen(): JSX.Element {
 
   return (
     <>
-      <Head title={t("live.title")} text={t("live.title")} description={t("live.text")} breadcrumbs={crumbs()}
+      <Head title={t(village() ? "nav.village" : "live.title")} text={t(village() ? "nav.village" : "live.title")} description={t(village() ? "village.text" : "live.text")} breadcrumbs={crumbs()}
         actions={<Button variant="outline" size="md" iconLeft="lucide-maximize" onClick={enter}>{t("live.ambient")}</Button>} />
       <Failure error={queue.error()} retry={queue.refetch} />
       <Show when={params.slug !== undefined && !place()}>
@@ -151,16 +157,16 @@ export default function LiveScreen(): JSX.Element {
       </Show>
       <Show when={params.slug === undefined || place()}>
       <Show when={ready()} fallback={<Show when={!queue.error()}><Loading shape="cards" /></Show>}>
-        <div class={`live-root flex flex-col gap-4 ${ambient() ? "fixed inset-0 z-50 overflow-auto bg-paper p-6 lg:p-10" : ""} ${ambient() && idle() ? "cursor-none" : ""}`} data-ambient={ambient() || undefined} data-hidden={!visible() || undefined} data-still={reduced() || undefined}
+        <div class={`live-root flex flex-col gap-4 ${ambient() ? (village() ? "fixed inset-0 z-50 bg-paper p-3 lg:p-4" : "fixed inset-0 z-50 overflow-auto bg-paper p-6 lg:p-10") : ""} ${ambient() && idle() ? "cursor-none" : ""}`} data-ambient={ambient() || undefined} data-hidden={!visible() || undefined} data-still={reduced() || undefined}
           onPointerMove={() => { if (ambient()) wakeIdle(); }}>
           <Show when={ambient()}>
             <div class="flex items-center gap-4">
-              <h2 class="font-display text-2xl font-semibold text-ink">{t("live.title")}{place() ? ` · ${place()?.name}` : ""}</h2>
+              <h2 class="font-display text-2xl font-semibold text-ink">{t(village() ? "nav.village" : "live.title")}{place() ? ` · ${place()?.name}` : ""}</h2>
               <span class="ms-auto t-title text-ink-2 tabular-nums" dir="ltr"><Tick now={now()} /></span>
               <Button variant="outline" size="md" iconLeft="lucide-minimize" onClick={leave} class={idle() ? "opacity-0 focus-visible:opacity-100" : ""}>{t("live.ambient.exit")}</Button>
             </div>
           </Show>
-          <For each={celebrating()}>{(goal) => <Celebration title={goal.title} />}</For>
+          <Show when={!village()}><For each={celebrating()}>{(goal) => <Celebration title={goal.title} />}</For></Show>
           <Show when={needs().length > 0}>
             <section ref={watch} class="live-attn-bar flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-[var(--needs-line)] bg-needs-soft px-4 py-3" aria-label={t("live.need.title", { n: needs().length })} data-testid="live-attention">
               <span class="live-dot size-2.5 rounded-full bg-needs" aria-hidden="true" />
@@ -170,7 +176,10 @@ export default function LiveScreen(): JSX.Element {
               </ul>
             </section>
           </Show>
-          <Show when={stations().length > 0}><World stations={stations()} runs={heroes()} leaving={leavers().map((entry) => ({ id: entry.run.attemptId, state: entry.state }))} celebrations={celebrating()} queued={counts().queued} now={now()} ambient={ambient()} spent={money(spent())} progress={totals().progress} rate={totals().rate} /></Show>
+          <Show when={village()}>
+  <Show when={stations().length > 0}><World stations={stations()} runs={heroes()} leaving={leavers().map((entry) => ({ id: entry.run.attemptId, state: entry.state }))} celebrations={celebrating()} queued={counts().queued} now={now()} ambient={ambient()} spent={money(spent())} progress={totals().progress} rate={totals().rate} /></Show>
+          </Show>
+          <Show when={!village()}>
           <River counts={counts()} activity={activity()} ambient={ambient()} />
           <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div class="flex min-w-0 flex-col gap-6">
@@ -199,6 +208,7 @@ export default function LiveScreen(): JSX.Element {
               </section>
             </div>
           </div>
+          </Show>
         </div>
       </Show>
       </Show>

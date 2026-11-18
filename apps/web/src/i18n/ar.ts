@@ -1556,6 +1556,8 @@ export const ar: Catalog = {
   "live.feed.times_other": "{n} مرة",
   "live.lanes.title": "المنفِّذون",
   "live.feed.title": "ما حدث للتو",
+  "nav.village": "القرية",
+  "village.text": "العمل نفسه كما في المباشر، كلعبة أدوار صغيرة: بطل لكل محاولة جارية.",
   "live.feed.empty": "لم يحدث شيء في الساعات الأخيرة.",
   "live.world.map": "خريطة القرية: {n} مساحات عمل، {m} في العمل. قائمة الفريق أدناه تسمّي الجميع؛ الأسهم تحرّك الخريطة.",
   "live.world.sign": "{name}: عرض التفاصيل",

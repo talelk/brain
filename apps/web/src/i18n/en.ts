@@ -1466,6 +1466,8 @@ export const en = {
   "live.feed.times_other": "{n} times",
   "live.lanes.title": "Runners",
   "live.feed.title": "What just happened",
+  "nav.village": "Village",
+  "village.text": "The same work as Live, as a small role-playing game: a hero for each running attempt.",
   "live.feed.empty": "Nothing has happened in the last hours.",
   "live.world.map": "Village map: {n} workspaces, {m} at work. The party list below names everyone; arrow keys move the map.",
   "live.world.sign": "{name}: show the details",

@@ -1468,6 +1468,8 @@ export const fr: Catalog = {
   "live.feed.times_other": "{n} fois",
   "live.lanes.title": "Exécuteurs",
   "live.feed.title": "Ce qui vient d'arriver",
+  "nav.village": "Village",
+  "village.text": "Le même travail que Live, en petit jeu de rôle : un héros pour chaque tentative en cours.",
   "live.feed.empty": "Rien ne s'est passé ces dernières heures.",
   "live.world.map": "Carte du village : {n} espaces de travail, {m} au travail. La liste du groupe ci-dessous nomme chacun ; les flèches déplacent la carte.",
   "live.world.sign": "{name} : voir les détails",

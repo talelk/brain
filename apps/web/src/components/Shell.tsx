@@ -66,13 +66,14 @@ function Nav(): JSX.Element {
     { label: "nav.workspaces.public", list: active().filter((workspace) => workspace.viaPublic) },
   ];
   const waiting = (id: string): number => session.overview.data()?.workspaces.find((workspace) => workspace.id === id)?.attemptsWaiting ?? 0;
-  const sub: readonly { path: string; label: "nav.today" | "nav.tasks" | "nav.workspace" | "nav.schedules" | "nav.queue" | "nav.insights" | "nav.live"; icon: string }[] = [
-    { path: "", label: "nav.today", icon: "lucide-sun" }, { path: "/tasks", label: "nav.tasks", icon: "lucide-list-checks" }, { path: "/queue", label: "nav.queue", icon: "lucide-list-ordered" }, { path: "/live", label: "nav.live", icon: "lucide-activity" }, { path: "/schedules", label: "nav.schedules", icon: "lucide-calendar-clock" }, { path: "/insights", label: "nav.insights", icon: "lucide-chart-no-axes-combined" }, { path: "/workspace", label: "nav.workspace", icon: "lucide-folder-cog" },
+  const sub: readonly { path: string; label: "nav.today" | "nav.tasks" | "nav.workspace" | "nav.schedules" | "nav.queue" | "nav.insights" | "nav.live" | "nav.village"; icon: string }[] = [
+    { path: "", label: "nav.today", icon: "lucide-sun" }, { path: "/tasks", label: "nav.tasks", icon: "lucide-list-checks" }, { path: "/queue", label: "nav.queue", icon: "lucide-list-ordered" }, { path: "/live", label: "nav.live", icon: "lucide-activity" }, { path: "/village", label: "nav.village", icon: "lucide-castle" }, { path: "/schedules", label: "nav.schedules", icon: "lucide-calendar-clock" }, { path: "/insights", label: "nav.insights", icon: "lucide-chart-no-axes-combined" }, { path: "/workspace", label: "nav.workspace", icon: "lucide-folder-cog" },
   ];
   return (
     <div class="flex flex-col gap-0.5">
       <SidebarItem route="/" icon="lucide-layout-dashboard" active={here("/")}>{t("nav.overview")}</SidebarItem>
       <SidebarItem route="/live" icon="lucide-activity" active={here("/live")}>{t("nav.live")}</SidebarItem>
+      <SidebarItem route="/village" icon="lucide-castle" active={here("/village")}>{t("nav.village")}</SidebarItem>
       <SidebarItem route="/queue" icon="lucide-list-ordered" active={here("/queue")} suffix={allWaiting() > 0 ? <span class="rounded-full bg-surface-gray-3 px-1.5 text-[0.6875rem] font-semibold leading-[1.125rem] text-ink-gray-8 tabular-nums"><span class="sr-only">{t("queue.waiting")} </span>{allWaiting()}</span> : undefined}>{t("nav.queue")}</SidebarItem>
       <SidebarItem route="/schedules" icon="lucide-calendar-clock" active={here("/schedules")}>{t("nav.schedules")}</SidebarItem>
       <SidebarItem route="/insights" icon="lucide-chart-no-axes-combined" active={here("/insights")}>{t("nav.insights")}</SidebarItem>
@@ -203,6 +204,7 @@ function Palette(props: { open: boolean; onOpenChange: (open: boolean) => void; 
     <CommandPalette open={props.open} onOpenChange={props.onOpenChange} placeholder={t("palette.placeholder")} label={t("palette.label")} size="lg" empty={t("palette.empty")}>
       <CommandGroup label={t("palette.pages")}>
         <CommandItem value="overview" icon="lucide-layout-dashboard" onSelect={go("/")}>{t("nav.overview")}</CommandItem>
+        <CommandItem value="village" keywords="village game rpg map heroes agents wall ambient" icon="lucide-castle" onSelect={go("/village")}>{t("nav.village")}</CommandItem>
         <CommandItem value="live" keywords="live wall ambient flow activity" icon="lucide-activity" onSelect={go("/live")}>{t("nav.live")}</CommandItem>
         <CommandItem value="queue" keywords="queue waiting runners slots" icon="lucide-list-ordered" onSelect={go("/queue")}>{t("nav.queue")}</CommandItem>
         <CommandItem value="insights" keywords="insights heatmap analytics statistics cost time failures" icon="lucide-chart-no-axes-combined" onSelect={go("/insights")}>{t("nav.insights")}</CommandItem>
