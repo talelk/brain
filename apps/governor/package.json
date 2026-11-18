@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@brain/contracts": "workspace:*",
-    "@hono/node-server": "2.1.5",
+    "@hono/node-server": "2.1.6",
     "better-auth": "1.7.14",
     "better-sqlite3": "13.0.3",
     "hono": "4.13.14",
