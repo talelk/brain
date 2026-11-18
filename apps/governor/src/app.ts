@@ -20,6 +20,7 @@ import { registerGithub } from "./integrations/github";
 import { registerTeams } from "./integrations/teams";
 import { registerMemory } from "./memory/memory";
 import { registerTasks } from "./tasks/handlers";
+import { registerInsights } from "./tasks/insights";
 import { registerOverview } from "./tasks/overview";
 import { registerTriggers } from "./tasks/triggers";
 import { registerApprovals } from "./trust/approvals";
@@ -216,7 +217,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   });
 
   // Each module registers its commands, queries, routes and timers here, before the web app's catch-all route below.
-  for (const register of [registerAuth, registerWorkspace, registerPacks, registerTrust, registerUsage, registerApprovals, registerMemory, registerTriggers, registerTasks, registerOverview, registerRunners, registerAttempts, registerGateway, registerGithub, registerTeams, registerHealth]) register(governor);
+  for (const register of [registerAuth, registerWorkspace, registerPacks, registerTrust, registerUsage, registerApprovals, registerMemory, registerTriggers, registerTasks, registerOverview, registerInsights, registerRunners, registerAttempts, registerGateway, registerGithub, registerTeams, registerHealth]) register(governor);
   governor.every(15 * 60_000, () => void checkpoint(gov));
 
   ensureAuditKey(gov);

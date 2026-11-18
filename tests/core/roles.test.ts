@@ -66,7 +66,7 @@ describe("roles", () => {
         checked += 1;
       }
     }
-    expect(checked).toBe(Object.keys(commands).length + Object.keys(queries).length - 12);
+    expect(checked).toBe(Object.keys(commands).length + Object.keys(queries).length - 13);
   });
 
   it("a viewer reads the workspace and cannot write a file", async () => {

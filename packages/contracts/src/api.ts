@@ -334,6 +334,59 @@ export interface Queue {
   readonly paused: ReadonlyArray<{ readonly id: string; readonly slug: string; readonly name: string }>;
   readonly admin: boolean;
 }
+/** The windows Insights can look over, in days. */
+export const INSIGHT_DAYS = [7, 30, 90] as const;
+export type InsightDays = (typeof INSIGHT_DAYS)[number];
+/** One thing time or money went to, over the window. `msPerDay` and `microPerDay` have one entry per day of `Insights.days`. */
+export interface InsightRank {
+  readonly key: string;
+  /** The name to show: a workspace's name, an agent, a Play's title; empty for goals typed in words (no Play). */
+  readonly label: string;
+  readonly attempts: number;
+  /** Time attempts ran, in ms. */
+  readonly ms: number;
+  readonly microUsd: number;
+  readonly tokens: number;
+  readonly msPerDay: readonly number[];
+  readonly microPerDay: readonly number[];
+}
+export interface InsightTool { readonly tool: string; readonly calls: number; readonly failed: number; readonly ms: number; readonly perDay: readonly number[] }
+/** p50 and p90 by nearest rank (the value at place ceil(p x n) of the n sorted values), in ms. */
+export interface InsightPercentiles { readonly key: string; readonly label: string; readonly n: number; readonly p50: number; readonly p90: number }
+export const FAILURE_BUCKETS = ["limits", "setup", "engine", "checks", "other"] as const;
+export type FailureBucket = (typeof FAILURE_BUCKETS)[number];
+export interface InsightFailure {
+  readonly bucket: FailureBucket;
+  readonly count: number;
+  /** The five most recent. */
+  readonly tasks: ReadonlyArray<{ readonly id: string; readonly rootId: string; readonly title: string; readonly goalTitle: string; readonly workspaceSlug: string; readonly at: number }>;
+}
+/** What a person who steers asks of the past: see docs/model.md, "The timeline and Insights". Days are the caller's own (`tzOffsetMinutes`). */
+export interface Insights {
+  readonly now: number;
+  /** Local days (`YYYY-MM-DD`), oldest first, the last one today. */
+  readonly days: readonly string[];
+  readonly totals: { readonly goals: number; readonly done: number; readonly failed: number; readonly stopped: number; readonly asked: number; readonly attempts: number; readonly microUsd: number; readonly tokens: number; readonly runMs: number };
+  /** Goals started per day. */
+  readonly calendar: readonly number[];
+  /** Attempts started by weekday (0 is Monday) and hour: index `weekday * 24 + hour`. */
+  readonly load: readonly number[];
+  /** Per day: goals finished done, goals failed, and times a person was asked (approvals requested and questions asked). */
+  readonly outcomes: ReadonlyArray<{ readonly done: number; readonly failed: number; readonly asked: number }>;
+  readonly byWorkspace: readonly InsightRank[];
+  readonly byAgent: readonly InsightRank[];
+  readonly byPlay: readonly InsightRank[];
+  readonly byTool: readonly InsightTool[];
+  /** Goals of each Play, start to finish. */
+  readonly playDurations: readonly InsightPercentiles[];
+  /** Attempts of each agent, run time. */
+  readonly agentDurations: readonly InsightPercentiles[];
+  /** Per day: how long attempts waited between being queued and starting (n is 0 on a day with none). */
+  readonly queueWait: ReadonlyArray<{ readonly n: number; readonly p50: number; readonly p90: number }>;
+  readonly failures: readonly InsightFailure[];
+  /** Goals started more than once with the same Play and inputs, or the same words. */
+  readonly repeats: ReadonlyArray<{ readonly label: string; readonly play: string | null; readonly count: number; readonly microUsd: number; readonly lastTaskId: string; readonly workspaceSlug: string; readonly lastAt: number }>;
+}
 /** One day of a workspace's work, UTC: goals finished (done) and what the day cost. */
 export interface OverviewDay { readonly day: string; readonly done: number; readonly microUsd: number }
 /** What one of the caller's workspaces is doing: counts of today, last two weeks, projects. */
@@ -544,6 +597,8 @@ export const queries = table({
   overview: ["public", z.strictObject({})],
   /** Runners and the waiting list, for every workspace the caller sees, or for one; like `overview` it answers UNAUTHENTICATED without a session. */
   queue: ["public", z.strictObject({ workspaceId: id.optional() })],
+  /** What happened over the last `days` days, for every workspace the caller sees or for one, in the caller's own days; like `queue` it answers UNAUTHENTICATED without a session. */
+  insights: ["public", z.strictObject({ workspaceId: id.optional(), days: z.union([z.literal(7), z.literal(30), z.literal(90)]).default(30), tzOffsetMinutes: z.int().min(-840).max(840).default(0) })],
   /** Every scheduled and webhook Play of the active workspaces the caller can see; like `overview` it takes no workspace and answers UNAUTHENTICATED without a session. */
   "schedules.list": ["public", z.strictObject({})],
   /** `search` matches the title or the goal text; `rootsOnly` leaves out sub-tasks. Both are applied before `limit`. */
@@ -602,6 +657,7 @@ export interface QueryOutputs {
   today: Today;
   overview: Overview;
   queue: Queue;
+  insights: Insights;
   "schedules.list": { readonly schedules: readonly ScheduleItem[] };
   "tasks.list": { readonly tasks: readonly TaskSummary[] };
   "task.get": Task;
