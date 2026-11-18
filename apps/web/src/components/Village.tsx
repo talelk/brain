@@ -156,7 +156,7 @@ function Hearts(props: { rate: number | null }): JSX.Element {
   const full = (): number => (props.rate === null ? HEARTS : Math.round(props.rate * HEARTS));
   return (
     <span class="inline-flex items-center gap-px" aria-hidden="true">
-      <For each={Array.from({ length: HEARTS })}>{(_, i) => <Icon name="lucide-heart" class={`size-3 ${i() < full() ? "fill-[#e5484d] text-[#e5484d]" : "text-ink-gray-4"}`} />}</For>
+      <For each={Array.from({ length: HEARTS })}>{(_, i) => <Icon name={i() < full() ? "lucide-heart" : "lucide-heart-off"} class={`size-3.5 ${i() < full() ? "text-[#e5484d]" : "text-[#9a94ae]"}`} />}</For>
     </span>
   );
 }
@@ -181,14 +181,14 @@ function Plot(props: { station: Station }): JSX.Element {
       <div class="flex min-h-[3.5rem] w-full flex-col gap-1.5">
         <For each={s().working.slice(0, 2)}>{(member) => (
           <div class="flex items-end gap-1.5" data-testid="live-hero">
-            <span class="rpg-hero relative shrink-0"><Sprite agent={member.agent} pose="work" size={2.5} /><span class="rpg-spark" aria-hidden="true" /></span>
+            <span class="rpg-hero relative shrink-0"><Sprite agent={member.agent} pose="work" size={3} /><span class="rpg-spark" aria-hidden="true" /></span>
             <p class="rpg-dialog relative min-w-0 flex-1 px-2 py-1 t-small"><span class="flex items-center gap-1 font-semibold"><Icon name={CLASS_ICON[classOf(member.agent)]} class="size-3" /><bdi class="truncate">{member.agent}</bdi></span><span class="line-clamp-2 block" dir="auto">{member.kind === "text" ? `“${member.doing}”` : member.doing}</span></p>
           </div>
         )}</For>
         <Show when={s().working.length > 2}><p class="t-small font-semibold text-[#1b1630]">+{s().working.length - 2}</p></Show>
         <Show when={!busy() && s().recent.length > 0}>
           <div class="flex items-end gap-1" aria-label={t("live.team.quiet")}>
-            <For each={s().recent.slice(0, 3)}>{(agent) => <span class="relative"><Sprite agent={agent} pose="walk" size={2} /></span>}</For>
+            <For each={s().recent.slice(0, 3)}>{(agent) => <span class="relative"><Sprite agent={agent} pose="walk" size={3} /></span>}</For>
           </div>
         </Show>
         <Show when={!busy() && s().recent.length === 0}><p class="t-small font-medium text-[#1b1630]/80">{t("live.team.quiet")}</p></Show>
