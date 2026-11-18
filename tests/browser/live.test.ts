@@ -47,6 +47,12 @@ test("Live shows the runner's lane, the numbers of the flow, what just happened 
   // The feed says what happened, and the attention bar names what waits.
   await expect(page.getByTestId("live-feed")).toContainText("waits for a call to be approved");
   await expect(page.getByTestId("live-attention")).toContainText("Restart a container");
+  // The village: the party names the hero at work, and choosing it opens its panel with the goal.
+  await expect(page.getByTestId("live-world").getByTestId("live-hero")).toContainText("operator");
+  await page.getByTestId("live-hero").first().click();
+  await expect(page.getByTestId("live-panel")).toContainText("Restart a container");
+  await page.getByTestId("live-panel").getByRole("button", { name: "Close" }).click();
+  await expect(page.getByTestId("live-panel")).toHaveCount(0);
   // A workspace tile opens into its details.
   const tile = page.getByTestId("live-tile");
   await tile.getByRole("button").click();

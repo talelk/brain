@@ -9,7 +9,7 @@ import { t } from "../i18n";
 import { money } from "../lib/format";
 import { activityBuckets, feedEvents, groupFeed, mergeEvents, newGoals, pushSamples, stageCounts, successRate, type Samples } from "../lib/live";
 import { Feed, Lane, reduced, Ring, River, Tick, Ticker, Tile, useTick, visible, watch, type Ending, type Leaving } from "../components/LiveParts";
-import { Village, type Station } from "../components/Village";
+import { World, type Station, type WorldRun } from "../components/World";
 import { Head } from "../components/Shell";
 import { Failure, Icon, Loading } from "../components/bits";
 
@@ -84,15 +84,17 @@ export default function LiveScreen(): JSX.Element {
   const leavers = createMemo((): readonly Leaving[] => leaving().map((entry) => ({ ...entry, state: ending(entry.run.taskId) })));
 
   // A goal that finishes while the page is open rings once: every goal the Governor says finished in the last hour, not only the latest rows.
-  const [celebrating, setCelebrating] = createSignal<ReadonlyArray<{ id: string; title: string }>>([]);
+  const [celebrating, setCelebrating] = createSignal<ReadonlyArray<{ id: string; title: string; slug: string }>>([]);
   let known: Set<string> | undefined;
   createEffect(on(overview, (data) => {
     if (!data) return;
     const ids = new Set(places().map((workspace) => workspace.id));
     const goals = (session.overview.data()?.goalsDone ?? []).filter((goal) => ids.has(goal.workspaceId));
     for (const id of newGoals(known, goals)) {
-      const title = goals.find((goal) => goal.id === id)?.title ?? "";
-      setCelebrating((all) => [...all.filter((entry) => entry.id !== id), { id, title }]);
+      const goal = goals.find((entry) => entry.id === id);
+      const title = goal?.title ?? "";
+      const slug = places().find((workspace) => workspace.id === goal?.workspaceId)?.slug ?? "";
+      setCelebrating((all) => [...all.filter((entry) => entry.id !== id), { id, title, slug }]);
       setTimeout(() => setCelebrating((all) => all.filter((entry) => entry.id !== id)), CELEBRATE_MS);
     }
     known = new Set(goals.map((goal) => goal.id));
@@ -130,14 +132,11 @@ export default function LiveScreen(): JSX.Element {
   const inFlight = (): number => runs().reduce((sum, entry) => sum + entry.run.tokens, 0);
   // The village: per workspace, who works now (from the runners), who spoke lately (from the feed), what waits and how the day went.
   const stations = createMemo((): Station[] => (overview()?.workspaces ?? []).map((workspace) => {
-    const working = runs().filter((entry) => entry.run.workspaceSlug === workspace.slug).map((entry) => {
-      const last = entry.run.doing.at(-1);
-      return { agent: entry.run.agent, kind: last?.kind ?? "none", doing: last ? (last.kind === "text" || last.kind === "status" ? last.label : (last.label.split(".").slice(-1)[0] ?? last.label).replaceAll(/[-_]/gu, " ")) : t("live.doing.thinking") } as const;
-    });
-    const busy = new Set(working.map((member) => member.agent));
+    const busy = new Set(runs().filter((entry) => entry.run.workspaceSlug === workspace.slug).map((entry) => entry.run.agent));
     const recent = [...new Set(events().filter((event) => event.slug === workspace.slug && event.agent !== null).map((event) => event.agent as string))].filter((agent) => !busy.has(agent)).slice(0, 3);
-    return { slug: workspace.slug, name: workspace.name, platform: workspace.platform !== null, working, recent, needs: workspace.needsYou, waiting: (queue.data()?.waiting ?? []).filter((item) => item.workspaceSlug === workspace.slug).length, done: workspace.doneToday, failed: workspace.failedToday, rate: successRate(workspace.doneToday, workspace.failedToday) };
+    return { slug: workspace.slug, name: workspace.name, platform: workspace.platform !== null, recent, needs: workspace.needsYou, waiting: (queue.data()?.waiting ?? []).filter((item) => item.workspaceSlug === workspace.slug).length, done: workspace.doneToday, failed: workspace.failedToday, running: runs().filter((entry) => entry.run.workspaceSlug === workspace.slug).length, rate: successRate(workspace.doneToday, workspace.failedToday) };
   }));
+  const heroes = createMemo((): WorldRun[] => runs().map(({ run }) => ({ id: run.attemptId, agent: run.agent, kind: run.kind, slug: run.workspaceSlug, workspace: run.workspaceName, goal: run.goalTitle, href: `/w/${run.workspaceSlug}/tasks/${run.rootId}?link=${run.taskId}`, doing: run.doing, startedAt: run.startedAt, tokens: run.tokens })));
   const totals = createMemo(() => { const done = stations().reduce((n, s) => n + s.done, 0); const failed = stations().reduce((n, s) => n + s.failed, 0); const c = counts(); const open = c.queued + c.running + c.checking + c.needs; return { rate: successRate(done, failed), progress: done + failed + open === 0 ? 0 : (done + failed) / (done + failed + open) }; });
   const needs = (): NonNullable<ReturnType<typeof overview>>["needsYou"] => overview()?.needsYou ?? [];
   const ready = (): boolean => queue.data() !== undefined && overview() !== undefined;
@@ -171,7 +170,7 @@ export default function LiveScreen(): JSX.Element {
               </ul>
             </section>
           </Show>
-          <Show when={stations().length > 0}><Village stations={stations()} spent={money(spent())} progress={totals().progress} rate={totals().rate} party={runs().length} /></Show>
+          <Show when={stations().length > 0}><World stations={stations()} runs={heroes()} leaving={leavers().map((entry) => ({ id: entry.run.attemptId, state: entry.state }))} celebrations={celebrating()} queued={counts().queued} now={now()} ambient={ambient()} spent={money(spent())} progress={totals().progress} rate={totals().rate} /></Show>
           <River counts={counts()} activity={activity()} ambient={ambient()} />
           <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div class="flex min-w-0 flex-col gap-6">
