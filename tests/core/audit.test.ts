@@ -18,28 +18,28 @@ describe("audit.verify", () => {
   it("every change is one event of the chain, with who made it", async () => {
     const me = (await harness.admin.query("me", {})).user;
     expect(events().map((event) => [event.type, event.actorKind])).toEqual([
-      ["audit.keyRecorded", "system"], ["setup.completed", "person"], ["workspace.created", "person"], ["secret.set", "person"], ["workspace.changed", "person"],
+      ["audit.keyRecorded", "system"], ["user.signed_in", "person"], ["setup.completed", "person"], ["workspace.created", "person"], ["secret.set", "person"], ["workspace.changed", "person"],
     ]);
     expect(events().slice(1).every((event) => event.actorId === me?.id)).toBe(true);
-    expect(events().slice(2).every((event) => event.workspaceId === workspaceId)).toBe(true);
+    expect(events().slice(3).every((event) => event.workspaceId === workspaceId)).toBe(true);
     // A refused change records nothing.
     await expect(harness.admin.command("file.write", { workspaceId, files: [{ path: "brain.toml", content: "nonsense" }] })).rejects.toMatchObject({ code: "INVALID_WORKSPACE" });
-    expect(events()).toHaveLength(5);
+    expect(events()).toHaveLength(6);
   });
 
   it("passes on an untouched log, with its signed checkpoint", async () => {
-    expect(await harness.admin.query("audit.verify", {})).toMatchObject({ ok: true, events: 5, checkpoints: 0, head: { seq: 5 } });
+    expect(await harness.admin.query("audit.verify", {})).toMatchObject({ ok: true, events: 6, checkpoints: 0, head: { seq: 6 } });
     checkpoint(harness.governor.gov);
-    expect(await harness.admin.query("audit.verify", {})).toMatchObject({ ok: true, events: 5, checkpoints: 1 });
+    expect(await harness.admin.query("audit.verify", {})).toMatchObject({ ok: true, events: 6, checkpoints: 1 });
     await harness.restart();
-    expect(await harness.admin.query("audit.verify", {})).toMatchObject({ ok: true, events: 5, checkpoints: 1 });
+    expect(await harness.admin.query("audit.verify", {})).toMatchObject({ ok: true, events: 6, checkpoints: 1 });
   });
 
   it.each<[string, string, string, number]>([
-    ["a row whose payload was edited", "UPDATE events SET payload_json = replace(payload_json, 'github', 'other') WHERE type = 'secret.set'", "payload-edited", 4],
+    ["a row whose payload was edited", "UPDATE events SET payload_json = replace(payload_json, 'github', 'other') WHERE type = 'secret.set'", "payload-edited", 5],
     ["a row whose actor was edited", "UPDATE events SET actor_id = 'someone-else' WHERE seq = 3", "event-edited", 3],
-    ["a removed row", "DELETE FROM events WHERE seq = 4", "sequence-gap", 5],
-    ["rows removed from the end after a checkpoint", "DELETE FROM events WHERE seq = 5", "tail-truncated", 5],
+    ["a removed row", "DELETE FROM events WHERE seq = 5", "sequence-gap", 6],
+    ["rows removed from the end after a checkpoint", "DELETE FROM events WHERE seq = 6", "tail-truncated", 6],
   ])("fails after %s, naming where", async (_name, tamper, kind, seq) => {
     checkpoint(harness.governor.gov);
     harness.governor.gov.db.exec(tamper);

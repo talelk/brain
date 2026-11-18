@@ -97,6 +97,10 @@ export function registerAuth({ gov: { registry } }: Governor): void {
   });
 
   registry.query("members.list", (ctx, input) => ({
-    members: ctx.db.prepare(`SELECT m.user_id AS userId, u.name, u.email, m.role FROM members m JOIN "user" u ON u.id = m.user_id WHERE m.workspace_id=? ORDER BY u.name`).all(input.workspaceId) as Array<{ userId: string; name: string; email: string; role: Role }>,
+    members: (ctx.db.prepare(`SELECT m.user_id AS userId, u.name, u.email, m.role, d.user_id IS NULL AS active FROM members m JOIN "user" u ON u.id = m.user_id LEFT JOIN deactivated_users d ON d.user_id = m.user_id WHERE m.workspace_id=? ORDER BY u.name`).all(input.workspaceId) as Array<{ userId: string; name: string; email: string; role: Role; active: number }>).map((row) => ({ ...row, active: row.active === 1 })),
+    // The groups with a role here, and the people who have it through them.
+    groups: (ctx.db.prepare("SELECT g.id AS groupId, g.name, gg.role FROM group_grants gg JOIN groups g ON g.id = gg.group_id WHERE gg.workspace_id=? ORDER BY g.name COLLATE NOCASE").all(input.workspaceId) as Array<{ groupId: string; name: string; role: Role }>).map((group) => ({
+      ...group, members: ctx.db.prepare(`SELECT u.id AS userId, u.name, u.email FROM group_members gm JOIN "user" u ON u.id = gm.user_id WHERE gm.group_id=? ORDER BY u.name`).all(group.groupId) as Array<{ userId: string; name: string; email: string }>,
+    })),
   }));
 }

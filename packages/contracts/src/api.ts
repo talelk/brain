@@ -43,7 +43,8 @@ export class BrainError extends Error {
 
 // --- views ---
 
-export interface User { readonly id: string; readonly name: string; readonly email: string; readonly instanceAdmin: boolean }
+/** `sessionId` is the session this request came with (not a secret: the token is). */
+export interface User { readonly id: string; readonly name: string; readonly email: string; readonly instanceAdmin: boolean; readonly sessionId: string }
 export interface WorkspaceSummary {
   readonly id: string;
   readonly slug: string;
@@ -96,7 +97,51 @@ export interface PackInfo extends PackSummary {
   readonly released: readonly number[];
   readonly usedBy: ReadonlyArray<{ readonly slug: string; readonly name: string; readonly pin: number }>;
 }
-export interface Member { readonly userId: string; readonly name: string; readonly email: string; readonly role: Role }
+/** `active` is false for a deactivated person: their role stays and works again when they are reactivated. */
+export interface Member { readonly userId: string; readonly name: string; readonly email: string; readonly role: Role; readonly active: boolean }
+/** A group with a role in the workspace, and the people who get it through the group. */
+export interface MemberGroup { readonly groupId: string; readonly name: string; readonly role: Role; readonly members: ReadonlyArray<{ readonly userId: string; readonly name: string; readonly email: string }> }
+
+// Users (docs/model.md, Users, invitations and groups).
+export const USER_STATES = ["active", "invited", "deactivated"] as const;
+export type UserState = (typeof USER_STATES)[number];
+/** What an invitation gives: the instance role, workspace roles and groups. */
+export interface Grants { readonly instanceAdmin: boolean; readonly workspaces: ReadonlyArray<{ readonly workspaceId: string; readonly role: Role }>; readonly groups: readonly string[] }
+/** One row of the people table. An invited row is an invitation: `id` is the invitation's, and `invitationId` says so. */
+export interface UserRow {
+  readonly id: string;
+  readonly name: string;
+  readonly email: string;
+  readonly status: UserState;
+  readonly instanceAdmin: boolean;
+  readonly groups: ReadonlyArray<{ readonly id: string; readonly name: string }>;
+  /** The workspaces the person has a role in, directly or through a group. */
+  readonly workspaces: number;
+  readonly lastSignInAt: number | null;
+  readonly createdAt: number;
+  readonly invitationId?: string;
+  readonly expiresAt?: number;
+  readonly grants?: Grants;
+}
+export interface GroupRow {
+  readonly id: string;
+  readonly name: string;
+  readonly members: ReadonlyArray<{ readonly userId: string; readonly name: string; readonly email: string }>;
+  readonly grants: ReadonlyArray<{ readonly workspaceId: string; readonly name: string; readonly role: Role }>;
+}
+export interface SessionRow { readonly id: string; readonly createdAt: number; readonly expiresAt: number; readonly ipAddress: string | null; readonly userAgent: string | null; readonly current: boolean }
+export interface SignInRow { readonly at: number; readonly ok: boolean; readonly ipAddress: string | null; readonly userAgent: string | null }
+/** One workspace a person can reach: the role they have, and where it comes from. */
+export interface AccessRow { readonly workspaceId: string; readonly slug: string; readonly name: string; readonly role: Role; readonly direct: Role | null; readonly groups: ReadonlyArray<{ readonly id: string; readonly name: string; readonly role: Role }> }
+export interface UserDetail {
+  readonly user: { readonly id: string; readonly name: string; readonly email: string; readonly status: Exclude<UserState, "invited">; readonly instanceAdmin: boolean; readonly createdAt: number; readonly lastSignInAt: number | null };
+  readonly groups: ReadonlyArray<{ readonly id: string; readonly name: string }>;
+  readonly sessions: readonly SessionRow[];
+  readonly signIns: readonly SignInRow[];
+  readonly access: readonly AccessRow[];
+}
+/** What `user.invite` and `user.resetLink` answer: the one-use link, shown once. */
+export interface LinkOutput { readonly link: string; readonly expiresAt: number }
 export interface SecretName { readonly name: string; readonly updatedAt: number }
 
 export const TASK_STATES = ["waiting", "ready", "running", "needs_you", "done", "failed", "stopped"] as const;
@@ -526,6 +571,21 @@ export const commands = table({
   "memory.decide": ["admin", z.strictObject({ ...inWorkspace, proposalId: id, decision: z.enum(["accept", "reject"]) })],
   "runner.token": ["instance-admin", z.strictObject({ name: z.string().trim().min(1).max(100).optional() })],
   "runner.remove": ["instance-admin", z.strictObject({ runnerId: id })],
+  /** Invites an address; one already invited gets a new link and the earlier one stops working. An address with an account is refused. */
+  "user.invite": ["instance-admin", z.strictObject({ email, instanceAdmin: z.boolean().default(false), workspaces: z.array(z.strictObject({ workspaceId, role })).max(50).default([]), groups: z.array(id).max(50).default([]) })],
+  "invitation.revoke": ["instance-admin", z.strictObject({ invitationId: id })],
+  /** Redeems an invitation (a name and a password) or a reset link (a password) and, for an invitation, signs the person in. Anyone may call it; the token is the credential. */
+  "invitation.accept": ["public", z.strictObject({ token: z.string().min(20).max(200), name: personName.optional(), password })],
+  /** The instance role and whether the person may sign in; what is not given stays. The last active instance admin cannot be demoted or deactivated. */
+  "user.set": ["instance-admin", z.strictObject({ userId: id, instanceAdmin: z.boolean().optional(), active: z.boolean().optional() }).refine((input) => input.instanceAdmin !== undefined || input.active !== undefined, "give a role or active")],
+  "user.resetLink": ["instance-admin", z.strictObject({ userId: id })],
+  /** Ends sessions: the caller's own (`userId` left out), or any person's for an instance admin. `sessionId` names one; `keepCurrent` spares the session making the request. */
+  "session.revoke": ["public", z.strictObject({ userId: id.optional(), sessionId: id.optional(), keepCurrent: z.boolean().default(false) })],
+  /** The caller's own name and password. Changing the password ends the other sessions. */
+  "profile.set": ["public", z.strictObject({ name: personName.optional(), currentPassword: password.optional(), newPassword: password.optional() }).refine((input) => input.name !== undefined || input.newPassword !== undefined, "give a name or a new password").refine((input) => (input.newPassword === undefined) === (input.currentPassword === undefined), "give the current and the new password together")],
+  /** Makes or changes a group: the whole set of its people and of its roles on workspaces. */
+  "group.set": ["instance-admin", z.strictObject({ groupId: id.optional(), name: z.string().trim().min(1).max(60), memberIds: z.array(id).max(1000).default([]), grants: z.array(z.strictObject({ workspaceId, role })).max(200).default([]) })],
+  "group.delete": ["instance-admin", z.strictObject({ groupId: id })],
 });
 
 export const queries = table({
@@ -560,6 +620,10 @@ export const queries = table({
   "runners.list": ["instance-admin", z.strictObject({})],
   health: ["viewer", z.strictObject(inWorkspace)],
   "audit.verify": ["instance-admin", z.strictObject({})],
+  /** Every person and pending invitation, the groups, and the workspaces to give roles on. */
+  "users.list": ["instance-admin", z.strictObject({})],
+  /** One person's detail: oneself (`userId` left out) or, for an instance admin, anyone. */
+  "user.get": ["public", z.strictObject({ userId: id.optional() })],
 });
 
 // --- outputs ---
@@ -590,6 +654,15 @@ export interface CommandOutputs {
   "memory.decide": { readonly commit: string | null };
   "runner.token": { readonly token: string; readonly expiresAt: number };
   "runner.remove": Record<string, never>;
+  "user.invite": LinkOutput & { readonly invitationId: string; readonly emailed: boolean };
+  "invitation.revoke": Record<string, never>;
+  "invitation.accept": { readonly kind: "invite" | "reset"; readonly userId: string };
+  "user.set": Record<string, never>;
+  "user.resetLink": LinkOutput;
+  "session.revoke": { readonly revoked: number };
+  "profile.set": Record<string, never>;
+  "group.set": { readonly groupId: string };
+  "group.delete": Record<string, never>;
 }
 export interface QueryOutputs {
   "setup.status": { readonly setupRequired: boolean };
@@ -610,12 +683,14 @@ export interface QueryOutputs {
   "approval.get": Approval;
   "usage.summary": UsageSummary;
   "memory.list": { readonly entries: readonly MemoryItem[]; readonly proposals: readonly MemoryProposal[] };
-  "members.list": { readonly members: readonly Member[] };
+  "members.list": { readonly members: readonly Member[]; readonly groups: readonly MemberGroup[] };
   /** Names only. `missing` are the secrets the active snapshot refers to that are not set. */
   "secrets.list": { readonly secrets: readonly SecretName[]; readonly missing: readonly string[] };
   "runners.list": { readonly runners: readonly Runner[] };
   health: Health;
   "audit.verify": AuditVerifyResult;
+  "users.list": { readonly users: readonly UserRow[]; readonly groups: readonly GroupRow[]; readonly workspaces: ReadonlyArray<{ readonly id: string; readonly name: string }> };
+  "user.get": UserDetail;
 }
 export type CommandType = keyof typeof commands;
 export type QueryType = keyof typeof queries;
