@@ -1,4 +1,4 @@
-import { BrainError, type Approval, type Overview, type OverviewDay, type OverviewHealth, type OverviewNeed, type OverviewRun, type OverviewWorkspace } from "@brain/contracts";
+import { BrainError, type Approval, type Overview, type OverviewDay, type OverviewEvent, type OverviewHealth, type OverviewNeed, type OverviewRun, type OverviewWorkspace } from "@brain/contracts";
 import { visibleWorkspaces } from "../access";
 import type { Governor } from "../app";
 import type { Db } from "../db";
@@ -17,6 +17,11 @@ const DAYS = 14;
 const DAY_MS = 86_400_000;
 const NEEDS_LIMIT = 50;
 const RUNNING_LIMIT = 30;
+const HOUR_MS = 3_600_000;
+const EVENT_WINDOW_MS = 6 * HOUR_MS;
+const EVENT_LIMIT = 80;
+const GOALS_LIMIT = 50;
+const EVENT_TYPES = ["task.done", "task.failed", "task.stopped", "task.running", "task.needs_you", "task.checked", "approval.approved"] as const;
 /** How long the Overview waits for a model's answer; a model that has not answered by then is left out of the count (its probe goes on and is kept). */
 const MODEL_WAIT_MS = 1500;
 
@@ -49,7 +54,7 @@ export function registerOverview({ gov }: Governor): void {
     const now = ctx.now();
     const health = user.instanceAdmin ? await healthOf(gov, now) : null;
     const mine = visibleWorkspaces(gov, user.id).filter((workspace) => workspace.status === "active").sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
-    if (mine.length === 0) return { workspaces: [], needsYou: [], running: [], health };
+    if (mine.length === 0) return { workspaces: [], needsYou: [], running: [], events: [], goalsDone: [], health };
     const ids = mine.map((workspace) => workspace.id);
     const inMine = `IN (${marks(ids)})`;
     const days = windowOf(now);
@@ -68,6 +73,7 @@ export function registerOverview({ gov }: Governor): void {
     const attemptCounts = byWorkspace(rows<{ workspace_id: string; state: string; n: number }>(db, `SELECT workspace_id, state, COUNT(*) AS n FROM attempts WHERE workspace_id ${inMine} AND state IN ('queued','offered','running') GROUP BY workspace_id, state`, ...ids));
     const finished = byWorkspace(rows<{ workspace_id: string; day: string; state: string; n: number }>(db, `SELECT workspace_id, date(finished_at_ms / 1000, 'unixepoch') AS day, state, COUNT(*) AS n FROM tasks
       WHERE workspace_id ${inMine} AND parent_id IS NULL AND state IN ('done','failed') AND finished_at_ms >= ? GROUP BY workspace_id, day, state`, ...ids, since));
+    const hour = byWorkspace(rows<{ workspace_id: string; state: string; n: number }>(db, `SELECT workspace_id, state, COUNT(*) AS n FROM tasks WHERE workspace_id ${inMine} AND parent_id IS NOT NULL AND state IN ('done','failed') AND finished_at_ms >= ? GROUP BY workspace_id, state`, ...ids, now - HOUR_MS));
     const spent = byWorkspace(rows<{ workspace_id: string; day: string; micro: number }>(db, `SELECT u.workspace_id, u.day, COALESCE(SUM(${COST}), 0) AS micro FROM usage u WHERE u.workspace_id ${inMine} AND u.day >= ? GROUP BY u.workspace_id, u.day`, ...ids, days[0]));
     const last = new Map(ids.map((id) => [id, (db.prepare("SELECT MAX(updated_at_ms) AS at FROM tasks WHERE workspace_id=?").get(id) as { at: number | null }).at]));
 
@@ -84,6 +90,7 @@ export function registerOverview({ gov }: Governor): void {
       return {
         id: workspace.id, slug: workspace.slug, name: workspace.name, role: workspace.role, visibility: workspace.visibility, platform: workspace.platform, updates: updatesOf(gov, manifest).length, viaPublic: workspace.viaPublic, projects: manifest.projects.map((project) => project.name), needsYou: workspace.viaPublic ? 0 : (waiting.get(workspace.id) ?? 0), running: running.get(workspace.id) ?? 0,
         doneToday: done.get(today) ?? 0, failedToday,
+        lastHour: { done: (hour.get(workspace.id) ?? []).find((row) => row.state === "done")?.n ?? 0, failed: (hour.get(workspace.id) ?? []).find((row) => row.state === "failed")?.n ?? 0 },
         attemptsRunning: (attemptCounts.get(workspace.id) ?? []).filter((row) => row.state !== "queued").reduce((sum, row) => sum + row.n, 0), attemptsWaiting: (attemptCounts.get(workspace.id) ?? []).find((row) => row.state === "queued")?.n ?? 0, spend: { todayMicroUsd: spentToday(gov, workspace.id), capMicroUsd: capOf(manifest) }, lastActivityAt: last.get(workspace.id) ?? null, days: series,
       };
     });
@@ -104,6 +111,19 @@ export function registerOverview({ gov }: Governor): void {
       attemptId: attempt.id, kind: attempt.kind, agent: attempt.agent, workspaceId: attempt.workspace_id, ...place({ workspaceId: attempt.workspace_id }), rootId: attempt.root_id, taskId: attempt.task_id,
       goalTitle: attempt.goal_title, title: attempt.title, stepId: attempt.step_id, startedAt: attempt.started_at_ms, microUsd: attempt.micro,
     }));
-    return { workspaces, needsYou, running: runningNow, health };
+
+    // The Live feed: what happened to tasks lately, from the audit events (stamped by the wall clock); and every goal that finished in the last hour.
+    const happened = rows<{ seq: number; type: OverviewEvent["type"]; workspace_id: string; subject: string; at: number; payload: string }>(db,
+      `SELECT seq, type, workspace_id, subject, created_at_ms AS at, payload_json AS payload FROM events WHERE workspace_id ${inMine} AND created_at_ms >= ? AND type IN (${marks(EVENT_TYPES)}) ORDER BY seq DESC LIMIT ?`, ...ids, Date.now() - EVENT_WINDOW_MS, ...EVENT_TYPES, EVENT_LIMIT);
+    const taskOf = (row: { subject: string; payload: string }): string => (row.subject.startsWith("task:") ? row.subject.slice(5) : (JSON.parse(row.payload) as { taskId?: string }).taskId ?? "");
+    const tasks = new Map(summaries(db, `t.id IN (${marks(happened)})`, ...happened.map(taskOf)).map((task) => [task.id, task]));
+    const events = happened.flatMap((row): OverviewEvent[] => {
+      const task = tasks.get(taskOf(row));
+      if (!task) return [];
+      const payload = JSON.parse(row.payload) as { need?: { kind?: OverviewEvent["need"] }; pass?: boolean };
+      return [{ id: row.seq, at: row.at, type: row.type, workspaceId: row.workspace_id, taskId: task.id, rootId: task.rootId, goalTitle: task.goalTitle, title: task.title, agent: task.agent, goal: task.parentId === null, need: row.type === "task.needs_you" ? (payload.need?.kind ?? null) : null, pass: row.type === "task.checked" ? (payload.pass ?? null) : null }];
+    });
+    const goalsDone = summaries(db, `t.workspace_id ${inMine} AND t.parent_id IS NULL AND t.state='done' AND t.finished_at_ms >= ? ORDER BY t.finished_at_ms DESC LIMIT ?`, ...ids, now - HOUR_MS, GOALS_LIMIT).map((task) => ({ id: task.id, title: task.title, workspaceId: task.workspaceId, at: task.finishedAt ?? task.updatedAt }));
+    return { workspaces, needsYou, running: runningNow, events, goalsDone, health };
   });
 }

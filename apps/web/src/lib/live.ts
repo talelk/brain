@@ -1,4 +1,4 @@
-import type { Overview, Queue, TaskSummary } from "@brain/contracts";
+import type { Overview, OverviewEvent, Queue } from "@brain/contracts";
 
 /**
  * The shaping behind the Live screen: pure functions over what the Overview, the Queue and `tasks.list` already answer.
@@ -12,19 +12,15 @@ export const STAGES = ["queued", "running", "checking", "needs", "done", "failed
 export type Stage = (typeof STAGES)[number];
 export type StageCounts = Readonly<Record<Stage, number>>;
 
-/** A task of a workspace with the workspace it belongs to. */
-export interface Placed { readonly task: TaskSummary; readonly slug: string; readonly name: string }
-
 /**
  * How many are at each stage: Queued and Running are what the Queue says now (a check running is counted under Checking, not Running),
- * Needs you is what waits for a person, Done and Failed are the tasks of the last hour that ended (goals themselves are not counted twice).
+ * Needs you is what waits for a person, Done and Failed are the tasks of the last hour that ended, as the Governor counted them (goals themselves are not counted twice).
  */
-export function stageCounts(queue: Queue | undefined, overview: Overview | undefined, tasks: readonly Placed[], now: number): StageCounts {
+export function stageCounts(queue: Queue | undefined, overview: Overview | undefined): StageCounts {
   const runs = (queue?.runners ?? []).flatMap((runner) => runner.occupied);
   const checking = runs.filter((run) => run.kind === "check").length;
   const running = Math.max(0, (queue?.running ?? runs.length) - checking);
-  const since = now - HOUR;
-  const ended = (state: "done" | "failed"): number => tasks.filter(({ task }) => task.parentId !== null && task.state === state && (task.finishedAt ?? task.updatedAt) >= since).length;
+  const ended = (state: "done" | "failed"): number => (overview?.workspaces ?? []).reduce((sum, workspace) => sum + workspace.lastHour[state], 0);
   return {
     queued: (queue?.waiting.length ?? 0) + (queue?.blocked.length ?? 0),
     running,
@@ -56,10 +52,11 @@ export function flowLinks(counts: StageCounts): readonly FlowLink[] {
 /** A ribbon's thickness in pixels: the square root keeps one large stage from flattening the rest, with a floor so a single task stays visible. */
 export const ribbonWidth = (value: number, largest: number, max: number): number => (value <= 0 ? 0 : Math.max(2, max * Math.sqrt(value / Math.max(1, largest))));
 
-export type FeedKind = "goal-done" | "goal-failed" | "goal-started" | "task-done" | "task-failed" | "task-started" | "task-stopped" | "approval" | "check-failed" | "question" | "plan" | "sign-off" | "judge" | "failed-subtask";
+export type FeedKind = "goal-done" | "goal-failed" | "goal-started" | "task-done" | "task-failed" | "task-started" | "task-stopped" | "approval" | "approved" | "check-passed" | "check-failed" | "question" | "plan" | "sign-off" | "judge" | "failed-subtask";
 
 export interface FeedEvent {
-  readonly id: string;
+  /** The audit event's position: one event has one id however often the Governor tells it. */
+  readonly id: number;
   readonly at: number;
   readonly kind: FeedKind;
   readonly slug: string;
@@ -71,39 +68,38 @@ export interface FeedEvent {
   readonly title: string;
 }
 
-/** What a task's state means as an event; null for a task that merely waits. */
-function kindOf(task: TaskSummary): FeedKind | null {
-  const goal = task.parentId === null;
-  switch (task.state) {
-    case "done": return goal ? "goal-done" : "task-done";
-    case "failed": return goal ? "goal-failed" : "task-failed";
-    case "stopped": return "task-stopped";
-    case "running": return goal ? "goal-started" : "task-started";
-    case "needs_you":
-      switch (task.needs?.kind) {
-        case "approval": return "approval";
-        case "check": return "check-failed";
-        case "answer": return "question";
-        case "confirm-plan": return "plan";
-        case "sign-off": return "sign-off";
-        case "judge": return "judge";
-        case "failed-subtask": return "failed-subtask";
-        default: return null;
-      }
-    default: return null;
+const NEEDS: Readonly<Record<string, FeedKind>> = { approval: "approval", check: "check-failed", answer: "question", "confirm-plan": "plan", "sign-off": "sign-off", judge: "judge", "failed-subtask": "failed-subtask" };
+
+/** What an event means in the feed; null for one that needs no line (a goal that waits is left to the task under it). */
+function kindOf(event: OverviewEvent): FeedKind | null {
+  switch (event.type) {
+    case "task.done": return event.goal ? "goal-done" : "task-done";
+    case "task.failed": return event.goal ? "goal-failed" : "task-failed";
+    case "task.stopped": return "task-stopped";
+    case "task.running": return event.goal ? "goal-started" : "task-started";
+    case "task.checked": return event.pass ? "check-passed" : "check-failed";
+    case "approval.approved": return "approved";
+    case "task.needs_you": return event.goal ? null : (NEEDS[event.need ?? ""] ?? null);
   }
 }
 
-/** One event per task that did something, at the moment it did it. A goal whose sub-task needs the person is left to the sub-task. */
-export function feedEvents(tasks: readonly Placed[]): FeedEvent[] {
-  const events: FeedEvent[] = [];
-  for (const { task, slug, name } of tasks) {
-    const kind = kindOf(task);
-    if (kind === null) continue;
-    if (task.parentId === null && task.state === "needs_you") continue;
-    events.push({ id: `${task.id}:${task.state}`, at: task.finishedAt ?? task.updatedAt, kind, slug, workspace: name, agent: task.agent, taskId: task.id, rootId: task.rootId, goalTitle: task.goalTitle, title: task.title });
+/** The feed's events, one for each audit event the Governor told of (and none for one that needs no line), newest first. */
+export function feedEvents(events: readonly OverviewEvent[], names: ReadonlyMap<string, { slug: string; name: string }>): FeedEvent[] {
+  const out: FeedEvent[] = [];
+  for (const event of events) {
+    const kind = kindOf(event);
+    const place = names.get(event.workspaceId);
+    if (kind === null || !place) continue;
+    out.push({ id: event.id, at: event.at, kind, slug: place.slug, workspace: place.name, agent: event.agent, taskId: event.taskId, rootId: event.rootId, goalTitle: event.goalTitle, title: event.title });
   }
-  return events.sort((a, b) => b.at - a.at);
+  return out.sort((a, b) => b.at - a.at || b.id - a.id);
+}
+
+/** The events told so far, each once by its id, the newest `keep` of those not older than `maxAgeMs`: the feed grows as answers arrive and does not forget between them. */
+export function mergeEvents(before: ReadonlyMap<number, OverviewEvent>, told: readonly OverviewEvent[], now: number, maxAgeMs = 6 * HOUR, keep = 400): Map<number, OverviewEvent> {
+  const all = new Map(before);
+  for (const event of told) all.set(event.id, event);
+  return new Map([...all].filter(([, event]) => now - event.at <= maxAgeMs).sort((a, b) => b[1].at - a[1].at || b[0] - a[0]).slice(0, keep));
 }
 
 export interface FeedGroup extends FeedEvent {
@@ -118,7 +114,7 @@ export interface FeedGroup extends FeedEvent {
  * within `gapMs` become one line with a count, and the same event seen twice (same id) once. At most `limit` lines.
  */
 export function groupFeed(events: readonly FeedEvent[], limit = 40, gapMs = 10 * 60_000): FeedGroup[] {
-  const seen = new Set<string>();
+  const seen = new Set<number>();
   const groups: FeedGroup[] = [];
   const open = new Map<string, number>();
   for (const event of events) {
@@ -158,14 +154,8 @@ export function pushSamples(before: Samples, runs: ReadonlyArray<{ readonly atte
   return next;
 }
 
-/** Goals (their ids) that are done now and were not when `before` was taken; the first look finds none. */
-export function newlyDone(before: ReadonlyMap<string, string> | undefined, tasks: readonly Placed[]): string[] {
-  if (before === undefined) return [];
-  return tasks.filter(({ task }) => task.parentId === null && task.state === "done" && before.has(task.id) && before.get(task.id) !== "done").map(({ task }) => task.id);
-}
-
-/** The states of the goals, to compare with the next look. */
-export const goalStates = (tasks: readonly Placed[]): Map<string, string> => new Map(tasks.filter(({ task }) => task.parentId === null).map(({ task }) => [task.id, task.state]));
+/** The goals that finished since the last look: those the Governor tells of that were not told before. The first look finds none. */
+export const newGoals = (before: ReadonlySet<string> | undefined, goals: ReadonlyArray<{ readonly id: string }>): string[] => (before === undefined ? [] : goals.filter((goal) => !before.has(goal.id)).map((goal) => goal.id));
 
 /** Finished against finished plus failed, as 0..1; null when nothing ended. */
 export const successRate = (done: number, failed: number): number | null => (done + failed === 0 ? null : done / (done + failed));

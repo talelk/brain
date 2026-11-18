@@ -2,23 +2,22 @@ import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, type 
 import { A, useParams } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
 import { EmptyState } from "@talelk/newui-molecules";
-import type { Overview } from "@brain/contracts";
-import { query, useLive, useQuery } from "../data/api";
+import type { Overview, OverviewEvent } from "@brain/contracts";
+import { useQuery } from "../data/api";
 import { useSession } from "../data/session";
 import { t } from "../i18n";
-import { activityBuckets, feedEvents, goalStates, groupFeed, newlyDone, pushSamples, stageCounts, type Placed, type Samples } from "../lib/live";
-import { Feed, Lane, reduced, Ring, River, Tick, Ticker, Tile, useTick, visible, type Ending, type Leaving } from "../components/LiveParts";
+import { activityBuckets, feedEvents, groupFeed, mergeEvents, newGoals, pushSamples, stageCounts, type Samples } from "../lib/live";
+import { Feed, Lane, reduced, Ring, River, Tick, Ticker, Tile, useTick, visible, watch, type Ending, type Leaving } from "../components/LiveParts";
 import { Head } from "../components/Shell";
 import { Failure, Icon, Loading } from "../components/bits";
 
 const LEAVE_MS = 6000;
 const CELEBRATE_MS = 8000;
-const MAX_WORKSPACES = 8;
 
 /** A goal that finished while the page was open: a ring that completes, a brief glow, then it is gone. */
 function Celebration(props: { title: string }): JSX.Element {
   return (
-    <div class="live-glow flex items-center gap-3 rounded-card border border-ok-mark bg-ok-soft px-4 py-3" role="status" data-testid="live-celebration">
+    <div ref={watch} class="live-glow flex items-center gap-3 rounded-card border border-ok-mark bg-ok-soft px-4 py-3" role="status" data-testid="live-celebration">
       <Ring fraction={1} tone="var(--ok-mark)" size={36} class="live-complete"><Icon name="lucide-check" class="size-4 text-ok" /></Ring>
       <p class="min-w-0 flex-1 t-text text-ink"><span class="font-medium">{t("live.goal.done")}</span> <bdi class="text-ink-2">{props.title}</bdi></p>
     </div>
@@ -35,10 +34,6 @@ export default function LiveScreen(): JSX.Element {
   const slow = useTick(15_000);
 
   const queue = useQuery("queue", () => (params.slug === undefined ? {} : place() ? { workspaceId: (place() as { id: string }).id } : undefined));
-  const tasks = useLive<Placed[]>(() => places().slice(0, MAX_WORKSPACES).map((workspace) => workspace.id).join(",") || undefined, async () => {
-    const lists = await Promise.all(places().slice(0, MAX_WORKSPACES).map(async (workspace) => (await query("tasks.list", { workspaceId: workspace.id, limit: 100 })).tasks.map((task): Placed => ({ task, slug: workspace.slug, name: workspace.name }))));
-    return lists.flat();
-  });
   // Tokens move between live changes: a slow read keeps the streams moving while the page is on screen.
   const poll = setInterval(() => { if (visible()) queue.refetch(); }, 5000);
   onCleanup(() => clearInterval(poll));
@@ -49,9 +44,14 @@ export default function LiveScreen(): JSX.Element {
     const ids = new Set(places().map((workspace) => workspace.id));
     return { ...data, workspaces: data.workspaces.filter((workspace) => ids.has(workspace.id)), needsYou: data.needsYou.filter((need) => ids.has(need.workspaceId)) };
   });
-  const placed = (): readonly Placed[] => tasks.data() ?? [];
-  const counts = createMemo(() => stageCounts(queue.data(), overview(), placed(), slow()));
-  const events = createMemo(() => feedEvents(placed()));
+  const counts = createMemo(() => stageCounts(queue.data(), overview()));
+
+  // The feed is told by the Governor's events, each once by its id; what was told stays while newer answers arrive.
+  const [told, setTold] = createSignal<ReadonlyMap<number, OverviewEvent>>(new Map());
+  createEffect(on(() => places().map((workspace) => workspace.id).join(","), () => setTold(new Map())));
+  createEffect(on(() => session.overview.data(), (data) => { if (data) setTold((before) => mergeEvents(before, data.events, Date.now())); }));
+  const names = createMemo(() => new Map(places().map((workspace) => [workspace.id, { slug: workspace.slug, name: workspace.name }] as const)));
+  const events = createMemo(() => feedEvents([...told().values()].filter((event) => names().has(event.workspaceId)), names()));
   const groups = createMemo(() => groupFeed(events().filter((event) => event.at >= slow() - 6 * 3_600_000)));
   const activity = createMemo(() => activityBuckets(events(), slow()));
 
@@ -74,20 +74,26 @@ export default function LiveScreen(): JSX.Element {
     }
     before = current;
   }));
-  const ending = (taskId: string): Ending => { const state = placed().find((entry) => entry.task.id === taskId)?.task.state; return state ?? "done"; };
+  // How a task last ended or moved, as the Governor told it.
+  const ending = (taskId: string): Ending => {
+    const last = [...told().values()].filter((event) => event.taskId === taskId && event.type.startsWith("task.") && event.type !== "task.checked").sort((a, b) => b.at - a.at || b.id - a.id)[0];
+    return last?.type === "task.failed" ? "failed" : last?.type === "task.stopped" ? "stopped" : last?.type === "task.running" ? "running" : last?.type === "task.needs_you" ? "needs_you" : "done";
+  };
   const leavers = createMemo((): readonly Leaving[] => leaving().map((entry) => ({ ...entry, state: ending(entry.run.taskId) })));
 
-  // A goal that finishes while the page is open rings once.
+  // A goal that finishes while the page is open rings once: every goal the Governor says finished in the last hour, not only the latest rows.
   const [celebrating, setCelebrating] = createSignal<ReadonlyArray<{ id: string; title: string }>>([]);
-  let states: Map<string, string> | undefined;
-  createEffect(on(placed, (list) => {
-    if (tasks.data() === undefined) return;
-    for (const id of newlyDone(states, list)) {
-      const title = list.find((entry) => entry.task.id === id)?.task.title ?? "";
+  let known: Set<string> | undefined;
+  createEffect(on(overview, (data) => {
+    if (!data) return;
+    const ids = new Set(places().map((workspace) => workspace.id));
+    const goals = (session.overview.data()?.goalsDone ?? []).filter((goal) => ids.has(goal.workspaceId));
+    for (const id of newGoals(known, goals)) {
+      const title = goals.find((goal) => goal.id === id)?.title ?? "";
       setCelebrating((all) => [...all.filter((entry) => entry.id !== id), { id, title }]);
       setTimeout(() => setCelebrating((all) => all.filter((entry) => entry.id !== id)), CELEBRATE_MS);
     }
-    states = goalStates(list);
+    known = new Set(goals.map((goal) => goal.id));
   }));
 
   // Ambient: the same page filling the screen for a wall display; Escape or the button leaves.
@@ -128,6 +134,10 @@ export default function LiveScreen(): JSX.Element {
       <Head title={t("live.title")} text={t("live.title")} description={t("live.text")} breadcrumbs={crumbs()}
         actions={<Button variant="outline" size="md" iconLeft="lucide-maximize" onClick={enter}>{t("live.ambient")}</Button>} />
       <Failure error={queue.error()} retry={queue.refetch} />
+      <Show when={params.slug !== undefined && !place()}>
+        <EmptyState icon="lucide-search-x" size="md" bordered title={t("live.notfound.title")} description={t("live.notfound.text")} action={<A href="/live" class="link">{t("live.notfound.all")}</A>} />
+      </Show>
+      <Show when={params.slug === undefined || place()}>
       <Show when={ready()} fallback={<Show when={!queue.error()}><Loading shape="cards" /></Show>}>
         <div class={`live-root flex flex-col gap-4 ${ambient() ? "fixed inset-0 z-50 overflow-auto bg-paper p-6 lg:p-10" : ""} ${ambient() && idle() ? "cursor-none" : ""}`} data-ambient={ambient() || undefined} data-hidden={!visible() || undefined} data-still={reduced() || undefined}
           onPointerMove={() => { if (ambient()) wakeIdle(); }}>
@@ -140,7 +150,7 @@ export default function LiveScreen(): JSX.Element {
           </Show>
           <For each={celebrating()}>{(goal) => <Celebration title={goal.title} />}</For>
           <Show when={needs().length > 0}>
-            <section class="live-attn-bar flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-[var(--needs-line)] bg-needs-soft px-4 py-3" aria-label={t("live.need.title", { n: needs().length })} data-testid="live-attention">
+            <section ref={watch} class="live-attn-bar flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-[var(--needs-line)] bg-needs-soft px-4 py-3" aria-label={t("live.need.title", { n: needs().length })} data-testid="live-attention">
               <span class="live-dot size-2.5 rounded-full bg-needs" aria-hidden="true" />
               <p class="t-text font-medium text-ink">{t("live.need.title", { n: needs().length })}</p>
               <ul class="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-1 t-small">
@@ -177,6 +187,7 @@ export default function LiveScreen(): JSX.Element {
             </div>
           </div>
         </div>
+      </Show>
       </Show>
     </>
   );

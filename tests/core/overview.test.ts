@@ -128,4 +128,14 @@ describe("overview", () => {
     expect(later).toMatchObject({ doneToday: 0, failedToday: 0, spend: { todayMicroUsd: 0 } });
     expect(later?.days.every((entry) => entry.done === 0 && entry.microUsd === 0)).toBe(true);
   });
+
+  it("tells what happened to tasks lately and every goal that finished in the last hour, for the workspaces the caller sees, never a count cut by how many tasks there are", async () => {
+    const taskId = await goal(ann, alpha.workspaceId, "signed", true);
+    const view = await ann.query("overview", {});
+    expect(view.goalsDone.map((entry) => entry.id)).toContain(taskId);
+    expect(view.events.some((event) => event.taskId === taskId && event.type === "task.done" && event.goal)).toBe(true);
+    expect(view.events.map((event) => event.id)).toEqual(view.events.map((event) => event.id).sort((a, b) => b - a));
+    expect((view.workspaces.find((workspace) => workspace.id === alpha.workspaceId) as OverviewWorkspace).lastHour.done).toBeGreaterThan(0);
+    expect((await bob.query("overview", {})).events.every((event) => event.workspaceId === beta.workspaceId)).toBe(true);
+  });
 });

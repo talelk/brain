@@ -431,33 +431,36 @@ a[href="#app-shell-content"]:not(.skip-link) { display: none; }
 main { overflow-x: clip; }
 
 /*
- * Live: slow, quiet motion. Everything here stops while the tab is hidden (`data-hidden`) and is replaced by a still drawing under
+ * Live: slow, quiet motion, on `transform` and `opacity` only (nothing repaints), at a low frame rate (`steps`). It stops while the tab is hidden
+ * (`data-hidden`) and while the element is off screen (`data-offscreen`, set by `watch`), and is replaced by a still drawing under
  * `prefers-reduced-motion`. Nothing flashes: the strongest effect is a pulse of two and a half seconds.
  */
-@keyframes live-flow { to { stroke-dashoffset: -48; } }
-@keyframes live-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--needs) 32%, transparent); } 50% { box-shadow: 0 0 0 7px color-mix(in oklab, var(--needs) 0%, transparent); } }
+@keyframes live-flow { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.8; } }
+@keyframes live-pulse { from { opacity: 0.55; transform: scale(1); } to { opacity: 0; transform: scale(1.35); } }
 @keyframes live-dim { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 @keyframes live-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 @keyframes live-out { 0%, 70% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateX(14px); } }
-@keyframes live-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-@keyframes live-glow { 0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--ok-mark) 45%, transparent); } 60% { box-shadow: 0 0 28px 6px color-mix(in oklab, var(--ok-mark) 22%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
-@keyframes live-complete { from { stroke-dasharray: 0 100; } }
-.live-flow { animation: live-flow 2.6s linear infinite; }
-.live-attn { animation: live-pulse 2.5s ease-in-out infinite; }
-.live-dot { animation: live-dim 2.5s ease-in-out infinite; }
-.live-breathe { animation: live-dim 3.2s ease-in-out infinite; }
+@keyframes live-pop { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: none; } }
+@keyframes live-sweep { from { opacity: 0; transform: rotate(-180deg); } to { opacity: 1; transform: none; } }
+@keyframes live-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes live-glow { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+.live-flow { animation: live-flow 2.6s steps(13) infinite; }
+.live-attn::after { content: ""; position: absolute; inset: 0; border-radius: inherit; border: 2px solid var(--needs); pointer-events: none; animation: live-pulse 2.5s steps(20) infinite; }
+.live-dot { animation: live-dim 2.5s steps(20) infinite; }
+.live-breathe { animation: live-dim 3.2s steps(16) infinite; }
 .live-arrive { animation: live-in 0.35s ease-out both; }
 .live-leave { animation: live-out 6s ease-in both; }
-.live-check { stroke-dasharray: 1; animation: live-draw 0.6s ease-out both; }
-.live-glow { animation: live-glow 2.2s ease-out both; }
-.live-complete .live-arc { animation: live-complete 1.2s ease-out both; }
-.live-arc { transition: stroke-dasharray 0.8s ease; }
-.live-spark { stroke-dasharray: 400; animation: live-draw 0.6s ease-out both; stroke-dashoffset: 0; }
-.live-root[data-hidden] * { animation-play-state: paused !important; }
+.live-check { transform-box: fill-box; transform-origin: center; animation: live-pop 0.5s ease-out both; }
+.live-glow { position: relative; }
+.live-glow::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: 0 0 28px 6px color-mix(in oklab, var(--ok-mark) 35%, transparent); animation: live-glow 2.2s ease-out both; }
+.live-complete .live-arc { transform-box: fill-box; transform-origin: center; animation: live-sweep 1.2s ease-out both; }
+.live-spark { animation: live-fade 0.6s ease-out both; }
+[data-hidden] *, [data-offscreen], [data-offscreen] *, [data-offscreen]::after { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) {
-  .live-flow, .live-attn, .live-dot, .live-breathe, .live-arrive, .live-check, .live-glow, .live-complete .live-arc, .live-spark { animation: none; }
+  .live-flow, .live-dot, .live-breathe, .live-arrive, .live-check, .live-glow::after, .live-complete .live-arc, .live-spark, .live-attn::after { animation: none; }
   .live-leave { animation: none; opacity: 0.7; }
-  .live-arc { transition: none; }
-  .live-flow { stroke-dasharray: none; }
-  .live-attn { box-shadow: 0 0 0 3px color-mix(in oklab, var(--needs) 28%, transparent); }
+  .live-flow { opacity: 0.6; }
+  .live-attn::after { opacity: 0.35; }
+  .live-glow::after { opacity: 0; }
+}
 }

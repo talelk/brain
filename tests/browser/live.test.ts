@@ -57,11 +57,20 @@ test("Live shows the runner's lane, the numbers of the flow, what just happened 
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "no-preference" });
     expect(await serious(page), `${scheme}`).toEqual([]);
   }
-  expect(await page.evaluate(() => getComputedStyle(document.querySelector(".live-flow") as Element).animationName)).toBe("live-flow");
-  // With reduced motion the ribbons and pulses stand still.
+  // Every animated element has its animation, and all of them are still under reduced motion (the pulse and the glow are drawn by `::after`).
+  const animated = [[".live-flow", ""], [".live-dot", ""], [".live-breathe", ""], [".live-attn", "::after"], [".live-arrive", ""]] as const;
+  const names = (): Promise<string[]> => page.evaluate((list) => list.map(([selector, pseudo]) => { const node = document.querySelector(selector); return node ? getComputedStyle(node, pseudo || null).animationName : "missing"; }), animated);
+  expect(await names()).toEqual(["live-flow", "live-dim", "live-dim", "live-pulse", "live-in"]);
+  // Only transform and opacity move: no animation here changes a painted property.
+  expect(await page.evaluate(() => { const painted = /stroke|box-shadow|width|height|filter|background|color/u; return [...document.getAnimations()].filter((animation) => animation instanceof CSSAnimation && animation.animationName.startsWith("live-") && (animation.effect as KeyframeEffect | null)?.getKeyframes().some((frame) => Object.keys(frame).some((key) => painted.test(key)))).length; })).toBe(0);
+  // The attempt in the slot has a ring that fills over ten minutes, and a line for its tokens that waits for a second sample.
+  const pill = page.getByTestId("live-run");
+  expect(await pill.locator("circle.live-arc").getAttribute("stroke-dasharray")).toMatch(/^\d/u);
+  await expect(pill.locator('svg path[stroke-dasharray="2 4"]')).toHaveCount(1);
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
-  expect(await page.evaluate(() => [".live-flow", ".live-dot"].map((selector) => { const node = document.querySelector(selector); return node ? getComputedStyle(node).animationName : "none"; }))).toEqual(["none", "none"]);
+  expect(await names()).toEqual(["none", "none", "none", "none", "none"]);
   expect(await serious(page), "reduced motion").toEqual([]);
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
 
   // Ambient fills the screen and Escape leaves it.
   await page.getByRole("button", { name: "Ambient" }).click();
@@ -69,4 +78,34 @@ test("Live shows the runner's lane, the numbers of the flow, what just happened 
   await expect(page.getByTestId("stage-queued")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Ambient" })).toBeVisible();
+
+  // The person approves the call while the page is open: the attempt leaves its slot in the colour of its end, the goal rings once, the flow counts it and the feed says so.
+  const need = (await api.query("overview", {})).needsYou[0];
+  await api.command("approval.decide", { workspaceId: workspace.id, approvalId: need?.approval?.id ?? "", decision: "approve", subjectDigest: need?.approval?.subjectDigest ?? "" });
+  const leaving = page.locator('[data-testid="live-run"][data-ending]');
+  await expect(leaving).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.getByTestId("live-celebration")).toContainText("Restart a container");
+  expect(await leaving.locator("path.live-check").evaluate((node) => getComputedStyle(node).animationName)).toBe("live-pop");
+  await expect(page.getByTestId("stage-done")).not.toHaveAttribute("data-value", "0");
+  await expect(page.getByTestId("live-feed")).toContainText("is done");
+  await expect(page.getByTestId("live-attention")).toHaveCount(0);
+  // Reduced motion stills the leaving pill, the check and the celebration's glow.
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  expect(await page.evaluate(() => [[".live-leave", ""], [".live-check", ""], [".live-glow", "::after"]].map(([selector, pseudo]) => { const node = document.querySelector(selector as string); return node ? getComputedStyle(node, (pseudo as string) || null).animationName : "gone"; }))).toEqual(["none", "none", "none"]);
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
+});
+
+test("Live reads right to left in Arabic, and an address that is no workspace says so", async ({ page, stack }) => {
+  const api = await stack.setUp();
+  await starter(api);
+  await signIn(page, stack);
+  await page.goto(`${stack.url}/live?lang=ar`);
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  const queued = await page.locator('[data-stage="queued"]').boundingBox();
+  const failed = await page.locator('[data-stage="failed"]').boundingBox();
+  expect(queued && failed && queued.x > failed.x).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.goto(`${stack.url}/w/no-such-place/live`);
+  await expect(page.getByText("لا توجد مساحة عمل هنا")).toBeVisible();
+  await expect(page.getByTestId("live-lane")).toHaveCount(0);
 });

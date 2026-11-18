@@ -432,6 +432,23 @@ export interface Insights {
 }
 /** One day of a workspace's work, UTC: goals finished (done) and what the day cost. */
 export interface OverviewDay { readonly day: string; readonly done: number; readonly microUsd: number }
+/** One thing that happened to a task, as the Live feed tells it: a task finished, failed, started or needs a person, a check, an approved call. `id` is the audit event's position, so the same event is never told twice. */
+export interface OverviewEvent {
+  readonly id: number;
+  readonly at: number;
+  readonly type: "task.done" | "task.failed" | "task.stopped" | "task.running" | "task.needs_you" | "task.checked" | "approval.approved";
+  readonly workspaceId: string;
+  readonly taskId: string;
+  readonly rootId: string;
+  readonly goalTitle: string;
+  readonly title: string;
+  readonly agent: string | null;
+  readonly goal: boolean;
+  /** For `task.needs_you`, what the task waits for. */
+  readonly need: TaskNeed["kind"] | null;
+  /** For `task.checked`, whether the check passed. */
+  readonly pass: boolean | null;
+}
 /** What one of the caller's workspaces is doing: counts of today, last two weeks, projects. */
 export interface OverviewWorkspace {
   readonly id: string;
@@ -453,6 +470,8 @@ export interface OverviewWorkspace {
   readonly attemptsWaiting: number;
   readonly doneToday: number;
   readonly failedToday: number;
+  /** Tasks under a goal that ended in the last hour, counted whatever the number of tasks. */
+  readonly lastHour: { readonly done: number; readonly failed: number };
   readonly spend: Spend;
   readonly lastActivityAt: number | null;
   /** The last 14 days, oldest first, every day present; the last one is today. */
@@ -491,6 +510,10 @@ export interface Overview {
   readonly needsYou: readonly OverviewNeed[];
   /** The 30 attempts that started last and still run. */
   readonly running: readonly OverviewRun[];
+  /** What happened to tasks in the last six hours, newest first (at most 80), across the workspaces; the Live feed tells it. */
+  readonly events: readonly OverviewEvent[];
+  /** The goals that finished in the last hour (at most 50), so that none is missed however busy the workspaces are. */
+  readonly goalsDone: ReadonlyArray<{ readonly id: string; readonly title: string; readonly workspaceId: string; readonly at: number }>;
   readonly health: OverviewHealth | null;
 }
 /** A Play with a trigger, as the Schedules screen shows it. Times are from the Governor's own `triggers` row. */

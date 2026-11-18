@@ -17,6 +17,14 @@ document.addEventListener("visibilitychange", () => setSeen(document.visibilityS
 /** Whether the tab is on screen. Timers and tweens that nobody sees do nothing. */
 export const visible = seen;
 
+/** Marks an element `data-offscreen` while none of it is on screen, so that its animations pause. Used as `ref={watch}`. */
+export function watch(element: HTMLElement): void {
+  if (typeof IntersectionObserver === "undefined") return;
+  const observer = new IntersectionObserver((entries) => { const last = entries.at(-1); if (last) element.toggleAttribute("data-offscreen", !last.isIntersecting); });
+  observer.observe(element);
+  onCleanup(() => observer.disconnect());
+}
+
 /** The time, read again every `everyMs` while the tab is visible. */
 export function useTick(everyMs: number): Accessor<number> {
   const [now, setNow] = createSignal(Date.now());
@@ -74,7 +82,7 @@ export function River(props: { counts: StageCounts; activity: readonly number[];
   const x = (stage: Stage): number => (STAGES.indexOf(stage) + 0.5) * 100;
   const shape = createMemo(() => areaPath(props.activity, 240, 28));
   return (
-    <div class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 px-3 pt-4 pb-3 sm:px-5" data-testid="river">
+    <div ref={watch} class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 px-3 pt-4 pb-3 sm:px-5" data-testid="river">
       <ul class="grid grid-cols-3 gap-y-5 sm:grid-cols-6" aria-label={t("live.flow.title")}>
         <For each={STAGES}>
           {(stage) => (
@@ -172,7 +180,7 @@ export function Lane(props: { runner: QueueRunner; samples: ReadonlyMap<string, 
   const used = (): number => r().occupied.length + r().hiddenOccupied;
   const free = (): number => Math.max(0, r().slots - used() - mine().length);
   return (
-    <li class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-4" data-testid="live-lane">
+    <li ref={watch} class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-4" data-testid="live-lane">
       <div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span class={`size-2 rounded-full ${r().online ? "bg-ok-mark live-breathe" : "bg-ink-gray-4"}`} aria-hidden="true" />
         <h3 class="t-head text-ink">{r().name}</h3>
