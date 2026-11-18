@@ -97,11 +97,11 @@ test("every screen reads right in every language, theme and width", async ({ pag
   const screens: [string, string][] = [
     ["overview", "/"], ["schedules", "/schedules"], ["today", w], ["tasks", `${w}/tasks`], ["task", `${w}/tasks/${wide}`],
     ["agents", `${w}/workspace/agents`], ["team", `${w}/workspace/team`], ["tools", `${w}/workspace/tools`], ["plays", `${w}/workspace/plays`], ["memory", `${w}/workspace/memory`],
-    ["projects", `${w}/workspace/projects`], ["settings", `${w}/workspace/settings`], ["files", `${w}/workspace/files`], ["wschedules", `${w}/schedules`], ["queue", `${w}/queue`],
+    ["projects", `${w}/workspace/projects`], ["settings", `${w}/workspace/settings`], ["files", `${w}/workspace/files`], ["wschedules", `${w}/schedules`], ["queue", `${w}/queue`], ["live", `${w}/live`], ["liveall", "/live"],
     ["new", "/new"], ["people", `${w}/people`], ["health", `${w}/health`],
   ];
   // Without MATRIX_SHOTS (a normal run) a few screens that between them carry every kind of component; with it, every screen.
-  const kinds = new Set(["overview", "today", "task", "team", "files", "new", "health", "agents", "tools", "plays", "memory", "schedules", "queue"]);
+  const kinds = new Set(["overview", "today", "task", "team", "files", "new", "health", "agents", "tools", "plays", "memory", "schedules", "queue", "live"]);
   const only = process.env["MATRIX_ONLY"]?.split(",");
   const problems: string[] = [];
   const authored = packEnglish();
