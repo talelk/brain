@@ -353,7 +353,11 @@ export interface QueueRun {
   readonly startedAt: number | null;
   readonly tokens: number;
   readonly microUsd: number;
+  /** What the attempt did last, oldest first (at most five): a call of a tool, a native call, a line of its own words, a phase. */
+  readonly doing: readonly QueueAction[];
 }
+/** One thing an attempt did, as a short label: the tool or native call named, or the first words it said. */
+export interface QueueAction { readonly kind: "tool" | "native" | "text" | "status"; readonly label: string; readonly at: number }
 export interface QueueRunner {
   readonly id: string;
   readonly name: string;

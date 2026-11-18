@@ -1,4 +1,4 @@
-import { BrainError, PRIORITIES, roleAtLeast, type AttemptKind, type Priority, type Queue, type QueueItem, type QueueRun, type QueueRunner, type Role, type User, type Wait } from "@brain/contracts";
+import { BrainError, PRIORITIES, roleAtLeast, type AttemptKind, type Priority, type Queue, type QueueItem, type QueueAction, type QueueRun, type QueueRunner, type Role, type User, type Wait } from "@brain/contracts";
 import { accessOf, visibleWorkspaces } from "../access";
 import { listRunners } from "../attempts/runners";
 import { missing } from "../attempts/offer";
@@ -140,6 +140,21 @@ export function queuedOf(gov: Gov, taskId: string): { taskId: string; title: str
 }
 
 /** The queue for a person: every workspace they see (an instance admin sees all of them), or one. */
+/** The last few things an attempt did, as short labels (a tool or call named, the first words it said), for the Live screen. */
+function doingOf(db: Db, attemptId: string): QueueAction[] {
+  const rows = db.prepare("SELECT kind, body_json AS body, at_ms AS at FROM attempt_events WHERE attempt_id = ? AND kind IN ('tool.call','native.call','text','status') ORDER BY seq DESC LIMIT 12").all(attemptId) as Array<{ kind: string; body: string; at: number }>;
+  const out: QueueAction[] = [];
+  for (const row of rows) {
+    const body = JSON.parse(row.body) as { tool?: string; name?: string; text?: string; channel?: string; detail?: string };
+    if (row.kind === "tool.call" && body.tool) out.push({ kind: "tool", label: body.tool, at: row.at });
+    else if (row.kind === "native.call" && body.name) out.push({ kind: "native", label: body.name, at: row.at });
+    else if (row.kind === "text" && body.channel === "assistant" && body.text?.trim()) out.push({ kind: "text", label: body.text.trim().replace(/\s+/gu, " ").slice(0, 140), at: row.at });
+    else if (row.kind === "status" && body.detail) out.push({ kind: "status", label: body.detail.slice(0, 80), at: row.at });
+    if (out.length === 5) break;
+  }
+  return out.reverse();
+}
+
 export function queueOf(gov: Gov, user: User, only?: string): Queue {
   const { db } = gov;
   const now = gov.clock.nowMs();
@@ -190,7 +205,7 @@ export function queueOf(gov: Gov, user: User, only?: string): Queue {
     const workspace = seen(row.workspace_id);
     if (!workspace) { lane.hidden += 1; continue; }
     running += 1;
-    lane.runs.push({ attemptId: row.id, taskId: row.task_id, rootId: row.root_id, title: row.title, goalTitle: row.goal_title, agent: row.agent, kind: row.kind, workspaceSlug: workspace.slug, workspaceName: workspace.name, startedAt: row.started_at_ms, tokens: row.tokens, microUsd: row.micro });
+    lane.runs.push({ doing: doingOf(db, row.id), attemptId: row.id, taskId: row.task_id, rootId: row.root_id, title: row.title, goalTitle: row.goal_title, agent: row.agent, kind: row.kind, workspaceSlug: workspace.slug, workspaceName: workspace.name, startedAt: row.started_at_ms, tokens: row.tokens, microUsd: row.micro });
   }
   const lane = (id: string) => lanes.get(id) ?? { runs: [] as QueueRun[], hidden: 0 };
   const shownRunners: QueueRunner[] = runners.map((runner) => ({

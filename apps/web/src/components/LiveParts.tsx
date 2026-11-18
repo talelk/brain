@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, type Accessor, type JSX } from "solid-js";
 import { A } from "@solidjs/router";
 import { Avatar } from "@talelk/newui-atoms";
-import type { OverviewWorkspace, QueueRun, QueueRunner } from "@brain/contracts";
+import type { OverviewWorkspace, QueueAction, QueueRun, QueueRunner } from "@brain/contracts";
 import { intlLocale, t, tn } from "../i18n";
 import { ago, count, duration, money } from "../lib/format";
 import { areaPath, flowLinks, ribbonWidth, STAGES, successRate, type FeedGroup, type Stage, type StageCounts } from "../lib/live";
@@ -149,26 +149,63 @@ function Spark(props: { values: readonly number[] }): JSX.Element {
 
 const TEN_MINUTES = 600_000;
 
-/** An attempt in a slot: who runs it, on what, for how long, with its token stream and a ring that fills over ten minutes. */
+const ACTION_ICON = { tool: "lucide-wrench", native: "lucide-terminal", text: "lucide-message-circle", status: "lucide-loader" } as const;
+const ACTION_TONE = { tool: "var(--violet)", native: "var(--ink-blue-8)", text: "var(--ok-mark)", status: "var(--ink-gray-5)" } as const;
+const KIND_ICON: Record<QueueRun["kind"], string> = { work: "lucide-hammer", check: "lucide-shield-check" } as Record<QueueRun["kind"], string>;
+/** The icon of what an attempt is for: a check looks, any other work builds. */
+const kindIcon = (kind: string): string => (kind === "check" ? "lucide-shield-check" : kind === "plan" ? "lucide-map" : kind === "summary" ? "lucide-file-text" : (KIND_ICON[kind as QueueRun["kind"]] ?? "lucide-hammer"));
+
+/** The words of an action: a tool as its last name part ("git.open-pr" reads "open pr"), a line of speech as it is. */
+const actionText = (action: QueueAction): string => (action.kind === "text" || action.kind === "status" ? action.label : action.label.split(".").slice(-1)[0]?.replaceAll(/[-_]/gu, " ") ?? action.label);
+
+/** An attempt in a slot, as a member of the team at work: the agent with the kind of work as a badge, a speech bubble with what it is doing now, the trail of its last actions and the token stream. */
 function Pill(props: { run: QueueRun; samples: readonly number[]; now: number; ending?: Ending; ambient?: boolean }): JSX.Element {
   const run = (): QueueRun => props.run;
   const elapsed = (): number => (run().startedAt ? Math.max(0, props.now - run().startedAt!) : 0);
   const tone = (): string => (props.ending === "done" ? "var(--ok-mark)" : props.ending === "failed" ? "var(--bad)" : props.ending === "stopped" ? "var(--ink-gray-5)" : "var(--violet)");
+  const last = (): QueueAction | undefined => run().doing.at(-1);
+  const trail = (): readonly QueueAction[] => run().doing.slice(0, -1).slice(-4);
   return (
-    <li class={`live-pill flex items-center gap-3 rounded-control border border-outline-gray-2 bg-surface-elevation-1 px-3 py-2.5 ${props.ending ? "live-leave" : ""}`} data-testid="live-run" data-ending={props.ending}>
-      <Ring fraction={props.ending ? 1 : Math.min(1, elapsed() / TEN_MINUTES)} tone={tone()} size={props.ambient ? 52 : 44}>
-        <Show when={props.ending} fallback={<Avatar size="md" theme={themeOf(run().agent)} label={run().agent} />}>
-          <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke={tone()} stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={props.ending === "failed" ? "M7 7l10 10M17 7L7 17" : props.ending === "stopped" ? "M8 8h8v8H8z" : props.ending === "done" ? "M5 12.5l4.5 4.5L19 7.5" : "M12 12h.01"} pathLength="1" class="live-check" /></svg>
-        </Show>
-      </Ring>
-      <div class="min-w-0 flex-1">
-        <A href={`/w/${run().workspaceSlug}/tasks/${run().rootId}?link=${run().taskId}`} class="block truncate t-text font-medium text-ink hover:underline" dir="auto">{run().goalTitle}</A>
-        <p class="truncate t-small text-ink-3"><bdi>{run().agent}</bdi> · <bdi>{run().workspaceName}</bdi> · <bdi class="tabular-nums">{props.ending ? t(`state.${props.ending}`) : run().startedAt ? duration(elapsed()) : "…"}</bdi></p>
-        <div class="mt-1 flex items-center gap-2">
-          <Spark values={props.samples} />
-          <span class="shrink-0 t-small text-ink-3 tabular-nums">{t("queue.run.tokens", { n: count(run().tokens) })}</span>
+    <li class={`live-pill flex flex-col gap-2.5 rounded-card border border-outline-gray-2 bg-surface-elevation-1 p-3 ${props.ending ? "live-leave" : ""}`} data-testid="live-run" data-ending={props.ending}>
+      <div class="flex items-center gap-3">
+        <span class="relative shrink-0">
+          <Ring fraction={props.ending ? 1 : Math.min(1, elapsed() / TEN_MINUTES)} tone={tone()} size={props.ambient ? 60 : 52}>
+            <Show when={props.ending} fallback={<Avatar size="md" theme={themeOf(run().agent)} label={run().agent} />}>
+              <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke={tone()} stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={props.ending === "failed" ? "M7 7l10 10M17 7L7 17" : props.ending === "stopped" ? "M8 8h8v8H8z" : props.ending === "done" ? "M5 12.5l4.5 4.5L19 7.5" : "M12 12h.01"} pathLength="1" class="live-check" /></svg>
+            </Show>
+          </Ring>
+          <span class="absolute -bottom-0.5 -end-0.5 grid size-5 place-items-center rounded-full border border-outline-gray-2 bg-surface-elevation-1 text-ink-2" aria-hidden="true"><Icon name={kindIcon(run().kind)} class="size-3" /></span>
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="flex items-center gap-1.5 truncate t-text font-medium text-ink"><bdi>{run().agent}</bdi><span class="t-small font-normal text-ink-3 tabular-nums">· <bdi>{props.ending ? t(`state.${props.ending}`) : run().startedAt ? duration(elapsed()) : "…"}</bdi></span></p>
+          <p class="mt-0.5 flex min-w-0 items-center gap-1 t-small text-ink-2"><Icon name="lucide-folder-git-2" class="size-3.5 text-ink-3" /><bdi class="truncate">{run().workspaceName}</bdi></p>
         </div>
       </div>
+      <A href={`/w/${run().workspaceSlug}/tasks/${run().rootId}?link=${run().taskId}`} class="flex items-start gap-1.5 t-small text-ink-2 hover:underline" dir="auto"><Icon name="lucide-target" class="mt-0.5 size-3.5 text-ink-3" /><span class="line-clamp-2">{run().goalTitle}</span></A>
+      <Show when={!props.ending}>
+        <div class="live-bubble relative rounded-control border border-outline-gray-1 bg-surface-gray-1 px-3 py-2" data-testid="live-bubble">
+          <Show when={last()} fallback={<p class="flex items-center gap-2 t-small text-ink-3"><span class="live-typing" aria-hidden="true"><i /><i /><i /></span>{t("live.doing.thinking")}</p>}>
+            {(action) => (
+              <Keyed each={[action()]} by={(entry) => `${entry.at}${entry.label}`}>
+                {(entry) => (
+                  <p class="live-arrive flex items-start gap-2 t-small text-ink">
+                    <span class="mt-px grid size-5 shrink-0 place-items-center rounded-full" style={{ background: `color-mix(in oklab, ${ACTION_TONE[entry().kind]} 16%, transparent)`, color: ACTION_TONE[entry().kind] }} aria-hidden="true"><Icon name={ACTION_ICON[entry().kind]} class="size-3" /></span>
+                    <span class={`min-w-0 flex-1 ${entry().kind === "text" ? "line-clamp-3" : "truncate font-medium"}`} dir="auto"><span class="sr-only">{t(`live.doing.${entry().kind}`)}: </span>{entry().kind === "text" ? `“${actionText(entry())}”` : actionText(entry())}</span>
+                    <span class="live-typing mt-1.5 shrink-0" aria-hidden="true"><i /><i /><i /></span>
+                  </p>
+                )}
+              </Keyed>
+            )}
+          </Show>
+        </div>
+        <Show when={trail().length > 0}>
+          <ol class="flex items-center gap-1" aria-label={t("live.doing.trail")}>
+            <For each={trail()}>{(action) => <li class="grid size-6 place-items-center rounded-full border border-outline-gray-1 text-ink-3" title={actionText(action)} style={{ color: ACTION_TONE[action.kind] }}><Icon name={ACTION_ICON[action.kind]} class="size-3" /></li>}</For>
+            <li class="ms-auto min-w-0 flex-1"><Spark values={props.samples} /></li>
+            <li class="shrink-0 t-small text-ink-3 tabular-nums">{t("queue.run.tokens", { n: count(run().tokens) })}</li>
+          </ol>
+        </Show>
+      </Show>
     </li>
   );
 }
@@ -186,18 +223,55 @@ export function Lane(props: { runner: QueueRunner; samples: ReadonlyMap<string, 
         <h3 class="t-head text-ink">{r().name}</h3>
         <span class="t-small text-ink-3">{r().online ? t("queue.runner.online") : t("queue.runner.offline")} · <span data-testid="live-slots">{t("queue.runner.slots", { used: used(), total: r().slots })}</span></span>
       </div>
-      <ul class="grid gap-2 sm:grid-cols-2">
+      <ul class="grid gap-3 sm:grid-cols-2">
         <Keyed each={r().occupied} by={(run) => run.attemptId}>{(run) => <Pill run={run()} samples={props.samples.get(run().attemptId) ?? []} now={props.now} ambient={props.ambient} />}</Keyed>
         <For each={mine()}>{(entry) => <Pill run={entry.run} samples={[]} now={props.now} ending={entry.state} ambient={props.ambient} />}</For>
-        <For each={Array.from({ length: r().hiddenOccupied })}>{() => <li class="flex min-h-[5.5rem] items-center rounded-control border border-dashed border-outline-gray-2 bg-surface-gray-1 px-3 t-small text-ink-3">{t("queue.slot.hidden")}</li>}</For>
-        <For each={Array.from({ length: free() })}>{() => <li class="live-free flex min-h-[5.5rem] items-center rounded-control border border-dashed border-outline-gray-2 px-3 t-small text-ink-3">{t("queue.slot.free")}</li>}</For>
+        <For each={Array.from({ length: r().hiddenOccupied })}>{() => <li class="flex min-h-[7rem] items-center rounded-control border border-dashed border-outline-gray-2 bg-surface-gray-1 px-3 t-small text-ink-3">{t("queue.slot.hidden")}</li>}</For>
+        <For each={Array.from({ length: free() })}>{() => <li class="live-free flex min-h-[7rem] items-center rounded-control border border-dashed border-outline-gray-2 px-3 t-small text-ink-3">{t("queue.slot.free")}</li>}</For>
       </ul>
     </li>
   );
 }
 
+/** The team: each workspace as a station, the agents working in it now as avatars with a pulse, and those that spoke in the last hours, dimmed. */
+export function Team(props: { stations: ReadonlyArray<{ slug: string; name: string; working: readonly { agent: string; doing: string }[]; recent: readonly string[]; needs: number }> }): JSX.Element {
+  return (
+    <ul class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="live-team">
+      <For each={props.stations}>
+        {(station) => (
+          <li ref={watch} class={`live-station relative flex flex-col gap-3 overflow-hidden rounded-card border bg-surface-elevation-1 p-4 ${station.working.length > 0 ? "border-[color-mix(in_oklab,var(--violet)_45%,transparent)]" : "border-outline-gray-1"}`} data-busy={station.working.length > 0 || undefined}>
+            <A href={`/w/${station.slug}/live`} class="flex items-center gap-2 t-text font-medium text-ink hover:underline">
+              <span class="grid size-8 place-items-center rounded-control bg-lilac text-violet-text" aria-hidden="true"><Icon name="lucide-folder-git-2" class="size-4" /></span>
+              <bdi class="min-w-0 flex-1 truncate">{station.name}</bdi>
+              <Show when={station.needs > 0}><span class="inline-flex items-center gap-1 rounded-full bg-needs-soft px-2 py-0.5 t-small font-medium text-needs-text"><Icon name="lucide-hand" class="size-3" />{station.needs}</span></Show>
+            </A>
+            <div class="flex min-h-10 items-center -space-x-2 rtl:space-x-reverse" aria-label={tn("live.team.working", station.working.length)}>
+              <For each={station.working}>{(member) => (
+                <span class="live-member relative rounded-full ring-2 ring-[var(--surface-elevation-1,#fff)]" title={`${member.agent} — ${member.doing}`}>
+                  <Avatar size="lg" theme={themeOf(member.agent)} label={member.agent} />
+                  <span class="live-dot absolute -bottom-0.5 -end-0.5 size-3 rounded-full border-2 border-[var(--surface-elevation-1,#fff)] bg-ok-mark" aria-hidden="true" />
+                </span>
+              )}</For>
+              <For each={station.recent}>{(agent) => <span class="rounded-full opacity-45 ring-2 ring-[var(--surface-elevation-1,#fff)]" title={agent}><Avatar size="lg" theme={themeOf(agent)} label={agent} /></span>}</For>
+              <Show when={station.working.length === 0 && station.recent.length === 0}><span class="ps-2 t-small text-ink-3">{t("live.team.quiet")}</span></Show>
+            </div>
+            <Show when={station.working.length > 0}>
+              <p class="flex items-center gap-1.5 truncate t-small text-ink-2"><span class="live-typing" aria-hidden="true"><i /><i /><i /></span><bdi class="truncate">{station.working[0]?.agent}: {station.working[0]?.doing}</bdi></p>
+            </Show>
+          </li>
+        )}
+      </For>
+    </ul>
+  );
+}
+
 /** What an event reads as, with the agent and the goal in it. */
 const eventText = (group: FeedGroup): string => t(`live.event.${group.kind}`, { agent: group.agent ?? t("live.event.someone"), goal: group.goalTitle, title: group.title });
+
+const FEED_ICON: Record<string, string> = {
+  "goal-done": "lucide-trophy", "goal-failed": "lucide-circle-x", "goal-started": "lucide-rocket", "task-done": "lucide-circle-check", "task-failed": "lucide-circle-x", "task-started": "lucide-play", "task-stopped": "lucide-square",
+  approval: "lucide-key-round", "check-failed": "lucide-shield-alert", "check-passed": "lucide-shield-check", approved: "lucide-thumbs-up", question: "lucide-message-circle-question", plan: "lucide-map", "sign-off": "lucide-signature", judge: "lucide-scale", "failed-subtask": "lucide-triangle-alert",
+};
 
 /** The feed: one line per kind of thing that happened to a goal, newest first, with a count when it happened many times. */
 export function Feed(props: { groups: readonly FeedGroup[]; now: number; shared: boolean }): JSX.Element {
@@ -213,7 +287,7 @@ export function Feed(props: { groups: readonly FeedGroup[]; now: number; shared:
                 <Show when={group().count > 1}><span class="ms-2 rounded-full bg-surface-gray-3 px-1.5 text-[0.6875rem] font-semibold leading-[1.125rem] text-ink-gray-8 tabular-nums"><span aria-hidden="true">×{group().count}</span><span class="sr-only">{tn("live.feed.times", group().count)}</span></span></Show>
                 <p class="t-small text-ink-3"><Show when={props.shared}>{group().workspace} · </Show>{ago(group().at, props.now)}</p>
               </div>
-              <Icon name={group().kind.endsWith("failed") || group().kind === "check-failed" ? "lucide-circle-x" : group().kind.endsWith("done") ? "lucide-circle-check" : group().kind === "task-started" || group().kind === "goal-started" ? "lucide-play" : "lucide-circle-alert"} class={`mt-1 size-4 ${group().kind.endsWith("failed") || group().kind === "check-failed" ? "text-bad" : group().kind.endsWith("done") ? "text-ok" : group().kind.endsWith("started") ? "text-violet-text" : "text-needs-text"}`} />
+              <Icon name={FEED_ICON[group().kind] ?? "lucide-circle-alert"} class={`mt-1 size-4 ${group().kind.endsWith("failed") || group().kind === "check-failed" ? "text-bad" : group().kind.endsWith("done") || group().kind === "check-passed" || group().kind === "approved" ? "text-ok" : group().kind.endsWith("started") ? "text-violet-text" : "text-needs-text"}`} />
             </li>
           )}
         </Keyed>

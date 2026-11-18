@@ -444,6 +444,13 @@ main { overflow-x: clip; }
 @keyframes live-sweep { from { opacity: 0; transform: rotate(-180deg); } to { opacity: 1; transform: none; } }
 @keyframes live-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes live-glow { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+.live-typing { display: inline-flex; gap: 3px; align-items: center; }
+.live-typing i { width: 4px; height: 4px; border-radius: 9999px; background: var(--ink-3); animation: live-dim 1.2s steps(6) infinite; }
+.live-typing i:nth-child(2) { animation-delay: 0.2s; }
+.live-typing i:nth-child(3) { animation-delay: 0.4s; }
+.live-bubble::before { content: ""; position: absolute; top: -5px; inset-inline-start: 20px; width: 8px; height: 8px; rotate: 45deg; background: var(--surface-gray-1, #f6f6f6); border-block-start: 1px solid var(--outline-gray-1, #e5e5e5); border-inline-start: 1px solid var(--outline-gray-1, #e5e5e5); }
+.live-station[data-busy] { box-shadow: 0 0 0 1px color-mix(in oklab, var(--violet) 20%, transparent), 0 6px 22px -12px color-mix(in oklab, var(--violet) 55%, transparent); }
+.live-member { animation: live-pop 0.4s ease-out both; }
 .live-flow { animation: live-flow 2.6s steps(13) infinite; }
 .live-attn::after { content: ""; position: absolute; inset: 0; border-radius: inherit; border: 2px solid var(--needs); pointer-events: none; animation: live-pulse 2.5s steps(20) infinite; }
 .live-dot { animation: live-dim 2.5s steps(20) infinite; }
@@ -457,7 +464,7 @@ main { overflow-x: clip; }
 .live-spark { animation: live-fade 0.6s ease-out both; }
 [data-hidden] *, [data-offscreen], [data-offscreen] *, [data-offscreen]::after { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) {
-  .live-flow, .live-dot, .live-breathe, .live-arrive, .live-check, .live-glow::after, .live-complete .live-arc, .live-spark, .live-attn::after { animation: none; }
+  .live-typing i, .live-member, .live-flow, .live-dot, .live-breathe, .live-arrive, .live-check, .live-glow::after, .live-complete .live-arc, .live-spark, .live-attn::after { animation: none; }
   .live-leave { animation: none; opacity: 0.7; }
   .live-flow { opacity: 0.6; }
   .live-attn::after { opacity: 0.35; }
