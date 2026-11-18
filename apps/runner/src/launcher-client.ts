@@ -22,9 +22,10 @@ export interface ToolRun {
 /** What the runner asks of the trusted launcher. Tests hand in their own. */
 export interface Launcher {
   health(): Promise<{ docker: boolean; missingImages: string[] }>;
-  runTool(run: ToolRun): Promise<CommandResult>;
+  /** An aborted `signal` makes the launcher stop and remove the run's container. */
+  runTool(run: ToolRun, signal?: AbortSignal): Promise<CommandResult>;
   /** Runs one operator-declared host command by name; the launcher alone decides the argv. */
-  hostCommand(command: string, args: Readonly<Record<string, string>>, allow: "read" | "privileged", invocationId: string): Promise<CommandResult>;
+  hostCommand(command: string, args: Readonly<Record<string, string>>, allow: "read" | "privileged", invocationId: string, signal?: AbortSignal): Promise<CommandResult>;
   /** Starts an engine's own container for one attempt and returns the channel to the engine host in it. */
   openEngine(request: EngineSandboxRequest): Promise<EngineChannel>;
 }
@@ -41,7 +42,7 @@ export class LauncherClient implements Launcher {
     catch { this.token = undefined; }
   }
 
-  private call(method: string, path: string, body?: unknown, timeoutMs = 90_000): Promise<{ status: number; json: Record<string, unknown> }> {
+  private call(method: string, path: string, body?: unknown, timeoutMs = 90_000, signal?: AbortSignal): Promise<{ status: number; json: Record<string, unknown> }> {
     return new Promise((resolve, reject) => {
       const payload = body === undefined ? undefined : JSON.stringify(body);
       const req = httpRequest({
@@ -51,6 +52,8 @@ export class LauncherClient implements Launcher {
           ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
         },
         timeout: timeoutMs,
+        // An aborted request closes the connection; the launcher stops what it was running for it.
+        ...(signal ? { signal } : {}),
       }, (res) => {
         const chunks: Buffer[] = [];
         let total = 0;
@@ -81,15 +84,15 @@ export class LauncherClient implements Launcher {
     return { docker: answer.json["docker"] === true, missingImages: Array.isArray(answer.json["missingImages"]) ? answer.json["missingImages"].map(String) : [] };
   }
 
-  async runTool(run: ToolRun): Promise<CommandResult> {
-    const answer = await this.call("POST", "/v1/tool-runs", run, run.timeoutMs + 60_000);
+  async runTool(run: ToolRun, signal?: AbortSignal): Promise<CommandResult> {
+    const answer = await this.call("POST", "/v1/tool-runs", run, run.timeoutMs + 60_000, signal);
     if (answer.status !== 200) throw new Error(`the tool sandbox could not run (${answer.status}): ${String(answer.json["error"] ?? "")}`);
     return LauncherClient.result(answer.json);
   }
 
-  async hostCommand(command: string, args: Readonly<Record<string, string>>, allow: "read" | "privileged", invocationId: string): Promise<CommandResult> {
+  async hostCommand(command: string, args: Readonly<Record<string, string>>, allow: "read" | "privileged", invocationId: string, signal?: AbortSignal): Promise<CommandResult> {
     // The operator's own timeout of a command is at most ten minutes; the answer is waited for a little longer than that.
-    const answer = await this.call("POST", "/v1/host-commands/run", { command, args, allow, invocationId }, 630_000);
+    const answer = await this.call("POST", "/v1/host-commands/run", { command, args, allow, invocationId }, 630_000, signal);
     if (answer.status !== 200) throw new Error(String(answer.json["error"] ?? `host command refused (${answer.status})`));
     return LauncherClient.result(answer.json);
   }

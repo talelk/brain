@@ -16,9 +16,11 @@ import { verify } from "../apps/governor/src/trust/audit";
  *   stop             stops the runner, the launcher, the Governor and the egress proxy it started. Data is never touched.
  *   status           says what runs; exits 0 only when the Governor is ready.
  *   logs [name]      follows the log of `governor` (the default), `launcher` or `runner`.
- *   runner --governor <address> --token <token>
+ *   runner --governor <address> [--token-file <file>]
  *                    runs a runner on this machine for another Brain (a token comes from its Health screen), in this terminal, until
- *                    stopped. It keeps its key in <home>/joined-<address>, so only the first start needs the token.
+ *                    stopped. The token is read from the file, or from BRAIN_RUNNER_ENROLL_TOKEN; `--token <token>` works too but puts
+ *                    the token on the command line, where `ps` shows it. The runner keeps its key in <home>/joined-<address>, so only
+ *                    the first start needs the token.
  *   backup [file]    writes one archive of the data (brain.db through SQLite's backup API, cas/, workspaces/, the instance key and the
  *                    audit key) and leaves <data>/backup.marker. Works while Brain runs. Default: <home>/backups/brain-<time>.tar.gz
  *   restore <file>   puts a backup in place of the data. Refuses while Brain runs; what was there is moved aside, never deleted.
@@ -70,10 +72,11 @@ function pidOf(part: Part): number | undefined {
 
 /** Starts a part on its own, with its output in `<run>/<part>.log`. */
 function startPart(part: Part, env: Record<string, string>): void {
-  if (pidOf(part)) return say(`${part}: already running`);
+  if (pidOf(part)) { say(`${part}: already running`); return; }
   const log = openSync(join(RUN, `${part}.log`), "a", 0o600);
   const child = spawn(process.execPath, ["--import", "tsx", PARTS[part]], { cwd: ROOT, env: { ...process.env, ...env }, detached: true, stdio: ["ignore", log, log] });
   closeSync(log);
+  child.on("error", (error) => { say(`${part}: could not be started: ${error.message}`); process.exitCode = 1; });
   child.unref();
   writeFileSync(join(RUN, `${part}.pid`), `${child.pid}\n`, { mode: 0o600 });
   say(`${part}: started (pid ${child.pid}, log ${join(RUN, `${part}.log`)})`);
@@ -81,7 +84,7 @@ function startPart(part: Part, env: Record<string, string>): void {
 
 async function stopPart(part: Part): Promise<void> {
   const pid = pidOf(part);
-  if (!pid) return say(`${part}: not running`);
+  if (!pid) { say(`${part}: not running`); return; }
   const signal = (name: NodeJS.Signals): void => { try { process.kill(-pid, name); } catch { /* already gone */ } };
   signal("SIGTERM");
   for (let waited = 0; waited < 10_000 && pidOf(part); waited += 200) await pause(200);
@@ -106,12 +109,12 @@ function newest(dir: string): number {
 function buildWeb(): void {
   const web = join(ROOT, "apps", "web");
   const built = join(web, "dist", "index.html");
-  if (!existsSync(join(web, "src"))) return say("web app: apps/web/src is not there, so nothing is built; the API starts without its pages");
+  if (!existsSync(join(web, "src"))) { say("web app: apps/web/src is not there, so nothing is built; the API starts without its pages"); return; }
   const sources = Math.max(newest(join(web, "src")), ...["index.html", "package.json", "vite.config.ts"].map((name) => (existsSync(join(web, name)) ? statSync(join(web, name)).mtimeMs : 0)));
   if (existsSync(built) && statSync(built).mtimeMs >= sources) return;
   say(existsSync(built) ? "web app: the sources are newer than the build, building" : "web app: not built yet, building");
   const ran = spawnSync("pnpm", ["--filter", "@brain/web", "build"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  if (ran.status === 0) return say("web app: built");
+  if (ran.status === 0) { say("web app: built"); return; }
   say(`web app: the build failed, so ${existsSync(built) ? "the pages of the last build are served" : "there are no pages yet; the API still starts"}. Run "pnpm build" to see why. Last lines:`);
   say(`${ran.stdout ?? ""}${ran.stderr ?? ""}`.trim().split("\n").slice(-8).map((line) => `  ${line}`).join("\n"));
 }
@@ -219,6 +222,7 @@ function joinRunner(governor: string, token: string | undefined): void {
       ...(FIXTURE ? { BRAIN_RUNNER_ENGINES: "fixture", BRAIN_RUNNER_FIXTURE_FOR: "pi,claude,opencode,codex" } : { BRAIN_RUNNER_ENGINES: process.env["BRAIN_ENGINES"] ?? "pi" }),
     },
   });
+  if (ran.error) throw ran.error;
   process.exitCode = ran.status ?? 1;
 }
 
@@ -234,9 +238,10 @@ async function main(): Promise<void> {
   if (command === "start") return start();
   if (command === "runner") {
     const governor = flag("--governor");
-    if (!governor) throw new Error("say which Brain to join: pnpm brain runner --governor <address> --token <token>");
+    if (!governor) throw new Error("say which Brain to join: pnpm brain runner --governor <address> --token-file <file>");
     if (!URL.canParse(governor)) throw new Error(`${governor} is not an address; write it like http://brain.example:3100`);
-    return joinRunner(governor, flag("--token"));
+    const file = flag("--token-file");
+    return joinRunner(governor, flag("--token") ?? (file ? readFileSync(file, "utf8").trim() : undefined));
   }
   if (command === "stop") {
     for (const part of ["runner", "launcher", "governor"] as const) await stopPart(part);
@@ -259,13 +264,15 @@ async function main(): Promise<void> {
   }
   if (command === "backup") {
     const made = await backup(DATA, argument ?? join(HOME, "backups", `brain-${new Date().toISOString().replace(/[:.]/gu, "-")}.tar.gz`));
-    return say(`Backup written to ${made.file}\nIt holds the key that encrypts this Brain's secrets: keep it as you would keep them.`);
+    say(`Backup written to ${made.file}\nIt holds the key that encrypts this Brain's secrets: keep it as you would keep them.`);
+    return;
   }
   if (command === "restore") {
     if (!argument) throw new Error("say which backup: pnpm brain restore <file>");
     if (pidOf("governor") || (await ready())) throw new Error('Brain is running on this data; stop it first ("pnpm brain stop"), then restore');
     const { kept } = restore(argument, DATA);
-    return say(`Restored ${resolve(argument)} into ${DATA}.${kept ? `\nWhat was there before is kept in ${kept}` : ""}\nStart Brain with "pnpm brain start".`);
+    say(`Restored ${resolve(argument)} into ${DATA}.${kept ? `\nWhat was there before is kept in ${kept}` : ""}\nStart Brain with "pnpm brain start".`);
+    return;
   }
   if (command === "audit-verify") {
     if (!existsSync(join(DATA, "brain.db"))) throw new Error(`${DATA} holds no Brain database (brain.db)`);
@@ -279,7 +286,7 @@ async function main(): Promise<void> {
     }
     return;
   }
-  throw new Error("usage: pnpm brain start | stop | status | logs [governor|launcher|runner] | runner --governor <address> --token <token> | backup [file] | restore <file> | audit-verify");
+  throw new Error("usage: pnpm brain start | stop | status | logs [governor|launcher|runner] | runner --governor <address> [--token-file <file>] | backup [file] | restore <file> | audit-verify");
 }
 
 try {

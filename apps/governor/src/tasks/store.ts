@@ -101,7 +101,7 @@ export function insertTask(gov: Gov, actor: Actor, input: NewTask): TaskRow {
   const position = input.position ?? (parent ? (db.prepare("SELECT COALESCE(MAX(position), -1) + 1 AS next FROM tasks WHERE parent_id=?").get(parent.id) as { next: number }).next : 0);
   db.prepare(`INSERT INTO tasks(id, workspace_id, parent_id, root_id, position, title, goal, agent, state, snapshot_digest, play, inputs_json, step_id, item_index, item_json, for_each, when_expr,
       review_by, max_rounds, target_score, approve, candidates_json, judge, created_by, created_at_ms, updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
-    id, input.workspaceId, parent?.id ?? null, parent?.root_id ?? id, position, input.title, input.goal, group ? null : input.agent, input.state, input.snapshotDigest,
+    id, input.workspaceId, parent?.id ?? null, parent?.root_id ?? id, position, input.title.replace(/\p{Surrogate}/gu, "\uFFFD"), input.goal, group ? null : input.agent, input.state, input.snapshotDigest,
     input.play ?? null, input.inputs ? JSON.stringify(input.inputs) : null, step?.id ?? null, input.item?.index ?? null, input.item ? JSON.stringify(input.item.value) : null,
     forEach ?? null, input.item === undefined ? (step?.when ?? null) : null,
     group ? null : (step?.review_by ?? null), step?.max_rounds ?? LIMIT_DEFAULTS.max_rounds, group ? null : (step?.target_score ?? null), !group && step?.approve ? 1 : 0,

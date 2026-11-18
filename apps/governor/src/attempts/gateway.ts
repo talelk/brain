@@ -1,3 +1,4 @@
+import { readCapped } from "../body-limit";
 import { secretName, type AttemptUsage, type SnapshotManifest } from "@brain/contracts";
 import type { Context } from "hono";
 import type { Governor } from "../app";
@@ -7,7 +8,7 @@ import { errorFields, log } from "../log";
 import { taskOf } from "../tasks/store";
 import { readSecret } from "../trust/secrets";
 import { modelsOf } from "../workspace/platform";
-import { capOf, meterUsage, microUsd, spentToday } from "../trust/usage";
+import { capOf, meterUsage, microUsd, spentBesides } from "../trust/usage";
 import { activeManifest, manifestOf } from "../workspace/store";
 import { attemptOfModelToken } from "./routes";
 
@@ -49,7 +50,7 @@ async function forward(gov: Gov, c: Context, provider: Provider): Promise<Respon
   const manifest = manifestOf(gov, taskOf(gov.db, attempt.task_id).snapshot_digest);
   // The gateway itself holds the two money limits, because an engine may report no cost at all.
   const cap = capOf(activeManifest(gov, attempt.workspace_id));
-  if (cap > 0 && spentToday(gov, attempt.workspace_id) >= cap) return refusal(403, "The workspace's daily spend cap is used up; this call was not sent");
+  if (cap > 0 && spentBesides(gov, attempt.workspace_id, attempt.id) >= cap) return refusal(403, "The workspace's daily spend cap is used up; this call was not sent");
   const agent = manifest.agents[attempt.agent];
   const limit = microUsd(agent?.limits.spend_usd ?? 0);
   const used = (gov.db.prepare("SELECT metered_micro_usd AS n FROM usage WHERE attempt_id=?").get(attempt.id) as { n: number } | undefined)?.n ?? 0;
@@ -58,11 +59,12 @@ async function forward(gov: Gov, c: Context, provider: Provider): Promise<Respon
   const { models: available, from } = modelsOf(gov, attempt.workspace_id, manifest);
   const models = available.filter((model) => model.provider === provider).sort((a, b) => Number(b.name === preferred) - Number(a.name === preferred));
   if (models.length === 0) return refusal(404, `This workspace has no ${provider} model`);
-  const raw = new Uint8Array(await request.arrayBuffer());
+  const raw = await readCapped(request, MAX_REQUEST_BYTES);
   let call: Record<string, unknown>;
   try {
+    if (!raw) throw new Error("too large");
     call = JSON.parse(new TextDecoder().decode(raw)) as Record<string, unknown>;
-    if (raw.length > MAX_REQUEST_BYTES || call === null || typeof call !== "object" || Array.isArray(call)) throw new Error("not an object");
+    if (call === null || typeof call !== "object" || Array.isArray(call)) throw new Error("not an object");
   } catch {
     return refusal(400, "The request is not a JSON object the gateway takes");
   }

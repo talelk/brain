@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, on, For, Show, type JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button, Switch, TextInput } from "@talelk/newui-atoms";
 import type { CommandRequest, InputSpec, JsonValue, PlayFile } from "@brain/contracts";
@@ -28,6 +28,9 @@ export function GoalBox(props: { plays: Plays; play?: string; autofocus?: boolea
   const [play, setPlay] = createSignal<string | undefined>(props.play);
   const [values, setValues] = createSignal<Record<string, string>>({});
   let field: HTMLTextAreaElement | undefined;
+  /** A goal typed for one workspace is not carried into another, and a Play chosen from outside is followed. */
+  createEffect(on(place.id, () => { setGoal(""); setValues({}); setPlay(props.play); }, { defer: true }));
+  createEffect(on(() => props.play, (name) => setPlay(name), { defer: true }));
   createEffect(() => { if (props.autofocus) field?.focus(); });
 
   const chosen = (): PlayFile | undefined => { const name = play(); return name ? props.plays[name] : undefined; };

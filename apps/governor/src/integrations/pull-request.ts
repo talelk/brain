@@ -66,6 +66,18 @@ export const httpOver = (send: typeof fetch): HttpClient => ({
 interface OpenedPullRequest { readonly url: string; readonly number: number; readonly branch: string }
 
 /** Opens the pull request an approval was given for: `change` is the patch and the commit of the approved subject. */
+/** A path of the patch inside the clone: no empty, dot, dot-dot or .git part, and no part on the way that is a link (a link would lead out of the clone). */
+function inside(dir: string, path: string): string {
+  const parts = path.split("/");
+  if (parts.some((part) => part === "" || part === "." || part === ".." || part === ".git")) throw new ToolRefusal(`The change names a path outside the project: ${path}`);
+  let at = dir;
+  for (const part of parts) {
+    at = join(at, part);
+    if (fs.existsSync(at) && fs.lstatSync(at).isSymbolicLink()) throw new ToolRefusal(`The change goes through a symbolic link: ${path}`);
+  }
+  return at;
+}
+
 export async function openPullRequest(gov: Gov, attempt: AttemptRow, task: TaskRow, input: { project: string; title: string; body: string }, change: PullRequestChange & { patchDigest: Digest }): Promise<OpenedPullRequest> {
   const { patchDigest, baseCommit: base } = change;
   const project = writable(gov, task, input.project);
@@ -92,22 +104,21 @@ export async function openPullRequest(gov: Gov, attempt: AttemptRow, task: TaskR
     await git.branch({ fs, dir, ref: branch, checkout: true, force: true });
     let changed;
     try {
-      changed = applyPatch(patch, (path) => (fs.existsSync(join(dir, path)) ? new Uint8Array(fs.readFileSync(join(dir, path))) : undefined));
+      changed = applyPatch(patch, (path) => { const at = inside(dir, path); return fs.existsSync(at) ? new Uint8Array(fs.readFileSync(at)) : undefined; });
     } catch (e) {
       if (e instanceof PatchConflict) throw new ToolRefusal(`The changes do not apply to ${project.name} at ${base ?? `the head of ${project.branch}`}: ${e.paths.join(", ")}`);
       throw e;
     }
     for (const file of changed) {
-      if (file.path.split("/").some((part) => part === "" || part === "." || part === ".." || part === ".git")) throw new ToolRefusal(`The change names a path outside the project: ${file.path}`);
-      const at = join(dir, file.path);
+      const at = inside(dir, file.path);
+      if (file.mode === "120000") throw new ToolRefusal(`The change adds a symbolic link, which is not applied: ${file.path}`);
       fs.rmSync(at, { force: true });
       if (file.content === undefined) {
         await git.remove({ fs, dir, filepath: file.path });
         continue;
       }
       fs.mkdirSync(dirname(at), { recursive: true });
-      if (file.mode === "120000") fs.symlinkSync(Buffer.from(file.content).toString("utf8"), at);
-      else fs.writeFileSync(at, file.content, { mode: file.mode === "100755" ? 0o755 : 0o644 });
+      fs.writeFileSync(at, file.content, { mode: file.mode === "100755" ? 0o755 : 0o644 });
       await git.add({ fs, dir, filepath: file.path });
     }
     const author = { name: "Brain", email: "brain@localhost" };

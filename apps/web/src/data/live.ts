@@ -51,7 +51,9 @@ export function connectLive(enabled: boolean): void {
   // The Governor ends a stream every few minutes; the browser reconnects by itself, and one read covers the gap.
   let opened = false;
   source.addEventListener("open", () => { setConnected(true); if (opened) invalidate(); opened = true; });
-  source.addEventListener("error", () => setConnected(false));
+  // A refused connection (a restart behind a proxy) closes the stream for good: open it again after a pause.
+  const mine = source;
+  source.addEventListener("error", () => { setConnected(false); if (mine.readyState === EventSource.CLOSED) setTimeout(() => { if (source === mine) connectLive(true); }, 3000); });
 }
 
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") invalidate(); });

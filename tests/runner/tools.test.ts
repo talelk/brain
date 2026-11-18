@@ -47,6 +47,9 @@ describe("script tools", () => {
     expect(run(1, "", "boom s3cret-value")).toEqual({ ok: false, output: { error: "the tool ended with exit code 1", stderr: "boom [redacted]" } });
     expect(run(0, "not json")).toEqual({ ok: false, output: { error: "the tool printed no JSON result", stdout: "not json" } });
     expect(run(0, '{"token": "s3cret-value"}')).toEqual({ ok: true, output: { token: "[redacted]" } });
+    // A value with a newline and a quote reads differently inside a JSON string: it is removed there too.
+    const multiline = scriptResult({ exitCode: 0, stdout: JSON.stringify({ key: "line one\n\"two\"" }), stderr: "", timedOut: false }, ['line one\n"two"']);
+    expect(multiline).toEqual({ ok: true, output: { key: "[redacted]" } });
     expect(run(-1, "", "", true)).toEqual({ ok: false, output: { error: "the tool ran longer than its timeout and was stopped" } });
   });
 
@@ -78,7 +81,7 @@ describe("script tools", () => {
     const { gov, runner } = await runnerWorld({ launcher });
     const offer = gov.offer({ tools: [gov.tool("host.logs", { hostCommand: "host.logs", inputSchema: SCHEMA })], task: { goal: 'FIXTURE tool host.logs {"container": "web", "lines": 100}\nFIXTURE reply %last%' } });
     await runner.runOnce();
-    expect(ran).toEqual([["host.logs", { container: "web", lines: "100" }, "read", `${offer.attemptId}-call-1`]]);
+    expect(ran).toEqual([["host.logs", { container: "web", lines: "100" }, "read", `${offer.attemptId}-call-1`, expect.any(AbortSignal)]]);
     expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "succeeded", result: "web  Up 3 hours" });
   });
 });

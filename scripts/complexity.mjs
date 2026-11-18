@@ -10,7 +10,9 @@ const read = (path) => readFileSync(`${root}${path}`, "utf8");
 const block = (text, opening) => {
   const from = text.indexOf(opening);
   if (from < 0) throw new Error(`"${opening}" was not found`);
-  return text.slice(from + opening.length, text.indexOf("\n})", from));
+  const to = text.indexOf("\n})", from);
+  if (to < 0) throw new Error(`the block "${opening}" has no closing "})" line`);
+  return text.slice(from + opening.length, to);
 };
 const entries = (text, opening) => (block(text, opening).match(/^ {2}"?[A-Za-z_.]+"?: /gmu) ?? []).length;
 

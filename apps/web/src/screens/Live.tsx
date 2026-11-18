@@ -69,6 +69,9 @@ export function Board(props: { view: "live" | "village" }): JSX.Element {
   createEffect(on(runs, (list) => setSamples((before) => pushSamples(before, list.map((entry) => entry.run)))));
 
   // An attempt that leaves its slot stays a few seconds, in the colour of how it ended, then the slot is free again.
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  const later = (run: () => void, ms: number): void => { const timer = setTimeout(() => { timers.delete(timer); run(); }, ms); timers.add(timer); };
+  onCleanup(() => { for (const timer of timers) clearTimeout(timer); timers.clear(); });
   const [leaving, setLeaving] = createSignal<ReadonlyArray<{ runner: string; run: Leaving["run"] }>>([]);
   let before: ReadonlyMap<string, { runner: string; run: Leaving["run"] }> | undefined;
   createEffect(on(runs, (list) => {
@@ -77,7 +80,7 @@ export function Board(props: { view: "live" | "village" }): JSX.Element {
       for (const [id, entry] of before) {
         if (current.has(id)) continue;
         setLeaving((all) => [...all.filter((other) => other.run.attemptId !== id), entry]);
-        setTimeout(() => setLeaving((all) => all.filter((other) => other.run.attemptId !== id)), LEAVE_MS);
+        later(() => setLeaving((all) => all.filter((other) => other.run.attemptId !== id)), LEAVE_MS);
       }
     }
     before = current;
@@ -101,22 +104,30 @@ export function Board(props: { view: "live" | "village" }): JSX.Element {
       const title = goal?.title ?? "";
       const slug = places().find((workspace) => workspace.id === goal?.workspaceId)?.slug ?? "";
       setCelebrating((all) => [...all.filter((entry) => entry.id !== id), { id, title, slug }]);
-      setTimeout(() => setCelebrating((all) => all.filter((entry) => entry.id !== id)), CELEBRATE_MS);
+      later(() => setCelebrating((all) => all.filter((entry) => entry.id !== id)), CELEBRATE_MS);
     }
     known = new Set(goals.map((goal) => goal.id));
   }));
+  // Another set of workspaces is another first read: its finished goals are not news, and the runs of the old set did not leave.
+  createEffect(on(() => places().map((workspace) => workspace.id).join(","), () => { known = undefined; before = undefined; }, { defer: true }));
 
   // Ambient: the same page filling the screen for a wall display; Escape or the button leaves.
   const [ambient, setAmbient] = createSignal(false);
   const [idle, setIdle] = createSignal(false);
   let wake: { release: () => Promise<void> } | undefined;
+  let asking = false;
+  let gone = false;
   let hush: ReturnType<typeof setTimeout> | undefined;
   const wakeIdle = (): void => { setIdle(false); clearTimeout(hush); hush = setTimeout(() => setIdle(true), 4000); };
   const enter = (): void => {
     setAmbient(true);
     wakeIdle();
     void document.documentElement.requestFullscreen?.().catch(() => undefined);
-    void (navigator as unknown as { wakeLock?: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> } }).wakeLock?.request("screen").then((lock) => { wake = lock; }).catch(() => undefined);
+    if (wake || asking) return;
+    asking = true;
+    void (navigator as unknown as { wakeLock?: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> } }).wakeLock?.request("screen")
+      .then((lock) => { asking = false; if (ambient() && !gone) wake = lock; else void lock.release().catch(() => undefined); })
+      .catch(() => { asking = false; });
   };
   const leave = (): void => {
     setAmbient(false);
@@ -125,11 +136,22 @@ export function Board(props: { view: "live" | "village" }): JSX.Element {
     void wake?.release().catch(() => undefined);
     wake = undefined;
   };
+  // While the overlay fills the screen, the rest of the page cannot be reached by keyboard or screen reader.
+  let root: HTMLElement | undefined;
+  createEffect(() => {
+    if (!ambient() || !root) return;
+    const hidden: HTMLElement[] = [];
+    for (let node: HTMLElement = root; node.parentElement; node = node.parentElement) {
+      for (const sibling of node.parentElement.children) if (sibling !== node && sibling instanceof HTMLElement && !sibling.inert) { sibling.inert = true; hidden.push(sibling); }
+      if (node.parentElement === document.body) break;
+    }
+    onCleanup(() => { for (const element of hidden) element.inert = false; });
+  });
   const key = (event: KeyboardEvent): void => { if (event.key === "Escape" && ambient()) leave(); };
   document.addEventListener("keydown", key);
   const fullscreen = (): void => { if (!document.fullscreenElement && ambient()) leave(); };
   document.addEventListener("fullscreenchange", fullscreen);
-  onCleanup(() => { document.removeEventListener("keydown", key); document.removeEventListener("fullscreenchange", fullscreen); clearTimeout(hush); void wake?.release().catch(() => undefined); if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined); });
+  onCleanup(() => { gone = true; document.removeEventListener("keydown", key); document.removeEventListener("fullscreenchange", fullscreen); clearTimeout(hush); void wake?.release().catch(() => undefined); if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined); });
 
   const crumbs = (): Array<{ label: string; route?: string }> => (place() ? [{ label: place()?.name ?? "", route: `/w/${params.slug}` }, { label: t(village() ? "nav.village" : "nav.live") }] : [{ label: t("nav.overview"), route: "/" }, { label: t(village() ? "nav.village" : "nav.live") }]);
   const spent = (): number => (overview()?.workspaces ?? []).reduce((sum, workspace) => sum + workspace.spend.todayMicroUsd, 0);
@@ -157,7 +179,7 @@ export function Board(props: { view: "live" | "village" }): JSX.Element {
       </Show>
       <Show when={params.slug === undefined || place()}>
       <Show when={ready()} fallback={<Show when={!queue.error()}><Loading shape="cards" /></Show>}>
-        <div class={`live-root flex flex-col gap-4 ${ambient() ? (village() ? "fixed inset-0 z-50 bg-paper p-3 lg:p-4" : "fixed inset-0 z-50 overflow-auto bg-paper p-6 lg:p-10") : ""} ${ambient() && idle() ? "cursor-none" : ""}`} data-ambient={ambient() || undefined} data-hidden={!visible() || undefined} data-still={reduced() || undefined}
+        <div ref={(element) => { root = element; }} class={`live-root flex flex-col gap-4 ${ambient() ? (village() ? "fixed inset-0 z-50 bg-paper p-3 lg:p-4" : "fixed inset-0 z-50 overflow-auto bg-paper p-6 lg:p-10") : ""} ${ambient() && idle() ? "cursor-none" : ""}`} data-ambient={ambient() || undefined} data-hidden={!visible() || undefined} data-still={reduced() || undefined}
           onPointerMove={() => { if (ambient()) wakeIdle(); }}>
           <Show when={ambient()}>
             <div class="flex items-center gap-4">

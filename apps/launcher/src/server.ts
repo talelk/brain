@@ -1,5 +1,5 @@
-import { randomBytes } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, resolve } from "node:path";
 import { execa } from "execa";
@@ -52,12 +52,25 @@ function json(res: ServerResponse, status: number, value: unknown): void {
   res.end(JSON.stringify(value));
 }
 
+/** The folder of the socket and the token: owner-only, and this process's own. A folder that already existed is tightened, not trusted, and one that belongs to someone else is refused. */
+function ownerOnlyFolder(folder: string): void {
+  mkdirSync(folder, { recursive: true, mode: 0o700 });
+  const owner = process.getuid?.();
+  if (owner !== undefined && statSync(folder).uid !== owner) throw new Error(`${folder} is not owned by the user the launcher runs as`);
+  chmodSync(folder, 0o700);
+}
+
+/** Whether the Authorization header carries the token: compared in constant time (as digests, so the lengths never differ). */
+function tokenMatches(header: string | undefined, token: string): boolean {
+  const digest = (text: string): Buffer => createHash("sha256").update(text).digest();
+  return timingSafeEqual(digest(header ?? ""), digest(`Bearer ${token}`));
+}
+
 /** The socket lives in an owner-only folder and carries a scoped token, so a runner in a container (whose Unix peer identity does not survive that) still authenticates. */
 function loadOrCreateToken(socket: string, configured?: string): string {
   if (configured) return configured;
   const tokenPath = `${socket}.token`;
   if (existsSync(tokenPath)) return readFileSync(tokenPath, "utf8").trim();
-  mkdirSync(dirname(tokenPath), { recursive: true, mode: 0o700 });
   const token = randomBytes(32).toString("base64url");
   writeFileSync(tokenPath, token, { mode: 0o600 });
   return token;
@@ -65,6 +78,7 @@ function loadOrCreateToken(socket: string, configured?: string): string {
 
 export async function startLauncher(env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const socket = env["BRAIN_LAUNCHER_SOCKET"] ?? "/tmp/brain-launcher/launcher.sock";
+  ownerOnlyFolder(dirname(socket));
   const expectedToken = loadOrCreateToken(socket, env["BRAIN_LAUNCHER_TOKEN"]);
   // Image pins: when one is configured for a sandbox image, the local image must carry exactly that digest before any container is
   // created from it, so a tag that silently points at other bytes never runs.
@@ -88,13 +102,15 @@ export async function startLauncher(env: NodeJS.ProcessEnv = process.env): Promi
   const idleMs = Number(env["BRAIN_LAUNCHER_ENGINE_IDLE_MS"] ?? 90_000);
   const engineSandboxes = new EngineSandboxes({ ...sandboxes, idleMs: Number.isFinite(idleMs) && idleMs > 0 ? idleMs : 90_000 });
   const hostCommands = loadHostCommands(env["BRAIN_LAUNCHER_HOST_COMMANDS"]);
-  mkdirSync(dirname(socket), { recursive: true, mode: 0o700 });
   // The single-use ledger of privileged commands survives a restart of the launcher.
   const ledgerPath = `${socket}.effects`;
   const usedInvocations = new Set<string>(existsSync(ledgerPath) ? readFileSync(ledgerPath, "utf8").split("\n").filter(Boolean) : []);
   if (existsSync(socket)) unlinkSync(socket);
 
   const server = createServer(async (req, res) => {
+    // A runner that stops waiting (its attempt was stopped, or it is gone) closes the connection: what ran for it stops with it.
+    const gone = new AbortController();
+    res.on("close", () => { if (!res.writableFinished) gone.abort(); });
     try {
       const url = new URL(req.url ?? "/", "http://launcher");
       if (req.method === "GET" && url.pathname === "/v1/health") {
@@ -106,7 +122,7 @@ export async function startLauncher(env: NodeJS.ProcessEnv = process.env): Promi
         json(res, 200, { docker, missingImages, images: IMAGES, pinnedImages: [...imagePins.keys()], hostCommands: [...hostCommands.entries()].map(([name, command]) => ({ name, effect: command.effect })) });
         return;
       }
-      if (!expectedToken || (req.headers.authorization ?? "") !== `Bearer ${expectedToken}`) { json(res, 401, { error: "launcher token required" }); return; }
+      if (!expectedToken || !tokenMatches(req.headers.authorization, expectedToken)) { json(res, 401, { error: "launcher token required" }); return; }
       if (req.method === "POST" && url.pathname === "/v1/host-commands/run") {
         const b = await body(req);
         for (const key of Object.keys(b)) if (!["command", "args", "allow", "invocationId"].includes(key)) { json(res, 422, { error: `field ${key} forbidden` }); return; }
@@ -124,14 +140,14 @@ export async function startLauncher(env: NodeJS.ProcessEnv = process.env): Promi
         }
         const [bin, ...rest] = resolved.argv as string[];
         const result = await execa(bin!, rest, {
-          timeout: resolved.command.timeoutMs, maxBuffer: 256 * 1024, extendEnv: false, shell: false, reject: false,
+          timeout: resolved.command.timeoutMs, maxBuffer: 256 * 1024, extendEnv: false, shell: false, reject: false, cancelSignal: gone.signal,
           env: { PATH: "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", HOME: "/tmp", LANG: "C.UTF-8" },
         });
         json(res, 200, { exitCode: result.exitCode ?? -1, stdout: String(result.stdout).slice(0, 64 * 1024), stderr: String(result.stderr).slice(0, 4096), timedOut: result.timedOut === true });
         return;
       }
       if (req.method === "POST" && url.pathname === "/v1/tool-runs") {
-        const reply = await runTool(sandboxes, await body(req));
+        const reply = await runTool(sandboxes, await body(req), gone.signal);
         json(res, reply.status, reply.body);
         return;
       }

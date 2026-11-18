@@ -33,6 +33,8 @@ export function Head(props: HeadState & { text?: string }): JSX.Element {
     set?.({ title: props.title, description: props.description, breadcrumbs: props.breadcrumbs, actions: actions() });
     document.title = props.text ? `${props.text} · Brain` : "Brain";
   });
+  /** A page with no heading of its own must not wear the last page's. */
+  onCleanup(() => { set?.({ title: "" }); document.title = "Brain"; });
   return null;
 }
 

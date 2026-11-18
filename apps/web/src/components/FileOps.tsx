@@ -2,7 +2,7 @@ import { createEffect, createSignal, For, on, type JSX } from "solid-js";
 import { Button, TextInput } from "@talelk/newui-atoms";
 import { Dialog, toast, Tree } from "@talelk/newui-molecules";
 import type { FileEntry } from "@brain/contracts";
-import { command, query, useAction } from "../data/api";
+import { ApiFailure, command, query, useAction } from "../data/api";
 import { usePlace } from "../data/session";
 import { t, tn } from "../i18n";
 import { base64Of, cleanPath, downloadUrl, foldersOf, pathOk, plan, under, type Conflict } from "../lib/documents";
@@ -15,6 +15,7 @@ const bytesOf = async (workspaceId: string, path: string): Promise<{ content: st
   const file = await query("file.read", { workspaceId, path });
   if (!file.binary) return { content: file.content };
   const response = await fetch(downloadUrl(workspaceId, path), { credentials: "same-origin" });
+  if (!response.ok) throw new ApiFailure(response.status === 404 ? "NOT_FOUND" : "INTERNAL", "");
   return { content: base64Of(await response.arrayBuffer()), encoding: "base64" };
 };
 

@@ -231,6 +231,8 @@ export default function InsightsScreen(): JSX.Element {
   const days = (): InsightDays => (INSIGHT_DAYS.find((entry) => String(entry) === search.days) ?? 30);
   const place = createMemo(() => session.workspaces().find((workspace) => workspace.slug === params.slug));
   const insights = useQuery("insights", () => (params.slug === undefined ? { days: days(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } : place() ? { workspaceId: (place() as { id: string }).id, days: days(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } : undefined));
+  /** The last answer stays while another period loads, so the Range control keeps its place and focus. */
+  const kept = createMemo<Insights | undefined>((last) => insights.data() ?? last, undefined);
   const crumbs = (): Array<{ label: string; route?: string }> => (place() ? [{ label: place()?.name ?? "", route: `/w/${params.slug}` }, { label: t("nav.insights") }] : [{ label: t("nav.overview"), route: "/" }, { label: t("nav.insights") }]);
   const stats = (d: Insights) => {
     const ended = d.totals.done + d.totals.failed;
@@ -245,7 +247,7 @@ export default function InsightsScreen(): JSX.Element {
   return (
     <>
       <Head title={t("insights.title")} text={t("insights.title")} description={t("insights.text")} breadcrumbs={crumbs()} />
-      <Ready shape="cards" data={insights.data()} error={insights.error()} retry={insights.refetch}>
+      <Ready shape="cards" data={kept()} error={insights.error()} retry={insights.refetch}>
         {(data) => (
           <div class="flex flex-col gap-8">
             <div class="flex flex-wrap items-center justify-between gap-3">

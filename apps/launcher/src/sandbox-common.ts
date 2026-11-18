@@ -26,7 +26,7 @@ export interface SandboxOptions {
 
 /** The hardening of every sandbox, with its limits. */
 export function hardening(cpuMillicores: number, memoryMb: number, pids: number, user: string, tmpMb: number): string[] {
-  return ["--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
+  return ["--read-only", "--init", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
     "--cpus", String(Math.max(0.1, cpuMillicores / 1000)), "--memory", `${memoryMb}m`, "--memory-swap", `${memoryMb}m`, "--pids-limit", String(pids),
     "--user", user, "--tmpfs", `/tmp:rw,nosuid,nodev,size=${tmpMb}m`];
 }
@@ -73,6 +73,16 @@ export async function network(hosts: readonly string[], grantsDir: string | unde
     release: () => removeEgressGrant(grantsDir, grant.id),
     started: () => rmSync(envDir, { recursive: true, force: true }),
   };
+}
+
+/** Resolves once the container `name` exists (the docker client has then read everything it was given), or when `running` has ended, or after ten seconds. */
+export async function whenCreated(name: string, running: PromiseLike<unknown>): Promise<void> {
+  let ended = false;
+  void Promise.resolve(running).then(() => { ended = true; }, () => { ended = true; });
+  for (let waited = 0; waited < 10_000 && !ended; waited += 100) {
+    if ((await execa("docker", ["inspect", "--format", "{{.Id}}", name], { timeout: 5000, reject: false })).exitCode === 0) return;
+    await new Promise((resume) => { setTimeout(resume, 100); });
+  }
 }
 
 /** After a launcher restart no sandbox can be reattached (its stdin was the launcher's): containers with this label are removed. */

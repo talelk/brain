@@ -3,7 +3,7 @@ import { createStore, unwrap } from "solid-js/store";
 import { Button, Switch, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Select, toast } from "@talelk/newui-molecules";
 import type { AgentFile, InputSpec, PlayFile, Problem, SnapshotManifest, StepSpec, ToolFile } from "@brain/contracts";
-import { command, useAction, useQuery, type Action } from "../data/api";
+import { ApiFailure, command, useAction, useQuery, type Action } from "../data/api";
 import { usePlace, useSession } from "../data/session";
 import { said } from "../lib/said";
 import { t } from "../i18n";
@@ -70,12 +70,14 @@ export function MarkdownEditor(props: { value: string; onChange: (value: string)
 }
 
 /** A file's text, read once, then the person's own draft of it. */
-function useFileText(path: Accessor<string>, fallback: string, skip: boolean): [Accessor<string | undefined>, (text: string) => void] {
+function useFileText(path: Accessor<string>, fallback: string, skip: boolean): [Accessor<string | undefined>, (text: string) => void, Accessor<ApiFailure | undefined>] {
   const place = usePlace();
   const [text, setText] = createSignal<string | undefined>(skip ? fallback : undefined);
   const read = useQuery("file.read", () => (skip ? undefined : { workspaceId: place.id(), path: path() }));
   createEffect(on(() => read.data() ?? (read.error()?.code === "NOT_FOUND" ? { content: fallback } : undefined), (file) => { if (file && text() === undefined) setText(file.content); }));
-  return [text, setText];
+  /** A read that failed for a reason other than "no such file yet": shown instead of a loading line that never ends. */
+  const failed = (): ApiFailure | undefined => (text() === undefined && read.error()?.code !== "NOT_FOUND" ? read.error() : undefined);
+  return [text, setText, failed];
 }
 
 type Sourced<T> = T & { readonly source?: string };
@@ -84,9 +86,9 @@ const names = (record: Readonly<Record<string, unknown>>): { label: string; valu
 
 export function AgentForm(props: { name: string; initial: AgentFile; isNew: boolean; snapshot: SnapshotManifest; readOnly: boolean; onSaved: () => void }): JSX.Element {
   const [agent, setAgent] = createStore<AgentFile>(structuredClone(strip(props.initial)));
-  const [prompt, setPrompt] = useFileText(() => paths.prompt(props.name), `# ${props.name}\n\n`, props.isNew);
+  const [prompt, setPrompt, promptError] = useFileText(() => paths.prompt(props.name), `# ${props.name}\n\n`, props.isNew);
   const write = useWrite(props.onSaved);
-  const save = (): void => void write.run([{ path: paths.agent(props.name), content: agentToml(unwrap(agent)) }, { path: paths.prompt(props.name), content: prompt() ?? "" }], `${props.isNew ? "Add" : "Change"} the agent ${props.name}`);
+  const save = (): void => { const text = prompt(); if (text === undefined) return; void write.run([{ path: paths.agent(props.name), content: agentToml(unwrap(agent)) }, { path: paths.prompt(props.name), content: text }], `${props.isNew ? "Add" : "Change"} the agent ${props.name}`); };
   const engines = (): string[] => [...new Set([...ENGINES, ...agent.engine])];
   return (
     <form onSubmit={(event) => { event.preventDefault(); save(); }}>
@@ -110,7 +112,7 @@ export function AgentForm(props: { name: string; initial: AgentFile; isNew: bool
         </div>
       </Group>
       <Group title={t("agent.prompt")} text={t("agent.prompt.text")}>
-        <Show when={prompt() !== undefined} fallback={<p class="t-small text-ink-3">{t("common.loading")}</p>}>
+        <Show when={prompt() !== undefined} fallback={<Show when={promptError()} fallback={<p class="t-small text-ink-3">{t("common.loading")}</p>}><Failure error={promptError()} /></Show>}>
           <MarkdownEditor label={paths.prompt(props.name)} value={prompt() ?? ""} onChange={setPrompt} problems={problemsOf(write, paths.prompt(props.name))} readOnly={props.readOnly} />
         </Show>
       </Group>
@@ -143,10 +145,10 @@ export function ToolForm(props: { name: string; initial: ToolFile; isNew: boolea
   const [tool, setTool] = createStore<ToolFile>(structuredClone(strip(props.initial)));
   const [inputs, setInputs] = createSignal(toRows(props.initial.inputs));
   const scripted = (): boolean => tool.runs === undefined && tool.host_command === undefined;
-  const [script, setScript] = useFileText(() => paths.script(props.name), "#!/bin/sh\nset -eu\n\n# The call's input arrives as JSON on standard input; print the result as JSON.\n", props.isNew || !scripted());
+  const [script, setScript, scriptError] = useFileText(() => paths.script(props.name), "#!/bin/sh\nset -eu\n\n# The call's input arrives as JSON on standard input; print the result as JSON.\n", props.isNew || !scripted());
   const write = useWrite(props.onSaved);
   const file = (): ToolFile => ({ ...unwrap(tool), inputs: fromRows(inputs()) });
-  const save = (): void => void write.run([{ path: paths.tool(props.name), content: toolToml(file()) }, ...(scripted() ? [{ path: paths.script(props.name), content: script() ?? "" }] : [])], `${props.isNew ? "Add" : "Change"} the tool ${props.name}`);
+  const save = (): void => { const text = script(); if (scripted() && text === undefined) return; void write.run([{ path: paths.tool(props.name), content: toolToml(file()) }, ...(scripted() ? [{ path: paths.script(props.name), content: text ?? "" }] : [])], `${props.isNew ? "Add" : "Change"} the tool ${props.name}`); };
   return (
     <form onSubmit={(event) => { event.preventDefault(); save(); }}>
       <Group title={t("tool.what")}>
@@ -174,12 +176,12 @@ export function ToolForm(props: { name: string; initial: ToolFile; isNew: boolea
       </Show>
       <Show when={scripted()}>
         <Group title={t("tool.script")} text={t("tool.script.text")}>
-          <Show when={script() !== undefined} fallback={<p class="t-small text-ink-3">{t("common.loading")}</p>}>
+          <Show when={script() !== undefined} fallback={<Show when={scriptError()} fallback={<p class="t-small text-ink-3">{t("common.loading")}</p>}><Failure error={scriptError()} /></Show>}>
             <CodeEditor label={paths.script(props.name)} value={script() ?? ""} onChange={setScript} problems={problemsOf(write, paths.script(props.name))} readOnly={props.readOnly} />
           </Show>
         </Group>
       </Show>
-      <Show when={!props.readOnly}><SaveBar write={write} onSave={save} shown={[paths.tool(props.name), paths.script(props.name)]} /></Show>
+      <Show when={!props.readOnly}><SaveBar write={write} onSave={save} shown={[paths.tool(props.name), paths.script(props.name)]} disabled={scripted() && script() === undefined} /></Show>
     </form>
   );
 }

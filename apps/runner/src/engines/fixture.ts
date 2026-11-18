@@ -1,5 +1,5 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, resolve, sep } from "node:path";
+import { lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import type { JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
 import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineUsage } from "./port";
@@ -132,6 +132,14 @@ export class FixtureEngine implements EngineAdapter {
       if (!root) throw new Error(`the script uses ${what} but this attempt has no working copy`);
       const target = resolve(root, path);
       if (target !== root && !target.startsWith(root + sep)) throw new Error(`the script's ${what} path ${path} leaves the directory`);
+      // A link in the working copy (a repository can commit one) must not carry the script out: no existing part of the path may be one.
+      let walked = resolve(root);
+      for (const part of relative(walked, target).split(sep).filter(Boolean)) {
+        walked = join(walked, part);
+        let link = false;
+        try { link = lstatSync(walked).isSymbolicLink(); } catch { break; }
+        if (link) throw new Error(`the script's ${what} path ${path} goes through a symbolic link`);
+      }
       return target;
     };
     const nativeCall = (name: string, input: JsonValue, needs: "read" | "all", run: () => string): void => {

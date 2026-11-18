@@ -30,7 +30,7 @@ describe("pnpm brain runner", () => {
     let output = "";
     child.stderr?.on("data", (chunk: Buffer) => (output += chunk.toString()));
     await new Promise((done) => child.once("close", done));
-    expect(output).toContain("pnpm brain runner --governor <address> --token <token>");
+    expect(output).toContain("pnpm brain runner --governor <address> --token-file <file>");
   });
 
   it("enrols with the token of the Governor it is pointed at and appears online", async () => {

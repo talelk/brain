@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show, type JSX } from "solid-js";
 import { A } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
 import { EmptyState } from "@talelk/newui-molecules";
@@ -27,6 +27,8 @@ export default function TasksScreen(): JSX.Element {
   createEffect(() => { const typed = search().trim(); const timer = setTimeout(() => { setWords(typed); setLimit(PAGE); }, 250); onCleanup(() => clearTimeout(timer)); });
   /** Goals only: a sub-task is reached through its goal. */
   const list = useLive(() => `${place.id()}:${state() ?? "all"}:${words()}:${limit()}`, () => query("tasks.list", { workspaceId: place.id(), rootsOnly: true, ...(state() ? { state: state() } : {}), ...(words() !== "" ? { search: words() } : {}), limit: limit() }));
+  // While another page or search is on its way the last result stays, so the search box keeps its focus and the list its place.
+  const kept = createMemo<ReturnType<typeof list.data>>((last) => list.data() ?? last, undefined);
   const stop = useAction(async (ids: string[]) => { for (const taskId of ids) await command("task.stop", { workspaceId: place.id(), taskId }); });
   const columns: DataTableColumn<TaskSummary>[] = [
     { id: "state", header: t("tasks.col.state"), accessorFn: (task) => shownState(task), meta: { mobile: "status" }, cell: (ctx) => <StateWord state={shownState(ctx.row.original)} /> },
@@ -46,7 +48,7 @@ export default function TasksScreen(): JSX.Element {
     <>
       <Head title={t("nav.tasks")} text={t("nav.tasks")} description={t("tasks.text")} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.tasks") }]}
         actions={<Button variant="solid" theme="blue" size="md" iconLeft="lucide-plus" route={`${place.to()}?new=1`}>{t("tasks.new")}</Button>} />
-      <Ready shape="table" data={list.data()} error={list.error()} retry={list.refetch}>
+      <Ready shape="table" data={kept()} error={list.error()} retry={list.refetch}>
         {(loaded) => (
           <div class="flex flex-col gap-3">
             <Failure error={stop.error()} />

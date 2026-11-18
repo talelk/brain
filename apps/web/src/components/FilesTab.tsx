@@ -4,7 +4,7 @@ import { Badge, Button, Checkbox, TextInput } from "@talelk/newui-atoms";
 import { Breadcrumbs, Dialog, EmptyState, FileCard, Select, ToggleGroup, toast, Tree } from "@talelk/newui-molecules";
 import { PaneLayout } from "@talelk/newui-templates";
 import type { FileEntry } from "@brain/contracts";
-import { command, useAction, useQuery } from "../data/api";
+import { ApiFailure, command, useAction, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
 import { t, tn } from "../i18n";
 import { DEFAULT_FOLDER, MAX_EDITED, MAX_FILE, MAX_UPLOAD, base64Of, cleanPath, downloadUrl, extensionOf, folderOf, foldersOf, isConfiguration, isImage, isMarkdown, mb, nameOk, pathOk, rowsOf, under, type Row } from "../lib/documents";
@@ -60,6 +60,7 @@ function FileView(props: { path: string; isNew: boolean; readOnly: boolean; open
     let encoding: "base64" | undefined;
     if (before.binary) {
       const response = await fetch(downloadUrl(place.id(), props.path), { credentials: "same-origin" });
+      if (!response.ok) throw new ApiFailure(response.status === 404 ? "NOT_FOUND" : "INTERNAL", "");
       content = base64Of(await response.arrayBuffer());
       encoding = "base64";
     }

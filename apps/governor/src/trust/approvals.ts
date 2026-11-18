@@ -3,6 +3,7 @@ import {
 } from "@brain/contracts";
 import type { Governor } from "../app";
 import { tx, type Db } from "../db";
+import { log } from "../log";
 import type { Gov } from "../dispatch";
 import { append, SYSTEM } from "../events";
 import { attemptEnded } from "../tasks/orchestrator";
@@ -116,11 +117,11 @@ function showNext(gov: Gov, task: TaskRow): void {
 }
 
 /** Pending approvals that will not be decided any more (the attempt ended otherwise, the task stopped, nobody decided in time): the call did not happen. */
-export function expireApprovals(gov: Gov, of: { attemptId: string } | { taskId: string } | { dueAt: number }, reason: string): void {
+export function expireApprovals(gov: Gov, of: { attemptId: string } | { taskId: string } | { dueAt: number; approvalId?: string }, reason: string): void {
   const { db } = gov;
   const rows = ("attemptId" in of ? db.prepare("SELECT * FROM approvals WHERE attempt_id=? AND state='pending'").all(of.attemptId)
     : "taskId" in of ? db.prepare("SELECT * FROM approvals WHERE task_id=? AND state='pending'").all(of.taskId)
-      : db.prepare("SELECT * FROM approvals WHERE state='pending' AND expires_at_ms<=?").all(of.dueAt)) as ApprovalRow[];
+      : db.prepare("SELECT * FROM approvals WHERE state='pending' AND expires_at_ms<=? AND (? IS NULL OR id=?)").all(of.dueAt, of.approvalId ?? null, of.approvalId ?? null)) as ApprovalRow[];
   for (const row of rows) {
     db.prepare("UPDATE approvals SET state='expired', reason=?, decided_at_ms=?, version=version+1 WHERE id=?").run(reason, gov.clock.nowMs(), row.id);
     db.prepare("UPDATE tool_calls SET outcome='rejected', output_json=?, finished_at_ms=? WHERE approval_id=? AND outcome IN ('pending','held')").run(JSON.stringify({ error: reason }), gov.clock.nowMs(), row.id);
@@ -187,5 +188,10 @@ export function registerApprovals(governor: Governor): void {
 
 /** Expires the approvals nobody decided in time. */
 export function expireDue(gov: Gov): void {
-  tx(gov.db, () => expireApprovals(gov, { dueAt: gov.clock.nowMs() }, "Nobody decided in time"));
+  const dueAt = gov.clock.nowMs();
+  // One approval at a time, each in its own transaction: one that cannot be expired must not hold back the others.
+  for (const { id } of gov.db.prepare("SELECT id FROM approvals WHERE state='pending' AND expires_at_ms<=?").all(dueAt) as Array<{ id: string }>) {
+    try { tx(gov.db, () => expireApprovals(gov, { dueAt, approvalId: id }, "Nobody decided in time")); }
+    catch (error) { log("error", "approval.expire_failed", { approvalId: id, error: String(error) }); }
+  }
 }

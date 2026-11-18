@@ -10,6 +10,7 @@ import { z } from "zod";
 import type { Governor } from "../app";
 import { tx } from "../db";
 import type { Gov } from "../dispatch";
+import { log } from "../log";
 import { append, markChanged, SYSTEM } from "../events";
 import { backoffMs } from "../tasks/decide";
 import { withLimit } from "./limits";
@@ -24,6 +25,7 @@ import { microUsd, reserveUsage, settleUsage } from "../trust/usage";
 import { manifestOf } from "../workspace/store";
 import { buildOffer, missing, OFFER_FOR_MS } from "./offer";
 import { blockOf, dispatchOrder, standing } from "../tasks/queue";
+import { readCapped } from "../body-limit";
 import { body, runnerOf } from "./runners";
 
 /** The queue and the life of an attempt on a runner (docs/architecture.md section 6): claim, lease, events, tool calls, completion. */
@@ -103,12 +105,13 @@ export function releaseAttempt(gov: Gov, attemptId: string, why: string): void {
 
 /** Takes back every attempt whose offer was not acknowledged or whose lease ran out. */
 export function sweepAttempts(gov: Gov): void {
-  tx(gov.db, () => {
-    const now = gov.clock.nowMs();
-    for (const row of gov.db.prepare("SELECT id, state FROM attempts WHERE (state='offered' AND offer_expires_at_ms<=?) OR (state='running' AND lease_expires_at_ms<=?)").all(now, now) as Array<{ id: string; state: string }>) {
-      releaseAttempt(gov, row.id, row.state === "offered" ? "The runner did not acknowledge the offer" : "The runner stopped renewing its lease");
-    }
-  });
+  const now = gov.clock.nowMs();
+  const due = gov.db.prepare("SELECT id, state FROM attempts WHERE (state='offered' AND offer_expires_at_ms<=?) OR (state='running' AND lease_expires_at_ms<=?)").all(now, now) as Array<{ id: string; state: string }>;
+  // One attempt at a time, each in its own transaction: one that cannot be released must not hold back the others.
+  for (const row of due) {
+    try { tx(gov.db, () => releaseAttempt(gov, row.id, row.state === "offered" ? "The runner did not acknowledge the offer" : "The runner stopped renewing its lease")); }
+    catch (error) { log("error", "attempt.sweep_failed", { attemptId: row.id, error: String(error) }); }
+  }
 }
 
 /** The first queued attempt, in the order of `dispatchOrder` (tasks/queue.ts), that nothing holds back (`blockOf`) and the runner has what it needs for. */
@@ -196,8 +199,8 @@ export function registerAttempts(governor: Governor): void {
     const query = z.object({ fence: z.coerce.number().int(), name: z.string().min(1).max(300), kind: z.enum(["patch", "output", "log"]), mediaType: z.string().min(1).max(200) }).safeParse(c.req.query());
     if (!query.success) throw new BrainError("INVALID_INPUT", "An upload names fence, name, kind and mediaType");
     const attempt = heldAttempt(gov, c, query.data.fence);
-    const bytes = new Uint8Array(await c.req.raw.arrayBuffer());
-    if (bytes.length > MAX_ARTIFACT_BYTES) throw new BrainError("INVALID_INPUT", "The file is too large to keep");
+    const bytes = await readCapped(c.req.raw, MAX_ARTIFACT_BYTES);
+    if (!bytes) throw new BrainError("INVALID_INPUT", "The file is too large to keep");
     return c.json(tx(db, (): ArtifactUploadResponse => {
       const digest = putArtifact(gov, bytes);
       linkArtifact(db, { digest, workspaceId: attempt.workspace_id, taskId: attempt.task_id, attemptId: attempt.id, name: query.data.name, kind: query.data.kind, mediaType: query.data.mediaType }, gov.clock.nowMs());

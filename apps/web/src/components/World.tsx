@@ -1,11 +1,11 @@
-import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack, type JSX } from "solid-js";
 import { A } from "@solidjs/router";
 import type { QueueAction } from "@brain/contracts";
 import { t, tn } from "../i18n";
 import { count, duration } from "../lib/format";
-import { classOf, drawEmote, drawHero, GROUND_SCALE, HERO_H, HERO_W, lookOf, paintCastle, paintCottage, paintGround, paintProp, roofOf, type Art, type Class, type Mood } from "../lib/rpg/art";
+import { classOf, drawEmote, drawHero, HERO_H, HERO_W, lookOf, paintCastle, paintCottage, paintGround, paintProp, roofOf, type Art, type Class, type Mood } from "../lib/rpg/art";
 import { startMusic, type Music } from "../lib/rpg/music";
-import { hashOf, layout, reconcile, seeded, step, TILE, walking, type Hero, type Lot } from "../lib/rpg/world";
+import { hashOf, layout, reconcile, seeded, step, TILE, walking, type Hero, type Layout, type Lot } from "../lib/rpg/world";
 import { Icon } from "./bits";
 import { reduced, visible, watch } from "./LiveParts";
 
@@ -53,7 +53,10 @@ const DEFAULTS: Options = { time: "auto", weather: "auto", names: true, bubbles:
 const KEY = "brain.village";
 function loadOptions(): Options {
   // Sound and music start off on every visit: a page may not play before the person asks.
-  try { return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Options>), sound: false, music: false }; } catch { return DEFAULTS; }
+  try {
+    const stored = { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Options>), sound: false, music: false };
+    return Object.hasOwn(PIXEL, stored.pixels) ? stored : { ...stored, pixels: DEFAULTS.pixels };
+  } catch { return DEFAULTS; }
 }
 
 const CLASS_ICON: Record<Class, string> = { knight: "lucide-shield", mage: "lucide-wand-sparkles", cleric: "lucide-heart-pulse", scribe: "lucide-feather", builder: "lucide-hammer", ranger: "lucide-binoculars" };
@@ -102,6 +105,10 @@ function darkness(time: Time, now: number): number {
   if (hour >= 5.5 && hour < 7) return ((7 - hour) / 1.5) * 0.58;
   return 0.58;
 }
+
+/** Where each drop of rain or snow and each firefly starts, worked out once. */
+const DROPS = Array.from({ length: 120 }, (_, i) => ({ x: (hashOf(`r${i}`) % 1000) / 1000, y: (hashOf(`s${i}`) % 1000) / 1000 }));
+const FLIES = Array.from({ length: 24 }, (_, i) => ({ x: hashOf(`f${i}`), y: hashOf(`g${i}`) }));
 
 export function World(props: {
   stations: readonly Station[];
@@ -155,7 +162,7 @@ export function World(props: {
   let particles: Particle[] = [];
   const random = seeded(hashOf("village"));
   const camera = { x: 0, y: 0, zoom: 2, tx: 0, ty: 0, tz: 2 };
-  let placed = false;
+  let placedFor: Layout | undefined;
   let firstRead = true;
   let tourAt = 0;
   let tourIndex = 0;
@@ -180,12 +187,12 @@ export function World(props: {
     const ratio = pixel === 0 ? window.devicePixelRatio || 1 : 1 / pixel;
     view.width = Math.floor(size().w * ratio);
     view.height = Math.floor(size().h * ratio);
-    if (!placed) {
+    if (placedFor !== map()) {
       const busy = props.stations.find((station) => station.running > 0) ?? props.stations[0];
       const lot = busy ? lotOf().get(busy.slug) : undefined;
       const spot = lot ? lotCenter(lot) : { x: (map().plaza.x + 7) * TILE, y: (map().plaza.y + 5) * TILE };
       camera.x = camera.tx = spot.x; camera.y = camera.ty = spot.y; camera.zoom = camera.tz = baseZoom();
-      placed = true;
+      placedFor = map();
     }
     camera.tz = Math.max(fitZoom(), camera.tz);
     draw(performance.now());
@@ -210,8 +217,15 @@ export function World(props: {
     if (!firstRead && sound && [...needs].some(([slug, n]) => n > (knownNeeds.get(slug) ?? 0))) sound.play("needs");
     knownNeeds = needs;
     firstRead = false;
+    dropGhost();
     if (reduced()) draw(performance.now());
   });
+
+  // A selected hero that is gone (its goodbye is over, its workspace left) is no longer selected, so the camera may follow the action again.
+  function dropGhost(): void {
+    const pick = untrack(selected);
+    if (pick?.kind === "hero" && !heroes.has(pick.id)) setSelected(null);
+  }
 
   // A goal that finishes sets off fireworks over its building.
   const celebrated = new Set<string>();
@@ -253,6 +267,10 @@ export function World(props: {
     const m = map();
     const z = camera.zoom;
     const opts = options();
+    // What is outside the screen (with a margin for tall things) is not painted.
+    const from = toWorld(0, 0);
+    const to = toWorld(size().w, size().h);
+    const seen = (x0: number, y0: number, x1: number, y1: number, margin = 48): boolean => x1 >= from.x - margin && x0 <= to.x + margin && y1 >= from.y - margin && y0 <= to.y + margin;
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
@@ -270,12 +288,12 @@ export function World(props: {
     const still = reduced();
     // Ponds lie flat; their water glitters.
     for (const prop of m.props) {
-      if (prop.kind !== "pond") continue;
+      if (prop.kind !== "pond" || !seen(prop.x * TILE, prop.y * TILE, prop.x * TILE + 90, prop.y * TILE + 50)) continue;
       const art = paintProp(prop);
       ctx.drawImage(art.image, prop.x * TILE, prop.y * TILE, art.width, art.height);
     }
     for (const prop of m.props) {
-      if (prop.kind !== "fountain" && prop.kind !== "pond") continue;
+      if ((prop.kind !== "fountain" && prop.kind !== "pond") || !seen(prop.x * TILE, prop.y * TILE, prop.x * TILE + 90, prop.y * TILE + 50)) continue;
       const w = prop.kind === "fountain" ? 40 : 80;
       for (let i = 0; i < 7; i += 1) {
         const phase = (t * 0.6 + i * 0.37) % 1;
@@ -288,7 +306,7 @@ export function World(props: {
     type Thing = { base: number; paint: () => void };
     const things: Thing[] = [];
     for (const lot of m.lots) {
-      if (lot.slug === null) continue;
+      if (lot.slug === null || !seen(lot.building.x * TILE, (lot.building.y - 4) * TILE, (lot.building.x + lot.building.w) * TILE, (lot.building.y + lot.building.h) * TILE + 8, 64)) continue;
       const station = stationOf().get(lot.slug);
       if (!station) continue;
       const busy = station.running > 0;
@@ -326,7 +344,7 @@ export function World(props: {
       } });
     }
     for (const prop of m.props) {
-      if (prop.kind === "pond") continue;
+      if (prop.kind === "pond" || !seen(prop.x * TILE, prop.y * TILE - 24, prop.x * TILE + 48, prop.y * TILE + 48)) continue;
       const art = paintProp(prop);
       const place: Record<string, { x: number; base: number }> = {
         tree: { x: prop.x * TILE - 2, base: (prop.y + 2) * TILE - 2 },
@@ -369,6 +387,7 @@ export function World(props: {
     for (let i = 0; i < waiting; i += 1) {
       const fx = (m.plaza.x + 2.4 + i * 1.15) * TILE;
       const fy = (m.plaza.y + 3) * TILE + 2;
+      if (!seen(fx, fy - 30, fx, fy)) continue;
       const look = lookOf(`pilgrim ${i} watch`, i);
       things.push({ base: fy, paint: () => {
         ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(fx, fy, 5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
@@ -378,6 +397,7 @@ export function World(props: {
     const pick = selected();
     for (const hero of heroes.values()) {
       const at = feet(hero);
+      if (!seen(at.x, at.y - 60, at.x, at.y)) continue;
       things.push({ base: at.y, paint: () => {
         const hop = hero.hop * TILE;
         ctx.fillStyle = "rgba(0,0,0,0.22)";
@@ -426,9 +446,10 @@ export function World(props: {
         const by = 30 + i * 70 + Math.sin(t + i) * 10;
         ctx.fillStyle = "#2b2b38"; const flap = Math.floor(t * 6 + i) % 2;
         ctx.fillRect(bx, by, 1, 1); ctx.fillRect(bx - 2, by - 1 + flap, 2, 1); ctx.fillRect(bx + 1, by - 1 + flap, 2, 1);
-      } else for (let i = 0; i < 24; i += 1) {
-        const fx = (hashOf(`f${i}`) % (m.w * TILE)) + Math.sin(t * 0.7 + i) * 12;
-        const fy = (hashOf(`g${i}`) % (m.h * TILE)) + Math.cos(t * 0.9 + i) * 8;
+      } else for (let i = 0; i < FLIES.length; i += 1) {
+        const fx = ((FLIES[i] as { x: number }).x % (m.w * TILE)) + Math.sin(t * 0.7 + i) * 12;
+        const fy = ((FLIES[i] as { y: number }).y % (m.h * TILE)) + Math.cos(t * 0.9 + i) * 8;
+        if (!seen(fx, fy, fx, fy, 4)) continue;
         ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 3 + i);
         ctx.fillStyle = "#e8ff8a"; ctx.fillRect(fx, fy, 1, 1);
       }
@@ -440,10 +461,11 @@ export function World(props: {
     const weather = opts.weather;
     if ((weather === "rain" || weather === "snow") && !reduced()) {
       ctx.fillStyle = weather === "rain" ? "rgba(170,200,255,0.7)" : "rgba(255,255,255,0.9)";
-      for (let i = 0; i < 120; i += 1) {
+      for (let i = 0; i < DROPS.length; i += 1) {
         const speed = weather === "rain" ? 420 : 40;
-        const x = ((hashOf(`r${i}`) % 1000) / 1000) * size().w + (weather === "snow" ? Math.sin(t + i) * 8 : -((t * 80) % 40));
-        const y = (((hashOf(`s${i}`) % 1000) / 1000) * size().h + t * speed) % size().h;
+        const drop = DROPS[i] as { x: number; y: number };
+        const x = drop.x * size().w + (weather === "snow" ? Math.sin(t + i) * 8 : -((t * 80) % 40));
+        const y = (drop.y * size().h + t * speed) % size().h;
         if (weather === "rain") ctx.fillRect(x, y, 1, 6); else ctx.fillRect(x, y, 2, 2);
       }
       if (weather === "rain") { ctx.fillStyle = "rgba(40,50,80,0.12)"; ctx.fillRect(0, 0, size().w, size().h); }
@@ -463,6 +485,7 @@ export function World(props: {
       const hole = (wx: number, wy: number, radius: number, strength: number): void => {
         const s = toScreen(wx, wy);
         const r = radius * z;
+        if (s.x + r < 0 || s.y + r < 0 || s.x - r > size().w || s.y - r > size().h) return;
         const g = l.createRadialGradient(s.x, s.y, 0, s.x, s.y, r);
         g.addColorStop(0, `rgba(0,0,0,${strength})`); g.addColorStop(1, "rgba(0,0,0,0)");
         l.fillStyle = g; l.fillRect(s.x - r, s.y - r, r * 2, r * 2);
@@ -494,8 +517,13 @@ export function World(props: {
       if (!lot) continue;
       const s = toScreen(lot.door.x * TILE, (lot.y + 10) * TILE + 4);
       const off = s.x < -150 || s.y < -60 || s.x > size().w + 150 || s.y > size().h + 60;
-      element.style.transform = `translate(${Math.round(s.x)}px, ${Math.round(s.y)}px) translate(-50%, 0)`;
-      element.style.visibility = off ? "hidden" : "visible";
+      // Off screen a sign stays reachable by keyboard (focusing it brings its building into view): parked at the edge, unseen and not clickable.
+      const x = off ? Math.min(size().w, Math.max(0, s.x)) : s.x;
+      const y = off ? Math.min(size().h - 24, Math.max(0, s.y)) : s.y;
+      const unseen = off && document.activeElement !== element;
+      element.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, 0)`;
+      element.style.opacity = unseen ? "0" : "1";
+      element.style.pointerEvents = unseen ? "none" : "";
     }
     for (const [id, element] of tags) {
       const hero = heroes.get(id);
@@ -507,26 +535,40 @@ export function World(props: {
     }
   }
 
-  function drawMini(): void {
-    const ctx = mini?.getContext("2d");
-    if (!ctx) return;
+  // The minimap's ground and buildings change only with the layout and the stations: painted once, then the moving parts go on top.
+  const MINI = 2;
+  const miniBase = createMemo((): HTMLCanvasElement => {
     const m = map();
-    const scale = 2;
-    if (mini.width !== m.w * scale) { mini.width = m.w * scale; mini.height = m.h * scale; }
+    const base = document.createElement("canvas");
+    base.width = m.w * MINI; base.height = m.h * MINI;
+    const ctx = base.getContext("2d");
+    if (!ctx) return base;
+    const floor = ground();
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(ground(), 0, 0, m.w * TILE * GROUND_SCALE, m.h * TILE * GROUND_SCALE, 0, 0, m.w * scale, m.h * scale);
+    ctx.drawImage(floor, 0, 0, floor.width, floor.height, 0, 0, base.width, base.height);
     for (const lot of m.lots) {
       if (lot.slug === null) continue;
       const station = stationOf().get(lot.slug);
       ctx.fillStyle = station ? roofOf(station.name) : "#888";
-      ctx.fillRect(lot.building.x * scale, lot.building.y * scale, lot.building.w * scale, lot.building.h * scale);
-      if (station && station.needs > 0) { ctx.fillStyle = "#ffd23f"; ctx.fillRect((lot.building.x + lot.building.w / 2) * scale - 2, (lot.building.y - 2) * scale, 4, 4); }
+      ctx.fillRect(lot.building.x * MINI, lot.building.y * MINI, lot.building.w * MINI, lot.building.h * MINI);
+      if (station && station.needs > 0) { ctx.fillStyle = "#ffd23f"; ctx.fillRect((lot.building.x + lot.building.w / 2) * MINI - 2, (lot.building.y - 2) * MINI, 4, 4); }
     }
-    for (const hero of heroes.values()) { ctx.fillStyle = hero.mode === "wander" ? "#ffffff" : "#ffd23f"; ctx.fillRect(Math.round(hero.x * scale), Math.round(hero.y * scale), 3, 3); }
+    return base;
+  });
+
+  function drawMini(): void {
+    // Hidden on a small screen: nothing to paint.
+    if (!mini || mini.offsetParent === null) return;
+    const ctx = mini.getContext("2d");
+    if (!ctx) return;
+    const base = miniBase();
+    if (mini.width !== base.width || mini.height !== base.height) { mini.width = base.width; mini.height = base.height; }
+    ctx.drawImage(base, 0, 0);
+    for (const hero of heroes.values()) { ctx.fillStyle = hero.mode === "wander" ? "#ffffff" : "#ffd23f"; ctx.fillRect(Math.round(hero.x * MINI), Math.round(hero.y * MINI), 3, 3); }
     const tl = toWorld(0, 0);
     const br = toWorld(size().w, size().h);
     ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1;
-    ctx.strokeRect((tl.x / TILE) * scale + 0.5, (tl.y / TILE) * scale + 0.5, ((br.x - tl.x) / TILE) * scale, ((br.y - tl.y) / TILE) * scale);
+    ctx.strokeRect((tl.x / TILE) * MINI + 0.5, (tl.y / TILE) * MINI + 0.5, ((br.x - tl.x) / TILE) * MINI, ((br.y - tl.y) / TILE) * MINI);
   }
 
   // ——— The loop: about thirty frames a second while the village is on screen; one still frame under reduced motion. ———
@@ -538,6 +580,7 @@ export function World(props: {
     const dt = now - last;
     if (dt < 30) return;
     step(heroes, map(), Math.min(dt, 120), Date.now(), random);
+    dropGhost();
     tour(now);
     const ease = 1 - Math.pow(0.002, Math.min(dt, 100) / 1000);
     camera.x += (camera.tx - camera.x) * ease;
@@ -576,9 +619,10 @@ export function World(props: {
 
   // ——— Input: drag with a mouse to look around, a click or a tap selects, the wheel zooms with Ctrl (or always in ambient). ———
   let drag: { x: number; y: number; moved: boolean; id: number } | null = null;
-  const down = (event: PointerEvent): void => { drag = { x: event.clientX, y: event.clientY, moved: false, id: event.pointerId }; if (event.pointerType === "mouse") view.setPointerCapture(event.pointerId); };
+  const down = (event: PointerEvent): void => { if (event.pointerType === "mouse" && event.button !== 0) return; drag = { x: event.clientX, y: event.clientY, moved: false, id: event.pointerId }; if (event.pointerType === "mouse") view.setPointerCapture(event.pointerId); };
   const move = (event: PointerEvent): void => {
     if (!drag || event.pointerType !== "mouse") return;
+    if ((event.buttons & 1) === 0) { drag = null; return; }
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
@@ -607,13 +651,13 @@ export function World(props: {
   const zoomBy = (factor: number): void => { camera.tz = Math.min(5, Math.max(fitZoom(), camera.tz * factor)); still(); };
   const pan = (dx: number, dy: number): void => { camera.tx += dx / camera.zoom; camera.ty += dy / camera.zoom; if (options().tour) set("tour", false); still(); };
   const keys = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") { if (menu()) setMenu(false); else setSelected(null); return; }
     if (event.target !== box) return;
     const moves: Record<string, [number, number]> = { ArrowLeft: [-80, 0], ArrowRight: [80, 0], ArrowUp: [0, -80], ArrowDown: [0, 80] };
     const by = moves[event.key];
     if (by) { event.preventDefault(); pan(by[0], by[1]); }
     if (event.key === "+" || event.key === "=") zoomBy(1.2);
     if (event.key === "-") zoomBy(1 / 1.2);
-    if (event.key === "Escape") setSelected(null);
   };
   const overview = (): void => { if (options().tour) set("tour", false); center((map().w * TILE) / 2, (map().h * TILE) / 2, fitZoom()); setSelected(null); still(); };
   const miniClick = (event: MouseEvent): void => {
@@ -681,7 +725,7 @@ export function World(props: {
             <WorldButton icon="lucide-video" label={t("live.world.tour")} pressed={options().tour} onClick={() => { set("tour", !options().tour); tourAt = 0; }} />
             <WorldButton icon={options().sound ? "lucide-volume-2" : "lucide-volume-x"} label={t("live.world.opt.sound")} pressed={options().sound} onClick={toggleSound} />
             <WorldButton icon={options().music ? "lucide-music" : "lucide-music-2"} label={t("live.world.opt.music")} pressed={options().music} onClick={toggleMusic} />
-            <WorldButton icon="lucide-settings-2" label={t("live.world.options")} pressed={menu()} onClick={() => setMenu(!menu())} />
+            <WorldButton icon="lucide-settings-2" label={t("live.world.options")} expanded={menu()} onClick={() => setMenu(!menu())} />
           </div>
           <div class="absolute bottom-2 start-2 hidden flex-col gap-1 sm:flex">
             <div class="flex gap-1">
@@ -691,7 +735,7 @@ export function World(props: {
               <WorldButton icon="lucide-arrow-right" label={t("live.world.pan.right")} onClick={() => pan(120, 0)} small />
             </div>
           </div>
-          <canvas ref={mini} class="rpg-mini absolute bottom-2 end-2 hidden w-40 cursor-pointer sm:block" style={{ "image-rendering": "pixelated" }} role="img" aria-label={t("live.world.minimap")} onClick={miniClick} />
+          <canvas ref={mini} class="rpg-mini absolute bottom-2 end-2 hidden w-40 cursor-pointer sm:block" style={{ "image-rendering": "pixelated" }} aria-hidden="true" onClick={miniClick} />
           <Show when={menu()}>
             <div class="rpg-dialog absolute end-12 top-2 z-10 flex w-64 flex-col gap-3 p-3 t-small" role="group" aria-label={t("live.world.options")}>
               <Choice label={t("live.world.opt.time")} value={options().time} onChange={(v) => set("time", v as Time)} options={[["auto", t("live.world.time.auto")], ["day", t("live.world.time.day")], ["dusk", t("live.world.time.dusk")], ["night", t("live.world.time.night")]]} />
@@ -706,7 +750,7 @@ export function World(props: {
 
         {/* The panel of what is selected. */}
         <Show when={chosenHero() || chosenWanderer() || chosenLot()}>
-          <aside class="rpg-panel flex w-full shrink-0 flex-col gap-3 p-4 lg:w-80" data-testid="live-panel" aria-live="polite">
+          <aside class="rpg-panel flex w-full shrink-0 flex-col gap-3 p-4 lg:w-80" data-testid="live-panel">
             <div class="flex items-start gap-3">
               <Show when={chosenHero() ?? chosenWanderer()} fallback={<span class="grid size-16 shrink-0 place-items-center rounded-[3px]" style={{ background: roofOf(chosenLot()?.name ?? "") }} aria-hidden="true"><Icon name={chosenLot()?.platform ? "lucide-castle" : "lucide-house"} class="size-7 text-white" /></span>}>
                 {(who) => <Portrait agent={who().agent} variant={chosenHero() ? hashOf(chosenHero()?.id ?? "") % 6 : hashOf(who().agent) % 6} />}
@@ -783,9 +827,9 @@ export function World(props: {
   );
 }
 
-function WorldButton(props: { icon: string; label: string; onClick: () => void; pressed?: boolean; small?: boolean }): JSX.Element {
+function WorldButton(props: { icon: string; label: string; onClick: () => void; pressed?: boolean; expanded?: boolean; small?: boolean }): JSX.Element {
   return (
-    <button type="button" class={`rpg-button grid place-items-center focus-visible:focus-ring ${props.small ? "size-7" : "size-9"}`} aria-label={props.label} title={props.label} aria-pressed={props.pressed} onClick={(event) => { event.stopPropagation(); props.onClick(); }}>
+    <button type="button" class={`rpg-button grid place-items-center focus-visible:focus-ring ${props.small ? "size-7" : "size-9"}`} aria-label={props.label} title={props.label} aria-pressed={props.pressed} aria-expanded={props.expanded} onClick={(event) => { event.stopPropagation(); props.onClick(); }}>
       <Icon name={props.icon} class={props.small ? "size-3.5" : "size-4"} />
     </button>
   );

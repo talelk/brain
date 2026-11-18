@@ -9,7 +9,7 @@
       "argv": ["docker", "logs", "--tail", "{lines}", "{container}"],
       "args": {
         "lines": "^([1-9][0-9]?|[1-4][0-9]{2}|500)$",
-        "container": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$"
+        "container": "^(cvinsights-web-1|health360-web-1|kios-rh-new-1|of-vue360-ai-app-1|omniflow-docus-docus-1|zain-docus-docus-1|teknova-nao|ps-insights-rill-1|synthetic-api|newqlik-query-1|newqlik-build-1)$"
       },
       "timeoutMs": 30000
     },
@@ -21,7 +21,7 @@
       "effect": "privileged",
       "argv": ["docker", "restart", "{container}"],
       "args": {
-        "container": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$"
+        "container": "^(cvinsights-web-1|health360-web-1|kios-rh-new-1|of-vue360-ai-app-1|omniflow-docus-docus-1|zain-docus-docus-1|teknova-nao|ps-insights-rill-1|synthetic-api|newqlik-query-1|newqlik-build-1)$"
       },
       "timeoutMs": 90000
     },

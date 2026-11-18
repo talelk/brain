@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Match, Show, Switch, type Accessor, type JSX } from "solid-js";
+import { createMemo, createSignal, For, Match, Show, Switch, untrack, type Accessor, type JSX } from "solid-js";
 import { Button, Icon as GlyphIcon, Skeleton } from "@talelk/newui-atoms";
 import { Alert, Dialog, ItemListRow } from "@talelk/newui-molecules";
 import type { FolderPush, Problem, TaskNeed, TaskState, TaskSummary } from "@brain/contracts";
@@ -139,7 +139,7 @@ export function TaskRow(props: { task: TaskSummary; href: string; where?: string
 /** A `<details>` that reads as part of the page: used for what a person rarely needs (hashes, raw inputs). */
 export function Details(props: { summary: JSX.Element; open?: boolean; class?: string; onOpen?: () => void; children: JSX.Element }): JSX.Element {
   return (
-    <details class={props.class} open={props.open} onToggle={(event) => { if (event.currentTarget.open) props.onOpen?.(); }}>
+    <details class={props.class} open={untrack(() => props.open)} onToggle={(event) => { if (event.currentTarget.open) props.onOpen?.(); }}>
       <summary class="flex cursor-pointer list-none items-center gap-1.5 rounded-md t-small font-medium text-ink-2 hover:text-ink [&::-webkit-details-marker]:hidden">
         <Icon name="lucide-chevron-right" class="details-mark size-3.5" />
         {props.summary}

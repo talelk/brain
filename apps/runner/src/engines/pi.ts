@@ -80,12 +80,11 @@ export class PiEngine implements EngineAdapter {
         },
       },
     }, null, 2), { mode: 0o600 });
-    process.env["PI_CODING_AGENT_DIR"] = agentDir;
     const { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager } = (await import(PACKAGE)) as typeof import("@earendil-works/pi-coding-agent");
     // A provider's Retry-After is read, not slept on: the wait is the Governor's to schedule. A failure that named no delay gets one quick retry.
     const settings = SettingsManager.create(cwd, agentDir);
     settings.applyOverrides({ retry: { provider: { maxRetries: 1, maxRetryDelayMs: 1 } } });
-    const runtime = await ModelRuntime.create({ modelsPath: modelsFile });
+    const runtime = await ModelRuntime.create({ modelsPath: modelsFile, authPath: join(agentDir, "auth.json") });
     const model = runtime.getModel(PROVIDER as never, spec.model.name as never);
     if (!model) {
       // Pi drops a provider whose models file it cannot read or validate; its own error says why, and the ids it did load show a name mismatch.

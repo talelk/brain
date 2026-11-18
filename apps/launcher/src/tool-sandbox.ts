@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { execa } from "execa";
-import { attemptFolder, egressHosts, hardening, isDirectory, network, refuse, type Reply, type SandboxOptions, slug } from "./sandbox-common";
+import { attemptFolder, egressHosts, hardening, isDirectory, network, refuse, type Reply, type SandboxOptions, slug, whenCreated } from "./sandbox-common";
 
 /**
  * The tool sandbox: one container for one run of a tool's `run.sh`. It sees the tool's files read-only at `/tools`, the attempt's working
@@ -36,7 +36,7 @@ export function toolSandboxArgs(shape: ToolSandboxShape): string[] {
     TOOL_IMAGE, "/bin/bash", "/tools/run.sh"];
 }
 
-export async function runTool(options: SandboxOptions, body: Record<string, unknown>): Promise<Reply> {
+export async function runTool(options: SandboxOptions, body: Record<string, unknown>, signal?: AbortSignal): Promise<Reply> {
   for (const key of Object.keys(body)) if (!(TOOL_FIELDS as readonly string[]).includes(key)) return refuse(422, `field ${key} forbidden`);
   const tool = String(body["tool"] ?? "");
   if (tool.length > 80 || !tool.split(".").every((part) => /^[a-z][a-z0-9-]{0,62}$/u.test(part))) return refuse(422, "tool invalid");
@@ -49,7 +49,7 @@ export async function runTool(options: SandboxOptions, body: Record<string, unkn
   if (typeof secretEnv !== "object" || secretEnv === null || Array.isArray(secretEnv) || Object.keys(secretEnv).length > 16) return refuse(422, "secretEnv must be an object of at most 16 values");
   const secrets: Record<string, string> = {};
   for (const [name, value] of Object.entries(secretEnv as Record<string, unknown>)) {
-    if (!/^[A-Z][A-Z0-9_]{0,63}$/u.test(name) || typeof value !== "string" || value.length === 0 || Buffer.byteLength(value, "utf8") > 8192) return refuse(422, `secretEnv ${name} is invalid`);
+    if (!/^[A-Z][A-Z0-9_]{0,63}$/u.test(name) || /^(?:PATH|HOME|LD_|DYLD_|DOCKER_|GIT_|SSL_)/u.test(name) || typeof value !== "string" || value.length === 0 || Buffer.byteLength(value, "utf8") > 8192) return refuse(422, `secretEnv ${name} is invalid`);
     secrets[name] = value;
   }
   const hosts = egressHosts(body["egressHosts"], options.egressGrantsDir);
@@ -66,12 +66,15 @@ export async function runTool(options: SandboxOptions, body: Record<string, unkn
   const net = await network(hosts.hosts, options.egressGrantsDir);
   try {
     const args = toolSandboxArgs({ name, requestId, toolDirectory, workDirectory, user: options.user, network: net.args, secretNames: Object.keys(secrets) });
-    const result = await execa("docker", args, {
-      input, timeout: timeoutMs, maxBuffer: 1024 * 1024, extendEnv: false, reject: false,
-      env: { PATH: process.env["PATH"] ?? "/usr/local/bin:/usr/bin:/bin", HOME: process.env["HOME"] ?? "/tmp", ...(process.env["DOCKER_HOST"] ? { DOCKER_HOST: process.env["DOCKER_HOST"] } : {}), ...secrets },
+    const run = execa("docker", args, {
+      input, timeout: timeoutMs, maxBuffer: 1024 * 1024, extendEnv: false, reject: false, ...(signal ? { cancelSignal: signal } : {}),
+      env: { ...secrets, PATH: process.env["PATH"] ?? "/usr/local/bin:/usr/bin:/bin", HOME: process.env["HOME"] ?? "/tmp", ...(process.env["DOCKER_HOST"] ? { DOCKER_HOST: process.env["DOCKER_HOST"] } : {}) },
     });
-    // A run that was cut short leaves its container behind; it goes with the run.
-    if (result.timedOut || result.exitCode === undefined) await execa("docker", ["rm", "-f", name], { timeout: 30_000, reject: false });
+    // The proxy credentials are in a file the docker client reads when it starts: once the container exists the file has done its work.
+    void whenCreated(name, run).then(net.started);
+    const result = await run;
+    // A run that was cut short (a timeout, or the runner that asked for it gone) leaves its container behind; it goes with the run.
+    if (result.timedOut || result.exitCode === undefined || signal?.aborted) await execa("docker", ["rm", "-f", name], { timeout: 30_000, reject: false });
     return { status: 200, body: { exitCode: result.exitCode ?? -1, stdout: String(result.stdout).slice(0, 1024 * 1024), stderr: String(result.stderr).slice(0, 16_384), timedOut: result.timedOut === true } };
   } finally {
     net.started();

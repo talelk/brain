@@ -4,6 +4,7 @@ import type { Governor } from "../app";
 import { tx } from "../db";
 import type { Gov } from "../dispatch";
 import { SYSTEM } from "../events";
+import { log } from "../log";
 import { activeManifest, manifestOf } from "../workspace/store";
 import { settle } from "./orchestrator";
 import { createFromPlay, TERMINAL, type TaskRow } from "./store";
@@ -42,22 +43,25 @@ function refresh(gov: Gov, workspaceId: string, manifest: SnapshotManifest): voi
 
 /** Starts every scheduled Play whose time has come. Times missed while the Governor was down are not replayed; an occurrence is skipped while the one before it still runs. */
 export function runSchedules(gov: Gov): void {
-  tx(gov.db, () => {
-    const now = gov.clock.nowMs();
-    const due = gov.db.prepare(`SELECT g.workspace_id, g.play, g.spec, g.next_run_at_ms AS at, g.last_task_id, w.active_snapshot FROM triggers g JOIN workspaces w ON w.id = g.workspace_id
-      WHERE g.kind='schedule' AND g.next_run_at_ms<=? AND w.status='active'`).all(now) as Array<{ workspace_id: string; play: string; spec: string; at: number; last_task_id: string | null; active_snapshot: string }>;
-    for (const trigger of due) {
-      const last = trigger.last_task_id === null ? undefined : (gov.db.prepare("SELECT state FROM tasks WHERE id=?").get(trigger.last_task_id) as Pick<TaskRow, "state"> | undefined);
-      const next = nextCron(trigger.spec, now, manifestOf(gov, trigger.active_snapshot).timezone) ?? null;
-      if (now - trigger.at > MISSED_AFTER_MS || (last && !TERMINAL.includes(last.state))) {
-        gov.db.prepare("UPDATE triggers SET next_run_at_ms=? WHERE workspace_id=? AND play=?").run(next, trigger.workspace_id, trigger.play);
-        continue;
-      }
-      const root = createFromPlay(gov, SYSTEM, { workspaceId: trigger.workspace_id, snapshotDigest: trigger.active_snapshot, play: trigger.play, inputs: {}, createdBy: `trigger:${trigger.play}` });
-      gov.db.prepare("UPDATE triggers SET next_run_at_ms=?, last_run_at_ms=?, last_task_id=? WHERE workspace_id=? AND play=?").run(next, now, root.id, trigger.workspace_id, trigger.play);
-      settle(gov, trigger.workspace_id);
-    }
-  });
+  const now = gov.clock.nowMs();
+  const due = gov.db.prepare(`SELECT g.workspace_id, g.play, g.spec, g.next_run_at_ms AS at, g.last_task_id, w.active_snapshot FROM triggers g JOIN workspaces w ON w.id = g.workspace_id
+    WHERE g.kind='schedule' AND g.next_run_at_ms<=? AND w.status='active'`).all(now) as Array<{ workspace_id: string; play: string; spec: string; at: number; last_task_id: string | null; active_snapshot: string }>;
+  // One trigger at a time, each in its own transaction: one that cannot start must not hold back the others.
+  for (const trigger of due) {
+    try {
+      tx(gov.db, () => {
+        const last = trigger.last_task_id === null ? undefined : (gov.db.prepare("SELECT state FROM tasks WHERE id=?").get(trigger.last_task_id) as Pick<TaskRow, "state"> | undefined);
+        const next = nextCron(trigger.spec, now, manifestOf(gov, trigger.active_snapshot).timezone) ?? null;
+        if (now - trigger.at > MISSED_AFTER_MS || (last && !TERMINAL.includes(last.state))) {
+          gov.db.prepare("UPDATE triggers SET next_run_at_ms=? WHERE workspace_id=? AND play=?").run(next, trigger.workspace_id, trigger.play);
+          return;
+        }
+        const root = createFromPlay(gov, SYSTEM, { workspaceId: trigger.workspace_id, snapshotDigest: trigger.active_snapshot, play: trigger.play, inputs: {}, createdBy: `trigger:${trigger.play}` });
+        gov.db.prepare("UPDATE triggers SET next_run_at_ms=?, last_run_at_ms=?, last_task_id=? WHERE workspace_id=? AND play=?").run(next, now, root.id, trigger.workspace_id, trigger.play);
+        settle(gov, trigger.workspace_id);
+      });
+    } catch (error) { log("error", "schedule.run_failed", { workspaceId: trigger.workspace_id, play: trigger.play, error: String(error) }); }
+  }
 }
 
 export function registerTriggers(governor: Governor): void {

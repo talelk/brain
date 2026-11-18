@@ -26,6 +26,7 @@ import { registerOverview } from "./tasks/overview";
 import { registerTriggers } from "./tasks/triggers";
 import { registerApprovals } from "./trust/approvals";
 import { readableLink, readArtifact } from "./trust/artifacts";
+import { readCapped } from "./body-limit";
 import { checkpoint, ensureAuditKey } from "./trust/audit";
 import { registerTrust } from "./trust/handlers";
 import { instanceKeys } from "./trust/secrets";
@@ -100,8 +101,8 @@ function refusal(c: Context, e: unknown): Response {
 
 /** The body of a request, read as strict JSON. */
 export async function readJson(request: Request, upload = false): Promise<unknown> {
-  const bytes = new Uint8Array(await request.arrayBuffer());
-  if (bytes.length > (upload ? MAX_UPLOAD_BODY : MAX_BODY)) throw new BrainError("INVALID_INPUT", "The request is too large");
+  const bytes = await readCapped(request, upload ? MAX_UPLOAD_BODY : MAX_BODY);
+  if (!bytes) throw new BrainError("INVALID_INPUT", "The request is too large");
   try {
     return parseStrictJson(new TextDecoder("utf-8", { fatal: true }).decode(bytes), upload ? MAX_UPLOAD_STRING : undefined);
   } catch {
@@ -242,7 +243,9 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   const dist = resolve(options.webDist ?? repo("apps/web/dist"));
   app.get("*", (c) => {
     if (/^\/(?:v1|runner|api|model|hooks)(?:\/|$)/u.test(c.req.path)) return refusal(c, new BrainError("NOT_FOUND", "There is nothing at this address"));
-    const asked = resolve(dist, `.${decodeURIComponent(c.req.path)}`);
+    let path: string;
+    try { path = decodeURIComponent(c.req.path); } catch { return refusal(c, new BrainError("NOT_FOUND", "There is nothing at this address")); }
+    const asked = resolve(dist, `.${path}`);
     if (c.req.path.startsWith("/assets/") && !(asked.startsWith(dist + sep) && existsSync(asked))) return refusal(c, new BrainError("NOT_FOUND", "There is nothing at this address"));
     const file = asked.startsWith(dist + sep) && existsSync(asked) && statSync(asked).isFile() ? asked : join(dist, "index.html");
     if (!existsSync(file)) return refusal(c, new BrainError("NOT_FOUND", "The web app is not built (pnpm build)"));

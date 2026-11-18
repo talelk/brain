@@ -3,6 +3,7 @@ import {
 } from "@brain/contracts";
 import type { Governor } from "../app";
 import { tx, type Db } from "../db";
+import { log } from "../log";
 import type { Ctx } from "../dispatch";
 import { append } from "../events";
 import { inputProblem } from "../tools/schema";
@@ -87,9 +88,13 @@ export function registerTasks(governor: Governor): void {
   const { gov } = governor;
   const { registry } = gov;
   // Besides after every change, the orchestrator runs on a timer: a limit that was raised, or a day that began, lets waiting work start, and a wait for a person can reach the age at which a newer identical goal closes it.
-  governor.every(15_000, () => tx(gov.db, () => {
-    for (const { id } of gov.db.prepare("SELECT DISTINCT workspace_id AS id FROM tasks WHERE state IN ('waiting','ready','needs_you')").all() as Array<{ id: string }>) settle(gov, id);
-  }));
+  governor.every(15_000, () => {
+    // One workspace at a time, each in its own transaction: one that cannot settle must not hold back the others.
+    for (const { id } of gov.db.prepare("SELECT DISTINCT workspace_id AS id FROM tasks WHERE state IN ('waiting','ready','needs_you')").all() as Array<{ id: string }>) {
+      try { tx(gov.db, () => settle(gov, id)); }
+      catch (error) { log("error", "task.settle_failed", { workspaceId: id, error: String(error) }); }
+    }
+  });
 
   registry.command("task.create", (ctx, input) => {
     const workspace = getWorkspace(ctx.db, input.workspaceId);

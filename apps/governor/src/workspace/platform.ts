@@ -20,7 +20,7 @@ export function platformWorkspaces(gov: Gov): PlatformWorkspace[] {
 /** The workspace, when it is a platform workspace of either kind. */
 export const platformOf = (gov: Gov, workspaceId: string): PlatformWorkspace | undefined => platformWorkspaces(gov).find((one) => one.id === workspaceId);
 /** The admin workspace: where packs are kept and released; undefined when there is none. */
-export const adminWorkspace = (gov: Gov): PlatformWorkspace | undefined => platformWorkspaces(gov).find((one) => one.kind === "admin");
+export const adminWorkspace = (gov: Gov): PlatformWorkspace | undefined => platformWorkspaces(gov).find((one) => one.kind === "admin" && (gov.db.prepare("SELECT status FROM workspaces WHERE id = ?").get(one.id) as { status: string }).status === "active");
 
 /**
  * The models a workspace calls: its own `[[model]]` entries, or, when it has none, those of the admin workspace (the one place the

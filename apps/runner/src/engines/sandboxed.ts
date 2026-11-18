@@ -115,11 +115,17 @@ export class SandboxedEngine implements EngineAdapter {
   }
 
   /** One request and its one answer. */
-  private async call(request: WithoutId<HostRequest>): Promise<unknown> {
+  private async call(request: WithoutId<HostRequest>, signal?: AbortSignal): Promise<unknown> {
     const id = this.nextId++;
     const answer = new Promise<HostFrame>((resolve, reject) => { this.pending.set(id, { resolve, reject }); });
+    // The pump may end while the request is being written; the rejection is then met below or ignored here, never left unhandled.
+    answer.catch(() => undefined);
     try { await this.write({ ...request, id } as HostRequest); } catch (error) { this.pending.delete(id); throw error; }
-    const frame = await answer;
+    // An aborted request is told to the engine host, which stops what it started for it; its answer still comes.
+    const abort = (): void => { void this.write({ id: this.nextId++, op: "abort", target: id }).catch(() => undefined); };
+    if (signal?.aborted) abort(); else signal?.addEventListener("abort", abort, { once: true });
+    let frame: HostFrame;
+    try { frame = await answer; } finally { signal?.removeEventListener("abort", abort); }
     if (frame.type === "error") throw new Error(frame.message);
     return frame.type === "result" ? frame.result : undefined;
   }
@@ -127,7 +133,7 @@ export class SandboxedEngine implements EngineAdapter {
   async probe(): Promise<EngineProbe> { await this.ready(); return await this.call({ op: "probe" }) as EngineProbe; }
 
   /** Runs a shell command in the sandbox, before the session: a project's setup. */
-  async exec(command: string, cwd: string, timeoutMs: number): Promise<ExecResult> { await this.ready(); return await this.call({ op: "exec", command, cwd, timeoutMs }) as ExecResult; }
+  async exec(command: string, cwd: string, timeoutMs: number, signal?: AbortSignal): Promise<ExecResult> { await this.ready(); return await this.call({ op: "exec", command, cwd, timeoutMs }, signal) as ExecResult; }
 
   async start(spec: EngineSessionSpec, signal: AbortSignal): Promise<void> {
     if (signal.aborted) throw new Error("aborted");

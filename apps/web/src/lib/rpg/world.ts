@@ -153,6 +153,7 @@ export function path(map: Pick<Layout, "w" | "h" | "walk">, from: { x: number; y
   const ty = Math.round(to.y);
   if (sx === tx && sy === ty) return [];
   const size = map.w * map.h;
+  if ([sx, tx].some((x) => x < 0 || x >= map.w) || [sy, ty].some((y) => y < 0 || y >= map.h)) return [];
   const back = new Int32Array(size).fill(-1);
   const start = sy * map.w + sx;
   const goal = ty * map.w + tx;
@@ -222,9 +223,12 @@ const SPEED = 3.2; // tiles a second
 
 /** Where the n-th hero of a workspace works: in front of the door, spread left and right. */
 export function workSpot(lot: Lot, n: number): { x: number; y: number } {
-  const side = n % 2 === 0 ? 1 : -1;
-  const step = Math.ceil(n / 2);
-  return { x: lot.door.x - 0.5 + side * step * 1.4 - (n === 0 ? 0 : 0), y: lot.door.y + 1 + (n > 4 ? 1 : 0) };
+  const row = Math.floor(n / 5);
+  const k = n % 5;
+  const side = k % 2 === 0 ? 1 : -1;
+  const step = Math.ceil(k / 2);
+  // Five to a row, rows going down the path; never outside the fenced yard.
+  return { x: Math.min(lot.x + LOT_W - 2, Math.max(lot.x + 1, lot.door.x - 0.5 + side * step * 1.4)), y: Math.min(lot.y + LOT_H - 2, lot.door.y + 1 + row) };
 }
 
 const variantOf = (id: string): number => hashOf(id) % 6;
@@ -252,10 +256,19 @@ export function reconcile(heroes: Map<string, Hero>, map: Layout, roster: Roster
     const start = first ? spot : map.spawn;
     heroes.set(run.id, { id: run.id, agent: run.agent, kind: run.kind, slug: run.slug, rootId: run.rootId, partner: null, variant: variantOf(run.id), x: start.x, y: start.y, dir: 0, mode: first ? "work" : "arrive", route: first ? [] : [...path(map, start, spot), spot], walked: 0, until: 0, emote: null, hop: 0, gone: false });
   }
+  // The Governor's word on how a task ended can arrive after the run left: a hero that played "done" corrects itself, and the other way round.
+  for (const hero of heroes.values()) {
+    if (first || running.has(hero.id) || hero.partner !== null) continue;
+    const ended = roster.leaving.find((entry) => entry.id === hero.id)?.state;
+    if (hero.mode === "done" && (ended === "failed" || ended === "stopped")) { hero.mode = "failed"; hero.until = now + 1800; hero.emote = { kind: "no", until: now + 2600 }; }
+    else if (hero.mode === "failed" && ended === "done") { hero.mode = "done"; hero.until = now + 4000; hero.emote = { kind: "ok", until: now + 2600 }; }
+  }
   for (const hero of heroes.values()) {
     if (hero.mode === "wander" || running.has(hero.id) || hero.mode === "done" || hero.mode === "failed" || hero.mode === "leave" || hero.mode === "handoff") continue;
     const ended = roster.leaving.find((entry) => entry.id === hero.id)?.state;
     hero.route = [];
+    // Under reduced motion nothing walks or plays out: a run that ended is simply gone.
+    if (first) { heroes.delete(hero.id); continue; }
     if (ended === "done") { hero.mode = "done"; hero.until = now + 4000; hero.emote = { kind: "ok", until: now + 2600 }; }
     else if (ended === "failed" || ended === "stopped") { hero.mode = "failed"; hero.until = now + 1800; hero.emote = { kind: "no", until: now + 2600 }; }
     else { hero.mode = "leave"; hero.route = path(map, hero, map.spawn); }
@@ -316,6 +329,8 @@ export function step(heroes: Map<string, Hero>, map: Layout, dt: number, now: nu
       hero.until = now + 2000 + random() * 4000;
     }
     const target = hero.route[0];
+    // Already at the way out (or no way found): leaving is over.
+    if (!target && hero.mode === "leave") hero.gone = true;
     if (target) {
       const speed = SPEED * (hero.mode === "failed" || hero.mode === "leave" ? 0.75 : hero.mode === "wander" ? 0.55 : hero.mode === "handoff" ? 1.25 : 1);
       const dx = target.x - hero.x;

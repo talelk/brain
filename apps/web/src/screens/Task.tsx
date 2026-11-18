@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Match, Show, Switch, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, on, For, Match, Show, Switch, type JSX } from "solid-js";
 import { A, useParams, useSearchParams } from "@solidjs/router";
 import { Button, Textarea } from "@talelk/newui-atoms";
 import { Tabs } from "@talelk/newui-molecules";
@@ -16,18 +16,21 @@ import { COL_GAP, NODE_W } from "../lib/graph";
 import { Evidence } from "../components/Evidence";
 import { Markdown } from "../components/Markdown";
 import { PlanEditor } from "../components/PlanEditor";
-import { ConfirmButton, Details, Failure, Icon, Keyed, needText, NeedsMark, Ready, StateWord } from "../components/bits";
+import { ConfirmButton, Details, Failure, Icon, Keyed, Loading, needText, NeedsMark, Ready, StateWord } from "../components/bits";
 import { LimitNotice, QueuedNotice } from "../components/Limits";
 import { Head } from "../components/Shell";
 import { said } from "../lib/said";
 
 const Part = (props: { title: string; aside?: JSX.Element; children: JSX.Element }): JSX.Element => <Section title={props.title} headingLevel={3} actions={props.aside ? <span class="t-small text-ink-3">{props.aside}</span> : undefined} class="border-t border-outline-gray-1 py-5 first:border-t-0 first:pt-0">{props.children}</Section>;
 
+/** Names the need a task waits on, so what a person typed for one is not kept for the next. */
+const needKey = (task: Task): string | undefined => (task.needs ? `${task.id}:${JSON.stringify(task.needs)}` : undefined);
+
 /** A person's own check or sign-off: pass it, or send it back with what to fix. */
 function Verdict(props: { task: Task; passLabel: string }): JSX.Element {
   const place = usePlace();
   const [findings, setFindings] = createSignal("");
-  const check = useAction((pass: boolean) => command("task.check", { workspaceId: place.id(), taskId: props.task.id, pass, findings: findings() }));
+  const check = useAction(async (pass: boolean) => { await command("task.check", { workspaceId: place.id(), taskId: props.task.id, pass, findings: findings() }); setFindings(""); });
   return (
     <div class="flex flex-col gap-3">
       <Textarea size="md" label={t("verdict.findings")} description={t("verdict.findings.help")} rows={3} value={findings()} onInput={(event) => setFindings(event.currentTarget.value)} />
@@ -45,7 +48,7 @@ function Needs(props: { task: Task; need: TaskNeed; onSelect: (id: string) => vo
   const place = usePlace();
   const [answer, setAnswer] = createSignal("");
   const confirm = useAction(() => command("task.confirm", { workspaceId: place.id(), taskId: props.task.id }));
-  const send = useAction(() => command("task.answer", { workspaceId: place.id(), taskId: props.task.id, answer: answer() }));
+  const send = useAction(async () => { await command("task.answer", { workspaceId: place.id(), taskId: props.task.id, answer: answer() }); setAnswer(""); });
   const keep = useAction((attemptId: string) => command("task.check", { workspaceId: place.id(), taskId: props.task.id, pass: true, keep: attemptId }));
   const retry = useAction(() => command("task.retry", { workspaceId: place.id(), taskId: props.need.kind === "failed-subtask" ? props.need.taskId : props.task.id }));
   const approval = () => props.task.approvals.find((entry) => props.need.kind === "approval" && entry.id === props.need.approvalId);
@@ -132,12 +135,12 @@ function Healing(props: { heal: NonNullable<Task["heal"]> }): JSX.Element {
   const place = usePlace();
   const heal = useQuery("task.get", () => ({ workspaceId: place.id(), taskId: props.heal.taskId }));
   return (
-    <div class="mt-5 flex flex-col gap-3" aria-label={t("heal.title")}>
+    <div class="mt-5 flex flex-col gap-3" role="group" aria-label={t("heal.title")}>
       <p class="t-small font-semibold text-ink-2">{t("heal.title")}</p>
-      <Show when={heal.data()} fallback={<Failure error={heal.error()} retry={heal.refetch} />}>
+      <Show when={heal.data()} fallback={<Show when={heal.error()} fallback={<Loading />}><Failure error={heal.error()} retry={heal.refetch} /></Show>}>
         {(healing) => (<>
           <Show when={["waiting", "ready", "running"].includes(healing().state)}><p class="t-text text-ink-2">{t("heal.running")}</p></Show>
-          <Show when={healing().needs}>{(need) => <Needs task={healing()} need={need()} onSelect={() => undefined} onOrder={() => undefined} />}</Show>
+          <Show when={needKey(healing())} keyed><Needs task={healing()} need={healing().needs as TaskNeed} onSelect={() => undefined} onOrder={() => undefined} /></Show>
           <Show when={healing().state === "done" && healing().result}><div class="rounded-xl bg-paper px-4 py-3"><Markdown text={healing().result ?? ""} /></div></Show>
           <Show when={healing().state === "failed" || healing().state === "stopped"}><p class="t-text text-ink-2">{t("heal.ended")}</p></Show>
           <p class="t-small"><A href={place.to(`/tasks/${healing().id}`)} class="link">{t("heal.open")}</A></p>
@@ -169,7 +172,7 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
         </Show>
       </DetailHeader>
       <Failure error={stop.error() ?? retry.error()} class="mb-4" />
-      <Show when={task().needs}>{(need) => <Needs task={task()} need={need()} onSelect={props.onSelect} onOrder={props.onOrder} />}</Show>
+      <Show when={needKey(task())} keyed><Needs task={task()} need={task().needs as TaskNeed} onSelect={props.onSelect} onOrder={props.onOrder} /></Show>
       <Show when={task().supersededBy}>
         {(newer) => (
           <p class="mb-6 rounded-xl bg-paper px-4 py-3 t-text text-ink-2" role="note" data-superseded>
@@ -284,6 +287,7 @@ export default function TaskScreen(): JSX.Element {
   const params = useParams<{ taskId: string }>();
   const [search, setSearch] = useSearchParams<{ link?: string; view?: string }>();
   const [order, setOrder] = createSignal<readonly string[]>();
+  createEffect(on(() => params.taskId, () => setOrder(undefined), { defer: true }));
   const [pane, setPane] = createSignal<"start" | "end">("end");
   const record = useQuery("task.get", () => ({ workspaceId: place.id(), taskId: params.taskId }));
   /** The link shown beside the chain: the one in the address, else the first that needs a person, else the one running, else the goal. */

@@ -1,6 +1,6 @@
 import type { AttemptFailure, SnapshotManifest } from "@brain/contracts";
 import type { Gov } from "../dispatch";
-import { SYSTEM } from "../events";
+import { append, SYSTEM } from "../events";
 import { currentText } from "../tools/fix";
 import { activeManifest, getWorkspace } from "../workspace/store";
 import { insertTask, taskOf, utcDay, type TaskRow } from "./store";
@@ -20,7 +20,10 @@ const TOTAL_MAX = 40_000;
 
 /** What is written on the failed task's goal when no heal task is started, so a person knows why. */
 function note(gov: Gov, failed: TaskRow, text: string): void {
+  // The same words once: a task that fails again for the same reason does not write them again.
+  if (gov.db.prepare("SELECT 1 FROM notes WHERE root_id=? AND author='Brain' AND text=?").get(failed.root_id, text)) return;
   gov.db.prepare("INSERT INTO notes(workspace_id, root_id, author, attempt_id, text, created_at_ms) VALUES (?,?,?,?,?,?)").run(failed.workspace_id, failed.root_id, "Brain", null, text, gov.clock.nowMs());
+  append(gov.db, { type: "task.noted", workspaceId: failed.workspace_id, subject: `task:${failed.id}`, payload: { rootId: failed.root_id, author: "Brain" }, actor: SYSTEM });
 }
 
 interface Row { readonly [column: string]: string | number | null }

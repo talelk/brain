@@ -11,7 +11,9 @@ import { Mark } from "../components/Shell";
 
 /** The password sign-in of better-auth; it answers `{message}` on a refusal. */
 async function auth(body: unknown): Promise<void> {
-  const response = await fetch("/api/auth/sign-in/email", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  let response: Response;
+  try { response = await fetch("/api/auth/sign-in/email", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); }
+  catch { throw new ApiFailure("NETWORK", ""); }
   // A refused sign-in is said in the person's language, the same for a wrong password and a deactivated account.
   if (!response.ok) throw new ApiFailure(response.status === 429 ? "CONFLICT" : "UNAUTHENTICATED", t(response.status === 429 ? "signin.error.tooMany" : "signin.error.refused"));
 }

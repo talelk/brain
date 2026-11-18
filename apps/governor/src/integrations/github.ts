@@ -1,3 +1,4 @@
+import { readCapped } from "../body-limit";
 import { BrainError, secretName, type JsonValue } from "@brain/contracts";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { Governor } from "../app";
@@ -19,7 +20,9 @@ const same = (a: string, b: string): boolean => timingSafeEqual(createHash("sha2
 export function registerGithub({ gov, app }: Governor): void {
   const { db } = gov;
   app.post("/hooks/github/:workspace", async (c) => {
-    const raw = Buffer.from(await c.req.raw.arrayBuffer());
+    const bytes = await readCapped(c.req.raw, MAX_DELIVERY_BYTES);
+    if (!bytes) throw new BrainError("INVALID_INPUT", "The delivery is too large or names no event");
+    const raw = Buffer.from(bytes);
     const workspace = db.prepare("SELECT id, active_snapshot AS digest FROM workspaces WHERE (slug=? OR id=?) AND status='active'").get(c.req.param("workspace"), c.req.param("workspace")) as { id: string; digest: string } | undefined;
     const manifest = workspace ? manifestOf(gov, workspace.digest) : undefined;
     const secret = workspace && manifest?.github?.webhook_secret ? readSecret(gov, workspace.id, secretName(manifest.github.webhook_secret)) : undefined;

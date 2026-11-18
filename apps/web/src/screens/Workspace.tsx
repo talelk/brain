@@ -213,7 +213,7 @@ export default function WorkspaceScreen(): JSX.Element {
                   <div class="max-w-[52rem] rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-5 sm:p-6">
                     <Show when={tab() === "settings"}><PackUpdates snapshot={snapshot()} updates={workspace().updates} admin={place.can("admin")} /><LimitsPanel snapshot={snapshot()} readOnly={readOnly()} /></Show>
                     <ModeSwitch raw={raw()} onChange={setRaw} class="mb-6" />
-                    <Show when={raw()} fallback={<Show when={tab() === "projects"} fallback={<Show when={workspace().commit} keyed><SettingsForm snapshot={untrack(snapshot)} readOnly={readOnly()} /></Show>}><ProjectsForm snapshot={untrack(snapshot)} readOnly={readOnly()} /></Show>}>
+                    <Show when={raw()} fallback={<Show when={tab() === "projects"} fallback={<Show when={workspace().commit} keyed><SettingsForm snapshot={untrack(snapshot)} readOnly={readOnly()} /></Show>}><Show when={workspace().commit} keyed><ProjectsForm snapshot={untrack(snapshot)} readOnly={readOnly()} /></Show></Show>}>
                       <FileEditor files={[{ path: paths.brain, bytes: 0, source: "workspace" }]} readOnly={readOnly()} />
                     </Show>
                   </div>

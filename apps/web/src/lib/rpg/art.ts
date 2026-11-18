@@ -10,6 +10,7 @@ type Ctx = CanvasRenderingContext2D;
 /** Scenery is painted at this many canvas pixels per world pixel, so it stays sharp when zoomed in. */
 export const RES = 4;
 const GROUND_RES = 2;
+const MAX_GROUND_PIXELS = 16_000_000;
 const canvas = (w: number, h: number): HTMLCanvasElement => { const c = document.createElement("canvas"); c.width = Math.ceil(w); c.height = Math.ceil(h); return c; };
 const ctxOf = (c: HTMLCanvasElement): Ctx => c.getContext("2d") as Ctx;
 
@@ -392,9 +393,11 @@ function gear(ctx: Ctx, look: Look, dir: 0 | 1 | 3, hand: { x: number; y: number
 const GRASS = "#7cc45a";
 /** The ground: soft grass, dirt roads with grassy edges, the plaza's cobbles and the fences, painted once. */
 export function paintGround(map: Layout): HTMLCanvasElement {
-  const c = canvas(map.w * TILE * GROUND_RES, map.h * TILE * GROUND_RES);
+  // Twice the pixels while the canvas stays under what iOS paints (about 16.7 million); a very large village is drawn at a lower scale.
+  const res = Math.min(GROUND_RES, Math.sqrt(MAX_GROUND_PIXELS / (map.w * TILE * map.h * TILE)));
+  const c = canvas(Math.floor(map.w * TILE * res), Math.floor(map.h * TILE * res));
   const ctx = ctxOf(c);
-  ctx.scale(GROUND_RES, GROUND_RES);
+  ctx.scale(c.width / (map.w * TILE), c.height / (map.h * TILE));
   const random = seeded(7);
   const g = (x: number, y: number): Ground | undefined => (x < 0 || y < 0 || x >= map.w || y >= map.h ? undefined : map.ground[y * map.w + x]);
   ctx.fillStyle = GRASS; ctx.fillRect(0, 0, map.w * TILE, map.h * TILE);
@@ -457,7 +460,6 @@ export function paintGround(map: Layout): HTMLCanvasElement {
   }
   return c;
 }
-export const GROUND_SCALE = GROUND_RES;
 
 const ROOFS = ["#c0453b", "#2e7fc1", "#8e4fb8", "#d68910", "#2e8a4e", "#17a589", "#b8478a"] as const;
 export const roofOf = (name: string): string => ROOFS[hashOf(name) % ROOFS.length] as string;

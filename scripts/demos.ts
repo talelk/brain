@@ -33,7 +33,7 @@ interface Demo {
   readonly platform?: "admin" | "read";
 }
 
-/** The containers the platform workspace may restart without waiting for a person: the demos' own web containers, never Brain, the model or memory. */
+/** The containers the platform workspace may restart without waiting for a person: the demos' own web containers, never Brain, the model or memory. deploy/demo/host-commands.json lists the same names in the `container` pattern of host.logs and host.restart: keep the two in step. */
 const RESTARTABLE = ["cvinsights-web-1", "health360-web-1", "kios-rh-new-1", "of-vue360-ai-app-1", "omniflow-docus-docus-1", "zain-docus-docus-1", "teknova-nao", "ps-insights-rill-1", "synthetic-api", "newqlik-query-1", "newqlik-build-1"];
 const GH = (repo: string): string => `https://github.com/${repo}.git`;
 const DEMOS: readonly Demo[] = [

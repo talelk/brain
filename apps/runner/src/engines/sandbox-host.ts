@@ -8,17 +8,24 @@ import { createEngine } from "./select";
 /** How much of a setup command's output is kept: its end, where a failure says why. */
 const EXEC_OUTPUT_CHARS = 8000;
 
-/** Runs one shell command in the sandbox (a project's setup) and reports how it ended. */
+/**
+ * Runs one shell command in the sandbox (a project's setup) and reports how it ended. The command is its own process group, and a
+ * timeout or an abort kills the whole group: a grandchild that holds the output pipe would otherwise keep the command "running".
+ */
 function exec(command: string, cwd: string, timeoutMs: number, signal: AbortSignal): Promise<ExecResult> {
   return new Promise((resolve) => {
-    const child = spawn("/bin/bash", ["-c", command], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn("/bin/bash", ["-c", command], { cwd, stdio: ["ignore", "pipe", "pipe"], detached: true });
+    const killGroup = (): void => {
+      try { if (child.pid !== undefined) process.kill(-child.pid, "SIGKILL"); } catch { child.kill("SIGKILL"); }
+    };
+    if (signal.aborted) killGroup();
     let output = "";
     let timedOut = false;
     const keep = (chunk: Buffer): void => { output = (output + chunk.toString("utf8")).slice(-EXEC_OUTPUT_CHARS); };
     child.stdout.on("data", keep);
     child.stderr.on("data", keep);
-    const timer = setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, timeoutMs);
-    signal.addEventListener("abort", () => child.kill("SIGKILL"), { once: true });
+    const timer = setTimeout(() => { timedOut = true; killGroup(); }, timeoutMs);
+    signal.addEventListener("abort", killGroup, { once: true });
     child.on("error", (error) => { clearTimeout(timer); resolve({ exitCode: 127, output: error.message, timedOut }); });
     child.on("close", (code) => { clearTimeout(timer); resolve({ exitCode: code ?? 1, output, timedOut }); });
   });

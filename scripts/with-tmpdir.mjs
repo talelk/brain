@@ -7,6 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+const signalNumber = new Map([["SIGHUP", 1], ["SIGINT", 2], ["SIGTERM", 15], ["SIGKILL", 9]]);
 const [command, ...args] = process.argv.slice(2);
 if (!command) { console.error("usage: with-tmpdir.mjs <command> [args...]"); process.exit(2); }
 const env = { ...process.env };
@@ -17,10 +18,16 @@ if (!env.TMPDIR) {
   owned = mkdtempSync(join(base, "run-"));
   env.TMPDIR = owned;
 }
+const clean = () => { if (owned) rmSync(owned, { recursive: true, force: true }); };
 const child = spawn(command, args, { env, stdio: "inherit" });
-const forward = (signal) => () => child.kill(signal);
-for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, forward(signal));
+// A signal to this process goes on to the command; this process then ends when the command does, and the folder goes with it.
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, () => child.kill(signal));
+child.on("error", (error) => {
+  console.error(`with-tmpdir: could not run ${command}: ${error.message}`);
+  clean();
+  process.exit(127);
+});
 child.on("exit", (code, signal) => {
-  if (owned) rmSync(owned, { recursive: true, force: true });
-  process.exit(code ?? (signal ? 1 : 0));
+  clean();
+  process.exit(code ?? (signal ? 128 + (signalNumber.get(signal) ?? 1) : 0));
 });

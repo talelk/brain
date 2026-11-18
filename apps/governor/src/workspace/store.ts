@@ -62,6 +62,8 @@ export interface FolderChange {
   readonly write: ReadonlyMap<string, Uint8Array>; readonly remove: readonly string[]; readonly message: string; readonly author: Author;
   /** Whether an instance admin makes the change: only then may it add, change or remove `platform` (workspace/platform.ts). */
   readonly instanceAdmin: boolean;
+  /** The commit the change was made against: when the folder has moved on by the time it is the change's turn, nothing is written and the error says so. */
+  readonly onlyAtCommit?: { readonly commit: string; readonly refusal: Error };
 }
 /** A committed, valid folder, ready to be made the active snapshot. */
 export interface Committed { readonly commit: string; readonly snapshotDigest: Digest; readonly manifest: SnapshotManifest; readonly paths: readonly string[] }
@@ -93,6 +95,7 @@ export function commitFolder(gov: Gov, slug: string, change: FolderChange): Prom
   const dir = workspaceDir(gov, slug);
   return inTurn(dir, async () => {
     const head = existsSync(join(dir, ".git")) ? await readHead(dir) : undefined;
+    if (change.onlyAtCommit && head?.commit !== change.onlyAtCommit.commit) throw change.onlyAtCommit.refusal;
     const packs = { shipped: gov.packsDir, released: releasedDirOf(gov.dataDir) };
     let made = applied(head, change, packs);
     // The commit that makes a workspace the platform workspace also gives it an editable copy of every shipped pack.

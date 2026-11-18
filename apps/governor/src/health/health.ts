@@ -67,7 +67,7 @@ export function registerHealth({ gov, app }: Governor): void {
     const models = await Promise.all(own.models.map((model) => modelHealth(gov, own.from?.id ?? input.workspaceId, model, now)));
     const marker = join(gov.dataDir, "backup.marker");
     return {
-      version: VERSION, runners: listRunners(gov), models,
+      version: VERSION, runners: listRunners(gov).map((runner) => (ctx.user?.instanceAdmin ? runner : { ...runner, engines: [], capabilities: [] })), models,
       audit: {
         events: (ctx.db.prepare("SELECT COALESCE(MAX(seq), 0) AS n FROM events").get() as { n: number }).n,
         lastCheckpointAt: (ctx.db.prepare("SELECT MAX(created_at_ms) AS at FROM audit_checkpoints").get() as { at: number | null }).at, problem: auditProblem(gov, now),

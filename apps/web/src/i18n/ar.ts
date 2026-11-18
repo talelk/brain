@@ -1570,7 +1570,6 @@ export const ar: Catalog = {
   "live.world.fit": "رؤية القرية كلها",
   "live.world.tour": "تتبّع الحدث",
   "live.world.options": "خيارات القرية",
-  "live.world.minimap": "خريطة القرية كلها",
   "live.world.pan.left": "انظر يسارًا",
   "live.world.pan.right": "انظر يمينًا",
   "live.world.pan.up": "انظر للأعلى",

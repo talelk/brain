@@ -66,8 +66,9 @@ export class ToolCalls {
     return check(input);
   }
 
-  /** One call the model made. Returns the text the model is shown. */
-  async call(toolName: string, input: JsonValue): Promise<string> {
+  /** One call the model made. Returns the text the model is shown. `session` is the model session's own signal: it ends with the attempt, and with the session's time. */
+  async call(toolName: string, input: JsonValue, session?: AbortSignal): Promise<string> {
+    const signal = session ? AbortSignal.any([this.deps.signal, session]) : this.deps.signal;
     const { offer, emit } = this.deps;
     const tool = offer.agent.tools.includes(toolName) ? offer.tools.find((candidate) => candidate.name === toolName) : undefined;
     if (!tool) return JSON.stringify({ refused: true, error: `There is no tool ${toolName} in this task.` });
@@ -77,7 +78,7 @@ export class ToolCalls {
     let result: CallResult;
     try {
       const problem = this.inputProblem(tool, input);
-      result = problem ? failed(`The input does not fit the tool's inputs: ${problem}`) : tool.runs === "brain" ? await this.brain(tool, callId, input) : tool.effect === "read" ? ran(await this.perform(tool, callId, input)) : await this.withApproval(tool, callId, input);
+      result = problem ? failed(`The input does not fit the tool's inputs: ${problem}`) : tool.runs === "brain" ? await this.brain(tool, callId, input) : tool.effect === "read" ? ran(await this.perform(tool, callId, input, signal)) : await this.withApproval(tool, callId, input, signal);
     } catch (error) {
       if (isLeaseLost(error)) this.deps.leaseLost();
       result = failed(`The call could not be carried out: ${error instanceof Error ? error.message.slice(0, 300) : "unknown error"}`);
@@ -99,7 +100,7 @@ export class ToolCalls {
       if (problem || !tool) result = failed(`The approved call cannot be run: ${problem}`);
       else if (state !== "approved") result = failed(`The approval of this call is ${state}, so nothing was run.`);
       else if (tool.runs === "brain") result = this.brainAnswer(await client.brainTool(offer.attemptId, { fence: offer.fence, callId: act.callId, tool: tool.name, input: act.input, baseCommits: this.deps.baseCommits() }));
-      else result = ran(await this.perform(tool, act.callId, act.input));
+      else result = ran(await this.perform(tool, act.callId, act.input, this.deps.signal));
     } catch (error) {
       if (isLeaseLost(error)) this.deps.leaseLost();
       result = failed(`The approved call could not be carried out: ${error instanceof Error ? error.message.slice(0, 300) : "unknown error"}`);
@@ -109,14 +110,14 @@ export class ToolCalls {
   }
 
   /** Runs a script tool or a host command now. */
-  private async perform(tool: OfferTool, callId: string, input: JsonValue): Promise<ToolRunResult> {
+  private async perform(tool: OfferTool, callId: string, input: JsonValue, signal: AbortSignal): Promise<ToolRunResult> {
     const { offer, client, launcher } = this.deps;
     if (tool.hostCommand !== undefined) {
       if (!launcher) return { ok: false, output: { error: "Host commands need the launcher on this runner, and it has none. The command was not run." } };
       // The tool's inputs are the command's named arguments; the launcher checks each against the operator's pattern.
       const args = Object.fromEntries(Object.entries(isJsonObject(input) ? input : {}).map(([name, value]) => [name, typeof value === "string" ? value : JSON.stringify(value)]));
       try {
-        const done = await launcher.hostCommand(tool.hostCommand, args, tool.effect === "read" ? "read" : "privileged", callId);
+        const done = await launcher.hostCommand(tool.hostCommand, args, tool.effect === "read" ? "read" : "privileged", callId, signal);
         if (done.timedOut) return { ok: false, output: { error: "the command ran longer than its timeout and was stopped", output: done.stdout } };
         return done.exitCode === 0 ? { ok: true, output: done.stdout.trim() } : { ok: false, output: { error: `the command ended with exit code ${done.exitCode}`, output: done.stdout, stderr: done.stderr } };
       } catch (error) {
@@ -124,15 +125,15 @@ export class ToolCalls {
       }
     }
     return runScriptTool({
-      attemptId: offer.attemptId, attemptDir: this.deps.attemptDir, tool, callId, input, launcher, unsandboxedForTests: this.deps.unsandboxedForTests, signal: this.deps.signal,
+      attemptId: offer.attemptId, attemptDir: this.deps.attemptDir, tool, callId, input, launcher, unsandboxedForTests: this.deps.unsandboxedForTests, signal,
       blob: (ref) => client.blob(ref),
       secret: async (name) => (await client.secret(offer.attemptId, { fence: offer.fence, name, use: { tool: tool.name } })).value,
     });
   }
 
-  private wait(approvalId: string): Promise<ApprovalVerdict> {
+  private wait(approvalId: string, signal: AbortSignal = this.deps.signal): Promise<ApprovalVerdict> {
     const { offer, client } = this.deps;
-    return waitForApproval(() => client.approval(offer.attemptId, approvalId, { fence: offer.fence }), { ...this.deps.approval, signal: this.deps.signal }, isLeaseLost);
+    return waitForApproval(() => client.approval(offer.attemptId, approvalId, { fence: offer.fence }), { ...this.deps.approval, signal }, isLeaseLost);
   }
 
   private notApproved(verdict: Exclude<ApprovalVerdict, { state: "approved" }>, approvalId: string | undefined): CallResult {
@@ -142,14 +143,14 @@ export class ToolCalls {
   }
 
   /** A script or host-command call with an effect: asked for, then run only once it is approved. */
-  private async withApproval(tool: OfferTool, callId: string, input: JsonValue): Promise<CallResult> {
+  private async withApproval(tool: OfferTool, callId: string, input: JsonValue, signal: AbortSignal): Promise<CallResult> {
     const { offer, client } = this.deps;
     await this.deps.syncPatch();
     const asked = await client.toolCall(offer.attemptId, { fence: offer.fence, callId, tool: tool.name, input, baseCommits: this.deps.baseCommits() });
     const verdict: ApprovalVerdict = asked.state === "approved" ? { state: "approved" }
-      : asked.state === "pending" && asked.approvalId ? await this.wait(asked.approvalId)
+      : asked.state === "pending" && asked.approvalId ? await this.wait(asked.approvalId, signal)
       : { state: "rejected", reason: asked.reason ?? (asked.state === "expired" ? "the approval expired without a decision" : "the call was rejected") };
-    return verdict.state === "approved" ? ran(await this.perform(tool, callId, input)) : this.notApproved(verdict, asked.approvalId);
+    return verdict.state === "approved" ? ran(await this.perform(tool, callId, input, signal)) : this.notApproved(verdict, asked.approvalId);
   }
 
   private brainAnswer(answer: BrainToolResponse): CallResult {

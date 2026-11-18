@@ -1,7 +1,7 @@
 import { LIMIT_DEFAULTS, type AttemptFailure, type AttemptUsage, type LimitHit } from "@brain/contracts";
 import type { Gov } from "../dispatch";
 import { taskOf, type AttemptRow } from "../tasks/store";
-import { capOf, COST, microUsd, spentToday } from "../trust/usage";
+import { capOf, COST, microUsd, spentBesides } from "../trust/usage";
 import { activeManifest, manifestOf } from "../workspace/store";
 
 /** What stopped an attempt that failed: the limit, its value and what was used (docs/model.md, Limits). A failure no limit explains is returned as it came. */
@@ -19,7 +19,7 @@ export function withLimit(gov: Gov, attempt: AttemptRow, failure: AttemptFailure
   // The money limits explain only a refusal or an end the attempt chose; a failed setup or a lost runner has other causes.
   const refused = failure.reason === "limit" || failure.reason === "model-refused" || failure.reason === "engine";
   if (!refused) return failure;
-  if (cap > 0 && spentToday(gov, attempt.workspace_id) >= cap) return hit({ name: "workspace.daily_spend_usd", value: active.limits.daily_spend_usd, used: spentToday(gov, attempt.workspace_id) / 1_000_000 });
+  if (cap > 0 && spentBesides(gov, attempt.workspace_id, attempt.id) >= cap) return hit({ name: "workspace.daily_spend_usd", value: active.limits.daily_spend_usd, used: spentBesides(gov, attempt.workspace_id, attempt.id) / 1_000_000 });
   if (limits.spend_usd > 0 && micro >= microUsd(limits.spend_usd) * 0.98) return hit({ name: "agent.spend_usd", value: limits.spend_usd, used: micro / 1_000_000, ...agent });
   if (failure.reason !== "limit") return failure;
   if (limits.tokens > 0 && tokens >= limits.tokens * 0.9) return hit({ name: "agent.tokens", value: limits.tokens, used: tokens, ...agent });

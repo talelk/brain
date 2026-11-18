@@ -118,7 +118,7 @@ export const BrainFile = z.strictObject({
   })).default([]),
   project: z.array(z.strictObject({
     name: slug("a project name"),
-    repo: z.string().min(1),
+    repo: z.string().min(1).refine((value) => !value.startsWith("-"), "a repository address does not start with a dash"),
     branch: z.string().min(1).default("main"),
     access: z.enum(["read", "write"]).default("read"),
     credential: secretRef.optional(),

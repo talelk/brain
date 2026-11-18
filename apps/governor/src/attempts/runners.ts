@@ -113,7 +113,8 @@ export function registerRunners({ gov, app }: Governor): void {
     const input = await body(c, z.strictObject({ runnerId: z.string().min(1).max(100) }));
     if (!db.prepare("SELECT 1 FROM runners WHERE id=? AND state='active'").get(input.runnerId)) throw new BrainError("UNAUTHENTICATED", "This runner is not enrolled");
     const answer: ChallengeResponse = { challengeId: newId("ch"), nonce: randomBytes(32).toString("base64url"), expiresAt: gov.clock.nowMs() + 60_000 };
-    db.prepare("DELETE FROM runner_challenges WHERE expires_at_ms<=?").run(gov.clock.nowMs());
+    // A runner holds one challenge at a time: asking again replaces it, so the rows cannot pile up.
+    db.prepare("DELETE FROM runner_challenges WHERE expires_at_ms<=? OR runner_id=?").run(gov.clock.nowMs(), input.runnerId);
     db.prepare("INSERT INTO runner_challenges(id, runner_id, nonce, expires_at_ms) VALUES (?,?,?,?)").run(answer.challengeId, input.runnerId, answer.nonce, answer.expiresAt);
     return c.json(answer);
   });

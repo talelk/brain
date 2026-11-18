@@ -139,7 +139,7 @@ export async function planFix(gov: Gov, attempt: AttemptRow, task: TaskRow, rowI
     throw new ToolRefusal(`The workspace would not be valid with this change: ${(problems ?? []).map((one) => `${one.path}: ${one.message}`).join("; ") || (e as Error).message}`);
   }
   const { manifest } = checked;
-  for (const key of ["approvals", "github", "git", "teams", "platform"] as const) {
+  for (const key of ["approvals", "github", "git", "teams", "platform", "models", "projects"] as const) {
     if (Buffer.compare(canonicalJsonBytes((manifest[key] ?? null) as JsonValue), canonicalJsonBytes((active[key] ?? null) as JsonValue)) !== 0) throw new ToolRefusal(`A fix does not change "${key}" of brain.toml: that is decided by an admin in the settings`);
   }
   if (failed?.agent && !manifest.agents[failed.agent]) throw new ToolRefusal(`The change removes the agent ${failed.agent}, which the failed task needs`);
@@ -161,10 +161,13 @@ export async function planFix(gov: Gov, attempt: AttemptRow, task: TaskRow, rowI
 export async function commitFix(gov: Gov, task: TaskRow, rawInput: JsonValue, baseCommit: string | undefined): Promise<Committed> {
   const input = inputOf(rawInput);
   const workspace = getWorkspace(gov.db, task.workspace_id);
-  if (baseCommit !== commitOf(gov.db, workspace.id, workspace.snapshotDigest)) throw new ToolRefusal("The workspace changed after this fix was proposed, so the approval no longer fits it. Propose the fix again from the new files");
+  const changed = new ToolRefusal("The workspace changed after this fix was proposed, so the approval no longer fits it. Propose the fix again from the new files");
+  if (baseCommit !== commitOf(gov.db, workspace.id, workspace.snapshotDigest)) throw changed;
   const healed = healedBy(task);
   return commitFolder(gov, workspace.slug, {
     write: new Map(input.files.map((file) => [file.path, bytes(file.content)] as const)), remove: [], instanceAdmin: false,
+    // Checked again when the folder's turn comes, so a change made between the check above and the commit is not overwritten.
+    onlyAtCommit: { commit: baseCommit, refusal: changed },
     message: `${input.message.slice(0, 160)}\n\n${healed !== undefined ? `Heals task ${healed}` : `Proposed by platform task ${task.id}`}`,
     author: { name: task.agent ?? "workspace-healer", email: "brain@localhost" },
   });

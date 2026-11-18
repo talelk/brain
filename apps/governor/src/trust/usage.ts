@@ -21,6 +21,11 @@ export const capOf = (manifest: SnapshotManifest): number => microUsd(manifest.l
 export function spentToday(gov: Pick<Gov, "db" | "clock">, workspaceId: string): number {
   return (gov.db.prepare(`SELECT COALESCE(SUM(${HELD}), 0) AS n FROM usage u WHERE u.workspace_id=? AND u.day=?`).get(workspaceId, utcDay(gov.clock.nowMs())) as { n: number }).n;
 }
+/** What the workspace has spent today besides what `attemptId` itself holds: its own reservation must not count against the cap it is admitted under. */
+export function spentBesides(gov: Pick<Gov, "db" | "clock">, workspaceId: string, attemptId: string): number {
+  const own = gov.db.prepare(`SELECT ${HELD} AS held, COALESCE(u.metered_micro_usd, 0) AS metered FROM usage u WHERE u.attempt_id=?`).get(attemptId) as { held: number; metered: number } | undefined;
+  return spentToday(gov, workspaceId) - (own?.held ?? 0) + (own?.metered ?? 0);
+}
 /** True when the workspace's daily cap leaves no room for `more`. A cap of 0 is no cap. */
 export function overCap(gov: Gov, workspaceId: string, manifest: SnapshotManifest, more: number): boolean {
   const cap = capOf(manifest);

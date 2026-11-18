@@ -17,7 +17,8 @@ export function Heat(props: { rows: number; cols: number; cell: (row: number, co
   const [active, setActive] = createSignal<[number, number]>();
   const [said, setSaid] = createSignal("");
   let grid: HTMLDivElement | undefined;
-  const here = (): [number, number] => active() ?? first();
+  /** The square that holds the tab stop; when the data changes under it, the first square takes over. */
+  const here = (): [number, number] => { const now = active(); return now && props.cell(now[0], now[1]) ? now : first(); };
   const go = (row: number, col: number): void => {
     setActive([row, col]);
     setSaid(props.cell(row, col)?.label ?? "");

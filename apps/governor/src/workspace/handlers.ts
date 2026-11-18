@@ -169,7 +169,7 @@ export function registerWorkspace({ gov: { registry }, gov, app }: Governor): vo
       id: workspace.id, slug: workspace.slug, name: workspace.name, description: workspace.description, status: workspace.status, role: ctx.role ?? "viewer",
       visibility: snapshot.visibility === "public" ? "public" : "private", platform: snapshot.platform ?? null, viaPublic: ctx.user ? (accessOf(ctx.gov, ctx.user.id, workspace.id)?.viaPublic ?? false) : false,
     };
-    return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot, inheritedModels: (() => { const found = modelsOf(ctx.gov, workspace.id, snapshot); return found.from ? found.models.map((model) => ({ name: model.name, model: model.model, workspace: found.from?.slug ?? "" })) : []; })(), updates: updatesOf(ctx.gov, snapshot), folderPush: snapshot.git ? lastPush(ctx.gov, workspace.id) : null };
+    return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot, inheritedModels: (() => { const found = modelsOf(ctx.gov, workspace.id, snapshot); return found.from ? found.models.map((model) => ({ name: model.name, model: model.model, workspace: ctx.user?.instanceAdmin ? (found.from?.slug ?? "") : "" })) : []; })(), updates: updatesOf(ctx.gov, snapshot), folderPush: snapshot.git ? lastPush(ctx.gov, workspace.id) : null };
   });
 
   registry.query("workspace.files", async (ctx, input) => ({ files: await listFiles(ctx.gov, input.workspaceId) }));
@@ -184,7 +184,8 @@ export function registerWorkspace({ gov: { registry }, gov, app }: Governor): vo
     if (!user) throw new BrainError("UNAUTHENTICATED", "Sign in first");
     const workspaceId = c.req.param("id");
     if (!accessOf(gov, user.id, workspaceId)) throw new BrainError("NOT_FOUND", "Workspace not found");
-    const path = decodeURIComponent(c.req.path.slice(`/v1/workspaces/${workspaceId}/files/`.length));
+    let path: string;
+    try { path = decodeURIComponent(c.req.path.slice(`/v1/workspaces/${workspaceId}/files/`.length)); } catch { throw new BrainError("INVALID_INPUT", "The file path is not valid"); }
     const file = await readFileOf(gov, workspaceId, path);
     return new Response(Buffer.from(file.bytes), {
       headers: {

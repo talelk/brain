@@ -140,7 +140,7 @@ async function fetchMirror(request: WorkingCopyRequest, project: OfferProject, m
     }
     const secret = project.credential ? await request.credential(project) : undefined;
     const env = credentialEnv(project.repo, secret);
-    const fetched = await git(["-C", mirror, "fetch", "--quiet", "--prune", "--no-tags", "--depth", "50", project.repo, `+refs/heads/${project.branch}:refs/heads/${project.branch}`], { env, signal });
+    const fetched = await git(["-C", mirror, "fetch", "--quiet", "--prune", "--no-tags", "--depth", "50", "--", project.repo, `+refs/heads/${project.branch}:refs/heads/${project.branch}`], { env, signal });
     if (!fetched.ok) throw new SetupError(`project ${project.name} could not be fetched from its repository (branch ${project.branch}): ${scrub(fetched.stderr, secret)}`, true);
     const has = async (commit: string): Promise<boolean> => (await git(["-C", mirror, "cat-file", "-e", `${commit}^{commit}`], { signal })).ok;
     if (project.baseCommit) {
@@ -154,7 +154,7 @@ async function fetchMirror(request: WorkingCopyRequest, project: OfferProject, m
       const reached = async (): Promise<boolean> => (await git(["-C", mirror, "for-each-ref", "--contains", project.baseCommit as string, "--count=1", "--format=%(refname)"], { signal })).text !== "";
       if (await whole(project.baseCommit)) { if (!(await reached())) await git(["-C", mirror, "update-ref", keep, project.baseCommit], { signal }); }
       else {
-        await git(["-C", mirror, "fetch", "--quiet", "--no-tags", "--depth", "1", project.repo, `+${project.baseCommit}:${keep}`], { env, signal, timeoutMs: 120_000 });
+        await git(["-C", mirror, "fetch", "--quiet", "--no-tags", "--depth", "1", "--", project.repo, `+${project.baseCommit}:${keep}`], { env, signal, timeoutMs: 120_000 });
         if (!(await whole(project.baseCommit)) || !(await reached())) throw new SetupError(`commit ${project.baseCommit.slice(0, 12)} of project ${project.name} could not be obtained from its repository: the branch ${project.branch} has moved on and the commit this task started from is no longer served. Start the task again from the current head of the branch.`);
       }
       return project.baseCommit;

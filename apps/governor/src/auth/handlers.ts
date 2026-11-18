@@ -3,7 +3,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { visibleWorkspaces } from "../access";
-import { getInstance, setInstance, type Db } from "../db";
+import { getInstance, setInstance, tx, type Db } from "../db";
 import type { Governor } from "../app";
 import type { Gov } from "../dispatch";
 import { append } from "../events";
@@ -79,7 +79,10 @@ export function registerAuth({ gov: { registry } }: Governor): void {
           ...(input.name ? [] : [{ path: "name", message: "needed for a new account" }]), ...(input.password ? [] : [{ path: "password", message: "needed for a new account" }]),
         ]);
       }
-      return { userId: await ctx.gov.auth.createAccount({ email: input.email, name: input.name, password: input.password }), created: true };
+      // The account is made by the auth library, outside the transaction of `run`, so its own record is written here at once: a membership that then fails leaves an account that is on the audit chain.
+      const userId = await ctx.gov.auth.createAccount({ email: input.email, name: input.name, password: input.password });
+      tx(ctx.db, () => append(ctx.db, { type: "user.created", workspaceId: input.workspaceId, subject: `user:${userId}`, payload: { userId, email: input.email }, actor: ctx.actor }));
+      return { userId, created: true };
     },
     run(ctx, input, { userId, created }) {
       if (roleOf(ctx.db, input.workspaceId, userId) === "admin" && input.role !== "admin" && adminsWithout(ctx.db, input.workspaceId, userId) === 0) throw new BrainError("CONFLICT", "A workspace keeps at least one admin");

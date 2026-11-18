@@ -1,4 +1,4 @@
-import { createContext, createEffect, createSignal, useContext, type Accessor, type JSX } from "solid-js";
+import { createContext, createEffect, createSignal, onCleanup, useContext, type Accessor, type JSX } from "solid-js";
 import type { Overview, Role, Today, User, Workspace, WorkspaceSummary } from "@brain/contracts";
 import { roleAtLeast } from "../lib/model";
 import { useQuery, type Loaded } from "./api";
@@ -43,6 +43,7 @@ export function PlaceProvider(props: { summary: Accessor<WorkspaceSummary>; chil
     can: (need) => roleAtLeast(props.summary().role, need),
   };
   createEffect(() => setRecentGoals((place.today.data()?.recent ?? []).map((task) => ({ rootId: task.rootId, title: task.goalTitle, workspaceId: task.workspaceId }))));
+  onCleanup(() => setRecentGoals([]));
   return <PlaceContext.Provider value={place}>{props.children}</PlaceContext.Provider>;
 }
 export function usePlace(): Place {

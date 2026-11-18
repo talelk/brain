@@ -13,7 +13,7 @@ export interface SessionRequest {
   readonly engine: EngineAdapter;
   readonly spec: EngineSessionSpec;
   /** Carries out a workspace or Brain-run tool call and returns the text the model is shown. */
-  readonly executeTool: (tool: string, input: JsonValue) => Promise<string>;
+  readonly executeTool: (tool: string, input: JsonValue, signal: AbortSignal) => Promise<string>;
   readonly emit: (event: AttemptEventBody) => void;
   /** The attempt's abort signal; its reason is an `AbortCause`. */
   readonly signal: AbortSignal;
@@ -72,7 +72,7 @@ export async function runSession(request: SessionRequest): Promise<SessionResult
         case "native.call": emit(event); overLimit(); break;
         case "native.result": emit(event); break;
         case "tool.request":
-          await engine.toolResult(event.callId, overLimit() ? JSON.stringify({ refused: true, error: "This attempt's allowance is used up." }) : await request.executeTool(event.tool, event.input));
+          await engine.toolResult(event.callId, overLimit() ? JSON.stringify({ refused: true, error: "This attempt's allowance is used up." }) : await request.executeTool(event.tool, event.input, session.signal));
           break;
         case "usage":
           usage = { inputTokens: before.inputTokens + event.inputTokens, outputTokens: before.outputTokens + event.outputTokens, cachedInputTokens: before.cachedInputTokens + event.cachedInputTokens, microUsd: before.microUsd + event.microUsd, turns: before.turns + event.turns };

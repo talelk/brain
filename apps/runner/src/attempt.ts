@@ -204,7 +204,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
       for (const project of offer.projects) {
         if (!project.setup || offer.agent.native !== "all") continue;
         emit({ kind: "status", phase: "setup", detail: `running the setup command of ${project.name}` });
-        const ran = engine instanceof SandboxedEngine ? await engine.exec(project.setup, `${SANDBOX_PATHS.work}/${project.name}`, SETUP_TIMEOUT_MS)
+        const ran = engine instanceof SandboxedEngine ? await engine.exec(project.setup, `${SANDBOX_PATHS.work}/${project.name}`, SETUP_TIMEOUT_MS, abort.signal)
           : cfg.unsandboxedForTests === true ? await setupDirectlyForTests(project.setup, join(attemptDir, "work", project.name), abort.signal) : undefined;
         if (!ran) emit({ kind: "status", phase: "setup", detail: `the setup command of ${project.name} was not run: the ${picked.id} engine runs outside a sandbox` });
         else if (ran.timedOut || ran.exitCode !== 0) {
@@ -223,7 +223,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
         tools: offered.map((tool) => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, effect: tool.effect })),
         limits: { timeoutMs: cfg.attemptTimeoutMs, maxTokens: offer.agent.limits.tokens, maxMicroUsd: offer.agent.limits.spendMicroUsd, maxTurns: offer.agent.limits.turns, ...(offer.kind === "check" || offer.kind === "judge" ? { maxOutputTokens: VERDICT_OUTPUT_TOKENS } : {}) },
       };
-      const session = await runEngine({ engine, spec, emit, signal: abort.signal, executeTool: (tool, input) => tools.call(tool, input) }, answerFormat(offer));
+      const session = await runEngine({ engine, spec, emit, signal: abort.signal, executeTool: (tool, input, signal) => tools.call(tool, input, signal) }, answerFormat(offer));
       usage = { inputTokens: session.usage.inputTokens, outputTokens: session.usage.outputTokens, cachedInputTokens: session.usage.cachedInputTokens, microUsd: session.usage.microUsd };
       if (!session.ok) ended = { outcome: "failed", result: session.text, failure: session.failure! };
       else {

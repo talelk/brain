@@ -369,7 +369,7 @@ describe("the record of an attempt and the health of what runs it", () => {
     answer = (url) => (url.startsWith("https://two.example") ? Response.json({ error: "bad key" }, { status: 401 }) : Response.json({ data: [] }));
     await driver.heartbeat([]);
     const health = await member.query("health", { workspaceId });
-    expect(health.runners).toMatchObject([{ name: "test runner", online: true, engines: ["fixture", "pi", "claude"] }]);
+    expect(health.runners).toMatchObject([{ name: "test runner", online: true }]);
     expect(health.models).toEqual([{ name: "main", reachable: true, detail: "" }, { name: "spare", reachable: false, detail: "The model server refused the key" }, { name: "claude", reachable: true, detail: "" }]);
     expect(upstream.map((request) => request.url)).toEqual(["https://one.example/v1/models", "https://two.example/v1/models", "https://three.example/v1/models"]);
     expect(health.audit).toMatchObject({ problem: null, events: expect.any(Number) });

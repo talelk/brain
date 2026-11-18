@@ -13,11 +13,28 @@ const fail = (error: string, extra: Record<string, JsonValue> = {}): ToolRunResu
 /** The environment variable a tool reads a secret from: `BRAIN_SECRET_` and the secret's name in capitals, dashes as underscores. */
 export const secretEnvName = (secret: string): string => `BRAIN_SECRET_${secret.toUpperCase().replace(/-/gu, "_")}`;
 
-/** Every leased value is removed from whatever a tool printed before it reaches an event, an artifact or the model. */
+/**
+ * Every leased value is removed from whatever a tool printed before it reaches an event, an artifact or the model: as it is, and as
+ * it reads inside a JSON string (newlines, quotes and backslashes escaped). A value shorter than four characters is left alone on
+ * purpose: removing "ab" would mangle every other word of the output, and such a value is no secret worth the damage.
+ */
 export function scrubSecrets(text: string, values: readonly string[]): string {
   let out = text;
-  for (const value of values) if (value.length >= 4) out = out.split(value).join("[redacted]");
+  for (const value of values) {
+    if (value.length < 4) continue;
+    out = out.split(value).join("[redacted]");
+    const escaped = JSON.stringify(value).slice(1, -1);
+    if (escaped !== value) out = out.split(escaped).join("[redacted]");
+  }
   return out;
+}
+
+/** The same removal on a decoded JSON value, keys and strings alike: an escape the text form did not show (`\u0041`) is plain here. */
+function scrubValue(value: JsonValue, secrets: readonly string[]): JsonValue {
+  if (typeof value === "string") return scrubSecrets(value, secrets);
+  if (Array.isArray(value)) return value.map((item) => scrubValue(item, secrets));
+  if (value !== null && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [scrubSecrets(key, secrets), scrubValue(item, secrets)]));
+  return value;
 }
 
 /** Where an attempt's copy of a tool's files is: the folder the launcher mounts at `/tools`. */
@@ -51,6 +68,7 @@ export function scriptResult(run: CommandResult, secrets: readonly string[]): To
   if (run.timedOut) return fail("the tool ran longer than its timeout and was stopped", stderr ? { stderr } : {});
   let parsed: JsonValue | undefined;
   try { parsed = stdout ? JSON.parse(stdout) as JsonValue : undefined; } catch { parsed = undefined; }
+  if (parsed !== undefined) parsed = scrubValue(parsed, secrets);
   if (run.exitCode === 0) return parsed === undefined ? fail("the tool printed no JSON result", { stdout: stdout.slice(0, 2000) }) : { ok: true, output: parsed };
   const why = isJsonObject(parsed) && typeof parsed["error"] === "string" ? parsed["error"] : undefined;
   return fail(why ?? `the tool ended with exit code ${run.exitCode}`, stderr ? { stderr } : {});
@@ -83,11 +101,18 @@ export async function runScriptTool(run: ScriptRun): Promise<ToolRunResult> {
   let dir: string;
   try { dir = await materializeTool(run.attemptDir, tool, run.blob); } catch (error) { return fail(error instanceof Error ? error.message : "the tool's files could not be fetched"); }
   const secretEnv: Record<string, string> = {};
+  const taken = new Map<string, string>();
+  for (const name of tool.secrets) {
+    const env = secretEnvName(name);
+    const other = taken.get(env);
+    if (other !== undefined) return fail(`the secrets ${other} and ${name} of the tool both map to the environment variable ${env}; rename one`);
+    taken.set(env, name);
+  }
   try { for (const name of tool.secrets) secretEnv[secretEnvName(name)] = await run.secret(name); } catch (error) { return fail(`a secret of the tool could not be leased: ${error instanceof Error ? error.message.slice(0, 200) : "refused"}`); }
   const values = Object.values(secretEnv);
   const timeoutMs = tool.timeoutSeconds * 1000;
   try {
-    if (run.launcher) return scriptResult(await run.launcher.runTool({ attemptId: run.attemptId, tool: tool.name, requestId: run.callId, egressHosts: tool.network, input, timeoutMs, secretEnv }), values);
+    if (run.launcher) return scriptResult(await run.launcher.runTool({ attemptId: run.attemptId, tool: tool.name, requestId: run.callId, egressHosts: tool.network, input, timeoutMs, secretEnv }, run.signal), values);
     return scriptResult(await runDirectlyForTests(dir, join(run.attemptDir, "work"), input, timeoutMs, secretEnv, run.signal), values);
   } catch (error) {
     return fail(scrubSecrets(error instanceof Error ? error.message : "the tool could not be run", values).slice(0, 500));

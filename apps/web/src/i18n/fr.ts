@@ -1482,7 +1482,6 @@ export const fr: Catalog = {
   "live.world.fit": "Voir tout le village",
   "live.world.tour": "Suivre l'action",
   "live.world.options": "Options du village",
-  "live.world.minimap": "Carte de tout le village",
   "live.world.pan.left": "Regarder à gauche",
   "live.world.pan.right": "Regarder à droite",
   "live.world.pan.up": "Regarder en haut",

@@ -234,20 +234,25 @@ SCRIPT
 
 # ---- 7. Node and the dependencies of the launcher and the runner ----
 on_host "Node 24, pnpm and the dependencies of the launcher and the runner on the host" <<'SCRIPT'
+# A private folder: a predictable name in /tmp, written as root, could be a link someone else planted.
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
 if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)' 2>/dev/null; then
-  curl -fsSL https://deb.nodesource.com/setup_24.x -o /tmp/brain-node-setup.sh
-  as_root bash /tmp/brain-node-setup.sh >/dev/null
+  curl -fsSL https://deb.nodesource.com/setup_24.x -o "$WORK/node-setup.sh"
+  as_root bash "$WORK/node-setup.sh" >/dev/null
   as_root apt-get install -y nodejs >/dev/null
 fi
 command -v pnpm >/dev/null || as_root npm install -g pnpm@12.11.2 >/dev/null
 cd "$REMOTE_DIR/src"
-if [ ! -d node_modules ] || [ pnpm-lock.yaml -nt node_modules/.modules.yaml ]; then pnpm install --frozen-lockfile > /tmp/brain-host-install.log 2>&1 || { tail -n 30 /tmp/brain-host-install.log >&2; exit 1; }; fi
+if [ ! -d node_modules ] || [ pnpm-lock.yaml -nt node_modules/.modules.yaml ]; then pnpm install --frozen-lockfile > "$WORK/install.log" 2>&1 || { tail -n 30 "$WORK/install.log" >&2; exit 1; }; fi
 SCRIPT
 
 # ---- 8. the launcher and the runner ----
 on_host "Install and start brain-launcher and brain-runner (one runner, engines $ENGINES)" <<'SCRIPT'
 NODE="$(command -v node)"
-cat > /tmp/brain-launcher.service <<UNIT
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+cat > "$WORK/brain-launcher.service" <<UNIT
 [Unit]
 Description=Brain launcher (starts sandboxes and runs the operator's host commands)
 After=docker.service network-online.target
@@ -265,7 +270,7 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 UNIT
-cat > /tmp/brain-runner.service <<UNIT
+cat > "$WORK/brain-runner.service" <<UNIT
 [Unit]
 Description=Brain runner
 After=brain-launcher.service
@@ -280,8 +285,7 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 UNIT
-as_root install -m 0644 /tmp/brain-launcher.service /tmp/brain-runner.service /etc/systemd/system/
-rm -f /tmp/brain-launcher.service /tmp/brain-runner.service
+as_root install -m 0644 "$WORK/brain-launcher.service" "$WORK/brain-runner.service" /etc/systemd/system/
 as_root systemctl daemon-reload
 as_root systemctl stop brain-runner.service >/dev/null 2>&1 || true
 
