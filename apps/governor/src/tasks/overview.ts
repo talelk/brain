@@ -73,7 +73,7 @@ export function registerOverview({ gov }: Governor): void {
     const attemptCounts = byWorkspace(rows<{ workspace_id: string; state: string; n: number }>(db, `SELECT workspace_id, state, COUNT(*) AS n FROM attempts WHERE workspace_id ${inMine} AND state IN ('queued','offered','running') GROUP BY workspace_id, state`, ...ids));
     const finished = byWorkspace(rows<{ workspace_id: string; day: string; state: string; n: number }>(db, `SELECT workspace_id, date(finished_at_ms / 1000, 'unixepoch') AS day, state, COUNT(*) AS n FROM tasks
       WHERE workspace_id ${inMine} AND parent_id IS NULL AND state IN ('done','failed') AND finished_at_ms >= ? GROUP BY workspace_id, day, state`, ...ids, since));
-    const hour = byWorkspace(rows<{ workspace_id: string; state: string; n: number }>(db, `SELECT workspace_id, state, COUNT(*) AS n FROM tasks WHERE workspace_id ${inMine} AND parent_id IS NOT NULL AND state IN ('done','failed') AND finished_at_ms >= ? GROUP BY workspace_id, state`, ...ids, now - HOUR_MS));
+    const hour = byWorkspace(rows<{ workspace_id: string; state: string; n: number }>(db, `SELECT workspace_id, state, COUNT(*) AS n FROM tasks WHERE workspace_id ${inMine} AND parent_id IS NOT NULL AND state IN ('done','failed') AND updated_at_ms >= ? AND finished_at_ms >= ? GROUP BY workspace_id, state`, ...ids, now - HOUR_MS, now - HOUR_MS));
     const spent = byWorkspace(rows<{ workspace_id: string; day: string; micro: number }>(db, `SELECT u.workspace_id, u.day, COALESCE(SUM(${COST}), 0) AS micro FROM usage u WHERE u.workspace_id ${inMine} AND u.day >= ? GROUP BY u.workspace_id, u.day`, ...ids, days[0]));
     const last = new Map(ids.map((id) => [id, (db.prepare("SELECT MAX(updated_at_ms) AS at FROM tasks WHERE workspace_id=?").get(id) as { at: number | null }).at]));
 
@@ -113,8 +113,10 @@ export function registerOverview({ gov }: Governor): void {
     }));
 
     // The Live feed: what happened to tasks lately, from the audit events (stamped by the wall clock); and every goal that finished in the last hour.
+    // The floor is found by walking back from the end of the chain through the window only, so the read never touches older history.
+    const floor = (db.prepare("SELECT seq FROM events WHERE created_at_ms < ? ORDER BY seq DESC LIMIT 1").get(Date.now() - EVENT_WINDOW_MS) as { seq: number } | undefined)?.seq ?? 0;
     const happened = rows<{ seq: number; type: OverviewEvent["type"]; workspace_id: string; subject: string; at: number; payload: string }>(db,
-      `SELECT seq, type, workspace_id, subject, created_at_ms AS at, payload_json AS payload FROM events WHERE workspace_id ${inMine} AND created_at_ms >= ? AND type IN (${marks(EVENT_TYPES)}) ORDER BY seq DESC LIMIT ?`, ...ids, Date.now() - EVENT_WINDOW_MS, ...EVENT_TYPES, EVENT_LIMIT);
+      `SELECT seq, type, workspace_id, subject, created_at_ms AS at, payload_json AS payload FROM events WHERE seq > ? AND workspace_id ${inMine} AND type IN (${marks(EVENT_TYPES)}) ORDER BY seq DESC LIMIT ?`, floor, ...ids, ...EVENT_TYPES, EVENT_LIMIT);
     const taskOf = (row: { subject: string; payload: string }): string => (row.subject.startsWith("task:") ? row.subject.slice(5) : (JSON.parse(row.payload) as { taskId?: string }).taskId ?? "");
     const tasks = new Map(summaries(db, `t.id IN (${marks(happened)})`, ...happened.map(taskOf)).map((task) => [task.id, task]));
     const events = happened.flatMap((row): OverviewEvent[] => {
@@ -123,7 +125,7 @@ export function registerOverview({ gov }: Governor): void {
       const payload = JSON.parse(row.payload) as { need?: { kind?: OverviewEvent["need"] }; pass?: boolean };
       return [{ id: row.seq, at: row.at, type: row.type, workspaceId: row.workspace_id, taskId: task.id, rootId: task.rootId, goalTitle: task.goalTitle, title: task.title, agent: task.agent, goal: task.parentId === null, need: row.type === "task.needs_you" ? (payload.need?.kind ?? null) : null, pass: row.type === "task.checked" ? (payload.pass ?? null) : null }];
     });
-    const goalsDone = summaries(db, `t.workspace_id ${inMine} AND t.parent_id IS NULL AND t.state='done' AND t.finished_at_ms >= ? ORDER BY t.finished_at_ms DESC LIMIT ?`, ...ids, now - HOUR_MS, GOALS_LIMIT).map((task) => ({ id: task.id, title: task.title, workspaceId: task.workspaceId, at: task.finishedAt ?? task.updatedAt }));
+    const goalsDone = summaries(db, `t.workspace_id ${inMine} AND t.parent_id IS NULL AND t.state='done' AND t.updated_at_ms >= ? AND t.finished_at_ms >= ? ORDER BY t.finished_at_ms DESC LIMIT ?`, ...ids, now - HOUR_MS, now - HOUR_MS, GOALS_LIMIT).map((task) => ({ id: task.id, title: task.title, workspaceId: task.workspaceId, at: task.finishedAt ?? task.updatedAt }));
     return { workspaces, needsYou, running: runningNow, events, goalsDone, health };
   });
 }

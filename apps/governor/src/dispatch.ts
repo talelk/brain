@@ -54,12 +54,14 @@ export type CommandHandler<T extends CommandType, P = undefined> =
   | {
     prepare?(ctx: Ctx, input: CommandInput<T>): Promise<P>;
     run(ctx: Ctx, input: CommandInput<T>, prepared: P): CommandOutputs[T];
+    /** Work that needs the change to be committed first (a sign-in of the account `run` made); it may put cookies on `ctx.cookies`. */
+    after?(ctx: Ctx, input: CommandInput<T>, prepared: P): Promise<void>;
     /** The answer holds a secret shown once: it is not kept, and a repeated key is refused instead of answered again. */
     secretOutput?: boolean;
   };
 export type QueryHandler<T extends QueryType> = (ctx: Ctx, input: QueryInput<T>) => QueryOutputs[T] | Promise<QueryOutputs[T]>;
 
-interface AnyCommand { prepare?: (ctx: Ctx, input: unknown) => Promise<unknown>; run: (ctx: Ctx, input: unknown, prepared: unknown) => unknown; secretOutput?: boolean }
+interface AnyCommand { prepare?: (ctx: Ctx, input: unknown) => Promise<unknown>; run: (ctx: Ctx, input: unknown, prepared: unknown) => unknown; after?: (ctx: Ctx, input: unknown, prepared: unknown) => Promise<void>; secretOutput?: boolean }
 type AnyQuery = (ctx: Ctx, input: unknown) => unknown;
 
 /** Where each module registers the commands and queries it implements. One without a handler answers NOT_IMPLEMENTED. */
@@ -137,13 +139,17 @@ export async function runCommand(gov: Gov, caller: Caller, body: unknown): Promi
   const first = replay();
   if (first) return first.output;
   const prepared = handler.prepare ? await handler.prepare(ctx, input) : undefined;
-  return tx(gov.db, () => {
+  let ran = false;
+  const output = tx(gov.db, () => {
     const again = replay();
     if (again) return again.output;
-    const output = handler.run(ctx, input, prepared);
-    if (actorId) gov.db.prepare("INSERT INTO idempotency(actor_id, key, command, request_digest, response_json, created_at_ms) VALUES (?,?,?,?,?,?)").run(actorId, idempotencyKey, type, requestDigest, handler.secretOutput ? "" : JSON.stringify(output), ctx.now());
-    return output;
+    const made = handler.run(ctx, input, prepared);
+    ran = true;
+    if (actorId) gov.db.prepare("INSERT INTO idempotency(actor_id, key, command, request_digest, response_json, created_at_ms) VALUES (?,?,?,?,?,?)").run(actorId, idempotencyKey, type, requestDigest, handler.secretOutput ? "" : JSON.stringify(made), ctx.now());
+    return made;
   });
+  if (ran) await handler.after?.(ctx, input, prepared);
+  return output;
 }
 
 /** `POST /v1/query`: validate, authorize, read. */

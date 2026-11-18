@@ -92,6 +92,7 @@ export default function UsersScreen(): JSX.Element {
         <StatusBadge status={ctx.row.original.status} />
         <Show when={ctx.row.original.status === "invited"}>
           <span class="t-small text-ink-2">{(ctx.row.original.expiresAt ?? 0) < Date.now() ? t("users.invite.expired") : t("users.invite.expires", { when: day(ctx.row.original.expiresAt ?? 0) })}</span>
+          <Show when={ctx.row.original.mail}>{(mail) => <span class={`t-small ${mail() === "failed" ? "text-needs-text" : "text-ink-2"}`}>{t(`users.mail.${mail()}`)}</span>}</Show>
           <InvitedActions user={ctx.row.original} onResend={() => invite(ctx.row.original)} />
         </Show>
       </span>

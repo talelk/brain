@@ -284,6 +284,10 @@ describe("deactivation, roles and sessions", () => {
       for (let i = 0; i < 50 && events("user.mail_accepted").length === 0; i += 1) await new Promise((done) => setTimeout(done, 50));
       expect(events("user.mail_accepted")).toHaveLength(1);
       expect(events("user.mail_accepted")[0]?.payload).not.toContain("mia@example.com");
+      // The people list says what the server answered for each invitation.
+      const rows = (await harness.admin.query("users.list", { status: "invited", pageSize: 100 })).users;
+      expect(rows.find((row) => row.email === "kim@example.com")?.mail).toBe("failed");
+      expect(rows.find((row) => row.email === "mia@example.com")?.mail).toBe("accepted");
     } finally {
       delete process.env["BRAIN_SMTP_URL"];
       delete process.env["BRAIN_SMTP_INSECURE"];
@@ -324,28 +328,32 @@ describe("the last admin of a workspace", () => {
 });
 
 describe("accepting an invitation is all or nothing", () => {
-  it("an invitation that is revoked while the account is being made is taken already, and a failed account leaves the invitation usable", async () => {
-    const accept = (token: string): Promise<Response> => harness.anonymous.fetch("/v1/command", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.88" }, body: JSON.stringify({ type: "invitation.accept", idempotencyKey: crypto.randomUUID(), input: { token, name: "Quin", password: PASSWORD } }) });
+  it("an invitation revoked while the password is being prepared makes no account, and one that is taken makes exactly one", async () => {
     process.env["BRAIN_AUTH_TRUSTED_PROXIES"] = "1";
+    const accept = (token: string): Promise<Response> => harness.anonymous.fetch("/v1/command", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.88" }, body: JSON.stringify({ type: "invitation.accept", idempotencyKey: crypto.randomUUID(), input: { token, name: "Quin", password: PASSWORD } }) });
+    const gov = harness.governor.gov;
+    const hash = gov.auth.hashPassword.bind(gov.auth);
     try {
-      const gov = harness.governor.gov;
       const invited = await harness.admin.command("user.invite", { email: "quin@example.com" });
-      const make = gov.auth.createAccount.bind(gov.auth);
-      // The account cannot be made: no account, and the invitation is given back.
-      (gov.auth as { createAccount: unknown }).createAccount = () => Promise.reject(new Error("no"));
-      expect((await accept(tokenOf(invited.link))).ok).toBe(false);
-      expect(gov.auth.find("quin@example.com")).toBeUndefined();
-      // A revoke in the middle of the request finds the invitation already this request's, and the person joins.
-      let revoked = "";
-      (gov.auth as { createAccount: unknown }).createAccount = async (input: Parameters<typeof make>[0]) => {
-        revoked = await refusal(harness.admin.command("invitation.revoke", { invitationId: invited.invitationId }));
-        return make(input);
+      // The admin revokes between the check of the link and the transaction that would use it up.
+      (gov.auth as { hashPassword: unknown }).hashPassword = async (password: string) => {
+        await harness.admin.command("invitation.revoke", { invitationId: invited.invitationId });
+        return hash(password);
       };
-      expect((await accept(tokenOf(invited.link))).status).toBe(200);
-      expect(revoked).toBe("NOT_FOUND");
-      expect(events("user.joined").some((event) => event.subject.startsWith("user:") && event.payload.includes("q***@example.com"))).toBe(true);
-      (gov.auth as { createAccount: unknown }).createAccount = make;
+      expect((await accept(tokenOf(invited.link))).status).toBe(404);
+      expect(gov.auth.find("quin@example.com")).toBeUndefined();
+      expect(gov.db.prepare("SELECT state FROM invitations WHERE id=?").get(invited.invitationId)).toEqual({ state: "revoked" });
+      expect(events("user.joined").some((event) => event.payload.includes("q***@example.com"))).toBe(false);
+      (gov.auth as { hashPassword: unknown }).hashPassword = hash;
+
+      // Two requests with the same link: one account, the other refused.
+      const again = await harness.admin.command("user.invite", { email: "quin@example.com" });
+      const both = await Promise.all([accept(tokenOf(again.link)), accept(tokenOf(again.link))]);
+      expect(both.map((response) => response.status).sort()).toEqual([200, 404]);
+      expect((gov.db.prepare(`SELECT COUNT(*) AS n FROM "user" WHERE email='quin@example.com'`).get() as { n: number }).n).toBe(1);
+      expect((await harness.signIn("quin@example.com")).query).toBeTypeOf("function");
     } finally {
+      (gov.auth as { hashPassword: unknown }).hashPassword = hash;
       delete process.env["BRAIN_AUTH_TRUSTED_PROXIES"];
     }
   });

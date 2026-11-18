@@ -78,10 +78,6 @@ function applyGrants(ctx: Ctx, actor: Ctx["actor"], userId: string, grants: Gran
   for (const groupId of grants.groups) ctx.db.prepare("INSERT INTO group_members(group_id, user_id) SELECT id, ? FROM groups WHERE id=? ON CONFLICT DO NOTHING").run(userId, groupId);
 }
 
-/** Takes the invitation for the one request that redeems it, before any account is made: a revoke that comes later finds nothing pending and changes nothing. */
-const claim = (gov: Gov, id: string): boolean => gov.db.prepare("UPDATE invitations SET state='claimed' WHERE id=? AND state='pending' AND expires_at_ms>?").run(id, gov.clock.nowMs()).changes === 1;
-const release = (gov: Gov, id: string): void => void gov.db.prepare("UPDATE invitations SET state='pending' WHERE id=? AND state='claimed'").run(id);
-
 function mailLink(gov: Gov, to: string, kind: "invite" | "reset", link: string, invitationId: string): void {
   const text = kind === "invite" ? `You have been invited to Brain.\n\nOpen this link to choose your name and password. It works once.\n\n${link}\n` : `An administrator of Brain made a link for you to choose a new password. It works once.\n\n${link}\n`;
   // After the command's transaction has ended, and without holding the answer back.
@@ -121,42 +117,42 @@ export function registerUsers({ gov: { registry } }: Governor): void {
   });
 
   // The one public entry here: the token is the credential. A refusal says the same whatever is wrong with it, and refusals are limited per address.
-  registry.command<"invitation.accept", { link: Link; userId: string; cookies: string[]; hash: string }>("invitation.accept", {
+  // The invitation is checked again, and the account made, in the one transaction that uses it up: a revoke that comes in between leaves no account.
+  registry.command<"invitation.accept", { link: Link; userId: string; hash: string }>("invitation.accept", {
     async prepare(ctx, input) {
       const key = `link:${ctx.ip}`;
       assertNotLimited(ctx.gov, key, ctx.now(), 10);
       const link = pending(ctx.gov, input.token);
-      if (!link || !claim(ctx.gov, link.id)) {
+      if (!link) {
         noteRefusal(ctx.gov, key, ctx.now());
         throw invalidLink();
       }
-      // From here the invitation is this request's: when anything fails the invitation is given back and no account is left.
-      try {
-        if (link.kind === "reset") return { link, userId: link.userId ?? "", cookies: [], hash: await ctx.gov.auth.hashPassword(input.password) };
-        if (!input.name) throw new BrainError("INVALID_INPUT", "Say what to call you", [{ path: "name", message: "needed to join" }]);
-        // An address that got an account some other way since the invitation was made cannot be invited a second time.
-        if (ctx.gov.auth.find(link.email)) throw invalidLink();
-        const userId = await ctx.gov.auth.createAccount({ email: link.email, name: input.name, password: input.password });
-        return { link, userId, cookies: (await ctx.gov.auth.signIn(link.email, input.password)).cookies, hash: "" };
-      } catch (e) {
-        release(ctx.gov, link.id);
-        throw e;
-      }
+      if (link.kind === "invite" && !input.name) throw new BrainError("INVALID_INPUT", "Say what to call you", [{ path: "name", message: "needed to join" }]);
+      return { link, userId: link.kind === "reset" ? (link.userId ?? "") : randomBytes(16).toString("base64url"), hash: await ctx.gov.auth.hashPassword(input.password) };
     },
-    run(ctx, _input, prepared) {
+    run(ctx, input, prepared) {
       const link = prepared.link;
-      if (ctx.db.prepare("UPDATE invitations SET state='used', used_at_ms=? WHERE id=? AND state='claimed'").run(ctx.now(), link.id).changes !== 1) throw invalidLink();
+      if (ctx.db.prepare("UPDATE invitations SET state='used', used_at_ms=? WHERE id=? AND state='pending' AND expires_at_ms>?").run(ctx.now(), link.id, ctx.now()).changes !== 1) throw invalidLink();
       const actor = { kind: "person", id: prepared.userId } as const;
+      const at = new Date(ctx.now()).toISOString();
       if (link.kind === "reset") {
-        ctx.db.prepare(`UPDATE account SET password=?, "updatedAt"=? WHERE "userId"=? AND "providerId"='credential'`).run(prepared.hash, new Date(ctx.now()).toISOString(), prepared.userId);
+        ctx.db.prepare(`UPDATE account SET password=?, "updatedAt"=? WHERE "userId"=? AND "providerId"='credential'`).run(prepared.hash, at, prepared.userId);
         endSessions(ctx, prepared.userId);
         append(ctx.db, { type: "user.password_reset", subject: `user:${prepared.userId}`, payload: { userId: prepared.userId, invitationId: link.id }, actor });
         return { kind: "reset", userId: prepared.userId };
       }
+      // An address that got an account some other way since the invitation was made cannot be invited a second time.
+      if (ctx.gov.auth.find(link.email)) throw invalidLink();
+      ctx.db.prepare(`INSERT INTO "user"(id, name, email, "emailVerified", "createdAt", "updatedAt") VALUES (?,?,?,0,?,?)`).run(prepared.userId, input.name ?? "", link.email, at, at);
+      ctx.db.prepare(`INSERT INTO account(id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt") VALUES (?,?,'credential',?,?,?,?)`).run(randomBytes(16).toString("base64url"), prepared.userId, prepared.userId, prepared.hash, at, at);
       applyGrants(ctx, actor, prepared.userId, link.grants);
       append(ctx.db, { type: "user.joined", subject: `user:${prepared.userId}`, payload: { userId: prepared.userId, email: redacted(link.email), invitationId: link.id, ...link.grants }, actor });
-      ctx.cookies.push(...prepared.cookies);
       return { kind: "invite", userId: prepared.userId };
+    },
+    // Signed in once the account is committed; when that fails the person signs in with the password they just chose.
+    async after(ctx, input, prepared) {
+      if (prepared.link.kind === "reset") return;
+      ctx.cookies.push(...(await ctx.gov.auth.signIn(prepared.link.email, input.password).catch(() => ({ cookies: [] as string[] }))).cookies);
     },
   });
 
@@ -308,13 +304,14 @@ export function registerUsers({ gov: { registry } }: Governor): void {
     for (const row of db.prepare(`SELECT gm.user_id AS userId, g.id, g.name FROM group_members gm JOIN groups g ON g.id = gm.group_id WHERE gm.user_id IN (${marks(personIds)}) ORDER BY g.name COLLATE NOCASE`).all(...personIds) as Array<{ userId: string; id: string; name: string }>) groupsOf.set(row.userId, [...(groupsOf.get(row.userId) ?? []), { id: row.id, name: row.name }]);
     const reach = new Map((db.prepare(`SELECT user_id AS userId, COUNT(*) AS n FROM (SELECT user_id, workspace_id FROM members WHERE user_id IN (${marks(personIds)}) UNION SELECT gm.user_id, gg.workspace_id FROM group_members gm JOIN group_grants gg ON gg.group_id = gm.group_id WHERE gm.user_id IN (${marks(personIds)})) GROUP BY user_id`).all(...personIds, ...personIds) as Array<{ userId: string; n: number }>).map((row) => [row.userId, row.n]));
     const invites = new Map((db.prepare(`SELECT id, grants_json AS grants, created_at_ms AS createdAt, expires_at_ms AS expiresAt FROM invitations WHERE id IN (${marks(inviteIds)})`).all(...inviteIds) as Array<{ id: string; grants: string; createdAt: number; expiresAt: number }>).map((row) => [row.id, row]));
+    const mail = new Map((db.prepare(`SELECT subject, type FROM events WHERE type IN ('user.mail_accepted','user.mail_failed') AND subject IN (${marks(inviteIds.map((id) => `invitation:${id}`))})`).all(...inviteIds.map((id) => `invitation:${id}`)) as Array<{ subject: string; type: string }>).map((row) => [row.subject.slice(11), row.type === "user.mail_accepted" ? "accepted" as const : "failed" as const]));
     const names = new Map((db.prepare("SELECT id, name FROM groups").all() as Array<{ id: string; name: string }>).map((group) => [group.id, group.name]));
 
     const users = page.map((row): UserRow => {
       const invite = invites.get(row.id);
       if (row.invited === 1 && invite) {
         const grants = JSON.parse(invite.grants) as Grants;
-        return { id: row.id, name: "", email: row.email, status: "invited", instanceAdmin: grants.instanceAdmin, groups: grants.groups.flatMap((id) => (names.has(id) ? [{ id, name: names.get(id) ?? "" }] : [])), workspaces: grants.workspaces.length, lastSignInAt: null, createdAt: invite.createdAt, invitationId: row.id, expiresAt: invite.expiresAt, grants };
+        return { id: row.id, name: "", email: row.email, status: "invited", instanceAdmin: grants.instanceAdmin, groups: grants.groups.flatMap((id) => (names.has(id) ? [{ id, name: names.get(id) ?? "" }] : [])), workspaces: grants.workspaces.length, lastSignInAt: null, createdAt: invite.createdAt, invitationId: row.id, expiresAt: invite.expiresAt, grants, ...(mail.has(row.id) ? { mail: mail.get(row.id) as "accepted" | "failed" } : {}) };
       }
       const fact = facts.get(row.id);
       return { id: row.id, name: row.name, email: row.email, status: fact?.off ? "deactivated" : "active", instanceAdmin: fact?.admin === 1, groups: groupsOf.get(row.id) ?? [], workspaces: reach.get(row.id) ?? 0, lastSignInAt: lastSignIn.get(row.id) ?? null, createdAt: ms(fact?.createdAt) };

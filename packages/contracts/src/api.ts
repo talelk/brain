@@ -121,6 +121,8 @@ export interface UserRow {
   readonly createdAt: number;
   readonly invitationId?: string;
   readonly expiresAt?: number;
+  /** For an invited row: what the mail server said to the email of the invitation, once it said it; absent while it is not known (or no mail is set up). It says the server took the message, never that it arrived. */
+  readonly mail?: "accepted" | "failed";
   readonly grants?: Grants;
 }
 export interface GroupRow {

@@ -86,7 +86,8 @@ test("a goal's timeline selects the attempt a bar shows, and Insights counts goa
 
 const operator = 'description = "Restarts containers."\nengine = ["pi"]\nnative = "none"\ntools = ["deploy.restart"]\n[limits]\nturns = 5\ntokens = 20000\nspend_usd = 0\n';
 const restart = 'description = "Restarts one container."\neffect = "privileged"\nneeds = ["bash"]\n[inputs.container]\ntype = "string"\nrequired = true\n';
-const restartPlay = 'title = "Restart a container"\n[[step]]\nid = "restart"\nagent = "operator"\ngoal = """Restart the web container.\nFIXTURE @work tool deploy.restart {"container": "web-1"}"""\n';
+// Two branches at once: the call that waits for a person, and a note that is done. The note is off the critical path.
+const restartPlay = 'title = "Restart and note"\n[[step]]\nid = "restart"\nagent = "operator"\ngoal = """Restart the web container.\nFIXTURE @work tool deploy.restart {"container": "web-1"}"""\n[[step]]\nid = "note"\nagent = "worker"\ngoal = """Note it.\nFIXTURE @work reply Noted."""\n[[step]]\nid = "wrap"\nagent = "worker"\nafter = ["restart", "note"]\ngoal = "Wrap up."\n';
 
 test("on a goal that waits for a call, the wait and the call are buttons a finger can hit, the bars stay the same elements as time passes, and what is off the critical path keeps its contrast", async ({ page, stack }) => {
   const api = await stack.setUp();
@@ -116,6 +117,7 @@ test("on a goal that waits for a call, the wait and the call are buttons a finge
   await expect(timeline.locator('.tl-bar[data-mark="kept"]')).toHaveCount(1);
   // Off the critical path is dimmed in colour, and every text on it still reads.
   await timeline.getByLabel("Highlight the critical path").check();
+  expect(await timeline.locator('.tl-row[data-critical-row="false"] .tl-bar').count()).toBeGreaterThan(0);
   expect(await serious(page)).toEqual([]);
   await page.emulateMedia({ colorScheme: "dark" });
   expect(await serious(page)).toEqual([]);

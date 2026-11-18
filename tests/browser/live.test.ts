@@ -15,6 +15,8 @@ const serious = async (page: Page): Promise<string[]> =>
     .filter((violation) => violation.impact === "serious" || violation.impact === "critical")
     .map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).slice(0, 3).join(" | ")}`);
 
+test.describe.configure({ timeout: 120_000 });
+
 test("Live shows the runner's lane, the numbers of the flow, what just happened and what needs you, and is accessible in both themes and with reduced motion @phone", async ({ page, stack }) => {
   const api = await stack.setUp();
   const workspace = await starter(api);
@@ -58,17 +60,20 @@ test("Live shows the runner's lane, the numbers of the flow, what just happened 
     expect(await serious(page), `${scheme}`).toEqual([]);
   }
   // Every animated element has its animation, and all of them are still under reduced motion (the pulse and the glow are drawn by `::after`).
-  const animated = [[".live-flow", ""], [".live-dot", ""], [".live-breathe", ""], [".live-attn", "::after"], [".live-arrive", ""]] as const;
+  const animated = [[".live-flow", ""], [".live-dot", ""], [".live-breathe", ""], [".live-attn", "::after"], [".live-arrive", ""], ["path.live-spark", ""]] as const;
   const names = (): Promise<string[]> => page.evaluate((list) => list.map(([selector, pseudo]) => { const node = document.querySelector(selector); return node ? getComputedStyle(node, pseudo || null).animationName : "missing"; }), animated);
-  expect(await names()).toEqual(["live-flow", "live-dim", "live-dim", "live-pulse", "live-in"]);
+  expect(await names()).toEqual(["live-flow", "live-dim", "live-dim", "live-pulse", "live-in", "live-fade"]);
   // Only transform and opacity move: no animation here changes a painted property.
   expect(await page.evaluate(() => { const painted = /stroke|box-shadow|width|height|filter|background|color/u; return [...document.getAnimations()].filter((animation) => animation instanceof CSSAnimation && animation.animationName.startsWith("live-") && (animation.effect as KeyframeEffect | null)?.getKeyframes().some((frame) => Object.keys(frame).some((key) => painted.test(key)))).length; })).toBe(0);
   // The attempt in the slot has a ring that fills over ten minutes, and a line for its tokens that waits for a second sample.
   const pill = page.getByTestId("live-run");
-  expect(await pill.locator("circle.live-arc").getAttribute("stroke-dasharray")).toMatch(/^\d/u);
-  await expect(pill.locator('svg path[stroke-dasharray="2 4"]')).toHaveCount(1);
+  const filled = async (): Promise<number> => Number.parseFloat((await pill.locator("circle.live-arc").getAttribute("stroke-dasharray")) ?? "0");
+  const first = await filled();
+  await expect.poll(filled, { timeout: 30_000 }).toBeGreaterThan(first + 0.1);
+  // The line of tokens is drawn once the page has read two answers.
+  await expect.poll(async () => (await pill.locator("path.live-spark").first().getAttribute("d", { timeout: 1000 }).catch(() => "")) ?? "", { timeout: 30_000 }).toMatch(/^M/u);
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
-  expect(await names()).toEqual(["none", "none", "none", "none", "none"]);
+  expect(await names()).toEqual(["none", "none", "none", "none", "none", "none"]);
   expect(await serious(page), "reduced motion").toEqual([]);
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
 
@@ -109,6 +114,6 @@ test("Live reads right to left in Arabic, and an archived workspace says there i
   const old = await api.command("workspace.create", { name: "Old one", packs: [] });
   await api.command("workspace.archive", { workspaceId: old.workspaceId });
   await page.goto(`${stack.url}/w/${old.slug}/live?lang=ar`);
-  await expect(page.getByText("لا توجد مساحة عمل هنا")).toBeVisible();
+  await expect(page.getByText("لا شيء مباشر هنا")).toBeVisible();
   await expect(page.getByTestId("live-lane")).toHaveCount(0);
 });
