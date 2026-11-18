@@ -451,7 +451,7 @@ export function World(props: {
       const at = feet(hero);
       const s = toScreen(at.x, at.y - CH - hero.hop * TILE);
       element.style.transform = `translate(${Math.round(s.x)}px, ${Math.round(s.y)}px) translate(-50%, -100%)`;
-      element.style.visibility = s.x < -100 || s.y < -20 || s.x > size().w + 100 || s.y > size().h + 120 ? "hidden" : "visible";
+      element.style.visibility = s.x < -100 || s.y < -20 || s.x > size().w + 100 || s.y > size().h + 120 || (hero.mode === "wander" && camera.zoom < 1.6) ? "hidden" : "visible";
     }
   }
 
@@ -563,7 +563,7 @@ export function World(props: {
     if (event.key === "-") zoomBy(1 / 1.2);
     if (event.key === "Escape") setSelected(null);
   };
-  const overview = (): void => { center((map().w * TILE) / 2, (map().h * TILE) / 2, fitZoom()); setSelected(null); still(); };
+  const overview = (): void => { if (options().tour) set("tour", false); center((map().w * TILE) / 2, (map().h * TILE) / 2, fitZoom()); setSelected(null); still(); };
   const miniClick = (event: MouseEvent): void => {
     const rect = mini.getBoundingClientRect();
     center(((event.clientX - rect.left) / rect.width) * map().w * TILE, ((event.clientY - rect.top) / rect.height) * map().h * TILE);
