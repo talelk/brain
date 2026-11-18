@@ -1,3 +1,4 @@
+import { modelsOf } from "../workspace/platform";
 import { secretName, type Health } from "@brain/contracts";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -62,7 +63,8 @@ export function registerHealth({ gov, app }: Governor): void {
   gov.registry.query("health", async (ctx, input) => {
     const now = ctx.now();
     const manifest = activeManifest(gov, input.workspaceId);
-    const models = await Promise.all(manifest.models.map((model) => modelHealth(gov, input.workspaceId, model, now)));
+    const own = modelsOf(gov, input.workspaceId, manifest);
+    const models = await Promise.all(own.models.map((model) => modelHealth(gov, own.from?.id ?? input.workspaceId, model, now)));
     const marker = join(gov.dataDir, "backup.marker");
     return {
       version: VERSION, runners: listRunners(gov), models,

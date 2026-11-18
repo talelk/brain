@@ -6,6 +6,7 @@ import { markChanged } from "../events";
 import { errorFields, log } from "../log";
 import { taskOf } from "../tasks/store";
 import { readSecret } from "../trust/secrets";
+import { modelsOf } from "../workspace/platform";
 import { capOf, meterUsage, microUsd, spentToday } from "../trust/usage";
 import { activeManifest, manifestOf } from "../workspace/store";
 import { attemptOfModelToken } from "./routes";
@@ -54,7 +55,8 @@ async function forward(gov: Gov, c: Context, provider: Provider): Promise<Respon
   const used = (gov.db.prepare("SELECT metered_micro_usd AS n FROM usage WHERE attempt_id=?").get(attempt.id) as { n: number } | undefined)?.n ?? 0;
   if (limit > 0 && used >= limit) return refusal(403, "This attempt has used up its agent's spend limit; this call was not sent");
   const preferred = agent?.model;
-  const models = manifest.models.filter((model) => model.provider === provider).sort((a, b) => Number(b.name === preferred) - Number(a.name === preferred));
+  const { models: available, from } = modelsOf(gov, attempt.workspace_id, manifest);
+  const models = available.filter((model) => model.provider === provider).sort((a, b) => Number(b.name === preferred) - Number(a.name === preferred));
   if (models.length === 0) return refusal(404, `This workspace has no ${provider} model`);
   const raw = new Uint8Array(await request.arrayBuffer());
   let call: Record<string, unknown>;
@@ -69,7 +71,7 @@ async function forward(gov: Gov, c: Context, provider: Provider): Promise<Respon
 
   let last = refusal(502, "No model of this workspace could be reached");
   for (const model of models) {
-    const key = model.key ? readSecret(gov, attempt.workspace_id, secretName(model.key)) : undefined;
+    const key = model.key ? readSecret(gov, from?.id ?? attempt.workspace_id, secretName(model.key)) : undefined;
     if (model.key && key === undefined) {
       last = refusal(502, `The secret ${secretName(model.key)} of the model ${model.name} is not set`);
       continue;

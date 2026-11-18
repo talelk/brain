@@ -136,6 +136,7 @@ export const ar: Catalog = {
   "first.model.submit": "ربط النموذج",
   "first.model.askAdmin": "يجب أن يربط أحد مسؤولي مساحة العمل هذه نموذجًا قبل أن يبدأ العمل.",
   "first.model.done": "تم ربط النموذج: {name}",
+  "first.model.inherited": "تستخدم مساحة العمل هذه نموذج {workspace}، مساحة إدارة Brain. يمكنك منحها نموذجًا خاصًا من مساحة العمل ثم الإعدادات.",
   "first.model.done.text": "يمكنك تغييره، أو إضافة نموذج آخر، من «مساحة العمل» ثم «الإعدادات».",
   "first.hello.title": "تشغيل الهدف التجريبي",
   "first.hello.start": "بدء «{title}»",

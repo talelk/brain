@@ -120,6 +120,7 @@ export const fr: Catalog = {
   "first.model.submit": "Connecter le modèle",
   "first.model.askAdmin": "Un administrateur de cet espace de travail doit connecter un modèle avant que le travail puisse démarrer.",
   "first.model.done": "Modèle connecté : {name}",
+  "first.model.inherited": "Ce workspace utilise le modèle de {workspace}, le workspace d'administration du Brain. Donnez-lui un modèle propre sous Workspace, Paramètres.",
   "first.model.done.text": "Vous pouvez le modifier, ou en ajouter un autre, dans Espace de travail, Paramètres.",
   "first.hello.title": "Lancer l'objectif d'exemple",
   "first.hello.start": "Démarrer « {title} »",

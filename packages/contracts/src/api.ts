@@ -63,7 +63,7 @@ export interface WorkspaceSummary {
 export interface PackUpdate { readonly pack: string; readonly pinned: number; readonly latest: number }
 /** The last push of the workspace folder to its git remote; null when it has none or has not pushed yet. A failure's message holds no secret. */
 export interface FolderPush { readonly ok: boolean; readonly atMs: number; readonly commit: string; readonly message: string }
-export interface Workspace extends WorkspaceSummary { readonly snapshotDigest: Digest; readonly commit: string; readonly snapshot: SnapshotManifest; readonly updates: readonly PackUpdate[]; readonly folderPush: FolderPush | null }
+export interface Workspace extends WorkspaceSummary { readonly snapshotDigest: Digest; readonly commit: string; readonly snapshot: SnapshotManifest; /** The models it calls when it has none of its own: those of the admin workspace. */ readonly inheritedModels: ReadonlyArray<{ readonly name: string; readonly model: string; readonly workspace: string }>; readonly updates: readonly PackUpdate[]; readonly folderPush: FolderPush | null }
 export interface FileEntry {
   readonly path: string;
   readonly bytes: number;

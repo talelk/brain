@@ -47,7 +47,8 @@ function ConnectModel(props: { workspace: Workspace }): JSX.Element {
 /** A fresh workspace: connect a model, then run the base pack's sample goal. The two are a sequence, so they are numbered. */
 function FirstRun(props: { workspace: Workspace }): JSX.Element {
   const place = usePlace();
-  const connected = (): boolean => props.workspace.snapshot.models.length > 0;
+  const connected = (): boolean => props.workspace.snapshot.models.length > 0 || props.workspace.inheritedModels.length > 0;
+  const inherited = (): string | undefined => props.workspace.inheritedModels[0]?.workspace;
   const hello = () => props.workspace.snapshot.plays["hello"];
   const navigate = useNavigate();
   const start = useAction(async () => {
@@ -62,8 +63,8 @@ function FirstRun(props: { workspace: Workspace }): JSX.Element {
   );
   return (
     <ol id="first-run" class="flex scroll-mt-4 flex-col gap-3">
-      {step(1, connected(), connected() ? t("first.model.done", { name: props.workspace.snapshot.models[0]?.model ?? "" }) : t("first.model.title"),
-        <Show when={!connected()} fallback={<p class="t-small text-ink-2">{t("first.model.done.text")}</p>}><p class="mb-4 t-text text-ink-2">{t("first.model.text")}</p><ConnectModel workspace={props.workspace} /></Show>)}
+      {step(1, connected(), connected() ? t("first.model.done", { name: props.workspace.snapshot.models[0]?.model ?? props.workspace.inheritedModels[0]?.model ?? "" }) : t("first.model.title"),
+        <Show when={!connected()} fallback={<p class="t-small text-ink-2">{inherited() ? t("first.model.inherited", { workspace: inherited() ?? "" }) : t("first.model.done.text")}</p>}><p class="mb-4 t-text text-ink-2">{t("first.model.text")}</p><ConnectModel workspace={props.workspace} /></Show>)}
       {step(2, false, t("first.hello.title"),
         <Show when={hello()} fallback={<p class="t-text text-ink-2">{t("first.hello.missing")}</p>}>
           {(play) => (<>
@@ -140,8 +141,8 @@ export default function TodayScreen(): JSX.Element {
       <Ready shape="form" data={place.workspace.data()} error={place.workspace.error()} retry={place.workspace.refetch}>
         {(workspace) => (
           <div class="flex flex-col gap-6">
-            <GoalBox plays={workspace().snapshot.plays} play={search.play} autofocus={search.new !== undefined} noModel={workspace().snapshot.models.length === 0} />
-            <Show when={workspace().snapshot.models.length === 0 || fresh(place.today.data())}><FirstRun workspace={workspace()} /></Show>
+            <GoalBox plays={workspace().snapshot.plays} play={search.play} autofocus={search.new !== undefined} noModel={workspace().snapshot.models.length === 0 && workspace().inheritedModels.length === 0} />
+            <Show when={(workspace().snapshot.models.length === 0 && workspace().inheritedModels.length === 0) || fresh(place.today.data())}><FirstRun workspace={workspace()} /></Show>
           </div>
         )}
       </Ready>

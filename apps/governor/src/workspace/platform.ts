@@ -22,6 +22,18 @@ export const platformOf = (gov: Gov, workspaceId: string): PlatformWorkspace | u
 /** The admin workspace: where packs are kept and released; undefined when there is none. */
 export const adminWorkspace = (gov: Gov): PlatformWorkspace | undefined => platformWorkspaces(gov).find((one) => one.kind === "admin");
 
+/**
+ * The models a workspace calls: its own `[[model]]` entries, or, when it has none, those of the admin workspace (the one place the
+ * Brain's model is defined once). `from` is the workspace whose secrets hold the keys.
+ */
+export function modelsOf(gov: Gov, workspaceId: string, own: SnapshotManifest): { readonly models: SnapshotManifest["models"]; readonly from: { readonly id: string; readonly slug: string } | null } {
+  if (own.models.length > 0) return { models: own.models, from: null };
+  const admin = adminWorkspace(gov);
+  if (!admin || admin.id === workspaceId) return { models: [], from: null };
+  const row = gov.db.prepare("SELECT active_snapshot AS snapshot FROM workspaces WHERE id = ? AND status = 'active'").get(admin.id) as { snapshot: string } | undefined;
+  return row ? { models: manifestOf(gov, row.snapshot as never).models, from: { id: admin.id, slug: admin.slug } } : { models: [], from: null };
+}
+
 /** What a folder's own `brain.toml` says about `platform`. */
 export function platformOfFiles(files: Files): PlatformKind | undefined {
   const bytes = files.get("brain.toml");

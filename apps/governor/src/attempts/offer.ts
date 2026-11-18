@@ -1,3 +1,4 @@
+import { modelsOf } from "../workspace/platform";
 import { secretName, type BlobRef, type Digest, type JobOffer, type JsonValue, type OfferProject, type OfferTool, type OfferToolCall, type SnapshotManifest, type ToolOutcome } from "@brain/contracts";
 import type { Db } from "../db";
 import type { Gov } from "../dispatch";
@@ -158,7 +159,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
       limits: { turns: agent.limits.turns, tokens: agent.limits.tokens, spendMicroUsd: microUsd(agent.limits.spend_usd) }, tools: agent.tools,
     },
     tools, projects, inheritedPatches: inherited, ...(own ? { workingCopy: blob(db, own) } : {}),
-    model: { gatewayUrl: `${gov.gatewayUrl}/model/v1`, route: agent.model ?? manifest.models[0]?.name ?? "" },
+    model: { gatewayUrl: `${gov.gatewayUrl}/model/v1`, route: agent.model ?? modelsOf(gov, attempt.workspace_id, manifest).models[0]?.name ?? "" },
     ...(payload.act ? { act: payload.act } : {}),
   };
 }

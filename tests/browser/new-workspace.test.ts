@@ -44,6 +44,18 @@ test("a workspace with no model says so beside the goal, and the warning goes on
   await expect(page.getByTestId("goal-nomodel")).toHaveCount(0);
 });
 
+test("a workspace with no model of its own uses the admin workspace's model and does not ask for one", async ({ page, stack }) => {
+  const api = await stack.setUp();
+  const hub = await api.command("workspace.create", { name: "Hub", packs: ["base"], platform: "admin" });
+  await api.command("file.write", { workspaceId: hub.workspaceId, files: [{ path: "brain.toml", content: 'name = "Hub"\nplatform = "admin"\npacks = ["base"]\n[[model]]\nname = "shared"\nprovider = "openai-compatible"\nurl = "http://127.0.0.1:9/v1"\nmodel = "shared-model"\n' }], message: "A model" });
+  const made = await api.command("workspace.create", { name: "Plain two", packs: ["base"] });
+  await signIn(page, stack);
+  await page.goto(`${stack.url}/w/${made.slug}`);
+  await expect(page.getByText("Model connected: shared-model")).toBeVisible();
+  await expect(page.getByText("uses the model of hub")).toBeVisible();
+  await expect(page.getByTestId("goal-nomodel")).toHaveCount(0);
+});
+
 test("a name that makes an address a workspace already has is refused while typing; the optional URLs fill the project and the folder remote", async ({ page, stack }) => {
   const api = await stack.setUp();
   await api.command("workspace.create", { name: "Café Réseau", packs: ["base"] });

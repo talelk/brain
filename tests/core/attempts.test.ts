@@ -258,6 +258,27 @@ describe("a runner", () => {
     answer = () => Response.json({});
   });
 
+  it("lets a workspace with no model of its own call the admin workspace's model, with the admin workspace's key", async () => {
+    const hub = await makeWorkspace(harness, "Hub", { platform: "admin", packs: ["core"], brain: `[[model]]\nname = "shared"\nprovider = "openai-compatible"\nurl = "https://shared.example/v1"\nmodel = "common"\nkey = "secret:model-shared"\n` });
+    await harness.admin.command("secret.set", { workspaceId: hub.workspaceId, name: "model-shared", value: "key-shared" });
+    const bare = await makeWorkspace(harness, "Bare", { agents: { dev: { tools: [] } }, plays: { one: one("dev") } });
+    await start("one", bare.workspaceId);
+    const offer = (await driver.claim()) as JobOffer;
+    expect(offer.workspaceId).toBe(bare.workspaceId);
+    expect(offer.model.route).toBe("shared");
+    await driver.ack(offer);
+    const token = await modelTokenOf(driver, offer);
+    upstream.length = 0;
+    answer = () => Response.json({ choices: [{ message: { content: "hi" } }], usage: { prompt_tokens: 1, completion_tokens: 1 } });
+    const served = await harness.anonymous.fetch("/model/v1/chat/completions", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ messages: [] }) });
+    expect(served.status).toBe(200);
+    expect(upstream.map((request) => [request.url, request.headers["authorization"]])).toEqual([["https://shared.example/v1/chat/completions", "Bearer key-shared"]]);
+    expect((await harness.admin.query("workspace.get", { workspaceId: bare.workspaceId })).inheritedModels).toEqual([{ name: "shared", model: "common", workspace: hub.slug }]);
+    await driver.complete(offer, { result: "Done." });
+    await driver.drain();
+    answer = () => Response.json({});
+  });
+
   it("is refused further model calls by the gateway once its agent's spend limit is used up", async () => {
     driver.script({ thrifty: () => "Stopped at the limit." });
     await start("thrifty");

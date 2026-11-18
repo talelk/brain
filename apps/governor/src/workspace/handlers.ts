@@ -1,3 +1,4 @@
+import { modelsOf } from "./platform";
 import { BrainError, isSlug, slugify, MAX_FILE_BYTES, MAX_WRITE_BYTES, type CommandInput, type CommandOutputs, type WorkspaceSummary } from "@brain/contracts";
 import { randomBytes } from "node:crypto";
 import git from "isomorphic-git";
@@ -168,7 +169,7 @@ export function registerWorkspace({ gov: { registry }, gov, app }: Governor): vo
       id: workspace.id, slug: workspace.slug, name: workspace.name, description: workspace.description, status: workspace.status, role: ctx.role ?? "viewer",
       visibility: snapshot.visibility === "public" ? "public" : "private", platform: snapshot.platform ?? null, viaPublic: ctx.user ? (accessOf(ctx.gov, ctx.user.id, workspace.id)?.viaPublic ?? false) : false,
     };
-    return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot, updates: updatesOf(ctx.gov, snapshot), folderPush: snapshot.git ? lastPush(ctx.gov, workspace.id) : null };
+    return { ...summary, snapshotDigest: workspace.snapshotDigest, commit: commitOf(ctx.db, workspace.id, workspace.snapshotDigest), snapshot, inheritedModels: (() => { const found = modelsOf(ctx.gov, workspace.id, snapshot); return found.from ? found.models.map((model) => ({ name: model.name, model: model.model, workspace: found.from?.slug ?? "" })) : []; })(), updates: updatesOf(ctx.gov, snapshot), folderPush: snapshot.git ? lastPush(ctx.gov, workspace.id) : null };
   });
 
   registry.query("workspace.files", async (ctx, input) => ({ files: await listFiles(ctx.gov, input.workspaceId) }));

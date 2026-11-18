@@ -59,7 +59,8 @@ per_day = 5                 # heal tasks a day; 0 means no cap
 [cleanup]
 superseded_after_hours = 24 # close a goal waiting for a person once a newer identical one has a result; 0 means never
 
-[[model]]                   # tried in order; the next one is used when one refuses
+[[model]]                   # tried in order; the next one is used when one refuses.
+                            # A workspace with none of its own calls the admin workspace's models, with that workspace's keys.
 name = "main"
 provider = "openai-compatible"
 url = "https://models.example/v1"

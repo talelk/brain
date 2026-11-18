@@ -118,6 +118,7 @@ export const en = {
   "first.model.submit": "Connect the model",
   "first.model.askAdmin": "An admin of this workspace has to connect a model before work can start.",
   "first.model.done": "Model connected: {name}",
+  "first.model.inherited": "This workspace uses the model of {workspace}, the Brain's admin workspace. Give it a model of its own under Workspace, Settings.",
   "first.model.done.text": "You can change it, or add another, under Workspace, Settings.",
   "first.hello.title": "Run the sample goal",
   "first.hello.start": "Start \"{title}\"",

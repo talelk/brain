@@ -1,3 +1,4 @@
+import { modelsOf } from "../workspace/platform";
 import {
   ATTEMPT_COMPLETED_EVENT, BrainError, hmacSha256Hex, isDigest, LIMIT_NAMES, MAX_ATTEMPTS, receiptShapeProblem, receiptSignatureOk, resultDigest, RUNNER_ROUTES, secretName,
   type ApprovalPollResponse, type ArtifactUploadResponse, type AttemptFailure, type ClaimResponse, type CompleteResponse, type EventsResponse, type JsonValue, type LeaseResponse, type ModelTokenResponse,
@@ -123,7 +124,7 @@ function claim(gov: Gov, runnerId: string): AttemptRow | undefined {
     const agent = manifest.agents[attempt.agent];
     if (!agent || missing(manifest, attempt, runner) !== null || blockOf(gov, entry, at) !== null) continue;
     db.prepare("UPDATE attempts SET state='offered', runner_id=?, fence=fence+1, offer_expires_at_ms=? WHERE id=?").run(runnerId, now + OFFER_FOR_MS, attempt.id);
-    reserveUsage(gov, attempt, agent.model ?? manifest.models[0]?.name ?? null, microUsd(agent.limits.spend_usd));
+    reserveUsage(gov, attempt, agent.model ?? modelsOf(gov, attempt.workspace_id, manifest).models[0]?.name ?? null, microUsd(agent.limits.spend_usd));
     db.prepare("UPDATE tasks SET started_at_ms=COALESCE(started_at_ms, ?) WHERE id=?").run(now, task.id);
     if (attempt.kind === "work" && task.state === "ready") setState(gov, task, "running");
     append(db, { type: "attempt.offered", workspaceId: attempt.workspace_id, subject: `attempt:${attempt.id}`, payload: { taskId: task.id, runnerId, fence: attempt.fence + 1 }, actor: { kind: "runner", id: runnerId } });
