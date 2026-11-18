@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AuditVerifyResult } from "./audit-chain";
 import { isSlug, MAX_FILE_BYTES, PLATFORM_KINDS, type PlatformKind, type Language, type PackFile, type PlayFile, type Problem, type SnapshotManifest } from "./files";
+import { PRIORITIES, type Priority } from "./limits";
 import type { ApprovalState, AttemptEvent, AttemptFailure, AttemptKind, Digest, Effect, JsonValue, RunnerCapability, ToolOutcome } from "./protocol";
 
 /**
@@ -259,14 +260,12 @@ export interface UsageSummary {
   readonly byAgent: ReadonlyArray<Usage & { readonly agent: string }>;
   readonly byModel: ReadonlyArray<Usage & { readonly model: string }>;
 }
-export const PRIORITIES = ["low", "normal", "high"] as const;
-export type Priority = (typeof PRIORITIES)[number];
 /** Why a queued task is not running yet, in the order the Governor checks (docs/model.md, The queue). */
 export type Wait =
   | { readonly kind: "slot"; readonly ahead: number }
   | { readonly kind: "running-tasks"; readonly used: number; readonly limit: number }
   | { readonly kind: "daily-cap"; readonly spentMicroUsd: number; readonly capMicroUsd: number }
-  | { readonly kind: "capability"; readonly missing: string }
+  | { readonly kind: "capability"; readonly what: "agent" | "engine" | "capability"; readonly missing: string }
   | { readonly kind: "no-runner" }
   | { readonly kind: "task"; readonly taskId: string; readonly title: string }
   | { readonly kind: "paused-workspace" }
@@ -299,6 +298,7 @@ export interface QueueRun {
   readonly taskId: string;
   readonly rootId: string;
   readonly title: string;
+  readonly goalTitle: string;
   readonly agent: string;
   readonly kind: AttemptKind;
   readonly workspaceSlug: string;

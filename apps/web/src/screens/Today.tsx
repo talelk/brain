@@ -96,6 +96,11 @@ function Lists(props: { today: TodayData }): JSX.Element {
   const spend = (): TodayData["spend"] => props.today.spend;
   return (
     <div class="grid items-start gap-x-8 gap-y-6 xl:grid-cols-[minmax(0,1fr)_19rem]">
+      <Show when={(mine()?.attemptsRunning ?? 0) + (mine()?.attemptsWaiting ?? 0) > 0}>
+        <A href={place.to("/queue")} class="inline-flex w-fit items-center gap-2 rounded-full border border-outline-gray-2 bg-surface-elevation-1 px-3 py-1.5 t-small text-ink hover:bg-surface-gray-2 xl:col-span-2 focus-visible:focus-ring" aria-label={t("queue.chip.open")} data-testid="queue-chip">
+          <Icon name="lucide-list-ordered" />{t("queue.chip", { running: mine()?.attemptsRunning ?? 0, waiting: mine()?.attemptsWaiting ?? 0 })}
+        </A>
+      </Show>
       <div class="flex min-w-0 flex-col gap-6">
         <Show when={needs().length > 0}>
           <Section title={t("today.needs")} description={tn("today.needs.count", needs().length)} headingLevel={2}><NeedsList items={needs()} /></Section>

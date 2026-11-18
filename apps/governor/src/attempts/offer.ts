@@ -12,19 +12,19 @@ const MAX_SHOWN = 8_000;
 const clip = (text: string): string => (text.length > MAX_SHOWN ? `${text.slice(0, MAX_SHOWN)}\n[cut: ${text.length - MAX_SHOWN} more characters]` : text);
 
 /**
- * What a runner lacks to take an attempt, named for a person, or null when it can: it needs one of the agent's engines, everything the agent's tools need, and
+ * What a runner lacks to take an attempt, or null when it can: it needs one of the agent's engines, everything the agent's tools need, and
  * `native-tools` when the agent uses the engine's own. An `act` attempt runs one tool and no engine.
  */
-export function missing(manifest: SnapshotManifest, attempt: AttemptRow, runner: { capabilities: ReadonlySet<string>; engines: ReadonlySet<string> }): string | null {
+export function missing(manifest: SnapshotManifest, attempt: AttemptRow, runner: { capabilities: ReadonlySet<string>; engines: ReadonlySet<string> }): { what: "agent" | "engine" | "capability"; name: string } | null {
   const agent = manifest.agents[attempt.agent];
-  if (!agent) return `the agent ${attempt.agent}`;
+  if (!agent) return { what: "agent", name: attempt.agent };
   const lacks = (needs: readonly string[] | undefined): string | undefined => (needs ?? []).find((capability) => !runner.capabilities.has(capability));
   const act = payloadOf(attempt).act;
-  if (act) return lacks(manifest.tools[act.tool]?.needs) ?? null;
-  if (!agent.engine.some((engine) => runner.engines.has(engine))) return `the engine ${agent.engine.join(" or ")}`;
-  const need = agent.tools.map((tool) => lacks(manifest.tools[tool]?.needs)).find((name) => name !== undefined) ?? (agent.native !== "none" && !runner.capabilities.has("native-tools") ? "native-tools" : undefined);
-  return need === undefined ? null : `the capability ${need}`;
+  if (act) return capability(lacks(manifest.tools[act.tool]?.needs));
+  if (!agent.engine.some((engine) => runner.engines.has(engine))) return { what: "engine", name: agent.engine.join(" or ") };
+  return capability(agent.tools.map((tool) => lacks(manifest.tools[tool]?.needs)).find((name) => name !== undefined) ?? (agent.native !== "none" && !runner.capabilities.has("native-tools") ? "native-tools" : undefined));
 }
+const capability = (name: string | undefined): { what: "capability"; name: string } | null => (name === undefined ? null : { what: "capability", name });
 
 const blob = (db: Db, digest: Digest): BlobRef => ({ digest, bytes: (db.prepare("SELECT bytes FROM artifacts WHERE digest=?").get(digest) as { bytes: number }).bytes });
 

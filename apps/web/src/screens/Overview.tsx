@@ -129,6 +129,9 @@ function Content(props: { overview: Overview }): JSX.Element {
   ];
   return (
     <div class="flex flex-col gap-6">
+      <A href="/queue" class="inline-flex w-fit items-center gap-2 rounded-full border border-outline-gray-2 bg-surface-elevation-1 px-3 py-1.5 t-small text-ink hover:bg-surface-gray-2 focus-visible:focus-ring" aria-label={t("queue.chip.open")} data-testid="queue-chip">
+        <Icon name="lucide-list-ordered" />{t("queue.chip", { running: sum(o().workspaces, (workspace) => workspace.attemptsRunning), waiting: sum(o().workspaces, (workspace) => workspace.attemptsWaiting) })}
+      </A>
       <StatGrid stats={stats()} columns={4} class="md:grid-cols-5 lg:grid-cols-5 min-[360px]:max-md:[&>*:last-child]:col-span-2" />
       <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Section title={t("today.needs")} description={waiting() > 0 ? tn("overview.needs.text", waiting()) : undefined} headingLevel={2}>

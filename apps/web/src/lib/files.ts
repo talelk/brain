@@ -1,4 +1,5 @@
-import { LIMIT_DEFAULTS, type AgentFile, PlatformKind, PlayFile, SnapshotManifest, StepSpec, ToolFile } from "@brain/contracts";
+import { LIMIT_DEFAULTS } from "@brain/contracts/limits";
+import type { AgentFile, PlatformKind, PlayFile, SnapshotManifest, StepSpec, ToolFile } from "@brain/contracts";
 import { compact, toToml, type TomlTable, type TomlValue } from "./toml";
 
 /**

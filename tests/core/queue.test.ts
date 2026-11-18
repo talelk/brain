@@ -95,7 +95,7 @@ describe("the queue", () => {
 
   it("says why a task waits: a capability no runner has, the daily cap, the tasks at once, another task, a retry later", async () => {
     const needy = await goal(ann, alpha.workspaceId, "needy");
-    expect(await waitOf(ann, needy)).toEqual({ kind: "capability", missing: "the capability docker" });
+    expect(await waitOf(ann, needy)).toEqual({ kind: "capability", what: "capability", missing: "docker" });
     await ann.command("task.stop", { workspaceId: alpha.workspaceId, taskId: needy });
 
     const brain = (await harness.admin.query("file.read", { workspaceId: beta.workspaceId, path: "brain.toml" })).content;

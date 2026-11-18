@@ -3,7 +3,8 @@ import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Button, TextInput } from "@talelk/newui-atoms";
 import { EmptyState, TabButtons, Tabs } from "@talelk/newui-molecules";
 import { PaneLayout } from "@talelk/newui-templates";
-import { LIMIT_DEFAULTS, type AgentFile, FileEntry, Language, MemoryProposal, PlayFile, SnapshotManifest, ToolFile } from "@brain/contracts";
+import { LIMIT_DEFAULTS } from "@brain/contracts/limits";
+import type { AgentFile, FileEntry, Language, MemoryProposal, PlayFile, SnapshotManifest, ToolFile } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
 import { direction, human, locale, t, tn, type MessageKey } from "../i18n";
@@ -13,6 +14,7 @@ import { isSlug, slugify, slugifyTool } from "../lib/model";
 import { TeamGraph } from "../components/TeamGraph";
 import { FilesTab } from "../components/FilesTab";
 import { CodeEditor } from "../components/CodeEditor";
+import { LimitsPanel } from "../components/Limits";
 import { AgentForm, MarkdownEditor, PlayForm, problemsOf, ProjectsForm, SaveBar, SettingsForm, ToolForm, useWrite } from "../components/forms";
 import { Markdown } from "../components/Markdown";
 import { ConfirmButton, Failure, Icon, Keyed, Ready } from "../components/bits";
@@ -209,7 +211,7 @@ export default function WorkspaceScreen(): JSX.Element {
                 }>
                 <Show when={!single()} fallback={
                   <div class="max-w-[52rem] rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-5 sm:p-6">
-                    <Show when={tab() === "settings"}><PackUpdates snapshot={snapshot()} updates={workspace().updates} admin={place.can("admin")} /></Show>
+                    <Show when={tab() === "settings"}><PackUpdates snapshot={snapshot()} updates={workspace().updates} admin={place.can("admin")} /><LimitsPanel snapshot={snapshot()} readOnly={readOnly()} /></Show>
                     <ModeSwitch raw={raw()} onChange={setRaw} class="mb-6" />
                     <Show when={raw()} fallback={<Show when={tab() === "projects"} fallback={<Show when={workspace().commit} keyed><SettingsForm snapshot={untrack(snapshot)} readOnly={readOnly()} /></Show>}><ProjectsForm snapshot={untrack(snapshot)} readOnly={readOnly()} /></Show>}>
                       <FileEditor files={[{ path: paths.brain, bytes: 0, source: "workspace" }]} readOnly={readOnly()} />
@@ -246,7 +248,7 @@ export default function WorkspaceScreen(): JSX.Element {
                                 <Show when={!readOnly() && !isNew() && !mine().some((file) => file.source === "workspace")}><p class="mb-5 rounded-control bg-surface-gray-2 px-4 py-3 t-small text-ink-2">{t("workspace.packNote")}</p></Show>
                                 <Show when={!raw()} fallback={<FileEditor files={mine()} readOnly={readOnly()} />}>
                                   <Switch>
-                                    <Match when={tab() === "agents"}><AgentForm name={current} initial={untrack(() => snapshot().agents[current] ?? NEW_AGENT)} isNew={untrack(isNew)} snapshot={snapshot()} readOnly={readOnly()} onSaved={saved} /></Match>
+                                    <Match when={tab() === "agents"}><Show when={!isNew()}><LimitsPanel snapshot={snapshot()} agent={current} readOnly={readOnly()} /></Show><Show when={workspace().commit} keyed><AgentForm name={current} initial={untrack(() => snapshot().agents[current] ?? NEW_AGENT)} isNew={untrack(isNew)} snapshot={snapshot()} readOnly={readOnly()} onSaved={saved} /></Show></Match>
                                     <Match when={tab() === "tools"}><ToolForm name={current} initial={untrack(() => snapshot().tools[current] ?? NEW_TOOL)} isNew={untrack(isNew)} readOnly={readOnly()} onSaved={saved} /></Match>
                                     <Match when={tab() === "plays"}><PlayForm name={current} initial={untrack(() => snapshot().plays[current] ?? newPlay(search.title || current, Object.keys(snapshot().agents)[0] ?? ""))} isNew={untrack(isNew)} snapshot={snapshot()} readOnly={readOnly()} onSaved={saved} /></Match>
                                     <Match when={tab() === "memory"}><MemoryEntry name={current} title={search.title} isNew={untrack(isNew)} readOnly={readOnly()} onSaved={saved} /></Match>

@@ -118,7 +118,7 @@ function placed(gov: Gov): { readonly items: Placed[]; readonly runners: ReturnT
     if (blocked?.kind === "paused-workspace" || blocked?.kind === "paused-task" || blocked?.kind === "backoff") { held.push({ entry, wait: blocked, rank: null, startsAt: null }); continue; }
     const manifest = manifestOf(gov, entry.task.snapshot_digest);
     const lacks = online.map((runner) => missing(manifest, entry.attempt, { capabilities: new Set(runner.capabilities), engines: new Set(runner.engines) }));
-    const wait: Wait = blocked ?? (online.length === 0 ? { kind: "no-runner" } : lacks.every((what) => what !== null) ? { kind: "capability", missing: lacks[0] as string } : { kind: "slot", ahead });
+    const wait: Wait = blocked ?? (online.length === 0 ? { kind: "no-runner" } : lacks.every((what) => what !== null) ? { kind: "capability", what: (lacks[0] as NonNullable<(typeof lacks)[0]>).what, missing: (lacks[0] as NonNullable<(typeof lacks)[0]>).name } : { kind: "slot", ahead });
     let startsAt: number | null = null;
     if (wait.kind === "slot") {
       const sample = durations.get(entry.attempt.kind) ?? [];
@@ -182,14 +182,14 @@ export function queueOf(gov: Gov, user: User, only?: string): Queue {
 
   const lanes = new Map<string, { runs: QueueRun[]; hidden: number }>();
   let running = 0;
-  for (const row of db.prepare(`SELECT a.*, t.title, t.root_id, COALESCE(u.input_tokens + u.output_tokens, 0) AS tokens, COALESCE(${COST}, 0) AS micro FROM attempts a JOIN tasks t ON t.id = a.task_id LEFT JOIN usage u ON u.attempt_id = a.id
-    WHERE a.state IN ('offered','running') AND a.runner_id IS NOT NULL ORDER BY a.started_at_ms, a.rowid`).all() as Array<AttemptRow & { title: string; root_id: string; tokens: number; micro: number }>) {
+  for (const row of db.prepare(`SELECT a.*, t.title, t.root_id, (SELECT r.title FROM tasks r WHERE r.id = t.root_id) AS goal_title, COALESCE(u.input_tokens + u.output_tokens, 0) AS tokens, COALESCE(${COST}, 0) AS micro FROM attempts a JOIN tasks t ON t.id = a.task_id LEFT JOIN usage u ON u.attempt_id = a.id
+    WHERE a.state IN ('offered','running') AND a.runner_id IS NOT NULL ORDER BY a.started_at_ms, a.rowid`).all() as Array<AttemptRow & { title: string; root_id: string; goal_title: string; tokens: number; micro: number }>) {
     const lane = lanes.get(row.runner_id as string) ?? { runs: [], hidden: 0 };
     lanes.set(row.runner_id as string, lane);
     const workspace = seen(row.workspace_id);
     if (!workspace) { lane.hidden += 1; continue; }
     running += 1;
-    lane.runs.push({ attemptId: row.id, taskId: row.task_id, rootId: row.root_id, title: row.title, agent: row.agent, kind: row.kind, workspaceSlug: workspace.slug, workspaceName: workspace.name, startedAt: row.started_at_ms, tokens: row.tokens, microUsd: row.micro });
+    lane.runs.push({ attemptId: row.id, taskId: row.task_id, rootId: row.root_id, title: row.title, goalTitle: row.goal_title, agent: row.agent, kind: row.kind, workspaceSlug: workspace.slug, workspaceName: workspace.name, startedAt: row.started_at_ms, tokens: row.tokens, microUsd: row.micro });
   }
   const lane = (id: string) => lanes.get(id) ?? { runs: [] as QueueRun[], hidden: 0 };
   const shownRunners: QueueRunner[] = runners.map((runner) => ({

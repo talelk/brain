@@ -57,6 +57,7 @@ function Nav(): JSX.Element {
   const slug = (): string | undefined => slugOf(location.pathname);
   const here = (path: string): boolean => location.pathname === path || location.pathname === `${path}/`;
   const needs = (id: string): number => session.overview.data()?.workspaces.find((workspace) => workspace.id === id)?.needsYou ?? 0;
+  const allWaiting = (): number => (session.overview.data()?.workspaces ?? []).reduce((sum, workspace) => sum + workspace.attemptsWaiting, 0);
   const updates = (id: string): number => session.overview.data()?.workspaces.find((workspace) => workspace.id === id)?.updates ?? 0;
   const active = (): readonly WorkspaceSummary[] => session.workspaces().filter((workspace) => workspace.status === "active");
   const groups = (): ReadonlyArray<{ label: "nav.workspaces.mine" | "nav.workspaces.shared" | "nav.workspaces.public"; list: readonly WorkspaceSummary[] }> => [
@@ -64,12 +65,14 @@ function Nav(): JSX.Element {
     { label: "nav.workspaces.shared", list: active().filter((workspace) => !workspace.viaPublic && workspace.role !== "admin") },
     { label: "nav.workspaces.public", list: active().filter((workspace) => workspace.viaPublic) },
   ];
-  const sub: readonly { path: string; label: "nav.today" | "nav.tasks" | "nav.workspace" | "nav.schedules"; icon: string }[] = [
-    { path: "", label: "nav.today", icon: "lucide-sun" }, { path: "/tasks", label: "nav.tasks", icon: "lucide-list-checks" }, { path: "/schedules", label: "nav.schedules", icon: "lucide-calendar-clock" }, { path: "/workspace", label: "nav.workspace", icon: "lucide-folder-cog" },
+  const waiting = (id: string): number => session.overview.data()?.workspaces.find((workspace) => workspace.id === id)?.attemptsWaiting ?? 0;
+  const sub: readonly { path: string; label: "nav.today" | "nav.tasks" | "nav.workspace" | "nav.schedules" | "nav.queue"; icon: string }[] = [
+    { path: "", label: "nav.today", icon: "lucide-sun" }, { path: "/tasks", label: "nav.tasks", icon: "lucide-list-checks" }, { path: "/queue", label: "nav.queue", icon: "lucide-list-ordered" }, { path: "/schedules", label: "nav.schedules", icon: "lucide-calendar-clock" }, { path: "/workspace", label: "nav.workspace", icon: "lucide-folder-cog" },
   ];
   return (
     <div class="flex flex-col gap-0.5">
       <SidebarItem route="/" icon="lucide-layout-dashboard" active={here("/")}>{t("nav.overview")}</SidebarItem>
+      <SidebarItem route="/queue" icon="lucide-list-ordered" active={here("/queue")} suffix={allWaiting() > 0 ? <span class="rounded-full bg-surface-gray-3 px-1.5 text-[0.6875rem] font-semibold leading-[1.125rem] text-ink-gray-8 tabular-nums"><span class="sr-only">{t("queue.waiting")} </span>{allWaiting()}</span> : undefined}>{t("nav.queue")}</SidebarItem>
       <SidebarItem route="/schedules" icon="lucide-calendar-clock" active={here("/schedules")}>{t("nav.schedules")}</SidebarItem>
       <For each={groups().filter((group) => group.list.length > 0)}>
         {(group) => (<>
@@ -86,7 +89,7 @@ function Nav(): JSX.Element {
                 <For each={sub}>
                   {(item) => {
                     const href = `/w/${workspace.slug}${item.path}`;
-                    return <SidebarItem route={href} icon={item.icon} active={item.path === "" ? here(href) : location.pathname === href || location.pathname.startsWith(`${href}/`)}>{t(item.label)}</SidebarItem>;
+                    return <SidebarItem route={href} icon={item.icon} active={item.path === "" ? here(href) : location.pathname === href || location.pathname.startsWith(`${href}/`)} suffix={item.path === "/queue" && waiting(workspace.id) > 0 ? <span class="rounded-full bg-surface-gray-3 px-1.5 text-[0.6875rem] font-semibold leading-[1.125rem] text-ink-gray-8 tabular-nums"><span class="sr-only">{t("queue.waiting")} </span>{waiting(workspace.id)}</span> : undefined}>{t(item.label)}</SidebarItem>;
                   }}
                 </For>
               </div>
@@ -194,6 +197,7 @@ function Palette(props: { open: boolean; onOpenChange: (open: boolean) => void; 
     <CommandPalette open={props.open} onOpenChange={props.onOpenChange} placeholder={t("palette.placeholder")} label={t("palette.label")} size="lg" empty={t("palette.empty")}>
       <CommandGroup label={t("palette.pages")}>
         <CommandItem value="overview" icon="lucide-layout-dashboard" onSelect={go("/")}>{t("nav.overview")}</CommandItem>
+        <CommandItem value="queue" keywords="queue waiting runners slots" icon="lucide-list-ordered" onSelect={go("/queue")}>{t("nav.queue")}</CommandItem>
         <CommandItem value="schedules" keywords="schedules cron triggers" icon="lucide-calendar-clock" onSelect={go("/schedules")}>{t("nav.schedules")}</CommandItem>
         <Show when={session.user().instanceAdmin}><CommandItem value="new-workspace" icon="lucide-plus" onSelect={go("/new")}>{t("nav.newWorkspace")}</CommandItem></Show>
       </CommandGroup>

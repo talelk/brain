@@ -19,3 +19,6 @@ export const LIMIT_NAMES = ["agent.turns", "agent.tokens", "agent.spend_usd", "w
 export type LimitName = (typeof LIMIT_NAMES)[number];
 /** What stopped an attempt: the limit, its value, what was used (null when not known) and, for an agent's limit, the agent. */
 export interface LimitHit { readonly name: LimitName; readonly value: number; readonly used: number | null; readonly agent?: string | undefined }
+
+export const PRIORITIES = ["low", "normal", "high"] as const;
+export type Priority = (typeof PRIORITIES)[number];

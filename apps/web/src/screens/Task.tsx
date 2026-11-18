@@ -15,6 +15,7 @@ import { Evidence } from "../components/Evidence";
 import { Markdown } from "../components/Markdown";
 import { PlanEditor } from "../components/PlanEditor";
 import { ConfirmButton, Details, Failure, Icon, Keyed, needText, NeedsMark, Ready, StateWord } from "../components/bits";
+import { LimitNotice, QueuedNotice } from "../components/Limits";
 import { Head } from "../components/Shell";
 import { said } from "../lib/said";
 
@@ -188,6 +189,8 @@ function Detail(props: { task: Task; isGoal: boolean; onSelect: (id: string) => 
       <Show when={unstarted() && place.can("member")}>
         <Part title={t("plan.edit.title")}><Details summary={t("plan.edit.open")}><PlanEditor root={task()} /></Details></Part>
       </Show>
+      <QueuedNotice task={task()} />
+      <LimitNotice task={task()} />
       <Show when={task().result !== null || task().state === "failed"}>
         <Part title={task().state === "failed" ? t("task.failed") : t("task.result")}>
           <Show when={!skipped()} fallback={<p class="t-text text-ink-2">{t("task.skipped")}</p>}>
