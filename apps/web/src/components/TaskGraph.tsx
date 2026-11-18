@@ -82,7 +82,9 @@ export function TaskGraph(props: { record: Task; order?: readonly string[]; sele
   createEffect(on(() => [props.selected, shape().width], () => queueMicrotask(() => scroller?.querySelector<HTMLElement>('[data-selected="true"]')?.scrollIntoView({ inline: "center", block: "nearest" }))));
   /** A graph wider than its pane scrolls sideways, with a fade where more lies beyond; "fit" shrinks it to the pane instead. */
   const [pane, setPane] = createSignal(0);
-  const [fit, setFit] = createSignal(false);
+  // A graph only a little wider than its pane is fitted at first, so a person never meets a half-cut card; the button still decides after that.
+  const [chosen, setFit] = createSignal<boolean | undefined>(undefined);
+  const fit = (): boolean => chosen() ?? (pane() > 0 && shape().width + 8 > pane() && (pane() - 8) / shape().width >= 0.7);
   const [more, setMore] = createSignal({ start: false, end: false });
   const wider = (): boolean => pane() > 0 && shape().width + 8 > pane();
   const scale = (): number => (fit() && wider() ? Math.max(0.2, (pane() - 8) / shape().width) : 1);

@@ -30,6 +30,20 @@ test("a workspace is made from a pack and its first goal is started", async ({ p
   await expect(page.getByText("Confirm the plan").first()).toBeVisible();
 });
 
+test("a workspace with no model says so beside the goal, and the warning goes once a model is connected", async ({ page, stack }) => {
+  const api = await stack.setUp();
+  const made = await api.command("workspace.create", { name: "Plain", packs: ["base"] });
+  await signIn(page, stack);
+  await page.goto(`${stack.url}/w/${made.slug}`);
+  await expect(page.getByTestId("goal-nomodel")).toContainText("No model is connected yet");
+  await page.getByTestId("goal-nomodel").getByRole("button", { name: "Connect a model first" }).click();
+  await page.getByLabel("Address").fill("http://127.0.0.1:9/v1");
+  await page.getByLabel("Model name").fill("fixture-model");
+  await page.getByRole("button", { name: "Connect the model" }).click();
+  await expect(page.getByText("Model connected: fixture-model")).toBeVisible();
+  await expect(page.getByTestId("goal-nomodel")).toHaveCount(0);
+});
+
 test("a name that makes an address a workspace already has is refused while typing; the optional URLs fill the project and the folder remote", async ({ page, stack }) => {
   const api = await stack.setUp();
   await api.command("workspace.create", { name: "Café Réseau", packs: ["base"] });

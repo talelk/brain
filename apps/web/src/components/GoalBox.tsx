@@ -21,7 +21,7 @@ function inputValue(spec: InputSpec, text: string): JsonValue {
  * The goal box: type what you want done and start it. Picking a Play turns the box into that Play's inputs; a Play with one text input
  * uses the big field for it, so starting "Fix an issue" is still just typing the issue.
  */
-export function GoalBox(props: { plays: Plays; play?: string; autofocus?: boolean }): JSX.Element {
+export function GoalBox(props: { plays: Plays; play?: string; autofocus?: boolean; noModel?: boolean }): JSX.Element {
   const place = usePlace();
   const navigate = useNavigate();
   const [goal, setGoal] = createSignal("");
@@ -86,6 +86,12 @@ export function GoalBox(props: { plays: Plays; play?: string; autofocus?: boolea
             aria-label={main() ?? t("goal.label")} placeholder={main() ? inputText(inputs()[0]?.[0] ?? "", inputs()[0]?.[1] as InputSpec) || t("goal.play.placeholder", { name: main() ?? "" }) : t("goal.placeholder")}
             onInput={(event) => setGoal(event.currentTarget.value)}
             onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); submit(); } }} />
+        </Show>
+        <Show when={props.noModel && place.can("member")}>
+          <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control bg-needs-soft px-3 py-2 t-small text-needs-text" role="status" data-testid="goal-nomodel">
+            <Icon name="lucide-plug-zap" /><span>{t("goal.nomodel")}</span>
+            <button type="button" class="font-medium underline" onClick={() => document.getElementById("first-run")?.scrollIntoView({ behavior: "smooth", block: "start" })}>{t("goal.nomodel.action")}</button>
+          </p>
         </Show>
         <div class="mt-2 flex items-center justify-between gap-3">
           <p class="t-small text-ink-3">{place.can("member") ? (chosen() ? t("goal.hint.play") : t("goal.hint")) : t("goal.viewer")}</p>

@@ -102,6 +102,8 @@ export const fr: Catalog = {
   "goal.hint": "Brain propose d'abord un plan. Ctrl+Enter pour démarrer.",
   "goal.hint.play": "Démarre ce Play. Ctrl+Enter pour démarrer.",
   "goal.viewer": "Les lecteurs ne peuvent pas lancer de travail. Demandez à un administrateur de vous nommer membre.",
+  "goal.nomodel": "Aucun modèle n'est encore connecté : les agents ne peuvent pas réfléchir. Un objectif s'arrêterait dès sa première étape.",
+  "goal.nomodel.action": "Connecter d'abord un modèle",
   "goal.start": "Démarrer",
   "goal.plays": "Ou démarrer un Play :",
   "goal.play.clear": "Revenir à un objectif libre",

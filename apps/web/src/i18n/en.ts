@@ -100,6 +100,8 @@ export const en = {
   "goal.hint": "Brain proposes a plan first. Ctrl+Enter starts.",
   "goal.hint.play": "Starts this Play. Ctrl+Enter starts.",
   "goal.viewer": "Viewers cannot start work. Ask an admin to make you a member.",
+  "goal.nomodel": "No model is connected yet, so agents cannot think. A goal would stop at its first step.",
+  "goal.nomodel.action": "Connect a model first",
   "goal.start": "Start",
   "goal.plays": "Or start a Play:",
   "goal.play.clear": "Go back to a plain goal",

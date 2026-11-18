@@ -555,6 +555,7 @@ the handoffs between them, read from the Plays' steps and the recent tasks the w
 - `tests/e2e`: the real runner on its fixture engine against the Governor in one process: a pipeline to a checked
   result, a native edit that leaves as an approved pull request, a held call carried out later.
 - `tests/unit/live.test.ts`: the shaping of Live (stage counts, flow widths, the feed built from tasks and grouped so equal events become one line with a count, activity buckets, token samples, goals that just finished).
+- New workspace, first goal: a workspace with no model says so beside the goal box (a link scrolls to Connect a model) until one is connected; a graph a little wider than its pane is fitted at first.
 - `tests/unit/village.test.ts`: the village of Live (a lot per workspace and one plaza, a castle for a platform workspace, a walk from the plaza to every door, a running attempt placed at its door on the first read and walked in afterwards, positions kept across reads, an ending played before leaving, wanderers kept in their yard).
 - `tests/browser` (`pnpm test:browser`: builds the web app, then Playwright with Chromium at 1440 and, for the first
   run and the accessibility pass, 390 wide): each test starts its own empty install, a Governor serving `apps/web/dist`

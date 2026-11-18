@@ -118,6 +118,8 @@ export const ar: Catalog = {
   "goal.hint": "يقترح Brain خطة أولًا. Ctrl+Enter للبدء.",
   "goal.hint.play": "يبدأ هذا الـ Play. Ctrl+Enter للبدء.",
   "goal.viewer": "لا يستطيع المُشاهدون بدء العمل. اطلب من مسؤول أن يجعلك عضوًا.",
+  "goal.nomodel": "لم يُربط أي نموذج بعد، فلا يستطيع الوكلاء التفكير. سيتوقف الهدف عند خطوته الأولى.",
+  "goal.nomodel.action": "اربط نموذجًا أولًا",
   "goal.start": "بدء",
   "goal.plays": "أو ابدأ Play:",
   "goal.play.clear": "العودة إلى هدف عادي",
