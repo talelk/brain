@@ -1,4 +1,4 @@
-import { createSignal, For, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, type JSX } from "solid-js";
 import { Avatar, Badge, Button } from "@talelk/newui-atoms";
 import { EmptyState, Tabs, toast } from "@talelk/newui-molecules";
 import { FilterBar, Section, StatGrid, type DataTableColumn } from "@talelk/newui-organisms";
@@ -13,6 +13,7 @@ import { Table } from "../components/Table";
 import { GroupDialog, InstanceRole, InviteDialog, StatusBadge, UserDrawer } from "../components/UserAdmin";
 
 const STATES: readonly UserState[] = ["active", "invited", "deactivated"];
+const PAGE = 25;
 
 /** What an invitation not yet used lets an admin do: make a new link (the earlier one stops working), or revoke it. */
 function InvitedActions(props: { user: UserRow; onResend: () => void }): JSX.Element {
@@ -58,20 +59,24 @@ function Groups(props: { groups: readonly GroupRow[]; onEdit: (group: GroupRow |
 /** Instance admins: everyone who can sign in to this Brain, invitations, groups, and one person's detail with their access, sessions and sign-ins. */
 export default function UsersScreen(): JSX.Element {
   const session = useSession();
-  const list = useQuery("users.list", () => (session.user().instanceAdmin ? {} : undefined));
   const [tab, setTab] = createSignal("people");
   const [search, setSearch] = createSignal("");
+  const [asked, setAsked] = createSignal("");
   const [status, setStatus] = createSignal<UserState | "">("");
   const [role, setRole] = createSignal<"" | "admin" | "member">("");
+  const [page, setPage] = createSignal(0);
+  // The server finds the people: the search waits for a pause in typing, and any change of what is asked starts at the first page.
+  createEffect(on(search, (text) => { const wait = setTimeout(() => setAsked(text.trim()), 250); onCleanup(() => clearTimeout(wait)); }));
+  createEffect(on([asked, status, role], () => setPage(0), { defer: true }));
+  const list = useQuery("users.list", () => (session.user().instanceAdmin ? { ...(asked() ? { search: asked() } : {}), ...(status() ? { status: status() as UserState } : {}), ...(role() ? { role: role() as "admin" | "member" } : {}), page: page(), pageSize: PAGE } : undefined));
+  // While another page is on its way the last one stays, so the search box keeps its place.
+  const kept = createMemo<ReturnType<typeof list.data>>((last) => list.data() ?? last, undefined);
   const [inviting, setInviting] = createSignal(false);
   const [prefill, setPrefill] = createSignal<{ email: string; grants: NonNullable<UserRow["grants"]> }>();
   const [open, setOpen] = createSignal<string>();
   const [editing, setEditing] = createSignal<{ group?: GroupRow }>();
   const invite = (user?: UserRow): void => { setPrefill(user?.grants ? { email: user.email, grants: user.grants } : undefined); setInviting(true); };
   const clear = (): void => { setSearch(""); setStatus(""); setRole(""); };
-  const filtered = (rows: readonly UserRow[]): UserRow[] => rows.filter((user) => (status() === "" || user.status === status()) && (role() === "" || (role() === "admin") === user.instanceAdmin)
-    && `${user.name} ${user.email}`.toLowerCase().includes(search().trim().toLowerCase()));
-
   const columns: DataTableColumn<UserRow>[] = [
     { id: "person", header: t("users.col.person"), accessorFn: (user) => `${user.name} ${user.email}`, meta: { mobile: "title" }, cell: (ctx) => {
       const user = ctx.row.original;
@@ -103,16 +108,17 @@ export default function UsersScreen(): JSX.Element {
       <Head title={t("users.title")} text={t("users.title")} description={t("users.text")}
         actions={session.user().instanceAdmin ? <Button variant="solid" theme="blue" size="md" iconLeft="lucide-user-plus" onClick={() => invite()}>{t("users.invite")}</Button> : undefined} />
       <Show when={session.user().instanceAdmin} fallback={<EmptyState bordered icon="lucide-lock" title={t("users.adminOnly")} description={t("users.adminOnly.text")} />}>
-        <Ready shape="table" data={list.data()} error={list.error()} retry={list.refetch}>
+        <Ready shape="table" data={kept()} error={list.error()} retry={list.refetch}>
           {(loaded) => {
-            const count = (state: UserState): number => loaded().users.filter((user) => user.status === state).length;
+            const count = (state: UserState): number => loaded().counts[state];
+            const pages = (): number => Math.max(1, Math.ceil(loaded().total / PAGE));
             return (
               <div class="flex flex-col gap-6">
                 <StatGrid columns={4} stats={[
                   { label: t("users.status.active"), icon: "lucide-user-check", value: count("active"), hint: t("users.stat.active") },
                   { label: t("users.status.invited"), icon: "lucide-mail", value: count("invited"), hint: t("users.stat.invited") },
                   { label: t("users.status.deactivated"), icon: "lucide-user-x", value: count("deactivated"), hint: t("users.stat.deactivated") },
-                  { label: t("users.stat.admins.label"), icon: "lucide-shield-check", value: loaded().users.filter((user) => user.instanceAdmin && user.status === "active").length, hint: t("users.stat.admins") },
+                  { label: t("users.stat.admins.label"), icon: "lucide-shield-check", value: loaded().counts.admins, hint: t("users.stat.admins") },
                 ]} class="max-md:grid-cols-2" />
                 <Tabs.Root value={tab()} onValueChange={setTab} variant="underline" size="md">
                   <Tabs.List aria-label={t("users.title")}>
@@ -128,12 +134,19 @@ export default function UsersScreen(): JSX.Element {
                       chips={[...(status() ? [{ label: `${t("users.col.status")}: ${t(`users.status.${status() as UserState}`)}`, onRemove: () => setStatus("") }] : []), ...(role() ? [{ label: `${t("users.col.role")}: ${t(role() === "admin" ? "users.irole.admin" : "users.irole.member")}`, onRemove: () => setRole("") }] : [])]}
                       onClearAll={clear} />
                     {/* The table sizes its page once, so it is made again when the number of rows changes. */}
-                    <For each={[filtered(loaded().users).length]}>{() => <Table title={t("users.title")} rows={filtered(loaded().users)} columns={columns} count={tn("table.users", filtered(loaded().users).length)} emptyTitle={t("users.none.match")} emptyHint={t("users.none.match.text")} onClearFilters={clear} />}</For>
+                    <For each={[JSON.stringify(loaded().users)]}>{() => <Table title={t("users.title")} rows={[...loaded().users]} columns={columns} count={tn("table.users", loaded().total)} emptyTitle={t("users.none.match")} emptyHint={t("users.none.match.text")} onClearFilters={clear} />}</For>
+                    <Show when={pages() > 1}>
+                      <nav class="flex items-center justify-end gap-2" aria-label={t("users.page.label")}>
+                        <Button variant="outline" size="sm" iconLeft="lucide-chevron-left" disabled={page() === 0} onClick={() => setPage(page() - 1)}>{t("users.page.prev")}</Button>
+                        <span class="t-small tabular-nums text-ink-2" role="status">{t("users.page.of", { page: page() + 1, pages: pages() })}</span>
+                        <Button variant="outline" size="sm" iconRight="lucide-chevron-right" disabled={page() + 1 >= pages()} onClick={() => setPage(page() + 1)}>{t("users.page.next")}</Button>
+                      </nav>
+                    </Show>
                   </Tabs.Content>
                   <Tabs.Content value="groups" class="pt-5"><Groups groups={loaded().groups} onEdit={(group) => setEditing({ ...(group ? { group } : {}) })} /></Tabs.Content>
                 </Tabs.Root>
                 <InviteDialog open={inviting()} onOpenChange={setInviting} groups={loaded().groups} workspaces={loaded().workspaces} prefill={prefill()} />
-                <GroupDialog open={editing() !== undefined} onOpenChange={(next) => { if (!next) setEditing(undefined); }} group={editing()?.group} people={loaded().users} workspaces={loaded().workspaces} />
+                <GroupDialog open={editing() !== undefined} onOpenChange={(next) => { if (!next) setEditing(undefined); }} group={editing()?.group} workspaces={loaded().workspaces} />
               </div>
             );
           }}

@@ -1,17 +1,14 @@
-import { passkey } from "@better-auth/passkey";
 import type { BetterAuthOptions } from "better-auth";
 import { APIError } from "better-auth/api";
-import { twoFactor } from "better-auth/plugins";
 import { tx, type Db } from "../db";
 import { append } from "../events";
 
 /**
- * Sign-in: email and password, passkeys and two-factor. Accounts are made by setup, by an invitation and by a workspace admin, so sign-up
+ * Sign-in: email and password. Accounts are made by setup, by an invitation and by a workspace admin, so sign-up
  * creates no session. Every session, whatever way it is made, is refused to a deactivated person and recorded in the audit log.
  */
 export function authOptions(db: Db, opts: { secret: string; baseUrl: string }) {
   const origin = new URL(opts.baseUrl).origin;
-  const hostname = new URL(origin).hostname;
   const trustedProxies = process.env["BRAIN_AUTH_TRUSTED_PROXIES"]?.split(",").map((value) => value.trim()).filter(Boolean);
   return {
     appName: "Brain",
@@ -26,7 +23,7 @@ export function authOptions(db: Db, opts: { secret: string; baseUrl: string }) {
       storage: "database",
       window: 10,
       max: 100,
-      customRules: { "/sign-in/email": { window: 10, max: 5 }, "/sign-in/passkey": { window: 10, max: 5 }, "/two-factor/*": { window: 10, max: 3 } },
+      customRules: { "/sign-in/email": { window: 10, max: 5 } },
     },
     ...(trustedProxies?.length ? { advanced: { ipAddress: { trustedProxies, ipAddressHeaders: ["x-forwarded-for"] } } } : {}),
     databaseHooks: {
@@ -41,9 +38,5 @@ export function authOptions(db: Db, opts: { secret: string; baseUrl: string }) {
         },
       },
     },
-    plugins: [
-      passkey({ rpID: ["127.0.0.1", "localhost", "[::1]"].includes(hostname) ? "localhost" : hostname, rpName: "Brain", origin, authenticatorSelection: { residentKey: "preferred", userVerification: "required" } }),
-      twoFactor({ issuer: "Brain" }),
-    ],
   } satisfies BetterAuthOptions;
 }

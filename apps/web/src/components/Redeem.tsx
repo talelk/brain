@@ -4,7 +4,6 @@ import { TabButtons } from "@talelk/newui-molecules";
 import { AuthCard } from "@talelk/newui-organisms";
 import { AuthLayout } from "@talelk/newui-templates";
 import { command, useAction } from "../data/api";
-import { authClient } from "../data/auth-client";
 import { LOCALES, locale, setLocale, t, type Locale } from "../i18n";
 import { generatedPassword } from "../lib/people";
 import { Failure } from "./bits";
@@ -17,7 +16,7 @@ export function linkFromAddress(): { kind: "invite" | "reset"; token: string } |
 }
 
 /** The page an invitation or a reset link opens: choose a name and a password (or just a password), and be signed in (or told to sign in). */
-export function Redeem(props: { link: { kind: "invite" | "reset"; token: string }; signedInAs: string | undefined; onDone: () => void }): JSX.Element {
+export function Redeem(props: { link: { kind: "invite" | "reset"; token: string }; signedInAs: string | undefined; sessionId?: string | undefined; onDone: () => void }): JSX.Element {
   const [name, setName] = createSignal("");
   const [password, setPassword] = createSignal("");
   const [shown, setShown] = createSignal(false);
@@ -29,7 +28,7 @@ export function Redeem(props: { link: { kind: "invite" | "reset"; token: string 
     if (answer.kind === "reset") setReset(true);
     else leave();
   });
-  const signOut = useAction(async () => { await authClient.signOut(); props.onDone(); });
+  const signOut = useAction(async () => { await command("session.revoke", { sessionId: props.sessionId ?? "" }); props.onDone(); });
   const invite = props.link.kind === "invite";
   return (
     <AuthLayout

@@ -77,12 +77,15 @@ describe("invitations", () => {
     const { groupId } = await harness.admin.command("group.set", { name: "Newcomers", memberIds: [], grants: [{ workspaceId: otherId, role: "viewer" }] });
     const invited = await harness.admin.command("user.invite", { email: "Nora@Example.com", workspaces: [{ workspaceId, role: "member" }], groups: [groupId] });
     expect(invited.link).toMatch(/\/#invite=[\w-]{40,}$/u);
-    expect(invited.emailed).toBe(false);
+    expect(invited.mail).toBe("off");
     // The people table shows the address as invited, with what it grants; nothing of the token is kept.
     const row = (await harness.admin.query("users.list", {})).users.find((user) => user.email === "nora@example.com");
     expect(row).toMatchObject({ status: "invited", invitationId: invited.invitationId, workspaces: 1 });
     expect(JSON.stringify(harness.governor.gov.db.prepare("SELECT * FROM invitations").all())).not.toContain(tokenOf(invited.link));
     expect(events("user.invited").map((event) => event.payload).join()).not.toContain(tokenOf(invited.link));
+    // The audit log keeps a redacted address; the invitation (its id is the subject) and the person (their id) find the rest.
+    expect(events("user.invited").map((event) => event.payload).join()).not.toContain("nora@example.com");
+    expect(events("user.invited").map((event) => event.payload).join()).toContain("n***@example.com");
 
     const accept = (input: object): Promise<Response> => harness.anonymous.fetch("/v1/command", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "invitation.accept", idempotencyKey: crypto.randomUUID(), input }) });
     const response = await accept({ token: tokenOf(invited.link), name: "Nora", password: PASSWORD });
@@ -93,6 +96,7 @@ describe("invitations", () => {
     expect(await roleIn(nora, otherId)).toBe("viewer");
     expect((await harness.admin.query("users.list", {})).users.find((user) => user.email === "nora@example.com")).toMatchObject({ status: "active", name: "Nora", groups: [{ name: "Newcomers" }] });
     expect(events("user.joined")).toHaveLength(1);
+    expect(events("user.joined")[0]?.payload).not.toContain("nora@example.com");
 
     // It works once.
     expect((await accept({ token: tokenOf(invited.link), name: "Nora again", password: PASSWORD })).status).toBe(404);
@@ -161,6 +165,12 @@ describe("deactivation, roles and sessions", () => {
     const attempt = await harness.anonymous.fetch("/api/auth/sign-in/email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "dana@example.com", password: PASSWORD }) });
     expect(attempt.ok).toBe(false);
     expect(attempt.headers.getSetCookie()).toEqual([]);
+    // The refusal is the answer to a wrong password, so it says nothing of the account; the audit log says what it was.
+    const wrong = await harness.anonymous.fetch("/api/auth/sign-in/email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "dana@example.com", password: "not the password" }) });
+    const unknown = await harness.anonymous.fetch("/api/auth/sign-in/email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "nobody-at-all@example.com", password: "not the password" }) });
+    expect([attempt.status, await attempt.json()]).toEqual([wrong.status, await wrong.json()]);
+    expect(unknown.status).toBe(wrong.status);
+    expect(events("user.sign_in_failed").filter((event) => event.subject === `user:${userId}` && event.payload.includes('"deactivated":true'))).toHaveLength(1);
     // History and roles stay.
     expect((await harness.admin.query("task.get", { workspaceId, taskId: task.taskId })).id).toBe(task.taskId);
     const members = (await harness.admin.query("members.list", { workspaceId })).members;
@@ -215,8 +225,11 @@ describe("deactivation, roles and sessions", () => {
     expect((await harness.admin.query("user.get", { userId })).signIns.filter((entry) => !entry.ok)).toHaveLength(1);
     expect(events("user.sign_in_failed").filter((event) => event.subject === `user:${userId}`)).toHaveLength(1);
     expect(events("user.sign_in_failed").every((event) => event.subject.startsWith("user:") && !event.payload.includes("nobody"))).toBe(true);
-    // The routes of the sign-in library that change an account without the audit log are closed.
-    for (const path of ["/api/auth/update-user", "/api/auth/change-password", "/api/auth/revoke-sessions", "/api/auth/request-password-reset"]) expect((await client.fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).status).toBe(403);
+    // Ten more refused passwords in the window add no row: the log is not a place to flood.
+    for (let i = 0; i < 10; i += 1) await harness.anonymous.fetch("/api/auth/sign-in/email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "fay@example.com", password: "wrong wrong wrong" }) });
+    expect(events("user.sign_in_failed").filter((event) => event.subject === `user:${userId}`)).toHaveLength(1);
+    // Every route of the sign-in library but the password sign-in is closed: what changes an account goes through the audited commands.
+    for (const path of ["/api/auth/update-user", "/api/auth/change-password", "/api/auth/revoke-sessions", "/api/auth/request-password-reset", "/api/auth/sign-out", "/api/auth/two-factor/enable", "/api/auth/passkey/add-passkey", "/api/auth/unlink-account", "/api/auth/get-session"]) expect((await client.fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).status).toBe(403);
   });
 
   it("every change is an audit event in the chain", () => {
@@ -225,10 +238,13 @@ describe("deactivation, roles and sessions", () => {
   });
 
   it("guessing links is limited per address: after ten refusals even a good link waits", async () => {
+    // Its own address, so no other test of the file is limited by it whatever the order.
+    process.env["BRAIN_AUTH_TRUSTED_PROXIES"] = "1";
     let last = 0;
     for (let i = 0; i < 12; i += 1) {
-      last = (await harness.anonymous.fetch("/v1/command", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "invitation.accept", idempotencyKey: crypto.randomUUID(), input: { token: `guess-${i}`.padEnd(30, "g"), password: PASSWORD } }) })).status;
+      last = (await harness.anonymous.fetch("/v1/command", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.77" }, body: JSON.stringify({ type: "invitation.accept", idempotencyKey: crypto.randomUUID(), input: { token: `guess-${i}`.padEnd(30, "g"), password: PASSWORD } }) })).status;
     }
+    delete process.env["BRAIN_AUTH_TRUSTED_PROXIES"];
     expect(last).toBe(409);
   });
 
@@ -251,14 +267,100 @@ describe("deactivation, roles and sessions", () => {
     await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
     process.env["BRAIN_SMTP_URL"] = `smtp://127.0.0.1:${(server.address() as { port: number }).port}`;
     try {
+      // The server offers no STARTTLS: nothing is sent unless a connection in the clear is asked for, and the audit log says the server did not take it.
+      const refused = await harness.admin.command("user.invite", { email: "kim@example.com" });
+      expect(refused.mail).toBe("queued");
+      for (let i = 0; i < 50 && events("user.mail_failed").length === 0; i += 1) await new Promise((done) => setTimeout(done, 50));
+      expect(events("user.mail_failed")).toHaveLength(1);
+      expect(received).toEqual([]);
+
+      process.env["BRAIN_SMTP_INSECURE"] = "1";
       const invited = await harness.admin.command("user.invite", { email: "mia@example.com" });
-      expect(invited.emailed).toBe(true);
+      expect(invited.mail).toBe("queued");
       for (let i = 0; i < 50 && received.length === 0; i += 1) await new Promise((done) => setTimeout(done, 50));
       expect(received[0]).toContain(invited.link);
       expect(received[0]).toContain("To: <mia@example.com>");
+      expect(received[0]).toMatch(/^Date: .+\nMessage-ID: <.+@.+>\n/mu);
+      for (let i = 0; i < 50 && events("user.mail_accepted").length === 0; i += 1) await new Promise((done) => setTimeout(done, 50));
+      expect(events("user.mail_accepted")).toHaveLength(1);
+      expect(events("user.mail_accepted")[0]?.payload).not.toContain("mia@example.com");
     } finally {
       delete process.env["BRAIN_SMTP_URL"];
+      delete process.env["BRAIN_SMTP_INSECURE"];
       server.close();
     }
+  });
+});
+
+describe("who may use the commands of this part", () => {
+  it("every command and query of users, groups and invitations refuses a workspace admin who is not an instance admin", async () => {
+    const member = await harness.member(workspaceId, "pat@example.com", "admin");
+    const attempts: Array<[string, () => Promise<unknown>]> = [
+      ["user.invite", () => member.command("user.invite", { email: "x1@example.com" })],
+      ["invitation.revoke", () => member.command("invitation.revoke", { invitationId: "inv_x" })],
+      ["user.set", () => member.command("user.set", { userId: "usr", active: false })],
+      ["user.resetLink", () => member.command("user.resetLink", { userId: "usr" })],
+      ["group.set", () => member.command("group.set", { name: "Nope" })],
+      ["group.delete", () => member.command("group.delete", { groupId: "grp" })],
+      ["users.list", () => member.query("users.list", {})],
+    ];
+    for (const [name, attempt] of attempts) expect(await refusal(attempt()), name).toBe("FORBIDDEN");
+  });
+});
+
+describe("the last admin of a workspace", () => {
+  it("is counted through groups too: a direct admin may step down while a group has an admin, and not when none does", async () => {
+    const { workspaceId: scoped } = await harness.createWorkspace({ name: "Guarded" });
+    const boss = await harness.member(scoped, "boss@example.com", "admin");
+    const deputy = await harness.member(scoped, "deputy@example.com", "viewer");
+    const deputyId = (await deputy.query("me", {})).user?.id ?? "";
+    // Ada made the workspace, so she is its first admin until she steps down.
+    await harness.admin.command("member.set", { workspaceId: scoped, email: "ada@example.com", role: "viewer" });
+    expect(await refusal(boss.command("member.set", { workspaceId: scoped, email: "boss@example.com", role: "member" }))).toBe("CONFLICT");
+    await harness.admin.command("group.set", { name: "Deputies", memberIds: [deputyId], grants: [{ workspaceId: scoped, role: "admin" }] });
+    await boss.command("member.set", { workspaceId: scoped, email: "boss@example.com", role: "member" });
+    expect(await roleIn(boss, scoped)).toBe("member");
+  });
+});
+
+describe("accepting an invitation is all or nothing", () => {
+  it("an invitation that is revoked while the account is being made is taken already, and a failed account leaves the invitation usable", async () => {
+    const accept = (token: string): Promise<Response> => harness.anonymous.fetch("/v1/command", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.88" }, body: JSON.stringify({ type: "invitation.accept", idempotencyKey: crypto.randomUUID(), input: { token, name: "Quin", password: PASSWORD } }) });
+    process.env["BRAIN_AUTH_TRUSTED_PROXIES"] = "1";
+    try {
+      const gov = harness.governor.gov;
+      const invited = await harness.admin.command("user.invite", { email: "quin@example.com" });
+      const make = gov.auth.createAccount.bind(gov.auth);
+      // The account cannot be made: no account, and the invitation is given back.
+      (gov.auth as { createAccount: unknown }).createAccount = () => Promise.reject(new Error("no"));
+      expect((await accept(tokenOf(invited.link))).ok).toBe(false);
+      expect(gov.auth.find("quin@example.com")).toBeUndefined();
+      // A revoke in the middle of the request finds the invitation already this request's, and the person joins.
+      let revoked = "";
+      (gov.auth as { createAccount: unknown }).createAccount = async (input: Parameters<typeof make>[0]) => {
+        revoked = await refusal(harness.admin.command("invitation.revoke", { invitationId: invited.invitationId }));
+        return make(input);
+      };
+      expect((await accept(tokenOf(invited.link))).status).toBe(200);
+      expect(revoked).toBe("NOT_FOUND");
+      expect(events("user.joined").some((event) => event.subject.startsWith("user:") && event.payload.includes("q***@example.com"))).toBe(true);
+      (gov.auth as { createAccount: unknown }).createAccount = make;
+    } finally {
+      delete process.env["BRAIN_AUTH_TRUSTED_PROXIES"];
+    }
+  });
+});
+
+describe("the people list", () => {
+  it("is a page found on the server: searched, filtered, counted, and the same few queries however many people", async () => {
+    for (let i = 0; i < 6; i += 1) await harness.admin.command("user.invite", { email: `bulk${i}@example.com` });
+    const first = await harness.admin.query("users.list", { search: "bulk", pageSize: 4 });
+    const second = await harness.admin.query("users.list", { search: "bulk", pageSize: 4, page: 1 });
+    expect([first.total, first.users.length, second.users.length]).toEqual([6, 4, 2]);
+    expect(first.users.every((user) => user.status === "invited")).toBe(true);
+    expect((await harness.admin.query("users.list", { search: "BULK3" })).users.map((user) => user.email)).toEqual(["bulk3@example.com"]);
+    expect((await harness.admin.query("users.list", { status: "invited" })).counts.invited).toBeGreaterThanOrEqual(6);
+    expect((await harness.admin.query("users.list", { role: "admin", status: "active" })).users.every((user) => user.instanceAdmin)).toBe(true);
+    expect((await harness.admin.query("users.list", { search: "100%" })).total).toBe(0);
   });
 });

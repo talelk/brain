@@ -1,8 +1,9 @@
-import { BrainError, hmacSha256Hex, type AccessRow, type Grants, type GroupRow, type Role, type SessionRow, type SignInRow, type UserDetail, type UserRow } from "@brain/contracts";
+import { BrainError, hmacSha256Hex, type AccessRow, type Grants, type GroupRow, type Role, type SessionRow, type SignInRow, type UserDetail, type UserRow, type UserState } from "@brain/contracts";
 import { randomBytes, randomUUID } from "node:crypto";
 import type { Governor } from "../app";
 import type { Ctx, Gov } from "../dispatch";
-import { append } from "../events";
+import { tx } from "../db";
+import { append, SYSTEM } from "../events";
 import { mailConfigured, sendMail } from "./mail";
 
 // Users, invitations, groups and sessions (docs/model.md, Users, invitations and groups). Every command appends its audit event in its own transaction.
@@ -37,6 +38,8 @@ const noteRefusal = (gov: Gov, key: string, now: number): void => {
   kept.push(now);
   refusals.get(gov)?.set(key, kept);
 };
+/** What the audit log keeps of an address: enough to recognise it, not to use it. The person's id (or the invitation's) finds the rest. */
+const redacted = (email: string): string => `${email.slice(0, 1)}***@${email.split("@")[1] ?? ""}`;
 const invalidLink = (): BrainError => new BrainError("NOT_FOUND", "This link is not valid, or it has expired or been used");
 
 const activeAdmins = (ctx: Ctx): number => (ctx.db.prepare("SELECT COUNT(*) AS n FROM instance_admins a WHERE NOT EXISTS (SELECT 1 FROM deactivated_users d WHERE d.user_id = a.user_id)").get() as { n: number }).n;
@@ -75,10 +78,17 @@ function applyGrants(ctx: Ctx, actor: Ctx["actor"], userId: string, grants: Gran
   for (const groupId of grants.groups) ctx.db.prepare("INSERT INTO group_members(group_id, user_id) SELECT id, ? FROM groups WHERE id=? ON CONFLICT DO NOTHING").run(userId, groupId);
 }
 
-function mailLink(to: string, kind: "invite" | "reset", link: string): void {
+/** Takes the invitation for the one request that redeems it, before any account is made: a revoke that comes later finds nothing pending and changes nothing. */
+const claim = (gov: Gov, id: string): boolean => gov.db.prepare("UPDATE invitations SET state='claimed' WHERE id=? AND state='pending' AND expires_at_ms>?").run(id, gov.clock.nowMs()).changes === 1;
+const release = (gov: Gov, id: string): void => void gov.db.prepare("UPDATE invitations SET state='pending' WHERE id=? AND state='claimed'").run(id);
+
+function mailLink(gov: Gov, to: string, kind: "invite" | "reset", link: string, invitationId: string): void {
   const text = kind === "invite" ? `You have been invited to Brain.\n\nOpen this link to choose your name and password. It works once.\n\n${link}\n` : `An administrator of Brain made a link for you to choose a new password. It works once.\n\n${link}\n`;
   // After the command's transaction has ended, and without holding the answer back.
-  setImmediate(() => void sendMail(to, kind === "invite" ? "You are invited to Brain" : "Choose a new password for Brain", text));
+  // The audit log says whether the server took the message, never that it arrived.
+  setImmediate(() => void sendMail(to, kind === "invite" ? "You are invited to Brain" : "Choose a new password for Brain", text).then((result) => {
+    try { tx(gov.db, () => append(gov.db, { type: `user.mail_${result}`, subject: `invitation:${invitationId}`, payload: { invitationId, kind }, actor: SYSTEM })); } catch { /* the database is closing */ }
+  }));
 }
 
 export function registerUsers({ gov: { registry } }: Governor): void {
@@ -95,10 +105,10 @@ export function registerUsers({ gov: { registry } }: Governor): void {
       const expiresAt = ctx.now() + INVITE_MS;
       const grants: Grants = { instanceAdmin: input.instanceAdmin, workspaces: input.workspaces, groups: input.groups };
       ctx.db.prepare("INSERT INTO invitations(id, kind, email, token_digest, grants_json, created_by, created_at_ms, expires_at_ms) VALUES (?,?,?,?,?,?,?,?)").run(id, "invite", input.email, digestOf(ctx.gov, token), JSON.stringify(grants), ctx.user?.id ?? "", ctx.now(), expiresAt);
-      append(ctx.db, { type: "user.invited", subject: `invitation:${id}`, payload: { invitationId: id, email: input.email, ...grants, replaced }, actor: ctx.actor });
+      append(ctx.db, { type: "user.invited", subject: `invitation:${id}`, payload: { invitationId: id, email: redacted(input.email), ...grants, replaced }, actor: ctx.actor });
       const link = linkOf(ctx.gov, "invite", token);
-      mailLink(input.email, "invite", link);
-      return { invitationId: id, link, expiresAt, emailed: mailConfigured() };
+      if (mailConfigured()) mailLink(ctx.gov, input.email, "invite", link, id);
+      return { invitationId: id, link, expiresAt, mail: mailConfigured() ? "queued" : "off" };
     },
   });
 
@@ -106,7 +116,7 @@ export function registerUsers({ gov: { registry } }: Governor): void {
     const row = ctx.db.prepare("SELECT email, kind FROM invitations WHERE id=? AND state='pending'").get(input.invitationId) as { email: string; kind: string } | undefined;
     if (!row) throw new BrainError("NOT_FOUND", "There is no pending invitation like this");
     ctx.db.prepare("UPDATE invitations SET state='revoked' WHERE id=?").run(input.invitationId);
-    append(ctx.db, { type: "user.invitation_revoked", subject: `invitation:${input.invitationId}`, payload: { invitationId: input.invitationId, email: row.email, kind: row.kind }, actor: ctx.actor });
+    append(ctx.db, { type: "user.invitation_revoked", subject: `invitation:${input.invitationId}`, payload: { invitationId: input.invitationId, email: redacted(row.email), kind: row.kind }, actor: ctx.actor });
     return {};
   });
 
@@ -116,21 +126,26 @@ export function registerUsers({ gov: { registry } }: Governor): void {
       const key = `link:${ctx.ip}`;
       assertNotLimited(ctx.gov, key, ctx.now(), 10);
       const link = pending(ctx.gov, input.token);
-      if (!link) {
+      if (!link || !claim(ctx.gov, link.id)) {
         noteRefusal(ctx.gov, key, ctx.now());
         throw invalidLink();
       }
-      if (link.kind === "reset") return { link, userId: link.userId ?? "", cookies: [], hash: await ctx.gov.auth.hashPassword(input.password) };
-      if (!input.name) throw new BrainError("INVALID_INPUT", "Say what to call you", [{ path: "name", message: "needed to join" }]);
-      // An address that got an account some other way since the invitation was made cannot be invited a second time.
-      if (ctx.gov.auth.find(link.email)) throw invalidLink();
-      const userId = await ctx.gov.auth.createAccount({ email: link.email, name: input.name, password: input.password });
-      return { link, userId, cookies: (await ctx.gov.auth.signIn(link.email, input.password)).cookies, hash: "" };
+      // From here the invitation is this request's: when anything fails the invitation is given back and no account is left.
+      try {
+        if (link.kind === "reset") return { link, userId: link.userId ?? "", cookies: [], hash: await ctx.gov.auth.hashPassword(input.password) };
+        if (!input.name) throw new BrainError("INVALID_INPUT", "Say what to call you", [{ path: "name", message: "needed to join" }]);
+        // An address that got an account some other way since the invitation was made cannot be invited a second time.
+        if (ctx.gov.auth.find(link.email)) throw invalidLink();
+        const userId = await ctx.gov.auth.createAccount({ email: link.email, name: input.name, password: input.password });
+        return { link, userId, cookies: (await ctx.gov.auth.signIn(link.email, input.password)).cookies, hash: "" };
+      } catch (e) {
+        release(ctx.gov, link.id);
+        throw e;
+      }
     },
-    run(ctx, input, prepared) {
-      const link = pending(ctx.gov, input.token);
-      if (!link || link.id !== prepared.link.id) throw invalidLink();
-      ctx.db.prepare("UPDATE invitations SET state='used', used_at_ms=? WHERE id=?").run(ctx.now(), link.id);
+    run(ctx, _input, prepared) {
+      const link = prepared.link;
+      if (ctx.db.prepare("UPDATE invitations SET state='used', used_at_ms=? WHERE id=? AND state='claimed'").run(ctx.now(), link.id).changes !== 1) throw invalidLink();
       const actor = { kind: "person", id: prepared.userId } as const;
       if (link.kind === "reset") {
         ctx.db.prepare(`UPDATE account SET password=?, "updatedAt"=? WHERE "userId"=? AND "providerId"='credential'`).run(prepared.hash, new Date(ctx.now()).toISOString(), prepared.userId);
@@ -139,7 +154,7 @@ export function registerUsers({ gov: { registry } }: Governor): void {
         return { kind: "reset", userId: prepared.userId };
       }
       applyGrants(ctx, actor, prepared.userId, link.grants);
-      append(ctx.db, { type: "user.joined", subject: `user:${prepared.userId}`, payload: { userId: prepared.userId, email: link.email, invitationId: link.id, ...link.grants }, actor });
+      append(ctx.db, { type: "user.joined", subject: `user:${prepared.userId}`, payload: { userId: prepared.userId, email: redacted(link.email), invitationId: link.id, ...link.grants }, actor });
       ctx.cookies.push(...prepared.cookies);
       return { kind: "invite", userId: prepared.userId };
     },
@@ -183,7 +198,7 @@ export function registerUsers({ gov: { registry } }: Governor): void {
       ctx.db.prepare("INSERT INTO invitations(id, kind, email, user_id, token_digest, grants_json, created_by, created_at_ms, expires_at_ms) VALUES (?,?,?,?,?,?,?,?,?)").run(id, "reset", target.email, target.id, digestOf(ctx.gov, token), JSON.stringify(NO_GRANTS), ctx.user?.id ?? "", ctx.now(), expiresAt);
       append(ctx.db, { type: "user.reset_issued", subject: `user:${target.id}`, payload: { userId: target.id, invitationId: id }, actor: ctx.actor });
       const link = linkOf(ctx.gov, "reset", token);
-      mailLink(target.email, "reset", link);
+      if (mailConfigured()) mailLink(ctx.gov, target.email, "reset", link, id);
       return { link, expiresAt };
     },
   });
@@ -269,32 +284,48 @@ export function registerUsers({ gov: { registry } }: Governor): void {
     return {};
   });
 
-  registry.query("users.list", (ctx) => {
+  // One page of people and pending invitations, found on the server: a constant number of queries however many people there are.
+  registry.query("users.list", (ctx, input) => {
     const db = ctx.db;
-    const rows = db.prepare(`SELECT u.id, u.name, u.email, u."createdAt" AS createdAt, a.user_id IS NOT NULL AS admin, d.user_id IS NOT NULL AS off,
-      (SELECT MAX(created_at_ms) FROM events WHERE subject = 'user:' || u.id AND type = 'user.signed_in') AS lastSignInAt
-      FROM "user" u LEFT JOIN instance_admins a ON a.user_id = u.id LEFT JOIN deactivated_users d ON d.user_id = u.id ORDER BY u.name COLLATE NOCASE, u.email`).all() as Array<{ id: string; name: string; email: string; createdAt: unknown; admin: number; off: number; lastSignInAt: number | null }>;
+    const like = `%${(input.search ?? "").toLowerCase().replace(/[\\%_]/gu, "\\$&")}%`;
+    const people = `WITH people AS (
+      SELECT u.id, u.name, u.email, CASE WHEN d.user_id IS NOT NULL THEN 'deactivated' ELSE 'active' END AS status, a.user_id IS NOT NULL AS admin FROM "user" u LEFT JOIN instance_admins a ON a.user_id = u.id LEFT JOIN deactivated_users d ON d.user_id = u.id
+      UNION ALL SELECT id, '', email, 'invited', json_extract(grants_json, '$.instanceAdmin') FROM invitations WHERE kind='invite' AND state='pending')`;
+    const match = `WHERE (lower(name) LIKE @like ESCAPE '\\' OR lower(email) LIKE @like ESCAPE '\\') AND (@status IS NULL OR status = @status) AND (@admin IS NULL OR admin = @admin)`;
+    const filter = { like, status: input.status ?? null, admin: input.role === undefined ? null : input.role === "admin" ? 1 : 0 };
+    const total = (db.prepare(`${people} SELECT COUNT(*) AS n FROM people ${match}`).get(filter) as { n: number }).n;
+    const counted = db.prepare(`${people} SELECT status, COUNT(*) AS n, SUM(admin) AS admins FROM people GROUP BY status`).all() as Array<{ status: UserState; n: number; admins: number }>;
+    const counts = { active: 0, invited: 0, deactivated: 0, admins: 0 };
+    for (const row of counted) { counts[row.status] = row.n; if (row.status === "active") counts.admins = row.admins; }
+    const page = db.prepare(`${people} SELECT id, name, email, status = 'invited' AS invited FROM people ${match} ORDER BY status = 'invited', name COLLATE NOCASE, email LIMIT @limit OFFSET @offset`).all({ ...filter, limit: input.pageSize, offset: input.page * input.pageSize }) as Array<{ id: string; name: string; email: string; invited: number }>;
+    const marks = (ids: string[]): string => ids.map(() => "?").join(",");
+    const personIds = page.filter((row) => row.invited === 0).map((row) => row.id);
+    const inviteIds = page.filter((row) => row.invited === 1).map((row) => row.id);
+
+    const facts = new Map((db.prepare(`SELECT u.id, u."createdAt" AS createdAt, a.user_id IS NOT NULL AS admin, d.user_id IS NOT NULL AS off FROM "user" u LEFT JOIN instance_admins a ON a.user_id = u.id LEFT JOIN deactivated_users d ON d.user_id = u.id WHERE u.id IN (${marks(personIds)})`).all(...personIds) as Array<{ id: string; createdAt: unknown; admin: number; off: number }>).map((row) => [row.id, row]));
+    const lastSignIn = new Map((db.prepare(`SELECT subject, MAX(created_at_ms) AS at FROM events WHERE type='user.signed_in' AND subject IN (${marks(personIds)}) GROUP BY subject`).all(...personIds.map((id) => `user:${id}`)) as Array<{ subject: string; at: number }>).map((row) => [row.subject.slice(5), row.at]));
     const groupsOf = new Map<string, Array<{ id: string; name: string }>>();
-    for (const row of db.prepare("SELECT gm.user_id AS userId, g.id, g.name FROM group_members gm JOIN groups g ON g.id = gm.group_id ORDER BY g.name COLLATE NOCASE").all() as Array<{ userId: string; id: string; name: string }>) groupsOf.set(row.userId, [...(groupsOf.get(row.userId) ?? []), { id: row.id, name: row.name }]);
-    const reach = new Map((db.prepare(`SELECT user_id AS userId, COUNT(*) AS n FROM (SELECT user_id, workspace_id FROM members UNION SELECT gm.user_id, gg.workspace_id FROM group_members gm JOIN group_grants gg ON gg.group_id = gm.group_id) GROUP BY user_id`).all() as Array<{ userId: string; n: number }>).map((row) => [row.userId, row.n]));
-    const users: UserRow[] = rows.map((row) => ({
-      id: row.id, name: row.name, email: row.email, status: row.off ? "deactivated" : "active", instanceAdmin: row.admin === 1, groups: groupsOf.get(row.id) ?? [], workspaces: reach.get(row.id) ?? 0,
-      lastSignInAt: row.lastSignInAt, createdAt: ms(row.createdAt),
-    }));
-    const invited = (db.prepare("SELECT id, email, grants_json AS grants, created_at_ms AS createdAt, expires_at_ms AS expiresAt FROM invitations WHERE kind='invite' AND state='pending' ORDER BY created_at_ms DESC").all() as Array<{ id: string; email: string; grants: string; createdAt: number; expiresAt: number }>).map((row): UserRow => {
-      const grants = JSON.parse(row.grants) as Grants;
-      const names = new Map((db.prepare("SELECT id, name FROM groups").all() as Array<{ id: string; name: string }>).map((group) => [group.id, group.name]));
-      return {
-        id: row.id, name: "", email: row.email, status: "invited", instanceAdmin: grants.instanceAdmin, groups: grants.groups.flatMap((id) => (names.has(id) ? [{ id, name: names.get(id) ?? "" }] : [])), workspaces: grants.workspaces.length,
-        lastSignInAt: null, createdAt: row.createdAt, invitationId: row.id, expiresAt: row.expiresAt, grants,
-      };
+    for (const row of db.prepare(`SELECT gm.user_id AS userId, g.id, g.name FROM group_members gm JOIN groups g ON g.id = gm.group_id WHERE gm.user_id IN (${marks(personIds)}) ORDER BY g.name COLLATE NOCASE`).all(...personIds) as Array<{ userId: string; id: string; name: string }>) groupsOf.set(row.userId, [...(groupsOf.get(row.userId) ?? []), { id: row.id, name: row.name }]);
+    const reach = new Map((db.prepare(`SELECT user_id AS userId, COUNT(*) AS n FROM (SELECT user_id, workspace_id FROM members WHERE user_id IN (${marks(personIds)}) UNION SELECT gm.user_id, gg.workspace_id FROM group_members gm JOIN group_grants gg ON gg.group_id = gm.group_id WHERE gm.user_id IN (${marks(personIds)})) GROUP BY user_id`).all(...personIds, ...personIds) as Array<{ userId: string; n: number }>).map((row) => [row.userId, row.n]));
+    const invites = new Map((db.prepare(`SELECT id, grants_json AS grants, created_at_ms AS createdAt, expires_at_ms AS expiresAt FROM invitations WHERE id IN (${marks(inviteIds)})`).all(...inviteIds) as Array<{ id: string; grants: string; createdAt: number; expiresAt: number }>).map((row) => [row.id, row]));
+    const names = new Map((db.prepare("SELECT id, name FROM groups").all() as Array<{ id: string; name: string }>).map((group) => [group.id, group.name]));
+
+    const users = page.map((row): UserRow => {
+      const invite = invites.get(row.id);
+      if (row.invited === 1 && invite) {
+        const grants = JSON.parse(invite.grants) as Grants;
+        return { id: row.id, name: "", email: row.email, status: "invited", instanceAdmin: grants.instanceAdmin, groups: grants.groups.flatMap((id) => (names.has(id) ? [{ id, name: names.get(id) ?? "" }] : [])), workspaces: grants.workspaces.length, lastSignInAt: null, createdAt: invite.createdAt, invitationId: row.id, expiresAt: invite.expiresAt, grants };
+      }
+      const fact = facts.get(row.id);
+      return { id: row.id, name: row.name, email: row.email, status: fact?.off ? "deactivated" : "active", instanceAdmin: fact?.admin === 1, groups: groupsOf.get(row.id) ?? [], workspaces: reach.get(row.id) ?? 0, lastSignInAt: lastSignIn.get(row.id) ?? null, createdAt: ms(fact?.createdAt) };
     });
-    const groups: GroupRow[] = (db.prepare("SELECT id, name FROM groups ORDER BY name COLLATE NOCASE").all() as Array<{ id: string; name: string }>).map((group) => ({
-      id: group.id, name: group.name,
-      members: db.prepare(`SELECT u.id AS userId, u.name, u.email FROM group_members gm JOIN "user" u ON u.id = gm.user_id WHERE gm.group_id=? ORDER BY u.name COLLATE NOCASE`).all(group.id) as GroupRow["members"],
-      grants: db.prepare("SELECT gg.workspace_id AS workspaceId, w.name, gg.role FROM group_grants gg JOIN workspaces w ON w.id = gg.workspace_id WHERE gg.group_id=? ORDER BY w.name COLLATE NOCASE").all(group.id) as GroupRow["grants"],
-    }));
-    return { users: [...users, ...invited], groups, workspaces: db.prepare("SELECT id, name FROM workspaces WHERE status='active' ORDER BY name COLLATE NOCASE").all() as Array<{ id: string; name: string }> };
+
+    const members = new Map<string, GroupRow["members"][number][]>();
+    for (const row of db.prepare(`SELECT gm.group_id AS groupId, u.id AS userId, u.name, u.email FROM group_members gm JOIN "user" u ON u.id = gm.user_id ORDER BY u.name COLLATE NOCASE`).all() as Array<{ groupId: string; userId: string; name: string; email: string }>) members.set(row.groupId, [...(members.get(row.groupId) ?? []), { userId: row.userId, name: row.name, email: row.email }]);
+    const grantsOf = new Map<string, GroupRow["grants"][number][]>();
+    for (const row of db.prepare("SELECT gg.group_id AS groupId, gg.workspace_id AS workspaceId, w.name, gg.role FROM group_grants gg JOIN workspaces w ON w.id = gg.workspace_id ORDER BY w.name COLLATE NOCASE").all() as Array<{ groupId: string; workspaceId: string; name: string; role: Role }>) grantsOf.set(row.groupId, [...(grantsOf.get(row.groupId) ?? []), { workspaceId: row.workspaceId, name: row.name, role: row.role }]);
+    const groups: GroupRow[] = (db.prepare("SELECT id, name FROM groups ORDER BY name COLLATE NOCASE").all() as Array<{ id: string; name: string }>).map((group) => ({ id: group.id, name: group.name, members: members.get(group.id) ?? [], grants: grantsOf.get(group.id) ?? [] }));
+    return { users, total, counts, groups, workspaces: db.prepare("SELECT id, name FROM workspaces WHERE status='active' ORDER BY name COLLATE NOCASE").all() as Array<{ id: string; name: string }> };
   });
 
   registry.query("user.get", (ctx, input) => {

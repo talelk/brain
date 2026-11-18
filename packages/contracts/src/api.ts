@@ -673,8 +673,8 @@ export const queries = table({
   "runners.list": ["instance-admin", z.strictObject({})],
   health: ["viewer", z.strictObject(inWorkspace)],
   "audit.verify": ["instance-admin", z.strictObject({})],
-  /** Every person and pending invitation, the groups, and the workspaces to give roles on. */
-  "users.list": ["instance-admin", z.strictObject({})],
+  /** One page of the people and pending invitations (`search` matches name or address; `status` and `role` narrow it), how many match (`total`) and how many people there are of each kind (`counts`), and all the groups and the workspaces to give roles on. */
+  "users.list": ["instance-admin", z.strictObject({ search: z.string().trim().max(100).optional(), status: z.enum(USER_STATES).optional(), role: z.enum(["admin", "member"]).optional(), page: z.int().min(0).default(0), pageSize: z.int().min(1).max(100).default(25) })],
   /** One person's detail: oneself (`userId` left out) or, for an instance admin, anyone. */
   "user.get": ["public", z.strictObject({ userId: id.optional() })],
 });
@@ -707,7 +707,8 @@ export interface CommandOutputs {
   "memory.decide": { readonly commit: string | null };
   "runner.token": { readonly token: string; readonly expiresAt: number };
   "runner.remove": Record<string, never>;
-  "user.invite": LinkOutput & { readonly invitationId: string; readonly emailed: boolean };
+  /** `mail` says whether an email was handed to the mail server; whether it arrives is not known, so the link is always shown. */
+  "user.invite": LinkOutput & { readonly invitationId: string; readonly mail: "off" | "queued" };
   "invitation.revoke": Record<string, never>;
   "invitation.accept": { readonly kind: "invite" | "reset"; readonly userId: string };
   "user.set": Record<string, never>;
@@ -743,7 +744,7 @@ export interface QueryOutputs {
   "runners.list": { readonly runners: readonly Runner[] };
   health: Health;
   "audit.verify": AuditVerifyResult;
-  "users.list": { readonly users: readonly UserRow[]; readonly groups: readonly GroupRow[]; readonly workspaces: ReadonlyArray<{ readonly id: string; readonly name: string }> };
+  "users.list": { readonly users: readonly UserRow[]; readonly total: number; readonly counts: { readonly active: number; readonly invited: number; readonly deactivated: number; readonly admins: number }; readonly groups: readonly GroupRow[]; readonly workspaces: ReadonlyArray<{ readonly id: string; readonly name: string }> };
   "user.get": UserDetail;
 }
 export type CommandType = keyof typeof commands;

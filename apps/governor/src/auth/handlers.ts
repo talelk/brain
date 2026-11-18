@@ -26,7 +26,10 @@ function assertSetupToken(gov: Gov, given: string): void {
   if (!timingSafeEqual(digest(readFileSync(path, "utf8").trim()), digest(given.trim()))) throw new BrainError("FORBIDDEN", "The setup token is wrong");
 }
 
-const admins = (db: Db, workspaceId: string): number => (db.prepare("SELECT COUNT(*) AS n FROM members WHERE workspace_id=? AND role='admin'").get(workspaceId) as { n: number }).n;
+/** The people who would still be admins of the workspace if `leaving` had no role of their own in it: admins by a role of their own and through a group. */
+const adminsWithout = (db: Db, workspaceId: string, leaving: string): number => (db.prepare(`SELECT COUNT(*) AS n FROM (
+  SELECT user_id FROM members WHERE workspace_id=@w AND role='admin' AND user_id<>@u
+  UNION SELECT gm.user_id FROM group_grants gg JOIN group_members gm ON gm.group_id = gg.group_id WHERE gg.workspace_id=@w AND gg.role='admin')`).get({ w: workspaceId, u: leaving }) as { n: number }).n;
 const roleOf = (db: Db, workspaceId: string, userId: string): Role | undefined =>
   (db.prepare("SELECT role FROM members WHERE workspace_id=? AND user_id=?").get(workspaceId, userId) as { role: Role } | undefined)?.role;
 
@@ -79,7 +82,7 @@ export function registerAuth({ gov: { registry } }: Governor): void {
       return { userId: await ctx.gov.auth.createAccount({ email: input.email, name: input.name, password: input.password }), created: true };
     },
     run(ctx, input, { userId, created }) {
-      if (roleOf(ctx.db, input.workspaceId, userId) === "admin" && input.role !== "admin" && admins(ctx.db, input.workspaceId) === 1) throw new BrainError("CONFLICT", "A workspace keeps at least one admin");
+      if (roleOf(ctx.db, input.workspaceId, userId) === "admin" && input.role !== "admin" && adminsWithout(ctx.db, input.workspaceId, userId) === 0) throw new BrainError("CONFLICT", "A workspace keeps at least one admin");
       ctx.db.prepare(`INSERT INTO members(workspace_id, user_id, role, created_at_ms) VALUES (?,?,?,?)
         ON CONFLICT(workspace_id, user_id) DO UPDATE SET role=excluded.role`).run(input.workspaceId, userId, input.role, ctx.now());
       append(ctx.db, { type: "member.set", workspaceId: input.workspaceId, subject: `user:${userId}`, payload: { userId, role: input.role, created }, actor: ctx.actor });
@@ -90,7 +93,7 @@ export function registerAuth({ gov: { registry } }: Governor): void {
   registry.command("member.remove", (ctx, input) => {
     const role = roleOf(ctx.db, input.workspaceId, input.userId);
     if (!role) throw new BrainError("NOT_FOUND", "This person is not a member of the workspace");
-    if (role === "admin" && admins(ctx.db, input.workspaceId) === 1) throw new BrainError("CONFLICT", "A workspace keeps at least one admin");
+    if (role === "admin" && adminsWithout(ctx.db, input.workspaceId, input.userId) === 0) throw new BrainError("CONFLICT", "A workspace keeps at least one admin");
     ctx.db.prepare("DELETE FROM members WHERE workspace_id=? AND user_id=?").run(input.workspaceId, input.userId);
     append(ctx.db, { type: "member.removed", workspaceId: input.workspaceId, subject: `user:${input.userId}`, payload: { userId: input.userId }, actor: ctx.actor });
     return {};

@@ -8,7 +8,6 @@
     "auth:schema": "tsx scripts/generate-auth-schema.ts"
   },
   "dependencies": {
-    "@better-auth/passkey": "1.7.14",
     "@brain/contracts": "workspace:*",
     "@hono/node-server": "2.1.5",
     "better-auth": "1.7.14",

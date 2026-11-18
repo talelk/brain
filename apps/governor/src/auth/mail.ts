@@ -1,11 +1,14 @@
 import { connect as connectTcp, type Socket } from "node:net";
+import { randomUUID } from "node:crypto";
 import { connect as connectTls } from "node:tls";
 import { errorFields, log } from "../log";
 
 /**
  * Mail is optional: Brain has none unless `BRAIN_SMTP_URL` is set (`smtp://user:password@host:587`, or `smtps://` for a connection that starts
- * encrypted; a plain `smtp://` upgrades with STARTTLS when the server offers it). `BRAIN_SMTP_FROM` is the sender. A link is also shown to the admin
- * who made it, so a failure here is logged without the message and never refuses the command.
+ * encrypted). A plain `smtp://` must upgrade with STARTTLS: a server that does not offer it gets nothing, unless `BRAIN_SMTP_INSECURE=1` says
+ * that a connection in the clear is wanted (a mail catcher on the same machine). `BRAIN_SMTP_FROM` is the sender. A link is also shown to the
+ * admin who made it, so a failure here is logged without the message and never refuses the command. The server accepting a message is not the
+ * message arriving: the result says only that the server accepted it.
  */
 export const mailConfigured = (): boolean => Boolean(process.env["BRAIN_SMTP_URL"]);
 
@@ -50,33 +53,36 @@ async function deliver(url: URL, from: string, to: string, subject: string, text
   try {
     expected(await read(), "220");
     let hello = await send("EHLO brain", "250");
-    if (!secure && /STARTTLS/iu.test(hello)) {
-      await send("STARTTLS", "220");
-      socket = connectTls({ socket, servername: host });
-      read = replies(socket);
-      hello = await send("EHLO brain", "250");
+    if (!secure) {
+      if (/STARTTLS/iu.test(hello)) {
+        await send("STARTTLS", "220");
+        socket = connectTls({ socket, servername: host });
+        read = replies(socket);
+        hello = await send("EHLO brain", "250");
+      } else if (process.env["BRAIN_SMTP_INSECURE"] !== "1") throw new Error("the server does not offer STARTTLS and BRAIN_SMTP_INSECURE is not set");
     }
     if (url.username) await send(`AUTH PLAIN ${Buffer.from(`\0${decodeURIComponent(url.username)}\0${decodeURIComponent(url.password)}`).toString("base64")}`, "235");
     await send(`MAIL FROM:<${from}>`, "250");
     await send(`RCPT TO:<${to}>`, "250");
     await send("DATA", "354");
     const body = text.replace(/\r?\n/gu, "\r\n").replace(/^\./gmu, "..");
-    await send(`From: Brain <${from}>\r\nTo: <${to}>\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}\r\n.`, "250");
+    const headers = [`Date: ${new Date().toUTCString()}`, `Message-ID: <${randomUUID()}@${from.split("@")[1] ?? host}>`, `From: Brain <${from}>`, `To: <${to}>`, `Subject: ${subject}`, "MIME-Version: 1.0", "Content-Type: text/plain; charset=utf-8"];
+    await send(`${headers.join("\r\n")}\r\n\r\n${body}\r\n.`, "250");
     await send("QUIT", "221").catch(() => undefined);
   } finally {
     socket.destroy();
   }
 }
 
-/** Sends one plain-text message when mail is configured; never throws. */
-export async function sendMail(to: string, subject: string, text: string): Promise<void> {
-  const configured = process.env["BRAIN_SMTP_URL"];
-  if (!configured) return;
+/** Hands one plain-text message to the mail server; never throws. `accepted` is the server's word, not a delivery. */
+export async function sendMail(to: string, subject: string, text: string): Promise<"accepted" | "failed"> {
   try {
-    const url = new URL(configured);
+    const url = new URL(process.env["BRAIN_SMTP_URL"] ?? "");
     await deliver(url, process.env["BRAIN_SMTP_FROM"] ?? `brain@${url.hostname}`, to, subject, text);
-    log("info", "mail.sent");
+    log("info", "mail.accepted");
+    return "accepted";
   } catch (e) {
     log("warn", "mail.failed", errorFields(e));
+    return "failed";
   }
 }

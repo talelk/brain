@@ -146,7 +146,7 @@ export function App(): JSX.Element {
       </Show>
     </Show>
     }>
-      {(found) => <Redeem link={found()} signedInAs={me()?.user?.name} onDone={() => { setLink(linkFromAddress()); refetch(); }} />}
+      {(found) => <Redeem link={found()} signedInAs={me()?.user?.name} sessionId={me()?.user?.sessionId} onDone={() => { setLink(linkFromAddress()); refetch(); }} />}
     </Show>
   );
 }

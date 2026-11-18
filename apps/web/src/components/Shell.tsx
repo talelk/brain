@@ -4,7 +4,7 @@ import { Avatar, Badge, Button, KeyboardShortcut } from "@talelk/newui-atoms";
 import { Menu, type BreadcrumbItem } from "@talelk/newui-molecules";
 import { CommandGroup, CommandItem, CommandPalette, SidebarItem, SidebarLabel, useSidebar } from "@talelk/newui-organisms";
 import { AppShell } from "@talelk/newui-templates";
-import { authClient } from "../data/auth-client";
+import { command } from "../data/api";
 import { connected, updatedAt } from "../data/live";
 import type { WorkspaceSummary } from "@brain/contracts";
 import { useSession } from "../data/session";
@@ -134,7 +134,7 @@ function Account(props: { compact?: boolean }): JSX.Element {
     if (kind === "lang") setLocale(choice as Locale);
     else if (kind === "theme") setTheme(choice as "light" | "dark" | "system");
     else if (kind === "profile") navigate("/profile");
-    else void authClient.signOut().finally(() => { session.refetch(); navigate("/"); });
+    else void command("session.revoke", { sessionId: session.user().sessionId }).catch(() => undefined).finally(() => { session.refetch(); navigate("/"); });
   };
   const choice = (value: string, label: string, on: boolean): JSX.Element => (
     <Menu.Item value={value}><span class="flex-1">{label}</span><Show when={on}><Icon name="lucide-check" class="size-4 text-violet-text" /></Show></Menu.Item>

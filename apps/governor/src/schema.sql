@@ -423,7 +423,7 @@ CREATE TABLE invitations (
   user_id TEXT REFERENCES "user"(id) ON DELETE CASCADE,
   token_digest TEXT NOT NULL UNIQUE,
   grants_json TEXT NOT NULL DEFAULT '{}',
-  state TEXT NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'used', 'revoked')),
+  state TEXT NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'claimed', 'used', 'revoked')),
   created_by TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL,
   expires_at_ms INTEGER NOT NULL,

@@ -17,8 +17,8 @@ describe("the database", () => {
     db.close();
     expect(tables).toEqual([
       "account", "approvals", "artifact_links", "artifacts", "attempt_events", "attempts", "audit_checkpoints", "audit_keys", "checks", "events", "idempotency", "instance", "instance_admins",
-      "members", "memory_index", "memory_proposals", "notes", "passkey", "pull_requests", "rateLimit", "runner_challenges", "runner_tokens", "runners", "secrets", "session", "snapshots",
-      "standing_uses", "tasks", "task_deps", "tool_calls", "triggers", "twoFactor", "usage", "user", "verification", "webhook_deliveries", "workspaces",
+      "members", "memory_index", "memory_proposals", "notes", "pull_requests", "rateLimit", "runner_challenges", "runner_tokens", "runners", "secrets", "session", "snapshots",
+      "standing_uses", "tasks", "task_deps", "tool_calls", "triggers", "usage", "user", "verification", "webhook_deliveries", "workspaces",
       "deactivated_users", "group_grants", "group_members", "groups", "invitations",
     ].sort());
   });

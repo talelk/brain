@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, on, For, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, on, onCleanup, For, Show, type JSX } from "solid-js";
 import { Avatar, Badge, Button, Checkbox, TextInput } from "@talelk/newui-atoms";
 import { Dialog, Select, toast } from "@talelk/newui-molecules";
 import type { AccessRow, GroupRow, Grants, LinkOutput, Role, SessionRow, SignInRow, UserDetail, UserRow, UserState } from "@brain/contracts";
@@ -52,14 +52,14 @@ export function InviteDialog(props: { open: boolean; onOpenChange: (open: boolea
   const [admin, setAdmin] = createSignal(false);
   const [grants, setGrants] = createSignal<Array<{ workspaceId: string; role: Role }>>([]);
   const [groups, setGroups] = createSignal<string[]>([]);
-  const [made, setMade] = createSignal<{ link: string; expiresAt: number; emailed: boolean; email: string }>();
+  const [made, setMade] = createSignal<{ link: string; expiresAt: number; mail: "off" | "queued"; email: string }>();
   const reset = (): void => {
     setEmail(props.prefill?.email ?? ""); setAdmin(props.prefill?.grants.instanceAdmin ?? false);
     setGrants([...(props.prefill?.grants.workspaces ?? [])]); setGroups([...(props.prefill?.grants.groups ?? [])]); setMade(undefined);
   };
   const invite = useAction(async () => {
     const answer = await command("user.invite", { email: email(), instanceAdmin: admin(), workspaces: grants().filter((grant) => grant.workspaceId !== ""), groups: groups() });
-    setMade({ link: answer.link, expiresAt: answer.expiresAt, emailed: answer.emailed, email: email().trim().toLowerCase() });
+    setMade({ link: answer.link, expiresAt: answer.expiresAt, mail: answer.mail, email: email().trim().toLowerCase() });
   });
   const free = (taken: string): Array<{ label: string; value: string }> => props.workspaces.filter((workspace) => workspace.id === taken || !grants().some((grant) => grant.workspaceId === workspace.id)).map((workspace) => ({ label: workspace.name, value: workspace.id }));
   createEffect(on(() => props.open, (open) => { if (open) { reset(); invite.clear(); } }));
@@ -94,7 +94,7 @@ export function InviteDialog(props: { open: boolean; onOpenChange: (open: boolea
           {(done) => (
             <div class="mt-4 flex flex-col gap-4">
               <LinkBox link={done().link} label={t("invite.link")} />
-              <p class="t-small text-ink-2">{done().emailed ? t("invite.done.mailed", { email: done().email }) : t("invite.done.nomail")}</p>
+              <p class="t-small text-ink-2">{done().mail === "queued" ? t("invite.done.mailed", { email: done().email }) : t("invite.done.nomail")}</p>
               <div class="flex justify-end"><Button variant="solid" theme="blue" size="md" onClick={() => props.onOpenChange(false)}>{t("invite.done.close")}</Button></div>
             </div>
           )}
@@ -105,13 +105,20 @@ export function InviteDialog(props: { open: boolean; onOpenChange: (open: boolea
 }
 
 /** A group: its name, its people and its roles on workspaces. */
-export function GroupDialog(props: { open: boolean; onOpenChange: (open: boolean) => void; group?: GroupRow | undefined; people: readonly UserRow[]; workspaces: ReadonlyArray<{ id: string; name: string }> }): JSX.Element {
+export function GroupDialog(props: { open: boolean; onOpenChange: (open: boolean) => void; group?: GroupRow | undefined; workspaces: ReadonlyArray<{ id: string; name: string }> }): JSX.Element {
   const [name, setName] = createSignal("");
   const [members, setMembers] = createSignal<string[]>([]);
   const [grants, setGrants] = createSignal<Array<{ workspaceId: string; role: Role }>>([]);
   const [search, setSearch] = createSignal("");
-  const accounts = createMemo(() => props.people.filter((person) => person.status !== "invited"));
-  const shown = (): readonly UserRow[] => accounts().filter((person) => `${person.name} ${person.email}`.toLowerCase().includes(search().trim().toLowerCase()));
+  // The server finds the people to pick from; the group's own members stay on the list whatever the search says.
+  const [asked, setAsked] = createSignal("");
+  createEffect(on(search, (text) => { const wait = setTimeout(() => setAsked(text.trim()), 250); onCleanup(() => clearTimeout(wait)); }));
+  const found = useQuery("users.list", () => (props.open ? { ...(asked() ? { search: asked() } : {}), status: "active" as const, pageSize: 50 } : undefined));
+  const shown = (): ReadonlyArray<{ id: string; name: string; email: string }> => {
+    const people = (found.data()?.users ?? []).map((person) => ({ id: person.id, name: person.name, email: person.email }));
+    const own = (props.group?.members ?? []).filter((member) => !people.some((person) => person.id === member.userId) && `${member.name} ${member.email}`.toLowerCase().includes(asked().toLowerCase())).map((member) => ({ id: member.userId, name: member.name, email: member.email }));
+    return [...own, ...people];
+  };
   const save = useAction(async () => {
     await command("group.set", { ...(props.group ? { groupId: props.group.id } : {}), name: name(), memberIds: members(), grants: grants().filter((grant) => grant.workspaceId !== "") });
     toast.success({ title: t("groups.saved", { name: name().trim() }) });

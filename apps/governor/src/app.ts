@@ -159,12 +159,12 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
 
   gov.onSignedOut.push((userId) => { for (const [end, owner] of [...streams]) if (owner === userId) end(); });
 
-  // Sign-in. Accounts are made by setup, by an invitation and by a workspace admin (member.set), so signing up from outside is closed; what changes an
-  // account (name, password, sessions) goes through the commands `profile.set`, `session.revoke` and the reset links, which are audited.
+  // Sign-in. Accounts are made by setup, by an invitation and by a workspace admin (member.set), and what changes an account (name, password, sessions,
+  // sign-out) goes through the audited commands `profile.set`, `session.revoke` and the reset links. The one route of the sign-in library the product
+  // uses is the password sign-in; every other one (sign-up, passkeys, two-factor, sign-out, linked accounts) is closed.
   app.on(["GET", "POST"], "/api/auth/*", (c) => {
-    if (c.req.path === "/api/auth/sign-up/email") return refusal(c, new BrainError("FORBIDDEN", "Ask an admin of a workspace to add you"));
-    if (/^\/api\/auth\/(?:update-user|change-|delete-user|request-password-reset|reset-password|revoke-|set-password)/u.test(c.req.path)) return refusal(c, new BrainError("FORBIDDEN", "This is done from the Profile page"));
-    return gov.auth.handler(c.req.raw);
+    if (c.req.method === "POST" && c.req.path === "/api/auth/sign-in/email") return gov.auth.handler(c.req.raw);
+    return refusal(c, new BrainError("FORBIDDEN", "This is done from the Profile page"));
   });
 
   /** Where a request came from: when the install trusts a proxy, the last address it appended (the first is whatever the client sent), else the connection. */

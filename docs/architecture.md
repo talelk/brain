@@ -126,7 +126,7 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
 
 ## 3. Data (`apps/governor/src/schema.sql`)
 
-Sign-in tables belong to better-auth (users, sessions, accounts, passkeys, two-factor).
+Sign-in tables belong to better-auth (users, sessions, accounts, verifications, rate limits).
 Everything else:
 
 | Table | Holds |
@@ -180,7 +180,7 @@ Commands: `setup.create`, `workspace.create` (its input may carry `platform: "ad
 Queries: `setup.status`, `me`, `packs.list`, `workspace.get`, `workspace.files`,
 `file.read`, `pack.files`, `today`, `overview`, `schedules.list`, `tasks.list`, `task.get`, `task.events`, `approvals.list`,
 `approval.get`, `queue`, `insights`, `usage.summary`, `memory.list`, `members.list`, `secrets.list` (names
-only), `runners.list`, `health`, `audit.verify`, `users.list` (instance admin: people, pending invitations, groups), `user.get` (oneself, or any person for an instance admin: sessions, sign-in log, access matrix). `overview` takes no workspace: for the active
+only), `runners.list`, `health`, `audit.verify`, `users.list` (instance admin: one page of people and pending invitations, searched and filtered on the server, with the counts, and the groups), `user.get` (oneself, or any person for an instance admin: sessions, sign-in log, access matrix). `overview` takes no workspace: for the active
 workspaces the caller is a member of it answers per-workspace counts (needs you, running, done and
 failed today), spend against the cap, projects, last activity and a dense 14-day series (UTC days, oldest
 first) of goals done and spend; one list of up to 50 tasks waiting for a person (each with its workspace
@@ -243,10 +243,10 @@ never empty; the pack's `hello` Play is the sample goal. A packs directory witho
 gets no Starter. Users: `access.ts` gives a person the highest of their own role and their groups' roles; `members.list` also lists the groups with a role in the
 workspace, with their people. Invitation and reset links carry a 32-byte token in the address fragment (`/#invite=` and `/#reset=`, so it never reaches a log), stored as a keyed digest,
 valid 7 days (a reset 1 day), single use, answered by one refusal whatever is wrong with a token, and redeemed at most 10 times a minute per client address that fail. `auth.user()` answers
-nobody for a deactivated user, `session.create` is refused for one (password, passkey and second factor alike), deactivating or a forced sign-out deletes the sessions and ends the user's
-event streams, and the `/api/auth` routes that change an account outside the audit log (`update-user`, `change-password`, reset and session revocation) are closed. A person has no
-API tokens: a session is the only credential of a person, and runners and attempts use their own. Outgoing mail (`BRAIN_SMTP_URL`, `BRAIN_SMTP_FROM`) is optional and best effort. Sign-ins
-and failed sign-ins of existing accounts are audit events. The answers of `user.invite`, `user.resetLink` are shown once, like `runner.token`. The answer of `runner.token` is shown once: it is not kept for
+nobody for a deactivated user, `session.create` is refused for one, and a refused sign-in of a deactivated account is answered like a wrong password and audited, deactivating or a forced sign-out deletes the sessions and ends the user's
+event streams, and every `/api/auth` route but the password sign-in is closed (there are no passkeys or second factor); sign-out is the audited `session.revoke`. An invitation is claimed before its account is made, so a revoke that comes later changes nothing and no account is left half made. The last admin of a workspace is counted through groups as well as `members`. Audit events keep a redacted address (`n***@example.com`), never the address. A person has no
+API tokens: a session is the only credential of a person, and runners and attempts use their own. Outgoing mail (`BRAIN_SMTP_URL`, `BRAIN_SMTP_FROM`) is optional and best effort: the connection must be encrypted (`smtps://`, or STARTTLS) unless `BRAIN_SMTP_INSECURE=1`, messages carry Date and Message-ID, and the answer of `user.invite` says only that mail was handed over (`mail: "queued"`); the audit log records whether the server accepted it (`user.mail_accepted`, `user.mail_failed`), never that it arrived. Sign-ins
+and failed sign-ins of existing accounts are audit events; refused sign-ins are one row per account in a minute, the rest counted into one more row. The answers of `user.invite`, `user.resetLink` are shown once, like `runner.token`. The answer of `runner.token` is shown once: it is not kept for
 idempotency, and the same key sent again is refused.
 
 ## 5. Tasks and orchestration (`tasks/`)
