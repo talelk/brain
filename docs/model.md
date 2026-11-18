@@ -47,9 +47,10 @@ visibility = "private"      # or "public": see People
 packs = ["base", "software-factory"]   # "base@2" uses release 2 of a pack (see The platform workspace)
 
 [limits]
-daily_spend_usd = 20        # 0 means no cap
-running_tasks = 4           # 0 means no cap
+daily_spend_usd = 20        # 0 (the default) means no cap
+running_tasks = 4           # 0 (the default) means no cap: runner slots set the pace
 confirm_plans = "person"    # or "auto"
+paused = false              # true: nothing of this workspace starts; see The queue
 
 [healing]                   # what happens when a task has failed all its attempts
 mode = "auto"              # or "off"
@@ -125,9 +126,9 @@ tools = ["git.open-pr", "task.note"]    # workspace and pack tools, by name
 model = "main"              # optional; the workspace's first model otherwise
 
 [limits]
-turns = 12                 # 0 means no cap
-tokens = 100000            # 0 means no cap
-spend_usd = 0.50            # 0 means no cap
+turns = 12                 # 0 means no cap; 100 when not written
+tokens = 100000            # 0 means no cap; 2,000,000 when not written
+spend_usd = 0.50            # 0 means no cap, and is when not written
 ```
 
 `prompt.md` beside it holds the instructions. The agents in a workspace are its team;
@@ -281,8 +282,8 @@ planner and a checker; the other packs build on it.
 2. The goal becomes a **task**. With a Play, its steps become sub-tasks. Without one, the
    `planner` agent proposes sub-tasks and a person confirms them (or the workspace
    confirms automatically).
-3. The Governor starts every task whose prerequisites are done, on a **runner**. Each run
-   of a task is an **attempt**. Agents never start each other; an agent that needs help
+3. The Governor starts every task whose prerequisites are done, on a **runner**, in the order
+   of **the queue** (below). Each run of a task is an **attempt**. Agents never start each other; an agent that needs help
    adds a sub-task through the `task.create` tool.
 4. The agent works in a sandbox on the runner with the task's own working copy of the
    projects mounted. Inside it, it uses the engine's native tools. To act outside it, it
@@ -294,6 +295,67 @@ planner and a checker; the other packs build on it.
 
 A task is in one of these states: `waiting`, `ready`, `running`, `needs you`, `done`,
 `failed`, `stopped`.
+
+## The queue
+
+A task that is ready waits in the **queue** until a runner has a free slot. The queue is a
+screen, `/queue` (everything the person sees; an instance admin sees everything) and
+`/w/<address>/queue` (one workspace), and it answers three questions at once: what is running
+and on which runner, what waits and in which order, and why each waiting task is not running yet.
+
+- **Runners as lanes.** Each runner shows its slots (used and free), its engines and
+  capabilities, whether it is online, and the attempts that occupy its slots: task, agent,
+  workspace, how long, tokens so far, cost. A slot held by a workspace the person cannot see is
+  shown as busy, without a name.
+- **The waiting list, in the order the Governor will start it.** The order is: **priority**
+  first (`high`, then `normal`, then `low`); within a priority the workspaces take turns (a
+  workspace with five tasks waiting cannot starve one with one: the first of each goes before
+  the second of any, and a workspace that already has attempts running goes after one that has
+  none); within a workspace, oldest first. A task has a priority, `normal` unless a person who
+  can steer sets it; its sub-tasks follow their goal. **Run next** sets `high`, and of two
+  `high` tasks the one promoted last goes first.
+- **Why it waits**, in words, one of: a free slot (and how many are ahead); the workspace's
+  `running_tasks` (4 of 4); no runner online; no runner has the engine or capability it needs
+  (the missing one is named); the workspace's daily spend cap is reached; another task it
+  waits for (named); the workspace's queue is paused; the task is paused; the time of the
+  retry after an infrastructure failure.
+- **An estimated start** when at least three attempts of that kind finished recently: the
+  median of their durations, spread over the runners' slots. Otherwise none; it is never invented.
+- **Steering**, for members: set a task's priority (`low`, `normal`, `high`), **Run next**, pause
+  and resume a task (a paused task and its sub-tasks are not started; what already runs goes
+  on), stop. For admins: pause and resume the workspace's queue (`[limits] paused` in `brain.toml`:
+  nothing of it starts, what runs goes on). A priority and a pause are recorded as the audit
+  event `task.steered`, not in a table.
+
+The Queue is also shown as a short line on Today and the Overview ("3 running, 5 waiting")
+and as the count of waiting tasks beside each workspace in the sidebar.
+
+## Limits
+
+A limit stops or delays work so a mistake cannot cost without end. Each one is shown, with its
+current use and where its value comes from (the agent's file, the workspace's `brain.toml`, or
+Brain's default), in **Limits** of the workspace's Settings and of each agent's form, with a
+button to change it. Defaults are generous and no money cap is set unless a person sets one.
+
+| Limit | Applies to | Default | Set in |
+|---|---|---|---|
+| `daily_spend_usd` | a workspace, per UTC day | 0 (no cap) | `brain.toml [limits]` |
+| `running_tasks` | a workspace | 0 (no cap; runner slots set the pace) | `brain.toml [limits]` |
+| `paused` | a workspace | false | `brain.toml [limits]` |
+| `healing.per_day` | heal tasks of a workspace, per day | 5 | `brain.toml [healing]` |
+| `turns` | one attempt of an agent | 100 | `agent.toml [limits]` |
+| `tokens` | one attempt of an agent | 2,000,000 | `agent.toml [limits]` |
+| `spend_usd` | one attempt of an agent | 0 (no cap) | `agent.toml [limits]` |
+| `max_rounds` | check rounds of one step | 3 | the step in the Play |
+| attempts | one attempt is retried after an infrastructure failure up to 5 times in all | 5 (not editable) | Brain |
+| slots | one runner | 1 | `BRAIN_RUNNER_SLOTS` of the runner, then restart it |
+| uploads | a document | 5 MB each, 20 MB per upload | Brain |
+
+A reply the model writes may be as long as 64,000 tokens (a thinking model needs room), unless
+the agent's `tokens` is smaller.
+When a limit stops or delays a task, the attempt's failure or the task's page says so: the
+limit's name, its value, what was used, where it is set, and **Raise the limit**, which opens
+the form that holds it. It is never shown as a generic failure.
 
 ## When a task fails
 

@@ -171,12 +171,12 @@ Commands: `setup.create`, `workspace.create` (its input may carry `platform: "ad
 `file.write`, `file.delete`, `secret.set`, `secret.delete`, `member.set`,
 `member.remove`, `task.create` (a goal, optionally a Play and inputs), `task.confirm`
 (accept a proposed plan), `task.edit` (change, add or remove sub-tasks not yet started),
-`task.stop`, `task.retry`, `task.check` (a person's check or sign-off), `task.answer`,
+`task.stop`, `task.steer` (a task's priority and pause), `task.retry`, `task.check` (a person's check or sign-off), `task.answer`,
 `approval.decide`, `memory.decide`, `runner.token`, `runner.remove`.
 
 Queries: `setup.status`, `me`, `packs.list`, `workspace.get`, `workspace.files`,
 `file.read`, `pack.files`, `today`, `overview`, `schedules.list`, `tasks.list`, `task.get`, `task.events`, `approvals.list`,
-`approval.get`, `usage.summary`, `memory.list`, `members.list`, `secrets.list` (names
+`approval.get`, `queue`, `usage.summary`, `memory.list`, `members.list`, `secrets.list` (names
 only), `runners.list`, `health`, `audit.verify`. `overview` takes no workspace: for the active
 workspaces the caller is a member of it answers per-workspace counts (needs you, running, done and
 failed today), spend against the cap, projects, last activity and a dense 14-day series (UTC days, oldest
@@ -246,8 +246,10 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   person rewrote with `task.edit` is kept as they wrote it.
 - The orchestrator runs after every change and on a timer. For each workspace it makes `ready` every `waiting` task
   whose prerequisites are `done` and whose `when` holds (a task whose `when` is false is `done` with result `skipped`),
-  and queues a `work` attempt for each `ready` task while fewer than `running_tasks` tasks have work queued or running (0 is no cap: every ready task is queued and the runners' slots set the pace).
-  A task is `running` from the moment a runner claims its work.
+  and queues a `work` attempt for each `ready` task. `running_tasks`, the daily cap, pauses and priorities are not applied here but at `claim` (section 6), so every
+  attempt that waits is a `queued` row and the queue is one list. A task is `running` from the moment a runner claims its work.
+- A **priority** (`low`, `normal`, `high`) and a **pause** of a task are the audit event `task.steered` (`{priority, paused}`, the latest of the task wins; the schema has no column for them).
+  A task's effective priority and pause are its own, else those of the nearest ancestor that has one. `tasks/queue.ts` reads them and holds the one function that orders the queue.
 - A `work` attempt's result moves the task to checking: a `check` attempt for `review_by` (or the base pack's `checker`
   when the step names none) receives the goal, the result, the tool calls and the working-copy diff, and returns
   `{pass, score?, findings}`. Pass (and `score >= target_score` when set) continues; otherwise the task is queued again
@@ -323,9 +325,12 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   `needs` are matched against them. There are no runner groups: any runner whose capabilities and engines fit may take
   an attempt (an agent with `native` other than `none` needs `native-tools`; an `act` attempt needs only what its tool
   needs). `heartbeat` answers the attempts the runner should stop.
-- `claim` picks the oldest queued attempt this runner fits, fairest workspace first (fewest running), and leaves out a
-  workspace with `running_tasks` (when not 0) attempts offered or running, or whose spend of the day plus what the attempt's agent
-  may spend would pass the daily cap. It returns a **JobOffer** and reserves the agent's `spend_usd` in `usage`. For an agent `turns`, `tokens` and `spend_usd` of 0 are no cap: the engine is given no turn or token ceiling. An
+- `claim` takes the first queued attempt this runner fits in the order of `dispatchOrder` (`tasks/queue.ts`, the same function the `queue` query uses, so the
+  screen is the dispatcher's own order): priority (`high`, `normal`, `low`), then the attempt's turn within its workspace at that priority, where the turn counts the
+  workspace's offered and running tasks first and then its queued attempts oldest first (this is the round-robin that stops one workspace starving the others), then age (for `high`, the
+  task promoted last first). It leaves out a workspace that is paused (`limits.paused`, absent in an older snapshot means false), a paused task, an attempt in its retry
+  backoff, a workspace with `running_tasks` (when not 0) distinct tasks offered or running (an attempt of a task that already holds a place is let through), and
+  one whose spend of the day plus what the attempt's agent may spend would pass the daily cap. `fits` is `missing` (the engine or capability a runner lacks, or null). It returns a **JobOffer** and reserves the agent's `spend_usd` in `usage`. For an agent `turns`, `tokens` and `spend_usd` of 0 are no cap: the engine is given no turn or token ceiling. An
   offer not acknowledged in 30 s is taken back; `ack` starts a 60 s lease that `renew` extends (`renew` answers `stop`
   for an attempt whose task was stopped); an expired lease requeues the attempt, and its next offer moves the fence.
 - JobOffer: attempt id, fence, kind, task (id, title, goal, round, prior findings), context (prerequisite results, notes,
@@ -500,7 +505,8 @@ First paint: the Governor serves the built files compressed (Brotli or gzip) and
 Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones): Overview, Schedules, then the
 workspaces (grouped as My workspaces, Shared with me and Public workspaces, each with an orange count of what waits there; the open one expands to Today, Tasks and
 Workspace) and New workspace, Health and People at the foot with the account (language, theme, sign out).
-The top bar has the live indicator and search (Cmd-K: pages, workspaces, goals). Screens (ten files in
+A **Limits** panel in Settings and in each agent's form lists the limits that apply with their use, their source (agent file, pack, workspace file or default) and a field to change them (`src/lib/limits.ts` holds the list; the defaults are those of `contracts/src/files.ts`). An attempt's failure may carry `limit` (`{name, value, used, agent?}`), set by the Governor when an engine reports `reason = "limit"`, when a retry count or the daily cap stopped it; the Task page shows it with **Raise the limit**, a link to the form.
+The top bar has the live indicator and search (Cmd-K: pages, workspaces, goals). Screens (eleven files in
 `src/screens`): sign-in and first-run setup (`AuthLayout`); **Overview** (the home: headline numbers, needs
 you across all workspaces with the decision in place, what is running, a table of workspaces with week
 sparklines, spend and goals per day stacked by workspace, the instance's health); **Today** (goal box, Plays,
@@ -508,7 +514,7 @@ needs you, running, recent, spend); **Tasks** (filterable, sortable table with b
 page (the goal drawn as a graph of its sub-tasks, in columns by what each waits for, and the record in two panes); **Workspace** (tabs for agents, a
 Team graph, tools, Plays, memory, projects, settings, Files: list and form panes over the files, plus a raw editor; Files shows every file of the workspace (its folder and its packs' files, which are read only until a copy is edited) as a tree with sizes and last commits, a list or grid, multi-select with bulk download and delete, and browse, edit, rename, delete and upload to browse, edit, rename, delete and upload documents into, one commit per change; Team draws the agents and
 the handoffs between them, read from the Plays' steps and the recent tasks the web app already lists, with no query of its own); **New workspace** (a wizard); **Health**;
-**Schedules** (every scheduled or webhook Play of the visible workspaces with its next and last run, and a form to schedule, pause or remove one; also at `/w/<slug>/schedules` for one workspace); **People and secrets** (with Share: add people by email with a role, and the private or public switch). Health and People belong to a workspace, so the sidebar leads to the open one's.
+**Queue** (`queue`, at `/queue` and `/w/<slug>/queue`: runners as lanes with their slots and the attempts in them, then the waiting list in dispatch order with rank, kind, age, the plain-words reason and an estimated start, with priority, Run next, pause and stop for a member; reorders animate with a short FLIP move that `prefers-reduced-motion` turns off; it is read again on every live change; Today and the Overview show a "3 running, 5 waiting" line that links to it, and the sidebar the count waiting); **Schedules** (every scheduled or webhook Play of the visible workspaces with its next and last run, and a form to schedule, pause or remove one; also at `/w/<slug>/schedules` for one workspace); **People and secrets** (with Share: add people by email with a role, and the private or public switch). Health and People belong to a workspace, so the sidebar leads to the open one's.
 
 ## 11. Tests
 

@@ -61,6 +61,14 @@ _Avoid_: mission, work item, card, ticket, bead
 **Attempt**: One run of a task on a runner.
 _Avoid_: job, run, session, execution
 
+**Queue**: The list of ready tasks waiting for a free runner slot, in the order the Governor
+will start them, each with the reason it is not running yet. Priority and pause steer it.
+_Avoid_: backlog, pipeline, line
+
+**Limit**: A value that stops or delays work (a cap on spend, turns, tokens, tasks at once,
+rounds or retries); each says where it is set and what is used.
+_Avoid_: quota, budget (a budget is the complexity budget)
+
 **Check**: The judgement of a task's result by something other than the agent that
 produced it: another agent, or a person.
 _Avoid_: verdict, evaluation, validation, review (a review is one kind of check)
