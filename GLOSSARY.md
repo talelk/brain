@@ -41,6 +41,14 @@ _Avoid_: automation, listener, event rule
 signed-in person of this Brain reads it, as a viewer), set in `brain.toml`.
 _Avoid_: sharing mode, permission level
 
+**Group**: A named set of people that is given a role on workspaces; a person's role in a
+workspace is the highest of their own and their groups'.
+_Avoid_: team (a team is agents), org unit, department
+
+**Invitation**: A one-use link, kept only as a digest and valid for seven days, with which a
+person who has no account chooses a name and password and joins with the roles it grants.
+_Avoid_: invite code, magic link, sign-up
+
 **Platform workspace**: A workspace with `platform` set in its `brain.toml` (only by an instance
 admin, shown as a platform administrator), whose agents read every workspace and propose
 changes to them, each change approved by that workspace's admin or an instance admin. Of kind
