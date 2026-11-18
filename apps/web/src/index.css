@@ -427,3 +427,35 @@ a[href="#app-shell-content"]:not(.skip-link) { display: none; }
 
 /* The charts' hidden data tables are absolutely placed and wider than a phone; they must not make the page scroll sideways. */
 main { overflow-x: clip; }
+
+/*
+ * Live: slow, quiet motion. Everything here stops while the tab is hidden (`data-hidden`) and is replaced by a still drawing under
+ * `prefers-reduced-motion`. Nothing flashes: the strongest effect is a pulse of two and a half seconds.
+ */
+@keyframes live-flow { to { stroke-dashoffset: -48; } }
+@keyframes live-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--needs) 32%, transparent); } 50% { box-shadow: 0 0 0 7px color-mix(in oklab, var(--needs) 0%, transparent); } }
+@keyframes live-dim { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes live-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes live-out { 0%, 70% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateX(14px); } }
+@keyframes live-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes live-glow { 0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--ok-mark) 45%, transparent); } 60% { box-shadow: 0 0 28px 6px color-mix(in oklab, var(--ok-mark) 22%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes live-complete { from { stroke-dasharray: 0 100; } }
+.live-flow { animation: live-flow 2.6s linear infinite; }
+.live-attn { animation: live-pulse 2.5s ease-in-out infinite; }
+.live-dot { animation: live-dim 2.5s ease-in-out infinite; }
+.live-breathe { animation: live-dim 3.2s ease-in-out infinite; }
+.live-arrive { animation: live-in 0.35s ease-out both; }
+.live-leave { animation: live-out 6s ease-in both; }
+.live-check { stroke-dasharray: 1; animation: live-draw 0.6s ease-out both; }
+.live-glow { animation: live-glow 2.2s ease-out both; }
+.live-complete .live-arc { animation: live-complete 1.2s ease-out both; }
+.live-arc { transition: stroke-dasharray 0.8s ease; }
+.live-spark { stroke-dasharray: 400; animation: live-draw 0.6s ease-out both; stroke-dashoffset: 0; }
+.live-root[data-hidden] * { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .live-flow, .live-attn, .live-dot, .live-breathe, .live-arrive, .live-check, .live-glow, .live-complete .live-arc, .live-spark { animation: none; }
+  .live-leave { animation: none; opacity: 0.7; }
+  .live-arc { transition: none; }
+  .live-flow { stroke-dasharray: none; }
+  .live-attn { box-shadow: 0 0 0 3px color-mix(in oklab, var(--needs) 28%, transparent); }
+}
