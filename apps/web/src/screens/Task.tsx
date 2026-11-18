@@ -1,15 +1,17 @@
 import { createMemo, createSignal, For, Match, Show, Switch, type JSX } from "solid-js";
 import { A, useParams, useSearchParams } from "@solidjs/router";
 import { Button, Textarea } from "@talelk/newui-atoms";
+import { Tabs } from "@talelk/newui-molecules";
 import { DetailHeader, Section } from "@talelk/newui-organisms";
 import { PaneLayout } from "@talelk/newui-templates";
 import type { Attempt, Check, Task, TaskNeed, TaskSummary } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
-import { t } from "../i18n";
+import { direction, t } from "../i18n";
 import { ago, dateTime, duration, money, shortHash, titleOf, tokens } from "../lib/format";
 import { ApprovalView } from "../components/ApprovalView";
 import { TaskGraph } from "../components/TaskGraph";
+import { Timeline } from "../components/Timeline";
 import { COL_GAP, NODE_W } from "../lib/graph";
 import { Evidence } from "../components/Evidence";
 import { Markdown } from "../components/Markdown";
@@ -280,7 +282,7 @@ function graphShare(task: Task): number {
 export default function TaskScreen(): JSX.Element {
   const place = usePlace();
   const params = useParams<{ taskId: string }>();
-  const [search, setSearch] = useSearchParams<{ link?: string }>();
+  const [search, setSearch] = useSearchParams<{ link?: string; view?: string }>();
   const [order, setOrder] = createSignal<readonly string[]>();
   const [pane, setPane] = createSignal<"start" | "end">("end");
   const record = useQuery("task.get", () => ({ workspaceId: place.id(), taskId: params.taskId }));
@@ -294,6 +296,14 @@ export default function TaskScreen(): JSX.Element {
   });
   const sub = useQuery("task.get", () => (selectedId() === params.taskId ? undefined : { workspaceId: place.id(), taskId: selectedId() }));
   const selected = (): Task | undefined => (selectedId() === params.taskId ? record.data() : sub.data());
+  /** The goal as a graph (the default) or as a timeline, kept in the address as `?view=timeline`. */
+  const timeline = (): boolean => search.view === "timeline";
+  /** What is recorded for the selected link, beside the graph and under the timeline. */
+  const detail = (): JSX.Element => (
+    <Show when={selected()} fallback={<Failure error={sub.error()} retry={sub.refetch} />}>
+      {(current) => <Detail task={current()} isGoal={current().id === params.taskId} onSelect={select} onOrder={setOrder} />}
+    </Show>
+  );
   const select = (id: string): void => { setSearch({ link: id }, { replace: true }); setPane("end"); };
   return (
     <Ready shape="split" data={record.data()} error={record.error()} retry={record.refetch}>
@@ -306,23 +316,37 @@ export default function TaskScreen(): JSX.Element {
               <Show when={task().play}> {t("task.started.play", { play: place.workspace.data()?.snapshot.plays[task().play ?? ""]?.title ?? task().play ?? "" })}</Show>
               <Show when={task().usage.microUsd > 0}> {t(task().finishedAt ? "task.cost.total" : "task.cost.soFar", { cost: money(task().usage.microUsd) })}</Show>
             </>} />
-          <PaneLayout active={pane()} defaultSize={graphShare(task())} minStartSize={30} maxStartSize={80} resizeLabel={t("task.resize")} class="gap-0"
-            start={
-              <div class="lg:sticky lg:top-3 lg:pe-5">
-                <TaskGraph record={task()} order={task().needs?.kind === "confirm-plan" ? order() : undefined} selected={selectedId()} onSelect={select} />
-                <Show when={task().subtasks.length === 0 && task().state === "running"}><p class="mt-3 t-small text-ink-3">{t("task.planning")}</p></Show>
+          <Tabs.Root value={timeline() ? "timeline" : "graph"} onValueChange={(value) => setSearch({ view: value === "timeline" ? "timeline" : undefined }, { replace: true })} variant="underline" size="md">
+            <Tabs.List aria-label={t("task.view")}>
+              <Tabs.Trigger value="graph">{t("task.view.graph")}</Tabs.Trigger>
+              <Tabs.Trigger value="timeline">{t("task.view.timeline")}</Tabs.Trigger>
+            </Tabs.List>
+            <Tabs.Content value={timeline() ? "timeline" : "graph"} class="pt-4">
+              {/* The tabs component fixes its own direction to left-to-right; what is in a tab follows the language. */}
+              <div dir={direction()}>
+                <Show when={timeline()} fallback={
+                  <PaneLayout active={pane()} defaultSize={graphShare(task())} minStartSize={30} maxStartSize={80} resizeLabel={t("task.resize")} class="gap-0"
+                    start={
+                      <div class="lg:sticky lg:top-3 lg:pe-5">
+                        <TaskGraph record={task()} order={task().needs?.kind === "confirm-plan" ? order() : undefined} selected={selectedId()} onSelect={select} />
+                        <Show when={task().subtasks.length === 0 && task().state === "running"}><p class="mt-3 t-small text-ink-3">{t("task.planning")}</p></Show>
+                      </div>
+                    }
+                    end={
+                      <div class="min-w-0 lg:ps-6">
+                        <Button variant="ghost" size="md" iconLeft="lucide-chevron-left" class="mb-3 lg:hidden" onClick={() => setPane("start")}>{t("graph.label")}</Button>
+                        <div class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-5 sm:p-6">{detail()}</div>
+                      </div>
+                    } />
+                }>
+                  <div class="flex flex-col gap-5">
+                    <div class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-4 sm:p-5"><Timeline record={task()} selected={selectedId()} onSelect={select} /></div>
+                    <div class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-5 sm:p-6">{detail()}</div>
+                  </div>
+                </Show>
               </div>
-            }
-            end={
-              <div class="min-w-0 lg:ps-6">
-                <Button variant="ghost" size="md" iconLeft="lucide-chevron-left" class="mb-3 lg:hidden" onClick={() => setPane("start")}>{t("graph.label")}</Button>
-                <div class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-5 sm:p-6">
-                  <Show when={selected()} fallback={<Failure error={sub.error()} retry={sub.refetch} />}>
-                    {(current) => <Detail task={current()} isGoal={current().id === task().id} onSelect={select} onOrder={setOrder} />}
-                  </Show>
-                </div>
-              </div>
-            } />
+            </Tabs.Content>
+          </Tabs.Root>
         </>
       )}
     </Ready>

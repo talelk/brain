@@ -335,8 +335,7 @@ export interface Queue {
   readonly admin: boolean;
 }
 /** The windows Insights can look over, in days. */
-export const INSIGHT_DAYS = [7, 30, 90] as const;
-export type InsightDays = (typeof INSIGHT_DAYS)[number];
+export type InsightDays = 7 | 30 | 90;
 /** One thing time or money went to, over the window. `msPerDay` and `microPerDay` have one entry per day of `Insights.days`. */
 export interface InsightRank {
   readonly key: string;
@@ -353,8 +352,7 @@ export interface InsightRank {
 export interface InsightTool { readonly tool: string; readonly calls: number; readonly failed: number; readonly ms: number; readonly perDay: readonly number[] }
 /** p50 and p90 by nearest rank (the value at place ceil(p x n) of the n sorted values), in ms. */
 export interface InsightPercentiles { readonly key: string; readonly label: string; readonly n: number; readonly p50: number; readonly p90: number }
-export const FAILURE_BUCKETS = ["limits", "setup", "engine", "checks", "other"] as const;
-export type FailureBucket = (typeof FAILURE_BUCKETS)[number];
+export type FailureBucket = "limits" | "setup" | "engine" | "checks" | "other";
 export interface InsightFailure {
   readonly bucket: FailureBucket;
   readonly count: number;

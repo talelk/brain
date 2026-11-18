@@ -22,10 +22,12 @@ const load = {
   people: () => import("./screens/People"),
   schedules: () => import("./screens/Schedules"),
   queue: () => import("./screens/Queue"),
+  insights: () => import("./screens/Insights"),
 };
 const Overview = lazy(load.overview);
 const Today = lazy(load.today);
 const Queue = lazy(load.queue);
+const Insights = lazy(load.insights);
 const Tasks = lazy(load.tasks);
 const Task = lazy(load.task);
 const Workspace = lazy(load.workspace);
@@ -37,7 +39,7 @@ const Schedules = lazy(load.schedules);
 /** The page's own code starts downloading with the first request, beside the questions of who is signed in, instead of after them. */
 void (() => {
   const path = location.pathname;
-  const chunk = path === "/" ? load.overview : path === "/new" ? load.newWorkspace : path === "/schedules" || path.endsWith("/schedules") ? load.schedules
+  const chunk = path === "/" ? load.overview : path === "/new" ? load.newWorkspace : path === "/schedules" || path.endsWith("/schedules") ? load.schedules : path.endsWith("/insights") ? load.insights
     : /^\/w\/[^/]+\/?$/u.test(path) ? load.today : /\/tasks\/[^/]+/u.test(path) ? load.task : path.endsWith("/tasks") ? load.tasks : path.includes("/workspace") ? load.workspace
     : path.endsWith("/health") ? load.health : path.endsWith("/people") ? load.people : undefined;
   void chunk?.().catch(() => undefined);
@@ -84,7 +86,7 @@ function Frame(props: RouteSectionProps): JSX.Element {
   const shape = (): LoadingShape => {
     const path = location.pathname;
     if (path === "/" || path.endsWith("/health")) return "cards";
-    if (path.endsWith("/tasks") || path.endsWith("/queue") || path.endsWith("/people") || path.endsWith("/schedules")) return "table";
+    if (path.endsWith("/tasks") || path.endsWith("/queue") || path.endsWith("/insights") || path.endsWith("/people") || path.endsWith("/schedules")) return "table";
     if (path.includes("/workspace") || path.includes("/tasks/")) return "split";
     return path === "/new" || /^\/w\/[^/]+\/?$/u.test(path) ? "form" : "lines";
   };
@@ -111,6 +113,7 @@ export function App(): JSX.Element {
               <Route path="/new" component={NewWorkspace} />
               <Route path="/schedules" component={Schedules} />
               <Route path="/queue" component={Queue} />
+              <Route path="/insights" component={Insights} />
               <Route path="/w/:slug" component={InWorkspace}>
                 <Route path="/" component={Today} />
                 <Route path="/tasks" component={Tasks} />
@@ -120,6 +123,7 @@ export function App(): JSX.Element {
                 <Route path="/people" component={People} />
                 <Route path="/schedules" component={Schedules} />
                 <Route path="/queue" component={Queue} />
+                <Route path="/insights" component={Insights} />
               </Route>
               <Route path="*" component={() => <Navigate href="/" />} />
             </Router>

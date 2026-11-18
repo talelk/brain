@@ -5,6 +5,8 @@
 @import "@fontsource/ibm-plex-mono/latin-400.css";
 @import "@fontsource/ibm-plex-mono/latin-500.css";
 
+@import "./charts.css";
+
 @source "../index.html";
 @source "./**/*.{ts,tsx}";
 @source "../node_modules/@talelk/newui-atoms/src/**/*.{ts,tsx}";
