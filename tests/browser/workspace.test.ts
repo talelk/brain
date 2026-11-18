@@ -31,3 +31,11 @@ test("an agent's prompt is edited in Workspace; its file moves from the pack to 
   await page.getByRole("radio", { name: "agent.toml" }).click();
   await expect(page.getByRole("textbox", { name: "agents/worker/agent.toml" })).toHaveValue(/native = "all"/u);
 });
+
+test("Workspace settings fit a phone: the limits table scrolls inside its own box and the page does not scroll sideways @phone", async ({ page, stack }) => {
+  await starter(await stack.setUp());
+  await signIn(page, stack);
+  await page.goto(`${stack.url}/w/starter/workspace/settings`);
+  await expect(page.getByRole("heading", { level: 3, name: "Limits" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});

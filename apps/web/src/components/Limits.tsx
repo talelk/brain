@@ -82,7 +82,7 @@ export function LimitsPanel(props: { snapshot: SnapshotManifest; agent?: string;
     <section class="mb-6" aria-labelledby="limits-title" id="limits">
       <h3 id="limits-title" class="t-head text-ink">{t("limits.title")}</h3>
       <p class="mt-1 max-w-[62ch] t-small text-ink-2">{t("limits.text")}</p>
-      <div class="mt-3 overflow-x-auto rounded-card border border-outline-gray-1">
+      <div class="relative mt-3 overflow-x-auto rounded-card border border-outline-gray-1">
         <table class="w-full min-w-[34rem] text-start t-small">
           <thead class="bg-surface-gray-2 text-ink-3"><tr><th class="px-3 py-2 text-start font-medium">{t("limits.col.limit")}</th><th class="px-3 py-2 text-start font-medium">{t("limits.col.value")}</th><th class="px-3 py-2 text-start font-medium">{t("limits.col.used")}</th><th class="px-3 py-2 text-start font-medium">{t("limits.col.from")}</th><th class="px-3 py-2"><span class="sr-only">{t("limits.change")}</span></th></tr></thead>
           <tbody class="divide-y divide-outline-gray-1">
