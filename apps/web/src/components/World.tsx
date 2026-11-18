@@ -45,8 +45,11 @@ export interface WorldRun {
 
 type Time = "auto" | "day" | "dusk" | "night";
 type Weather = "auto" | "clear" | "rain" | "snow";
-interface Options { time: Time; weather: Weather; names: boolean; bubbles: "all" | "selected"; sound: boolean; music: boolean; effects: boolean; tour: boolean }
-const DEFAULTS: Options = { time: "auto", weather: "auto", names: true, bubbles: "all", sound: false, music: false, effects: true, tour: true };
+/** How coarse the picture is: drawn at full resolution, or in pixels of two or three screen points, scaled up without smoothing. */
+type Pixels = "smooth" | "soft" | "retro";
+const PIXEL: Record<Pixels, number> = { smooth: 0, soft: 2, retro: 3 };
+interface Options { time: Time; weather: Weather; names: boolean; bubbles: "all" | "selected"; sound: boolean; music: boolean; effects: boolean; tour: boolean; pixels: Pixels }
+const DEFAULTS: Options = { time: "auto", weather: "auto", names: true, bubbles: "all", sound: false, music: false, effects: true, tour: true, pixels: "soft" };
 const KEY = "brain.village";
 function loadOptions(): Options {
   // Sound and music start off on every visit: a page may not play before the person asks.
@@ -172,8 +175,9 @@ export function World(props: {
     observer.observe(box);
     onCleanup(() => observer.disconnect());
   });
-  createEffect(on([size, map], () => {
-    const ratio = window.devicePixelRatio || 1;
+  createEffect(on([size, map, () => options().pixels], () => {
+    const pixel = PIXEL[options().pixels];
+    const ratio = pixel === 0 ? window.devicePixelRatio || 1 : 1 / pixel;
     view.width = Math.floor(size().w * ratio);
     view.height = Math.floor(size().h * ratio);
     if (!placed) {
@@ -645,7 +649,7 @@ export function World(props: {
       <div class="flex flex-col gap-3 lg:flex-row">
         <div ref={(element) => { box = element; watch(element); }} tabindex="0" role="region" aria-label={t("live.world.map", { n: props.stations.length, m: props.runs.length })} onKeyDown={keys}
           class={`rpg-world relative w-full min-w-0 shrink-0 overflow-hidden lg:w-auto lg:flex-1 focus-visible:focus-ring ${props.ambient ? "h-[calc(100vh-14rem)]" : "h-[clamp(22rem,64vh,42rem)]"}`}>
-          <canvas ref={view} class="absolute inset-0 size-full" aria-hidden="true" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag = null; }} onWheel={wheel} style={{ "image-rendering": "pixelated", cursor: "grab" }} />
+          <canvas ref={view} class="absolute inset-0 size-full" aria-hidden="true" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag = null; }} onWheel={wheel} style={{ "image-rendering": options().pixels === "smooth" ? "auto" : "pixelated", cursor: "grab" }} />
           <div class="pointer-events-none absolute inset-0 overflow-hidden">
             <For each={props.stations}>{(station) => (
               <button type="button" ref={(element) => { signs.set(station.slug, element); onCleanup(() => signs.delete(station.slug)); }} class="rpg-sign pointer-events-auto absolute left-0 top-0 flex max-w-[12rem] items-center gap-1.5 whitespace-nowrap px-2 py-0.5 t-small font-semibold"
@@ -694,6 +698,7 @@ export function World(props: {
               <Choice label={t("live.world.opt.weather")} value={options().weather} onChange={(v) => set("weather", v as Weather)} options={[["auto", t("live.world.weather.auto")], ["clear", t("live.world.weather.clear")], ["rain", t("live.world.weather.rain")], ["snow", t("live.world.weather.snow")]]} />
               <Choice label={t("live.world.opt.bubbles")} value={options().bubbles} onChange={(v) => set("bubbles", v as Options["bubbles"])} options={[["all", t("live.world.bubbles.all")], ["selected", t("live.world.bubbles.selected")]]} />
               <Choice label={t("live.world.opt.names")} value={options().names ? "on" : "off"} onChange={(v) => set("names", v === "on")} options={[["on", t("live.world.on")], ["off", t("live.world.off")]]} />
+              <Choice label={t("live.world.opt.pixels")} value={options().pixels} onChange={(v) => set("pixels", v as Pixels)} options={[["smooth", t("live.world.pixels.smooth")], ["soft", t("live.world.pixels.soft")], ["retro", t("live.world.pixels.retro")]]} />
               <Choice label={t("live.world.opt.effects")} value={options().effects ? "on" : "off"} onChange={(v) => set("effects", v === "on")} options={[["on", t("live.world.on")], ["off", t("live.world.off")]]} />
             </div>
           </Show>
