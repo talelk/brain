@@ -65,6 +65,7 @@ export function registerOverview({ gov }: Governor): void {
     // The goals Today lists as running: started, and no task under them waits for a person.
     const running = new Map(rows<{ workspace_id: string; n: number }>(db, `SELECT t.workspace_id, COUNT(*) AS n FROM tasks t WHERE t.workspace_id ${inMine} AND t.parent_id IS NULL AND t.state IN ('waiting','ready','running')
       AND NOT EXISTS (SELECT 1 FROM tasks x WHERE x.root_id = t.id AND x.state='needs_you') GROUP BY t.workspace_id`, ...ids).map((row) => [row.workspace_id, row.n]));
+    const attemptCounts = byWorkspace(rows<{ workspace_id: string; state: string; n: number }>(db, `SELECT workspace_id, state, COUNT(*) AS n FROM attempts WHERE workspace_id ${inMine} AND state IN ('queued','offered','running') GROUP BY workspace_id, state`, ...ids));
     const finished = byWorkspace(rows<{ workspace_id: string; day: string; state: string; n: number }>(db, `SELECT workspace_id, date(finished_at_ms / 1000, 'unixepoch') AS day, state, COUNT(*) AS n FROM tasks
       WHERE workspace_id ${inMine} AND parent_id IS NULL AND state IN ('done','failed') AND finished_at_ms >= ? GROUP BY workspace_id, day, state`, ...ids, since));
     const spent = byWorkspace(rows<{ workspace_id: string; day: string; micro: number }>(db, `SELECT u.workspace_id, u.day, COALESCE(SUM(${COST}), 0) AS micro FROM usage u WHERE u.workspace_id ${inMine} AND u.day >= ? GROUP BY u.workspace_id, u.day`, ...ids, days[0]));
@@ -82,7 +83,8 @@ export function registerOverview({ gov }: Governor): void {
       const manifest = activeManifest(gov, workspace.id);
       return {
         id: workspace.id, slug: workspace.slug, name: workspace.name, role: workspace.role, visibility: workspace.visibility, platform: workspace.platform, updates: updatesOf(gov, manifest).length, viaPublic: workspace.viaPublic, projects: manifest.projects.map((project) => project.name), needsYou: workspace.viaPublic ? 0 : (waiting.get(workspace.id) ?? 0), running: running.get(workspace.id) ?? 0,
-        doneToday: done.get(today) ?? 0, failedToday, spend: { todayMicroUsd: spentToday(gov, workspace.id), capMicroUsd: capOf(manifest) }, lastActivityAt: last.get(workspace.id) ?? null, days: series,
+        doneToday: done.get(today) ?? 0, failedToday,
+        attemptsRunning: (attemptCounts.get(workspace.id) ?? []).filter((row) => row.state !== "queued").reduce((sum, row) => sum + row.n, 0), attemptsWaiting: (attemptCounts.get(workspace.id) ?? []).find((row) => row.state === "queued")?.n ?? 0, spend: { todayMicroUsd: spentToday(gov, workspace.id), capMicroUsd: capOf(manifest) }, lastActivityAt: last.get(workspace.id) ?? null, days: series,
       };
     });
     const named = new Map(mine.map((workspace) => [workspace.id, workspace]));

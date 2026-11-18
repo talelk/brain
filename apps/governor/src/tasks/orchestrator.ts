@@ -1,4 +1,4 @@
-import { ATTEMPT_COMPLETED_EVENT, BrainError, type Actor, type AttemptFailure, type JsonValue, type TaskNeed } from "@brain/contracts";
+import { ATTEMPT_COMPLETED_EVENT, BrainError, MAX_ATTEMPTS, type Actor, type AttemptFailure, type JsonValue, type TaskNeed } from "@brain/contracts";
 import type { Gov } from "../dispatch";
 import { append, SYSTEM } from "../events";
 import { expireApprovals } from "../trust/approvals";
@@ -77,17 +77,12 @@ function followSubtasks(gov: Gov, task: TaskRow): boolean {
   return true;
 }
 
-/** Queues the work of ready tasks, oldest first, while the workspace is under its `running_tasks`. */
-function startReady(gov: Gov, workspaceId: string, ready: readonly TaskRow[]): void {
-  if (ready.length === 0) return;
-  const limit = manifestOf(gov, (gov.db.prepare("SELECT active_snapshot AS digest FROM workspaces WHERE id=?").get(workspaceId) as { digest: string }).digest).limits.running_tasks;
-  let busy = (gov.db.prepare(`SELECT COUNT(DISTINCT task_id) AS n FROM attempts WHERE workspace_id=? AND kind='work' AND state IN ${ACTIVE_ATTEMPT}`).get(workspaceId) as { n: number }).n;
+/** Queues the work of every ready task that has none queued. How many run at once, and in which order, is decided when a runner claims (tasks/queue.ts). */
+function startReady(gov: Gov, ready: readonly TaskRow[]): void {
   for (const task of ready) {
     if (activeAttempts(gov, task.id) > 0) continue;
-    if (limit > 0 && busy >= limit) return;
     const settings = settingsOf(task);
     for (const [index, agent] of doers(settings).entries()) queueAttempt(gov, { task, kind: "work", agent, candidate: settings.candidates === null ? null : index });
-    busy += 1;
   }
 }
 
@@ -104,7 +99,7 @@ function rest(gov: Gov, workspaceId: string): void {
     }
     if (!changed) break;
   }
-  startReady(gov, workspaceId, open().filter((task) => task.state === "ready" && task.agent !== null));
+  startReady(gov, open().filter((task) => task.state === "ready" && task.agent !== null));
 }
 
 export function settle(gov: Gov, workspaceId: string): void {
@@ -208,6 +203,11 @@ export function attemptEnded(gov: Gov, attemptId: string): void {
   if (!TERMINAL.includes(task.state)) {
     // An approved call is never repeated on its own: whether it happened is not known.
     const retry = attempt.state === "failed" && attempt.kind !== "act" ? retryOf(failureOf(attempt), attempt.tries) : { retry: false as const };
+    // An infrastructure failure that was tried as many times as allowed says which limit ended it.
+    if (!retry.retry && attempt.state === "failed" && attempt.kind !== "act" && failureOf(attempt)?.infrastructure === true && failureOf(attempt)?.limit === undefined) {
+      const stopped = { ...(failureOf(attempt) as AttemptFailure), limit: { name: "attempts" as const, value: MAX_ATTEMPTS, used: attempt.tries + 1 } };
+      gov.db.prepare("UPDATE attempts SET failure_json=? WHERE id=?").run(JSON.stringify(stopped), attempt.id);
+    }
     if (retry.retry) {
       queueAttempt(gov, { task, kind: attempt.kind, agent: attempt.agent, candidate: attempt.candidate, payload: { ...payloadOf(attempt), offered: [] }, tries: retry.tries, delayMs: retry.delayMs });
       if (attempt.kind === "work") setState(gov, task, "ready");

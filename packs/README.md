@@ -20,7 +20,7 @@ requires.
 ## Fields used
 
 - `agent.toml`: `description`, `engine`, `native`, `tools`, `[limits]` with `turns`,
-  `tokens`, `spend_usd`. No pack agent sets `model`.
+  `tokens`, `spend_usd` (a pack agent sets only the spend, so the defaults of docs/model.md, Limits, apply to turns and tokens). No pack agent sets `model`.
 - `tool.toml`, three shapes:
   - Brain-run: `description`, `runs = "brain"`, `effect`, `[inputs.*]`. No script.
   - Host command: `description`, `effect`, `host_command`, `timeout_seconds`,

@@ -227,6 +227,9 @@ export interface Task extends TaskSummary {
   readonly snapshotDigest: Digest;
   readonly createdBy: string;
   readonly waitsFor: readonly string[];
+  /** The task's priority and pause (its own, else its goal's), and for a task that is queued why it is not running: see `Wait`. */
+  readonly steer: { readonly priority: Priority; readonly paused: boolean };
+  readonly queued: { readonly wait: Wait; readonly rank: number | null; readonly startsAt: number | null } | null;
   readonly settings: { readonly reviewBy: string | null; readonly maxRounds: number; readonly targetScore: number | null; readonly approve: boolean; readonly when: string | null; readonly candidates: number | readonly string[] | null; readonly judge: string | null };
   readonly subtasks: readonly SubtaskSummary[];
   readonly attempts: readonly Attempt[];
@@ -256,6 +259,81 @@ export interface UsageSummary {
   readonly byAgent: ReadonlyArray<Usage & { readonly agent: string }>;
   readonly byModel: ReadonlyArray<Usage & { readonly model: string }>;
 }
+export const PRIORITIES = ["low", "normal", "high"] as const;
+export type Priority = (typeof PRIORITIES)[number];
+/** Why a queued task is not running yet, in the order the Governor checks (docs/model.md, The queue). */
+export type Wait =
+  | { readonly kind: "slot"; readonly ahead: number }
+  | { readonly kind: "running-tasks"; readonly used: number; readonly limit: number }
+  | { readonly kind: "daily-cap"; readonly spentMicroUsd: number; readonly capMicroUsd: number }
+  | { readonly kind: "capability"; readonly missing: string }
+  | { readonly kind: "no-runner" }
+  | { readonly kind: "task"; readonly taskId: string; readonly title: string }
+  | { readonly kind: "paused-workspace" }
+  | { readonly kind: "paused-task" }
+  | { readonly kind: "backoff"; readonly until: number; readonly tries: number };
+/** One task waiting to start. `rank` is its place in dispatch order (from 1); null for one that waits for another task or is held. */
+export interface QueueItem {
+  readonly taskId: string;
+  readonly rootId: string;
+  readonly title: string;
+  readonly goalTitle: string;
+  readonly workspaceId: string;
+  readonly workspaceSlug: string;
+  readonly workspaceName: string;
+  readonly agent: string | null;
+  readonly kind: AttemptKind;
+  readonly priority: Priority;
+  readonly paused: boolean;
+  readonly rank: number | null;
+  readonly since: number;
+  readonly wait: Wait;
+  /** When it will probably start, from the median duration of recent attempts of its kind; null when that cannot be known. */
+  readonly startsAt: number | null;
+  /** The caller may steer it (a member of its workspace). */
+  readonly canSteer: boolean;
+}
+/** An attempt in a runner's slot. */
+export interface QueueRun {
+  readonly attemptId: string;
+  readonly taskId: string;
+  readonly rootId: string;
+  readonly title: string;
+  readonly agent: string;
+  readonly kind: AttemptKind;
+  readonly workspaceSlug: string;
+  readonly workspaceName: string;
+  readonly startedAt: number | null;
+  readonly tokens: number;
+  readonly microUsd: number;
+}
+export interface QueueRunner {
+  readonly id: string;
+  readonly name: string;
+  readonly online: boolean;
+  readonly slots: number;
+  readonly freeSlots: number;
+  /** Only for an instance admin; empty for anyone else. */
+  readonly engines: readonly string[];
+  readonly capabilities: readonly string[];
+  readonly occupied: readonly QueueRun[];
+  /** Slots held by a workspace the caller does not see. */
+  readonly hiddenOccupied: number;
+}
+export interface Queue {
+  readonly now: number;
+  readonly runners: readonly QueueRunner[];
+  /** Ready tasks in the order the Governor will start them, then those held (paused, backoff). Only workspaces the caller sees. */
+  readonly waiting: readonly QueueItem[];
+  /** Tasks that wait for another task, oldest first (at most 100). */
+  readonly blocked: readonly QueueItem[];
+  /** How many waiting tasks are in workspaces the caller does not see. */
+  readonly hidden: number;
+  readonly running: number;
+  /** Workspaces whose queue is paused, among those the caller sees. */
+  readonly paused: ReadonlyArray<{ readonly id: string; readonly slug: string; readonly name: string }>;
+  readonly admin: boolean;
+}
 /** One day of a workspace's work, UTC: goals finished (done) and what the day cost. */
 export interface OverviewDay { readonly day: string; readonly done: number; readonly microUsd: number }
 /** What one of the caller's workspaces is doing: counts of today, last two weeks, projects. */
@@ -274,6 +352,9 @@ export interface OverviewWorkspace {
   readonly needsYou: number;
   /** Goals started or running that wait for nothing from a person. */
   readonly running: number;
+  /** Attempts in a runner now, and queued attempts waiting for one. */
+  readonly attemptsRunning: number;
+  readonly attemptsWaiting: number;
   readonly doneToday: number;
   readonly failedToday: number;
   readonly spend: Spend;
@@ -434,6 +515,8 @@ export const commands = table({
     z.strictObject({ op: z.literal("remove"), id }),
   ])).min(1).max(100) })],
   "task.stop": ["member", z.strictObject({ ...inWorkspace, taskId: id })],
+  /** A task's priority and whether it is paused (docs/model.md, The queue); what is not given stays as it is. */
+  "task.steer": ["member", z.strictObject({ ...inWorkspace, taskId: id, priority: z.enum(PRIORITIES).optional(), paused: z.boolean().optional() }).refine((input) => input.priority !== undefined || input.paused !== undefined, "give a priority or paused")],
   "task.retry": ["member", z.strictObject({ ...inWorkspace, taskId: id })],
   /** A person's check or sign-off. `keep` names the candidate attempt a person judging keeps. */
   "task.check": ["member", z.strictObject({ ...inWorkspace, taskId: id, pass: z.boolean(), findings: z.string().trim().max(20_000).default(""), keep: id.optional() })],
@@ -459,6 +542,8 @@ export const queries = table({
   today: ["viewer", z.strictObject(inWorkspace)],
   /** What all the caller's workspaces are doing. Like `me` it takes no workspace; it answers UNAUTHENTICATED without a session and never shows a workspace the caller is not a member of. */
   overview: ["public", z.strictObject({})],
+  /** Runners and the waiting list, for every workspace the caller sees, or for one; like `overview` it answers UNAUTHENTICATED without a session. */
+  queue: ["public", z.strictObject({ workspaceId: id.optional() })],
   /** Every scheduled and webhook Play of the active workspaces the caller can see; like `overview` it takes no workspace and answers UNAUTHENTICATED without a session. */
   "schedules.list": ["public", z.strictObject({})],
   /** `search` matches the title or the goal text; `rootsOnly` leaves out sub-tasks. Both are applied before `limit`. */
@@ -497,6 +582,7 @@ export interface CommandOutputs {
   "task.confirm": Record<string, never>;
   "task.edit": Record<string, never>;
   "task.stop": Record<string, never>;
+  "task.steer": Record<string, never>;
   "task.retry": Record<string, never>;
   "task.check": Record<string, never>;
   "task.answer": Record<string, never>;
@@ -515,6 +601,7 @@ export interface QueryOutputs {
   "file.read": FileContent;
   today: Today;
   overview: Overview;
+  queue: Queue;
   "schedules.list": { readonly schedules: readonly ScheduleItem[] };
   "tasks.list": { readonly tasks: readonly TaskSummary[] };
   "task.get": Task;

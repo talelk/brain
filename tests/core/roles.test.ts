@@ -40,7 +40,7 @@ describe("roles", () => {
     const valid: Record<string, object> = {
       "workspace.archive": { workspaceId }, "workspace.stopAll": { workspaceId }, "file.write": memory("roles"), "file.delete": { workspaceId, paths: ["memory/roles.md"] },
       "secret.set": { workspaceId, name: "x", value: "y" }, "secret.delete": { workspaceId, name: "x" }, "member.set": { workspaceId, email: "vera@example.com", role: "viewer" }, "member.remove": { workspaceId, userId: "u_none" },
-      "task.create": { workspaceId, goal: "Do something" }, "task.confirm": t, "task.edit": { ...t, changes: [{ op: "remove", id: "t_other" }] }, "task.stop": t, "task.retry": t, "task.check": { ...t, pass: true }, "task.answer": { ...t, answer: "yes" },
+      "task.create": { workspaceId, goal: "Do something" }, "task.confirm": t, "task.edit": { ...t, changes: [{ op: "remove", id: "t_other" }] }, "task.stop": t, "task.steer": { ...t, paused: true }, "task.retry": t, "task.check": { ...t, pass: true }, "task.answer": { ...t, answer: "yes" },
       "approval.decide": { workspaceId, approvalId: "ap_none", decision: "approve", subjectDigest: "sha256:0" }, "memory.decide": { workspaceId, proposalId: "mp_none", decision: "accept" },
       "runner.remove": { runnerId: "r_none" }, "pack.release": { workspaceId, name: "base" }, "pack.files": { workspaceId, name: "extra", version: 0 }, "file.read": { workspaceId, path: "brain.toml" }, "task.get": t, "task.events": { ...t, attemptId: "a_none" }, "approval.get": { workspaceId, approvalId: "ap_none" },
     };
@@ -66,7 +66,7 @@ describe("roles", () => {
         checked += 1;
       }
     }
-    expect(checked).toBe(Object.keys(commands).length + Object.keys(queries).length - 11);
+    expect(checked).toBe(Object.keys(commands).length + Object.keys(queries).length - 12);
   });
 
   it("a viewer reads the workspace and cannot write a file", async () => {

@@ -1,4 +1,4 @@
-import type { AgentFile, PlatformKind, PlayFile, SnapshotManifest, StepSpec, ToolFile } from "@brain/contracts";
+import { LIMIT_DEFAULTS, type AgentFile, PlatformKind, PlayFile, SnapshotManifest, StepSpec, ToolFile } from "@brain/contracts";
 import { compact, toToml, type TomlTable, type TomlValue } from "./toml";
 
 /**
@@ -47,8 +47,8 @@ export function brainToml(brain: Brain): string {
     platform: brain.platform,
     packs: brain.packs,
     // A value that is the default is not written: the file says only what was chosen.
-    limits: { daily_spend_usd: differs(brain.limits.daily_spend_usd, 0), running_tasks: differs(brain.limits.running_tasks, 4), confirm_plans: differs(brain.limits.confirm_plans, "person") },
-    healing: { mode: differs(brain.healing.mode, "auto"), per_day: differs(brain.healing.per_day, 5) },
+    limits: { daily_spend_usd: differs(brain.limits.daily_spend_usd, LIMIT_DEFAULTS.daily_spend_usd), running_tasks: differs(brain.limits.running_tasks, LIMIT_DEFAULTS.running_tasks), confirm_plans: differs(brain.limits.confirm_plans, "person"), paused: differs(brain.limits.paused, false) },
+    healing: { mode: differs(brain.healing.mode, "auto"), per_day: differs(brain.healing.per_day, LIMIT_DEFAULTS.healing_per_day) },
     cleanup: { superseded_after_hours: differs(brain.cleanup.superseded_after_hours, 24) },
     model: brain.models.map((model) => ({ ...model })),
     project: brain.projects.map((project) => ({ ...project, branch: differs(project.branch, "main"), access: differs(project.access, "read"), network: project.network.length > 0 ? project.network : undefined })),
@@ -61,7 +61,7 @@ export function brainToml(brain: Brain): string {
 
 export function agentToml(agent: AgentFile): string {
   const { description, engine, native, tools, model, limits, translations } = agent;
-  return toToml(compact({ description, engine, native: differs(native, "none"), tools, model, limits: { turns: differs(limits.turns, 20), tokens: differs(limits.tokens, 200_000), spend_usd: differs(limits.spend_usd, 0) }, translations: translations as TomlTable | undefined }));
+  return toToml(compact({ description, engine, native: differs(native, "none"), tools, model, limits: { turns: differs(limits.turns, LIMIT_DEFAULTS.turns), tokens: differs(limits.tokens, LIMIT_DEFAULTS.tokens), spend_usd: differs(limits.spend_usd, LIMIT_DEFAULTS.spend_usd) }, translations: translations as TomlTable | undefined }));
 }
 
 const inputsTable = (inputs: ToolFile["inputs"]): TomlTable => Object.fromEntries(Object.entries(inputs).map(([name, spec]) => [name, { type: spec.type, description: spec.description || undefined, required: spec.required, enum: spec.enum, items: spec.items ? { ...spec.items } : undefined }]));

@@ -4,8 +4,6 @@ native = "read"
 tools = ["workspace.fix", "task.ask", "memory.search"]
 
 [limits]
-turns = 20
-tokens = 120000
 spend_usd = 0.60
 
 [translations.fr]

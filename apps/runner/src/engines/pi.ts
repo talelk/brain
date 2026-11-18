@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { JsonValue } from "@brain/contracts";
+import { MAX_REPLY_TOKENS, type JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
 import { engineFailureDetail, QUOTA_TEXT } from "./failure-detail";
 import { holdsCompleteObject } from "./json-reply";
@@ -75,7 +75,7 @@ export class PiEngine implements EngineAdapter {
           name: "Brain model gateway", baseUrl: spec.model.baseUrl, api: "openai-completions", apiKey: spec.model.token,
           models: [{
             id: spec.model.name, name: spec.model.name, reasoning: true, input: ["text"],
-            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: CONTEXT_WINDOW, maxTokens: spec.limits.maxOutputTokens ?? (spec.limits.maxTokens > 0 ? Math.min(spec.limits.maxTokens, 16384, Math.max(8192, spec.limits.maxTokens - 4096)) : 16384),
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: CONTEXT_WINDOW, maxTokens: spec.limits.maxOutputTokens ?? (spec.limits.maxTokens > 0 ? Math.min(spec.limits.maxTokens, MAX_REPLY_TOKENS, Math.max(8192, spec.limits.maxTokens - 4096)) : MAX_REPLY_TOKENS),
           }],
         },
       },

@@ -155,9 +155,10 @@ describe("an attempt that fails", () => {
   it("is tried again up to three times with a growing wait when the reason is the infrastructure, and never otherwise", () => {
     expect(retryOf({ infrastructure: true }, 0)).toEqual({ retry: true, tries: 1, delayMs: 5_000 });
     expect(retryOf({ infrastructure: true }, 2)).toEqual({ retry: true, tries: 3, delayMs: 80_000 });
-    expect(retryOf({ infrastructure: true }, 3)).toEqual({ retry: false });
+    expect(retryOf({ infrastructure: true }, 3)).toEqual({ retry: true, tries: 4, delayMs: 320_000 });
+    expect(retryOf({ infrastructure: true }, 4)).toEqual({ retry: false });
     expect(retryOf({ infrastructure: false }, 0)).toEqual({ retry: false });
     expect(retryOf(null, 0)).toEqual({ retry: false });
-    expect([1, 2, 3].map(backoffMs)).toEqual([5_000, 20_000, 80_000]);
+    expect([1, 2, 3, 4].map(backoffMs)).toEqual([5_000, 20_000, 80_000, 320_000]);
   });
 });

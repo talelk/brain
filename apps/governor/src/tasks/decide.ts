@@ -1,4 +1,4 @@
-import { parseRef, parseWhen, renderTemplate, type AttemptFailure, type JsonValue, type Ref, type TaskNeed, type TaskState } from "@brain/contracts";
+import { MAX_ATTEMPTS, parseRef, parseWhen, renderTemplate, type AttemptFailure, type JsonValue, type Ref, type TaskNeed, type TaskState } from "@brain/contracts";
 
 /**
  * The decisions of orchestration (docs/architecture.md section 5) as pure functions over plain data: what a waiting task becomes, what
@@ -83,12 +83,11 @@ export function promote(task: { readonly agent: string | null; readonly when: st
 
 // --- attempts that fail ---
 
-export const MAX_INFRASTRUCTURE_RETRIES = 3;
-/** How long a retry waits: 5 s, 20 s, 80 s. */
+/** How long a retry waits: 5 s, 20 s, 80 s, 320 s. */
 export const backoffMs = (tries: number): number => 5_000 * 4 ** Math.max(0, tries - 1);
-/** An attempt that failed for an infrastructure reason is tried again up to three times; `tries` counts the retries already made. */
+/** An attempt that failed for an infrastructure reason is tried again until it has been tried `MAX_ATTEMPTS` times in all; `tries` counts the retries already made. */
 export function retryOf(failure: Pick<AttemptFailure, "infrastructure"> | null, tries: number): { readonly retry: true; readonly tries: number; readonly delayMs: number } | { readonly retry: false } {
-  if (!failure?.infrastructure || tries >= MAX_INFRASTRUCTURE_RETRIES) return { retry: false };
+  if (!failure?.infrastructure || tries + 1 >= MAX_ATTEMPTS) return { retry: false };
   return { retry: true, tries: tries + 1, delayMs: backoffMs(tries + 1) };
 }
 

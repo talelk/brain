@@ -11,6 +11,7 @@ import { COST, spendOf, usageWhere } from "../trust/usage";
 import { inputSchema } from "../workspace/load";
 import { getWorkspace, manifestOf } from "../workspace/store";
 import { HEAL } from "./heal";
+import { queueOf, queuedOf, steerOf } from "./queue";
 import { personCheck, reviveTask, settle, startPlan, stopTask } from "./orchestrator";
 import { createFromPlay, insertTask, json, needOf, setState, taskIn, TERMINAL, type TaskRow } from "./store";
 
@@ -159,6 +160,14 @@ export function registerTasks(governor: Governor): void {
     settle(ctx.gov, input.workspaceId);
     return {};
   });
+  registry.command("task.steer", (ctx, input) => {
+    const task = taskIn(ctx.db, input.workspaceId, input.taskId);
+    if (TERMINAL.includes(task.state)) throw new BrainError("CONFLICT", `This task is already ${task.state}`);
+    const now = steerOf(ctx.db, task);
+    // The task's own record: the priority it is to have and whether it waits; what the call leaves out stays as it is.
+    append(ctx.db, { type: "task.steered", workspaceId: task.workspace_id, subject: `task:${task.id}`, payload: { priority: input.priority ?? now.priority, paused: input.paused ?? now.paused, title: task.title }, actor: ctx.actor });
+    return {};
+  });
   registry.command("workspace.stopAll", (ctx, input) => {
     const roots = ctx.db.prepare("SELECT * FROM tasks WHERE workspace_id=? AND parent_id IS NULL AND state NOT IN ('done','failed','stopped')").all(input.workspaceId) as TaskRow[];
     for (const root of roots) stopTask(ctx.gov, root, ctx.actor);
@@ -191,6 +200,11 @@ export function registerTasks(governor: Governor): void {
   });
 
   // --- queries ---
+
+  registry.query("queue", (ctx, input) => {
+    if (!ctx.user) throw new BrainError("UNAUTHENTICATED", "Sign in first");
+    return queueOf(ctx.gov, ctx.user, input.workspaceId);
+  });
 
   registry.query("today", (ctx, input) => ({
     needsYou: summaries(ctx.db, "t.workspace_id=? AND t.state='needs_you' ORDER BY t.updated_at_ms DESC LIMIT 100", input.workspaceId),
@@ -230,6 +244,7 @@ export function registerTasks(governor: Governor): void {
     return {
       ...summary(row), goal: row.goal, result: row.result, output: json<JsonValue>(row.output_json), snapshotDigest: row.snapshot_digest, createdBy: row.created_by,
       waitsFor: waitsFor(db, row.id),
+      steer: (({ priority, paused }) => ({ priority, paused }))(steerOf(db, row)), queued: queuedOf(ctx.gov, row.id),
       settings: { reviewBy: row.review_by, maxRounds: row.max_rounds, targetScore: row.target_score, approve: row.approve === 1, when: row.when_expr, candidates: json<number | string[]>(row.candidates_json), judge: row.judge },
       subtasks: (db.prepare(`${SUMMARY} WHERE t.id ${inTree} AND t.id != ? ORDER BY t.rowid`).all(row.id, row.id) as SummaryRow[]).map((sub): SubtaskSummary => ({ ...summary(sub), goal: sub.goal, waitsFor: waitsFor(db, sub.id) })),
       attempts, checks, toolCalls,

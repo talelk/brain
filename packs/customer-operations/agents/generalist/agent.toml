@@ -4,8 +4,6 @@ native = "none"
 tools = ["memory.search", "memory.propose", "task.note", "message.send"]
 
 [limits]
-turns = 12
-tokens = 80000
 spend_usd = 0.30
 
 [translations.fr]

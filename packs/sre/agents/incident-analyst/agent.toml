@@ -4,8 +4,6 @@ native = "none"
 tools = ["host.status", "host.logs", "host.disk", "http.check", "task.note", "memory.search"]
 
 [limits]
-turns = 25
-tokens = 150000
 spend_usd = 0.75
 
 [translations.fr]

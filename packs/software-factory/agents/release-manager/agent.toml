@@ -4,8 +4,6 @@ native = "read"
 tools = ["git.open-pr", "message.send"]
 
 [limits]
-turns = 12
-tokens = 80000
 spend_usd = 0.40
 
 [translations.fr]

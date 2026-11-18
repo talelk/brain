@@ -4,8 +4,6 @@ native = "none"
 tools = ["memory.search"]
 
 [limits]
-turns = 10
-tokens = 60000
 spend_usd = 0.25
 
 [translations.fr]

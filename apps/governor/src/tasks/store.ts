@@ -1,5 +1,5 @@
 import {
-  BrainError, type Actor, type AttemptFailure, type AttemptKind, type AttemptState, type Digest, type JsonValue, type SnapshotManifest, type StepSpec, type TaskNeed, type TaskState,
+  BrainError, LIMIT_DEFAULTS, type Actor, type AttemptFailure, type AttemptKind, type AttemptState, type Digest, type JsonValue, type SnapshotManifest, type StepSpec, type TaskNeed, type TaskState,
 } from "@brain/contracts";
 import { randomBytes } from "node:crypto";
 import type { Db } from "../db";
@@ -104,7 +104,7 @@ export function insertTask(gov: Gov, actor: Actor, input: NewTask): TaskRow {
     id, input.workspaceId, parent?.id ?? null, parent?.root_id ?? id, position, input.title, input.goal, group ? null : input.agent, input.state, input.snapshotDigest,
     input.play ?? null, input.inputs ? JSON.stringify(input.inputs) : null, step?.id ?? null, input.item?.index ?? null, input.item ? JSON.stringify(input.item.value) : null,
     forEach ?? null, input.item === undefined ? (step?.when ?? null) : null,
-    group ? null : (step?.review_by ?? null), step?.max_rounds ?? 2, group ? null : (step?.target_score ?? null), !group && step?.approve ? 1 : 0,
+    group ? null : (step?.review_by ?? null), step?.max_rounds ?? LIMIT_DEFAULTS.max_rounds, group ? null : (step?.target_score ?? null), !group && step?.approve ? 1 : 0,
     !group && step?.candidates !== undefined ? JSON.stringify(step.candidates) : null, group ? null : (step?.judge ?? null), input.createdBy, now, now,
   );
   for (const waitsFor of input.after ?? []) db.prepare("INSERT OR IGNORE INTO task_deps(task_id, waits_for) VALUES (?,?)").run(id, waitsFor);

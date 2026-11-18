@@ -1,5 +1,5 @@
 import {
-  ATTEMPT_COMPLETED_EVENT, BrainError, hmacSha256Hex, isDigest, receiptShapeProblem, receiptSignatureOk, resultDigest, RUNNER_ROUTES, secretName,
+  ATTEMPT_COMPLETED_EVENT, BrainError, hmacSha256Hex, isDigest, LIMIT_NAMES, MAX_ATTEMPTS, receiptShapeProblem, receiptSignatureOk, resultDigest, RUNNER_ROUTES, secretName,
   type ApprovalPollResponse, type ArtifactUploadResponse, type AttemptFailure, type ClaimResponse, type CompleteResponse, type EventsResponse, type JsonValue, type LeaseResponse, type ModelTokenResponse,
   type RunReceipt, type SecretResponse, type ToolCallResponse,
 } from "@brain/contracts";
@@ -10,7 +10,8 @@ import type { Governor } from "../app";
 import { tx } from "../db";
 import type { Gov } from "../dispatch";
 import { append, markChanged, SYSTEM } from "../events";
-import { backoffMs, MAX_INFRASTRUCTURE_RETRIES } from "../tasks/decide";
+import { backoffMs } from "../tasks/decide";
+import { withLimit } from "./limits";
 import { attemptEnded, closeAttempt, settle } from "../tasks/orchestrator";
 import { attemptOf, payloadOf, queueAttempt, setState, taskOf, type AttemptRow } from "../tasks/store";
 import { runBrainTool } from "../tools/brain";
@@ -18,9 +19,10 @@ import { inputProblem } from "../tools/schema";
 import { authorizeCall, callRowId, expireApprovals, finishCall, openCall } from "../trust/approvals";
 import { linkArtifact, putArtifact, readArtifact } from "../trust/artifacts";
 import { readSecret } from "../trust/secrets";
-import { microUsd, overCap, reserveUsage, settleUsage } from "../trust/usage";
-import { activeManifest, manifestOf } from "../workspace/store";
-import { buildOffer, fits, OFFER_FOR_MS } from "./offer";
+import { microUsd, reserveUsage, settleUsage } from "../trust/usage";
+import { manifestOf } from "../workspace/store";
+import { buildOffer, missing, OFFER_FOR_MS } from "./offer";
+import { blockOf, dispatchOrder, standing } from "../tasks/queue";
 import { body, runnerOf } from "./runners";
 
 /** The queue and the life of an attempt on a runner (docs/architecture.md section 6): claim, lease, events, tool calls, completion. */
@@ -45,7 +47,7 @@ const usage = z.strictObject({ inputTokens: z.int().min(0), outputTokens: z.int(
 const blobRef = z.strictObject({ digest: z.string().refine(isDigest), bytes: z.int().min(0) });
 const completion = z.strictObject({
   fence, outcome: z.enum(["succeeded", "failed", "held"]), result: text, output: z.json().optional(),
-  failure: z.strictObject({ reason: z.enum(["engine", "model-refused", "setup", "timeout", "limit", "stopped", "runner"]), detail: text, infrastructure: z.boolean() }).optional(),
+  failure: z.strictObject({ reason: z.enum(["engine", "model-refused", "setup", "timeout", "limit", "stopped", "runner"]), detail: text, infrastructure: z.boolean(), limit: z.strictObject({ name: z.enum(LIMIT_NAMES), value: z.number(), used: z.number().nullable(), agent: z.string().max(100).optional() }).optional() }).optional(),
   usage, engine: z.string().max(100), workingCopy: blobRef.optional(), baseCommits: commits,
   receipt: z.strictObject({ receipt: z.unknown(), signature: z.string().min(1).max(500) }),
 });
@@ -81,13 +83,13 @@ export function attemptOfModelToken(gov: Gov, token: string): AttemptRow | undef
   return attempt?.state === "running" && attempt.fence === Number(attemptFence) ? attempt : undefined;
 }
 
-/** Takes an attempt back from its runner, which is refused from then on, and puts it in the queue again (its next offer moves the fence); after three such returns it fails. */
+/** Takes an attempt back from its runner, which is refused from then on, and puts it in the queue again (its next offer moves the fence); after five such tries in all it fails. */
 export function releaseAttempt(gov: Gov, attemptId: string, why: string): void {
   const { db } = gov;
   const attempt = attemptOf(db, attemptId);
   const failure: AttemptFailure = { reason: "runner", detail: why, infrastructure: true };
-  if (attempt.tries >= MAX_INFRASTRUCTURE_RETRIES) {
-    closeAttempt(gov, attempt, "failed", failure);
+  if (attempt.tries + 1 >= MAX_ATTEMPTS) {
+    closeAttempt(gov, attempt, "failed", { ...failure, limit: { name: "attempts", value: MAX_ATTEMPTS, used: attempt.tries + 1 } });
     return attemptEnded(gov, attempt.id);
   }
   db.prepare("UPDATE attempts SET state='queued', runner_id=NULL, tries=tries+1, available_at_ms=?, offer_expires_at_ms=NULL, lease_expires_at_ms=NULL WHERE id=?").run(gov.clock.nowMs() + backoffMs(attempt.tries + 1), attempt.id);
@@ -108,34 +110,20 @@ export function sweepAttempts(gov: Gov): void {
   });
 }
 
-/** The oldest queued attempt the runner fits, from the workspace with the fewest running, leaving out a workspace at its `running_tasks` or over its daily cap. */
+/** The first queued attempt, in the order of `dispatchOrder` (tasks/queue.ts), that nothing holds back (`blockOf`) and the runner has what it needs for. */
 function claim(gov: Gov, runnerId: string): AttemptRow | undefined {
   const { db } = gov;
   const now = gov.clock.nowMs();
   const row = db.prepare("SELECT capabilities_json, engines_json FROM runners WHERE id=?").get(runnerId) as { capabilities_json: string; engines_json: string };
   const runner = { capabilities: new Set(JSON.parse(row.capabilities_json) as string[]), engines: new Set(JSON.parse(row.engines_json) as string[]) };
-  const running = new Map((db.prepare("SELECT workspace_id AS id, COUNT(*) AS n FROM attempts WHERE state IN ('offered','running') GROUP BY workspace_id").all() as Array<{ id: string; n: number }>).map((entry) => [entry.id, entry.n]));
-  const queued = (db.prepare(`SELECT a.* FROM attempts a JOIN workspaces w ON w.id = a.workspace_id WHERE a.state='queued' AND a.available_at_ms<=? AND w.status='active' ORDER BY a.created_at_ms, a.rowid LIMIT 500`).all(now) as AttemptRow[])
-    .sort((a, b) => (running.get(a.workspace_id) ?? 0) - (running.get(b.workspace_id) ?? 0));
-  const full = new Set<string>();
-  for (const attempt of queued) {
-    if (full.has(attempt.workspace_id)) continue;
-    const settings = activeManifest(gov, attempt.workspace_id);
-    if (settings.limits.running_tasks > 0 && (running.get(attempt.workspace_id) ?? 0) >= settings.limits.running_tasks) {
-      full.add(attempt.workspace_id);
-      continue;
-    }
-    const task = taskOf(db, attempt.task_id);
+  const at = standing(gov);
+  for (const entry of dispatchOrder(gov)) {
+    const { attempt, task } = entry;
     const manifest = manifestOf(gov, task.snapshot_digest);
     const agent = manifest.agents[attempt.agent];
-    if (!agent || !fits(manifest, attempt, runner)) continue;
-    const reserve = microUsd(agent.limits.spend_usd);
-    if (overCap(gov, attempt.workspace_id, settings, reserve)) {
-      full.add(attempt.workspace_id);
-      continue;
-    }
+    if (!agent || missing(manifest, attempt, runner) !== null || blockOf(gov, entry, at) !== null) continue;
     db.prepare("UPDATE attempts SET state='offered', runner_id=?, fence=fence+1, offer_expires_at_ms=? WHERE id=?").run(runnerId, now + OFFER_FOR_MS, attempt.id);
-    reserveUsage(gov, attempt, agent.model ?? manifest.models[0]?.name ?? null, reserve);
+    reserveUsage(gov, attempt, agent.model ?? manifest.models[0]?.name ?? null, microUsd(agent.limits.spend_usd));
     db.prepare("UPDATE tasks SET started_at_ms=COALESCE(started_at_ms, ?) WHERE id=?").run(now, task.id);
     if (attempt.kind === "work" && task.state === "ready") setState(gov, task, "running");
     append(db, { type: "attempt.offered", workspaceId: attempt.workspace_id, subject: `attempt:${attempt.id}`, payload: { taskId: task.id, runnerId, fence: attempt.fence + 1 }, actor: { kind: "runner", id: runnerId } });
@@ -287,7 +275,7 @@ export function registerAttempts(governor: Governor): void {
       throw new BrainError("FORBIDDEN", "The receipt does not match this attempt, its result, or the runner's key");
     }
     if (input.workingCopy && !db.prepare("SELECT 1 FROM artifact_links WHERE digest=? AND attempt_id=?").get(input.workingCopy.digest, attempt.id)) throw new BrainError("INVALID_INPUT", "The working-copy patch was not uploaded by this attempt");
-    const failure: AttemptFailure | null = input.outcome === "failed" ? (input.failure ?? { reason: "engine", detail: input.result, infrastructure: false }) : null;
+    const failure: AttemptFailure | null = input.outcome === "failed" ? withLimit(gov, attempt, input.failure ?? { reason: "engine", detail: input.result, infrastructure: false }, input.usage) : null;
     tx(db, () => {
       const now = gov.clock.nowMs();
       db.prepare(`UPDATE attempts SET state=?, result=?, output_json=?, failure_json=?, receipt_json=?, receipt_signature=?, working_copy=?, base_commits_json=?, engine=?, finished_at_ms=?,

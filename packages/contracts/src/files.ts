@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isCron } from "./cron";
+import { LIMIT_DEFAULTS } from "./limits";
 import type { Digest, JsonValue } from "./protocol";
 import { isSlug, SLUG } from "./slug";
 
@@ -95,12 +96,14 @@ export const BrainFile = z.strictObject({
   /** `<name>` is the shipped pack, `<name>@<n>` release `n` of it (docs/model.md, "The platform workspace"). */
   packs: z.array(packRef).default([]),
   limits: z.strictObject({
-    daily_spend_usd: z.number().min(0).default(0),
-    running_tasks: z.int().min(0).max(64).default(4),
+    daily_spend_usd: z.number().min(0).default(LIMIT_DEFAULTS.daily_spend_usd),
+    running_tasks: z.int().min(0).max(64).default(LIMIT_DEFAULTS.running_tasks),
     confirm_plans: z.enum(["person", "auto"]).default("person"),
+    /** True: nothing of this workspace starts; what runs goes on. */
+    paused: z.boolean().default(false),
   }).prefault({}),
   /** What happens when a task has failed all its attempts: a heal task analyses it. `per_day` is the heal tasks of a UTC day; 0 is no cap. */
-  healing: z.strictObject({ mode: z.enum(["auto", "off"]).default("auto"), per_day: z.int().min(0).default(5) }).prefault({}),
+  healing: z.strictObject({ mode: z.enum(["auto", "off"]).default("auto"), per_day: z.int().min(0).default(LIMIT_DEFAULTS.healing_per_day) }).prefault({}),
   /** A goal waiting for a person is closed when a newer identical one has a result and it has waited this many hours; 0 is never. */
   cleanup: z.strictObject({ superseded_after_hours: z.int().min(0).default(24) }).prefault({}),
   model: z.array(z.strictObject({
@@ -132,6 +135,7 @@ export type BrainFile = z.infer<typeof BrainFile>;
 
 // --- agents/<name>/agent.toml ---
 
+
 export const AgentFile = z.strictObject({
   description: z.string().min(1),
   engine: z.array(slug("an engine name")).min(1),
@@ -139,9 +143,9 @@ export const AgentFile = z.strictObject({
   tools: z.array(toolName).default([]),
   model: slug("a model name").optional(),
   limits: z.strictObject({
-    turns: z.int().min(0).default(20),
-    tokens: z.int().min(0).default(200_000),
-    spend_usd: z.number().min(0).default(0),
+    turns: z.int().min(0).default(LIMIT_DEFAULTS.turns),
+    tokens: z.int().min(0).default(LIMIT_DEFAULTS.tokens),
+    spend_usd: z.number().min(0).default(LIMIT_DEFAULTS.spend_usd),
   }).prefault({}),
   translations: translations({ description: z.string().min(1).optional() }),
 });
@@ -177,7 +181,7 @@ export const StepSpec = z.strictObject({
   after: z.array(slug("a step id")).default([]),
   for_each: z.string().min(1).optional(),
   review_by: slug("an agent name").optional(),
-  max_rounds: z.int().min(1).max(10).default(2),
+  max_rounds: z.int().min(1).max(10).default(LIMIT_DEFAULTS.max_rounds),
   target_score: z.number().min(0).max(1).optional(),
   candidates: z.union([z.int().min(2).max(8), z.array(slug("an agent name")).min(2).max(8)]).optional(),
   judge: slug("a judge").optional(),

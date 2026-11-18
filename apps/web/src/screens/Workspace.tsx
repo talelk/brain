@@ -3,7 +3,7 @@ import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Button, TextInput } from "@talelk/newui-atoms";
 import { EmptyState, TabButtons, Tabs } from "@talelk/newui-molecules";
 import { PaneLayout } from "@talelk/newui-templates";
-import type { AgentFile, FileEntry, Language, MemoryProposal, PlayFile, SnapshotManifest, ToolFile } from "@brain/contracts";
+import { LIMIT_DEFAULTS, type AgentFile, FileEntry, Language, MemoryProposal, PlayFile, SnapshotManifest, ToolFile } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
 import { direction, human, locale, t, tn, type MessageKey } from "../i18n";
@@ -29,7 +29,7 @@ const isToolName = (name: string): boolean => name.length <= 80 && name.split(".
 const owns = (tab: Tab, name: string) => (file: FileEntry): boolean =>
   tab === "agents" ? file.path.startsWith(`agents/${name}/`) : tab === "tools" ? file.path.startsWith(`tools/${name}/`) : tab === "plays" ? file.path === paths.play(name) : tab === "memory" ? file.path === paths.memory(name) || file.path === paths.memoryIn(name, "fr") || file.path === paths.memoryIn(name, "ar") : file.path === paths.brain;
 
-const NEW_AGENT: AgentFile = { description: "", engine: ["pi", "claude"], native: "read", tools: [], limits: { turns: 20, tokens: 200_000, spend_usd: 0 } };
+const NEW_AGENT: AgentFile = { description: "", engine: ["pi", "claude"], native: "read", tools: [], limits: { turns: LIMIT_DEFAULTS.turns, tokens: LIMIT_DEFAULTS.tokens, spend_usd: LIMIT_DEFAULTS.spend_usd } };
 const NEW_TOOL: ToolFile = { description: "", effect: "read", timeout_seconds: 60, needs: ["bash"], network: [], secrets: [], inputs: {} };
 const newPlay = (title: string, agent: string): PlayFile => ({ title, description: "", inputs: {}, step: [{ id: slugify(agent) || "step", agent, goal: "", after: [], max_rounds: 2, approve: false }] });
 

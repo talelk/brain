@@ -4,8 +4,6 @@ native = "none"
 tools = []
 
 [limits]
-turns = 3
-tokens = 20000
 spend_usd = 0.05
 
 [translations.fr]

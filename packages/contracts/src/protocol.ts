@@ -1,4 +1,5 @@
 import type { JsonSchema } from "./files";
+import type { LimitHit } from "./limits";
 import type { SignedRunReceipt } from "./run-receipt";
 
 /** Wire types between a runner and the Governor (docs/architecture.md section 6). */
@@ -189,6 +190,8 @@ export interface AttemptFailure {
   readonly detail: string;
   /** True when the attempt may be retried as it is (nothing about the task or the agent caused it). */
   readonly infrastructure: boolean;
+  /** Set when a limit stopped the attempt (docs/model.md, Limits). A runner names the limit; the Governor fills in the value and the use. */
+  readonly limit?: LimitHit | undefined;
 }
 export interface CompleteRequest extends Fenced {
   readonly outcome: "succeeded" | "failed" | "held";

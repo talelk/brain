@@ -4,8 +4,6 @@ native = "read"
 tools = []
 
 [limits]
-turns = 10
-tokens = 60000
 spend_usd = 0.30
 
 [translations.fr]

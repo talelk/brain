@@ -9,7 +9,7 @@ const messages = (schema: z.ZodType, value: unknown): string[] => {
 
 const brain = {
   name: "Kios RH", description: "Workforce cost platform", timezone: "Africa/Tunis", packs: ["base", "software-factory"],
-  limits: { daily_spend_usd: 20, running_tasks: 4, confirm_plans: "person" },
+  limits: { daily_spend_usd: 20, running_tasks: 4, confirm_plans: "person", paused: false },
   model: [{ name: "main", provider: "openai-compatible", url: "https://models.example/v1", model: "qwen3-coder", key: "secret:model-main", input_usd_per_mtok: 0.4, output_usd_per_mtok: 1.6 }],
   project: [{ name: "kios-newrh", repo: "https://github.com/keyrustunisie/kios-newrh.git", branch: "master", access: "write", credential: "secret:github", setup: "pnpm install --frozen-lockfile", network: ["registry.npmjs.org"] }],
   github: { credential: "secret:github", webhook_secret: "secret:github-webhook" },
@@ -51,11 +51,11 @@ describe("file schemas accept what docs/model.md shows", () => {
     expect(MemoryEntry.parse(splitMemoryEntry("# Release checklist\n\nTag, then deploy.\n"))).toEqual({ title: "Release checklist", body: "Tag, then deploy." });
   });
   it("fills in what a file leaves out", () => {
-    expect(BrainFile.parse({ name: "Small" })).toMatchObject({ packs: [], limits: { daily_spend_usd: 0, running_tasks: 4, confirm_plans: "person" }, model: [], project: [], approvals: {} });
+    expect(BrainFile.parse({ name: "Small" })).toMatchObject({ packs: [], limits: { daily_spend_usd: 0, running_tasks: 0, confirm_plans: "person", paused: false }, model: [], project: [], approvals: {} });
     expect(AgentFile.parse({ description: "x", engine: ["pi"] })).toMatchObject({ native: "none", tools: [], limits: { spend_usd: 0 } });
     expect(BrainFile.parse({ name: "Open", limits: { running_tasks: 0 } }).limits.running_tasks).toBe(0);
     expect(AgentFile.parse({ description: "x", engine: ["pi"], limits: { turns: 0, tokens: 0 } }).limits).toMatchObject({ turns: 0, tokens: 0 });
-    expect(PlayFile.parse({ title: "x", step: [{ id: "a", agent: "b" }] }).step[0]).toMatchObject({ after: [], max_rounds: 2, approve: false });
+    expect(PlayFile.parse({ title: "x", step: [{ id: "a", agent: "b" }] }).step[0]).toMatchObject({ after: [], max_rounds: 3, approve: false });
   });
 });
 

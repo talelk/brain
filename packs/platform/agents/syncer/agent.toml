@@ -4,8 +4,6 @@ native = "none"
 tools = ["platform.tool-drift", "platform.file", "platform.workspaces", "platform.tasks", "workspace.fix", "memory.search", "task.ask"]
 
 [limits]
-turns = 40
-tokens = 200000
 spend_usd = 1.00
 
 [translations.fr]

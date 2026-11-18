@@ -168,7 +168,7 @@ describe("a task that failed all its attempts", () => {
     const { workspaceId, member } = await workspace("Infrastructure");
     driver.script({ dev: () => ({ outcome: "failed", result: "", failure: { reason: "model-refused", detail: "The model server is down", infrastructure: true } }) });
     const goal = await start(member, workspaceId);
-    for (let round = 0; round < 6; round += 1) { await driver.drain(); clock.advance(100_000); }
+    for (let round = 0; round < 12; round += 1) { await driver.drain(); clock.advance(100_000); }
     expect(step(await getTask(member, workspaceId, goal.id), "do").state).toBe("failed");
     expect(await heals(member, workspaceId)).toEqual([]);
     expect((await getTask(member, workspaceId, goal.id)).notes.map((note) => note.text).join(" ")).toContain("only for infrastructure reasons");

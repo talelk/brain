@@ -126,11 +126,11 @@ describe("a runner", () => {
     expect((await getTask(member, workspaceId, taskId)).attempts.map((attempt) => [attempt.kind, attempt.state])).toEqual([["work", "succeeded"], ["check", "succeeded"]]);
   });
 
-  it("an attempt that keeps failing for an infrastructure reason is retried three times, then its task fails and a person can retry it", async () => {
+  it("an attempt that keeps failing for an infrastructure reason is tried five times in all, then its task fails naming the limit and a person can retry it", async () => {
     let runs = 0;
-    driver.script({ dev: () => { runs += 1; return runs <= 4 ? { outcome: "failed", result: "", failure: { reason: "model-refused", detail: "The model server is down", infrastructure: true } } : "Recovered."; } });
+    driver.script({ dev: () => { runs += 1; return runs <= 5 ? { outcome: "failed", result: "", failure: { reason: "model-refused", detail: "The model server is down", infrastructure: true } } : "Recovered."; } });
     const taskId = await start();
-    for (const wait of [0, 5_000, 20_000, 80_000]) {
+    for (const wait of [0, 5_000, 20_000, 80_000, 320_000]) {
       clock.advance(wait - 1);
       expect(await driver.claim()).toBeNull();
       clock.advance(1);
@@ -138,7 +138,8 @@ describe("a runner", () => {
     }
     const failed = await getTask(member, workspaceId, taskId);
     expect(failed).toMatchObject({ state: "failed", result: "The model server is down" });
-    expect(failed.attempts.map((attempt) => attempt.state)).toEqual(["failed", "failed", "failed", "failed"]);
+    expect(failed.attempts.map((attempt) => attempt.state)).toEqual(["failed", "failed", "failed", "failed", "failed"]);
+    expect(failed.attempts.at(-1)?.failure).toMatchObject({ limit: { name: "attempts", value: 5, used: 5 } });
     expect(await getTask(member, workspaceId, failed.parentId ?? "")).toMatchObject({ state: "needs_you", needs: { kind: "failed-subtask", taskId } });
     // A failure that is the agent's own is not retried at all.
     driver.script({ dev: () => ({ outcome: "failed", result: "", failure: { reason: "limit", detail: "Out of turns", infrastructure: false } }) });
@@ -381,7 +382,8 @@ describe("a workspace's limits", () => {
     const second = await start("one", limited.workspaceId);
     const mine = await start();
     const count = (taskId: string, workspace: string) => getTask(harness.admin, workspace, taskId).then((task) => task.attempts.length);
-    expect([await count(first, limited.workspaceId), await count(second, limited.workspaceId)]).toEqual([1, 0]);
+    // Every ready task is queued; the workspace's limit is applied when a runner claims.
+    expect([await count(first, limited.workspaceId), await count(second, limited.workspaceId)]).toEqual([1, 1]);
     const offer = (await driver.claim()) as JobOffer;
     expect(offer.task.id).toBe(first);
     await driver.ack(offer);

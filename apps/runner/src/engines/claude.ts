@@ -1,4 +1,4 @@
-import type { JsonValue } from "@brain/contracts";
+import { MAX_REPLY_TOKENS, type JsonValue } from "@brain/contracts";
 import { z } from "zod";
 import type { ZodTypeAny } from "zod";
 import { EngineEventStream } from "./event-stream";
@@ -91,7 +91,7 @@ export class ClaudeEngine implements EngineAdapter {
           ...(spec.limits.maxMicroUsd > 0 ? { maxBudgetUsd: spec.limits.maxMicroUsd / 1_000_000 } : {}),
           // The SDK process gets this environment and no other: the gateway and the attempt's token, never a key of the runner's.
           env: { PATH: process.env["PATH"] ?? "/usr/local/bin:/usr/bin:/bin", HOME: spec.stateDir, ANTHROPIC_BASE_URL: anthropicBase(spec.model.baseUrl), ANTHROPIC_API_KEY: spec.model.token, ANTHROPIC_AUTH_TOKEN: spec.model.token,
-            CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(spec.limits.maxTokens > 0 ? Math.min(spec.limits.maxTokens, spec.limits.maxOutputTokens ?? 32_000) : spec.limits.maxOutputTokens ?? 32_000), DISABLE_TELEMETRY: "1", DISABLE_AUTOUPDATER: "1",
+            CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(spec.limits.maxTokens > 0 ? Math.min(spec.limits.maxTokens, spec.limits.maxOutputTokens ?? MAX_REPLY_TOKENS) : spec.limits.maxOutputTokens ?? MAX_REPLY_TOKENS), DISABLE_TELEMETRY: "1", DISABLE_AUTOUPDATER: "1",
             ...Object.fromEntries(["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "no_proxy", "NO_PROXY"].flatMap((name) => (process.env[name] ? [[name, process.env[name]!]] : []))) },
           abortController: abort,
         } as never,

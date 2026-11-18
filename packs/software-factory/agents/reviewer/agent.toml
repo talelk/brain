@@ -4,8 +4,6 @@ native = "read"
 tools = ["memory.search", "web.fetch"]
 
 [limits]
-turns = 20
-tokens = 150000
 spend_usd = 0.75
 
 [translations.fr]
