@@ -6,8 +6,10 @@ import type { Overview, OverviewEvent } from "@brain/contracts";
 import { useQuery } from "../data/api";
 import { useSession } from "../data/session";
 import { t } from "../i18n";
-import { activityBuckets, feedEvents, groupFeed, mergeEvents, newGoals, pushSamples, stageCounts, type Samples } from "../lib/live";
-import { Feed, Lane, Team, reduced, Ring, River, Tick, Ticker, Tile, useTick, visible, watch, type Ending, type Leaving } from "../components/LiveParts";
+import { money } from "../lib/format";
+import { activityBuckets, feedEvents, groupFeed, mergeEvents, newGoals, pushSamples, stageCounts, successRate, type Samples } from "../lib/live";
+import { Feed, Lane, reduced, Ring, River, Tick, Ticker, Tile, useTick, visible, watch, type Ending, type Leaving } from "../components/LiveParts";
+import { Village, type Station } from "../components/Village";
 import { Head } from "../components/Shell";
 import { Failure, Icon, Loading } from "../components/bits";
 
@@ -126,13 +128,17 @@ export default function LiveScreen(): JSX.Element {
   const cap = (): number => ((overview()?.workspaces ?? []).some((workspace) => workspace.spend.capMicroUsd === 0) ? 0 : (overview()?.workspaces ?? []).reduce((sum, workspace) => sum + workspace.spend.capMicroUsd, 0));
   const days = (): number[] => (overview()?.workspaces[0]?.days ?? []).map((_, index) => (overview()?.workspaces ?? []).reduce((sum, workspace) => sum + (workspace.days[index]?.microUsd ?? 0), 0) / 1_000_000);
   const inFlight = (): number => runs().reduce((sum, entry) => sum + entry.run.tokens, 0);
-  // The team: per workspace, who works now (from the runners) and who spoke lately (from the feed).
-  const stations = createMemo(() => (overview()?.workspaces ?? []).map((workspace) => {
-    const working = runs().filter((entry) => entry.run.workspaceSlug === workspace.slug).map((entry) => { const last = entry.run.doing.at(-1); return { agent: entry.run.agent, doing: last ? (last.kind === "text" ? last.label : last.label.split(".").slice(-1)[0] ?? last.label) : t("live.doing.thinking") }; });
+  // The village: per workspace, who works now (from the runners), who spoke lately (from the feed), what waits and how the day went.
+  const stations = createMemo((): Station[] => (overview()?.workspaces ?? []).map((workspace) => {
+    const working = runs().filter((entry) => entry.run.workspaceSlug === workspace.slug).map((entry) => {
+      const last = entry.run.doing.at(-1);
+      return { agent: entry.run.agent, kind: last?.kind ?? "none", doing: last ? (last.kind === "text" || last.kind === "status" ? last.label : (last.label.split(".").slice(-1)[0] ?? last.label).replaceAll(/[-_]/gu, " ")) : t("live.doing.thinking") } as const;
+    });
     const busy = new Set(working.map((member) => member.agent));
-    const recent = [...new Set(events().filter((event) => event.slug === workspace.slug && event.agent !== null).map((event) => event.agent as string))].filter((agent) => !busy.has(agent)).slice(0, 4);
-    return { slug: workspace.slug, name: workspace.name, working, recent, needs: workspace.needsYou };
+    const recent = [...new Set(events().filter((event) => event.slug === workspace.slug && event.agent !== null).map((event) => event.agent as string))].filter((agent) => !busy.has(agent)).slice(0, 3);
+    return { slug: workspace.slug, name: workspace.name, platform: workspace.platform !== null, working, recent, needs: workspace.needsYou, waiting: (queue.data()?.waiting ?? []).filter((item) => item.workspaceSlug === workspace.slug).length, done: workspace.doneToday, failed: workspace.failedToday, rate: successRate(workspace.doneToday, workspace.failedToday) };
   }));
+  const totals = createMemo(() => { const done = stations().reduce((n, s) => n + s.done, 0); const failed = stations().reduce((n, s) => n + s.failed, 0); const c = counts(); const open = c.queued + c.running + c.checking + c.needs; return { rate: successRate(done, failed), progress: done + failed + open === 0 ? 0 : (done + failed) / (done + failed + open) }; });
   const needs = (): NonNullable<ReturnType<typeof overview>>["needsYou"] => overview()?.needsYou ?? [];
   const ready = (): boolean => queue.data() !== undefined && overview() !== undefined;
 
@@ -165,15 +171,10 @@ export default function LiveScreen(): JSX.Element {
               </ul>
             </section>
           </Show>
+          <Show when={stations().length > 0}><Village stations={stations()} spent={money(spent())} progress={totals().progress} rate={totals().rate} party={runs().length} /></Show>
           <River counts={counts()} activity={activity()} ambient={ambient()} />
           <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div class="flex min-w-0 flex-col gap-6">
-            <Show when={stations().length > 0}>
-              <section class="flex min-w-0 flex-col gap-3" aria-labelledby="live-team">
-                <h2 id="live-team" class="t-head text-ink">{t("live.team.title")}</h2>
-                <Team stations={stations()} />
-              </section>
-            </Show>
             <section class="flex min-w-0 flex-col gap-3" aria-labelledby="live-runners">
               <h2 id="live-runners" class="t-head text-ink">{t("live.lanes.title")}</h2>
               <Show when={(queue.data()?.runners ?? []).length > 0} fallback={<EmptyState icon="lucide-server-off" size="md" title={t("queue.runner.none")} />}>

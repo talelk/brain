@@ -233,38 +233,6 @@ export function Lane(props: { runner: QueueRunner; samples: ReadonlyMap<string, 
   );
 }
 
-/** The team: each workspace as a station, the agents working in it now as avatars with a pulse, and those that spoke in the last hours, dimmed. */
-export function Team(props: { stations: ReadonlyArray<{ slug: string; name: string; working: readonly { agent: string; doing: string }[]; recent: readonly string[]; needs: number }> }): JSX.Element {
-  return (
-    <ul class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="live-team">
-      <For each={props.stations}>
-        {(station) => (
-          <li ref={watch} class={`live-station relative flex flex-col gap-3 overflow-hidden rounded-card border bg-surface-elevation-1 p-4 ${station.working.length > 0 ? "border-[color-mix(in_oklab,var(--violet)_45%,transparent)]" : "border-outline-gray-1"}`} data-busy={station.working.length > 0 || undefined}>
-            <A href={`/w/${station.slug}/live`} class="flex items-center gap-2 t-text font-medium text-ink hover:underline">
-              <span class="grid size-8 place-items-center rounded-control bg-lilac text-violet-text" aria-hidden="true"><Icon name="lucide-folder-git-2" class="size-4" /></span>
-              <bdi class="min-w-0 flex-1 truncate">{station.name}</bdi>
-              <Show when={station.needs > 0}><span class="inline-flex items-center gap-1 rounded-full bg-needs-soft px-2 py-0.5 t-small font-medium text-needs-text"><Icon name="lucide-hand" class="size-3" />{station.needs}</span></Show>
-            </A>
-            <div class="flex min-h-10 items-center -space-x-2 rtl:space-x-reverse" aria-label={tn("live.team.working", station.working.length)}>
-              <For each={station.working}>{(member) => (
-                <span class="live-member relative rounded-full ring-2 ring-[var(--surface-elevation-1,#fff)]" title={`${member.agent} — ${member.doing}`}>
-                  <Avatar size="lg" theme={themeOf(member.agent)} label={member.agent} />
-                  <span class="live-dot absolute -bottom-0.5 -end-0.5 size-3 rounded-full border-2 border-[var(--surface-elevation-1,#fff)] bg-ok-mark" aria-hidden="true" />
-                </span>
-              )}</For>
-              <For each={station.recent}>{(agent) => <span class="rounded-full opacity-45 ring-2 ring-[var(--surface-elevation-1,#fff)]" title={agent}><Avatar size="lg" theme={themeOf(agent)} label={agent} /></span>}</For>
-              <Show when={station.working.length === 0 && station.recent.length === 0}><span class="ps-2 t-small text-ink-3">{t("live.team.quiet")}</span></Show>
-            </div>
-            <Show when={station.working.length > 0}>
-              <p class="flex items-center gap-1.5 truncate t-small text-ink-2"><span class="live-typing" aria-hidden="true"><i /><i /><i /></span><bdi class="truncate">{station.working[0]?.agent}: {station.working[0]?.doing}</bdi></p>
-            </Show>
-          </li>
-        )}
-      </For>
-    </ul>
-  );
-}
-
 /** What an event reads as, with the agent and the goal in it. */
 const eventText = (group: FeedGroup): string => t(`live.event.${group.kind}`, { agent: group.agent ?? t("live.event.someone"), goal: group.goalTitle, title: group.title });
 
