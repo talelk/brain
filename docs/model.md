@@ -357,6 +357,35 @@ When a limit stops or delays a task, the attempt's failure or the task's page sa
 limit's name, its value, what was used, where it is set, and **Raise the limit**, which opens
 the form that holds it. It is never shown as a generic failure.
 
+## The timeline and Insights
+
+Two pages show work over time. Neither adds a thing to the model: both read what is already
+recorded for every task (attempts, tool calls, approvals, checks, usage).
+
+- **The timeline of a goal**, on the Task page beside the graph (`?view=timeline`). A Gantt of
+  every attempt of the goal and its sub-tasks: one row per task, grouped by agent, time across.
+  A bar is one attempt, coloured by kind (work, check, judge, plan, act) and marked by state;
+  attempts of a later check round or a retry sit after the first on the same row, and
+  candidates that ran at once sit in their own lanes. A faint stretch before a bar is the time
+  the attempt waited in the queue. Marks show what a person was asked: an approval (requested,
+  then decided) and a question (asked, then answered); the stretch between is **waiting for a
+  person**. Each tool call is a tick on its attempt. The **critical path**, the chain of tasks
+  that sets when the goal can finish (the longest by duration through what each waits for), can be
+  highlighted. Zoom and pan with the buttons, the keyboard or the wheel. Selecting a bar selects
+  its task, exactly as selecting a node of the graph does; hovering or focusing one shows its
+  duration, wait, tokens and cost. A table behind the chart lists the same attempts.
+- **Insights**, at `/insights` (every workspace the person sees) and `/w/<address>/insights`, for
+  people who steer, over the last 7, 30 or 90 days (days are the person's own days):
+  goals started per day (calendar heatmap) and attempts started by weekday and hour (load);
+  per day, goals finished and failed and the times a person was asked (approvals and
+  questions); where time and money go, ranked by workspace, agent and Play with a small
+  trend each, and time and calls by tool (money is recorded per attempt, so it is not split by
+  tool); how long goals of each Play take and attempts of each agent run (p50 and p90, the
+  nearest rank); how long attempts waited in the queue, by day; why tasks failed (limits,
+  setup, engine, checks) with the failing tasks one click away; and work started again with
+  the same Play and inputs or the same words. Everything is computed from the existing rows when
+  asked and kept for a minute; nothing new is stored.
+
 ## When a task fails
 
 A task that has failed all its attempts is not left to a person alone. Brain starts one

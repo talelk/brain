@@ -179,7 +179,7 @@ Commands: `setup.create`, `workspace.create` (its input may carry `platform: "ad
 
 Queries: `setup.status`, `me`, `packs.list`, `workspace.get`, `workspace.files`,
 `file.read`, `pack.files`, `today`, `overview`, `schedules.list`, `tasks.list`, `task.get`, `task.events`, `approvals.list`,
-`approval.get`, `queue`, `usage.summary`, `memory.list`, `members.list`, `secrets.list` (names
+`approval.get`, `queue`, `insights`, `usage.summary`, `memory.list`, `members.list`, `secrets.list` (names
 only), `runners.list`, `health`, `audit.verify`, `users.list` (instance admin: people, pending invitations, groups), `user.get` (oneself, or any person for an instance admin: sessions, sign-in log, access matrix). `overview` takes no workspace: for the active
 workspaces the caller is a member of it answers per-workspace counts (needs you, running, done and
 failed today), spend against the cap, projects, last activity and a dense 14-day series (UTC days, oldest
@@ -188,6 +188,15 @@ and, for a call, the approval itself) and one of the 30 attempts running now; an
 only, runners online, models reachable and the audit chain. It is declared `public` like `me` and answers
 UNAUTHENTICATED without a session; a person never sees a workspace they are not in. A client refetches it on
 any `changed` frame, since the stream already carries every workspace of the caller.
+
+`insights` (declared `public` like `queue`: UNAUTHENTICATED without a session, only workspaces the caller sees, or the one named) takes
+`days` (7, 30 or 90) and `tzOffsetMinutes` (the caller's offset from UTC, so days and hours are theirs; a daylight-saving change inside the
+window is approximate) and answers, in one pass of grouped SQL over `tasks`, `attempts`, `usage`, `tool_calls` and `approvals` (reached through
+`tasks_workspace_updated` and `attempts_task`, so no new index): the calendar and weekday-by-hour counts, the per-day outcomes, the top
+eight by time and by money for workspace, agent and Play with a per-day series, tools by calls and time, p50 and p90 (nearest rank, by window functions) of goal
+duration per Play, attempt duration per agent and queue wait per day, the failed tasks bucketed by the reason of their last attempt (up to five of each
+listed) and repeated work (same Play and inputs, or same words, started more than once). The result is kept in memory for the minute of the Governor's clock,
+under the caller's visible workspaces, the window and the offset. The Timeline needs no query: `task.get` already carries every attempt, approval, call and check of the goal's tree.
 
 `packs.list` also says, for each pack, the working `version` and whether the platform workspace's copy differs from its last release (`working`, when the platform
 workspace holds a copy), its `released` versions and `usedBy` (workspace address, name and pin). `pack.files` (an admin of the workspace) answers the text of
@@ -515,21 +524,22 @@ Frame: `AppShell` with a left sidebar (collapsible to icons, a drawer on phones)
 workspaces (grouped as My workspaces, Shared with me and Public workspaces, each with an orange count of what waits there; the open one expands to Today, Tasks and
 Workspace) and New workspace, Health and People at the foot with the account (Profile, language, theme, sign out); a platform admin also sees a This Brain group with Users.
 A **Limits** panel in Settings and in each agent's form lists the limits that apply with their use, their source (agent file, pack, workspace file or default) and a field to change them (`src/components/Limits.tsx` holds the list; the defaults and the retry count are `LIMIT_DEFAULTS` and `MAX_ATTEMPTS` of `contracts/src/limits.ts`, which the web app imports through `@brain/contracts/limits` so no hashing code reaches the browser). An attempt's failure may carry `limit` (`{name, value, used, agent?}`), set by the Governor when an engine reports `reason = "limit"`, when a retry count or the daily cap stopped it; the Task page shows it with **Raise the limit**, a link to the form.
-The top bar has the live indicator and search (Cmd-K: pages, workspaces, goals). Screens (thirteen files in
+The top bar has the live indicator and search (Cmd-K: pages, workspaces, goals). Screens (fourteen files in
 `src/screens`): sign-in and first-run setup (`AuthLayout`); **Overview** (the home: headline numbers, needs
 you across all workspaces with the decision in place, what is running, a table of workspaces with week
 sparklines, spend and goals per day stacked by workspace, the instance's health); **Today** (goal box, Plays,
 needs you, running, recent, spend); **Tasks** (filterable, sortable table with bulk stop) and one **Task**
-page (the goal drawn as a graph of its sub-tasks, in columns by what each waits for, and the record in two panes); **Workspace** (tabs for agents, a
+page (the goal drawn as a graph of its sub-tasks, in columns by what each waits for, or as a **Timeline**, a Gantt of its attempts built by `lib/timeline.ts` (pure: time scale, row and lane packing, critical path) and drawn as SVG, and the record in two panes); **Workspace** (tabs for agents, a
 Team graph, tools, Plays, memory, projects, settings, Files: list and form panes over the files, plus a raw editor; Files shows every file of the workspace (its folder and its packs' files, which are read only until a copy is edited) as a tree with sizes and last commits, a list or grid, multi-select with bulk download and delete, and browse, edit, rename, delete and upload to browse, edit, rename, delete and upload documents into, one commit per change; Team draws the agents and
 the handoffs between them, read from the Plays' steps and the recent tasks the web app already lists, with no query of its own); **New workspace** (a wizard); **Users** (`/users`, instance admins: the people table with search and filters, Invite people with the copyable link, groups, and a detail drawer with the access matrix, sessions and sign-in log); **Profile** (`/profile`, from the account menu); **Health**;
-**Queue** (`queue`, at `/queue` and `/w/<slug>/queue`: runners as lanes with their slots and the attempts in them, then the waiting list in dispatch order with rank, kind, age, the plain-words reason and an estimated start, with priority, Run next, pause and stop for a member; reorders animate with a short FLIP move that `prefers-reduced-motion` turns off; it is read again on every live change; Today and the Overview show a "3 running, 5 waiting" line that links to it, and the sidebar the count waiting); **Schedules** (every scheduled or webhook Play of the visible workspaces with its next and last run, and a form to schedule, pause or remove one; also at `/w/<slug>/schedules` for one workspace); **People and secrets** (with Share: add people by email with a role, and the private or public switch). Health and People belong to a workspace, so the sidebar leads to the open one's.
+**Queue** (`queue`, at `/queue` and `/w/<slug>/queue`: runners as lanes with their slots and the attempts in them, then the waiting list in dispatch order with rank, kind, age, the plain-words reason and an estimated start, with priority, Run next, pause and stop for a member; reorders animate with a short FLIP move that `prefers-reduced-motion` turns off; it is read again on every live change; Today and the Overview show a "3 running, 5 waiting" line that links to it, and the sidebar the count waiting); **Insights** (`insights`, at `/insights` and `/w/<slug>/insights`: a 7, 30 or 90 day range; hand-built SVG with the design tokens, no chart library: calendar and weekday-by-hour heatmaps, small multiples of outcomes per day, ranked bars with sparklines, percentiles, queue wait, failure reasons with links, repeated work; every chart has its table behind it and heatmap cells are reached with the arrow keys); **Schedules** (every scheduled or webhook Play of the visible workspaces with its next and last run, and a form to schedule, pause or remove one; also at `/w/<slug>/schedules` for one workspace); **People and secrets** (with Share: add people by email with a role, and the private or public switch). Health and People belong to a workspace, so the sidebar leads to the open one's.
 
 ## 11. Tests
 
 - `tests/unit`: file schemas and folder validation (valid and each kind of invalid),
   snapshot determinism, pack override, orchestration decisions as pure functions, the
   approval subject digest, the audit chain.
+- `tests/core/insights.test.ts`: the `insights` query on a seeded set (counts per day, p50 and p90, the 7-day range leaving an older run out, failure buckets with their tasks, a person seeing only their workspaces). `tests/unit/timeline.test.ts`: the Timeline's time scale (also mirrored), lane packing and critical path.
 - `tests/core`: access rules (private hides, public is read only, the roles of a shared workspace), schedules' next and last run, the files listing with pack files; a Governor in a temp directory plus an in-process runner on the fixture
   engine. Each of the twelve patterns as a Play; done requires a check by another agent;
   effect approval (fast path, held path, rejection, standing approval and its limits,
