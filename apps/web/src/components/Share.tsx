@@ -1,8 +1,9 @@
 import { createEffect, createSignal, For, Show, type JSX } from "solid-js";
+import { A } from "@solidjs/router";
 import { generatedPassword, nameFromEmail } from "../lib/people";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Dialog, Select, toast } from "@talelk/newui-molecules";
-import type { Member, Role } from "@brain/contracts";
+import type { Member, MemberGroup, Role } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { usePlace, useSession } from "../data/session";
 import { t } from "../i18n";
@@ -23,6 +24,30 @@ export function PlatformBadge(): JSX.Element {
 
 const roleOptions = (): { label: string; value: string; description: string }[] => ROLES.map((role) => ({ label: t(`role.${role}`), value: role, description: t(`role.${role}.help`) }));
 
+/** The groups that have a role in this workspace, and the people who have it through them. An instance admin changes groups on the Users screen. */
+export function GroupAccess(props: { groups: readonly MemberGroup[] }): JSX.Element {
+  const session = useSession();
+  return (
+    <Show when={props.groups.length > 0}>
+      <section aria-label={t("share.groups")}>
+        <div class="flex flex-wrap items-baseline justify-between gap-2"><h3 class="t-head text-ink">{t("share.groups")}</h3><Show when={session.user().instanceAdmin}><A href="/users" class="link t-small">{t("share.groups.manage")}</A></Show></div>
+        <p class="t-small text-ink-2">{t("share.groups.text")}</p>
+        <ul class="mt-1 divide-y divide-(--rule)">
+          <For each={props.groups}>
+            {(group) => (
+              <li class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
+                <Icon name="lucide-users" class="size-4 text-ink-3" />
+                <span class="min-w-0 flex-1 basis-48"><span class="block truncate t-text font-medium text-ink">{group.name}</span><span class="block truncate t-small text-ink-2">{group.members.map((member) => member.name).join(", ") || t("share.groups.empty")}</span></span>
+                <Badge theme={group.role === "admin" ? "violet" : group.role === "member" ? "blue" : "gray"} size="md" label={t(`role.${group.role}`)} />
+              </li>
+            )}
+          </For>
+        </ul>
+      </section>
+    </Show>
+  );
+}
+
 function PersonRow(props: { member: Member }): JSX.Element {
   const place = usePlace();
   const session = useSession();
@@ -31,7 +56,7 @@ function PersonRow(props: { member: Member }): JSX.Element {
   const remove = useAction(() => command("member.remove", { workspaceId: place.id(), userId: props.member.userId }));
   return (
     <li class="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5">
-      <span class="min-w-0 flex-1 basis-48"><span class="block truncate t-text font-medium text-ink">{props.member.name}{me() ? ` (${t("share.you")})` : ""}</span><span class="block truncate t-small text-ink-2">{props.member.email}</span></span>
+      <span class="min-w-0 flex-1 basis-48"><span class="block truncate t-text font-medium text-ink">{props.member.name}{me() ? ` (${t("share.you")})` : ""}<Show when={!props.member.active}> <Badge theme="gray" size="sm" label={t("users.status.deactivated")} /></Show></span><span class="block truncate t-small text-ink-2">{props.member.email}</span></span>
       <div class="w-36"><Select size="md" aria-label={t("people.role.of", { name: props.member.name })} options={roleOptions()} value={props.member.role} disabled={me() || change.busy()} onValueChange={(role) => { if (role && role !== props.member.role) void change.run(role as Role); }} /></div>
       <Show when={!me()}><ConfirmButton label={t("people.remove")} confirm={t("people.remove.confirm", { name: props.member.name })} busy={remove.busy()} onConfirm={() => void remove.run()} /></Show>
       <Failure error={change.error() ?? remove.error()} class="basis-full" />
@@ -78,6 +103,7 @@ export function ShareDialog(props: { open: boolean; onOpenChange: (open: boolean
               {(loaded) => <ul class="mt-1 divide-y divide-(--rule)"><For each={loaded().members}>{(member) => <PersonRow member={member} />}</For></ul>}
             </Ready>
           </section>
+          <GroupAccess groups={members.data()?.groups ?? []} />
           <form class="flex flex-col gap-3 border-t border-rule pt-5" onSubmit={(event) => { event.preventDefault(); void add.run(); }}>
             <h3 class="t-head text-ink">{t("people.add")}</h3>
             <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">

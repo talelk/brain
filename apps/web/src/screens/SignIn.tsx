@@ -15,7 +15,7 @@ async function auth<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`/api/auth${path}`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const answer = (await response.json().catch(() => ({}))) as T & { message?: string };
   // A refused sign-in is said in the person's language; anything else keeps the server's own words.
-  if (!response.ok) throw new ApiFailure(response.status === 429 ? "CONFLICT" : "UNAUTHENTICATED", response.status === 429 ? t("signin.error.tooMany") : response.status === 401 ? t(path.startsWith("/two-factor") ? "signin.error.code" : "signin.error.refused") : answer.message ?? t("signin.error.refused"));
+  if (!response.ok) throw new ApiFailure(response.status === 429 ? "CONFLICT" : "UNAUTHENTICATED", response.status === 429 ? t("signin.error.tooMany") : response.status === 403 ? t("signin.error.deactivated") : response.status === 401 ? t(path.startsWith("/two-factor") ? "signin.error.code" : "signin.error.refused") : answer.message ?? t("signin.error.refused"));
   return answer;
 }
 

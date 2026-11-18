@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { en } from "../../apps/web/src/i18n/en";
 import { fr } from "../../apps/web/src/i18n/fr";
 import { ar } from "../../apps/web/src/i18n/ar";
+import { joinPerson } from "./people";
 import { EMAIL, expect, PASSWORD, signIn, starter, test, type Api, type Stack } from "./stack";
 
 /**
@@ -35,8 +36,13 @@ async function seed(stack: Stack, api: Api): Promise<Seeded> {
   const wide = await run("wide");
   await expect.poll(async () => (await api.query("task.get", { workspaceId: workspace.id, taskId: wide })).state, { timeout: 60_000 }).toBe("done");
   await run("restart");
+  // People to look at on the Users screen: two members (one in a group), one deactivated, one invitation not yet used.
+  const lena = await joinPerson(stack, api, "lena@example.com", "Lena Moreau", { workspaces: [{ workspaceId: workspace.id, role: "member" }] });
+  const omar = await joinPerson(stack, api, "omar@example.com", "Omar Reyes");
+  await api.command("group.set", { name: "Support", memberIds: [lena], grants: [{ workspaceId: workspace.id, role: "admin" }] });
+  await api.command("user.invite", { email: "pending@example.com", workspaces: [{ workspaceId: workspace.id, role: "viewer" }] });
+  await api.command("user.set", { userId: omar, active: false });
   const me = await api.query("me", {});
-  void stack;
   return { slug: me.workspaces[0]?.slug ?? "starter", wide };
 }
 
@@ -98,10 +104,10 @@ test("every screen reads right in every language, theme and width", async ({ pag
     ["overview", "/"], ["schedules", "/schedules"], ["today", w], ["tasks", `${w}/tasks`], ["task", `${w}/tasks/${wide}`],
     ["agents", `${w}/workspace/agents`], ["team", `${w}/workspace/team`], ["tools", `${w}/workspace/tools`], ["plays", `${w}/workspace/plays`], ["memory", `${w}/workspace/memory`],
     ["projects", `${w}/workspace/projects`], ["settings", `${w}/workspace/settings`], ["files", `${w}/workspace/files`], ["wschedules", `${w}/schedules`], ["queue", `${w}/queue`],
-    ["new", "/new"], ["people", `${w}/people`], ["health", `${w}/health`],
+    ["new", "/new"], ["people", `${w}/people`], ["health", `${w}/health`], ["users", "/users"], ["profile", "/profile"],
   ];
   // Without MATRIX_SHOTS (a normal run) a few screens that between them carry every kind of component; with it, every screen.
-  const kinds = new Set(["overview", "today", "task", "team", "files", "new", "health", "agents", "tools", "plays", "memory", "schedules", "queue"]);
+  const kinds = new Set(["overview", "today", "task", "team", "files", "new", "health", "agents", "tools", "plays", "memory", "schedules", "queue", "users", "profile"]);
   const only = process.env["MATRIX_ONLY"]?.split(",");
   const problems: string[] = [];
   const authored = packEnglish();
@@ -139,6 +145,20 @@ test("every screen reads right in every language, theme and width", async ({ pag
         // On a phone the goal opens on its record; its graph is behind a button.
         const open = page.getByRole("button", { name: { en, fr, ar }[lang]["graph.label"], exact: true });
         if (await open.isVisible()) { await open.click(); await look("graph"); }
+      }
+      if (name === "users") {
+        const words = { en, fr, ar }[lang];
+        await page.getByRole("button", { name: /Lena Moreau/u }).first().click();
+        await look("userdrawer");
+        await page.keyboard.press("Escape");
+        await page.getByRole("button", { name: words["users.invite"], exact: true }).click();
+        await look("invite");
+        await page.keyboard.press("Escape");
+        await page.getByRole("tab", { name: new RegExp(words["users.tab.groups"], "u") }).click();
+        await look("groups");
+        await page.getByRole("button", { name: words["groups.edit.action"], exact: true }).first().click();
+        await look("group");
+        await page.keyboard.press("Escape");
       }
       if (name === "new") {
         await page.getByRole("textbox").first().fill("Customer care");

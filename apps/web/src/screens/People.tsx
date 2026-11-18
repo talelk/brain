@@ -1,5 +1,5 @@
 import { createSignal, For, Show, type JSX } from "solid-js";
-import { Button, TextInput } from "@talelk/newui-atoms";
+import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog, EmptyState, Select, toast } from "@talelk/newui-molecules";
 import { Section, type DataTableColumn } from "@talelk/newui-organisms";
 import type { Member, Role, SecretName } from "@brain/contracts";
@@ -10,7 +10,7 @@ import { ago } from "../lib/format";
 import { ROLES } from "../lib/model";
 import { ConfirmButton, Failure, Ready } from "../components/bits";
 import { Table } from "../components/Table";
-import { ShareDialog } from "../components/Share";
+import { GroupAccess, ShareDialog } from "../components/Share";
 import { Head } from "../components/Shell";
 
 const roleOptions = (): { label: string; value: string; description: string }[] => ROLES.map((role) => ({ label: t(`role.${role}`), value: role, description: t(`role.${role}.help`) }));
@@ -94,7 +94,7 @@ export default function PeopleScreen(): JSX.Element {
   const [adding, setAdding] = createSignal(false);
   const members = useQuery("members.list", () => (place.can("admin") ? { workspaceId: place.id() } : undefined));
   const columns: DataTableColumn<Member & { id: string }>[] = [
-    { accessorKey: "name", header: t("people.col.person"), meta: { mobile: "title" }, cell: (ctx) => <span class="flex min-w-0 flex-col"><span class="truncate font-medium text-ink-gray-9">{ctx.row.original.name}</span><span class="truncate text-ink-gray-7">{ctx.row.original.email}</span></span> },
+    { accessorKey: "name", header: t("people.col.person"), meta: { mobile: "title" }, cell: (ctx) => <span class="flex min-w-0 flex-col"><span class="truncate font-medium text-ink-gray-9">{ctx.row.original.name}<Show when={!ctx.row.original.active}> <Badge theme="gray" size="sm" label={t("users.status.deactivated")} /></Show></span><span class="truncate text-ink-gray-7">{ctx.row.original.email}</span></span> },
     { accessorKey: "role", header: t("people.role"), meta: { mobile: "meta" }, cell: (ctx) => <RoleSelect member={ctx.row.original} /> },
     { id: "actions", header: "", enableSorting: false, meta: { align: "end" }, cell: (ctx) => <MemberActions member={ctx.row.original} /> },
   ];
@@ -108,6 +108,7 @@ export default function PeopleScreen(): JSX.Element {
               {(loaded) => <Table title={t("people.members")} rows={loaded().members.map((member) => ({ ...member, id: member.userId }))} columns={columns} count={tn("table.members", loaded().members.length)} />}
             </Ready>
           </Section>
+          <GroupAccess groups={members.data()?.groups ?? []} />
           <Secrets />
         </div>
         <ShareDialog open={adding()} onOpenChange={setAdding} />

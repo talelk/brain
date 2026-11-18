@@ -100,6 +100,7 @@ function Nav(): JSX.Element {
         </>)}
       </For>
       <Show when={session.user().instanceAdmin}><SidebarItem route="/new" icon="lucide-plus" active={here("/new")}>{t("nav.newWorkspace")}</SidebarItem></Show>
+      <Show when={session.user().instanceAdmin}><div class="mt-3"><SidebarLabel divider>{t("nav.instance")}</SidebarLabel></div><SidebarItem route="/users" icon="lucide-users-round" active={here("/users")}>{t("nav.users")}</SidebarItem></Show>
     </div>
   );
 }
@@ -130,6 +131,7 @@ function Account(props: { compact?: boolean }): JSX.Element {
     const [kind, choice] = value.split(":");
     if (kind === "lang") setLocale(choice as Locale);
     else if (kind === "theme") setTheme(choice as "light" | "dark" | "system");
+    else if (kind === "profile") navigate("/profile");
     else void authClient.signOut().finally(() => { session.refetch(); navigate("/"); });
   };
   const choice = (value: string, label: string, on: boolean): JSX.Element => (
@@ -145,6 +147,8 @@ function Account(props: { compact?: boolean }): JSX.Element {
         </Show>
       </Menu.Trigger>
       <Menu.Content>
+        <Menu.Item value="profile:"><Icon name="lucide-user-round" class="size-4" />{t("nav.profile")}</Menu.Item>
+        <Menu.Separator />
         <Menu.ItemGroup>
           <Menu.Label>{t("nav.language")}</Menu.Label>
           <For each={LOCALES}>{(entry) => choice(`lang:${entry.id}`, entry.label, locale() === entry.id)}</For>
@@ -200,6 +204,8 @@ function Palette(props: { open: boolean; onOpenChange: (open: boolean) => void; 
         <CommandItem value="queue" keywords="queue waiting runners slots" icon="lucide-list-ordered" onSelect={go("/queue")}>{t("nav.queue")}</CommandItem>
         <CommandItem value="schedules" keywords="schedules cron triggers" icon="lucide-calendar-clock" onSelect={go("/schedules")}>{t("nav.schedules")}</CommandItem>
         <Show when={session.user().instanceAdmin}><CommandItem value="new-workspace" icon="lucide-plus" onSelect={go("/new")}>{t("nav.newWorkspace")}</CommandItem></Show>
+        <Show when={session.user().instanceAdmin}><CommandItem value="users" keywords="users people invite groups accounts" icon="lucide-users-round" onSelect={go("/users")}>{t("nav.users")}</CommandItem></Show>
+        <CommandItem value="profile" keywords="profile account password sessions" icon="lucide-user-round" onSelect={go("/profile")}>{t("nav.profile")}</CommandItem>
       </CommandGroup>
       <Show when={current()}>
         {(place) => (
