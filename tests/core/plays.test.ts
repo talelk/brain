@@ -20,7 +20,7 @@ let driver: Driver;
 
 const workspace = async (name: string, packs: string[], brain: string): Promise<string> => {
   const { workspaceId } = await harness.createWorkspace({ name, packs });
-  await harness.admin.command("file.write", { workspaceId, files: [{ path: "brain.toml", content: `name = "${name}"\npacks = ${JSON.stringify(packs)}\n${brain}` }] });
+  await harness.admin.command("file.write", { workspaceId, files: [{ path: "brain.toml", content: `name = "${name}"\npacks = ${JSON.stringify(packs)}\n${brain}\n[[model]]\nname = "main"\nprovider = "openai-compatible"\nurl = "https://model.example/v1"\nmodel = "fixture"\n` }] });
   await harness.admin.command("secret.set", { workspaceId, name: "teams-webhook", value: "https://teams.example/hook" });
   await harness.admin.command("secret.set", { workspaceId, name: "github", value: "ghp-test-token" });
   member = await harness.member(workspaceId, `max-${packs[0]}@example.com`, "member");

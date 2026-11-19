@@ -13,6 +13,7 @@ export function waitText(wait: Wait): string {
     case "task": return t("queue.wait.task", { title: wait.title });
     case "paused-workspace": return t("queue.wait.paused-workspace");
     case "paused-task": return t("queue.wait.paused-task");
+    case "unready": return t(`queue.wait.unready.${wait.problem}`, { name: wait.name });
     case "backoff": return t("queue.wait.backoff", { time: dateTime(wait.until), tries: wait.tries });
   }
 }

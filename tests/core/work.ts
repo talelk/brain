@@ -31,7 +31,10 @@ export interface WorkspaceFiles {
   /** Other tools by name, as the TOML of `tool.toml`; a tool that is not Brain-run gets a `run.sh`. */
   readonly tools?: Record<string, string>;
   readonly memory?: Record<string, string>;
+  /** The workspace has no model of its own unless `brain` gives one (an attempt of a workspace with none waits: docs/model.md, The queue). */
+  readonly noModel?: boolean;
 }
+const MODEL = '[[model]]\nname = "main"\nprovider = "openai-compatible"\nurl = "https://model.example/v1"\nmodel = "fixture"\n';
 /** Creates a workspace from the `core` fixture pack and writes the given agents, tools, Plays and memory into its folder. */
 export async function makeWorkspace(harness: Harness, name: string, files: WorkspaceFiles = {}): Promise<CommandOutputs["workspace.create"]> {
   const packs = files.packs ?? ["core"];
@@ -43,7 +46,7 @@ export async function makeWorkspace(harness: Harness, name: string, files: Works
   await harness.admin.command("file.write", {
     workspaceId: made.workspaceId,
     files: [
-      { path: "brain.toml", content: `name = "${name}"\n${files.platform ? `platform = "${files.platform}"\n` : ""}packs = ${JSON.stringify(packs)}\n${files.brain ?? ""}\n` },
+      { path: "brain.toml", content: `name = "${name}"\n${files.platform ? `platform = "${files.platform}"\n` : ""}packs = ${JSON.stringify(packs)}\n${files.brain ?? ""}\n${files.noModel || /\[\[model\]\]/u.test(files.brain ?? "") ? "" : MODEL}` },
       ...Object.entries(files.agents ?? {}).flatMap(([agent, spec]) => [
         { path: `agents/${agent}/agent.toml`, content: `description = "The ${agent}."\nengine = ["fixture"]\nnative = "${spec.native ?? "none"}"\ntools = ${JSON.stringify(spec.tools ?? [])}\n[limits]\n${spec.uncapped ? "turns = 0\ntokens = 0\n" : ""}spend_usd = ${spec.spend ?? 0}\n` },
         { path: `agents/${agent}/prompt.md`, content: `You are the ${agent}.\n` },

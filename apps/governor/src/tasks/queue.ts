@@ -2,6 +2,7 @@ import { BrainError, PRIORITIES, roleAtLeast, type AttemptKind, type Priority, t
 import { accessOf, visibleWorkspaces } from "../access";
 import { listRunners } from "../attempts/runners";
 import { missing } from "../attempts/offer";
+import { unready } from "../attempts/preflight";
 import type { Db } from "../db";
 import type { Gov } from "../dispatch";
 import { COST, microUsd, overCap, spentToday } from "../trust/usage";
@@ -72,7 +73,7 @@ function runningTasks(gov: Gov): Map<string, Set<string>> {
 export interface Standing { readonly now: number; readonly running: Map<string, Set<string>> }
 export const standing = (gov: Gov): Standing => ({ now: gov.clock.nowMs(), running: runningTasks(gov) });
 
-/** Why an attempt may not start whatever the runner: a pause, its retry backoff, its workspace's `running_tasks` or daily cap. Null when it may. */
+/** Why an attempt may not start whatever the runner: a pause, its retry backoff, something that keeps it from working (`unready`), its workspace's `running_tasks` or daily cap. Null when it may. */
 export function blockOf(gov: Gov, entry: Entry, at: Standing): Wait | null {
   const { attempt, task, steer } = entry;
   const manifest = activeManifest(gov, attempt.workspace_id);
@@ -80,6 +81,8 @@ export function blockOf(gov: Gov, entry: Entry, at: Standing): Wait | null {
   if ((manifest.limits as { paused?: boolean }).paused === true) return { kind: "paused-workspace" };
   if (steer.paused) return { kind: "paused-task" };
   if (attempt.available_at_ms > at.now) return { kind: "backoff", until: attempt.available_at_ms, tries: attempt.tries };
+  const cannot = unready(gov, attempt, task.snapshot_digest);
+  if (cannot) return cannot;
   const held = at.running.get(attempt.workspace_id) ?? new Set<string>();
   const limit = manifest.limits.running_tasks;
   if (limit > 0 && !held.has(task.id) && held.size >= limit) return { kind: "running-tasks", used: held.size, limit };
@@ -115,7 +118,7 @@ function placed(gov: Gov): { readonly items: Placed[]; readonly runners: ReturnT
   let ahead = 0;
   for (const entry of dispatchOrder(gov)) {
     const blocked = blockOf(gov, entry, at);
-    if (blocked?.kind === "paused-workspace" || blocked?.kind === "paused-task" || blocked?.kind === "backoff") { held.push({ entry, wait: blocked, rank: null, startsAt: null }); continue; }
+    if (blocked?.kind === "paused-workspace" || blocked?.kind === "paused-task" || blocked?.kind === "backoff" || blocked?.kind === "unready") { held.push({ entry, wait: blocked, rank: null, startsAt: null }); continue; }
     const manifest = manifestOf(gov, entry.task.snapshot_digest);
     const lacks = online.map((runner) => missing(manifest, entry.attempt, { capabilities: new Set(runner.capabilities), engines: new Set(runner.engines) }));
     const wait: Wait = blocked ?? (online.length === 0 ? { kind: "no-runner" } : lacks.every((what) => what !== null) ? { kind: "capability", what: (lacks[0] as NonNullable<(typeof lacks)[0]>).what, missing: (lacks[0] as NonNullable<(typeof lacks)[0]>).name } : { kind: "slot", ahead });

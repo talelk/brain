@@ -317,6 +317,7 @@ export type Wait =
   | { readonly kind: "task"; readonly taskId: string; readonly title: string }
   | { readonly kind: "paused-workspace" }
   | { readonly kind: "paused-task" }
+  | { readonly kind: "unready"; readonly problem: "no-model" | "model-key" | "credential" | "prompt"; readonly name: string }
   | { readonly kind: "backoff"; readonly until: number; readonly tries: number };
 /** One task waiting to start. `rank` is its place in dispatch order (from 1); null for one that waits for another task or is held. */
 export interface QueueItem {

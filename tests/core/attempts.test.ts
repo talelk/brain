@@ -261,7 +261,7 @@ describe("a runner", () => {
   it("lets a workspace with no model of its own call the admin workspace's model, with the admin workspace's key", async () => {
     const hub = await makeWorkspace(harness, "Hub", { platform: "admin", packs: ["core"], brain: `[[model]]\nname = "shared"\nprovider = "openai-compatible"\nurl = "https://shared.example/v1"\nmodel = "common"\nkey = "secret:model-shared"\n` });
     await harness.admin.command("secret.set", { workspaceId: hub.workspaceId, name: "model-shared", value: "key-shared" });
-    const bare = await makeWorkspace(harness, "Bare", { agents: { dev: { tools: [] } }, plays: { one: one("dev") } });
+    const bare = await makeWorkspace(harness, "Bare", { noModel: true, agents: { dev: { tools: [] } }, plays: { one: one("dev") } });
     await start("one", bare.workspaceId);
     const offer = (await driver.claim()) as JobOffer;
     expect(offer.workspaceId).toBe(bare.workspaceId);

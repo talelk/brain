@@ -141,6 +141,35 @@ describe("the queue", () => {
   });
 });
 
+describe("a task that cannot work yet", () => {
+  it("waits with the first thing that is wrong, and starts when it is put right, instead of failing later", async () => {
+    const gamma = await makeWorkspace(harness, "Gamma", { noModel: true, agents: { dev: {} }, plays: { one: one("dev") } });
+    const write = (files: Array<{ path: string; content: string }>) => harness.admin.command("file.write", { workspaceId: gamma.workspaceId, files });
+    const brain = (await harness.admin.query("file.read", { workspaceId: gamma.workspaceId, path: "brain.toml" })).content;
+    const model = (extra: string) => `${brain}\n[[model]]\nname = "main"\nprovider = "openai-compatible"\nurl = "https://model.example/v1"\nmodel = "m"\n${extra}`;
+    const next = async (): Promise<Wait> => {
+      const task = await goal(harness.admin, gamma.workspaceId);
+      const wait = await waitOf(harness.admin, task);
+      await harness.admin.command("task.stop", { workspaceId: gamma.workspaceId, taskId: task });
+      return wait;
+    };
+    expect(await next()).toEqual({ kind: "unready", problem: "no-model", name: "" });
+    await write([{ path: "brain.toml", content: model('key = "secret:model-key"\n') }]);
+    expect(await next()).toEqual({ kind: "unready", problem: "model-key", name: "main" });
+    await harness.admin.command("secret.set", { workspaceId: gamma.workspaceId, name: "model-key", value: "k" });
+    await write([{ path: "brain.toml", content: `${model('key = "secret:model-key"\n')}[github]\ncredential = "secret:github"\n[[project]]\nname = "app"\nrepo = "https://github.com/acme/app.git"\nbranch = "main"\n` }]);
+    expect(await next()).toEqual({ kind: "unready", problem: "credential", name: "github" });
+    await harness.admin.command("secret.set", { workspaceId: gamma.workspaceId, name: "github", value: "t" });
+    await write([
+      { path: "brain.toml", content: `${model('key = "secret:model-key"\ncontext_tokens = 8192\ncompact_at = 0.3\n')}[github]\ncredential = "secret:github"\n[[project]]\nname = "app"\nrepo = "https://github.com/acme/app.git"\nbranch = "main"\n` },
+      { path: "agents/dev/prompt.md", content: "x".repeat(12_000) },
+    ]);
+    expect(await next()).toEqual({ kind: "unready", problem: "prompt", name: "dev" });
+    await write([{ path: "agents/dev/prompt.md", content: "You are the dev.\n" }]);
+    expect(await next()).toMatchObject({ kind: "slot" });
+  });
+});
+
 describe("a limit that stops work", () => {
   it("names the limit, its value and what was used, and where the agent's limits are set", async () => {
     await harness.admin.command("file.write", { workspaceId: alpha.workspaceId, files: [

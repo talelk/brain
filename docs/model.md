@@ -321,7 +321,15 @@ and on which runner, what waits and in which order, and why each waiting task is
   `running_tasks` (4 of 4); no runner online; no runner has the engine or capability it needs
   (the missing one is named); the workspace's daily spend cap is reached; another task it
   waits for (named); the workspace's queue is paused; the task is paused; the time of the
-  retry after an infrastructure failure.
+  retry after an infrastructure failure; or **it cannot work yet** (below).
+- **A task that cannot work is not started, and does not fail later.** Before an attempt is
+  offered, Brain checks what it can see without leaving the Governor, and the task waits with
+  the sentence of the first thing that is wrong: the workspace has no model (its own or the
+  admin workspace's); the keys of every
+  model are not set; a project's credential (its own, or the workspace's `[github]` one) is not
+  set; the agent's prompt alone is larger than the model's window before compaction. A secret set
+  later is seen at once and the task starts; a file fixed later reaches a task when it runs on the
+  new snapshot. Nothing is stored for it.
 - **An estimated start** when at least three attempts of that kind finished recently: the
   median of their durations, spread over the runners' slots. Otherwise none; it is never invented.
 - **Steering**, for members: set a task's priority (`low`, `normal`, `high`), **Run next**, pause

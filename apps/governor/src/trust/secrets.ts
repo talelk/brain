@@ -47,6 +47,8 @@ export function listSecrets(db: Db, workspaceId: string): SecretName[] {
   return db.prepare("SELECT name, updated_at_ms AS updatedAt FROM secrets WHERE workspace_id=? ORDER BY name").all(workspaceId) as SecretName[];
 }
 
+export const hasSecret = (gov: Gov, workspaceId: string, name: string): boolean => gov.db.prepare("SELECT 1 FROM secrets WHERE workspace_id=? AND name=?").get(workspaceId, name) !== undefined;
+
 /** The secret itself, for the Governor's own use (a model key, a credential, a lease to a tool). Undefined when it is not set. */
 export function readSecret(gov: Gov, workspaceId: string, name: string): string | undefined {
   const row = gov.db.prepare("SELECT value FROM secrets WHERE workspace_id=? AND name=?").get(workspaceId, name) as { value: Buffer } | undefined;
