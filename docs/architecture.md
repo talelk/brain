@@ -36,6 +36,7 @@ apps/governor/src/
   health/      runners, model reachability, backups
 apps/runner/   kept; edited for the new protocol, native tools and working copies
 apps/launcher/ kept; engine sandbox gains the working-copy mount
+apps/store/    the git store: `git http-backend` behind a signed-token check; a process of its own that never talks to the Governor (section 8)
 apps/web/src/  new app, nine screens
 scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, runner, backup, restore, audit-verify), deploy-demo.sh
 deploy/        the sandbox images; demo/ (the demo host's compose file, host commands and backup units)
@@ -355,19 +356,19 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   offer not acknowledged in 30 s is taken back; `ack` starts a 60 s lease that `renew` extends (`renew` answers `stop`
   for an attempt whose task was stopped); an expired lease requeues the attempt, and its next offer moves the fence.
 - JobOffer: attempt id, fence, kind, task (id, title, goal, round, prior findings), context (prerequisite results, notes,
-  answers, catalog, and for `check` and `judge` the results under review with their tool calls and patches), snapshot
+  answers, catalog, and for `check` and `judge` the results under review with their tool calls and diffs), snapshot
   digest, agent (prompt digest, engine list, native level, limits, tool names), tools (per tool: effect, input schema,
   file digests, network hosts, secret names, `runs`, `host_command`), projects (name, repo, branch, access, setup,
-  network, credential secret name, base commit), inherited patches and the task's own earlier patch (section 8), model
+  network, credential secret name, base commit), the state commits it starts from (the tasks it waits for, then its own earlier attempt's) and the git store's address and token (section 8), model
   (gateway URL, route name), and for `act` the approved call to run.
 - `events` appends to `attempt_events`; a `tool.call` and its `tool.result` also record the call in `tool_calls`.
   `artifacts` stores bytes in the CAS, linked to the attempt and its task. `blobs/:digest` serves only what the
   snapshots of the attempts the runner holds name (manifest, prompts, tool files) and what their offers named.
   `secret` leases only a secret a tool of the attempt's agent declares, or the credential of a project.
-  `tool-call` and `brain-tool` carry the commits the attempt's working copy stands on (`baseCommits`); the Governor
-  keeps them on the attempt from the first call, so it knows them before the attempt ends.
-- `complete` carries the result text, optional structured output, usage, the working-copy patch artifact, the base
-  commits, and a receipt signed with the runner's key over the attempt id, fence, snapshot digest and result digest. The
+  `tool-call` and `brain-tool` carry the commits the attempt's working copy stands on (`baseCommits`) and the state commits it has pushed so far
+  (`stateCommits`); the Governor keeps them on the attempt from the first call, so it knows them before the attempt ends.
+- `complete` carries the result text, optional structured output, usage, the working-copy diff artifact, the base
+  commits, the state commits, and a receipt signed with the runner's key over the attempt id, fence, snapshot digest and result digest. The
   Governor checks the receipt against the enrolled key and records it in the audit chain. An `act` attempt ends
   `succeeded` with `output {tool, outcome, output}`.
 - The model is always reached through the Governor's model gateway, with a token bound to the attempt and its fence
@@ -394,7 +395,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   the declared secrets leased for that call. `effect = "read"` runs at once.
 - **Effects** (`write`, `privileged`): the runner posts the call to `tool-call`. The
   Governor builds the approval subject (tool, digest of the tool's definition, input and its digest, task,
-  snapshot digest, and for a pull request the patch digest and the commit it is made on). If a standing approval in
+  snapshot digest, and for a pull request the digest of the diff the approver reads, the state commit whose tree is opened and the commit it is made on). If a standing approval in
   the snapshot covers it (the call names at least one target among its string inputs and every
   string input is a listed target, under `per_day` for the UTC day, up to and including `until`)
   it is approved at once and counted. Otherwise an approval is pending and the task shows in
@@ -456,10 +457,10 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 ```
 
 - On `ack` the runner fetches each project mirror and creates the working copy at the
-  recorded commit. It then applies, in order, the working-copy patches of the tasks this
-  one waits for and the task's own patch from an earlier attempt, and runs the project's
-  `setup` inside the sandbox. A patch that does not apply fails the attempt with the
-  conflicting paths, and the task needs a person.
+  recorded commit. It then merges, in order, the **state commits** of the tasks this one
+  waits for and the task's own earlier attempt's (fetched from the git store, below), and
+  runs the project's `setup` inside the sandbox. A commit that does not merge fails the
+  attempt with the conflicting paths, and the task needs a person.
 - Inside a sandbox the paths are `/work/<project>`, `/out` and `/state`.
 - The engine sandbox mounts `work/` (read-write for `native = "all"`, read-only for
   `"read"`, absent for `"none"`), `state/` and `out/`. Its network is the egress proxy
@@ -473,20 +474,45 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   header), runner rejections, model gateway upstream failures, workspace reconciles. A line
   never holds a secret, a prompt or a result. A runner whose Governor is unreachable logs one
   line with the cause code and attempt id, backs off, and logs one line when it reconnects.
-- At the end the runner uploads `git diff` of each project (including new files) as the
-  task's working-copy patch, and everything in `out/` as artifacts. The base commit of
-  each project is recorded on the attempt.
-- A task's patch holds only what that task changed, on top of the patches it started from. An offer names the patches
-  of every task the task waits for, directly or through another, oldest first; every task of one goal works on the
-  commit the goal's first attempt found (or the head of the pull request that started it).
-- `git.open-pr`: the Governor stores the whole change as one patch (the inherited patches, then the working copy the
-  runner uploaded before the call), which with the base commit is what the approver is shown and what the approval is
-  bound to. The base commit is the one the runner names with the call, so a goal's first attempt, which has reported
-  none yet, opens its pull request on the commit it worked on and not on wherever the branch is by then. Once
-  approved it clones the project at that commit (isomorphic-git), applies the patch (`integrations/patch.ts`),
-  commits, pushes branch `brain/<task id>` with the project's credential (the workspace's `[github]` credential when the
-  project names none), opens the pull request through the GitHub API and records it. A task that opens its pull request
-  again moves the branch; the pull request it already has follows. Nothing merges.
+- At the end the runner pushes the attempt's state (below), uploads the **diff** of the working copy against each project's
+  base commit (`git diff`, including new files; artifact `working-copy.patch`, for people to read: it never rebuilds work), and
+  everything in `out/` as artifacts. The base commit of each project is recorded on the attempt.
+- Every task of one goal works on the commit the goal's first attempt found (or the head of the pull request that started it).
+  An offer names the state commit of every task the task waits for, directly or through another, oldest first, then its own
+  earlier attempt's (a commit holds the ones before it, so naming them all costs nothing: a merge of a commit already there
+  changes nothing).
+- **The git store** (`apps/store`) is where work passes from one runner to the next, and where a pull request is read from. The
+  **state commit** of an attempt is the tree of its whole working copy, with the base commit and the inherited commits as
+  parents; there is one for every project whose tree differs from its base commit's. The runner pushes it to the store before a
+  call with an effect (so a pull request can be opened) and at the end, to the ref `refs/brain/<goal id>/<commit>` of the
+  repository `<workspace id>/<project>.git`; `complete` reports the commit of each project (`stateCommits`) and the Governor
+  keeps them in the attempt's `payload`. The next offer names commits, never branches. A ref is named by the commit it points
+  at, so what a runner fetches is the commit the offer names.
+  The store is a process of its own (`git http-backend` behind a small HTTP server) and never calls the Governor: the
+  offer carries a token the Governor signed (Ed25519, `store.key` in its data directory; the store holds only the public
+  key, `store.pub`, read at each request), naming the workspace, the goal, the attempt and an expiry. The token reads every
+  repository of its workspace and creates refs under its own goal, each once (an `update` hook refuses any other ref, a
+  deletion and a rewrite). The repositories are shallow: the store never has the project's history, only what attempts pushed
+  (`receive.shallowUpdate`); each starts with one empty commit so that every client finds a `HEAD`. The runner fetches and
+  pushes outside the sandbox; the token is never in the sandbox's environment. The store address is the Governor's
+  `BRAIN_STORE_URL` (the store itself reads `BRAIN_STORE_DIR`, `BRAIN_STORE_PUBLIC_KEY_FILE`, `PORT`, `BRAIN_BIND_HOST`); with
+  none, an attempt on a project fails in setup, saying so, rather than leaving its work behind.
+- `git.open-pr`: the approver is shown the diff of the project (a `pull-request.patch` artifact cut from the attempt's diff),
+  and the approval is bound to that diff, to the **state commit** the runner named with the call and to the commit the change
+  is made on. The base commit is the one the runner names with the call, so a goal's first attempt, which has reported none
+  yet, opens its pull request on the commit it worked on and not on wherever the branch is by then. Once approved the
+  Governor clones the project at that commit (isomorphic-git), fetches the state commit from the store with a token of its
+  own, makes one commit of its tree on the project's commit, pushes branch `brain/<task id>` with the project's credential
+  (the workspace's `[github]` credential when the project names none), opens the pull request through the GitHub API and
+  records it. A task that opens its pull request again moves the branch; the pull request it already has follows. Nothing
+  merges.
+- **Retention.** A goal that ended more than a week ago (`done`, `failed` or `stopped`; `trust/retention.ts`, looked at every
+  hour) forgets its bytes: the Governor asks the store to forget the goal's refs (`DELETE /<workspace>/_goals/<goal>` with a token
+  made for `retention`; the store then collects what nothing holds), and then, in one transaction, deletes the events of the
+  goal's attempts, the links and stored bytes of its files, diffs and logs (those no other goal names), clears the attempts'
+  diff, and appends `retention.forgot` to the audit chain. If the store cannot be reached the goal is left whole and tried again
+  at the next look. A runner forgets its cached blobs and project mirrors not used for a week (`cache.ts`), only while it runs
+  no attempt. Nothing of a goal that has not ended is ever forgotten.
 
 ## 9. Triggers and integrations
 

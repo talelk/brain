@@ -24,7 +24,7 @@
 #   5. Start the Governor and wait for /health/ready.
 #   6. Start the egress proxy, the only way a sandbox reaches a network.
 #   7. Node and the dependencies of the launcher and the runner on the host.
-#   8. The systemd units brain-launcher and brain-runner; the runner enrols by itself the first time, with the token the
+#   8. The systemd units brain-launcher, brain-store (the git store, port 3200 on this host only) and brain-runner; the runner enrols by itself the first time, with the token the
 #      Governor leaves while it has no runner.
 #   9. The backup timers, when /srv/demos/brain/backup.env exists.
 #  10. Checks, and on a fresh install the setup link.
@@ -270,11 +270,30 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 UNIT
+cat > "$WORK/brain-store.service" <<UNIT
+[Unit]
+Description=Brain git store (where an attempt leaves the state the next one starts from)
+After=network-online.target
+[Service]
+User=$DEPLOY_USER
+WorkingDirectory=$REMOTE_DIR/src
+Environment=BRAIN_STORE_DIR=$REMOTE_DIR/store
+Environment=BRAIN_STORE_PUBLIC_KEY_FILE=$REMOTE_DIR/data/store.pub
+Environment=PORT=3200
+# The Governor writes its public key when it starts.
+TimeoutStartSec=90
+ExecStartPre=/bin/sh -c 'until [ -s "$REMOTE_DIR/data/store.pub" ]; do sleep 1; done'
+ExecStart=$NODE --import tsx apps/store/src/main.ts
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=multi-user.target
+UNIT
 cat > "$WORK/brain-runner.service" <<UNIT
 [Unit]
 Description=Brain runner
-After=brain-launcher.service
-Wants=brain-launcher.service
+After=brain-launcher.service brain-store.service
+Wants=brain-launcher.service brain-store.service
 [Service]
 User=$DEPLOY_USER
 WorkingDirectory=$REMOTE_DIR/src
@@ -285,7 +304,7 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 UNIT
-as_root install -m 0644 "$WORK/brain-launcher.service" "$WORK/brain-runner.service" /etc/systemd/system/
+as_root install -m 0644 "$WORK/brain-launcher.service" "$WORK/brain-store.service" "$WORK/brain-runner.service" /etc/systemd/system/
 as_root systemctl daemon-reload
 as_root systemctl stop brain-runner.service >/dev/null 2>&1 || true
 
@@ -316,7 +335,8 @@ if [ -s "$TOKEN_FILE" ]; then
 else
   ENROLLING=0
 fi
-as_root systemctl enable brain-launcher.service brain-runner.service >/dev/null 2>&1
+as_root systemctl enable brain-launcher.service brain-store.service brain-runner.service >/dev/null 2>&1
+as_root systemctl restart brain-store.service
 as_root systemctl restart brain-launcher.service
 for try in $(seq 1 30); do [ -S "$REMOTE_DIR/run/launcher.sock" ] && break; sleep 1; done
 [ -S "$REMOTE_DIR/run/launcher.sock" ] || { echo "!! the launcher did not open its socket: journalctl -u brain-launcher -n 40" >&2; exit 1; }
@@ -347,7 +367,7 @@ SCRIPT
 
 # ---- 10. checks ----
 on_host "Checks" <<'SCRIPT'
-for unit in brain-launcher brain-runner; do echo "    $unit: $(systemctl is-active "$unit" || true)"; done
+for unit in brain-launcher brain-store brain-runner; do echo "    $unit: $(systemctl is-active "$unit" || true)"; done
 echo "    governor: $(curl -fsS --max-time 5 http://127.0.0.1:3100/health/ready || echo 'NOT READY')"
 # What an engine in a sandbox needs: the proxy's container reaching the Governor on Docker's bridge address.
 if docker exec brain-egress-proxy node -e "fetch('http://host.docker.internal:3100/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then

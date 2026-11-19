@@ -225,8 +225,9 @@ export interface ApprovalSubject {
   readonly inputDigest: Digest;
   readonly taskId: string;
   readonly snapshotDigest: Digest;
-  /** For a pull request: the digest of the patch that would be opened, and the commit of the project it is made on (absent: the branch head). */
+  /** For a pull request: the diff the approver reads, the state commit that would be opened (its tree becomes the branch), and the commit of the project it is made on (absent: the branch head). */
   readonly patchDigest?: Digest;
+  readonly stateCommit?: string;
   readonly baseCommit?: string;
 }
 export interface Approval {

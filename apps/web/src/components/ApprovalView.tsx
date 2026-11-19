@@ -81,6 +81,7 @@ export function ApprovalView(props: { approval: Approval; workspaceId: string; c
           <dt>{t("approval.bound.input")}</dt><dd class="t-code code-ltr">{shortHash(approval().subject.inputDigest)}</dd>
           <dt>{t("approval.bound.workspace")}</dt><dd class="t-code code-ltr">{shortHash(approval().subject.snapshotDigest)}</dd>
           <Show when={approval().subject.patchDigest}>{(digest) => <><dt>{t("approval.bound.patch")}</dt><dd class="t-code code-ltr">{shortHash(digest())}</dd></>}</Show>
+          <Show when={approval().subject.stateCommit}>{(commit) => <><dt>{t("approval.bound.state")}</dt><dd class="t-code code-ltr">{commit().slice(0, 12)}</dd></>}</Show>
         </dl>
       </Details>
       </Show>

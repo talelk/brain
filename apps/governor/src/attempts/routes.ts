@@ -36,7 +36,8 @@ const MAX_ARTIFACT_BYTES = 64 * 1024 * 1024;
 const fence = z.int().min(0);
 const text = z.string().max(2_000_000);
 const commits = z.record(z.string(), z.string().max(100));
-const call = { fence, callId: z.string().min(1).max(100), tool: z.string().min(1).max(100), input: z.json(), baseCommits: commits.optional() };
+const stateIds = z.record(z.string(), z.string().regex(/^[0-9a-f]{40,64}$/u));
+const call = { fence, callId: z.string().min(1).max(100), tool: z.string().min(1).max(100), input: z.json(), baseCommits: commits.optional(), stateCommits: stateIds.optional() };
 const eventBody = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("status"), phase: z.enum(["setup", "engine", "upload"]), detail: text }),
   z.object({ kind: z.literal("text"), channel: z.enum(["assistant", "diagnostic"]), text }),
@@ -51,7 +52,7 @@ const blobRef = z.strictObject({ digest: z.string().refine(isDigest), bytes: z.i
 const completion = z.strictObject({
   fence, outcome: z.enum(["succeeded", "failed", "held"]), result: text, output: z.json().optional(),
   failure: z.strictObject({ reason: z.enum(["engine", "model-refused", "setup", "timeout", "limit", "stopped", "runner"]), detail: text, infrastructure: z.boolean(), limit: z.strictObject({ name: z.enum(LIMIT_NAMES), value: z.number(), used: z.number().nullable(), agent: z.string().max(100).optional() }).optional() }).optional(),
-  usage, engine: z.string().max(100), workingCopy: blobRef.optional(), baseCommits: commits,
+  usage, engine: z.string().max(100), workingCopy: blobRef.optional(), baseCommits: commits, stateCommits: stateIds,
   receipt: z.strictObject({ receipt: z.unknown(), signature: z.string().min(1).max(500) }),
 });
 
@@ -70,6 +71,11 @@ function heldAttempt(gov: Gov, c: Context, fenceGiven: number): AttemptRow {
  */
 function noteCommits(gov: Gov, attempt: AttemptRow, baseCommits: Readonly<Record<string, string>> | undefined): void {
   if (baseCommits && Object.keys(baseCommits).length > 0) gov.db.prepare("UPDATE attempts SET base_commits_json=? WHERE id=? AND base_commits_json IS NULL").run(JSON.stringify(baseCommits), attempt.id);
+}
+
+/** Keeps the state commits an attempt has pushed so far, so a pull request can be opened from them before the attempt ends. */
+function noteStates(gov: Gov, attempt: AttemptRow, stateCommits: Readonly<Record<string, string>> | undefined): void {
+  if (stateCommits && Object.keys(stateCommits).length > 0) gov.db.prepare("UPDATE attempts SET payload_json=json_set(payload_json, '$.stateCommits', json(?)) WHERE id=?").run(JSON.stringify(stateCommits), attempt.id);
 }
 
 /** A token for the model gateway, bound to the attempt and its fence. It holds its own proof, so nothing is stored. */
@@ -213,6 +219,7 @@ export function registerAttempts(governor: Governor): void {
     const input = await body(c, z.strictObject(call));
     const attempt = heldAttempt(gov, c, input.fence);
     noteCommits(gov, attempt, input.baseCommits);
+    noteStates(gov, attempt, input.stateCommits);
     const manifest = manifestOf(gov, taskOf(db, attempt.task_id).snapshot_digest);
     const tool = manifest.agents[attempt.agent]?.tools.includes(input.tool) ? manifest.tools[input.tool] : undefined;
     if (!tool || tool.runs === "brain") throw new BrainError("FORBIDDEN", `The agent ${attempt.agent} has no tool ${input.tool} that a runner runs`);
@@ -235,8 +242,9 @@ export function registerAttempts(governor: Governor): void {
     const input = await body(c, z.strictObject(call));
     const attempt = heldAttempt(gov, c, input.fence);
     noteCommits(gov, attempt, input.baseCommits);
-    const { baseCommits, ...request } = input;
-    return c.json(await runBrainTool(gov, attempt, { ...request, ...(baseCommits ? { baseCommits } : {}) }));
+    noteStates(gov, attempt, input.stateCommits);
+    const { baseCommits, stateCommits, ...request } = input;
+    return c.json(await runBrainTool(gov, attempt, { ...request, ...(baseCommits ? { baseCommits } : {}), ...(stateCommits ? { stateCommits } : {}) }));
   });
 
   app.post(RUNNER_ROUTES.secret, async (c) => {
@@ -286,9 +294,11 @@ export function registerAttempts(governor: Governor): void {
     tx(db, () => {
       const now = gov.clock.nowMs();
       db.prepare(`UPDATE attempts SET state=?, result=?, output_json=?, failure_json=?, receipt_json=?, receipt_signature=?, working_copy=?, base_commits_json=?, engine=?, finished_at_ms=?,
+        payload_json=CASE WHEN ? IS NULL THEN payload_json ELSE json_set(payload_json, '$.stateCommits', json(?)) END,
         lease_expires_at_ms=NULL, offer_expires_at_ms=NULL WHERE id=?`).run(
         input.outcome, input.result, output === null ? null : JSON.stringify(output), failure ? JSON.stringify(failure) : null, JSON.stringify(signed), signature, input.workingCopy?.digest ?? null,
-        Object.keys(input.baseCommits).length > 0 ? JSON.stringify(input.baseCommits) : null, input.engine, now, attempt.id,
+        Object.keys(input.baseCommits).length > 0 ? JSON.stringify(input.baseCommits) : null, input.engine, now,
+        Object.keys(input.stateCommits).length > 0 ? JSON.stringify(input.stateCommits) : null, Object.keys(input.stateCommits).length > 0 ? JSON.stringify(input.stateCommits) : null, attempt.id,
       );
       settleUsage(gov, attempt.id, input.usage);
       // An `act` attempt ends with how its one call went, also when the call failed.

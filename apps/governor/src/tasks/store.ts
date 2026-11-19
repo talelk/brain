@@ -31,6 +31,8 @@ export interface AttemptPayload {
   readonly review?: readonly string[];
   readonly act?: { readonly callId: string; readonly approvalId: string; readonly tool: string; readonly input: JsonValue };
   readonly offered?: readonly Digest[];
+  /** The commit of each project the attempt pushed to the git store, set when it ended. */
+  readonly stateCommits?: Readonly<Record<string, string>>;
 }
 
 export const newId = (prefix: string): string => `${prefix}_${randomBytes(9).toString("base64url").replace(/[-_]/gu, "x")}`;

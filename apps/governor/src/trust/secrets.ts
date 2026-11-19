@@ -1,5 +1,5 @@
 import { BrainError, type SecretName } from "@brain/contracts";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createPublicKey, generateKeyPairSync, randomBytes } from "node:crypto";
 import { closeSync, constants, existsSync, fsyncSync, lstatSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Db } from "../db";
@@ -25,6 +25,29 @@ export function instanceKeys(dataDir: string): Gov["keys"] {
   if (!stat.isFile() || (stat.mode & 0o077) !== 0 || stat.size !== 64) throw new Error(`${path} must be a 64-byte file only its owner can read`);
   const bytes = readFileSync(path);
   return { secrets: bytes.subarray(0, 32), digests: bytes.subarray(32) };
+}
+
+/**
+ * The key that signs the tokens of the git store (`<data>/store.key`, owner-only) and its public half (`<data>/store.pub`, which the store reads).
+ * Made on first start; the public file is rewritten when it is missing.
+ */
+export function storeKey(dataDir: string): string {
+  const path = join(dataDir, "store.key");
+  if (!existsSync(path)) {
+    const { privateKey } = generateKeyPairSync("ed25519");
+    const fd = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+    try {
+      writeFileSync(fd, privateKey.export({ type: "pkcs8", format: "pem" }));
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+  }
+  const stat = lstatSync(path);
+  if (!stat.isFile() || (stat.mode & 0o077) !== 0) throw new Error(`${path} must be a file only its owner can read`);
+  const pem = readFileSync(path, "utf8");
+  writeFileSync(join(dataDir, "store.pub"), createPublicKey(pem).export({ type: "spki", format: "pem" }), { mode: 0o644 });
+  return pem;
 }
 
 const bound = (workspaceId: string, name: string): Buffer => Buffer.from(`${workspaceId}\n${name}`);

@@ -1,5 +1,7 @@
-import { dirname } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { startStore, type Store } from "../../apps/store/src/store";
 import type { RunnerConfig } from "../../apps/runner/src/config";
 import { Runner } from "../../apps/runner/src/runner";
 import type { Timer } from "../../apps/runner/src/tools/approval";
@@ -15,6 +17,7 @@ import { bareRepository, git, tempDir } from "../runner/git-repo";
 const origin = bareRepository({ "src/cart.js": "export const total = (items) => items.length;\n" });
 let harness: Harness;
 let server: GitServer;
+let store: Store & { readonly port: number };
 let member: Client;
 let workspaceId: string;
 let runner: Runner;
@@ -37,7 +40,9 @@ const start = async (play: string): Promise<string> => (await member.command("ta
 
 beforeAll(async () => {
   server = await startGitServer(dirname(origin.repo));
-  harness = await createHarness({ fetch: (input, init) => fetch(input, init) });
+  // The git store checks tokens with the public key the Governor writes in its data directory.
+  store = await startStore({ root: tempDir("e2e-store"), publicKeyPem: () => readFileSync(join(harness.dataDir, "store.pub"), "utf8") }, 0, "127.0.0.1");
+  harness = await createHarness({ fetch: (input, init) => fetch(input, init), storeUrl: `http://127.0.0.1:${store.port}` });
   ({ workspaceId } = await makeWorkspace(harness, "Joined", {
     brain: `[[project]]\nname = "shop"\nrepo = "${server.origin}/origin.git"\nbranch = "main"\naccess = "write"\ncredential = "secret:github"\n`,
     agents: { writer: {}, developer: { native: "all", tools: ["git.open-pr"] }, operator: { tools: ["deploy.restart"] } },
@@ -60,6 +65,7 @@ beforeAll(async () => {
 afterAll(async () => {
   harness.close();
   await server.close();
+  await store.close();
 });
 
 describe("the runner and the Governor together", () => {

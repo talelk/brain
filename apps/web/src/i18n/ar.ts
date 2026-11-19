@@ -221,6 +221,7 @@ export const ar: Catalog = {
   "approval.bound.input": "المُدخلات",
   "approval.bound.workspace": "ملفات مساحة العمل",
   "approval.bound.patch": "الفروقات",
+  "approval.bound.state": "الالتزام الذي يصبح الفرع",
 
   "tasks.text": "كل أهداف مساحة العمل هذه، الأحدث أولًا.",
   "tasks.new": "هدف جديد",

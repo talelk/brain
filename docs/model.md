@@ -373,6 +373,13 @@ When a limit stops or delays a task, the attempt's failure or the task's page sa
 limit's name, its value, what was used, where it is set, and **Raise the limit**, which opens
 the form that holds it. It is never shown as a generic failure.
 
+## How long Brain keeps what is large
+
+What a goal produced in bulk is kept for a week after it ended, and then forgotten: its files and diffs, the log of what each attempt did, and the
+work that passed between runners. What stays for good is the record: the goal and its tasks with their results, the checks, the approvals (with the
+digests of what was shown, though not the bytes), the pull requests, and the whole audit chain, which also says what was forgotten and when. A goal
+that has not ended is never touched, however old. A runner keeps copies of snapshots and repositories only as a cache, forgotten after a week.
+
 ## The timeline and Insights
 
 Two pages show work over time. Neither adds a thing to the model: both read what is already

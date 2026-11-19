@@ -16,8 +16,8 @@ import { manifestOf } from "../workspace/store";
  */
 const PENDING_FOR_MS = 7 * 86_400_000;
 
-/** What a pull request would carry: the patch, and the commit it is made on when one is known. */
-export interface PullRequestChange { readonly patchDigest?: Digest | undefined; readonly baseCommit?: string | undefined }
+/** What a pull request would carry: the diff to read, the state commit whose tree it becomes, and the commit it is made on when one is known. */
+export interface PullRequestChange { readonly patchDigest?: Digest | undefined; readonly stateCommit?: string | undefined; readonly baseCommit?: string | undefined }
 
 /** The tool as agents and runners know it: the translations only people read are not part of what an approval binds. */
 function toolWithoutTranslations(tool: SnapshotManifest["tools"][string] | undefined): JsonValue {
@@ -30,7 +30,7 @@ function toolWithoutTranslations(tool: SnapshotManifest["tools"][string] | undef
 export function approvalSubject(manifest: SnapshotManifest, call: { tool: string; input: JsonValue; taskId: string; snapshotDigest: Digest } & PullRequestChange): ApprovalSubject {
   return {
     tool: call.tool, toolDigest: domainDigest("brain:tool:v1", toolWithoutTranslations(manifest.tools[call.tool])), input: call.input, inputDigest: domainDigest("brain:tool-input:v1", call.input),
-    taskId: call.taskId, snapshotDigest: call.snapshotDigest, ...(call.patchDigest !== undefined ? { patchDigest: call.patchDigest } : {}), ...(call.baseCommit !== undefined ? { baseCommit: call.baseCommit } : {}),
+    taskId: call.taskId, snapshotDigest: call.snapshotDigest, ...(call.patchDigest !== undefined ? { patchDigest: call.patchDigest } : {}), ...(call.stateCommit !== undefined ? { stateCommit: call.stateCommit } : {}), ...(call.baseCommit !== undefined ? { baseCommit: call.baseCommit } : {}),
   };
 }
 
@@ -88,7 +88,7 @@ export function authorizeCall(gov: Gov, attempt: AttemptRow, call: { callId: str
   if (call.effect === "read") return { rowId, state: "approved" };
   const task = taskOf(db, attempt.task_id);
   const manifest = manifestOf(gov, task.snapshot_digest);
-  const subject = approvalSubject(manifest, { tool: call.tool, input: call.input, taskId: task.id, snapshotDigest: task.snapshot_digest, patchDigest: call.patchDigest, baseCommit: call.baseCommit });
+  const subject = approvalSubject(manifest, { tool: call.tool, input: call.input, taskId: task.id, snapshotDigest: task.snapshot_digest, patchDigest: call.patchDigest, stateCommit: call.stateCommit, baseCommit: call.baseCommit });
   const now = gov.clock.nowMs();
   const today = utcDay(now);
   const used = (db.prepare("SELECT count FROM standing_uses WHERE workspace_id=? AND tool=? AND day=?").get(task.workspace_id, call.tool, today) as { count: number } | undefined)?.count ?? 0;

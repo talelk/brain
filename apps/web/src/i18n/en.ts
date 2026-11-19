@@ -203,6 +203,7 @@ export const en = {
   "approval.bound.input": "The inputs",
   "approval.bound.workspace": "The workspace's files",
   "approval.bound.patch": "The diff",
+  "approval.bound.state": "The commit that becomes the branch",
 
   "tasks.text": "Every goal in this workspace, newest first.",
   "tasks.new": "New goal",

@@ -36,6 +36,14 @@
         "src/**/*.ts"
       ]
     },
+    "apps/store": {
+      "entry": [
+        "src/main.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
+    },
     "apps/web": {
       "project": [
         "src/**/*.{ts,tsx,css}"

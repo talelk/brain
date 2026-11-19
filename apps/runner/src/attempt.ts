@@ -83,7 +83,7 @@ function hostOf(address: string): string | undefined {
   try { return new URL(address).host.toLowerCase() || undefined; } catch { return undefined; }
 }
 
-interface Ended { readonly outcome: CompleteRequest["outcome"]; readonly result: string; readonly output?: JsonValue; readonly failure?: AttemptFailure; readonly workingCopy?: BlobRef }
+interface Ended { readonly outcome: CompleteRequest["outcome"]; readonly result: string; readonly output?: JsonValue; readonly failure?: AttemptFailure; readonly workingCopy?: BlobRef; readonly stateCommits?: Readonly<Record<string, string>> }
 
 /**
  * Runs one claimed attempt to its end: acknowledges it, keeps its lease, sets up its folders and working copy, runs its engine session
@@ -122,26 +122,28 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
     mkdirSync(join(attemptDir, "out"), { recursive: true });
     mkdirSync(join(attemptDir, "state"), { recursive: true });
     let uploaded: (BlobRef & { readonly at: string }) | undefined;
-    /** The working copy's patch as an artifact of the attempt; uploaded again only when it changed. */
-    const uploadPatch = async (): Promise<BlobRef | undefined> => {
+    /** The commit of each project the attempt has pushed to the git store so far. */
+    let states: Readonly<Record<string, string>> = {};
+    /** The working copy's diff as an artifact of the attempt, for people to read; uploaded again only when it changed. */
+    const uploadDiff = async (): Promise<BlobRef | undefined> => {
       if (!copy || offer.kind !== "work") return undefined;
-      const bytes = await copy.patch(abort.signal);
+      const bytes = await copy.diff(abort.signal);
       const digest = sha256Digest(bytes);
       if (uploaded?.at !== digest) uploaded = { ...(await client.uploadArtifact(attemptId, { fence, name: "working-copy.patch", kind: "patch", mediaType: PATCH_MEDIA_TYPE }, bytes)), at: digest };
       return { digest: uploaded.digest, bytes: uploaded.bytes };
     };
     const tools = new ToolCalls({
       offer, client, launcher: cfg.launcher, attemptDir, emit, signal: abort.signal, unsandboxedForTests: cfg.unsandboxedForTests === true,
-      syncPatch: async () => { await uploadPatch(); }, baseCommits: () => copy?.baseCommits ?? {}, leaseLost: () => { spool.discard(); stop("lease"); },
+      // Before a call with an effect: what has changed is pushed to the store and its diff uploaded, so the Governor has both for the call.
+      syncState: async () => { await uploadDiff(); if (copy && offer.kind === "work") states = await copy.push(abort.signal); },
+      baseCommits: () => copy?.baseCommits ?? {}, stateCommits: () => states, leaseLost: () => { spool.discard(); stop("lease"); },
       ...(cfg.approval ? { approval: cfg.approval } : {}),
     });
 
     emit({ kind: "status", phase: "setup", detail: offer.projects.length > 0 ? `preparing the working copy of ${offer.projects.map((project) => project.name).join(", ")}` : "preparing the attempt" });
-    const inherited: Array<{ label: string; bytes: Uint8Array }> = [];
-    for (const [index, ref] of offer.inheritedPatches.entries()) inherited.push({ label: `the changes of prerequisite ${index + 1} of ${offer.inheritedPatches.length}`, bytes: await client.blob(ref) });
+    const inherited = offer.inheritedStates.map((state, index) => ({ label: `the changes of prerequisite ${index + 1} of ${offer.inheritedStates.length}`, ...state }));
     copy = await prepareWorkingCopy({
-      stateDir: cfg.stateDir, workspaceId: offer.workspaceId, attemptDir, projects: offer.projects, inherited, signal: abort.signal,
-      ...(offer.workingCopy ? { own: await client.blob(offer.workingCopy) } : {}),
+      stateDir: cfg.stateDir, workspaceId: offer.workspaceId, attemptDir, projects: offer.projects, inherited, attemptId, store: offer.store, signal: abort.signal,
       credential: async (project) => (await client.secret(attemptId, { fence, name: project.credential!, use: { project: project.name } })).value,
     });
 
@@ -171,9 +173,9 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
           writeFileSync(target, text);
           reviewedFiles.set(`${entry.attemptId}/${file.name}`, { path: `${paths.work}/.brain/${entry.attemptId}/files/${name}` });
         }
-        if (!entry.patch) continue;
-        // The patch is `git diff` text with every path under its project's folder, as the files lie in the working copy.
-        const text = new TextDecoder().decode(await client.blob(entry.patch));
+        if (!entry.diff) continue;
+        // The diff is `git diff` text with every path under its project's folder, as the files lie in the working copy.
+        const text = new TextDecoder().decode(await client.blob(entry.diff));
         if (!text) continue;
         if (!seesFiles) { reviewed.set(entry.attemptId, { inline: text.length > INLINE_PATCH_CHARS ? `${text.slice(0, INLINE_PATCH_CHARS)}\n[cut: ${text.length} characters in all]` : text }); continue; }
         mkdirSync(join(attemptDir, "work", ".brain"), { recursive: true });
@@ -231,9 +233,11 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
         const outputs = collectOutputs(join(attemptDir, "out"));
         for (const file of outputs.files) await client.uploadArtifact(attemptId, { fence, name: file.name, kind: "output", mediaType: file.mediaType }, file.bytes);
         if (outputs.skipped.length > 0) emit({ kind: "text", channel: "diagnostic", text: `Not kept from the output folder (links, files that are too large or too many): ${outputs.skipped.slice(0, 20).join(", ")}` });
-        const workingCopy = await uploadPatch();
+        const workingCopy = await uploadDiff();
+        // What the attempt changed is handed on through the git store: the next attempt starts from it, on any runner.
+        const stateCommits = copy && offer.kind === "work" ? await copy.push(abort.signal) : {};
         // A call left waiting for a person ends the attempt held: the session finished, the call has not happened.
-        ended = { outcome: tools.held > 0 ? "held" : "succeeded", result: session.text, ...(session.output !== undefined ? { output: session.output } : {}), ...(workingCopy ? { workingCopy } : {}) };
+        ended = { outcome: tools.held > 0 ? "held" : "succeeded", result: session.text, ...(session.output !== undefined ? { output: session.output } : {}), ...(workingCopy ? { workingCopy } : {}), stateCommits };
       }
     }
   } catch (error) {
@@ -253,7 +257,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
     await spool.drain().catch(() => undefined);
     const receipt = { attemptId, fence, snapshotDigest: offer.snapshotDigest, resultDigest: resultDigest(ended.result, ended.output ?? null) };
     await client.complete(attemptId, {
-      fence, outcome: ended.outcome, result: ended.result, usage, engine: engineName, baseCommits: copy?.baseCommits ?? {},
+      fence, outcome: ended.outcome, result: ended.result, usage, engine: engineName, baseCommits: copy?.baseCommits ?? {}, stateCommits: ended.stateCommits ?? {},
       ...(ended.output !== undefined ? { output: ended.output } : {}), ...(ended.failure ? { failure: ended.failure } : {}), ...(ended.workingCopy ? { workingCopy: ended.workingCopy } : {}),
       receipt: { receipt, signature: signReceipt(receipt, context.privateKeyPem) },
     }).catch((error: unknown) => { if (!isLeaseLost(error)) throw error; });

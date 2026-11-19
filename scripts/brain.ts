@@ -10,12 +10,12 @@ import { verify } from "../apps/governor/src/trust/audit";
 /**
  * `pnpm brain <command>`: one Brain on this machine.
  *
- *   start            builds the web app when it is missing or older than its sources, starts the Governor, the launcher (when Docker
+ *   start            builds the web app when it is missing or older than its sources, starts the Governor, the git store, the launcher (when Docker
  *                    answers; the sandbox images are built when missing) and one runner, and prints the address. On a fresh install it
  *                    prints the setup link, which carries the setup token.
- *   stop             stops the runner, the launcher, the Governor and the egress proxy it started. Data is never touched.
+ *   stop             stops the runner, the launcher, the git store, the Governor and the egress proxy it started. Data is never touched.
  *   status           says what runs; exits 0 only when the Governor is ready.
- *   logs [name]      follows the log of `governor` (the default), `launcher` or `runner`.
+ *   logs [name]      follows the log of `governor` (the default), `store`, `launcher` or `runner`.
  *   runner --governor <address> [--token-file <file>]
  *                    runs a runner on this machine for another Brain (a token comes from its Health screen), in this terminal, until
  *                    stopped. The token is read from the file, or from BRAIN_RUNNER_ENROLL_TOKEN; `--token <token>` works too but puts
@@ -46,7 +46,8 @@ const BASE_URL = process.env["BRAIN_BASE_URL"] ?? `http://localhost:${PORT}`;
 const FIXTURE = process.env["BRAIN_PROFILE"] === "fixture";
 const SOCKET = join(RUN, "launcher.sock");
 const RUNNER_TOKEN = join(RUN, "runner.token");
-const PARTS = { governor: "apps/governor/src/main.ts", launcher: "apps/launcher/src/main.ts", runner: "apps/runner/src/main.ts" } as const;
+const STORE_PORT = process.env["BRAIN_STORE_PORT"] ?? "3200";
+const PARTS = { governor: "apps/governor/src/main.ts", store: "apps/store/src/main.ts", launcher: "apps/launcher/src/main.ts", runner: "apps/runner/src/main.ts" } as const;
 type Part = keyof typeof PARTS;
 const IMAGES = ["brain-sandbox-tool", "brain-sandbox-engine", "brain-egress-proxy"];
 
@@ -170,7 +171,7 @@ async function start(): Promise<void> {
 
   if (!pidOf("governor")) rmSync(RUNNER_TOKEN, { force: true });
   startPart("governor", {
-    BRAIN_DATA_DIR: DATA, PORT, BRAIN_BASE_URL: BASE_URL, BRAIN_LOCAL_RUNNER_TOKEN_FILE: RUNNER_TOKEN,
+    BRAIN_DATA_DIR: DATA, PORT, BRAIN_BASE_URL: BASE_URL, BRAIN_LOCAL_RUNNER_TOKEN_FILE: RUNNER_TOKEN, BRAIN_STORE_URL: `http://127.0.0.1:${STORE_PORT}`,
     ...(sandboxes ? { BRAIN_BIND_HOST: `127.0.0.1,${sandboxes.bridge}`, BRAIN_GATEWAY_URL: sandboxes.gatewayUrl } : {}),
   });
   for (let waited = 0; waited < 60_000 && !(await ready()); waited += 500) {
@@ -178,6 +179,9 @@ async function start(): Promise<void> {
     await pause(500);
   }
   if (!(await ready())) throw new Error(`the Governor is not ready after a minute. Its last lines:\n${lastLines("governor")}`);
+
+  // Where attempts leave the state their successors start from; it checks tokens with the public key the Governor wrote.
+  startPart("store", { BRAIN_STORE_DIR: join(HOME, "store"), BRAIN_STORE_PUBLIC_KEY_FILE: join(DATA, "store.pub"), PORT: STORE_PORT });
 
   if (sandboxes) {
     startPart("launcher", { BRAIN_LAUNCHER_SOCKET: SOCKET, BRAIN_LAUNCHER_ATTEMPTS_ROOT: join(RUN, "runner", "attempts"), BRAIN_LAUNCHER_EGRESS_GRANTS_DIR: join(RUN, "egress-grants") });
@@ -244,13 +248,13 @@ async function main(): Promise<void> {
     return joinRunner(governor, flag("--token") ?? (file ? readFileSync(file, "utf8").trim() : undefined));
   }
   if (command === "stop") {
-    for (const part of ["runner", "launcher", "governor"] as const) await stopPart(part);
+    for (const part of ["runner", "launcher", "store", "governor"] as const) await stopPart(part);
     // The egress proxy this Brain started (the one that reads this run folder's grants) goes with it.
     if (has("docker") && quiet("docker", ["container", "inspect", "brain-egress-proxy", "--format", "{{range .Mounts}}{{.Source}}{{end}}"]).out === join(RUN, "egress-grants")) quiet("docker", ["rm", "-f", "brain-egress-proxy"]);
     return;
   }
   if (command === "status") {
-    for (const part of ["governor", "launcher", "runner"] as const) say(`${part}: ${pidOf(part) ? `running (pid ${pidOf(part)})` : "not running"}`);
+    for (const part of ["governor", "store", "launcher", "runner"] as const) say(`${part}: ${pidOf(part) ? `running (pid ${pidOf(part)})` : "not running"}`);
     const answers = await ready();
     say(answers ? `Brain is ready at ${BASE_URL} (data in ${DATA})` : `Brain does not answer on port ${PORT}`);
     process.exitCode = answers ? 0 : 1;
@@ -258,7 +262,7 @@ async function main(): Promise<void> {
   }
   if (command === "logs") {
     const part = (argument ?? "governor") as Part;
-    if (!(part in PARTS) || !existsSync(join(RUN, `${part}.log`))) throw new Error(`there is no log of "${part}" in ${RUN}; the logs are governor, launcher and runner`);
+    if (!(part in PARTS) || !existsSync(join(RUN, `${part}.log`))) throw new Error(`there is no log of "${part}" in ${RUN}; the logs are governor, store, launcher and runner`);
     spawnSync("tail", ["-n", "100", "-f", join(RUN, `${part}.log`)], { stdio: "inherit" });
     return;
   }
@@ -286,7 +290,7 @@ async function main(): Promise<void> {
     }
     return;
   }
-  throw new Error("usage: pnpm brain start | stop | status | logs [governor|launcher|runner] | runner --governor <address> [--token-file <file>] | backup [file] | restore <file> | audit-verify");
+  throw new Error("usage: pnpm brain start | stop | status | logs [governor|store|launcher|runner] | runner --governor <address> [--token-file <file>] | backup [file] | restore <file> | audit-verify");
 }
 
 try {

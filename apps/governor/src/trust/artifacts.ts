@@ -9,7 +9,7 @@ import type { Gov } from "../dispatch";
  * Content-addressed bytes under `<data>/cas`. A digest names exactly one file, written once and never rewritten; every read re-checks
  * the digest, so a changed or truncated file reads as missing rather than as content.
  */
-function casPath(dataDir: string, digest: Digest): string {
+export function casPath(dataDir: string, digest: Digest): string {
   if (!isDigest(digest)) throw new BrainError("INVALID_INPUT", "Not a digest");
   const hex = digest.slice("sha256:".length);
   return join(dataDir, "cas", hex.slice(0, 2), hex);

@@ -180,7 +180,7 @@ describe("a runner", () => {
     await driver.ack(offer);
     const forged = generateKeyPairSync("ed25519").privateKey.export({ type: "pkcs8", format: "pem" }).toString();
     const receipt = { attemptId: offer.attemptId, fence: offer.fence, snapshotDigest: offer.snapshotDigest, resultDigest: resultDigest("Forged.", null) };
-    const body = { outcome: "succeeded", result: "Forged.", usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0 }, engine: "fixture", baseCommits: {}, receipt: { receipt, signature: signReceipt(receipt, forged) } };
+    const body = { outcome: "succeeded", result: "Forged.", usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0 }, engine: "fixture", baseCommits: {}, stateCommits: {}, receipt: { receipt, signature: signReceipt(receipt, forged) } };
     expect((await post(offer, "complete", body)).status).toBe(403);
     expect(await state(taskId)).toBe("running");
     const done = await driver.complete(offer, "Real.");

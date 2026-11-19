@@ -21,6 +21,8 @@ export interface Gov {
   readonly fetch: typeof fetch;
   /** From `<data>/instance.key`: one key encrypts secrets, the other keys digests of tokens and requests. */
   readonly keys: { readonly secrets: Buffer; readonly digests: Buffer };
+  /** The git store attempts fetch and push state commits at, and the key that signs their tokens; absent when `BRAIN_STORE_URL` is not set. */
+  readonly store?: { readonly url: string; readonly privateKeyPem: string };
   readonly auth: Auth;
   readonly registry: Registry;
   /** Called inside the transaction that activates a snapshot (memory index, triggers). */

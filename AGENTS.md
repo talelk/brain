@@ -18,8 +18,8 @@ of tables, commands and queries, glossary terms or screens passes the budget in
 
 ## Architecture
 
-One Governor process (API and web app) with one SQLite file, and separate runner and
-launcher executables for isolation. Only `packages/contracts` is shared. Configuration is
+One Governor process (API and web app) with one SQLite file, and separate runner,
+launcher and git store executables for isolation. Only `packages/contracts` is shared. Configuration is
 plain files in a workspace folder; the Governor never stores an agent, tool or Play in
 the database. Every state change appends to the audit chain in the same transaction.
 

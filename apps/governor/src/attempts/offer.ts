@@ -1,5 +1,5 @@
 import { modelsOf } from "../workspace/platform";
-import { MODEL_DEFAULTS, secretName, type BlobRef, type Digest, type JobOffer, type JsonValue, type OfferProject, type OfferTool, type OfferToolCall, type SnapshotManifest, type ToolOutcome } from "@brain/contracts";
+import { MODEL_DEFAULTS, secretName, signStoreGrant, type BlobRef, type Digest, type JobOffer, type JsonValue, type OfferProject, type OfferTool, type OfferToolCall, type SnapshotManifest, type ToolOutcome } from "@brain/contracts";
 import type { Db } from "../db";
 import type { Gov } from "../dispatch";
 import { repoPath } from "../integrations/github";
@@ -12,6 +12,8 @@ import { manifestOf } from "../workspace/store";
 export const credentialOf = (manifest: SnapshotManifest, project: SnapshotManifest["projects"][number]): SnapshotManifest["projects"][number]["credential"] => project.credential ?? manifest.github?.credential;
 
 export const OFFER_FOR_MS = 30_000;
+/** How long a git store token lasts: an attempt never runs longer. */
+const STORE_TOKEN_SECONDS = 6 * 3600;
 const MAX_SHOWN = 8_000;
 const clip = (text: string): string => (text.length > MAX_SHOWN ? `${text.slice(0, MAX_SHOWN)}\n[cut: ${text.length - MAX_SHOWN} more characters]` : text);
 
@@ -32,15 +34,8 @@ const capability = (name: string | undefined): { what: "capability"; name: strin
 
 const blob = (db: Db, digest: Digest): BlobRef => ({ digest, bytes: (db.prepare("SELECT bytes FROM artifacts WHERE digest=?").get(digest) as { bytes: number }).bytes });
 
-/** The working-copy patch of a task's accepted result: the one its last passed check was about. */
-const acceptedPatch = (db: Db, taskId: string): Digest | null =>
-  (db.prepare("SELECT a.working_copy AS patch FROM checks c JOIN attempts a ON a.id = c.attempt_id WHERE c.task_id=? AND c.pass=1 ORDER BY c.id DESC LIMIT 1").get(taskId) as { patch: Digest | null } | undefined)?.patch ?? null;
-
-/**
- * The patches a task starts from: those of every task it waits for, directly or through another, oldest first. A patch holds only what its
- * own task changed, so each is applied once, on top of the ones before it.
- */
-export function inheritedPatches(db: Db, task: TaskRow): Digest[] {
+/** The tasks a task starts from: every task it waits for, directly or through another, oldest first. */
+function inheritedTasks(db: Db, task: TaskRow): string[] {
   const seen = new Map<string, number>();
   const walk = (taskId: string): void => {
     const next = db.prepare(`SELECT t.id, t.rowid AS at FROM tasks t WHERE t.id IN (SELECT waits_for FROM task_deps WHERE task_id=?)
@@ -57,8 +52,20 @@ export function inheritedPatches(db: Db, task: TaskRow): Digest[] {
       walk(id);
     }
   }
-  const patches = [...seen].sort((a, b) => a[1] - b[1]).map(([id]) => acceptedPatch(db, id)).filter((digest): digest is Digest => digest !== null);
-  return [...new Set(patches)];
+  return [...seen].sort((a, b) => a[1] - b[1]).map(([id]) => id);
+}
+
+const stateOf = (payload: string): Record<string, string> | undefined => (JSON.parse(payload) as { stateCommits?: Record<string, string> }).stateCommits;
+
+/** The state commits a task starts from: those of the attempts whose changes were accepted, oldest first, each once (the store's side of `inheritedPatches`). */
+export function inheritedStates(db: Db, task: TaskRow): Array<{ attemptId: string; commits: Record<string, string> }> {
+  const states: Array<{ attemptId: string; commits: Record<string, string> }> = [];
+  for (const id of inheritedTasks(db, task)) {
+    const attempt = db.prepare("SELECT a.id, a.working_copy AS patch, a.payload_json AS payload FROM checks c JOIN attempts a ON a.id = c.attempt_id WHERE c.task_id=? AND c.pass=1 ORDER BY c.id DESC LIMIT 1").get(id) as { id: string; patch: Digest | null; payload: string } | undefined;
+    const commits = attempt?.patch ? stateOf(attempt.payload) : undefined;
+    if (attempt && commits && !states.some((state) => state.attemptId === attempt.id)) states.push({ attemptId: attempt.id, commits });
+  }
+  return states;
 }
 
 /** The commit each project is worked on at: the head of the pull request that started the goal, else the commit the goal's first attempt found. */
@@ -127,17 +134,21 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
     const reviewed = attemptOf(db, id);
     return {
       attemptId: id, agent: reviewed.agent, result: reviewed.result ?? "", ...(reviewed.output_json !== null ? { output: JSON.parse(reviewed.output_json) as JsonValue } : {}),
-      toolCalls: callsOf(db, id), ...(reviewed.working_copy !== null ? { patch: blob(db, reviewed.working_copy) } : {}),
+      toolCalls: callsOf(db, id), ...(reviewed.working_copy !== null ? { diff: blob(db, reviewed.working_copy) } : {}),
       files: (db.prepare("SELECT l.name, l.digest, a.bytes FROM artifact_links l JOIN artifacts a ON a.digest=l.digest WHERE l.attempt_id=? AND l.kind='output' ORDER BY l.id").all(id) as Array<{ name: string; digest: Digest; bytes: number }>),
     };
   });
 
   // A check works on the change it checks; the work itself continues from what an earlier attempt of the task left.
-  const inherited = inheritedPatches(db, task).map((digest) => blob(db, digest));
-  if (attempt.kind === "check" && review[0]?.patch) inherited.push(review[0].patch);
-  const own = attempt.kind === "work" || attempt.kind === "act"
-    ? (db.prepare("SELECT working_copy AS patch FROM attempts WHERE task_id=? AND kind='work' AND working_copy IS NOT NULL AND candidate IS ? ORDER BY rowid DESC LIMIT 1").get(task.id, attempt.candidate) as { patch: Digest } | undefined)?.patch
+  const inherited = inheritedStates(db, task);
+  const reviewed = attempt.kind === "check" && review[0] ? stateOf(attemptOf(db, review[0].attemptId).payload_json) : undefined;
+  if (reviewed && review[0]) inherited.push({ attemptId: review[0].attemptId, commits: reviewed });
+  // The work itself continues from what an earlier attempt of the same task left: its state is the last one merged.
+  const earlier = attempt.kind === "work" || attempt.kind === "act"
+    ? (db.prepare("SELECT id, payload_json AS payload FROM attempts WHERE task_id=? AND kind='work' AND working_copy IS NOT NULL AND candidate IS ? AND id != ? ORDER BY rowid DESC LIMIT 1").get(task.id, attempt.candidate, attempt.id) as { id: string; payload: string } | undefined)
     : undefined;
+  const own = earlier ? stateOf(earlier.payload) : undefined;
+  if (earlier && own) inherited.push({ attemptId: earlier.id, commits: own });
   const commits = baseCommits(db, taskOf(db, task.root_id), manifest);
   const tools: OfferTool[] = agent.tools.map((name) => {
     const tool = manifest.tools[name] as SnapshotManifest["tools"][string];
@@ -155,7 +166,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
   });
   const describe = (entries: Record<string, { description?: string; title?: string }>) => Object.entries(entries).map(([name, entry]) => ({ name, description: entry.description || entry.title || "" }));
 
-  const offered = [...inherited.map((patch) => patch.digest), ...(own ? [own] : []), ...review.flatMap((entry) => [...(entry.patch ? [entry.patch.digest] : []), ...entry.files.map((file) => file.digest)])];
+  const offered = [...review.flatMap((entry) => [...(entry.diff ? [entry.diff.digest] : []), ...entry.files.map((file) => file.digest)])];
   db.prepare("UPDATE attempts SET payload_json=? WHERE id=?").run(JSON.stringify({ ...payload, offered }), attempt.id);
   return {
     attemptId: attempt.id, fence: attempt.fence, kind: attempt.kind, workspaceId: attempt.workspace_id, offerExpiresAt: attempt.offer_expires_at_ms ?? 0,
@@ -166,7 +177,8 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
       name: attempt.agent, promptDigest: agent.prompt.digest, engines: agent.engine, native: agent.native,
       limits: { turns: agent.limits.turns, tokens: agent.limits.tokens, spendMicroUsd: microUsd(agent.limits.spend_usd) }, tools: agent.tools,
     },
-    tools, projects, inheritedPatches: inherited, ...(own ? { workingCopy: blob(db, own) } : {}),
+    tools, projects, inheritedStates: inherited,
+    ...(gov.store && manifest.projects.length > 0 ? { store: { url: gov.store.url, goalId: task.root_id, token: signStoreGrant({ workspaceId: attempt.workspace_id, goalId: task.root_id, attemptId: attempt.id, expiresAt: Math.floor(gov.clock.nowMs() / 1000) + STORE_TOKEN_SECONDS }, gov.store.privateKeyPem) } } : {}),
     model: { gatewayUrl: `${gov.gatewayUrl}/model/v1`, route: agent.model ?? routed?.name ?? "", contextTokens: routed?.context_tokens ?? MODEL_DEFAULTS.context_tokens, compactAt: routed?.compact_at ?? MODEL_DEFAULTS.compact_at },
     ...(payload.act ? { act: payload.act } : {}),
   };

@@ -61,9 +61,9 @@ async function runOutside(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: st
     await postTeams(gov, task.workspace_id, input["text"] as string);
     return { sent: true };
   }
-  const { patchDigest } = change;
-  if (patchDigest === undefined) throw new Error("a pull request call has no patch in its approval subject");
-  return { ...(await openPullRequest(gov, attempt, task, { project: input["project"] as string, title: input["title"] as string, body: input["body"] as string }, { ...change, patchDigest })) };
+  const { patchDigest, stateCommit } = change;
+  if (patchDigest === undefined || stateCommit === undefined) throw new Error("a pull request call has no diff and state commit in its approval subject");
+  return { ...(await openPullRequest(gov, attempt, task, { project: input["project"] as string, title: input["title"] as string, body: input["body"] as string }, { ...change, patchDigest, stateCommit })) };
 }
 
 const words = (e: unknown): string => {
@@ -110,17 +110,17 @@ export function runBrainTool(gov: Gov, attempt: AttemptRow, request: Omit<BrainT
       const known = db.prepare("SELECT outcome, output_json, approval_id FROM tool_calls WHERE id=?").get(rowId) as { outcome: ToolOutcome | "pending"; output_json: string | null; approval_id: string | null } | undefined;
       // A call the Governor already carried out is answered as it was; a runner that reported the call as held has not been answered yet.
       if (known && known.outcome !== "pending" && known.outcome !== "held") return answered(known.outcome, JSON.parse(known.output_json ?? "null") as JsonValue);
-      // Asked before: the approval stands for the input and the patch it was asked with.
+      // Asked before: the approval stands for the input and the state it was asked with.
       const asked = known !== undefined && known.approval_id !== null;
       try {
         const problem = asked ? undefined : inputProblem(tool.input_schema, request.input);
         if (problem) throw new ToolRefusal(`The input of ${request.tool} is not valid: ${problem}`);
-        const change = !asked && request.tool === "git.open-pr" ? pullRequestChange(gov, attempt, task, input["project"] as string, request.baseCommits) : fix ?? {};
+        const change = !asked && request.tool === "git.open-pr" ? pullRequestChange(gov, attempt, task, input["project"] as string, request.baseCommits, request.stateCommits) : fix ?? {};
         const decision = authorizeCall(gov, attempt, { callId: request.callId, tool: request.tool, effect: tool.effect, input: request.input, ...change });
         if (decision.state === "pending") return { state: "pending", approvalId: decision.approvalId as string };
         if (decision.state !== "approved") return { state: "rejected", reason: decision.reason ?? "The call was not approved" };
-        // What is opened is what was approved: the patch and the commit of the subject, whoever asks again and whenever.
-        if (request.tool === "git.open-pr" || request.tool === "message.send" || request.tool === "workspace.fix") return { change: { patchDigest: decision.subject?.patchDigest, baseCommit: decision.subject?.baseCommit } };
+        // What is opened is what was approved: the state and the commit of the subject, whoever asks again and whenever.
+        if (request.tool === "git.open-pr" || request.tool === "message.send" || request.tool === "workspace.fix") return { change: { patchDigest: decision.subject?.patchDigest, stateCommit: decision.subject?.stateCommit, baseCommit: decision.subject?.baseCommit } };
         // In a transaction of its own inside this one: a tool that fails half-way leaves nothing behind.
         return finish("succeeded", tx(db, () => runNow(gov, attempt, task, request.tool, input)));
       } catch (e) {

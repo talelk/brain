@@ -11,7 +11,7 @@ const OVERRIDE = `<style>.tname{font-size:16px} .sub{font-size:14.5px} .sub.sm{f
 module.exports = {
   id: "d01-architecture-brain", w: 1320, h: 1400,
   title: "Brain — Architecture détaillée",
-  desc: "Un Governor (API, app web, SQLite, journal d'audit chaîné) reçoit les personnes, GitHub et l'horloge ; des runners enrôlés prennent les tentatives, les exécutent dans des sandboxes Docker lancées par le launcher, derrière un proxy de sortie, et appellent les modèles par la passerelle du Governor.",
+  desc: "Un Governor (API, app web, SQLite, journal d'audit chaîné) reçoit les personnes, GitHub et l'horloge ; des runners enrôlés prennent les tentatives, les exécutent dans des sandboxes Docker lancées par le launcher, derrière un proxy de sortie, et appellent les modèles par la passerelle du Governor et se passent l'état du travail par un store git qui ne parle jamais au Governor.",
   build() {
     let s = STYLE + OVERRIDE;
 
@@ -62,23 +62,25 @@ module.exports = {
     // ---------- STOCKAGE ----------
     const sy = 554, cy = sy + 40, ch = 124;
     s += lane(16, sy, 1288, 222, "STOCKAGE");
-    s += cyl({ x: 48, y: cy, w: 150, h: ch, kind: "silver", name: "brain.db", sub: "SQLite", logo: "sqlite" });
-    s += cyl({ x: 248, y: cy, w: 150, h: ch, kind: "silver", name: "cas/", sub: "octets par contenu" });
-    s += cyl({ x: 448, y: cy, w: 150, h: ch, kind: "silver", name: "workspaces/", sub: "un dépôt git chacun", logo: "git" });
-    s += text(123, cy + ch + 20, "35 tables, plus celles", "sub sm", "middle") + text(123, cy + ch + 38, "de connexion (better-auth)", "sub sm", "middle");
-    s += text(323, cy + ch + 20, "patchs, fichiers,", "sub sm", "middle") + text(323, cy + ch + 38, "sorties d'attempts", "sub sm", "middle");
-    s += text(523, cy + ch + 20, "brain.toml · agents/", "sub sm", "middle") + text(523, cy + ch + 38, "tools/ · plays/ · memory/", "sub sm", "middle");
+    s += cyl({ x: 40, y: cy, w: 130, h: ch, kind: "silver", name: "brain.db", sub: "SQLite", logo: "sqlite" });
+    s += cyl({ x: 190, y: cy, w: 130, h: ch, kind: "silver", name: "cas/", sub: "octets par contenu" });
+    s += cyl({ x: 340, y: cy, w: 130, h: ch, kind: "silver", name: "workspaces/", sub: "un dépôt git chacun", logo: "git" });
+    s += cyl({ x: 490, y: cy, w: 130, h: ch, kind: "silver", name: "store/", sub: "service à part", logo: "git" });
+    s += text(105, cy + ch + 20, "35 tables, plus celles", "sub sm", "middle") + text(105, cy + ch + 38, "de connexion", "sub sm", "middle");
+    s += text(255, cy + ch + 20, "patchs, fichiers,", "sub sm", "middle") + text(255, cy + ch + 38, "sorties d'attempts", "sub sm", "middle");
+    s += text(405, cy + ch + 20, "brain.toml, agents/,", "sub sm", "middle") + text(405, cy + ch + 38, "tools/, plays/, memory/", "sub sm", "middle");
+    s += text(555, cy + ch + 20, "états des tentatives,", "sub sm", "middle") + text(555, cy + ch + 38, "hors du Governor", "sub sm", "middle");
     s += bcard({ x: 660, y: cy, w: 310, h: ch, stage: "UNE SEULE CHAÎNE", name: "Journal d'audit", sub: ["chaque changement d'état,", "même transaction, hash chaîné,", "points de contrôle signés"], cls: "blue" });
     s += bcard({ x: 990, y: cy, w: 296, h: ch, stage: "CLÉS", name: "instance.key · audit/", sub: ["chiffre les secrets,", "signe le journal"], cls: "orange" });
     s += badge("§3", 664 + 306 - 6 - 6, cy + 8);
-    [123, 323, 523].forEach((x) => { s += edge([[x, 542], [x, cy]], "data", undefined, 0, 0, { both: true }); });
+    [105, 255, 405].forEach((x) => { s += edge([[x, 542], [x, cy]], "data", undefined, 0, 0, { both: true }); });
     s += text(540, 572, "lit · écrit", "sub sm");
 
     // ---------- EXÉCUTION ----------
     const dy = 788, d1 = dy + 40, d2 = dy + 162;
     s += lane(16, dy, 1288, 276, "EXÉCUTION · SUR LES MACHINES DES RUNNERS");
     const D1 = [
-      [null, "DISQUE DU RUNNER", "Copies de travail", ["miroir git, une copie par", "tentative, patch à la fin"], "", "§8"],
+      [null, "DISQUE DU RUNNER", "Copies de travail", ["une copie par tentative,", "état poussé au store"], "", "§8"],
       [null, "HÔTE", "Commandes hôte", ["liste fermée du launcher,", "approbation requise"], "orange", "§7"],
       ["docker", "SEUL ACCÈS À DOCKER", "Launcher", ["socket et jeton,", "lance les sandboxes"], "orange", ""],
       ["runner", "SE CONNECTE EN SORTANT", "Runner", ["enrôlé (ed25519), slots,", "reçu signé par tentative"], "green", "§6"],
@@ -112,7 +114,7 @@ module.exports = {
     s += lane(16, py, 1288, 112, "DÉPLOIEMENT · HÔTE DE DÉMO");
     s += bchip({ x: X(0), y: p1, w: W, logo: "nginx", name: "nginx", sub: "TLS, brain.mykeyrus.tn" });
     s += bchip({ x: X(1), y: p1, w: W, logo: "docker", name: "Governor en conteneur", sub: "compose, /health/ready" });
-    s += bchip({ x: X(2), y: p1, w: W, logo: "linux", name: "Launcher et runner", sub: "services systemd de l'hôte" });
+    s += bchip({ x: X(2), y: p1, w: W, logo: "linux", name: "Launcher, store, runner", sub: "services systemd de l'hôte" });
     s += bchip({ x: X(3), y: p1, w: W, logo: "backup", name: "Sauvegarde", sub: "archive tar.gz, minuterie" });
     s += edge([[X(0) + W, p1 + 29], [X(1), p1 + 29]], "data");
 

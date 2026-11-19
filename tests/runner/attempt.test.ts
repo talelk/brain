@@ -1,10 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { BlobRef, OfferProject } from "@brain/contracts";
+import type { OfferProject } from "@brain/contracts";
 import { describe, expect, it } from "vitest";
 import { GovernorClient } from "../../apps/runner/src/governor-client";
 import { Runner } from "../../apps/runner/src/runner";
-import { buildPatch, parsePatch } from "../../apps/runner/src/working-copy";
 import { bareRepository, tempDir } from "./git-repo";
 import { ECHO_SCRIPT, markerScript, runnerWorld } from "./world";
 
@@ -85,16 +84,16 @@ describe("a work attempt", () => {
     expect(done.usage.inputTokens).toBeGreaterThan(0);
     expect(gov.acks.get(offer.attemptId)).toBe("fixture");
 
-    // The patch: one container, re-appliable per project, with the new and the deleted file and without the ignored one the setup command left.
+    // The diff, to read: one container for all projects, with the new and the deleted file and without the ignored one the setup command left.
     const patch = gov.artifacts.find((artifact) => artifact.kind === "patch")!;
     expect(done.workingCopy).toEqual({ digest: patch.digest, bytes: patch.bytes.length });
-    const [section] = parsePatch(patch.bytes);
-    expect(section!.project).toBe("app");
     expect(patch.mediaType).toBe("text/x-diff");
-    expect(text(section!.diff)).toContain("diff --git a/app/src/new.txt b/app/src/new.txt\nnew file mode");
-    expect(text(section!.diff)).toContain("+added in round 1");
-    expect(text(section!.diff)).toContain("deleted file mode");
-    expect(text(section!.diff)).not.toContain("setup.log");
+    expect(text(patch.bytes)).toContain("diff --git a/app/src/new.txt b/app/src/new.txt\nnew file mode");
+    expect(text(patch.bytes)).toContain("+added in round 1");
+    expect(text(patch.bytes)).toContain("deleted file mode");
+    expect(text(patch.bytes)).not.toContain("setup.log");
+    // What it left is also pushed to the git store, whole, as a commit of its own.
+    expect(Object.keys(done.stateCommits)).toEqual(["app"]);
     expect(gov.artifacts.filter((artifact) => artifact.kind === "output").map((artifact) => [artifact.name, artifact.mediaType, text(artifact.bytes)])).toEqual([["report.md", "text/markdown", "# Report\nDone."]]);
 
     // The record: every native call and every workspace or Brain-run call, in order, with one sequence.
@@ -105,45 +104,47 @@ describe("a work attempt", () => {
     expect(gov.eventsOf(offer.attemptId, "native.result")[0]).toMatchObject({ ok: true, output: "installed\n" });
     expect(gov.eventsOf(offer.attemptId, "tool.call").map((event) => [event.tool, event.effect, event.input])).toEqual([["echo.back", "read", { n: 1 }], ["task.note", "read", { text: "added the feature" }]]);
     expect(gov.eventsOf(offer.attemptId, "tool.result").map((event) => [event.outcome, event.output])).toEqual([["succeeded", { echo: { n: 1 } }], ["succeeded", { id: "note-1" }]]);
-    expect(gov.brainCalls).toEqual([{ fence: 1, callId: `${offer.attemptId}-call-2`, tool: "task.note", input: { text: "added the feature" }, baseCommits: done.baseCommits }]);
+    expect(gov.brainCalls).toEqual([{ fence: 1, callId: `${offer.attemptId}-call-2`, tool: "task.note", input: { text: "added the feature" }, baseCommits: done.baseCommits, stateCommits: expect.any(Object) }]);
     expect(gov.eventsOf(offer.attemptId, "usage").at(-1)).toMatchObject(done.usage);
     // Nothing of the attempt stays on the runner but the mirror.
     expect(existsSync(join(stateDir, "attempts", offer.attemptId))).toBe(false);
     expect(existsSync(join(stateDir, "repos", "ws1", "app.git"))).toBe(true);
   });
 
-  it("starts from the patches of the tasks it waits for, and leaves a patch of its own changes only", async () => {
+  it("starts from the states of the tasks it waits for, and leaves a patch of its own changes only", async () => {
     const { gov, runner } = await runnerWorld();
     const origin = bareRepository({ "a.txt": "a\n" });
-    const patchOf = async (goal: string, inherited: BlobRef[] = []): Promise<BlobRef> => {
-      const offer = gov.offer({ agent: { native: "all" }, projects: [project(origin.repo)], inheritedPatches: inherited, task: { goal } });
+    /** One task's attempt: what it leaves is its patch and the state it pushed to the git store. */
+    const stateOf = async (goal: string, inherited: Array<{ attemptId: string; commits: Readonly<Record<string, string>> }> = []) => {
+      const offer = gov.offer({ agent: { native: "all" }, projects: [project(origin.repo)], inheritedStates: inherited, task: { goal } });
       await runner.runOnce();
-      return gov.completions.get(offer.attemptId)!.workingCopy!;
+      const done = gov.completions.get(offer.attemptId)!;
+      return { patch: done.workingCopy!, state: { attemptId: offer.attemptId, commits: done.stateCommits } };
     };
-    const first = await patchOf("FIXTURE write app/first.txt first\\n");
-    const second = await patchOf("FIXTURE write app/second.txt second\\n");
-    const own = await patchOf("FIXTURE read app/first.txt\nFIXTURE write app/own.txt own\\n", [first, second]);
-    // The task's patch names its own file and neither of the files it inherited.
-    const files = text(gov.blobs.get(own.digest)!);
-    expect(files).toContain("b/app/own.txt");
-    expect(files).not.toContain("first.txt");
-    expect(files).not.toContain("second.txt");
-    const offer = gov.offer({ agent: { native: "read" }, projects: [project(origin.repo, { baseCommit: origin.head() })], inheritedPatches: [first, second], workingCopy: own, task: { goal: "FIXTURE read app/first.txt\nFIXTURE read app/second.txt\nFIXTURE read app/own.txt\nFIXTURE reply %last%" } });
+    const first = await stateOf("FIXTURE write app/first.txt first\\n");
+    const second = await stateOf("FIXTURE write app/second.txt second\\n");
+    const own = await stateOf("FIXTURE read app/first.txt\nFIXTURE write app/own.txt own\\n", [first.state, second.state]);
+    // The diff shows everything the working copy holds beside the base commit: what it inherited and its own file.
+    const files = text(gov.blobs.get(own.patch.digest)!);
+    for (const name of ["first.txt", "second.txt", "own.txt"]) expect(files).toContain(`b/app/${name}`);
+    // A later attempt of the task starts from its own earlier state, which holds the ones before it.
+    const offer = gov.offer({ agent: { native: "read" }, projects: [project(origin.repo, { baseCommit: origin.head() })], inheritedStates: [first.state, second.state, own.state], task: { goal: "FIXTURE read app/first.txt\nFIXTURE read app/second.txt\nFIXTURE read app/own.txt\nFIXTURE reply %last%" } });
     await runner.runOnce();
     const done = gov.completions.get(offer.attemptId)!;
     expect(done).toMatchObject({ outcome: "succeeded", result: "own\n", baseCommits: { app: origin.head() } });
     expect(gov.eventsOf(offer.attemptId, "native.result").map((event) => event.output)).toEqual(["first\n", "second\n", "own\n"]);
-    // An agent that cannot write leaves the working copy as it found it: the same patch.
-    expect(done.workingCopy).toEqual(own);
+    // An agent that cannot write leaves the working copy as it found it: the same diff, and a state that carries the task's earlier changes on.
+    expect(done.workingCopy).toEqual(own.patch);
+    expect(Object.keys(done.stateCommits)).toEqual(["app"]);
   });
 
-  it("fails in setup, naming the paths, when a patch does not apply", async () => {
+  it("fails in setup, naming the paths, when two states do not merge", async () => {
     const { gov, runner } = await runnerWorld();
     const origin = bareRepository({ "a.txt": "one\n" });
-    const patchOf = async (content: string) => { const offer = gov.offer({ agent: { native: "all" }, projects: [project(origin.repo)], task: { goal: `FIXTURE write app/a.txt ${content}\\n` } }); await runner.runOnce(); return gov.completions.get(offer.attemptId)!.workingCopy!; };
-    const offer = gov.offer({ projects: [project(origin.repo)], inheritedPatches: [await patchOf("left"), await patchOf("right")] });
+    const stateOf = async (content: string) => { const offer = gov.offer({ agent: { native: "all" }, projects: [project(origin.repo)], task: { goal: `FIXTURE write app/a.txt ${content}\\n` } }); await runner.runOnce(); return { attemptId: offer.attemptId, commits: gov.completions.get(offer.attemptId)!.stateCommits }; };
+    const offer = gov.offer({ projects: [project(origin.repo)], inheritedStates: [await stateOf("left"), await stateOf("right")] });
     await runner.runOnce();
-    expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "failed", failure: { reason: "setup", infrastructure: false, detail: "the changes of prerequisite 2 of 2 do not apply to project app: conflict in a.txt" }, baseCommits: {} });
+    expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "failed", failure: { reason: "setup", infrastructure: false, detail: "the changes of the tasks this one waits for do not merge in project app: conflict in a.txt" }, baseCommits: {} });
   });
 
   it("carries on when the project's setup command fails, telling the agent and recording it", async () => {
@@ -196,7 +197,7 @@ describe("calls with an effect", () => {
     const { gov, runner, stateDir } = await runnerWorld();
     const offer = gov.offer({ tools: tools(gov, stateDir), task: { goal } });
     await runner.runOnce();
-    expect(gov.toolCalls).toEqual([{ fence: 1, callId: `${offer.attemptId}-call-1`, tool: "deploy.restart", input: { container: "web" }, baseCommits: {} }]);
+    expect(gov.toolCalls).toEqual([{ fence: 1, callId: `${offer.attemptId}-call-1`, tool: "deploy.restart", input: { container: "web" }, baseCommits: {}, stateCommits: {} }]);
     expect(existsSync(join(stateDir, "restarted"))).toBe(true);
     expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "succeeded", result: 'The tool answered: {"done":true}' });
   });
@@ -276,11 +277,11 @@ describe("plan, check and judge attempts", () => {
   it("gives a checker the result, its tool calls and the patch as a file, and returns a verdict that depends on the round", async () => {
     const { gov, runner } = await runnerWorld();
     const diff = "diff --git a/app/a.txt b/app/a.txt\n--- a/app/a.txt\n+++ b/app/a.txt\n@@ -1 +1 @@\n-a\n+b\n";
-    const patch = gov.blob(buildPatch([{ project: "app", diff: new Uint8Array(Buffer.from(diff)) }]));
+    const patch = gov.blob(diff);
     const check = (round: number) => gov.offer({
       kind: "check", agent: { name: "reviewer", native: "read" }, prompt: "# Reviewer\nFIXTURE read .brain/attempt-work.patch",
       task: { round, goal: 'Change a to b.\nFIXTURE @work write app/a.txt b\nFIXTURE @check #1 json {"pass": false, "score": 0.3, "findings": "no test"}\nFIXTURE @check #2+ json {"pass": true, "score": 0.9, "findings": "tested"}' },
-      context: { review: [{ attemptId: "attempt-work", agent: "developer", result: "Changed a to b.", toolCalls: [], files: [], patch }] },
+      context: { review: [{ attemptId: "attempt-work", agent: "developer", result: "Changed a to b.", toolCalls: [], files: [], diff: patch }] },
     });
     const first = check(1);
     const second = check(2);

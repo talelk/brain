@@ -7,6 +7,6 @@
       "@brain/contracts": ["./packages/contracts/src/index.ts"]
     }
   },
-  "include": ["packages/contracts/src", "apps/governor/src", "apps/governor/scripts", "apps/runner/src", "apps/launcher/src", "tests", "scripts/*.ts", "vitest.config.ts", "playwright.config.ts"],
+  "include": ["packages/contracts/src", "apps/governor/src", "apps/governor/scripts", "apps/runner/src", "apps/launcher/src", "apps/store/src", "tests", "scripts/*.ts", "vitest.config.ts", "playwright.config.ts"],
   "exclude": ["node_modules", "**/dist"]
 }

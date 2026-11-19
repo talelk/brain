@@ -205,6 +205,7 @@ export const fr: Catalog = {
   "approval.bound.input": "Les entrées",
   "approval.bound.workspace": "Les fichiers de l'espace de travail",
   "approval.bound.patch": "Le diff",
+  "approval.bound.state": "Le commit qui devient la branche",
 
   "tasks.text": "Tous les objectifs de cet espace de travail, du plus récent au plus ancien.",
   "tasks.new": "Nouvel objectif",

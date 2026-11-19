@@ -25,11 +25,12 @@ import { registerInsights } from "./tasks/insights";
 import { registerOverview } from "./tasks/overview";
 import { registerTriggers } from "./tasks/triggers";
 import { registerApprovals } from "./trust/approvals";
+import { registerRetention } from "./trust/retention";
 import { readableLink, readArtifact } from "./trust/artifacts";
 import { readCapped } from "./body-limit";
 import { checkpoint, ensureAuditKey } from "./trust/audit";
 import { registerTrust } from "./trust/handlers";
-import { instanceKeys } from "./trust/secrets";
+import { instanceKeys, storeKey } from "./trust/secrets";
 import { registerUsage } from "./trust/usage";
 import { registerWorkspace } from "./workspace/handlers";
 import { registerPacks, restoreReleases } from "./workspace/packs";
@@ -41,6 +42,8 @@ export interface GovernorOptions {
   readonly baseUrl?: string;
   /** The address engines reach the Governor at for the model gateway, when it is not `baseUrl` (a sandbox reaches the host by another name). */
   readonly gatewayUrl?: string;
+  /** The address runners reach the git store at (`BRAIN_STORE_URL`). */
+  readonly storeUrl?: string;
   readonly packsDir?: string;
   readonly webDist?: string;
   /** Where to leave a one-use runner token while no runner is enrolled (`BRAIN_LOCAL_RUNNER_TOKEN_FILE`): the bundled runner enrols with it, without a person. */
@@ -118,7 +121,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   const db = openDb(dataDir);
   const keys = instanceKeys(dataDir);
   const gov: Gov = {
-    db, dataDir, baseUrl, gatewayUrl: (options.gatewayUrl ?? baseUrl).replace(/\/+$/u, ""), keys, packsDir: resolve(options.packsDir ?? repo("packs")), clock: options.clock ?? systemClock, fetch: options.fetch ?? ((input, init) => fetch(input, init)),
+    db, dataDir, baseUrl, gatewayUrl: (options.gatewayUrl ?? baseUrl).replace(/\/+$/u, ""), keys, ...(options.storeUrl ? { store: { url: options.storeUrl.replace(/\/+$/u, ""), privateKeyPem: storeKey(dataDir) } } : {}), packsDir: resolve(options.packsDir ?? repo("packs")), clock: options.clock ?? systemClock, fetch: options.fetch ?? ((input, init) => fetch(input, init)),
     auth: createAuth(db, { secret: hmacSha256Hex(keys.digests, Buffer.from("better-auth")), baseUrl }), registry: new Registry(), onActivate: [], onSignedOut: [],
   };
   const app = new Hono();
@@ -229,7 +232,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   });
 
   // Each module registers its commands, queries, routes and timers here, before the web app's catch-all route below.
-  for (const register of [registerAuth, registerUsers, registerWorkspace, registerPacks, registerTrust, registerUsage, registerApprovals, registerMemory, registerTriggers, registerTasks, registerOverview, registerInsights, registerRunners, registerAttempts, registerGateway, registerGithub, registerTeams, registerHealth]) register(governor);
+  for (const register of [registerAuth, registerUsers, registerWorkspace, registerPacks, registerTrust, registerUsage, registerApprovals, registerRetention, registerMemory, registerTriggers, registerTasks, registerOverview, registerInsights, registerRunners, registerAttempts, registerGateway, registerGithub, registerTeams, registerHealth]) register(governor);
   governor.every(15 * 60_000, () => void checkpoint(gov));
 
   ensureAuditKey(gov);

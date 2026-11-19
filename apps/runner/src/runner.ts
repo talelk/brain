@@ -1,6 +1,7 @@
 import type { RunnerState } from "@brain/contracts";
 import { join } from "node:path";
 import { type AttemptContext, runAttempt } from "./attempt";
+import { sweepCaches } from "./cache";
 import type { RunnerConfig } from "./config";
 import type { AbortCause } from "./engines/run";
 import { ENGINE_SANDBOX_IMAGE } from "./engines/sandboxed";
@@ -42,6 +43,7 @@ export class Outage {
 export const RUNNER_VERSION = "brain-runner/0.1.0";
 /** The capability a runner states itself, never the operator: an agent's native tools can run here. */
 const NATIVE_TOOLS = "native-tools";
+const SWEEP_EVERY_MS = 6 * 3_600_000;
 
 /**
  * A runner: one enrolled identity, its session with the Governor, and the attempts it runs. `Runner.connect` enrols on the first start
@@ -53,6 +55,7 @@ export class Runner {
   private readonly running = new Map<string, AbortController>();
   private sessionExpiresAt = 0;
   private heartbeatMs = 15_000;
+  private sweptAt = 0;
   private sandboxAvailable = false;
   private readonly outage: Outage;
   private readonly failedAttempts = new WeakMap<object, string>();
@@ -110,6 +113,8 @@ export class Runner {
 
   /** One heartbeat: what the runner is and runs; the attempts the Governor names in its answer are stopped. */
   async heartbeat(): Promise<void> {
+    // What the runner keeps between attempts is a cache, forgotten after a week, and only while nothing runs.
+    if (this.running.size === 0 && Date.now() - this.sweptAt > SWEEP_EVERY_MS) { this.sweptAt = Date.now(); sweepCaches(this.cfg.stateDir); }
     // The session is renewed well before it ends, so no request of a running attempt meets an expired token.
     if (Date.now() > this.sessionExpiresAt - Math.max(60_000, this.heartbeatMs * 3)) await this.hello();
     const answer = await this.client.heartbeat({ ...(await this.state()), running: [...this.running.keys()] });

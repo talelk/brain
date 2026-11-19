@@ -110,7 +110,7 @@ export interface JobOffer {
     /** What the workspace holds, by name and description. A planner assigns sub-tasks to `catalog.agents`. */
     readonly catalog: { readonly agents: ReadonlyArray<CatalogEntry>; readonly tools: ReadonlyArray<CatalogEntry>; readonly plays: ReadonlyArray<CatalogEntry> };
     /** For `check`: what is checked. For `judge`: one entry per candidate. */
-    readonly review?: ReadonlyArray<{ readonly attemptId: string; readonly agent: string; readonly result: string; readonly output?: JsonValue; readonly toolCalls: ReadonlyArray<OfferToolCall>; readonly patch?: BlobRef; /** The files the reviewed attempt kept as results (its `out/`), so a check can read what it checks. */ readonly files: ReadonlyArray<BlobRef & { readonly name: string }> }>;
+    readonly review?: ReadonlyArray<{ readonly attemptId: string; readonly agent: string; readonly result: string; readonly output?: JsonValue; readonly toolCalls: ReadonlyArray<OfferToolCall>; /** What the reviewed attempt changed, as a diff to read (the attempt's `working-copy.patch`). */ readonly diff?: BlobRef; /** The files the reviewed attempt kept as results (its `out/`), so a check can read what it checks. */ readonly files: ReadonlyArray<BlobRef & { readonly name: string }> }>;
   };
   readonly snapshotDigest: Digest;
   readonly agent: {
@@ -124,13 +124,15 @@ export interface JobOffer {
   readonly tools: ReadonlyArray<OfferTool>;
   readonly projects: ReadonlyArray<OfferProject>;
   /**
-   * The working-copy patches of every task this one waits for, directly or through another, oldest first and each once. A patch holds only
-   * what its own task changed on top of the patches before it, so they apply in this order on each project's base commit. A `check` attempt
-   * is also given, last, the patch of the result it checks.
+   * The state commits this attempt starts from, oldest first and each once: those of every task this one waits for, directly or through another,
+   * then the task's own earlier attempt, if it has one. A `check` attempt is given, last, the state of the result it checks. Each names the attempt
+   * that pushed it and its commit of each project. A commit holds what the ones before it did, so merging them in this order on each project's
+   * base commit gives where the work starts. The runner fetches `refs/brain/<goal>/<commit>` from the store and refuses a ref that does not
+   * point at the commit named here.
    */
-  readonly inheritedPatches: ReadonlyArray<BlobRef>;
-  /** The patch an earlier attempt of this task left, applied after `inheritedPatches`. */
-  readonly workingCopy?: BlobRef;
+  readonly inheritedStates: ReadonlyArray<{ readonly attemptId: string; readonly commits: Readonly<Record<string, string>> }>;
+  /** The git store this attempt fetches those commits from and pushes its own to; absent when the Governor has none. */
+  readonly store?: { readonly url: string; readonly token: string; readonly goalId: string };
   /** The model route the attempt calls, with its context window and the share of it at which a long conversation is compacted. */
   readonly model: { readonly gatewayUrl: string; readonly route: string; readonly contextTokens: number; readonly compactAt: number };
   /** For `act`: the approved call to run, and nothing else. */
@@ -159,8 +161,12 @@ export interface EventsResponse { readonly through: number }
 export interface ArtifactUpload extends Fenced { readonly name: string; readonly kind: "patch" | "output" | "log"; readonly mediaType: string }
 export type ArtifactUploadResponse = BlobRef;
 
-/** A call an attempt makes. `baseCommits` are the commits its working copy stands on, by project; a runner always sends them. */
-export interface CallRequest extends Fenced { readonly callId: string; readonly tool: string; readonly input: JsonValue; readonly baseCommits?: Readonly<Record<string, string>> }
+/**
+ * A call an attempt makes. `baseCommits` are the commits its working copy stands on, by project; a runner always sends them. `stateCommits` are the
+ * commits of what it has changed so far, by project (only the projects that changed), already pushed to the git store: a runner sends them before a call
+ * with an effect, and a pull request is opened from them.
+ */
+export interface CallRequest extends Fenced { readonly callId: string; readonly tool: string; readonly input: JsonValue; readonly baseCommits?: Readonly<Record<string, string>>; readonly stateCommits?: Readonly<Record<string, string>> }
 /** Asks to run a workspace tool that has an effect. `approved` may run now; `pending` is polled on `approvals/:approvalId`. */
 export type ToolCallRequest = CallRequest;
 export type ApprovalState = "pending" | "approved" | "rejected" | "expired";
@@ -202,12 +208,14 @@ export interface CompleteRequest extends Fenced {
   readonly usage: AttemptUsage;
   readonly engine: string;
   /**
-   * What this attempt's task changed in the working copy, on top of `inheritedPatches`: `git diff` of every project, uploaded through
-   * `artifacts` with kind `patch`. Before a call to `git.open-pr` the runner uploads the same (name `working-copy.patch`); the newest such
-   * upload of the attempt is the change the pull request's approval is bound to.
+   * What the working copy holds beside each project's base commit, as a diff to read: `git diff` of every project, uploaded through `artifacts`
+   * with kind `patch` (name `working-copy.patch`). It is for people and never rebuilds work: the state commits do. Before a call with an effect
+   * the runner uploads it again with the state it pushes; the newest upload of the attempt is the one an approval shows.
    */
   readonly workingCopy?: BlobRef;
   readonly baseCommits: Readonly<Record<string, string>>;
+  /** The commit of each project the attempt pushed to the store (its whole state); empty when nothing differs from the base commits. */
+  readonly stateCommits: Readonly<Record<string, string>>;
   readonly receipt: SignedRunReceipt;
 }
 export interface CompleteResponse { readonly accepted: true }

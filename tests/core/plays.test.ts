@@ -6,6 +6,8 @@ import { runSchedules } from "../../apps/governor/src/tasks/triggers";
 import { bareRepository, git, writeFiles } from "../runner/git-repo";
 import { enrolRunner, type Driver, type Turn } from "./driver";
 import { startGitServer, type GitServer } from "./git-server";
+import type { Store } from "../../apps/store/src/store";
+import { pushState, startCoreStore } from "./store";
 import { createHarness, type Client, type Harness } from "./harness";
 import { fail, getTask, pass, states, step, testClock } from "./work";
 
@@ -15,6 +17,7 @@ const teams: string[] = [];
 const origin = bareRepository({ "src/login.js": "export const login = (user) => user.name;\n" });
 let harness: Harness;
 let server: GitServer;
+let store: Store & { readonly port: number };
 let member: Client;
 let driver: Driver;
 
@@ -32,8 +35,8 @@ const approvePending = async (workspaceId: string): Promise<Approval> => {
   return approval as Approval;
 };
 /** Calls a Brain-run tool that needs an approval the way a runner does: ask, wait for the person, ask again. */
-const approved = async ({ post, offer }: Turn, tool: string, input: object): Promise<BrainToolResponse> => {
-  const call = { callId: `${tool}-${offer.task.round}`, tool, input };
+const approved = async ({ post, offer }: Turn, tool: string, input: object, stateCommits: Record<string, string> = {}): Promise<BrainToolResponse> => {
+  const call = { callId: `${tool}-${offer.task.round}`, tool, input, stateCommits };
   const asked = await post<BrainToolResponse>("brain-tool", call);
   if (asked.state !== "pending") return asked;
   await approvePending(offer.workspaceId);
@@ -42,8 +45,9 @@ const approved = async ({ post, offer }: Turn, tool: string, input: object): Pro
 
 beforeAll(async () => {
   server = await startGitServer(dirname(origin.repo));
+  store = await startCoreStore(() => harness);
   harness = await createHarness({
-    clock, packsDir: fileURLToPath(new URL("../../packs", import.meta.url)),
+    clock, packsDir: fileURLToPath(new URL("../../packs", import.meta.url)), storeUrl: `http://127.0.0.1:${store.port}`,
     fetch: (input, init) => { if (!String(input).startsWith("https://teams.example/")) return fetch(input, init); teams.push(String(init?.body)); return Promise.resolve(new Response("1")); },
   });
   driver = await enrolRunner(harness);
@@ -51,6 +55,7 @@ beforeAll(async () => {
 afterAll(async () => {
   harness.close();
   await server.close();
+  await store.close();
 });
 
 describe("the shipped Plays", () => {
@@ -62,13 +67,17 @@ describe("the shipped Plays", () => {
     driver.script({
       analyst: ({ offer }) => { expect(offer.task.goal).toContain("Issue: Login crashes without a user"); return "src/login.js line 1 reads user.name without a guard."; },
       checker: () => pass(),
-      developer: ({ offer }) => {
+      developer: async ({ offer }) => {
         expect(offer.context.results.map((result) => result.title)).toEqual(["investigate"]);
-        return { result: `Guarded the read (round ${offer.task.round}). Ran the tests: they pass.`, patch, baseCommits: { shop: origin.head() } };
+        // What its runner would push to the git store: the project with the guard in it.
+        const state = await pushState(harness, store, { workspaceId, project: "shop", goalId: offer.store!.goalId, attemptId: offer.attemptId, repo: origin.repo }, { "src/login.js": "export const login = (user) => user?.name ?? null;\n" }, origin.head());
+        return { result: `Guarded the read (round ${offer.task.round}). Ran the tests: they pass.`, patch, baseCommits: { shop: origin.head() }, stateCommits: { shop: state } };
       },
       reviewer: ({ offer }) => (offer.task.round === 1 ? fail("No test covers the missing user.", 0.5) : pass("The guard is tested.")),
       "release-manager": async (turn) => {
-        const opened = await approved(turn, "git.open-pr", { project: "shop", title: "Guard login against a missing user", body: "Fixes the crash; the tests pass." });
+        // The release changed nothing itself: its runner shows the whole working copy and pushes the state it started from.
+        await turn.upload("working-copy.patch", patch, "patch");
+        const opened = await approved(turn, "git.open-pr", { project: "shop", title: "Guard login against a missing user", body: "Fixes the crash; the tests pass." }, turn.offer.inheritedStates.at(-1)?.commits ?? {});
         return opened.state === "done" ? `Opened ${(opened.output as { url: string }).url}` : JSON.stringify(opened);
       },
     });
@@ -76,7 +85,7 @@ describe("the shipped Plays", () => {
     const offers = await driver.drain();
     expect(offers.map((offer) => `${offer.kind}:${offer.agent.name}`)).toEqual(["work:analyst", "check:checker", "work:developer", "check:reviewer", "work:developer", "check:reviewer", "work:release-manager", "check:checker"]);
     // The second round of the change continues from the first round's working copy; the release starts from the reviewed change.
-    expect([offers[4]?.workingCopy?.digest, offers[6]?.inheritedPatches.length]).toEqual([offers[3]?.context.review?.[0]?.patch?.digest, 1]);
+    expect([offers[4]?.inheritedStates.at(-1)?.attemptId, offers[6]?.inheritedStates.length]).toEqual([offers[3]?.context.review?.[0]?.attemptId, 1]);
     const waiting = await getTask(member, workspaceId, taskId);
     const release = step(waiting, "release");
     expect(release).toMatchObject({ state: "needs_you", needs: { kind: "sign-off" } });

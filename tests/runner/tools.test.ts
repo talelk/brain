@@ -13,7 +13,7 @@ const SCHEMA = { type: "object", properties: { container: { type: "string" }, li
 
 describe("tool input validation", () => {
   const tool = { name: "host.logs", inputSchema: SCHEMA } as unknown as OfferTool;
-  const calls = new ToolCalls({ offer: {} as JobOffer, client: {} as never, launcher: undefined, attemptDir: "", emit: () => undefined, syncPatch: async () => undefined, baseCommits: () => ({}), leaseLost: () => undefined, unsandboxedForTests: false, signal: new AbortController().signal });
+  const calls = new ToolCalls({ offer: {} as JobOffer, client: {} as never, launcher: undefined, attemptDir: "", emit: () => undefined, syncState: async () => undefined, baseCommits: () => ({}), stateCommits: () => ({}), leaseLost: () => undefined, unsandboxedForTests: false, signal: new AbortController().signal });
 
   it("accepts an input that fits the tool's inputs", () => {
     expect(calls.inputProblem(tool, { container: "web", lines: 100, mode: "fast", tags: ["a"] })).toBeUndefined();
@@ -129,7 +129,7 @@ describe("the task text", () => {
         results: [{ taskId: "t0", title: "Investigate", result: "The cause is a typo." }], notes: [{ author: "analyst", text: "Look at line 3.", at: 1 }],
         answers: [{ question: "Which branch?", answer: "main", by: "talel", at: 2 }],
         catalog: { agents: [{ name: "worker", description: "Does the work." }], tools: [{ name: "task.note", description: "Writes a note." }], plays: [{ name: "fix-issue", description: "Fixes an issue." }] },
-        review: [{ attemptId: "attempt-9", agent: "developer", result: "Fixed it.", toolCalls: [{ tool: "task.note", effect: "read", input: { text: "done" }, output: { id: "n1" }, outcome: "succeeded" }], files: [], patch: { digest: "sha256:x", bytes: 1 } }],
+        review: [{ attemptId: "attempt-9", agent: "developer", result: "Fixed it.", toolCalls: [{ tool: "task.note", effect: "read", input: { text: "done" }, output: { id: "n1" }, outcome: "succeeded" }], files: [], diff: { digest: "sha256:x", bytes: 1 } }],
       },
     });
     const text = composeTask(offer, { work: "/work", out: "/out" }, new Map([["attempt-9", { path: "/work/.brain/attempt-9.patch" }]]));

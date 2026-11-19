@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   resultDigest, signReceipt,
   type ApprovalPollResponse, type AttemptEventBody, type AttemptFailure, type AttemptUsage, type BlobRef, type BrainToolResponse, type ClaimResponse, type CompleteRequest, type HeartbeatResponse, type HelloResponse,
@@ -21,6 +22,8 @@ export interface Reply {
   /** Files the attempt keeps as results (its `out/`), by name. */
   readonly files?: Readonly<Record<string, string>>;
   readonly baseCommits?: Readonly<Record<string, string>>;
+  /** The commit of each project the attempt pushed to the git store; by default a runner that left a patch is taken to have pushed one commit per project. */
+  readonly stateCommits?: Readonly<Record<string, string>>;
 }
 /** What a script is given for one attempt: the offer, and the calls an engine's tools would make. */
 export interface Turn {
@@ -109,7 +112,10 @@ export async function enrolRunner(harness: Harness, script: Script = {}, options
       const body: CompleteRequest = {
         fence, outcome: reply.outcome ?? "succeeded", result, ...(reply.output !== undefined ? { output: reply.output } : {}), ...(reply.failure ? { failure: reply.failure } : {}),
         usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0, ...reply.usage }, engine: offer.agent.engines[0] ?? "fixture", ...(workingCopy ? { workingCopy } : {}),
-        baseCommits: reply.baseCommits ?? {}, receipt: { receipt, signature: signReceipt(receipt, privateKeyPem) },
+        baseCommits: reply.baseCommits ?? {},
+        // A runner that left a patch also pushed its state to the git store: one commit per project.
+        stateCommits: reply.stateCommits ?? (workingCopy ? Object.fromEntries(offer.projects.map((project) => [project.name, createHash("sha1").update(`${offer.attemptId}:${project.name}`).digest("hex")])) : {}),
+        receipt: { receipt, signature: signReceipt(receipt, privateKeyPem) },
       };
       return fetch(at(offer, "complete"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     },
