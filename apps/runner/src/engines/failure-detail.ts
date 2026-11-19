@@ -13,6 +13,8 @@ const CAUSES: ReadonlyArray<readonly [RegExp, string]> = [
   [/not valid json|invalid json|required json/iu, "answer format"],
   [/tool [\w.-]+ (?:failed|is not allowed|refused|error)|tool (?:call|input|execution)\b/iu, "tool error"],
   [QUOTA_TEXT, QUOTA_CAUSE],
+  // A connection that dropped or was never made is the endpoint's, whatever the client's words for it: "Connection error." (the OpenAI client), a connect timeout, a reset.
+  [/connection error|connect(?:ion)? (?:timed? ?out|timeout|reset|refused|closed)|ETIMEDOUT|terminated|other side closed|APIConnection/iu, "model endpoint"],
   [/abort|cancel|deadline exceeded|timed? ?out/iu, "stopped"],
   [/ECONN\w*|ENOTFOUND|fetch failed|socket|network|unreachable|overloaded|\b(?:502|503|504)\b/iu, "model endpoint"],
 ];

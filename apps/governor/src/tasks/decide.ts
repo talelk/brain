@@ -1,4 +1,4 @@
-import { MAX_ATTEMPTS, parseRef, parseWhen, renderTemplate, type AttemptFailure, type JsonValue, type Ref, type TaskNeed, type TaskState } from "@brain/contracts";
+import { MAX_ATTEMPTS, parseRef, RETRY_DELAYS_MS, parseWhen, renderTemplate, type AttemptFailure, type JsonValue, type Ref, type TaskNeed, type TaskState } from "@brain/contracts";
 
 /**
  * The decisions of orchestration (docs/architecture.md section 5) as pure functions over plain data: what a waiting task becomes, what
@@ -83,8 +83,8 @@ export function promote(task: { readonly agent: string | null; readonly when: st
 
 // --- attempts that fail ---
 
-/** How long a retry waits: 5 s, 20 s, 80 s, 320 s. */
-export const backoffMs = (tries: number): number => 5_000 * 4 ** Math.max(0, tries - 1);
+/** How long a retry waits (`RETRY_DELAYS_MS`: 5 s, 20 s, 80 s, then minutes, then an hour). */
+export const backoffMs = (tries: number): number => RETRY_DELAYS_MS[Math.min(Math.max(0, tries - 1), RETRY_DELAYS_MS.length - 1)] as number;
 /** An attempt that failed for an infrastructure reason is tried again until it has been tried `MAX_ATTEMPTS` times in all; `tries` counts the retries already made. */
 export function retryOf(failure: Pick<AttemptFailure, "infrastructure"> | null, tries: number): { readonly retry: true; readonly tries: number; readonly delayMs: number } | { readonly retry: false } {
   if (!failure?.infrastructure || tries + 1 >= MAX_ATTEMPTS) return { retry: false };
@@ -174,9 +174,24 @@ export type AfterCheck =
   | { readonly next: "done" }
   | { readonly next: "needs"; readonly need: TaskNeed }
   | { readonly next: "again"; readonly round: number };
-/** What follows a check by an agent: done (or a sign-off), another round with the findings, or a person once the rounds are used up. */
-export function afterCheck(task: Pick<StepSettings, "maxRounds" | "targetScore" | "approve"> & { readonly round: number }, verdict: Verdict): AfterCheck {
+const words = (text: string): Set<string> => new Set(text.toLowerCase().match(/[\p{L}\p{N}_.-]{3,}/gu) ?? []);
+/** Whether a check's findings say almost what the one before said: at least 0.6 of the words are shared (Jaccard), and there are enough of them to mean something. */
+export function repeats(previous: string | undefined, current: string): boolean {
+  if (previous === undefined) return false;
+  const [a, b] = [words(previous), words(current)];
+  if (a.size < 8 || b.size < 8) return false;
+  let shared = 0;
+  for (const word of a) if (b.has(word)) shared += 1;
+  return shared / (a.size + b.size - shared) >= 0.6;
+}
+
+/**
+ * What follows a check by an agent: done (or a sign-off), another round with the findings, or a person once the rounds are used up, or at once when the
+ * findings repeat the previous check's: another round would be asked for the same thing and change nothing.
+ */
+export function afterCheck(task: Pick<StepSettings, "maxRounds" | "targetScore" | "approve"> & { readonly round: number }, verdict: Verdict, previousFindings?: string): AfterCheck {
   if (passes(verdict, task.targetScore)) return task.approve ? { next: "needs", need: { kind: "sign-off" } } : { next: "done" };
+  if (repeats(previousFindings, verdict.findings)) return { next: "needs", need: { kind: "check", findings: verdict.findings, repeated: true } };
   return task.round < task.maxRounds ? { next: "again", round: task.round + 1 } : { next: "needs", need: { kind: "check", findings: verdict.findings } };
 }
 
@@ -203,9 +218,12 @@ export function readJudgement(result: string, output: JsonValue | null | undefin
 
 // --- a plan ---
 
+/** Whether a text names a tool, as a whole name: `platform.tasks` is not a mention of `platform.task`. */
+const mentions = (text: string, tool: string): boolean => new RegExp(`(?<![\\w.-])${tool.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?![\\w-])`, "u").test(text);
+
 export interface PlannedTask { readonly title: string; readonly goal: string; readonly agent: string; readonly after: readonly string[] }
 /** A planner's final answer, `{summary, tasks: [{title, goal, agent, after}]}`, checked against the workspace's agents. `after` holds titles of earlier tasks. */
-export function readPlan(result: string, output: JsonValue | null | undefined, agents: ReadonlySet<string>): { readonly summary: string; readonly tasks: readonly PlannedTask[] } | { readonly problem: string } {
+export function readPlan(result: string, output: JsonValue | null | undefined, agents: ReadonlyMap<string, readonly string[]>, tools: readonly string[] = []): { readonly summary: string; readonly tasks: readonly PlannedTask[] } | { readonly problem: string } {
   const value = output !== null && typeof output === "object" && !Array.isArray(output) ? (output as { readonly [key: string]: JsonValue }) : resultObject(result);
   const list = value?.["tasks"];
   if (!value || !Array.isArray(list)) return { problem: "The plan is not a JSON object with a list of tasks" };
@@ -217,6 +235,12 @@ export function readPlan(result: string, output: JsonValue | null | undefined, a
     const { title, goal, agent } = task;
     if (typeof title !== "string" || title.trim() === "" || typeof goal !== "string" || goal.trim() === "" || typeof agent !== "string") return { problem: `${at} needs a title, a goal and an agent` };
     if (!agents.has(agent)) return { problem: `${at} names the agent "${agent}", which this workspace does not have` };
+    // A goal that names a tool its agent does not have cannot be done by it, and a reviewer would ask for the tool's output round after round.
+    const lacking = tools.find((name) => mentions(goal, name) && !agents.get(agent)?.includes(name));
+    if (lacking !== undefined) {
+      const having = [...agents].filter(([, owned]) => owned.includes(lacking)).map(([name]) => name);
+      return { problem: `${at} gives a goal that names the tool ${lacking} to the agent "${agent}", which does not have it (${having.length > 0 ? `agents that have it: ${having.join(", ")}` : "no agent of this workspace has it"})` };
+    }
     if (tasks.some((earlier) => earlier.title === title)) return { problem: `${at} repeats the title "${title}"` };
     const after = Array.isArray(task["after"]) ? (task["after"] as readonly JsonValue[]) : [];
     const unknown = after.find((name) => typeof name !== "string" || !tasks.some((earlier) => earlier.title === name));

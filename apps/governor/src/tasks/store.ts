@@ -148,6 +148,8 @@ export function queueAttempt(gov: Gov, input: NewAttempt): string {
 
 /** The agents a snapshot holds. */
 export const agentsOf = (manifest: SnapshotManifest): ReadonlySet<string> => new Set(Object.keys(manifest.agents));
+/** The agents of a workspace, each with the tools it has. */
+export const agentToolsOf = (manifest: SnapshotManifest): ReadonlyMap<string, readonly string[]> => new Map(Object.entries(manifest.agents).map(([name, agent]) => [name, agent.tools]));
 
 /** The root task of a Play and one sub-task per step, each waiting for the steps it names in `after`. */
 export function createFromPlay(gov: Gov, actor: Actor, input: { workspaceId: string; snapshotDigest: Digest; play: string; inputs: Readonly<Record<string, JsonValue>>; title?: string | undefined; goal?: string | undefined; createdBy: string }): TaskRow {

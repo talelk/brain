@@ -1,7 +1,7 @@
-import type { TaskNeed } from "@brain/contracts";
+import { MAX_ATTEMPTS, type TaskNeed } from "@brain/contracts";
 import { describe, expect, it } from "vitest";
 import {
-  afterCheck, afterPersonCheck, afterWork, backoffMs, checkerOf, doers, forEachItems, groupOutcome, promote, readJudgement, readPlan, readVerdict, renderGoal, resultObject, retryOf, whenHolds,
+  afterCheck, afterPersonCheck, afterWork, repeats, backoffMs, checkerOf, doers, forEachItems, groupOutcome, promote, readJudgement, readPlan, readVerdict, renderGoal, resultObject, retryOf, whenHolds,
   type Scope, type StepSettings, type WorkFacts,
 } from "../../apps/governor/src/tasks/decide";
 
@@ -98,6 +98,12 @@ describe("the check", () => {
   it("a failure is another round while rounds remain, then a person", () => {
     expect(afterCheck(task, { pass: false, score: 0.2, findings: "no test" })).toEqual({ next: "again", round: 2 });
     expect(afterCheck({ ...task, round: 2 }, { pass: false, score: 0.2, findings: "no test" })).toEqual({ next: "needs", need: { kind: "check", findings: "no test" } });
+    // A verdict that says again what the one before said ends the rounds at once, whatever round it is.
+    const asked = "Section 1 claims six platform calls were made, but no such call appears in the recorded tool calls; invoke each platform tool once and show the real output.";
+    expect(afterCheck(task, { pass: false, score: 0.2, findings: `${asked} Also fix the table.` }, asked)).toEqual({ next: "needs", need: { kind: "check", findings: `${asked} Also fix the table.`, repeated: true } });
+    expect(afterCheck(task, { pass: false, score: 0.2, findings: "The summary leaves out the second migration and its rollback plan entirely, so the checker cannot verify the claim." }, asked)).toEqual({ next: "again", round: 2 });
+    expect(afterCheck(task, { pass: true, score: 0.9, findings: asked }, asked)).toEqual({ next: "done" });
+    expect([repeats(undefined, asked), repeats("no test", "no test"), repeats(asked, asked)]).toEqual([false, false, true]);
   });
   it("with a target score, a pass below it is not a pass", () => {
     expect(afterCheck({ ...task, targetScore: 0.8 }, { pass: true, score: 0.7, findings: "nearly" })).toEqual({ next: "again", round: 2 });
@@ -121,7 +127,7 @@ describe("the check", () => {
 });
 
 describe("a plan", () => {
-  const agents = new Set(["analyst", "developer"]);
+  const agents = new Map<string, readonly string[]>([["analyst", ["task.note", "memory.search"]], ["developer", ["task.note"]], ["syncer", ["platform.tasks", "platform.workspaces"]]]);
   const plan = (tasks: unknown) => JSON.stringify({ summary: "Two steps.", tasks });
   it("is a list of tasks for agents of the workspace, each waiting for earlier titles", () => {
     expect(readPlan(plan([{ title: "Look", goal: "Find it.", agent: "analyst", after: [] }, { title: "Fix", goal: "Fix it.", agent: "developer", after: ["Look"] }]), null, agents)).toEqual({
@@ -133,6 +139,16 @@ describe("a plan", () => {
     expect(readPlan(plan([{ title: "Fix", goal: "x", agent: "developer", after: ["Look"] }, { title: "Look", goal: "x", agent: "analyst" }]), null, agents)).toMatchObject({ problem: expect.stringContaining("Look") });
     expect(readPlan(plan([{ title: "Look", goal: "x", agent: "analyst" }, { title: "Look", goal: "y", agent: "analyst" }]), null, agents)).toMatchObject({ problem: expect.stringContaining("repeats") });
     expect(readPlan(plan([]), null, agents)).toEqual({ problem: "The plan has no tasks" });
+    // A goal that names a tool its agent does not have is refused, with who has it.
+    const tools = ["task.note", "platform.task", "platform.tasks", "platform.workspaces"];
+    expect(readPlan(plan([{ title: "Look", goal: "Use platform.workspaces and platform.tasks to list what exists.", agent: "analyst" }]), null, agents, tools))
+      .toEqual({ problem: 'Task 1 of the plan gives a goal that names the tool platform.tasks to the agent "analyst", which does not have it (agents that have it: syncer)' });
+    expect(readPlan(plan([{ title: "Look", goal: "Use platform.workspaces and platform.tasks.", agent: "syncer" }]), null, agents, tools)).toHaveProperty("tasks");
+    // A name is read whole: platform.tasks is not a mention of platform.task, and a sentence's last dot is not part of a name.
+    expect(readPlan(plan([{ title: "Look", goal: "Summarise what platform.tasks returns.", agent: "syncer" }]), null, agents, ["platform.task", "platform.tasks"])).toHaveProperty("tasks");
+    expect(readPlan(plan([{ title: "Note", goal: "Write it down with task.note.", agent: "analyst" }]), null, agents, tools)).toHaveProperty("tasks");
+    expect(readPlan(plan([{ title: "Look", goal: "Never call platform.repeats here.", agent: "developer" }]), null, agents, ["platform.repeats"]))
+      .toMatchObject({ problem: expect.stringContaining("no agent of this workspace has it") });
     expect(readPlan("I would start by looking around.", null, agents)).toHaveProperty("problem");
   });
 });
@@ -152,13 +168,16 @@ describe("a task with sub-tasks", () => {
 });
 
 describe("an attempt that fails", () => {
-  it("is tried again up to three times with a growing wait when the reason is the infrastructure, and never otherwise", () => {
+  it("is tried again for about six hours with a growing wait when the reason is the infrastructure, and never otherwise", () => {
     expect(retryOf({ infrastructure: true }, 0)).toEqual({ retry: true, tries: 1, delayMs: 5_000 });
     expect(retryOf({ infrastructure: true }, 2)).toEqual({ retry: true, tries: 3, delayMs: 80_000 });
-    expect(retryOf({ infrastructure: true }, 3)).toEqual({ retry: true, tries: 4, delayMs: 320_000 });
-    expect(retryOf({ infrastructure: true }, 4)).toEqual({ retry: false });
+    expect(retryOf({ infrastructure: true }, 3)).toEqual({ retry: true, tries: 4, delayMs: 300_000 });
+    expect(retryOf({ infrastructure: true }, MAX_ATTEMPTS - 2)).toEqual({ retry: true, tries: MAX_ATTEMPTS - 1, delayMs: 3_600_000 });
+    expect(retryOf({ infrastructure: true }, MAX_ATTEMPTS - 1)).toEqual({ retry: false });
     expect(retryOf({ infrastructure: false }, 0)).toEqual({ retry: false });
     expect(retryOf(null, 0)).toEqual({ retry: false });
-    expect([1, 2, 3, 4].map(backoffMs)).toEqual([5_000, 20_000, 80_000, 320_000]);
+    expect([1, 2, 3, 4, 5, 6, 7, 12, 40].map(backoffMs)).toEqual([5_000, 20_000, 80_000, 300_000, 900_000, 1_800_000, 3_600_000, 3_600_000, 3_600_000]);
+    // About six hours in all, 13 tries.
+    expect([MAX_ATTEMPTS, Array.from({ length: MAX_ATTEMPTS - 1 }, (_, i) => backoffMs(i + 1)).reduce((a, b) => a + b, 0) / 3_600_000]).toEqual([13, expect.closeTo(6.9, 0)]);
   });
 });

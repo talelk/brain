@@ -263,7 +263,9 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   for what the step waits for; the group's result is the list of its copies' results. Without a Play it queues a `plan`
   attempt for the `planner` agent, whose result is a list of sub-tasks (`title`, `goal`, `agent`, `after`) and a summary
   (kept as the first shared note); the root then needs a person to confirm, unless `confirm_plans = "auto"`. A plan that
-  cannot be read, or names an unknown agent, fails the root, which can be retried.
+  cannot be read, or names an unknown agent, fails the root, which can be retried; one whose task names a tool its agent
+  does not have (the offer's catalog gives each agent's tools) is not failed but made again: the plan attempt is queued
+  again with the reason among its findings, twice at most, and only then fails the root.
 - A step's goal is filled in when its task becomes `ready` (inputs and items are already shown while it waits). A goal a
   person rewrote with `task.edit` is kept as they wrote it.
 - The orchestrator runs after every change and on a timer. For each workspace it makes `ready` every `waiting` task
@@ -304,8 +306,11 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   `tasks.list` takes `rootsOnly` and `search` (title or goal text, case-insensitive), both applied before `limit`, so a
   page holds the newest matches. A goal started from a Play is titled by the Play and the start of its first text input
   (`Fix an issue: The login page shows…`); a goal a person typed is titled by its first line.
-- An attempt that fails for an infrastructure reason (runner lost, lease expired, model refusal) is retried up to three
-  times, after 5, 20 and 80 seconds, before the task fails. An `act` attempt is never retried on its own.
+- An attempt that fails for an infrastructure reason (runner lost, lease expired, model refusal, a model endpoint or a
+  connection that did not answer) is retried after 5, 20 and 80 seconds, 5, 15 and 30 minutes, then every hour, 13 tries in
+  all (about six hours: `RETRY_DELAYS_MS` in `limits.ts`), before the task fails. An `act` attempt is never retried on its own.
+- A check whose findings repeat the previous agent check's (the same words by at least 0.6, Jaccard on word sets) does not
+  start another round: the task needs a person, with `repeated` set on the need so the screen says so.
 - A task that fails (a work or plan attempt ended and no retry is left) is healed (`tasks/heal.ts`), in the transaction
   that failed it, when the active snapshot has a `workspace-healer` agent and `[healing] mode` is `auto`. The heal task is
   a goal with that agent whose `created_by` is `heal:<failed task id>`: that is its only link to the failed task, which is
@@ -315,6 +320,7 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   holds the evidence, each part cut to a size, and the files of the agents, tools, Play and `brain.toml` involved, read from
   the workspace folder or the pack. `task.get` carries `heal` (the heal task's id, state, result) on the failed task, and a
   task summary carries `heals` (id and title of the failed task) on a heal task, which is how the screens link the two.
+  A heal task that waits for a person is stopped when the task it heals is `done` (`tasks/heal.ts`, in `settle`).
 - Closing a waiting goal that a newer identical one superseded (`tasks/superseded.ts`, docs/model.md) runs at the end of
   `settle`, so after every change and on its timer, which also visits workspaces whose only open tasks wait for a person.
   Candidates are `needs_you` tasks of kind `check`, `answer`, `approval`, `confirm-plan` or `failed-subtask` whose

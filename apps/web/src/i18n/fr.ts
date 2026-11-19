@@ -142,6 +142,7 @@ export const fr: Catalog = {
   "need.answer.placeholder": "Saisissez votre réponse",
   "need.answer.send": "Envoyer la réponse",
   "need.check.text": "La vérification n'a pas abouti dans le nombre de tours autorisé ; le résultat attend donc une personne.",
+  "need.check.repeated": "Le reviewer a demandé deux fois la même chose, donc aucun nouveau round n'a été lancé : un de plus ne changerait rien. Lisez ce qu'il demande : si l'agent ne peut pas le faire (un outil qu'il n'a pas, par exemple), validez l'étape ou changez d'agent ; s'il le peut, renvoyez-la en disant quoi faire.",
   "need.check.open": "Vérifier",
   "need.sign-off.text": "Le résultat a été accepté à la vérification. Cette étape ne sera considérée comme terminée qu'après la validation d'une personne.",
   "need.sign-off.open": "Lire et valider",

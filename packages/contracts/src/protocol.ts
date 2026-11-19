@@ -92,7 +92,8 @@ export interface OfferProject {
 }
 /** One recorded workspace-tool or Brain-tool call, as a checker is shown it. */
 export interface OfferToolCall { readonly tool: string; readonly effect: Effect; readonly input: JsonValue; readonly output: JsonValue; readonly outcome: ToolOutcome }
-export interface CatalogEntry { readonly name: string; readonly description: string }
+/** What a workspace holds, by name and description; an agent also lists the Brain-run and workspace tools it has, so a planner gives a task to an agent that can do it. */
+export interface CatalogEntry { readonly name: string; readonly description: string; readonly tools?: ReadonlyArray<string> }
 export interface JobOffer {
   readonly attemptId: string;
   readonly fence: number;

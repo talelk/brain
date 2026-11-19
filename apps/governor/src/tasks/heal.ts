@@ -1,4 +1,4 @@
-import type { AttemptFailure, SnapshotManifest } from "@brain/contracts";
+import type { Actor, AttemptFailure, SnapshotManifest } from "@brain/contracts";
 import type { Gov } from "../dispatch";
 import { append, SYSTEM } from "../events";
 import { currentText } from "../tools/fix";
@@ -89,4 +89,19 @@ export function healFailed(gov: Gov, failed: TaskRow): void {
     workspaceId: workspace.id, parent: null, snapshotDigest: workspace.snapshotDigest, title: `Heal: ${failed.title}`.slice(0, 200), agent: HEALER, state: "ready", createdBy: `${HEAL}${failed.id}`,
     goal: `The task "${failed.title}" (id ${failed.id}) failed all its attempts. Find the cause of the repeated failure and either propose a fix with workspace.fix (task: "${failed.id}") or ask a person with task.ask. A task that is retried or healed runs on the workspace snapshot recorded when the task started, unless workspace.fix moved it; the files below are the workspace as it is now, so an older snapshot may have differed (for example a task started before the workspace had a model).\n\n${evidenceOf(gov, failed, active)}`,
   });
+}
+
+/**
+ * A heal task that waits for a person (a question, an approval) ends when the task it heals is `done`, whatever made it so (a retry, a person, a fix that came
+ * from elsewhere): there is nothing left to find. One that is working finishes by itself. Returns how many it stopped. `stopTask` is the orchestrator's, which ends a goal and everything under it.
+ */
+export function closeHealed(gov: Gov, workspaceId: string, stopTask: (gov: Gov, task: TaskRow, actor: Actor) => number): number {
+  const { db } = gov;
+  const heals = db.prepare(`SELECT h.* FROM tasks h WHERE h.workspace_id=? AND h.parent_id IS NULL AND h.created_by LIKE '${HEAL}%' AND h.state = 'needs_you'
+    AND EXISTS (SELECT 1 FROM tasks f WHERE f.id = substr(h.created_by, ${HEAL.length + 1}) AND f.state='done')`).all(workspaceId) as TaskRow[];
+  for (const heal of heals) {
+    stopTask(gov, heal, SYSTEM);
+    append(db, { type: "task.heal-closed", workspaceId, subject: `task:${heal.id}`, payload: { healed: healedBy(heal) ?? null }, actor: SYSTEM });
+  }
+  return heals.length;
 }

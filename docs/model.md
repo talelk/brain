@@ -292,8 +292,13 @@ planner and a checker; the other packs build on it.
    projects mounted. Inside it, it uses the engine's native tools. To act outside it, it
    calls a workspace tool, and that call is validated, recorded and, for an effect,
    approved.
+   A plan is checked before anyone sees it: a task whose goal names a tool its agent does not
+   have (the catalog the planner reads lists each agent's tools) is refused with the reason, and
+   the planner makes the plan again, twice at most, before a person is asked.
 5. The result is **checked** by something other than the agent that produced it: the
-   step's reviewer, the base pack's `checker`, or a person. Only a checked task is done.
+   step's reviewer, the base pack's `checker`, or a person. Only a checked task is done. When a
+   reviewer's verdict repeats almost word for word the one before, the rounds stop there and a
+   person is asked at once, with that said: another round would change nothing.
 6. Code changes leave only as a pull request opened from the working copy's diff.
 
 A task is in one of these states: `waiting`, `ready`, `running`, `needs you`, `done`,
@@ -363,7 +368,7 @@ button to change it. Defaults are generous and no money cap is set unless a pers
 | `tokens` | one attempt of an agent | 2,000,000 | `agent.toml [limits]` |
 | `spend_usd` | one attempt of an agent | 0 (no cap) | `agent.toml [limits]` |
 | `max_rounds` | check rounds of one step | 3 | the step in the Play |
-| attempts | one attempt is retried after an infrastructure failure up to 5 times in all | 5 (not editable) | Brain |
+| attempts | one attempt is retried after an infrastructure failure, with waits growing from 5 seconds to an hour, for about six hours (13 tries in all) | 13 (not editable) | Brain |
 | slots | one runner | 1 | `BRAIN_RUNNER_SLOTS` of the runner, then restart it; another runner is `pnpm brain runner --governor <address> --token <token>` |
 | uploads | a document | 5 MB each, 20 MB per upload | Brain |
 
@@ -429,7 +434,9 @@ finds the cause of the repeated failure. It then does one of two things:
   answer comes back to the healer, which may then call `workspace.fix`.
 
 A task is healed once, a heal task is never healed, and a failure that only infrastructure
-caused (model unreachable, runner lost) is not healed; the failed task says so. The
+caused (model unreachable, runner lost, a connection that dropped) is not healed: it is tried again by itself for about six hours (see the limit `attempts`), and the failed task says so
+when that is not enough. A heal task that waits for a person is stopped when the task it heals is done, whoever made it so. The healer knows Brain's own rules (a workspace with no model of its own uses the
+admin workspace's) and does not ask a person about them. The
 healer never edits project code and never retries by itself. `[healing]` in `brain.toml`
 turns this off or caps the heal tasks a workspace starts in a UTC day. `workspace.fix`
 changes only `brain.toml` (not its approvals, GitHub, git remote, Teams or secret references),

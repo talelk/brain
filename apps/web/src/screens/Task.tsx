@@ -78,6 +78,7 @@ function Needs(props: { task: Task; need: TaskNeed; onSelect: (id: string) => vo
           <Match when={props.need.kind === "check" && props.need}>
             {(failed) => (<>
               <p class="mb-2 t-text text-ink-2">{t("need.check.text")}</p>
+              <Show when={"repeated" in failed() && failed().repeated}><p class="mb-2 t-text text-ink-2" data-testid="check-repeated">{t("need.check.repeated")}</p></Show>
               <Show when={failed().findings}><div class="mb-4 rounded-xl bg-paper px-4 py-3"><Markdown text={failed().findings} /></div></Show>
               <Verdict task={props.task} passLabel={t("verdict.pass")} />
             </>)}

@@ -108,7 +108,10 @@ function findingsOf(db: Db, task: TaskRow): string[] {
     if (row.state === "approved") return row.outcome === "succeeded" ? `${call} was approved after you stopped, and it ran. Its answer: ${clip(row.output_json ?? "null")}` : `${call} was approved after you stopped, but it did not succeed: ${clip(row.output_json ?? "no answer")}`;
     return `${call} did not happen (${row.state === "rejected" ? "a person declined it" : "nobody decided in time"}): ${clip(row.output_json ?? "")}. Do not repeat it.`;
   });
-  return [...checks, ...calls];
+  // A plan the Governor refused: the planner that makes the plan again is told why.
+  const refused = (db.prepare("SELECT payload_json AS payload FROM attempts WHERE task_id=? AND kind='plan' ORDER BY rowid").all(task.id) as Array<{ payload: string }>)
+    .flatMap((row) => { const problem = (JSON.parse(row.payload) as { refused?: string }).refused; return problem ? [`Your earlier plan was refused: ${problem}. Make a plan that deals with it.`] : []; });
+  return [...refused, ...checks, ...calls];
 }
 
 /** Builds the offer of an attempt that was just given to a runner, and notes on the attempt which stored bytes it names. */
@@ -164,7 +167,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
       ...(credential ? { credential: secretName(credential) } : {}), ...(commits[project.name] ? { baseCommit: commits[project.name] as string } : {}),
     };
   });
-  const describe = (entries: Record<string, { description?: string; title?: string }>) => Object.entries(entries).map(([name, entry]) => ({ name, description: entry.description || entry.title || "" }));
+  const describe = (entries: Record<string, { description?: string; title?: string; tools?: readonly string[] }>) => Object.entries(entries).map(([name, entry]) => ({ name, description: entry.description || entry.title || "", ...(entry.tools ? { tools: [...entry.tools] } : {}) }));
 
   const offered = [...review.flatMap((entry) => [...(entry.diff ? [entry.diff.digest] : []), ...entry.files.map((file) => file.digest)])];
   db.prepare("UPDATE attempts SET payload_json=? WHERE id=?").run(JSON.stringify({ ...payload, offered }), attempt.id);

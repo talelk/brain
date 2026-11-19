@@ -1,4 +1,4 @@
-import { signReceipt, resultDigest, type JobOffer } from "@brain/contracts";
+import { MAX_ATTEMPTS, RETRY_DELAYS_MS, signReceipt, resultDigest, type JobOffer } from "@brain/contracts";
 import Database from "better-sqlite3";
 import { generateKeyPairSync } from "node:crypto";
 import { writeFileSync } from "node:fs";
@@ -126,11 +126,11 @@ describe("a runner", () => {
     expect((await getTask(member, workspaceId, taskId)).attempts.map((attempt) => [attempt.kind, attempt.state])).toEqual([["work", "succeeded"], ["check", "succeeded"]]);
   });
 
-  it("an attempt that keeps failing for an infrastructure reason is tried five times in all, then its task fails naming the limit and a person can retry it", async () => {
+  it("an attempt that keeps failing for an infrastructure reason is tried again for about six hours, then its task fails naming the limit and a person can retry it", async () => {
     let runs = 0;
-    driver.script({ dev: () => { runs += 1; return runs <= 5 ? { outcome: "failed", result: "", failure: { reason: "model-refused", detail: "The model server is down", infrastructure: true } } : "Recovered."; } });
+    driver.script({ dev: () => { runs += 1; return runs <= MAX_ATTEMPTS ? { outcome: "failed", result: "", failure: { reason: "model-refused", detail: "The model server is down", infrastructure: true } } : "Recovered."; } });
     const taskId = await start();
-    for (const wait of [0, 5_000, 20_000, 80_000, 320_000]) {
+    for (const wait of [0, ...RETRY_DELAYS_MS]) {
       clock.advance(wait - 1);
       expect(await driver.claim()).toBeNull();
       clock.advance(1);
@@ -138,8 +138,8 @@ describe("a runner", () => {
     }
     const failed = await getTask(member, workspaceId, taskId);
     expect(failed).toMatchObject({ state: "failed", result: "The model server is down" });
-    expect(failed.attempts.map((attempt) => attempt.state)).toEqual(["failed", "failed", "failed", "failed", "failed"]);
-    expect(failed.attempts.at(-1)?.failure).toMatchObject({ limit: { name: "attempts", value: 5, used: 5 } });
+    expect(failed.attempts.map((attempt) => attempt.state)).toEqual(Array.from({ length: MAX_ATTEMPTS }, () => "failed"));
+    expect(failed.attempts.at(-1)?.failure).toMatchObject({ limit: { name: "attempts", value: MAX_ATTEMPTS, used: MAX_ATTEMPTS } });
     expect(await getTask(member, workspaceId, failed.parentId ?? "")).toMatchObject({ state: "needs_you", needs: { kind: "failed-subtask", taskId } });
     // A failure that is the agent's own is not retried at all.
     driver.script({ dev: () => ({ outcome: "failed", result: "", failure: { reason: "limit", detail: "Out of turns", infrastructure: false } }) });

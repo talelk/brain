@@ -4,11 +4,11 @@ import { append, SYSTEM } from "../events";
 import { expireApprovals } from "../trust/approvals";
 import { settleUsage } from "../trust/usage";
 import { manifestOf } from "../workspace/store";
-import { healFailed } from "./heal";
+import { closeHealed, healFailed } from "./heal";
 import { closeSuperseded } from "./superseded";
 import { afterCheck, afterPersonCheck, afterWork, checkerOf, doers, groupOutcome, promote, readJudgement, readPlan, readVerdict, passes, renderGoal, retryOf, SKIPPED, type WorkFacts, type WorkState } from "./decide";
 import {
-  ACTIVE_ATTEMPT, agentsOf, attemptOf, createPlanned, failureOf, insertTask, json, needOf, payloadOf, queueAttempt, scopeOf, setState, settingsOf, stepOf, taskOf, TERMINAL,
+  ACTIVE_ATTEMPT, agentsOf, agentToolsOf, attemptOf, createPlanned, failureOf, insertTask, json, needOf, payloadOf, queueAttempt, scopeOf, setState, settingsOf, stepOf, taskOf, TERMINAL,
   type AttemptRow, type TaskRow,
 } from "./store";
 
@@ -16,6 +16,9 @@ import {
  * The orchestrator (docs/architecture.md section 5): it reads the facts, asks `decide.ts` what follows, and writes that. `settle` runs
  * inside the transaction of every change to a workspace's work, and on a timer; `attemptEnded` runs when an attempt reaches its end.
  */
+
+/** How many times a plan that cannot be used is made again before the goal fails. */
+const REPLANS = 2;
 
 const undone = "SELECT 1 FROM task_deps d JOIN tasks t ON t.id = d.waits_for WHERE d.task_id=? AND t.state != 'done' LIMIT 1";
 const brokenChild = "SELECT id FROM tasks WHERE parent_id=? AND state IN ('failed','stopped') ORDER BY position LIMIT 1";
@@ -104,7 +107,7 @@ function rest(gov: Gov, workspaceId: string): void {
 
 export function settle(gov: Gov, workspaceId: string): void {
   rest(gov, workspaceId);
-  if (closeSuperseded(gov, workspaceId, stopTask) > 0) rest(gov, workspaceId);
+  if (closeSuperseded(gov, workspaceId, stopTask) + closeHealed(gov, workspaceId, stopTask) > 0) rest(gov, workspaceId);
 }
 
 // --- when an attempt ends ---
@@ -171,7 +174,9 @@ function afterCheckEnded(gov: Gov, task: TaskRow, attempt: AttemptRow): void {
   }
   const pass = passes(verdict, task.target_score);
   recordCheck(gov, task, { by: { kind: "agent", id: attempt.agent }, attemptId: payloadOf(attempt).review?.[0] ?? null, pass, score: verdict.score, findings: verdict.findings }, { kind: "agent", id: attempt.agent, attemptId: attempt.id });
-  const decision = afterCheck({ ...settingsOf(task), round: task.round }, verdict);
+  // The findings of the agent check before this one (this one is recorded above): a verdict that repeats it ends the rounds.
+  const before = (gov.db.prepare("SELECT findings FROM checks WHERE task_id=? AND pass=0 AND by_kind='agent' ORDER BY id DESC LIMIT 1 OFFSET 1").get(task.id) as { findings: string } | undefined)?.findings;
+  const decision = afterCheck({ ...settingsOf(task), round: task.round }, verdict, before);
   if (decision.next === "done") setState(gov, task, "done");
   else if (decision.next === "needs") needsPerson(gov, task, decision.need);
   else setState(gov, task, "ready", { round: decision.round });
@@ -188,8 +193,16 @@ function afterJudgeEnded(gov: Gov, task: TaskRow, attempt: AttemptRow): void {
 function afterPlanEnded(gov: Gov, task: TaskRow, attempt: AttemptRow): void {
   if (attempt.state !== "succeeded") return void setState(gov, task, "failed", { result: `The plan could not be made: ${failureOf(attempt)?.detail ?? attempt.state}` });
   const manifest = manifestOf(gov, task.snapshot_digest);
-  const plan = readPlan(attempt.result ?? "", json<JsonValue>(attempt.output_json), agentsOf(manifest));
-  if ("problem" in plan) return void setState(gov, task, "failed", { result: `The plan could not be used: ${plan.problem}` });
+  const plan = readPlan(attempt.result ?? "", json<JsonValue>(attempt.output_json), agentToolsOf(manifest), Object.keys(manifest.tools));
+  if ("problem" in plan) {
+    // A plan that cannot be used is made again, with the reason, before the goal fails: the planner can fix what a person would only be told.
+    const made = (gov.db.prepare("SELECT COUNT(*) AS n FROM attempts WHERE task_id=? AND kind='plan' AND state='succeeded'").get(task.id) as { n: number }).n;
+    if (made <= REPLANS) {
+      gov.db.prepare("UPDATE attempts SET payload_json=json_set(payload_json, '$.refused', ?) WHERE id=?").run(plan.problem, attempt.id);
+      return void queueAttempt(gov, { task, kind: "plan", agent: attempt.agent, payload: {} });
+    }
+    return void setState(gov, task, "failed", { result: `The plan could not be used: ${plan.problem}` });
+  }
   createPlanned(gov, { kind: "agent", id: attempt.agent, attemptId: attempt.id }, task, plan.tasks);
   if (plan.summary !== "") gov.db.prepare("INSERT INTO notes(workspace_id, root_id, author, attempt_id, text, created_at_ms) VALUES (?,?,?,?,?,?)").run(task.workspace_id, task.root_id, attempt.agent, attempt.id, `Plan: ${plan.summary}`, gov.clock.nowMs());
   if (manifest.limits.confirm_plans === "auto") setState(gov, task, "running");

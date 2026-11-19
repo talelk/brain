@@ -153,7 +153,7 @@ export type TaskNeed =
   | { readonly kind: "confirm-plan" }
   | { readonly kind: "approval"; readonly approvalId: string }
   | { readonly kind: "answer"; readonly question: string }
-  | { readonly kind: "check"; readonly findings: string }
+  | { readonly kind: "check"; readonly findings: string; /** The reviewer asked for the same thing as the round before, so no further round was started. */ readonly repeated?: boolean }
   | { readonly kind: "sign-off" }
   | { readonly kind: "judge"; readonly attemptIds: readonly string[] }
   | { readonly kind: "failed-subtask"; readonly taskId: string };

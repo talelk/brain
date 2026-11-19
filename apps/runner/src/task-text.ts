@@ -22,7 +22,8 @@ const MAX_CALLS = 60;
 
 const cut = (text: string, limit: number): string => (text.length <= limit ? text : `${text.slice(0, limit)}\n[cut: ${text.length} characters in all]`);
 const compact = (value: JsonValue, limit: number): string => cut(typeof value === "string" ? value : JSON.stringify(value) ?? "null", limit);
-const listed = (entries: ReadonlyArray<{ readonly name: string; readonly description: string }>): string => entries.map((entry) => `- ${entry.name}: ${entry.description.replace(/\s+/gu, " ").trim()}`).join("\n");
+const listed = (entries: ReadonlyArray<{ readonly name: string; readonly description: string; readonly tools?: ReadonlyArray<string> }>): string =>
+  entries.map((entry) => `- ${entry.name}${entry.tools && entry.tools.length > 0 ? ` (tools: ${entry.tools.join(", ")})` : ""}: ${entry.description.replace(/\s+/gu, " ").trim()}`).join("\n");
 
 function toolCalls(calls: readonly OfferToolCall[]): string {
   if (calls.length === 0) return "No tool calls were recorded.";

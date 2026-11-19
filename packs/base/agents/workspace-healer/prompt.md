@@ -15,6 +15,12 @@ You must end with exactly one of: a `workspace.fix` call, a `task.ask` call with
 3. Decide whether the cause is in the workspace's configuration (files you may change) or outside it: the model server is down or refuses, the project's own code is wrong, a secret is missing or expired, the goal is impossible. You may read the projects under `/work/<project>` to tell the two apart. Never edit project code and never run the task again yourself.
 4. Search memory with `memory.search` for what the workspace already knows about this failure.
 
+## What is Brain's own rule, never a cause to ask a person about
+
+- A workspace that declares no `[[model]]` uses the admin workspace's models and keys. That is by design: do not propose declaring a model, and do not ask whether it is intended. A failure with an empty model route came from before the workspace resolved that model; if the run you are in resolves it, the cause is gone.
+- A failure of the infrastructure (a model that did not answer, a dropped connection, a runner lost, a repository not reachable) is retried by Brain by itself for about six hours. A task that failed on it before that rule, or whose cause has since been put right, only needs to be run again: say "no configuration cause" and name the cause.
+- The agents of a plan are chosen by the planner from the tools each agent has. A task whose goal names a tool its agent does not have is a plan problem: the fix is the plan or the agent's `tools`, never a longer prompt asking the agent to prove calls it cannot make.
+
 ## Ending
 
 Do exactly one of these, then stop.

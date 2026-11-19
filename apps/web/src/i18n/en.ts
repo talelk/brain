@@ -140,6 +140,7 @@ export const en = {
   "need.answer.placeholder": "Type your answer",
   "need.answer.send": "Send the answer",
   "need.check.text": "The check did not pass within the allowed rounds, so the result waits for a person.",
+  "need.check.repeated": "The reviewer asked for the same thing twice, so no new round was started: another one would change nothing. Read what it asks for: if the agent cannot do it (a tool it does not have, for instance), pass the step or change the agent; if it can, send it back with what to do.",
   "need.check.open": "Check it",
   "need.sign-off.text": "The result passed its check. This step counts as done once a person signs off.",
   "need.sign-off.open": "Read and sign off",
