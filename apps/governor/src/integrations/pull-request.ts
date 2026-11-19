@@ -3,7 +3,7 @@ import git, { type HttpClient } from "isomorphic-git";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { inheritedPatches, baseCommitOf } from "../attempts/offer";
+import { baseCommitOf, credentialOf, inheritedPatches } from "../attempts/offer";
 import { tx } from "../db";
 import type { Gov } from "../dispatch";
 import { append } from "../events";
@@ -81,7 +81,7 @@ function inside(dir: string, path: string): string {
 export async function openPullRequest(gov: Gov, attempt: AttemptRow, task: TaskRow, input: { project: string; title: string; body: string }, change: PullRequestChange & { patchDigest: Digest }): Promise<OpenedPullRequest> {
   const { patchDigest, baseCommit: base } = change;
   const project = writable(gov, task, input.project);
-  const credential = project.credential ?? manifestOf(gov, task.snapshot_digest).github?.credential;
+  const credential = credentialOf(manifestOf(gov, task.snapshot_digest), project);
   const token = credential ? readSecret(gov, task.workspace_id, secretName(credential)) : undefined;
   if (!token) throw new ToolRefusal(`The project ${project.name} has no credential set, so its branch cannot be pushed`);
   const patch = projectPatch(readArtifact(gov, patchDigest), project.name);

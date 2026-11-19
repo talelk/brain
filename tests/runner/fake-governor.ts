@@ -71,7 +71,7 @@ export class FakeGovernor {
       task: { id: "task-1", title: "The task", goal: "Do the thing.", round: 1, findings: [], ...task },
       context: { results: [], notes: [], answers: [], catalog: { agents: [], tools: [], plays: [] }, ...context },
       agent: { name: "worker", promptDigest: this.blob(prompt).digest, engines: ["fixture"], native: "none", limits: { turns: 20, tokens: 200_000, spendMicroUsd: 0 }, tools: tools.map((tool) => tool.name), ...agent },
-      tools, projects: [], inheritedPatches: [], model: { gatewayUrl: `${this.url}/model/v1`, route: "main" },
+      tools, projects: [], inheritedPatches: [], model: { gatewayUrl: `${this.url}/model/v1`, route: "main", contextTokens: 200_000, compactAt: 0.7 },
       ...rest,
     };
     this.queue.push(offer);

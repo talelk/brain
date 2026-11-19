@@ -181,7 +181,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
         reviewed.set(entry.attemptId, { path: `${paths.work}/.brain/${entry.attemptId}.patch` });
       }
       const prompt = new TextDecoder().decode(await client.blob({ digest: offer.agent.promptDigest }));
-      const model = picked.id === "fixture" ? { baseUrl: offer.model.gatewayUrl, token: "", name: offer.model.route } : { baseUrl: offer.model.gatewayUrl, token: (await client.modelToken(attemptId, { fence })).token, name: offer.model.route };
+      const model = { baseUrl: offer.model.gatewayUrl, token: picked.id === "fixture" ? "" : (await client.modelToken(attemptId, { fence })).token, name: offer.model.route, contextTokens: offer.model.contextTokens, compactAt: offer.model.compactAt };
 
       if (sandboxed) {
         const launcher = cfg.launcher!;

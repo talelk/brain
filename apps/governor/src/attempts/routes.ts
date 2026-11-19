@@ -23,7 +23,7 @@ import { linkArtifact, putArtifact, readArtifact } from "../trust/artifacts";
 import { readSecret } from "../trust/secrets";
 import { microUsd, reserveUsage, settleUsage } from "../trust/usage";
 import { manifestOf } from "../workspace/store";
-import { buildOffer, missing, OFFER_FOR_MS } from "./offer";
+import { buildOffer, credentialOf, missing, OFFER_FOR_MS } from "./offer";
 import { blockOf, dispatchOrder, standing } from "../tasks/queue";
 import { readCapped } from "../body-limit";
 import { body, runnerOf } from "./runners";
@@ -246,7 +246,10 @@ export function registerAttempts(governor: Governor): void {
     // Only a secret a tool of this agent declares, or the credential of a project.
     const allowed = "tool" in input.use
       ? manifest.agents[attempt.agent]?.tools.includes(input.use.tool) && manifest.tools[input.use.tool]?.secrets.includes(input.name)
-      : manifest.projects.some((project) => "project" in input.use && project.name === input.use.project && project.credential !== undefined && secretName(project.credential) === input.name);
+      : manifest.projects.some((project) => {
+        const credential = credentialOf(manifest, project);
+        return "project" in input.use && project.name === input.use.project && credential !== undefined && secretName(credential) === input.name;
+      });
     if (!allowed) throw new BrainError("FORBIDDEN", `This attempt may not read the secret ${input.name}`);
     const value = readSecret(gov, attempt.workspace_id, input.name);
     if (value === undefined) throw new BrainError("NOT_FOUND", `The secret ${input.name} is not set`);

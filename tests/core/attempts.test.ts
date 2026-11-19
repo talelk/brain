@@ -34,10 +34,10 @@ beforeAll(async () => {
     },
   });
   ({ workspaceId } = await makeWorkspace(harness, "Queue", {
-    brain: `[[model]]\nname = "main"\nprovider = "openai-compatible"\nurl = "https://one.example/v1"\nmodel = "small"\nkey = "secret:model-main"
+    brain: `[[model]]\nname = "main"\nprovider = "openai-compatible"\nurl = "https://one.example/v1"\nmodel = "small"\nkey = "secret:model-main"\ncontext_tokens = 262144\ncompact_at = 0.6
 [[model]]\nname = "spare"\nprovider = "openai-compatible"\nurl = "https://two.example/v1"\nmodel = "large"\nkey = "secret:model-spare"
 [[model]]\nname = "claude"\nprovider = "anthropic"\nurl = "https://three.example"\nmodel = "opus"\nkey = "secret:model-claude"
-[[project]]\nname = "shop"\nrepo = "https://github.com/acme/shop.git"\ncredential = "secret:github"\n`,
+[[project]]\nname = "shop"\nrepo = "https://github.com/acme/shop.git"\n[github]\ncredential = "secret:github"\n`,
     agents: { dev: { tools: ["task.ask", "lookup"] }, needy: { tools: ["docker.ps"] }, hands: { native: "all" }, thrifty: { spend: 0.004 } },
     tools: { lookup: 'description = "Looks something up."\neffect = "read"\nsecrets = ["api-key"]\n', "docker.ps": 'description = "Lists containers."\neffect = "read"\nneeds = ["docker"]\n' },
     plays: { one: one("dev"), needy: one("needy"), hands: one("hands"), thrifty: one("thrifty") },
@@ -98,7 +98,7 @@ describe("a runner", () => {
   it("holds an attempt by its lease: when it stops renewing, the fence moves and the attempt is queued again after a wait", async () => {
     const taskId = await start();
     const offer = (await driver.claim()) as JobOffer;
-    expect(offer).toMatchObject({ kind: "work", fence: 1, task: { id: taskId }, model: { gatewayUrl: "http://localhost:3100/model/v1", route: "main" } });
+    expect(offer).toMatchObject({ kind: "work", fence: 1, task: { id: taskId }, model: { gatewayUrl: "http://localhost:3100/model/v1", route: "main", contextTokens: 262144, compactAt: 0.6 } });
     expect((await driver.ack(offer)).leaseExpiresAt).toBe(clock.now + 60_000);
     clock.advance(50_000);
     expect((await (await post(offer, "renew", {})).json()) as object).toEqual({ leaseExpiresAt: clock.now + 60_000, stop: false });
@@ -266,6 +266,8 @@ describe("a runner", () => {
     const offer = (await driver.claim()) as JobOffer;
     expect(offer.workspaceId).toBe(bare.workspaceId);
     expect(offer.model.route).toBe("shared");
+    // A model that says nothing of its window gets the defaults: 200000 tokens, compacted at 0.7.
+    expect(offer.model).toMatchObject({ contextTokens: 200_000, compactAt: 0.7 });
     await driver.ack(offer);
     const token = await modelTokenOf(driver, offer);
     upstream.length = 0;

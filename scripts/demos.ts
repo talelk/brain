@@ -9,7 +9,7 @@ import { parse, stringify, TomlDate } from "smol-toml";
  *
  * Environment: BRAIN_URL (default http://localhost:3100), BRAIN_ADMIN_EMAIL, BRAIN_ADMIN_PASSWORD, BRAIN_GITHUB_TOKEN (read from the
  * private credentials file by the caller), BRAIN_MODEL_URL, BRAIN_MODEL_NAME, optional BRAIN_MODEL_KEY, BRAIN_MODEL_INPUT_USD_PER_MTOK,
- * BRAIN_MODEL_OUTPUT_USD_PER_MTOK, BRAIN_TIMEZONE (default Africa/Tunis).
+ * BRAIN_MODEL_OUTPUT_USD_PER_MTOK, BRAIN_MODEL_CONTEXT_TOKENS (the model's window, to compact before it), BRAIN_MODEL_COMPACT_AT, BRAIN_TIMEZONE (default Africa/Tunis).
  */
 const HERE = dirname(fileURLToPath(import.meta.url));
 const env = (name: string, fallback?: string): string => {
@@ -91,6 +91,10 @@ for (const demo of DEMOS_AND_STARTER) {
   config["limits"] = { ...(config["limits"] as object | undefined), daily_spend_usd: 0, running_tasks: 0 };
   if (demo.platform) config["platform"] = demo.platform;
   config["timezone"] = env("BRAIN_TIMEZONE", "Africa/Tunis");
+  for (const entry of config.model ?? []) {
+    if (process.env["BRAIN_MODEL_CONTEXT_TOKENS"]) entry["context_tokens"] = Number(process.env["BRAIN_MODEL_CONTEXT_TOKENS"]);
+    if (process.env["BRAIN_MODEL_COMPACT_AT"]) entry["compact_at"] = Number(process.env["BRAIN_MODEL_COMPACT_AT"]);
+  }
   if (prices.in && prices.out) for (const entry of config.model ?? []) { entry["input_usd_per_mtok"] = Number(prices.in); entry["output_usd_per_mtok"] = Number(prices.out); }
   for (const project of config.project ?? []) {
     if (demo.setup) project["setup"] = demo.setup;

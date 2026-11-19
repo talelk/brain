@@ -115,6 +115,10 @@ export const BrainFile = z.strictObject({
     /** What a million tokens cost, in dollars: the gateway prices a call with them when the model server reports no cost. */
     input_usd_per_mtok: z.number().min(0).optional(),
     output_usd_per_mtok: z.number().min(0).optional(),
+    /** The model's context window in tokens (default 200000): an engine that keeps a long conversation compacts it before this is reached. */
+    context_tokens: z.int().min(8192).optional(),
+    /** The share of the window at which the conversation is compacted (default 0.7): the rest is room for the next tool result and reply. */
+    compact_at: z.number().min(0.3).max(0.95).optional(),
   })).default([]),
   project: z.array(z.strictObject({
     name: slug("a project name"),

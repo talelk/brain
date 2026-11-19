@@ -51,6 +51,8 @@ export async function startGitServer(root: string): Promise<GitServer> {
         const { status = "200", ...rest } = headers;
         response.writeHead(Number(status.split(" ")[0]), rest).end(split < 0 ? Buffer.alloc(0) : all.subarray(split + 4));
       });
+      // git may answer and exit before it has read all of the body; the answer is what counts.
+      cgi.stdin.on("error", () => undefined);
       cgi.stdin.end(body);
     });
   });

@@ -68,6 +68,8 @@ model = "qwen3-coder"
 key = "secret:model-main"
 input_usd_per_mtok = 0.40   # optional prices per million tokens, used when
 output_usd_per_mtok = 1.60  # the model server reports no cost itself
+context_tokens = 262144       # optional: the model's context window (default 200000). A long conversation is
+compact_at = 0.7            # compacted at this share of it (default 0.7), never left to overflow
 
 [[project]]
 name = "kios-newrh"

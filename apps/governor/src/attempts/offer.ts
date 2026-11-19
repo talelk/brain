@@ -1,5 +1,5 @@
 import { modelsOf } from "../workspace/platform";
-import { secretName, type BlobRef, type Digest, type JobOffer, type JsonValue, type OfferProject, type OfferTool, type OfferToolCall, type SnapshotManifest, type ToolOutcome } from "@brain/contracts";
+import { MODEL_DEFAULTS, secretName, type BlobRef, type Digest, type JobOffer, type JsonValue, type OfferProject, type OfferTool, type OfferToolCall, type SnapshotManifest, type ToolOutcome } from "@brain/contracts";
 import type { Db } from "../db";
 import type { Gov } from "../dispatch";
 import { repoPath } from "../integrations/github";
@@ -8,6 +8,9 @@ import { microUsd } from "../trust/usage";
 import { manifestOf } from "../workspace/store";
 
 /** What a claimed attempt is handed (docs/architecture.md section 6): the JobOffer, built from the task, its snapshot and the record so far. */
+/** The secret that fetches and pushes a project: its own `credential`, or the workspace's `[github]` one when it names none (docs/model.md). */
+export const credentialOf = (manifest: SnapshotManifest, project: SnapshotManifest["projects"][number]): SnapshotManifest["projects"][number]["credential"] => project.credential ?? manifest.github?.credential;
+
 export const OFFER_FOR_MS = 30_000;
 const MAX_SHOWN = 8_000;
 const clip = (text: string): string => (text.length > MAX_SHOWN ? `${text.slice(0, MAX_SHOWN)}\n[cut: ${text.length - MAX_SHOWN} more characters]` : text);
@@ -108,6 +111,8 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
   const manifest = manifestOf(gov, task.snapshot_digest);
   const agent = manifest.agents[attempt.agent] as SnapshotManifest["agents"][string];
   const payload = payloadOf(attempt);
+  const available = modelsOf(gov, attempt.workspace_id, manifest).models;
+  const routed = available.find((model) => model.name === agent.model) ?? available[0];
 
   // A `for_each` step is given as its copies, not as the list that groups them.
   const results = (db.prepare(`SELECT t.id, t.title, t.result, t.output_json FROM tasks t WHERE t.for_each IS NULL AND (t.id IN (SELECT waits_for FROM task_deps WHERE task_id=?)
@@ -141,10 +146,13 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
       network: tool.network, secrets: tool.secrets, needs: tool.needs, timeoutSeconds: tool.timeout_seconds, ...(tool.runs ? { runs: tool.runs } : {}), ...(tool.host_command ? { hostCommand: tool.host_command } : {}),
     };
   });
-  const projects: OfferProject[] = manifest.projects.map((project) => ({
-    name: project.name, repo: project.repo, branch: project.branch, access: project.access, network: project.network, ...(project.setup ? { setup: project.setup } : {}),
-    ...(project.credential ? { credential: secretName(project.credential) } : {}), ...(commits[project.name] ? { baseCommit: commits[project.name] as string } : {}),
-  }));
+  const projects: OfferProject[] = manifest.projects.map((project) => {
+    const credential = credentialOf(manifest, project);
+    return {
+      name: project.name, repo: project.repo, branch: project.branch, access: project.access, network: project.network, ...(project.setup ? { setup: project.setup } : {}),
+      ...(credential ? { credential: secretName(credential) } : {}), ...(commits[project.name] ? { baseCommit: commits[project.name] as string } : {}),
+    };
+  });
   const describe = (entries: Record<string, { description?: string; title?: string }>) => Object.entries(entries).map(([name, entry]) => ({ name, description: entry.description || entry.title || "" }));
 
   const offered = [...inherited.map((patch) => patch.digest), ...(own ? [own] : []), ...review.flatMap((entry) => [...(entry.patch ? [entry.patch.digest] : []), ...entry.files.map((file) => file.digest)])];
@@ -159,7 +167,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
       limits: { turns: agent.limits.turns, tokens: agent.limits.tokens, spendMicroUsd: microUsd(agent.limits.spend_usd) }, tools: agent.tools,
     },
     tools, projects, inheritedPatches: inherited, ...(own ? { workingCopy: blob(db, own) } : {}),
-    model: { gatewayUrl: `${gov.gatewayUrl}/model/v1`, route: agent.model ?? modelsOf(gov, attempt.workspace_id, manifest).models[0]?.name ?? "" },
+    model: { gatewayUrl: `${gov.gatewayUrl}/model/v1`, route: agent.model ?? routed?.name ?? "", contextTokens: routed?.context_tokens ?? MODEL_DEFAULTS.context_tokens, compactAt: routed?.compact_at ?? MODEL_DEFAULTS.compact_at },
     ...(payload.act ? { act: payload.act } : {}),
   };
 }

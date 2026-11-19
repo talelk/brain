@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { MAX_REPLY_TOKENS, type JsonValue } from "@brain/contracts";
+import { MAX_REPLY_TOKENS, MODEL_DEFAULTS, type JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
 import { engineFailureDetail, QUOTA_TEXT } from "./failure-detail";
 import { holdsCompleteObject } from "./json-reply";
@@ -15,7 +15,6 @@ const PACKAGE = "@earendil-works/pi-coding-agent";
 export const PI_NATIVE: NativeToolNames = { none: [], read: ["read", "grep", "find", "ls"], all: ["read", "grep", "find", "ls", "edit", "write", "bash"] };
 
 /** The offer names a route, not a model, so the window is not known here; this is what compaction assumes. */
-const CONTEXT_WINDOW = 200_000;
 const PROVIDER = "brain";
 
 type PiSession = {
@@ -42,6 +41,8 @@ function resultText(result: SessionEvent["result"]): string {
  * models file. Pi's own tools are enabled at the agent's native level and work in the working copy; workspace tools are custom tools
  * whose calls go to the runner.
  */
+const windowOf = (spec: EngineSessionSpec): number => spec.model.contextTokens ?? MODEL_DEFAULTS.context_tokens;
+
 export class PiEngine implements EngineAdapter {
   readonly id = "pi";
   private session: PiSession | null = null;
@@ -75,7 +76,7 @@ export class PiEngine implements EngineAdapter {
           name: "Brain model gateway", baseUrl: spec.model.baseUrl, api: "openai-completions", apiKey: spec.model.token,
           models: [{
             id: spec.model.name, name: spec.model.name, reasoning: true, input: ["text"],
-            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: CONTEXT_WINDOW, maxTokens: spec.limits.maxOutputTokens ?? (spec.limits.maxTokens > 0 ? Math.min(spec.limits.maxTokens, MAX_REPLY_TOKENS, Math.max(8192, spec.limits.maxTokens - 4096)) : MAX_REPLY_TOKENS),
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: windowOf(spec), maxTokens: spec.limits.maxOutputTokens ?? (spec.limits.maxTokens > 0 ? Math.min(spec.limits.maxTokens, MAX_REPLY_TOKENS, Math.max(8192, spec.limits.maxTokens - 4096)) : MAX_REPLY_TOKENS),
           }],
         },
       },
@@ -83,10 +84,13 @@ export class PiEngine implements EngineAdapter {
     const { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager } = (await import(PACKAGE)) as typeof import("@earendil-works/pi-coding-agent");
     // A provider's Retry-After is read, not slept on: the wait is the Governor's to schedule. A failure that named no delay gets one quick retry.
     const settings = SettingsManager.create(cwd, agentDir);
-    settings.applyOverrides({ retry: { provider: { maxRetries: 1, maxRetryDelayMs: 1 } } });
+    // Pi compacts the conversation when it passes `window - reserveTokens`: the share of the window left free is room for the next tool result and reply.
+    const window = windowOf(spec);
+    settings.applyOverrides({ retry: { provider: { maxRetries: 1, maxRetryDelayMs: 1 } }, compaction: { enabled: true, reserveTokens: Math.round(window * (1 - (spec.model.compactAt ?? MODEL_DEFAULTS.compact_at))), keepRecentTokens: Math.min(20_000, Math.round(window * 0.1)) } });
     const runtime = await ModelRuntime.create({ modelsPath: modelsFile, authPath: join(agentDir, "auth.json") });
     const model = runtime.getModel(PROVIDER as never, spec.model.name as never);
     if (!model) {
+      if (spec.model.name === "") throw new Error("This workspace has no model to call: connect one under Workspace, Settings, or define one in the admin workspace");
       // Pi drops a provider whose models file it cannot read or validate; its own error says why, and the ids it did load show a name mismatch.
       const known = runtime.getModels(PROVIDER).map((entry) => entry.id).join(", ") || "none";
       throw new Error(`Pi did not find the gateway model "${spec.model.name}" in its models file (models loaded: ${known}; Pi says: ${runtime.getError() ?? "no error"})`);

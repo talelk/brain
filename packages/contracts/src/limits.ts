@@ -12,6 +12,8 @@ export const LIMIT_DEFAULTS = {
 } as const;
 /** An attempt that failed for an infrastructure reason is tried again until it has been tried this many times in all. */
 export const MAX_ATTEMPTS = 5;
+/** A model's context window, and the share of it at which a long conversation is compacted, when `[[model]]` says nothing. */
+export const MODEL_DEFAULTS = { context_tokens: 200_000, compact_at: 0.7 } as const;
 /** The longest reply a model may write in one call, unless the agent's `tokens` is smaller. */
 export const MAX_REPLY_TOKENS = 32_768;
 

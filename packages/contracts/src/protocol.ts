@@ -131,7 +131,8 @@ export interface JobOffer {
   readonly inheritedPatches: ReadonlyArray<BlobRef>;
   /** The patch an earlier attempt of this task left, applied after `inheritedPatches`. */
   readonly workingCopy?: BlobRef;
-  readonly model: { readonly gatewayUrl: string; readonly route: string };
+  /** The model route the attempt calls, with its context window and the share of it at which a long conversation is compacted. */
+  readonly model: { readonly gatewayUrl: string; readonly route: string; readonly contextTokens: number; readonly compactAt: number };
   /** For `act`: the approved call to run, and nothing else. */
   readonly act?: { readonly callId: string; readonly approvalId: string; readonly tool: string; readonly input: JsonValue };
 }
