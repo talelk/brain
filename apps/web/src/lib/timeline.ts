@@ -94,9 +94,9 @@ export function buildTimeline(record: Task, now: number): Timeline {
   let start = Infinity;
   let end = -Infinity;
   const span = (at: number): void => { start = Math.min(start, at); end = Math.max(end, at); };
-  // About a hundredth of the whole is the least an attempt is given room for.
+  // About a twelfth of the whole is the least an attempt is given room for: on a phone a bar is at least that wide, and two bars must not lie on one another.
   const times = record.attempts.flatMap((attempt) => [attempt.createdAt, attempt.finishedAt ?? (RUNNING.has(attempt.state) || attempt.state === "held" ? now : attempt.createdAt)]);
-  const least = (Math.max(...times) - Math.min(...times)) / 80;
+  const least = (Math.max(...times) - Math.min(...times)) / 12;
   for (const task of tasks) {
     const mine = attemptsOf(task.id);
     const bars = mine.map((attempt) => {

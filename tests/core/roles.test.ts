@@ -252,6 +252,20 @@ describe("visibility", () => {
     await expect(outsider.query("workspace.get", { workspaceId: id })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
+  it("an instance admin is an admin of every workspace, private ones too, without being a member", async () => {
+    const { workspaceId: id } = await harness.createWorkspace({ name: "Closed house", packs: ["core"] });
+    const boss = await harness.member(otherWorkspaceId, "boss@example.com", "viewer");
+    expect((await boss.query("me", {})).workspaces.map((workspace) => workspace.id)).not.toContain(id);
+    await harness.admin.command("user.set", { userId: (await boss.query("me", {})).user?.id as string, instanceAdmin: true });
+    expect((await boss.query("me", {})).workspaces.find((workspace) => workspace.id === id)).toMatchObject({ role: "admin", visibility: "private", viaPublic: false });
+    expect(await boss.query("workspace.get", { workspaceId: id })).toMatchObject({ role: "admin" });
+    expect((await boss.query("overview", {})).workspaces.map((workspace) => workspace.id)).toContain(id);
+    // Read and write: the admin starts work and changes files there.
+    await expect(boss.command("task.create", { workspaceId: id, play: "hello", inputs: { name: "Boss" } })).resolves.toBeDefined();
+    await expect(boss.command("file.write", { workspaceId: id, files: [{ path: "memory/boss.md", content: "# boss\n" }] })).resolves.toBeDefined();
+    expect((await boss.query("members.list", { workspaceId: id })).members.map((member) => member.email)).not.toContain("boss@example.com");
+  });
+
   it("a member keeps their own role in a public workspace", async () => {
     const { workspaceId: id } = await harness.createWorkspace({ name: "Open team", packs: ["core"] });
     const mine = await harness.member(id, "meg@example.com", "member");

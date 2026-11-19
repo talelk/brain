@@ -557,6 +557,9 @@ An **instance admin** (shown as a platform administrator) looks after the people
 Brain at `/users`; everyone else is an instance **member**. A person is `active`, `invited`
 (an invitation not yet accepted) or `deactivated`.
 
+- **Every workspace.** An instance admin is an `admin` of every workspace, private and archived ones
+  included, whether or not they are listed as a member: they read and change what a workspace admin does, and
+  the audit log names them.
 - **Invitation.** An admin invites an email address with an instance role, optional workspace
   roles and optional groups. Brain may have no mail server, so the invitation is a one-use link
   the admin copies (mail is also sent when `BRAIN_SMTP_URL` is set). The link works once, for

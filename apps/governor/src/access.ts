@@ -5,6 +5,7 @@ import { manifestOf } from "./workspace/store";
 /**
  * Who may see a workspace and as what (docs/architecture.md section 4). Every place that asks "is this person in this workspace" asks here:
  * a member has their role; any other signed-in person is a `viewer` of an active workspace whose active snapshot says `visibility = "public"`;
+ * an instance admin is an `admin` of every workspace, private and archived ones too (the Brain's own admin looks after all of them);
  * everyone else is told the workspace does not exist. A snapshot made before visibility existed reads as private.
  */
 export interface Access { readonly role: Role; readonly status: "active" | "archived"; readonly viaPublic: boolean }
@@ -26,11 +27,12 @@ export function accessOf(gov: Gov, userId: string, workspaceId: string): Access 
   if (!row) return undefined;
   // A platform workspace holds what every workspace did: it exists only for instance admins, members or not (docs/model.md).
   if (platformOfRow(gov, row) !== null && !isInstanceAdmin(gov, userId)) return undefined;
+  if (row.role === "admin" || isInstanceAdmin(gov, userId)) return { role: "admin", status: row.status, viaPublic: false };
   if (row.role) return { role: row.role, status: row.status, viaPublic: false };
   return isPublic(gov, row) ? { role: "viewer", status: "active", viaPublic: true } : undefined;
 }
 
-/** The workspaces a person sees: those they are a member of, and the public active ones. */
+/** The workspaces a person sees: those they are a member of, and the public active ones; an instance admin sees all of them. */
 export function visibleWorkspaces(gov: Gov, userId: string): WorkspaceSummary[] {
   const rows = gov.db.prepare(`${SELECT} ORDER BY w.status, w.name, w.id`).all({ user: userId }) as Row[];
   const admin = isInstanceAdmin(gov, userId);
@@ -38,8 +40,8 @@ export function visibleWorkspaces(gov: Gov, userId: string): WorkspaceSummary[] 
     const platform = platformOfRow(gov, row);
     if (platform && !admin) return [];
     const open = isPublic(gov, row);
-    if (!row.role && !open) return [];
+    if (!row.role && !open && !admin) return [];
     const { id, slug, name, description, status } = row;
-    return [{ id, slug, name, description, status, role: row.role ?? "viewer", visibility: open ? "public" : "private", platform, viaPublic: !row.role }];
+    return [{ id, slug, name, description, status, role: admin ? "admin" : (row.role ?? "viewer"), visibility: open ? "public" : "private", platform, viaPublic: !row.role && !admin && open }];
   });
 }
