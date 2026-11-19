@@ -46,14 +46,20 @@ with the API, the timers and the audit chain.
 only `registerGateway` and shares the SQLite file (WAL, `busy_timeout`). The main process stops
 mounting it when `BRAIN_GATEWAY_URL` points elsewhere.
 
-**Risks to settle before building.**
-1. Two writers on one SQLite file: the audit chain's head must be read inside the write
-   transaction (`BEGIN IMMEDIATE`) so two processes cannot extend the same head.
-2. The spend hold and release (`trust/usage.ts`) must stay atomic across processes: same rule.
-3. `deploy/` gains a second service; the demo and the launcher's sandbox network must reach
-   the new port (`BRAIN_GATEWAY_URL` already exists for this).
+**The two SQLite risks, checked in the code (no change needed).**
+1. The audit chain: `append` reads the head and writes the next event inside one transaction, and
+   every transaction is `BEGIN IMMEDIATE` (`db.ts`), with WAL and `busy_timeout = 5000`. Two
+   processes cannot extend the same head: the second waits for the first.
+2. The spend hold and release (`trust/usage.ts`) run in the same kind of transaction: same answer.
 
-If risk 1 cannot be met with a small change, stop and keep one process.
+**A third risk found while checking.** `markChanged` (what makes the web's live stream say
+"something changed") keeps its listeners in the memory of one process. A write made by the gateway
+process would not wake the Governor's listeners, so Live would show model spend and attempt
+activity late. Before building: let the gateway process tell the Governor (one local HTTP call
+after a write), or have the Governor poll the event position every second. Either is small, but
+it is a new rule in `docs/architecture.md`.
+
+Also: only the Governor runs the timers; the gateway process must not start them.
 
 ## Order
 
