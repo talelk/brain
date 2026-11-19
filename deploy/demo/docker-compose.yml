@@ -14,7 +14,7 @@ services:
       BRAIN_BASE_URL: ${BRAIN_BASE_URL}
       BRAIN_GATEWAY_URL: http://host.docker.internal:3100
       # Where runners (on the host) fetch and push the state of an attempt: the git store, a unit of the host (brain-store.service).
-      BRAIN_STORE_URL: http://127.0.0.1:3200
+      BRAIN_STORE_URL: http://127.0.0.1:3110
       BRAIN_LOCAL_RUNNER_TOKEN_FILE: /host-run/runner.token
     ports:
       - "127.0.0.1:3100:3100"

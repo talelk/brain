@@ -24,7 +24,7 @@
 #   5. Start the Governor and wait for /health/ready.
 #   6. Start the egress proxy, the only way a sandbox reaches a network.
 #   7. Node and the dependencies of the launcher and the runner on the host.
-#   8. The systemd units brain-launcher, brain-store (the git store, port 3200 on this host only) and brain-runner; the runner enrols by itself the first time, with the token the
+#   8. The systemd units brain-launcher, brain-store (the git store, port 3110 on this host only) and brain-runner; the runner enrols by itself the first time, with the token the
 #      Governor leaves while it has no runner.
 #   9. The backup timers, when /srv/demos/brain/backup.env exists.
 #  10. Checks, and on a fresh install the setup link.
@@ -279,7 +279,7 @@ User=$DEPLOY_USER
 WorkingDirectory=$REMOTE_DIR/src
 Environment=BRAIN_STORE_DIR=$REMOTE_DIR/store
 Environment=BRAIN_STORE_PUBLIC_KEY_FILE=$REMOTE_DIR/data/store.pub
-Environment=PORT=3200
+Environment=PORT=3110
 # The Governor writes its public key when it starts.
 TimeoutStartSec=90
 ExecStartPre=/bin/sh -c 'until [ -s "$REMOTE_DIR/data/store.pub" ]; do sleep 1; done'
@@ -369,6 +369,10 @@ SCRIPT
 on_host "Checks" <<'SCRIPT'
 for unit in brain-launcher brain-store brain-runner; do echo "    $unit: $(systemctl is-active "$unit" || true)"; done
 echo "    governor: $(curl -fsS --max-time 5 http://127.0.0.1:3100/health/ready || echo 'NOT READY')"
+# The git store is where work passes from one attempt to the next: another service on its port, or a store that did not start, must stop the deploy.
+STORE_OK=0
+for try in $(seq 1 20); do [ "$(curl -fsS --max-time 3 http://127.0.0.1:3110/health 2>/dev/null)" = "ok" ] && { STORE_OK=1; break; }; sleep 1; done
+if [ "$STORE_OK" = 1 ]; then echo "    git store: answers on 127.0.0.1:3110"; else echo "!! the git store does not answer on 127.0.0.1:3110 (is another service on that port?): journalctl -u brain-store -n 40" >&2; exit 1; fi
 # What an engine in a sandbox needs: the proxy's container reaching the Governor on Docker's bridge address.
 if docker exec brain-egress-proxy node -e "fetch('http://host.docker.internal:3100/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
   echo "    sandboxes reach the model gateway"

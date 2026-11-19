@@ -46,7 +46,7 @@ const BASE_URL = process.env["BRAIN_BASE_URL"] ?? `http://localhost:${PORT}`;
 const FIXTURE = process.env["BRAIN_PROFILE"] === "fixture";
 const SOCKET = join(RUN, "launcher.sock");
 const RUNNER_TOKEN = join(RUN, "runner.token");
-const STORE_PORT = process.env["BRAIN_STORE_PORT"] ?? "3200";
+const STORE_PORT = process.env["BRAIN_STORE_PORT"] ?? "3110";
 const PARTS = { governor: "apps/governor/src/main.ts", store: "apps/store/src/main.ts", launcher: "apps/launcher/src/main.ts", runner: "apps/runner/src/main.ts" } as const;
 type Part = keyof typeof PARTS;
 const IMAGES = ["brain-sandbox-tool", "brain-sandbox-engine", "brain-egress-proxy"];
