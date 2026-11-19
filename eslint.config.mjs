@@ -5,7 +5,7 @@ import security from "eslint-plugin-security";
 import unusedImports from "eslint-plugin-unused-imports";
 
 export default tseslint.config(
-  { ignores: ["node_modules/**", ".claude/worktrees/**", ".zcode/**", "**/dist/**", "scripts/*.py"] },
+  { ignores: ["node_modules/**", ".claude/worktrees/**", ".zcode/**", "**/dist/**", "scripts/*.py", "docs/diagrams/**"] },
   ...tseslint.configs.recommended,
   solid.configs.recommended,
   security.configs.recommended,

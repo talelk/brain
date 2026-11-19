@@ -1,0 +1,6 @@
+{
+  "name": "brain-diagrams",
+  "private": true,
+  "description": "Generates the architecture schema of Brain (SVG and PNG, light and dark). Run: npm install && node src/build.js",
+  "dependencies": { "@resvg/resvg-js": "2.6.2", "simple-icons": "16.38.0" }
+}

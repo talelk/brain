@@ -10,6 +10,10 @@ The previous implementation is readable at `~/.cache/brain-old` (tag
 `pre-simplification-2026-11-16`); copy a piece only when this document names what it is
 for, and strip what the new model does not use.
 
+The whole picture on one page: [diagrams/png/d01-architecture-brain-light.png](diagrams/png/d01-architecture-brain-light.png)
+(dark: `-dark.png`; vector: `diagrams/svg/`). Its badges are the section numbers below. It is drawn by
+`docs/diagrams/src/d01-architecture.js` (`cd docs/diagrams && npm install && node src/build.js`).
+
 ## 1. Layout
 
 ```
