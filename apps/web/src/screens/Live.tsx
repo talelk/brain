@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, lazy, on, onCleanup, Show, type JSX } from "solid-js";
 import { A, useParams } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
 import { EmptyState } from "@talelk/newui-molecules";
@@ -9,7 +9,7 @@ import { t } from "../i18n";
 import { money } from "../lib/format";
 import { activityBuckets, feedEvents, groupFeed, mergeEvents, newGoals, pushSamples, stageCounts, successRate, type Samples } from "../lib/live";
 import { Feed, Lane, reduced, Ring, River, Tick, Ticker, Tile, useTick, visible, watch, type Ending, type Leaving } from "../components/LiveParts";
-import { World, type Station, type WorldRun } from "../components/World";
+import type { Station, WorldRun } from "../components/World";
 import { Head } from "../components/Shell";
 import { Failure, Icon, Loading } from "../components/bits";
 
@@ -32,6 +32,9 @@ export default function LiveScreen(): JSX.Element {
 }
 
 /** The one board behind both screens: Live is the flow, the runners, the workspaces and the feed; Village is the same answers as a game map. */
+/** The village is drawn only on its own view, so Live does not fetch its map, sprites and music. */
+const World = lazy(() => import("../components/World").then((module) => ({ default: module.World })));
+
 export function Board(props: { view: "live" | "village" }): JSX.Element {
   const village = (): boolean => props.view === "village";
   const session = useSession();
