@@ -53,6 +53,32 @@ describe("a plan", () => {
   });
 });
 
+describe("a report", () => {
+  it("that says it saved a file that was not kept goes back without a reviewer, and passes once the file is kept", async () => {
+    let checks = 0;
+    let tries = 0;
+    driver.script({
+      dev: () => { tries += 1; return tries === 1 ? "Saved the report to /work/report.md." : { result: "Saved the report to /out/report.md.", files: { "report.md": "# Report\n" } }; },
+      checker: () => { checks += 1; return pass(); },
+    });
+    const goal = await getTask(member, workspaceId, (await member.command("task.create", { workspaceId, play: "job" })).taskId);
+    await driver.drain();
+    const done = step(await getTask(member, workspaceId, goal.id), "do");
+    expect(done.state).toBe("done");
+    expect(tries).toBe(2);
+    expect(checks).toBe(1);
+  });
+
+  it("that starts with BLOCKED goes back with the reason and is never reviewed", async () => {
+    let checks = 0;
+    driver.script({ dev: () => "BLOCKED: I have no tool to write a file.", checker: () => { checks += 1; return pass(); } });
+    const goal = await getTask(member, workspaceId, (await member.command("task.create", { workspaceId, play: "job" })).taskId);
+    await driver.drain();
+    expect(step(await getTask(member, workspaceId, goal.id), "do")).toMatchObject({ state: "needs_you", needs: { kind: "check", findings: expect.stringContaining("I have no tool to write a file") } });
+    expect(checks).toBe(0);
+  });
+});
+
 describe("a reviewer", () => {
   it("that says the same thing again stops the rounds, and the person is told why", async () => {
     const wanted = "The report claims six platform calls were made but none appears in the recorded tool calls; invoke each platform tool and show the real output.";

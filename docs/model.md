@@ -309,6 +309,13 @@ planner and a checker; the other packs build on it.
    step's reviewer, the base pack's `checker`, or a person. Only a checked task is done. When a
    reviewer's verdict repeats almost word for word the one before, the rounds stop there and a
    person is asked at once, with that said: another round would change nothing.
+   Brain also checks, in code and before any reviewer is asked, what a report says it did: a
+   result that says it saved a file under `/out` that was not kept (or a file in `/work` outside
+   a project folder, which is lost) goes back as a failed round with the reason, and a result
+   whose first line starts with `BLOCKED:` is the agent saying it cannot do the task as it is set
+   up: it goes back the same way, with its reason, and the reviewer is not asked. Every agent is
+   told so in its task text; both count as rounds, so they end at the step's limit and a person
+   is asked.
 6. Code changes leave only as a pull request opened from the working copy's diff.
 
 A task is in one of these states: `waiting`, `ready`, `running`, `needs you`, `done`,

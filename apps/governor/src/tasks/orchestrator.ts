@@ -6,7 +6,7 @@ import { settleUsage } from "../trust/usage";
 import { manifestOf } from "../workspace/store";
 import { closeHealed, healFailed } from "./heal";
 import { closeSuperseded } from "./superseded";
-import { afterCheck, afterPersonCheck, afterWork, checkerOf, doers, groupOutcome, promote, readJudgement, readPlan, readVerdict, passes, renderGoal, retryOf, SKIPPED, type WorkFacts, type WorkState } from "./decide";
+import { afterCheck, blockedReason, claimedFiles, unkeptClaim, afterPersonCheck, afterWork, checkerOf, doers, groupOutcome, promote, readJudgement, readPlan, readVerdict, passes, renderGoal, retryOf, SKIPPED, type WorkFacts, type WorkState } from "./decide";
 import {
   ACTIVE_ATTEMPT, agentCapsOf, agentsOf, attemptOf, createPlanned, failureOf, insertTask, json, needOf, payloadOf, queueAttempt, scopeOf, setState, settingsOf, stepOf, taskOf, TERMINAL,
   type AttemptRow, type TaskRow,
@@ -150,6 +150,8 @@ function check(gov: Gov, task: TaskRow, work: AttemptRow): void {
   const held = setState(gov, task, "running", { result: work.result ?? "", output: json<JsonValue>(work.output_json) });
   // Of several candidates a judge already kept this one; that judgement is its check unless the step also names a reviewer.
   if (settings.candidates !== null && settings.reviewBy === null) return passed(gov, held);
+  const wrong = reportProblem(gov, task, work);
+  if (wrong !== undefined) return refuseReport(gov, held, work, wrong);
   const by = checkerOf(settings, work.agent, agentsOf(manifestOf(gov, task.snapshot_digest)));
   if (by === null) needsPerson(gov, held, { kind: "check", findings: "" });
   else queueAttempt(gov, { task: held, kind: "check", agent: by, payload: { review: [work.id] } });
@@ -167,6 +169,31 @@ function afterWorkEnded(gov: Gov, task: TaskRow): void {
   else check(gov, task, latest.find((attempt) => attempt.id === decision.attemptId) as AttemptRow);
 }
 
+/** What Brain can tell of an attempt's report without asking anyone: it said it is blocked, or it says it saved a file that was not kept. */
+function reportProblem(gov: Gov, task: TaskRow, work: AttemptRow): string | undefined {
+  const blocked = blockedReason(work.result ?? "");
+  if (blocked !== undefined) return `The agent said it cannot do this task as it is set up: ${blocked}`;
+  const claims = claimedFiles(work.result ?? "");
+  if (claims.length === 0) return undefined;
+  const kept = new Set((gov.db.prepare("SELECT name FROM artifact_links WHERE attempt_id=? AND kind='output'").all(work.id) as Array<{ name: string }>).map((row) => row.name));
+  return unkeptClaim(claims, kept, Object.keys(manifestOf(gov, task.snapshot_digest).projects));
+}
+
+/** The check Brain makes itself: a report that is wrong in a way code can see goes back as a failed round, with the reason, and no reviewer is asked. */
+function refuseReport(gov: Gov, task: TaskRow, work: AttemptRow, findings: string): void {
+  recordCheck(gov, task, { by: { kind: "agent", id: "brain" }, attemptId: work.id, pass: false, score: 0, findings }, { kind: "agent", id: "brain", attemptId: work.id });
+  decideAfterCheck(gov, task, { pass: false, score: 0, findings });
+}
+
+function decideAfterCheck(gov: Gov, task: TaskRow, verdict: { readonly pass: boolean; readonly score: number | null; readonly findings: string }): void {
+  // The findings of the agent check before this one (this one is recorded already): a verdict that repeats it ends the rounds.
+  const before = (gov.db.prepare("SELECT findings FROM checks WHERE task_id=? AND pass=0 AND by_kind='agent' ORDER BY id DESC LIMIT 1 OFFSET 1").get(task.id) as { findings: string } | undefined)?.findings;
+  const decision = afterCheck({ ...settingsOf(task), round: task.round }, verdict, before);
+  if (decision.next === "done") setState(gov, task, "done");
+  else if (decision.next === "needs") needsPerson(gov, task, decision.need);
+  else setState(gov, task, "ready", { round: decision.round });
+}
+
 function afterCheckEnded(gov: Gov, task: TaskRow, attempt: AttemptRow): void {
   const verdict = attempt.state === "succeeded" ? readVerdict(attempt.result ?? "", json<JsonValue>(attempt.output_json)) : undefined;
   if (!verdict) {
@@ -174,12 +201,7 @@ function afterCheckEnded(gov: Gov, task: TaskRow, attempt: AttemptRow): void {
   }
   const pass = passes(verdict, task.target_score);
   recordCheck(gov, task, { by: { kind: "agent", id: attempt.agent }, attemptId: payloadOf(attempt).review?.[0] ?? null, pass, score: verdict.score, findings: verdict.findings }, { kind: "agent", id: attempt.agent, attemptId: attempt.id });
-  // The findings of the agent check before this one (this one is recorded above): a verdict that repeats it ends the rounds.
-  const before = (gov.db.prepare("SELECT findings FROM checks WHERE task_id=? AND pass=0 AND by_kind='agent' ORDER BY id DESC LIMIT 1 OFFSET 1").get(task.id) as { findings: string } | undefined)?.findings;
-  const decision = afterCheck({ ...settingsOf(task), round: task.round }, verdict, before);
-  if (decision.next === "done") setState(gov, task, "done");
-  else if (decision.next === "needs") needsPerson(gov, task, decision.need);
-  else setState(gov, task, "ready", { round: decision.round });
+  decideAfterCheck(gov, task, verdict);
 }
 
 function afterJudgeEnded(gov: Gov, task: TaskRow, attempt: AttemptRow): void {

@@ -216,6 +216,35 @@ export function readJudgement(result: string, output: JsonValue | null | undefin
   return keep === undefined ? undefined : { keep, findings: typeof value?.["findings"] === "string" ? value["findings"] : "" };
 }
 
+// --- what an agent says it did ---
+
+/** The reason an agent gave when it said it cannot do the task: a result whose first line starts with `BLOCKED:`. */
+export function blockedReason(result: string): string | undefined {
+  const first = result.trimStart().split("\n", 1)[0] ?? "";
+  const match = /^BLOCKED:\s*(.*)$/iu.exec(first);
+  return match ? (match[1]?.trim() || "no reason given") : undefined;
+}
+
+/** The files under `/out` and `/work` that a result says it saved, wrote or produced: the lines that say so are the claim, a path read or merely named is not. */
+export function claimedFiles(result: string): string[] {
+  const claims = new Set<string>();
+  for (const line of result.split("\n")) {
+    if (!/\b(?:sav|wr[io]t|creat|deliver|produc|stor)\w*/iu.test(line)) continue;
+    for (const found of line.matchAll(/\/(?:out|work)\/[^\s`'"()[\]<>]+/gu)) claims.add(found[0].replace(/[.,;:!?*]+$/u, ""));
+  }
+  return [...claims];
+}
+
+/** What is wrong with the files a result claims, given the file names the attempt kept and the project folders of the workspace; undefined when nothing is. */
+export function unkeptClaim(claims: readonly string[], kept: ReadonlySet<string>, projects: readonly string[]): string | undefined {
+  const missing = claims.filter((claim) => {
+    const [, root = "", ...rest] = claim.split("/");
+    return root === "out" ? !kept.has(rest.join("/")) : !projects.includes(rest[0] ?? "");
+  });
+  if (missing.length === 0) return undefined;
+  return `Your result says ${missing.map((path) => `"${path}"`).join(", ")} ${missing.length === 1 ? "was" : "were"} saved, but nothing was kept there: only files saved in /out${projects.length > 0 ? ` and changes to the project folders under /work (${projects.join(", ")})` : ""} are kept, and a file anywhere else is lost when the attempt ends. Save the file in /out, or take the claim out of your result.`;
+}
+
 // --- a plan ---
 
 /** Whether a text names a tool, as a whole name: `platform.tasks` is not a mention of `platform.task`. */

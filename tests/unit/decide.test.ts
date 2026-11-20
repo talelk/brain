@@ -1,7 +1,7 @@
 import { MAX_ATTEMPTS, type TaskNeed } from "@brain/contracts";
 import { describe, expect, it } from "vitest";
 import {
-  afterCheck, afterPersonCheck, afterWork, repeats, backoffMs, checkerOf, doers, forEachItems, groupOutcome, promote, readJudgement, readPlan, readVerdict, renderGoal, resultObject, retryOf, whenHolds,
+  afterCheck, afterPersonCheck, afterWork, repeats, backoffMs, checkerOf, doers, forEachItems, groupOutcome, promote, readJudgement, readPlan, readVerdict, blockedReason, claimedFiles, unkeptClaim, renderGoal, resultObject, retryOf, whenHolds,
   type Scope, type StepSettings, type WorkFacts,
 } from "../../apps/governor/src/tasks/decide";
 
@@ -166,6 +166,23 @@ describe("a plan", () => {
     expect(readPlan(plan([{ title: "Look", goal: "Never call platform.repeats here.", agent: "developer" }]), null, agents, ["platform.repeats"]))
       .toMatchObject({ problem: expect.stringContaining("platform.repeats (agents that have it: none)") });
     expect(readPlan(plan([{ title: "Look", goal: "Use task.note and platform.tasks.", agent: "analyst" }]), null, agents, tools)).toMatchObject({ problem: expect.stringContaining("no one agent has all") });
+  });
+});
+
+describe("what an agent says it did", () => {
+  it("reads a BLOCKED first line as the agent saying it cannot do the task", () => {
+    expect(blockedReason("BLOCKED: no write tool\nI looked around.")).toBe("no write tool");
+    expect(blockedReason("Done.\nBLOCKED: not a first line")).toBeUndefined();
+    expect(blockedReason("blocked:")).toBe("no reason given");
+  });
+  it("finds the files a result says it saved, not the ones it only names or reads", () => {
+    const result = "I read /out/old.md for context.\nSaved the list to /out/improvements.md.\nThe report is written in `/work/improvements.md`, done.";
+    expect(claimedFiles(result)).toEqual(["/out/improvements.md", "/work/improvements.md"]);
+  });
+  it("finds nothing wrong when every claimed file is kept, and says what is lost otherwise", () => {
+    expect(unkeptClaim(["/out/a.md"], new Set(["a.md"]), [])).toBeUndefined();
+    expect(unkeptClaim(["/work/app/src/x.ts"], new Set(), ["app"])).toBeUndefined();
+    expect(unkeptClaim(["/out/a.md", "/work/b.md"], new Set(["a.md"]), [])).toContain('"/work/b.md" was saved, but nothing was kept there');
   });
 });
 

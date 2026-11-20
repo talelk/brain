@@ -267,6 +267,7 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   them with the fewest capabilities (the offer's catalog gives each agent's tools and whether it writes), and the plan note
   names the change; only a task no agent can do is not failed but made again: the plan attempt is queued again with the
   reason among its findings, twice at most, and only then fails the root.
+- Before a reviewer is asked (`check` in `tasks/orchestrator.ts`), `reportProblem` reads the result: a first line `BLOCKED:`, or a file under `/out` or `/work` that the result says it saved and the attempt did not keep (its `output` artifact links), records a failed check by `brain` and decides the round as any failed check does.
 - A step's goal is filled in when its task becomes `ready` (inputs and items are already shown while it waits). A goal a
   person rewrote with `task.edit` is kept as they wrote it.
 - The orchestrator runs after every change and on a timer. For each workspace it makes `ready` every `waiting` task

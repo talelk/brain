@@ -39,7 +39,7 @@ function environment(paths: AttemptPaths, projects: number): string {
   const work = paths.work
     ? projects > 0 ? `${paths.work}/<project> are the project folders; changes to them are kept and shown to the reviewer.` : `${paths.work} is empty: this task has no project folder, and a file written there is lost when the attempt ends.`
     : "There is no working copy for this task.";
-  return `# Where you are\n${work} ${paths.out} is where every file to keep as a result goes (a report, a plan, a list); the reviewer and the person read it from there. The task text above and your tools hold everything else you need. Do not search or list the rest of the file system (\`/\`, \`/state\`, \`/app\`): it holds nothing of this task and only fills your context.`;
+  return `# Where you are\n${work} ${paths.out} is where every file to keep as a result goes (a report, a plan, a list); the reviewer and the person read it from there. The task text above and your tools hold everything else you need. Do not search or list the rest of the file system (\`/\`, \`/state\`, \`/app\`): it holds nothing of this task and only fills your context. Brain checks the files your answer says you saved: never claim work you did not do. If you cannot do this task with the tools and folders you have, start your answer with \`BLOCKED:\` and the reason; that is a valid answer, and it goes back to be fixed.`;
 }
 
 export function composeTask(offer: JobOffer, paths: AttemptPaths, patches: ReadonlyMap<string, ReviewPatch> = new Map(), files?: ReadonlyMap<string, ReviewPatch>): string {
