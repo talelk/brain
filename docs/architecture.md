@@ -267,6 +267,7 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   them with the fewest capabilities (the offer's catalog gives each agent's tools and whether it writes), and the plan note
   names the change; only a task no agent can do is not failed but made again: the plan attempt is queued again with the
   reason among its findings, twice at most, and only then fails the root.
+- The runner writes the snapshot's content for an agent with native tools (`apps/runner/src/workspace-files.ts`): the manifest and the CAS files it names (prompts, tool files, memory, documents), bounded, under `/work/.workspace`, beside the project folders and outside every state commit. The Governor lets a runner fetch those digests (`mayFetch`).
 - Before a reviewer is asked (`check` in `tasks/orchestrator.ts`), `reportProblem` reads the result: a first line `BLOCKED:`, or a file under `/out` or `/work` that the result says it saved and the attempt did not keep (its `output` artifact links), records a failed check by `brain` and decides the round as any failed check does.
 - A step's goal is filled in when its task becomes `ready` (inputs and items are already shown while it waits). A goal a
   person rewrote with `task.edit` is kept as they wrote it.

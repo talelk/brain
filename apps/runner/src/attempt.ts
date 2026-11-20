@@ -14,6 +14,7 @@ import { type GovernorClient, isLeaseLost } from "./governor-client";
 import { EventSpool } from "./spool";
 import { CHECK_SHAPE, composeTask, JUDGE_SHAPE, PLAN_SHAPE, type ReviewPatch } from "./task-text";
 import { ToolCalls } from "./tools/calls";
+import { placeWorkspaceFiles } from "./workspace-files";
 import { collectOutputs, prepareWorkingCopy, SetupError, type WorkingCopy } from "./working-copy";
 
 /** What one attempt needs of its runner. */
@@ -182,6 +183,8 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
         writeFileSync(join(attemptDir, "work", ".brain", `${entry.attemptId}.patch`), text);
         reviewed.set(entry.attemptId, { path: `${paths.work}/.brain/${entry.attemptId}.patch` });
       }
+      // An agent that reads files is given the workspace's own definition to read, beside the working copy and never part of it.
+      const workspace = seesFiles && (await placeWorkspaceFiles(client, offer.snapshotDigest, join(attemptDir, "work", ".workspace")).then(() => true, () => false)) ? `${paths.work}/.workspace` : undefined;
       const prompt = new TextDecoder().decode(await client.blob({ digest: offer.agent.promptDigest }));
       const model = { baseUrl: offer.model.gatewayUrl, token: picked.id === "fixture" ? "" : (await client.modelToken(attemptId, { fence })).token, name: offer.model.route, contextTokens: offer.model.contextTokens, compactAt: offer.model.compactAt };
 
@@ -220,7 +223,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
       const offered = offer.tools.filter((tool) => offer.agent.tools.includes(tool.name));
       const spec: EngineSessionSpec = {
         attemptId, instructions: prompt + toolNameNote(offered), model, native: offer.agent.native, outDir: paths.out, stateDir: paths.state,
-        task: composeTask(offer, { ...(seesFiles ? { work: paths.work } : {}), out: paths.out }, reviewed, reviewedFiles) + (setupNotes.length > 0 ? `\n\n# Setup did not finish\n${setupNotes.join("\n")}\nDependencies may be missing; run what you need yourself, or say so in your result if you cannot.` : ""),
+        task: composeTask(offer, { ...(seesFiles ? { work: paths.work } : {}), ...(workspace ? { workspace } : {}), out: paths.out }, reviewed, reviewedFiles) + (setupNotes.length > 0 ? `\n\n# Setup did not finish\n${setupNotes.join("\n")}\nDependencies may be missing; run what you need yourself, or say so in your result if you cannot.` : ""),
         ...(seesFiles ? { workDir: paths.work } : {}),
         tools: offered.map((tool) => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, effect: tool.effect })),
         limits: { timeoutMs: cfg.attemptTimeoutMs, maxTokens: offer.agent.limits.tokens, maxMicroUsd: offer.agent.limits.spendMicroUsd, maxTurns: offer.agent.limits.turns, ...(offer.kind === "check" || offer.kind === "judge" ? { maxOutputTokens: VERDICT_OUTPUT_TOKENS } : {}) },

@@ -302,6 +302,10 @@ planner and a checker; the other packs build on it.
    files: its `native` level is `all`). A task whose agent lacks a need goes, by itself, to the agent
    that has all of them (the fewest capabilities, then the name), and the plan's note says so; the
    plan is refused with the reason, and made again twice at most, only when no agent has them all.
+   An agent that can read files is also given, under `/work/.workspace`, a read-only copy of its
+   workspace as the task's snapshot holds it (`manifest.json`, the agents' prompts, the tools'
+   files, the memory entries and the documents; bounded in size, never kept, no secret in it), so
+   a goal about the workspace's own files can be done.
    The task text tells every agent what is kept (the project folders under `/work`, and the files in `/out`;
    a file written anywhere else is lost when the attempt ends) and not to search the rest of the
    file system, and what the model is sent of one tool's answer is bounded, Pi's own tools included.

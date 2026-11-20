@@ -148,7 +148,8 @@ function mayFetch(gov: Gov, runnerId: string, digest: string): boolean {
     const snapshot = taskOf(gov.db, attempt.task_id).snapshot_digest;
     const manifest = manifestOf(gov, snapshot);
     if (digest === snapshot || payloadOf(attempt).offered?.includes(digest) || Object.values(manifest.agents).some((agent) => agent.prompt.digest === digest)
-      || Object.values(manifest.tools).some((tool) => tool.files.some((file) => file.digest === digest))) return true;
+      || Object.values(manifest.tools).some((tool) => tool.files.some((file) => file.digest === digest))
+      || manifest.memory.some((entry) => entry.digest === digest) || manifest.documents.some((document) => document.digest === digest)) return true;
   }
   return false;
 }
