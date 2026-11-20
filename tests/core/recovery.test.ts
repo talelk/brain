@@ -17,7 +17,7 @@ let driver: Driver;
 let member: Client;
 let workspaceId: string;
 
-const plan = (agent: string, goal = "Use inventory.list to list what exists and report it."): JsonValue => ({ summary: "One task.", tasks: [{ title: "List it", goal, agent, after: [] }] });
+const plan = (agent: string, needs: string[] = ["inventory.list"]): JsonValue => ({ summary: "One task.", tasks: [{ title: "List it", goal: "List what exists and report it.", agent, after: [], needs }] });
 
 beforeAll(async () => {
   harness = await createHarness({ clock });
@@ -43,7 +43,7 @@ describe("a plan", () => {
 
   it("whose task needs a tool no agent has is made again with the reason, and after two more tries fails the goal with the last one", async () => {
     const findingsSeen: string[][] = [];
-    driver.script({ planner: ({ offer }) => { findingsSeen.push([...offer.task.findings]); return { output: plan("analyst", "Call inventory.list and nothing.stale.") }; }, "workspace-healer": () => "no configuration cause" });
+    driver.script({ planner: ({ offer }) => { findingsSeen.push([...offer.task.findings]); return { output: plan("analyst", ["inventory.list", "nothing.stale"]) }; }, "workspace-healer": () => "no configuration cause" });
     const { taskId } = await member.command("task.create", { workspaceId, goal: "Use inventory.list again" });
     await driver.drain();
     expect(findingsSeen[1]?.[0]).toContain("no one agent has all");

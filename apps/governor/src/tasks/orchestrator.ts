@@ -215,7 +215,7 @@ function afterJudgeEnded(gov: Gov, task: TaskRow, attempt: AttemptRow): void {
 function afterPlanEnded(gov: Gov, task: TaskRow, attempt: AttemptRow): void {
   if (attempt.state !== "succeeded") return void setState(gov, task, "failed", { result: `The plan could not be made: ${failureOf(attempt)?.detail ?? attempt.state}` });
   const manifest = manifestOf(gov, task.snapshot_digest);
-  const plan = readPlan(attempt.result ?? "", json<JsonValue>(attempt.output_json), agentCapsOf(manifest), Object.keys(manifest.tools), Object.keys(manifest.projects).length);
+  const plan = readPlan(attempt.result ?? "", json<JsonValue>(attempt.output_json), agentCapsOf(manifest), Object.keys(manifest.tools));
   if ("problem" in plan) {
     // A plan that cannot be used is made again, with the reason, before the goal fails: the planner can fix what a person would only be told.
     const made = (gov.db.prepare("SELECT COUNT(*) AS n FROM attempts WHERE task_id=? AND kind='plan' AND state='succeeded'").get(task.id) as { n: number }).n;

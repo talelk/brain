@@ -247,9 +247,6 @@ export function unkeptClaim(claims: readonly string[], kept: ReadonlySet<string>
 
 // --- a plan ---
 
-/** Whether a text names a tool, as a whole name: `platform.tasks` is not a mention of `platform.task`. */
-const mentions = (text: string, tool: string): boolean => new RegExp(`(?<![\\w.-])${tool.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?![\\w-])`, "u").test(text);
-
 /** What an agent can do: the workspace tools it has, and whether it can write files (its native tools are at level `all`). */
 export interface AgentCaps { readonly tools: readonly string[]; readonly writes: boolean }
 /** The need of a task that saves files; the other needs are tool names. */
@@ -258,10 +255,10 @@ export const WRITE_FILES = "files.write";
 export interface PlannedTask { readonly title: string; readonly goal: string; readonly agent: string; readonly after: readonly string[] }
 /**
  * A planner's final answer, `{summary, tasks: [{title, goal, agent, after, needs}]}`, checked against the workspace's agents. `after` holds titles
- * of earlier tasks. A task's needs are the tools it names in `needs` (and `files.write`, which only the planner can say: a goal that names a file may only read it) and the tools its goal mentions. An agent that lacks one is replaced by the agent that has all of them and the fewest capabilities (the planner chose
- * by description and cannot see capabilities as plainly); the plan is refused only when no agent has them all, or when its goal names a file under `/work` in a workspace with no project.
+ * of earlier tasks. A task's needs are the ones the planner declares in `needs` (tools, and `files.write`): a goal that only names a tool or a file may be reviewing it, so the text of a goal is never read for needs. An agent that lacks one is replaced by the agent that has all of them and the fewest capabilities (the planner chose
+ * by description and cannot see capabilities as plainly); the plan is refused only when no agent has them all.
  */
-export function readPlan(result: string, output: JsonValue | null | undefined, agents: ReadonlyMap<string, AgentCaps>, tools: readonly string[] = [], projects = 0): { readonly summary: string; readonly tasks: readonly PlannedTask[]; readonly moved: readonly string[] } | { readonly problem: string } {
+export function readPlan(result: string, output: JsonValue | null | undefined, agents: ReadonlyMap<string, AgentCaps>, tools: readonly string[] = []): { readonly summary: string; readonly tasks: readonly PlannedTask[]; readonly moved: readonly string[] } | { readonly problem: string } {
   const value = output !== null && typeof output === "object" && !Array.isArray(output) ? (output as { readonly [key: string]: JsonValue }) : resultObject(result);
   const list = value?.["tasks"];
   if (!value || !Array.isArray(list)) return { problem: "The plan is not a JSON object with a list of tasks" };
@@ -280,10 +277,7 @@ export function readPlan(result: string, output: JsonValue | null | undefined, a
     const declared = Array.isArray(task["needs"]) ? (task["needs"] as readonly JsonValue[]) : [];
     const unknown = declared.find((need) => typeof need !== "string" || (need !== WRITE_FILES && !tools.includes(need)));
     if (unknown !== undefined) return { problem: `${at} needs "${String(unknown)}", which is neither a tool of this workspace nor ${WRITE_FILES}` };
-    // With no project, /work holds nothing that is kept: a result file goes under /out.
-    const lost = projects === 0 ? /\/work\/[\w.-]+/u.exec(goal)?.[0] : undefined;
-    if (lost !== undefined) return { problem: `${at} gives a goal that names the file ${lost}, but this workspace has no project and a file in /work is lost when the attempt ends; name a file under /out instead` };
-    const needs = [...new Set([...(declared as readonly string[]), ...tools.filter((name) => mentions(goal, name)) ])];
+    const needs = [...new Set(declared as readonly string[])];
     const lacking = needs.filter((need) => !has(agent as string, need));
     if (lacking.length > 0) {
       const fit = [...agents.keys()].filter((name) => needs.every((need) => has(name, need))).sort((x, y) => weight(x) - weight(y) || x.localeCompare(y))[0];

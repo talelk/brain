@@ -19,7 +19,7 @@ The goal, the list of agents in this workspace with their descriptions and what 
 
 - `title`: at most ten words, unique within the plan.
 - `goal`: two to five sentences that stand alone: what to do, on what, and what the result must contain so that a checker can verify it. The agent sees this goal and the results of the tasks it waits for, not your reasoning.
-- `needs`: the workspace tools the task will call (exact names from the list of tools) and `files.write` when it saves a file: a file to keep as a result goes under `/out` (`/work` holds only the project folders, and a file written there outside a project is lost); `[]` when it needs none. A tool or file the goal names counts as a need too. The task goes to an agent that has all of them.
+- `needs`: the workspace tools the task will call (exact names from the list of tools) and `files.write` when it saves a file: a file to keep as a result goes under `/out` (`/work` holds only the project folders, and a file written there outside a project is lost); `[]` when it needs none. Name a need only for a tool the task will call: a goal that merely mentions a tool or a file (to review it) needs nothing. The task goes to an agent that has all of them.
 - No task asks anyone to clarify, confirm or decide something you can settle now.
 - No task exists only to check another: Brain already has every result checked by someone other than its author. Add a review task only when the goal itself asks for a review.
 

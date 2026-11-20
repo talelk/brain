@@ -144,28 +144,19 @@ describe("a plan", () => {
     expect(readPlan(plan([]), null, agents)).toEqual({ problem: "The plan has no tasks" });
     expect(readPlan("I would start by looking around.", null, agents)).toHaveProperty("problem");
   });
-  it("gives a task to the agent that can do it when the one chosen cannot: the needs it declares and the tools its goal names", () => {
-    // A tool the goal names, or the plan declares, moves the task to the agent that has it.
-    const moved = readPlan(plan([{ title: "Look", goal: "Use platform.workspaces and platform.tasks to list what exists.", agent: "analyst" }]), null, agents, tools);
-    expect(moved).toMatchObject({ tasks: [{ agent: "syncer" }], moved: ['"Look" goes to syncer instead of analyst: it has platform.tasks, platform.workspaces'] });
-    expect(readPlan(plan([{ title: "Look", goal: "List what exists.", agent: "analyst", needs: ["platform.tasks"] }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "syncer" }] });
-    // Saving a file is a declared need: with a tool too, the one agent that has both is chosen. A goal that only names a file is left alone (it may read it).
+  it("gives a task to the agent that can do it when the one chosen cannot: only the needs the planner declares count", () => {
+    const moved = readPlan(plan([{ title: "Look", goal: "List what exists.", agent: "analyst", needs: ["platform.workspaces", "platform.tasks"] }]), null, agents, tools);
+    expect(moved).toMatchObject({ tasks: [{ agent: "syncer" }], moved: ['"Look" goes to syncer instead of analyst: it has platform.workspaces, platform.tasks'] });
+    // Saving a file is a declared need, and with a tool too the one agent that has both is chosen.
     expect(readPlan(plan([{ title: "Save", goal: "Write the list.", agent: "analyst", needs: ["files.write"] }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "developer" }] });
-    expect(readPlan(plan([{ title: "Save", goal: "Write what platform.tasks returns.", agent: "developer", needs: ["files.write"] }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "syncer-writer" }] });
-    expect(readPlan(plan([{ title: "Check", goal: "Read /out/report.md and judge it.", agent: "analyst" }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "analyst" }], moved: [] });
-    // A task whose agent has everything is left alone, and a name is read whole: platform.tasks is not a mention of platform.task.
-    expect(readPlan(plan([{ title: "Look", goal: "Summarise what platform.tasks returns.", agent: "syncer" }]), null, agents, ["platform.task", "platform.tasks"])).toMatchObject({ tasks: [{ agent: "syncer" }], moved: [] });
-  });
-  it("is refused when its goal names a file under /work in a workspace with no project, where it would be lost", () => {
-    const lost = readPlan(plan([{ title: "Save", goal: "Write the list to /work/improvements.md.", agent: "developer" }]), null, agents, tools, 0);
-    expect(lost).toMatchObject({ problem: expect.stringContaining("name a file under /out instead") });
-    expect(readPlan(plan([{ title: "Save", goal: "Write the list to /work/improvements.md.", agent: "developer" }]), null, agents, tools, 1)).toHaveProperty("tasks");
-    expect(readPlan(plan([{ title: "Save", goal: "Write the list to /out/improvements.md.", agent: "developer" }]), null, agents, tools, 0)).toHaveProperty("tasks");
+    expect(readPlan(plan([{ title: "Save", goal: "Write what platform.tasks returns.", agent: "developer", needs: ["files.write", "platform.tasks"] }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "syncer-writer" }] });
+    // A goal that only names a tool or a file may be reviewing it: its text is never read for needs.
+    expect(readPlan(plan([{ title: "Review", goal: "Review the definitions of platform.tasks and host.restart, and the files under /work and /out/report.md.", agent: "analyst" }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "analyst" }], moved: [] });
   });
   it("is refused only when no agent has all that a task needs", () => {
-    expect(readPlan(plan([{ title: "Look", goal: "Never call platform.repeats here.", agent: "developer" }]), null, agents, ["platform.repeats"]))
+    expect(readPlan(plan([{ title: "Look", goal: "Call platform.repeats.", agent: "developer", needs: ["platform.repeats"] }]), null, agents, ["platform.repeats"]))
       .toMatchObject({ problem: expect.stringContaining("platform.repeats (agents that have it: none)") });
-    expect(readPlan(plan([{ title: "Look", goal: "Use task.note and platform.tasks.", agent: "analyst" }]), null, agents, tools)).toMatchObject({ problem: expect.stringContaining("no one agent has all") });
+    expect(readPlan(plan([{ title: "Look", goal: "Use both.", agent: "analyst", needs: ["task.note", "platform.tasks"] }]), null, agents, tools)).toMatchObject({ problem: expect.stringContaining("no one agent has all") });
   });
 });
 

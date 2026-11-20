@@ -263,7 +263,7 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   for what the step waits for; the group's result is the list of its copies' results. Without a Play it queues a `plan`
   attempt for the `planner` agent, whose result is a list of sub-tasks (`title`, `goal`, `agent`, `after`, `needs`) and a summary
   (kept as the first shared note); the root then needs a person to confirm, unless `confirm_plans = "auto"`. A plan that
-  cannot be read, or names an unknown agent, fails the root, which can be retried; a task of the plan carries `needs` (tools, and `files.write`; the tools its goal names count too). A task whose agent lacks one goes to the agent that has all of
+  cannot be read, or names an unknown agent, fails the root, which can be retried; a task of the plan carries `needs` (tools, and `files.write`; a tool or file the goal only names is not a need). A task whose agent lacks one goes to the agent that has all of
   them with the fewest capabilities (the offer's catalog gives each agent's tools and whether it writes), and the plan note
   names the change; only a task no agent can do is not failed but made again: the plan attempt is queued again with the
   reason among its findings, twice at most, and only then fails the root.
