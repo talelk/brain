@@ -62,8 +62,8 @@ export function engineFailureDetail(raw: string): string {
   return cause && !message.toLowerCase().startsWith(cause) ? `${cause}: ${message}` : message;
 }
 
-/** Whose failure it is: the model's account refused (`model-refused`), its endpoint did not answer (`endpoint`), or anything else. */
-export function failureKind(detail: string): "model-refused" | "endpoint" | "other" {
+/** Whose failure it is: the model's account refused (`model-refused`), its endpoint did not answer (`endpoint`), or anything else (`overflow`: the model said its window was passed). */
+export function failureKind(detail: string): "model-refused" | "endpoint" | "overflow" | "other" {
   const cause = CAUSES.find(([pattern]) => pattern.test(detail))?.[1];
-  return cause === QUOTA_CAUSE ? "model-refused" : cause === "model endpoint" ? "endpoint" : "other";
+  return cause === QUOTA_CAUSE ? "model-refused" : cause === "model endpoint" ? "endpoint" : cause === "context overflow" ? "overflow" : "other";
 }

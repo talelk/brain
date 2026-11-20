@@ -1,4 +1,4 @@
-import type { AttemptEventBody, AttemptFailure, AttemptUsage, JsonValue } from "@brain/contracts";
+import { type AttemptEventBody, type AttemptFailure, type AttemptUsage, type JsonValue, MODEL_DEFAULTS } from "@brain/contracts";
 import { failureKind } from "./failure-detail";
 import { decodeModelJson, wholeJsonObject } from "./json-reply";
 import { overAllowanceReason } from "./limits";
@@ -39,9 +39,11 @@ function failed(reason: AttemptFailure["reason"], detail: string, infrastructure
 }
 
 /** What an engine's own failure is for the task: a model that refused or did not answer is not the task's doing, so the attempt may be retried as it is. */
-export function engineFailure(detail: string): AttemptFailure {
+export function engineFailure(detail: string, turnTokens = Number.POSITIVE_INFINITY, window: number = MODEL_DEFAULTS.context_tokens): AttemptFailure {
   if (detail.includes(SANDBOX_REFUSAL)) return failed("runner", detail, true);
   const kind = failureKind(detail);
+  // A model that says its window overflowed when no turn of the conversation came near it is wrong about it: the endpoint's fault, tried again, not the task's.
+  if (kind === "overflow" && turnTokens < window / 2) return failed("engine", `${detail} (the conversation's largest turn was ${turnTokens} tokens, far under the window of ${window}; tried again as a fault of the endpoint)`, true);
   // A model that spent its whole output allowance thinking is a flake of the model, not a fault of the task: the attempt is tried again.
   return kind === "model-refused" ? failed("model-refused", detail, true) : failed("engine", detail, kind === "endpoint" || detail.includes("whole output limit"));
 }
@@ -54,6 +56,10 @@ export async function runSession(request: SessionRequest): Promise<SessionResult
   let text = "";
   let failure: AttemptFailure | undefined;
   let stopped: { reason: string; detail?: string } | undefined;
+  /** The most input one turn used so far: how big the conversation really was, whatever an error says of it. */
+  let turnTokens = 0;
+  let totalSeen = 0;
+  const window = spec.model.contextTokens ?? MODEL_DEFAULTS.context_tokens;
   const session = new AbortController();
   const onAbort = (): void => session.abort(request.signal.reason);
   if (request.signal.aborted) onAbort(); else request.signal.addEventListener("abort", onAbort, { once: true });
@@ -75,6 +81,8 @@ export async function runSession(request: SessionRequest): Promise<SessionResult
           await engine.toolResult(event.callId, overLimit() ? JSON.stringify({ refused: true, error: "This attempt's allowance is used up." }) : await request.executeTool(event.tool, event.input, session.signal));
           break;
         case "usage":
+          turnTokens = Math.max(turnTokens, event.inputTokens - totalSeen);
+          totalSeen = event.inputTokens;
           usage = { inputTokens: before.inputTokens + event.inputTokens, outputTokens: before.outputTokens + event.outputTokens, cachedInputTokens: before.cachedInputTokens + event.cachedInputTokens, microUsd: before.microUsd + event.microUsd, turns: before.turns + event.turns };
           emit({ kind: "usage", inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, cachedInputTokens: usage.cachedInputTokens, microUsd: usage.microUsd });
           break;
@@ -83,7 +91,7 @@ export async function runSession(request: SessionRequest): Promise<SessionResult
       if (stopped) break;
     }
   } catch (error) {
-    failure ??= engineFailure(error instanceof Error ? error.message : "the engine failed");
+    failure ??= engineFailure(error instanceof Error ? error.message : "the engine failed", turnTokens, window);
   } finally {
     clearTimeout(timer);
     request.signal.removeEventListener("abort", onAbort);
@@ -97,7 +105,7 @@ export async function runSession(request: SessionRequest): Promise<SessionResult
     if (!stopped) failure = failed("engine", "the engine's event stream ended without a result");
     else if (stopped.reason === "limit") failure = failed("limit", stopped.detail ?? "the agent's limits were reached");
     else if (stopped.reason === "timeout") failure = failed("timeout", stopped.detail ?? "the engine timed out");
-    else if (stopped.reason !== "completed") failure = engineFailure(stopped.detail ?? `the engine ended with ${stopped.reason}`);
+    else if (stopped.reason !== "completed") failure = engineFailure(stopped.detail ?? `the engine ended with ${stopped.reason}`, turnTokens, window);
     else if (!text.trim()) failure = failed("engine", "the agent finished without writing an answer");
   }
   return { ok: failure === undefined, text, usage, ...(failure ? { failure } : {}) };

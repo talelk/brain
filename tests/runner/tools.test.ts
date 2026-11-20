@@ -133,7 +133,8 @@ describe("the task text", () => {
       },
     });
     const text = composeTask(offer, { work: "/work", out: "/out" }, new Map([["attempt-9", { path: "/work/.brain/attempt-9.patch" }]]));
-    expect(text).toBe([
+    expect(text).toContain("# Where you are\n/work is the working copy");
+    expect(text.replace(/\n\n# Where you are[\s\S]*?(?=\n\n)/u, "")).toBe([
       "[check attempt, round 2]", "# Goal\nFix the bug\n\nMake the test pass.",
       "# Findings of earlier rounds\nThis is round 2. Earlier checks of this task found the following; each point must be dealt with.\n1. The test still fails.",
       "# Results of the tasks this one waits for\n## Investigate (task t0)\nThe cause is a typo.", "# Shared notes\n- analyst: Look at line 3.",

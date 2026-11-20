@@ -43,6 +43,16 @@ function resultText(result: SessionEvent["result"]): string {
  */
 const windowOf = (spec: EngineSessionSpec): number => spec.model.contextTokens ?? MODEL_DEFAULTS.context_tokens;
 
+/** What the model is sent of a tool's answer is bounded like the answers of workspace tools: Pi's own tools may return far more than a conversation can carry again with every turn. */
+function boundToolMessages(payload: unknown): unknown {
+  const messages = (payload as { messages?: unknown } | null)?.messages;
+  if (!Array.isArray(messages)) return payload;
+  for (const message of messages as Array<{ role?: string; content?: unknown }>) {
+    if (message.role === "tool" && typeof message.content === "string") message.content = boundedToolText(message.content);
+  }
+  return payload;
+}
+
 export class PiEngine implements EngineAdapter {
   readonly id = "pi";
   private session: PiSession | null = null;
@@ -176,7 +186,7 @@ export class PiEngine implements EngineAdapter {
   private guardRequests(session: PiSession): void {
     const inherited = session.agent.onPayload;
     session.agent.onPayload = async (payload, model) => {
-      const base = (await inherited?.(payload, model)) ?? payload;
+      const base = boundToolMessages((await inherited?.(payload, model)) ?? payload);
       if (!this.toolsEnded || base === null || typeof base !== "object") return base;
       const { tools: _tools, tool_choice: _choice, ...rest } = base as Record<string, unknown>;
       return rest;

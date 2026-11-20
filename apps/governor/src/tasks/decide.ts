@@ -223,7 +223,7 @@ const mentions = (text: string, tool: string): boolean => new RegExp(`(?<![\\w.-
 
 export interface PlannedTask { readonly title: string; readonly goal: string; readonly agent: string; readonly after: readonly string[] }
 /** A planner's final answer, `{summary, tasks: [{title, goal, agent, after}]}`, checked against the workspace's agents. `after` holds titles of earlier tasks. */
-export function readPlan(result: string, output: JsonValue | null | undefined, agents: ReadonlyMap<string, readonly string[]>, tools: readonly string[] = []): { readonly summary: string; readonly tasks: readonly PlannedTask[] } | { readonly problem: string } {
+export function readPlan(result: string, output: JsonValue | null | undefined, agents: ReadonlyMap<string, readonly string[]>, tools: readonly string[] = [], cannotWrite: ReadonlySet<string> = new Set()): { readonly summary: string; readonly tasks: readonly PlannedTask[] } | { readonly problem: string } {
   const value = output !== null && typeof output === "object" && !Array.isArray(output) ? (output as { readonly [key: string]: JsonValue }) : resultObject(result);
   const list = value?.["tasks"];
   if (!value || !Array.isArray(list)) return { problem: "The plan is not a JSON object with a list of tasks" };
@@ -241,6 +241,9 @@ export function readPlan(result: string, output: JsonValue | null | undefined, a
       const having = [...agents].filter(([, owned]) => owned.includes(lacking)).map(([name]) => name);
       return { problem: `${at} gives a goal that names the tool ${lacking} to the agent "${agent}", which does not have it (${having.length > 0 ? `agents that have it: ${having.join(", ")}` : "no agent of this workspace has it"})` };
     }
+    // A goal that names a file in the working copy or the results folder cannot be done by an agent that cannot write files: it would claim the file and the reviewer would not find it.
+    const file = /\/(?:work|out)\/[\w.-]+/u.exec(goal)?.[0];
+    if (file !== undefined && cannotWrite.has(agent)) return { problem: `${at} gives a goal that names the file ${file} to the agent "${agent}", which cannot write files (its native tools are not at level "all"); give it to an agent that can, or drop the file` };
     if (tasks.some((earlier) => earlier.title === title)) return { problem: `${at} repeats the title "${title}"` };
     const after = Array.isArray(task["after"]) ? (task["after"] as readonly JsonValue[]) : [];
     const unknown = after.find((name) => typeof name !== "string" || !tasks.some((earlier) => earlier.title === name));

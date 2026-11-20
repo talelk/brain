@@ -147,6 +147,8 @@ describe("a plan", () => {
     // A name is read whole: platform.tasks is not a mention of platform.task, and a sentence's last dot is not part of a name.
     expect(readPlan(plan([{ title: "Look", goal: "Summarise what platform.tasks returns.", agent: "syncer" }]), null, agents, ["platform.task", "platform.tasks"])).toHaveProperty("tasks");
     expect(readPlan(plan([{ title: "Note", goal: "Write it down with task.note.", agent: "analyst" }]), null, agents, tools)).toHaveProperty("tasks");
+    expect(readPlan(plan([{ title: "Save", goal: "Write the list to /work/improvements.md.", agent: "analyst" }]), null, agents, tools, new Set(["analyst"]))).toMatchObject({ problem: expect.stringContaining("/work/improvements.md") });
+    expect(readPlan(plan([{ title: "Save", goal: "Write the list to /work/improvements.md.", agent: "developer" }]), null, agents, tools, new Set(["analyst"]))).toHaveProperty("tasks");
     expect(readPlan(plan([{ title: "Look", goal: "Never call platform.repeats here.", agent: "developer" }]), null, agents, ["platform.repeats"]))
       .toMatchObject({ problem: expect.stringContaining("no agent of this workspace has it") });
     expect(readPlan("I would start by looking around.", null, agents)).toHaveProperty("problem");

@@ -294,7 +294,11 @@ planner and a checker; the other packs build on it.
    approved.
    A plan is checked before anyone sees it: a task whose goal names a tool its agent does not
    have (the catalog the planner reads lists each agent's tools) is refused with the reason, and
-   the planner makes the plan again, twice at most, before a person is asked.
+   the planner makes the plan again, twice at most, before a person is asked. So is a task
+   whose goal names a file under `/work` or `/out` for an agent that cannot write files (its
+   `native` level is not `all`). The task text tells every agent where it is (`/work`, `/out`)
+   and not to search the rest of the file system, and what the model is sent of one tool's
+   answer is bounded, Pi's own tools included.
 5. The result is **checked** by something other than the agent that produced it: the
    step's reviewer, the base pack's `checker`, or a person. Only a checked task is done. When a
    reviewer's verdict repeats almost word for word the one before, the rounds stop there and a
@@ -434,7 +438,7 @@ finds the cause of the repeated failure. It then does one of two things:
   answer comes back to the healer, which may then call `workspace.fix`.
 
 A task is healed once, a heal task is never healed, and a failure that only infrastructure
-caused (model unreachable, runner lost, a connection that dropped) is not healed: it is tried again by itself for about six hours (see the limit `attempts`), and the failed task says so
+caused (model unreachable, runner lost, a connection that dropped, a model that says its window overflowed when no turn of the conversation came near it) is not healed: it is tried again by itself for about six hours (see the limit `attempts`), and the failed task says so
 when that is not enough. A heal task that waits for a person is stopped when the task it heals is done, whoever made it so. The healer knows Brain's own rules (a workspace with no model of its own uses the
 admin workspace's) and does not ask a person about them. The
 healer never edits project code and never retries by itself. `[healing]` in `brain.toml`

@@ -31,6 +31,12 @@ function toolCalls(calls: readonly OfferToolCall[]): string {
   return `${shown.join("\n")}${calls.length > MAX_CALLS ? `\n[${calls.length - MAX_CALLS} more calls are not shown]` : ""}`;
 }
 
+/** Where the agent is: so it does not search the machine for its files (the model's window is spent on listings of `/`). */
+function environment(paths: AttemptPaths): string {
+  const work = paths.work ? `${paths.work} is the working copy (the project folders)` : "there is no working copy: this attempt has no project folder";
+  return `# Where you are\n${work}; ${paths.out} is where files to keep as results go. The task text above and your tools hold everything you need. Do not search or list the rest of the file system (\`/\`, \`/state\`, \`/app\`): it holds nothing of this task and only fills your context.`;
+}
+
 export function composeTask(offer: JobOffer, paths: AttemptPaths, patches: ReadonlyMap<string, ReviewPatch> = new Map(), files?: ReadonlyMap<string, ReviewPatch>): string {
   const { task, context, kind } = offer;
   const parts: string[] = [`[${kind} attempt, round ${task.round}]`, `# Goal\n${task.title}\n\n${task.goal}`];
@@ -51,6 +57,7 @@ export function composeTask(offer: JobOffer, paths: AttemptPaths, patches: Reado
       return `## ${candidate ? "Candidate" : "Result"} ${entry.attemptId} (by agent ${entry.agent})\n### Result\n${cut(entry.result, RESULT_CHARS)}\n### Recorded tool calls\n${toolCalls(entry.toolCalls)}\n### Changes\n${diff}${kept}`;
     }).join("\n\n")}`);
   }
+  parts.push(environment(paths));
   if (offer.projects.length > 0 && paths.work) parts.push(`# Working copy\n${offer.projects.map((project) => `- ${project.name}: ${paths.work}/${project.name} (branch ${project.branch})`).join("\n")}\nFiles to keep as results go in ${paths.out}.`);
   if (kind === "judge") parts.push(`# Final answer\nKeep exactly one candidate. Reply with one JSON object and nothing else:\n${JUDGE_SHAPE}`);
   return parts.join("\n\n");

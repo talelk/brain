@@ -14,4 +14,10 @@ describe("an engine failure", () => {
       expect(engineFailure(detail), detail).toMatchObject({ reason: "engine", infrastructure: false });
     }
   });
+
+  it("is the endpoint's when it says the window overflowed but no turn of the conversation came near it", () => {
+    const detail = "context overflow: 400: maximum context length is 262144 tokens";
+    expect(engineFailure(detail, 6_000, 200_000)).toMatchObject({ reason: "engine", infrastructure: true });
+    expect(engineFailure(detail, 150_000, 200_000)).toMatchObject({ reason: "engine", infrastructure: false });
+  });
 });

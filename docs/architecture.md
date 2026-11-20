@@ -265,7 +265,8 @@ States: `waiting` (has unfinished prerequisites), `ready`, `running`, `needs_you
   (kept as the first shared note); the root then needs a person to confirm, unless `confirm_plans = "auto"`. A plan that
   cannot be read, or names an unknown agent, fails the root, which can be retried; one whose task names a tool its agent
   does not have (the offer's catalog gives each agent's tools) is not failed but made again: the plan attempt is queued
-  again with the reason among its findings, twice at most, and only then fails the root.
+  again with the reason among its findings, twice at most, and only then fails the root. The same goes for a goal that
+  names a file under `/work` or `/out` for an agent whose `native` level is not `all`.
 - A step's goal is filled in when its task becomes `ready` (inputs and items are already shown while it waits). A goal a
   person rewrote with `task.edit` is kept as they wrote it.
 - The orchestrator runs after every change and on a timer. For each workspace it makes `ready` every `waiting` task
