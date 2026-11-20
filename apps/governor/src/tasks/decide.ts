@@ -223,14 +223,13 @@ const mentions = (text: string, tool: string): boolean => new RegExp(`(?<![\\w.-
 
 /** What an agent can do: the workspace tools it has, and whether it can write files (its native tools are at level `all`). */
 export interface AgentCaps { readonly tools: readonly string[]; readonly writes: boolean }
-/** The need of a task that saves files under `/work` or `/out`; the other needs are tool names. */
+/** The need of a task that saves files; the other needs are tool names. */
 export const WRITE_FILES = "files.write";
 
 export interface PlannedTask { readonly title: string; readonly goal: string; readonly agent: string; readonly after: readonly string[] }
 /**
  * A planner's final answer, `{summary, tasks: [{title, goal, agent, after, needs}]}`, checked against the workspace's agents. `after` holds titles
- * of earlier tasks. A task's needs are the tools it names in `needs`, the tools its goal mentions and `files.write` when its goal names a file
- * under `/work` or `/out`. An agent that lacks one is replaced by the agent that has all of them and the fewest capabilities (the planner chose
+ * of earlier tasks. A task's needs are the tools it names in `needs` (and `files.write`, which only the planner can say: a goal that names a file may only read it) and the tools its goal mentions. An agent that lacks one is replaced by the agent that has all of them and the fewest capabilities (the planner chose
  * by description and cannot see capabilities as plainly); the plan is refused only when no agent has them all, or when its goal names a file under `/work` in a workspace with no project.
  */
 export function readPlan(result: string, output: JsonValue | null | undefined, agents: ReadonlyMap<string, AgentCaps>, tools: readonly string[] = [], projects = 0): { readonly summary: string; readonly tasks: readonly PlannedTask[]; readonly moved: readonly string[] } | { readonly problem: string } {
@@ -255,7 +254,7 @@ export function readPlan(result: string, output: JsonValue | null | undefined, a
     // With no project, /work holds nothing that is kept: a result file goes under /out.
     const lost = projects === 0 ? /\/work\/[\w.-]+/u.exec(goal)?.[0] : undefined;
     if (lost !== undefined) return { problem: `${at} gives a goal that names the file ${lost}, but this workspace has no project and a file in /work is lost when the attempt ends; name a file under /out instead` };
-    const needs = [...new Set([...(declared as readonly string[]), ...tools.filter((name) => mentions(goal, name)), ...(/\/(?:work|out)\/[\w.-]+/u.test(goal) ? [WRITE_FILES] : [])])];
+    const needs = [...new Set([...(declared as readonly string[]), ...tools.filter((name) => mentions(goal, name)) ])];
     const lacking = needs.filter((need) => !has(agent as string, need));
     if (lacking.length > 0) {
       const fit = [...agents.keys()].filter((name) => needs.every((need) => has(name, need))).sort((x, y) => weight(x) - weight(y) || x.localeCompare(y))[0];

@@ -144,14 +144,15 @@ describe("a plan", () => {
     expect(readPlan(plan([]), null, agents)).toEqual({ problem: "The plan has no tasks" });
     expect(readPlan("I would start by looking around.", null, agents)).toHaveProperty("problem");
   });
-  it("gives a task to the agent that can do it when the one chosen cannot: the needs it declares, the tools its goal names and the files it saves", () => {
+  it("gives a task to the agent that can do it when the one chosen cannot: the needs it declares and the tools its goal names", () => {
     // A tool the goal names, or the plan declares, moves the task to the agent that has it.
     const moved = readPlan(plan([{ title: "Look", goal: "Use platform.workspaces and platform.tasks to list what exists.", agent: "analyst" }]), null, agents, tools);
     expect(moved).toMatchObject({ tasks: [{ agent: "syncer" }], moved: ['"Look" goes to syncer instead of analyst: it has platform.tasks, platform.workspaces'] });
     expect(readPlan(plan([{ title: "Look", goal: "List what exists.", agent: "analyst", needs: ["platform.tasks"] }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "syncer" }] });
-    // A file under /work or /out needs an agent that writes; with the tools too, the one agent that has both is chosen.
-    expect(readPlan(plan([{ title: "Save", goal: "Write the list to /out/improvements.md.", agent: "analyst" }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "developer" }] });
-    expect(readPlan(plan([{ title: "Save", goal: "Write what platform.tasks returns to /out/tasks.md.", agent: "developer" }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "syncer-writer" }] });
+    // Saving a file is a declared need: with a tool too, the one agent that has both is chosen. A goal that only names a file is left alone (it may read it).
+    expect(readPlan(plan([{ title: "Save", goal: "Write the list.", agent: "analyst", needs: ["files.write"] }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "developer" }] });
+    expect(readPlan(plan([{ title: "Save", goal: "Write what platform.tasks returns.", agent: "developer", needs: ["files.write"] }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "syncer-writer" }] });
+    expect(readPlan(plan([{ title: "Check", goal: "Read /out/report.md and judge it.", agent: "analyst" }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "analyst" }], moved: [] });
     // A task whose agent has everything is left alone, and a name is read whole: platform.tasks is not a mention of platform.task.
     expect(readPlan(plan([{ title: "Look", goal: "Summarise what platform.tasks returns.", agent: "syncer" }]), null, agents, ["platform.task", "platform.tasks"])).toMatchObject({ tasks: [{ agent: "syncer" }], moved: [] });
   });

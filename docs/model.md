@@ -293,8 +293,7 @@ planner and a checker; the other packs build on it.
    calls a workspace tool, and that call is validated, recorded and, for an effect,
    approved.
    A plan is checked before anyone sees it. Each task has `needs`: the workspace tools it calls and
-   `files.write` when it saves a file under `/work` or `/out` (a tool or a file its goal names counts
-   too). The catalog the planner reads lists what each agent can do (its tools, and whether it writes
+   `files.write` when it saves a file (a tool its goal names counts too). The catalog the planner reads lists what each agent can do (its tools, and whether it writes
    files: its `native` level is `all`). A task whose agent lacks a need goes, by itself, to the agent
    that has all of them (the fewest capabilities, then the name), and the plan's note says so; the
    plan is refused with the reason, and made again twice at most, only when no agent has them all.
