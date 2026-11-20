@@ -6,7 +6,7 @@ import type { Db } from "../db";
 import type { Gov } from "../dispatch";
 import { append } from "../events";
 import { manifestOf } from "../workspace/store";
-import { renderGoal, type PlannedTask, type Scope, type StepSettings } from "./decide";
+import { type AgentCaps, renderGoal, type PlannedTask, type Scope, type StepSettings } from "./decide";
 
 /** Tasks and attempts as rows, and the few writes every part of the work side shares. */
 export interface TaskRow {
@@ -148,10 +148,8 @@ export function queueAttempt(gov: Gov, input: NewAttempt): string {
 
 /** The agents a snapshot holds. */
 export const agentsOf = (manifest: SnapshotManifest): ReadonlySet<string> => new Set(Object.keys(manifest.agents));
-/** The agents of a workspace that cannot write files: their native tools are not at level "all". */
-export const agentsThatCannotWrite = (manifest: SnapshotManifest): ReadonlySet<string> => new Set(Object.entries(manifest.agents).filter(([, agent]) => agent.native !== "all").map(([name]) => name));
-/** The agents of a workspace, each with the tools it has. */
-export const agentToolsOf = (manifest: SnapshotManifest): ReadonlyMap<string, readonly string[]> => new Map(Object.entries(manifest.agents).map(([name, agent]) => [name, agent.tools]));
+/** The agents of a workspace, each with what it can do. */
+export const agentCapsOf = (manifest: SnapshotManifest): ReadonlyMap<string, AgentCaps> => new Map(Object.entries(manifest.agents).map(([name, agent]) => [name, { tools: agent.tools, writes: agent.native === "all" }]));
 
 /** The root task of a Play and one sub-task per step, each waiting for the steps it names in `after`. */
 export function createFromPlay(gov: Gov, actor: Actor, input: { workspaceId: string; snapshotDigest: Digest; play: string; inputs: Readonly<Record<string, JsonValue>>; title?: string | undefined; goal?: string | undefined; createdBy: string }): TaskRow {

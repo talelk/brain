@@ -8,7 +8,7 @@ import { closeHealed, healFailed } from "./heal";
 import { closeSuperseded } from "./superseded";
 import { afterCheck, afterPersonCheck, afterWork, checkerOf, doers, groupOutcome, promote, readJudgement, readPlan, readVerdict, passes, renderGoal, retryOf, SKIPPED, type WorkFacts, type WorkState } from "./decide";
 import {
-  ACTIVE_ATTEMPT, agentsOf, agentsThatCannotWrite, agentToolsOf, attemptOf, createPlanned, failureOf, insertTask, json, needOf, payloadOf, queueAttempt, scopeOf, setState, settingsOf, stepOf, taskOf, TERMINAL,
+  ACTIVE_ATTEMPT, agentCapsOf, agentsOf, attemptOf, createPlanned, failureOf, insertTask, json, needOf, payloadOf, queueAttempt, scopeOf, setState, settingsOf, stepOf, taskOf, TERMINAL,
   type AttemptRow, type TaskRow,
 } from "./store";
 
@@ -193,7 +193,7 @@ function afterJudgeEnded(gov: Gov, task: TaskRow, attempt: AttemptRow): void {
 function afterPlanEnded(gov: Gov, task: TaskRow, attempt: AttemptRow): void {
   if (attempt.state !== "succeeded") return void setState(gov, task, "failed", { result: `The plan could not be made: ${failureOf(attempt)?.detail ?? attempt.state}` });
   const manifest = manifestOf(gov, task.snapshot_digest);
-  const plan = readPlan(attempt.result ?? "", json<JsonValue>(attempt.output_json), agentToolsOf(manifest), Object.keys(manifest.tools), agentsThatCannotWrite(manifest));
+  const plan = readPlan(attempt.result ?? "", json<JsonValue>(attempt.output_json), agentCapsOf(manifest), Object.keys(manifest.tools), Object.keys(manifest.projects).length);
   if ("problem" in plan) {
     // A plan that cannot be used is made again, with the reason, before the goal fails: the planner can fix what a person would only be told.
     const made = (gov.db.prepare("SELECT COUNT(*) AS n FROM attempts WHERE task_id=? AND kind='plan' AND state='succeeded'").get(task.id) as { n: number }).n;
@@ -204,7 +204,7 @@ function afterPlanEnded(gov: Gov, task: TaskRow, attempt: AttemptRow): void {
     return void setState(gov, task, "failed", { result: `The plan could not be used: ${plan.problem}` });
   }
   createPlanned(gov, { kind: "agent", id: attempt.agent, attemptId: attempt.id }, task, plan.tasks);
-  if (plan.summary !== "") gov.db.prepare("INSERT INTO notes(workspace_id, root_id, author, attempt_id, text, created_at_ms) VALUES (?,?,?,?,?,?)").run(task.workspace_id, task.root_id, attempt.agent, attempt.id, `Plan: ${plan.summary}`, gov.clock.nowMs());
+  if (plan.summary !== "" || plan.moved.length > 0) gov.db.prepare("INSERT INTO notes(workspace_id, root_id, author, attempt_id, text, created_at_ms) VALUES (?,?,?,?,?,?)").run(task.workspace_id, task.root_id, attempt.agent, attempt.id, `Plan: ${plan.summary}${plan.moved.length > 0 ? ` Agents changed to fit what they can do: ${plan.moved.join("; ")}.` : ""}`, gov.clock.nowMs());
   if (manifest.limits.confirm_plans === "auto") setState(gov, task, "running");
   else needsPerson(gov, task, { kind: "confirm-plan" });
 }

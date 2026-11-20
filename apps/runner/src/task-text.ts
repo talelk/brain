@@ -22,8 +22,8 @@ const MAX_CALLS = 60;
 
 const cut = (text: string, limit: number): string => (text.length <= limit ? text : `${text.slice(0, limit)}\n[cut: ${text.length} characters in all]`);
 const compact = (value: JsonValue, limit: number): string => cut(typeof value === "string" ? value : JSON.stringify(value) ?? "null", limit);
-const listed = (entries: ReadonlyArray<{ readonly name: string; readonly description: string; readonly tools?: ReadonlyArray<string> }>): string =>
-  entries.map((entry) => `- ${entry.name}${entry.tools && entry.tools.length > 0 ? ` (tools: ${entry.tools.join(", ")})` : ""}: ${entry.description.replace(/\s+/gu, " ").trim()}`).join("\n");
+const listed = (entries: ReadonlyArray<{ readonly name: string; readonly description: string; readonly tools?: ReadonlyArray<string>; readonly writes?: boolean }>): string =>
+  entries.map((entry) => `- ${entry.name}${entry.tools && entry.tools.length > 0 || entry.writes ? ` (${[...(entry.tools && entry.tools.length > 0 ? [`tools: ${entry.tools.join(", ")}`] : []), ...(entry.writes ? ["can write files"] : [])].join("; ")})` : ""}: ${entry.description.replace(/\s+/gu, " ").trim()}`).join("\n");
 
 function toolCalls(calls: readonly OfferToolCall[]): string {
   if (calls.length === 0) return "No tool calls were recorded.";
@@ -31,10 +31,15 @@ function toolCalls(calls: readonly OfferToolCall[]): string {
   return `${shown.join("\n")}${calls.length > MAX_CALLS ? `\n[${calls.length - MAX_CALLS} more calls are not shown]` : ""}`;
 }
 
-/** Where the agent is: so it does not search the machine for its files (the model's window is spent on listings of `/`). */
-function environment(paths: AttemptPaths): string {
-  const work = paths.work ? `${paths.work} is the working copy (the project folders)` : "there is no working copy: this attempt has no project folder";
-  return `# Where you are\n${work}; ${paths.out} is where files to keep as results go. The task text above and your tools hold everything you need. Do not search or list the rest of the file system (\`/\`, \`/state\`, \`/app\`): it holds nothing of this task and only fills your context.`;
+/**
+ * Where the agent is, and what is kept: only the project folders under `/work` (as changes) and the files in `/out` (as results) outlive the attempt,
+ * and a reviewer sees nothing else. A file written anywhere else, `/work` itself included, is lost with the attempt's sandbox.
+ */
+function environment(paths: AttemptPaths, projects: number): string {
+  const work = paths.work
+    ? projects > 0 ? `${paths.work}/<project> are the project folders; changes to them are kept and shown to the reviewer.` : `${paths.work} is empty: this task has no project folder, and a file written there is lost when the attempt ends.`
+    : "There is no working copy for this task.";
+  return `# Where you are\n${work} ${paths.out} is where every file to keep as a result goes (a report, a plan, a list); the reviewer and the person read it from there. The task text above and your tools hold everything else you need. Do not search or list the rest of the file system (\`/\`, \`/state\`, \`/app\`): it holds nothing of this task and only fills your context.`;
 }
 
 export function composeTask(offer: JobOffer, paths: AttemptPaths, patches: ReadonlyMap<string, ReviewPatch> = new Map(), files?: ReadonlyMap<string, ReviewPatch>): string {
@@ -57,7 +62,7 @@ export function composeTask(offer: JobOffer, paths: AttemptPaths, patches: Reado
       return `## ${candidate ? "Candidate" : "Result"} ${entry.attemptId} (by agent ${entry.agent})\n### Result\n${cut(entry.result, RESULT_CHARS)}\n### Recorded tool calls\n${toolCalls(entry.toolCalls)}\n### Changes\n${diff}${kept}`;
     }).join("\n\n")}`);
   }
-  parts.push(environment(paths));
+  parts.push(environment(paths, offer.projects.length));
   if (offer.projects.length > 0 && paths.work) parts.push(`# Working copy\n${offer.projects.map((project) => `- ${project.name}: ${paths.work}/${project.name} (branch ${project.branch})`).join("\n")}\nFiles to keep as results go in ${paths.out}.`);
   if (kind === "judge") parts.push(`# Final answer\nKeep exactly one candidate. Reply with one JSON object and nothing else:\n${JUDGE_SHAPE}`);
   return parts.join("\n\n");

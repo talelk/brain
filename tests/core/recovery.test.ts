@@ -17,39 +17,38 @@ let driver: Driver;
 let member: Client;
 let workspaceId: string;
 
-const plan = (agent: string): JsonValue => ({ summary: "One task.", tasks: [{ title: "List it", goal: "Use inventory.list to list what exists and report it.", agent, after: [] }] });
+const plan = (agent: string, goal = "Use inventory.list to list what exists and report it."): JsonValue => ({ summary: "One task.", tasks: [{ title: "List it", goal, agent, after: [] }] });
 
 beforeAll(async () => {
   harness = await createHarness({ clock });
-  ({ workspaceId } = await makeWorkspace(harness, "Recovery", { agents, tools: { "inventory.list": inventory }, plays: { job: play } }));
+  ({ workspaceId } = await makeWorkspace(harness, "Recovery", { agents, tools: { "inventory.list": inventory, "nothing.stale": inventory }, plays: { job: play } }));
   member = await harness.member(workspaceId, "max@example.com", "member");
   driver = await enrolRunner(harness, { checker: () => pass() });
 });
 afterAll(() => harness.close());
 
 describe("a plan", () => {
-  it("that gives a goal naming a tool to an agent without it is made again with the reason, and a person only sees the one that works", async () => {
-    const findingsSeen: string[][] = [];
-    driver.script({
-      planner: ({ offer }) => { findingsSeen.push([...offer.task.findings]); return { output: plan(offer.task.findings.length === 0 ? "analyst" : "lister") }; },
-      lister: () => "Listed.",
-    });
+  it("that gives a goal naming a tool to an agent without it goes to the agent that has it, and the plan says so", async () => {
+    const plans: number[] = [];
+    driver.script({ planner: () => { plans.push(1); return { output: plan("analyst") }; }, lister: () => "Listed." });
     const { taskId } = await member.command("task.create", { workspaceId, goal: "Use inventory.list to see what exists" });
     await driver.drain();
-    expect(findingsSeen[0]).toEqual([]);
-    expect(findingsSeen[1]).toEqual(['Your earlier plan was refused: Task 1 of the plan gives a goal that names the tool inventory.list to the agent "analyst", which does not have it (agents that have it: lister). Make a plan that deals with it.']);
+    expect(plans).toHaveLength(1);
     const goal = await getTask(member, workspaceId, taskId);
     expect(goal.state).toBe("needs_you");
     expect(goal.needs).toMatchObject({ kind: "confirm-plan" });
     expect(goal.subtasks.map((subtask) => subtask.agent)).toEqual(["lister"]);
+    expect(goal.notes.map((note) => note.text).join("\n")).toContain('"List it" goes to lister instead of analyst');
   });
 
-  it("that cannot be mended after two more tries fails the goal with the last reason", async () => {
-    driver.script({ planner: () => ({ output: plan("analyst") }), "workspace-healer": () => "no configuration cause" });
+  it("whose task needs a tool no agent has is made again with the reason, and after two more tries fails the goal with the last one", async () => {
+    const findingsSeen: string[][] = [];
+    driver.script({ planner: ({ offer }) => { findingsSeen.push([...offer.task.findings]); return { output: plan("analyst", "Call inventory.list and nothing.stale.") }; }, "workspace-healer": () => "no configuration cause" });
     const { taskId } = await member.command("task.create", { workspaceId, goal: "Use inventory.list again" });
     await driver.drain();
+    expect(findingsSeen[1]?.[0]).toContain("no one agent has all");
     const goal = await getTask(member, workspaceId, taskId);
-    expect([goal.state, goal.result]).toEqual(["failed", expect.stringContaining("The plan could not be used: Task 1 of the plan gives a goal that names the tool inventory.list")]);
+    expect([goal.state, goal.result]).toEqual(["failed", expect.stringContaining("The plan could not be used: Task 1 of the plan gives a goal that needs")]);
     expect(goal.attempts.filter((attempt) => attempt.kind === "plan")).toHaveLength(3);
   });
 });

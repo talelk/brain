@@ -221,36 +221,58 @@ export function readJudgement(result: string, output: JsonValue | null | undefin
 /** Whether a text names a tool, as a whole name: `platform.tasks` is not a mention of `platform.task`. */
 const mentions = (text: string, tool: string): boolean => new RegExp(`(?<![\\w.-])${tool.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?![\\w-])`, "u").test(text);
 
+/** What an agent can do: the workspace tools it has, and whether it can write files (its native tools are at level `all`). */
+export interface AgentCaps { readonly tools: readonly string[]; readonly writes: boolean }
+/** The need of a task that saves files under `/work` or `/out`; the other needs are tool names. */
+export const WRITE_FILES = "files.write";
+
 export interface PlannedTask { readonly title: string; readonly goal: string; readonly agent: string; readonly after: readonly string[] }
-/** A planner's final answer, `{summary, tasks: [{title, goal, agent, after}]}`, checked against the workspace's agents. `after` holds titles of earlier tasks. */
-export function readPlan(result: string, output: JsonValue | null | undefined, agents: ReadonlyMap<string, readonly string[]>, tools: readonly string[] = [], cannotWrite: ReadonlySet<string> = new Set()): { readonly summary: string; readonly tasks: readonly PlannedTask[] } | { readonly problem: string } {
+/**
+ * A planner's final answer, `{summary, tasks: [{title, goal, agent, after, needs}]}`, checked against the workspace's agents. `after` holds titles
+ * of earlier tasks. A task's needs are the tools it names in `needs`, the tools its goal mentions and `files.write` when its goal names a file
+ * under `/work` or `/out`. An agent that lacks one is replaced by the agent that has all of them and the fewest capabilities (the planner chose
+ * by description and cannot see capabilities as plainly); the plan is refused only when no agent has them all, or when its goal names a file under `/work` in a workspace with no project.
+ */
+export function readPlan(result: string, output: JsonValue | null | undefined, agents: ReadonlyMap<string, AgentCaps>, tools: readonly string[] = [], projects = 0): { readonly summary: string; readonly tasks: readonly PlannedTask[]; readonly moved: readonly string[] } | { readonly problem: string } {
   const value = output !== null && typeof output === "object" && !Array.isArray(output) ? (output as { readonly [key: string]: JsonValue }) : resultObject(result);
   const list = value?.["tasks"];
   if (!value || !Array.isArray(list)) return { problem: "The plan is not a JSON object with a list of tasks" };
   if (list.length === 0) return { problem: "The plan has no tasks" };
+  const has = (agent: string, need: string): boolean => need === WRITE_FILES ? agents.get(agent)?.writes === true : agents.get(agent)?.tools.includes(need) === true;
+  const weight = (agent: string): number => (agents.get(agent)?.tools.length ?? 0) + (agents.get(agent)?.writes ? 1 : 0);
   const tasks: PlannedTask[] = [];
+  const moved: string[] = [];
   for (const [index, entry] of (list as readonly JsonValue[]).entries()) {
     const at = `Task ${index + 1} of the plan`;
     const task = entry !== null && typeof entry === "object" && !Array.isArray(entry) ? (entry as { readonly [key: string]: JsonValue }) : {};
-    const { title, goal, agent } = task;
+    const { title, goal } = task;
+    let { agent } = task;
     if (typeof title !== "string" || title.trim() === "" || typeof goal !== "string" || goal.trim() === "" || typeof agent !== "string") return { problem: `${at} needs a title, a goal and an agent` };
     if (!agents.has(agent)) return { problem: `${at} names the agent "${agent}", which this workspace does not have` };
-    // A goal that names a tool its agent does not have cannot be done by it, and a reviewer would ask for the tool's output round after round.
-    const lacking = tools.find((name) => mentions(goal, name) && !agents.get(agent)?.includes(name));
-    if (lacking !== undefined) {
-      const having = [...agents].filter(([, owned]) => owned.includes(lacking)).map(([name]) => name);
-      return { problem: `${at} gives a goal that names the tool ${lacking} to the agent "${agent}", which does not have it (${having.length > 0 ? `agents that have it: ${having.join(", ")}` : "no agent of this workspace has it"})` };
+    const declared = Array.isArray(task["needs"]) ? (task["needs"] as readonly JsonValue[]) : [];
+    const unknown = declared.find((need) => typeof need !== "string" || (need !== WRITE_FILES && !tools.includes(need)));
+    if (unknown !== undefined) return { problem: `${at} needs "${String(unknown)}", which is neither a tool of this workspace nor ${WRITE_FILES}` };
+    // With no project, /work holds nothing that is kept: a result file goes under /out.
+    const lost = projects === 0 ? /\/work\/[\w.-]+/u.exec(goal)?.[0] : undefined;
+    if (lost !== undefined) return { problem: `${at} gives a goal that names the file ${lost}, but this workspace has no project and a file in /work is lost when the attempt ends; name a file under /out instead` };
+    const needs = [...new Set([...(declared as readonly string[]), ...tools.filter((name) => mentions(goal, name)), ...(/\/(?:work|out)\/[\w.-]+/u.test(goal) ? [WRITE_FILES] : [])])];
+    const lacking = needs.filter((need) => !has(agent as string, need));
+    if (lacking.length > 0) {
+      const fit = [...agents.keys()].filter((name) => needs.every((need) => has(name, need))).sort((x, y) => weight(x) - weight(y) || x.localeCompare(y))[0];
+      if (fit === undefined) {
+        const owners = lacking.map((need) => `${need} (agents that have it: ${[...agents.keys()].filter((name) => has(name, need)).join(", ") || "none"})`).join("; ");
+        return { problem: `${at} gives a goal that needs ${lacking.join(", ")}, which the agent "${agent}" does not have, and no one agent has all of its needs: ${owners}` };
+      }
+      moved.push(`"${title.trim()}" goes to ${fit} instead of ${agent}: it has ${lacking.join(", ")}`);
+      agent = fit;
     }
-    // A goal that names a file in the working copy or the results folder cannot be done by an agent that cannot write files: it would claim the file and the reviewer would not find it.
-    const file = /\/(?:work|out)\/[\w.-]+/u.exec(goal)?.[0];
-    if (file !== undefined && cannotWrite.has(agent)) return { problem: `${at} gives a goal that names the file ${file} to the agent "${agent}", which cannot write files (its native tools are not at level "all"); give it to an agent that can, or drop the file` };
     if (tasks.some((earlier) => earlier.title === title)) return { problem: `${at} repeats the title "${title}"` };
     const after = Array.isArray(task["after"]) ? (task["after"] as readonly JsonValue[]) : [];
-    const unknown = after.find((name) => typeof name !== "string" || !tasks.some((earlier) => earlier.title === name));
-    if (unknown !== undefined) return { problem: `${at} waits for "${String(unknown)}", which is not an earlier task of the plan` };
+    const missing = after.find((name) => typeof name !== "string" || !tasks.some((earlier) => earlier.title === name));
+    if (missing !== undefined) return { problem: `${at} waits for "${String(missing)}", which is not an earlier task of the plan` };
     tasks.push({ title: title.trim().slice(0, 200), goal, agent, after: after as readonly string[] });
   }
-  return { summary: typeof value["summary"] === "string" ? value["summary"] : "", tasks };
+  return { summary: typeof value["summary"] === "string" ? value["summary"] : "", tasks, moved };
 }
 
 // --- a task with sub-tasks ---

@@ -167,7 +167,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
       ...(credential ? { credential: secretName(credential) } : {}), ...(commits[project.name] ? { baseCommit: commits[project.name] as string } : {}),
     };
   });
-  const describe = (entries: Record<string, { description?: string; title?: string; tools?: readonly string[] }>) => Object.entries(entries).map(([name, entry]) => ({ name, description: entry.description || entry.title || "", ...(entry.tools ? { tools: [...entry.tools] } : {}) }));
+  const describe = (entries: Record<string, { description?: string; title?: string; tools?: readonly string[]; native?: string }>) => Object.entries(entries).map(([name, entry]) => ({ name, description: entry.description || entry.title || "", ...(entry.tools ? { tools: [...entry.tools] } : {}), ...(entry.native === "all" ? { writes: true } : {}) }));
 
   const offered = [...review.flatMap((entry) => [...(entry.diff ? [entry.diff.digest] : []), ...entry.files.map((file) => file.digest)])];
   db.prepare("UPDATE attempts SET payload_json=? WHERE id=?").run(JSON.stringify({ ...payload, offered }), attempt.id);

@@ -82,6 +82,9 @@ export function Evidence(props: { task: Task }): JSX.Element {
             </ul>
           </div>
         </Show>
+        <Show when={files().length === 0 && !patch() && props.task.attempts.some((attempt) => attempt.kind === "work" && attempt.state === "succeeded")}>
+          <p class="t-small text-ink-3">{t("evidence.nothingKept")}</p>
+        </Show>
         <Show when={patch()}>
           {(artifact) => <div><h4 class="mb-2 t-small font-semibold text-ink-2">{t("evidence.diff")}</h4><ArtifactDiff digest={artifact().digest} /></div>}
         </Show>

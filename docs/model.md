@@ -292,13 +292,15 @@ planner and a checker; the other packs build on it.
    projects mounted. Inside it, it uses the engine's native tools. To act outside it, it
    calls a workspace tool, and that call is validated, recorded and, for an effect,
    approved.
-   A plan is checked before anyone sees it: a task whose goal names a tool its agent does not
-   have (the catalog the planner reads lists each agent's tools) is refused with the reason, and
-   the planner makes the plan again, twice at most, before a person is asked. So is a task
-   whose goal names a file under `/work` or `/out` for an agent that cannot write files (its
-   `native` level is not `all`). The task text tells every agent where it is (`/work`, `/out`)
-   and not to search the rest of the file system, and what the model is sent of one tool's
-   answer is bounded, Pi's own tools included.
+   A plan is checked before anyone sees it. Each task has `needs`: the workspace tools it calls and
+   `files.write` when it saves a file under `/work` or `/out` (a tool or a file its goal names counts
+   too). The catalog the planner reads lists what each agent can do (its tools, and whether it writes
+   files: its `native` level is `all`). A task whose agent lacks a need goes, by itself, to the agent
+   that has all of them (the fewest capabilities, then the name), and the plan's note says so; the
+   plan is refused with the reason, and made again twice at most, only when no agent has them all.
+   The task text tells every agent what is kept (the project folders under `/work`, and the files in `/out`;
+   a file written anywhere else is lost when the attempt ends) and not to search the rest of the
+   file system, and what the model is sent of one tool's answer is bounded, Pi's own tools included.
 5. The result is **checked** by something other than the agent that produced it: the
    step's reviewer, the base pack's `checker`, or a person. Only a checked task is done. When a
    reviewer's verdict repeats almost word for word the one before, the rounds stop there and a

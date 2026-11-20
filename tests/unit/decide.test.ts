@@ -127,31 +127,44 @@ describe("the check", () => {
 });
 
 describe("a plan", () => {
-  const agents = new Map<string, readonly string[]>([["analyst", ["task.note", "memory.search"]], ["developer", ["task.note"]], ["syncer", ["platform.tasks", "platform.workspaces"]]]);
+  const caps = (tools: string[], writes = false) => ({ tools, writes });
+  const agents = new Map([["analyst", caps(["task.note", "memory.search"])], ["developer", caps(["task.note"], true)], ["syncer", caps(["platform.tasks", "platform.workspaces"])], ["syncer-writer", caps(["platform.tasks", "platform.workspaces"], true)]]);
+  const tools = ["task.note", "platform.task", "platform.tasks", "platform.workspaces"];
   const plan = (tasks: unknown) => JSON.stringify({ summary: "Two steps.", tasks });
   it("is a list of tasks for agents of the workspace, each waiting for earlier titles", () => {
     expect(readPlan(plan([{ title: "Look", goal: "Find it.", agent: "analyst", after: [] }, { title: "Fix", goal: "Fix it.", agent: "developer", after: ["Look"] }]), null, agents)).toEqual({
-      summary: "Two steps.", tasks: [{ title: "Look", goal: "Find it.", agent: "analyst", after: [] }, { title: "Fix", goal: "Fix it.", agent: "developer", after: ["Look"] }],
+      summary: "Two steps.", moved: [], tasks: [{ title: "Look", goal: "Find it.", agent: "analyst", after: [] }, { title: "Fix", goal: "Fix it.", agent: "developer", after: ["Look"] }],
     });
   });
-  it("is refused with the reason when it names an unknown agent, a later task, a repeated title or nothing", () => {
+  it("is refused with the reason when it names an unknown agent or need, a later task, a repeated title or nothing", () => {
     expect(readPlan(plan([{ title: "Look", goal: "x", agent: "ghost" }]), null, agents)).toMatchObject({ problem: expect.stringContaining("ghost") });
     expect(readPlan(plan([{ title: "Fix", goal: "x", agent: "developer", after: ["Look"] }, { title: "Look", goal: "x", agent: "analyst" }]), null, agents)).toMatchObject({ problem: expect.stringContaining("Look") });
     expect(readPlan(plan([{ title: "Look", goal: "x", agent: "analyst" }, { title: "Look", goal: "y", agent: "analyst" }]), null, agents)).toMatchObject({ problem: expect.stringContaining("repeats") });
+    expect(readPlan(plan([{ title: "Look", goal: "x", agent: "analyst", needs: ["made.up"] }]), null, agents, tools)).toMatchObject({ problem: expect.stringContaining("made.up") });
     expect(readPlan(plan([]), null, agents)).toEqual({ problem: "The plan has no tasks" });
-    // A goal that names a tool its agent does not have is refused, with who has it.
-    const tools = ["task.note", "platform.task", "platform.tasks", "platform.workspaces"];
-    expect(readPlan(plan([{ title: "Look", goal: "Use platform.workspaces and platform.tasks to list what exists.", agent: "analyst" }]), null, agents, tools))
-      .toEqual({ problem: 'Task 1 of the plan gives a goal that names the tool platform.tasks to the agent "analyst", which does not have it (agents that have it: syncer)' });
-    expect(readPlan(plan([{ title: "Look", goal: "Use platform.workspaces and platform.tasks.", agent: "syncer" }]), null, agents, tools)).toHaveProperty("tasks");
-    // A name is read whole: platform.tasks is not a mention of platform.task, and a sentence's last dot is not part of a name.
-    expect(readPlan(plan([{ title: "Look", goal: "Summarise what platform.tasks returns.", agent: "syncer" }]), null, agents, ["platform.task", "platform.tasks"])).toHaveProperty("tasks");
-    expect(readPlan(plan([{ title: "Note", goal: "Write it down with task.note.", agent: "analyst" }]), null, agents, tools)).toHaveProperty("tasks");
-    expect(readPlan(plan([{ title: "Save", goal: "Write the list to /work/improvements.md.", agent: "analyst" }]), null, agents, tools, new Set(["analyst"]))).toMatchObject({ problem: expect.stringContaining("/work/improvements.md") });
-    expect(readPlan(plan([{ title: "Save", goal: "Write the list to /work/improvements.md.", agent: "developer" }]), null, agents, tools, new Set(["analyst"]))).toHaveProperty("tasks");
-    expect(readPlan(plan([{ title: "Look", goal: "Never call platform.repeats here.", agent: "developer" }]), null, agents, ["platform.repeats"]))
-      .toMatchObject({ problem: expect.stringContaining("no agent of this workspace has it") });
     expect(readPlan("I would start by looking around.", null, agents)).toHaveProperty("problem");
+  });
+  it("gives a task to the agent that can do it when the one chosen cannot: the needs it declares, the tools its goal names and the files it saves", () => {
+    // A tool the goal names, or the plan declares, moves the task to the agent that has it.
+    const moved = readPlan(plan([{ title: "Look", goal: "Use platform.workspaces and platform.tasks to list what exists.", agent: "analyst" }]), null, agents, tools);
+    expect(moved).toMatchObject({ tasks: [{ agent: "syncer" }], moved: ['"Look" goes to syncer instead of analyst: it has platform.tasks, platform.workspaces'] });
+    expect(readPlan(plan([{ title: "Look", goal: "List what exists.", agent: "analyst", needs: ["platform.tasks"] }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "syncer" }] });
+    // A file under /work or /out needs an agent that writes; with the tools too, the one agent that has both is chosen.
+    expect(readPlan(plan([{ title: "Save", goal: "Write the list to /out/improvements.md.", agent: "analyst" }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "developer" }] });
+    expect(readPlan(plan([{ title: "Save", goal: "Write what platform.tasks returns to /out/tasks.md.", agent: "developer" }]), null, agents, tools)).toMatchObject({ tasks: [{ agent: "syncer-writer" }] });
+    // A task whose agent has everything is left alone, and a name is read whole: platform.tasks is not a mention of platform.task.
+    expect(readPlan(plan([{ title: "Look", goal: "Summarise what platform.tasks returns.", agent: "syncer" }]), null, agents, ["platform.task", "platform.tasks"])).toMatchObject({ tasks: [{ agent: "syncer" }], moved: [] });
+  });
+  it("is refused when its goal names a file under /work in a workspace with no project, where it would be lost", () => {
+    const lost = readPlan(plan([{ title: "Save", goal: "Write the list to /work/improvements.md.", agent: "developer" }]), null, agents, tools, 0);
+    expect(lost).toMatchObject({ problem: expect.stringContaining("name a file under /out instead") });
+    expect(readPlan(plan([{ title: "Save", goal: "Write the list to /work/improvements.md.", agent: "developer" }]), null, agents, tools, 1)).toHaveProperty("tasks");
+    expect(readPlan(plan([{ title: "Save", goal: "Write the list to /out/improvements.md.", agent: "developer" }]), null, agents, tools, 0)).toHaveProperty("tasks");
+  });
+  it("is refused only when no agent has all that a task needs", () => {
+    expect(readPlan(plan([{ title: "Look", goal: "Never call platform.repeats here.", agent: "developer" }]), null, agents, ["platform.repeats"]))
+      .toMatchObject({ problem: expect.stringContaining("platform.repeats (agents that have it: none)") });
+    expect(readPlan(plan([{ title: "Look", goal: "Use task.note and platform.tasks.", agent: "analyst" }]), null, agents, tools)).toMatchObject({ problem: expect.stringContaining("no one agent has all") });
   });
 });
 
