@@ -31,8 +31,9 @@ function FileView(props: { path: string; isNew: boolean; readOnly: boolean; open
   const dirty = (): boolean => draft() !== undefined && draft() !== base();
   const size = (): number => file.data()?.bytes ?? 0;
   const binary = (): boolean => file.data()?.binary ?? false;
-  const pack = (): string | undefined => { const source = file.data()?.source; return source && source !== "workspace" ? source : undefined; };
-  const editable = (): boolean => !props.readOnly && !binary() && size() <= MAX_EDITED && pack() === undefined;
+  const result = (): boolean => file.data()?.source === "results";
+  const pack = (): string | undefined => { const source = file.data()?.source; return source && source !== "workspace" && source !== "results" ? source : undefined; };
+  const editable = (): boolean => !props.readOnly && !binary() && size() <= MAX_EDITED && pack() === undefined && !result();
   const copy = useAction(async () => {
     const data = file.data();
     if (!data) return;
@@ -88,7 +89,7 @@ function FileView(props: { path: string; isNew: boolean; readOnly: boolean; open
           <Show when={!props.readOnly && pack() !== undefined && !binary()}>
             <Button variant="solid" theme="blue" size="md" iconLeft="lucide-copy" loading={copy.busy()} onClick={() => void copy.run()}>{t("files.copyOver")}</Button>
           </Show>
-          <Show when={!props.readOnly && !props.isNew && file.data() && pack() === undefined}>
+          <Show when={!props.readOnly && !props.isNew && file.data() && pack() === undefined && !result()}>
             <Button variant="ghost" size="md" iconLeft="lucide-pencil" onClick={() => setRenaming(renaming() === undefined ? props.path : undefined)}>{t("files.rename")}</Button>
             <ConfirmButton label={t("action.delete")} confirm={t("files.delete.confirm", { path: props.path })} busy={remove.busy()} onConfirm={() => void remove.run()} />
           </Show>
@@ -104,6 +105,7 @@ function FileView(props: { path: string; isNew: boolean; readOnly: boolean; open
       </Show>
       <Show when={isConfiguration(props.path)}><p class="mb-5 rounded-control bg-surface-gray-2 px-4 py-3 t-small text-ink-2">{t("files.warn.config")}</p></Show>
       <Failure error={copy.error()} class="mb-4" />
+      <Show when={result()}><p class="mb-5 flex flex-wrap items-center gap-2 rounded-control bg-surface-gray-2 px-4 py-3 t-small text-ink-2"><Badge theme="violet" size="md" label={t("files.fromTask")} />{t("files.result.note")}</p></Show>
       <Show when={pack()}>{(source) => <p class="mb-5 flex flex-wrap items-center gap-2 rounded-control bg-surface-gray-2 px-4 py-3 t-small text-ink-2"><Badge theme="violet" size="md" label={t("files.fromPack", { pack: source() })} />{t("files.pack.note")}</p>}</Show>
       <Show when={file.data()?.replaces}>{(source) => <p class="mb-5 rounded-control bg-surface-gray-2 px-4 py-3 t-small text-ink-2">{t("files.replaces", { pack: source() })}</p>}</Show>
       <Show when={props.readOnly}><p class="mb-5 rounded-control bg-surface-gray-2 px-4 py-3 t-small text-ink-2">{t("files.readOnly")}</p></Show>
@@ -153,7 +155,7 @@ type SortKey = "name" | "size" | "modified";
 function Origin(props: { row: Row }): JSX.Element {
   return (
     <>
-      <Show when={props.row.source !== "workspace"}><Badge theme="violet" size="md" label={t("files.fromPack", { pack: props.row.source })} /></Show>
+      <Show when={props.row.source !== "workspace"}><Badge theme="violet" size="md" label={props.row.source === "results" ? t("files.fromTask") : t("files.fromPack", { pack: props.row.source })} /></Show>
       <Show when={props.row.replaces}>{(pack) => <Badge theme="gray" size="md" label={t("files.replacesBadge", { pack: pack() })} />}</Show>
     </>
   );

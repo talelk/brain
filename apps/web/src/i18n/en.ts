@@ -905,6 +905,8 @@ export const en = {
   "files.view.list": "List",
   "files.view.grid": "Grid",
   "files.fromPack": "from pack {pack}",
+  "files.fromTask": "task result",
+  "files.result.note": "Kept by a task: files it saved in /out are under out/<task>, the diff of its project changes under work/<task>. Read only; the task's Evidence tab shows the same file.",
   "files.replacesBadge": "replaces pack {pack}",
   "files.pack.note": "A file of a pack is read only. Edit a copy to change it: the copy is written into this workspace's folder and replaces the pack's file.",
   "files.replaces": "This file replaces the file of the pack {pack} at the same path. Deleting it brings the pack's file back.",

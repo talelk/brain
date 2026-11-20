@@ -907,6 +907,8 @@ export const fr: Catalog = {
   "files.view.list": "Liste",
   "files.view.grid": "Grille",
   "files.fromPack": "du pack {pack}",
+  "files.fromTask": "résultat de tâche",
+  "files.result.note": "Conservé par une tâche : les fichiers qu'elle a enregistrés dans /out sont sous out/<tâche>, le diff de ses changements de projet sous work/<tâche>. Lecture seule ; l'onglet Preuves de la tâche montre le même fichier.",
   "files.replacesBadge": "remplace le pack {pack}",
   "files.pack.note": "Un fichier de pack est en lecture seule. Modifiez-en une copie : elle est écrite dans le dossier de cet espace de travail et remplace le fichier du pack.",
   "files.replaces": "Ce fichier remplace le fichier du pack {pack} au même chemin. Le supprimer rétablit celui du pack.",

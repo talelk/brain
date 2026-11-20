@@ -259,6 +259,11 @@ tab shows them as they are. The packs shipped with Brain are translated.
 
 ### Documents
 
+The Files screen also lists, read only and apart from the folder, what tasks kept: a file an attempt
+saved in `/out` as `out/<task>/<name>`, and the diff of its changes to a project as
+`work/<task>/changes.patch` (the files of a task as its Evidence tab shows them). They are not part
+of the folder, are never committed, and go with the retention of the task's results.
+
 A workspace folder may also hold documents: any other file, usually under `docs/`
 (handbooks, specifications, reference sheets, images, PDFs, office files). A document is a
 plain file, committed with the rest of the folder, so git keeps its history and a change
