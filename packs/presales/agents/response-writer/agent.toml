@@ -1,0 +1,13 @@
+description = "Drafts the response to a tender from the analysis and the workspace's memory, in the buyer's language. Never invents references, certifications or prices."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["doc.extract", "memory.search", "task.note"]
+
+[limits]
+spend_usd = 1.00
+
+[translations.fr]
+description = "Rédige la réponse à un appel d'offres à partir de l'analyse et de la mémoire de l'espace de travail, dans la langue de l'acheteur. N'invente jamais de références, de certifications ni de prix."
+
+[translations.ar]
+description = "يصوغ الرد على مناقصة انطلاقًا من التحليل وذاكرة مساحة العمل، بلغة صاحب المشروع. لا يختلق أبدًا مراجع أو شهادات أو أسعارًا."

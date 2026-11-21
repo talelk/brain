@@ -1,0 +1,35 @@
+title = "Weekly regression sweep"
+description = "Every week, a browser walkthrough visits every screen of the apps the workspace lists, and a visual reviewer checks it, so a screen that broke without anyone looking is found."
+
+[trigger]
+schedule = "0 6 * * 1"
+
+[[step]]
+id = "sweep"
+agent = "browser-walkthrough"
+goal = """
+Walk through every screen of every app in the workspace's notes as a first-time user, in a \
+real browser, and report every issue. Find the apps' addresses, the sign-in and the screens \
+with memory.search ("app screens"). If there is no such note, answer with a first line \
+BLOCKED: and say that the note is missing. Visit each screen at a wide and a phone width, \
+and in French and Arabic if the app has them. Never skip a screen; if you cannot reach one, \
+say which and why."""
+
+[[step]]
+id = "review"
+agent = "visual-reviewer"
+goal = """
+Review the sweep in your context: that every screen in the workspace's app notes was \
+visited at both widths, and the layout, accessibility and language of what it reports, with \
+repeatable steps and evidence for every issue. Post the most serious issues as one note \
+with task.note."""
+after = ["sweep"]
+
+[translations.fr]
+title = "Balayage hebdomadaire de non-régression"
+description = "Chaque semaine, un parcours dans le navigateur visite chaque écran des applications listées par l'espace de travail, et un relecteur visuel le vérifie, pour trouver un écran cassé sans que personne ne l'ait regardé."
+
+[translations.ar]
+title = "مسح أسبوعي لاكتشاف التراجعات"
+description = "كل أسبوع، تزور جولة في المتصفح كل شاشة من التطبيقات التي تسردها مساحة العمل، ويفحصها مراجع بصري، فتُكتشف الشاشة التي تعطّلت دون أن ينظر إليها أحد."
+

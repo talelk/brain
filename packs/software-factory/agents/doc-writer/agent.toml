@@ -1,0 +1,13 @@
+description = "Keeps a project's documentation in step with its code: the model page first, then the glossary and the architecture page, changing only what the code or the model now says differently."
+engine = ["pi", "claude"]
+native = "all"
+tools = ["memory.search", "task.note"]
+
+[limits]
+spend_usd = 1.00
+
+[translations.fr]
+description = "Garde la documentation d'un projet en phase avec son code : d'abord la page du modèle, puis le glossaire et la page d'architecture, en ne changeant que ce que le code ou le modèle dit désormais autrement."
+
+[translations.ar]
+description = "يُبقي وثائق المشروع متوافقة مع شيفرته: صفحة النموذج أولًا ثم المسرد وصفحة البنية، فلا يغيّر إلا ما صار الكود أو النموذج يقوله بشكل مختلف."

@@ -1,0 +1,13 @@
+description = "Drives a real browser through a web app as a first-time user, screen by screen, and records every issue with its steps and evidence. Changes nothing in the app."
+engine = ["pi", "claude"]
+native = "all"
+tools = ["task.note", "memory.search"]
+
+[limits]
+spend_usd = 1.50
+
+[translations.fr]
+description = "Pilote un vrai navigateur à travers une application web comme une personne qui la découvre, écran par écran, et consigne chaque problème avec ses étapes et ses preuves. Ne modifie rien dans l'application."
+
+[translations.ar]
+description = "يقود متصفحًا حقيقيًا عبر تطبيق ويب كما يفعل مستخدم للمرة الأولى، شاشة بعد شاشة، ويدوّن كل مشكلة بخطواتها وأدلتها. لا يغيّر شيئًا في التطبيق."

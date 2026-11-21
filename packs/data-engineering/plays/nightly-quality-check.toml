@@ -1,0 +1,23 @@
+title = "Nightly data quality check"
+description = "Every night, run the project's data quality checks and report what failed, with the evidence."
+
+[trigger]
+schedule = "0 2 * * *"
+
+[[step]]
+id = "check"
+agent = "data-quality-checker"
+goal = """
+Run the nightly data quality check of the project under /work. Find in memory \
+(memory.search) the datasets, rules and thresholds the workspace asks for; without any, \
+check every model or table the project's tests cover. Run the existing tests and your \
+extra checks, and report in the format of your instructions. If the data or a connection \
+is not available in the sandbox, say so as the first line of your result."""
+
+[translations.fr]
+title = "Contrôle qualité nocturne des données"
+description = "Chaque nuit, exécuter les contrôles de qualité des données du projet et rendre compte de ce qui a échoué, avec les preuves."
+
+[translations.ar]
+title = "فحص جودة البيانات الليلي"
+description = "كل ليلة، تنفيذ فحوص جودة بيانات المشروع وتقديم تقرير بما فشل مع الأدلة."

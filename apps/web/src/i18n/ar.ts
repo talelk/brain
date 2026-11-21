@@ -382,6 +382,8 @@ export const ar: Catalog = {
   "evidence.calls_other": "{n} استدعاء للأدوات",
   "evidence.input": "المُدخلات",
   "evidence.output": "المُخرجات",
+  "evidence.raw": "خام",
+  "evidence.formatted": "منسّق",
   "evidence.native": "نشاط الأدوات الأصلية",
   "evidence.native.run": "محاولة {n}، {agent}",
   "evidence.native.none": "لم تستخدم هذه المحاولة أي أداة أصلية.",

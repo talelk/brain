@@ -1,0 +1,13 @@
+description = "Reviews a change to a dbt project for tests, naming, incremental logic and grain, and passes it or sends it back with what to fix."
+engine = ["pi", "claude"]
+native = "all"
+tools = ["memory.search", "task.note"]
+
+[limits]
+spend_usd = 0.50
+
+[translations.fr]
+description = "Relit un changement dans un projet dbt (tests, nommage, logique incrémentale, granularité) et l'accepte ou le renvoie avec ce qu'il faut corriger."
+
+[translations.ar]
+description = "يراجع تغييرًا في مشروع dbt من حيث الاختبارات والتسمية والمنطق التزايدي ودقة الحبيبات (grain)، ثم يجيزه أو يعيده مع ما يلزم تصحيحه."

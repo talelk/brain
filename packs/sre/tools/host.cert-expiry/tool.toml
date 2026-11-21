@@ -1,0 +1,17 @@
+description = """
+Lists the TLS certificates that certbot manages on this workspace's host: one line \
+per certificate, its name and its expiry date (`notAfter=`). Work out the days left \
+from today's date. Read-only, no inputs. Check it in every routine health check and whenever a \
+secure address stops answering or a browser warns about a certificate: a certificate with \
+fewer than 14 days left is urgent, because the automatic renewal has failed. A restart \
+does not renew a certificate. The operator of the runner host fixed the real command \
+line; you cannot change it. Returns the command's output as text."""
+effect = "read"
+host_command = "host.cert-expiry"
+timeout_seconds = 60
+
+[translations.fr]
+description = "Liste les certificats TLS que certbot gère sur l'hôte de cet espace de travail : une ligne par certificat, son nom et sa date d'expiration (`notAfter=`). Calculez les jours restants à partir de la date du jour. Lecture seule, sans entrée. À consulter à chaque vérification de santé de routine et dès qu'une adresse sécurisée ne répond plus ou qu'un navigateur signale un certificat : moins de 14 jours restants est urgent, car le renouvellement automatique a échoué. Un redémarrage ne renouvelle pas un certificat. L'opérateur de l'hôte du runner a fixé la ligne de commande réelle ; vous ne pouvez pas la modifier. Renvoie la sortie de la commande sous forme de texte."
+
+[translations.ar]
+description = "يسرد شهادات TLS التي يديرها certbot على الجهاز المضيف لمساحة العمل هذه: سطر لكل شهادة: اسمها وتاريخ انتهائها (`notAfter=`). احسب الأيام المتبقية من تاريخ اليوم. للقراءة فقط وبلا مدخلات. افحصه في كل فحص سلامة دوري وكلما توقف عنوان آمن عن الاستجابة أو حذّر متصفح من شهادة: بقاء أقل من 14 يومًا أمر عاجل لأن التجديد التلقائي فشل. إعادة التشغيل لا تجدد شهادة. حدّد مشغّل الجهاز المضيف للـ runner سطر الأوامر الفعلي ولا يمكنك تغييره. يعيد مخرجات الأمر نصًّا."

@@ -1,0 +1,13 @@
+description = "Stress-tests a plan or a decision: asks the hard questions one at a time, answers the ones the workspace's own files can answer, and returns the open questions and the risks."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["memory.search"]
+
+[limits]
+spend_usd = 0.50
+
+[translations.fr]
+description = "Met à l'épreuve un plan ou une décision : pose les questions difficiles une à une, répond à celles que les fichiers de l'espace de travail permettent de trancher, et renvoie les questions ouvertes et les risques."
+
+[translations.ar]
+description = "يختبر خطة أو قرارًا بصرامة: يطرح الأسئلة الصعبة واحدًا تلو الآخر، ويجيب عمّا تحسمه ملفات مساحة العمل نفسها، ويعيد الأسئلة المفتوحة والمخاطر."

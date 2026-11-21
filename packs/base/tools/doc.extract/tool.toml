@@ -1,0 +1,40 @@
+description = """
+Turns one PDF, DOCX or XLSX file of the working copy into plain text. The path is under \
+/work (a project's file, or a document of the workspace under /work/.workspace). Read-only: \
+it never changes the file. A spreadsheet gives one block per sheet, one line per row, cells \
+separated by tabs. A scanned PDF with no text layer gives no text; the result says so. \
+Returns {"path", "format", "pages", "text", "truncated"} (pages only for a PDF), or \
+{"error": "<why>"}."""
+effect = "read"
+timeout_seconds = 60
+needs = ["bash", "python3"]
+network = []
+secrets = []
+
+[inputs.path]
+type = "string"
+description = "The file's path, starting with /work/. A file saved in /out is not reachable from here."
+required = true
+
+[inputs.max_chars]
+type = "integer"
+description = "The most text to return, from 1 to 100000 characters. 20000 when left out."
+required = false
+
+[translations.fr]
+description = "Transforme un fichier PDF, DOCX ou XLSX de la copie de travail en texte brut. Le chemin est sous /work (un fichier d'un projet, ou un document de l'espace de travail sous /work/.workspace). Lecture seule : il ne modifie jamais le fichier. Un tableur donne un bloc par feuille, une ligne par rangée, les cellules séparées par des tabulations. Un PDF numérisé sans couche de texte ne donne aucun texte ; le résultat le dit. Renvoie {\"path\", \"format\", \"pages\", \"text\", \"truncated\"} (pages seulement pour un PDF), ou {\"error\": \"<pourquoi>\"}."
+
+[translations.fr.inputs.path]
+description = "Le chemin du fichier, commençant par /work/. Un fichier enregistré dans /out n'est pas accessible d'ici."
+
+[translations.fr.inputs.max_chars]
+description = "Le maximum de texte à renvoyer, de 1 à 100000 caractères. 20000 si omis."
+
+[translations.ar]
+description = "يحوّل ملف PDF أو DOCX أو XLSX من نسخة العمل إلى نص عادي. يكون المسار تحت /work (ملف في مشروع، أو مستند من مساحة العمل تحت /work/.workspace). للقراءة فقط: لا يغيّر الملف أبدًا. يعطي الجدول كتلة لكل ورقة وسطرًا لكل صف، وتُفصل الخلايا بعلامات جدولة. ملف PDF ممسوح ضوئيًا بلا طبقة نص لا يعطي نصًا، وتذكر النتيجة ذلك. يعيد {\"path\", \"format\", \"pages\", \"text\", \"truncated\"} (الصفحات لملف PDF فقط)، أو {\"error\": \"<السبب>\"}."
+
+[translations.ar.inputs.path]
+description = "مسار الملف، ويبدأ بـ /work/. الملف المحفوظ في /out لا يمكن الوصول إليه من هنا."
+
+[translations.ar.inputs.max_chars]
+description = "أقصى قدر من النص يُعاد، من 1 إلى 100000 حرف. 20000 إذا تُرك فارغًا."

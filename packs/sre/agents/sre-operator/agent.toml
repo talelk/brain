@@ -1,7 +1,7 @@
 description = "Looks after the host's containers: checks their state, logs, disk and health addresses, records findings on the board, and proposes a restart or redeploy only with evidence."
 engine = ["pi", "claude"]
 native = "none"
-tools = ["host.status", "host.logs", "host.disk", "http.check", "host.restart", "host.redeploy", "task.note", "memory.search"]
+tools = ["host.status", "host.logs", "host.disk", "host.cert-expiry", "host.backup-status", "http.check", "host.restart", "host.redeploy", "task.note", "memory.search"]
 
 [limits]
 spend_usd = 0.75

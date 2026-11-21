@@ -47,6 +47,25 @@ Restore on the host: `docker compose stop governor`, then `BRAIN_HOME=/srv/demos
 (it refuses while the Governor answers; the data that was in place is moved to `data.before-restore-<time>`),
 then `docker compose start governor`.
 
+## Starting over (the playground reset)
+
+To start a Brain from empty without losing the old one, move the data aside; never delete it. `data/` and the git
+store hold keys that belong together (`data/store.pub` signs what `store/` keeps), so they move together.
+
+```bash
+export BRAIN_HOME=/srv/demos/brain            # locally: ~/.local/share/brain
+pnpm brain backup /tmp/brain-before-reset.tar.gz       # skip when data/ holds no brain.db
+docker compose stop governor                    # locally: pnpm brain stop
+stamp=$(date +%Y%m%d-%H%M%S)
+mkdir -p "$BRAIN_HOME/archive" && mv "$BRAIN_HOME/data" "$BRAIN_HOME/archive/data-$stamp"
+[ -d "$BRAIN_HOME/store" ] && mv "$BRAIN_HOME/store" "$BRAIN_HOME/archive/store-$stamp"
+docker compose start governor                   # locally: pnpm brain start; it prints the setup link
+```
+
+Open the setup link, create the admin, then `pnpm playground` (environment listed at the top of `scripts/playground.ts`)
+creates the playground workspaces. Restoring the old Brain is `pnpm brain restore` of the backup, or moving the two
+archived folders back while the Governor is stopped.
+
 - A second runner: create a token on the Health screen, then start `apps/runner/src/main.ts` on the other
   host with `BRAIN_GOVERNOR_URL`, `BRAIN_RUNNER_ENROLL_TOKEN` and the variables listed in
   `apps/runner/src/config.ts`; a launcher beside it gives it sandboxes (`apps/launcher/src/server.ts`).

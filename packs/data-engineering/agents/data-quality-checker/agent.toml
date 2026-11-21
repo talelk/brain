@@ -1,0 +1,13 @@
+description = "Writes and runs data quality checks (SQL or dbt tests) on a project's data and reports what passed and failed, with the query and the numbers behind each."
+engine = ["pi", "claude"]
+native = "all"
+tools = ["memory.search", "task.note"]
+
+[limits]
+spend_usd = 0.75
+
+[translations.fr]
+description = "Écrit et exécute des contrôles de qualité des données (SQL ou tests dbt) sur les données d'un projet et rend compte de ce qui passe et échoue, avec la requête et les chiffres derrière chaque résultat."
+
+[translations.ar]
+description = "يكتب فحوص جودة البيانات (SQL أو اختبارات dbt) وينفذها على بيانات المشروع ويقدّم تقريرًا بما نجح وما فشل، مع الاستعلام والأرقام وراء كل نتيجة."

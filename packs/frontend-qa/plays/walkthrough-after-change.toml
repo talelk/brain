@@ -1,0 +1,42 @@
+title = "Walk through the app after a change"
+description = "After a change to a web app, a browser walkthrough visits the changed screens and their neighbours as a first-time user, and a visual reviewer checks it for layout, accessibility and language."
+
+[inputs.app_url]
+type = "string"
+required = true
+
+[inputs.changed]
+type = "string"
+required = true
+
+[[step]]
+id = "walkthrough"
+agent = "browser-walkthrough"
+goal = """
+Walk through the app as a first-time user, in a real browser, and report every issue.
+
+App address: {{app_url}}
+What changed: {{changed}}
+
+Visit the screens the change touches and every screen that links to or from them, then the \
+first screen a new visitor lands on. Find the sign-in and the list of screens with \
+memory.search. Visit each at a wide and a phone width, and in French and Arabic if the app \
+has them. Never skip a screen; if you cannot reach one, say which and why."""
+
+[[step]]
+id = "review"
+agent = "visual-reviewer"
+goal = """
+Review the walkthrough in your context against this goal: the app at {{app_url}} after \
+this change: {{changed}}. Check the coverage, the layout, the accessibility and the \
+language of what the walkthrough reports, and that every issue it lists has repeatable \
+steps and evidence."""
+after = ["walkthrough"]
+
+[translations.fr]
+title = "Parcourir l'application après un changement"
+description = "Après un changement d'une application web, un parcours dans le navigateur visite les écrans modifiés et leurs voisins comme une personne qui découvre l'application, et un relecteur visuel en vérifie la mise en page, l'accessibilité et la langue."
+
+[translations.ar]
+title = "جولة في التطبيق بعد تغيير"
+description = "بعد تغيير في تطبيق ويب، تزور جولة في المتصفح الشاشات المتغيّرة وما يجاورها كما يفعل مستخدم للمرة الأولى، ويفحص مراجع بصري التخطيط وإمكانية الوصول واللغة."

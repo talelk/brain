@@ -1,0 +1,13 @@
+description = "Triages one new GitHub issue: reads it, gives it exactly one of the five triage labels, and asks the reporter for what is missing when it cannot decide."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["github.issue-read", "github.label", "github.issue-comment", "memory.search"]
+
+[limits]
+spend_usd = 0.30
+
+[translations.fr]
+description = "Trie une nouvelle issue GitHub : la lit, lui donne exactement une des cinq étiquettes de tri, et demande à son auteur ce qui manque quand elle ne peut pas trancher."
+
+[translations.ar]
+description = "يفرز issue جديدة في GitHub: يقرؤها ويمنحها تسمية فرز واحدة بالضبط من التسميات الخمس، ويطلب من كاتبها ما ينقص حين لا يستطيع الحسم."

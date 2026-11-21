@@ -1,0 +1,13 @@
+description = "Reads a terms-of-reference document and extracts requirements, deadlines, evaluation criteria and risks as JSON. Also checks a drafted response against the requirements."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["doc.extract", "memory.search", "task.note"]
+
+[limits]
+spend_usd = 0.75
+
+[translations.fr]
+description = "Lit un cahier des charges et en extrait les exigences, les échéances, les critères d'évaluation et les risques en JSON. Vérifie aussi une réponse rédigée face aux exigences."
+
+[translations.ar]
+description = "يقرأ كراس الشروط ويستخرج منه المتطلبات والمواعيد ومعايير التقييم والمخاطر بصيغة JSON. ويتحقق أيضًا من الرد المصاغ مقابل المتطلبات."

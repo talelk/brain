@@ -44,7 +44,7 @@ describe("first-run setup", () => {
     expect(workspaces).toMatchObject([{ slug: "starter", name: "Starter", role: "admin", status: "active" }]);
     const workspaceId = workspaces[0]?.id ?? "";
     const { snapshot } = await harness.admin.query("workspace.get", { workspaceId });
-    expect([snapshot.packs, Object.keys(snapshot.plays), Object.keys(snapshot.agents).sort()]).toEqual([["base"], ["hello"], ["checker", "planner", "worker", "workspace-healer"]]);
+    expect([snapshot.packs, Object.keys(snapshot.plays), Object.keys(snapshot.agents).sort()]).toEqual([["base"], ["hello"], ["checker", "grill-partner", "planner", "translator-fr-ar", "worker", "workspace-healer"]]);
     expect((await harness.admin.query("workspace.files", { workspaceId })).files.filter((file) => file.source === "workspace").map((file) => file.path)).toEqual(["brain.toml"]);
     // The sample goal is the base pack's `hello` Play: it can be started at once.
     const { taskId } = await harness.admin.command("task.create", { workspaceId, play: "hello" });

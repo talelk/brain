@@ -1,0 +1,33 @@
+title = "Review a dbt change"
+description = "Have a reviewer criticise a change to a dbt project (tests, naming, incremental logic, grain), and run the data quality checks on the models it touches."
+
+[inputs.change]
+type = "string"
+required = true
+
+[[step]]
+id = "review"
+agent = "dbt-reviewer"
+goal = """
+Review this dbt change: {{change}}. It may be a branch, a diff or a description of the \
+models changed in the project under /work. Review tests, naming, incremental logic and \
+grain, run what the project can run, and give your verdict in the JSON format of your \
+instructions."""
+
+[[step]]
+id = "checks"
+agent = "data-quality-checker"
+goal = """
+Write and run data quality checks on the models touched by this dbt change: {{change}}. \
+The reviewer's verdict, for the points to look at:
+
+{{steps.review.result}}"""
+after = ["review"]
+
+[translations.fr]
+title = "Relire un changement dbt"
+description = "Faire critiquer par un relecteur un changement dans un projet dbt (tests, nommage, logique incrémentale, granularité), et exécuter les contrôles de qualité des données sur les modèles touchés."
+
+[translations.ar]
+title = "مراجعة تغيير في dbt"
+description = "جعل مراجع ينتقد تغييرًا في مشروع dbt (الاختبارات والتسمية والمنطق التزايدي ودقة الحبيبات)، وتنفيذ فحوص جودة البيانات على النماذج المعنية."

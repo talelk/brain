@@ -6,6 +6,8 @@
 # A project's `setup` runs here too, so the image carries what the common ones need: bun, and a compiler, make and python3 for native
 # Node modules (node-gyp). The Node headers are in the image (npm_config_nodedir), so a native build downloads nothing from nodejs.org
 # and the project's `network` needs only its package registry.
+# A browser is here too (Playwright 1.65.1 and its Chromium, in /opt/playwright), for the frontend-qa pack: a script run by the shell
+# uses `require("playwright")` through NODE_PATH and launches Chromium with --no-sandbox (the container is already the sandbox).
 # Build from the repository root: docker build -f deploy/engine-sandbox.Dockerfile -t brain-sandbox-engine .
 # An ACP agent (OpenCode, a Codex ACP adapter) is not part of this image: add its binary in a derived image and name it with
 # BRAIN_OPENCODE_COMMAND / BRAIN_CODEX_COMMAND there (the launcher passes no command to the container).
@@ -17,6 +19,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@12.11.2 --activate && npm install --global tsx@4.20.6 bun@1.2.23
 ENV npm_config_nodedir=/usr/local
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright NODE_PATH=/usr/local/lib/node_modules
+RUN npm install --global playwright@1.65.1 && playwright install --with-deps chromium && chmod -R a+rX /opt/playwright && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/runner/package.json apps/runner/

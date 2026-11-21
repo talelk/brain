@@ -1,7 +1,7 @@
 description = "Finds the root cause of an incident from logs and checks, and recommends the smallest fix. Changes nothing."
 engine = ["pi", "claude"]
 native = "none"
-tools = ["host.status", "host.logs", "host.disk", "http.check", "task.note", "memory.search"]
+tools = ["host.status", "host.logs", "host.disk", "host.cert-expiry", "host.backup-status", "http.check", "task.note", "memory.search"]
 
 [limits]
 spend_usd = 0.75

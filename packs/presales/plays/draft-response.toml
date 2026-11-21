@@ -1,0 +1,50 @@
+title = "Draft a tender response"
+description = "Draft the response from the analysis and the workspace's memory, checked against the requirements by the analyst until it passes."
+
+[inputs.document]
+type = "string"
+required = true
+
+[[step]]
+id = "analyze"
+agent = "rfp-analyst"
+goal = """
+Analyze this terms-of-reference document: {{document}}. It is a path under /work or \
+/work/.workspace, or text. Extract the requirements, deadlines, evaluation criteria and \
+risks in the JSON format of your instructions."""
+
+[[step]]
+id = "architecture"
+agent = "solution-architect"
+goal = """
+From this analysis of the terms of reference, propose architecture options with estimate \
+ranges and assumptions:
+
+{{steps.analyze.result}}"""
+after = ["analyze"]
+
+[[step]]
+id = "draft"
+agent = "response-writer"
+goal = """
+Draft the response to the tender {{document}}. Use the analysis and the architect's \
+options below and the workspace's memory (the response checklist, references, wording). \
+Invent no reference, certification or price.
+
+Analysis:
+{{steps.analyze.result}}
+
+Architecture and estimates:
+{{steps.architecture.result}}"""
+after = ["analyze", "architecture"]
+review_by = "rfp-analyst"
+max_rounds = 3
+target_score = 0.8
+
+[translations.fr]
+title = "Rédiger une réponse à un appel d'offres"
+description = "Rédiger la réponse à partir de l'analyse et de la mémoire de l'espace de travail, vérifiée face aux exigences par l'analyste jusqu'à ce qu'elle passe."
+
+[translations.ar]
+title = "صياغة رد على مناقصة"
+description = "صياغة الرد انطلاقًا من التحليل وذاكرة مساحة العمل، ويتحقق منه المحلل مقابل المتطلبات حتى يجتاز التحقق."

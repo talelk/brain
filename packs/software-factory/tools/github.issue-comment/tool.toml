@@ -1,0 +1,45 @@
+description = "Posts one comment on a GitHub issue or pull request, as the workspace's `github` credential. The call stops until a person approves exactly this comment, which can take minutes: wait for the answer and do not post it again. If the answer says the call is held, declined or refused, nothing was posted. Write the comment so it can be read alone, and never include a secret value. Returns {\"id\", \"url\"}, or {\"error\": \"<why>\"}."
+effect = "write"
+timeout_seconds = 30
+needs = ["bash", "python3", "curl"]
+network = ["api.github.com"]
+secrets = ["github"]
+
+[inputs.repo]
+type = "string"
+description = "The repository, as owner/name."
+required = true
+
+[inputs.number]
+type = "integer"
+description = "The issue or pull request number."
+required = true
+
+[inputs.body]
+type = "string"
+description = "The comment, in plain text or simple Markdown, at most 20000 characters."
+required = true
+
+[translations.fr]
+description = "Publie un commentaire sur une issue ou une pull request GitHub, avec l'identifiant `github` de l'espace de travail. L'appel reste en attente jusqu'à ce qu'une personne approuve exactement ce commentaire, ce qui peut prendre plusieurs minutes : attendez la réponse et ne le republiez pas. Si la réponse indique que l'appel est retenu, refusé ou rejeté, rien n'a été publié. Rédigez le commentaire pour qu'il puisse être lu seul, et n'y mettez jamais la valeur d'un secret. Renvoie {\"id\", \"url\"}, ou {\"error\": \"<pourquoi>\"}."
+
+[translations.fr.inputs.repo]
+description = "Le dépôt, sous la forme owner/name."
+
+[translations.fr.inputs.number]
+description = "Le numéro de l'issue ou de la pull request."
+
+[translations.fr.inputs.body]
+description = "Le commentaire, en texte brut ou en Markdown simple, 20000 caractères au plus."
+
+[translations.ar]
+description = "ينشر تعليقًا واحدًا على issue أو pull request في GitHub، بصفة اعتماد `github` الخاص بمساحة العمل. يتوقف الاستدعاء حتى يوافق شخص على هذا التعليق بالتحديد، وقد يستغرق ذلك دقائق: انتظر الجواب ولا تنشره مرة أخرى. إذا قال الجواب إن الاستدعاء معلَّق أو مرفوض فلم يُنشر شيء. اكتب التعليق بحيث يُقرأ وحده، ولا تضع فيه قيمة سرّ أبدًا. يعيد {\"id\", \"url\"}، أو {\"error\": \"<السبب>\"}."
+
+[translations.ar.inputs.repo]
+description = "المستودع، بصيغة owner/name."
+
+[translations.ar.inputs.number]
+description = "رقم الـ issue أو الـ pull request."
+
+[translations.ar.inputs.body]
+description = "التعليق، بنص عادي أو Markdown بسيط، بحد أقصى 20000 حرف."

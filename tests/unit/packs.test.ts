@@ -7,8 +7,8 @@ const packsDir = fileURLToPath(new URL("../../packs", import.meta.url));
 const shipped = readdirSync(packsDir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 
 describe("the packs shipped with Brain", () => {
-  it("are base, software-factory, sre, customer-operations and platform", () => {
-    expect(shipped.sort()).toEqual(["base", "customer-operations", "platform", "software-factory", "sre"]);
+  it("are base, software-factory, sre, customer-operations, platform, presales, data-engineering and frontend-qa", () => {
+    expect(shipped.sort()).toEqual(["base", "customer-operations", "data-engineering", "frontend-qa", "platform", "presales", "software-factory", "sre"]);
   });
   it.each(shipped)("%s loads and validates in a workspace that uses it", (name) => {
     const loaded = loadWorkspace(new Map([["brain.toml", new TextEncoder().encode(`name = "Uses ${name}"\npacks = ["${name}"]\n${name === "platform" ? "platform = \"admin\"\n" : ""}`)]]), packsDir);

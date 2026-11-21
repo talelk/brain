@@ -1,0 +1,13 @@
+description = "Proposes architecture options for a tender's requirements, with estimate ranges and the assumptions behind them."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["doc.extract", "memory.search", "task.note"]
+
+[limits]
+spend_usd = 0.75
+
+[translations.fr]
+description = "Propose des options d'architecture pour les exigences d'un appel d'offres, avec des fourchettes d'estimation et les hypothèses qui les sous-tendent."
+
+[translations.ar]
+description = "يقترح خيارات معمارية لمتطلبات مناقصة، مع نطاقات للتقدير والفرضيات التي تقوم عليها."

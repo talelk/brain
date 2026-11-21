@@ -1,21 +1,72 @@
-import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
+import { createMemo, createSignal, For, Match, Show, Switch, type JSX } from "solid-js";
 import type { Attempt, AttemptEvent, Task, ToolCall } from "@brain/contracts";
 import { artifactUrl, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
 import { t, tn } from "../i18n";
 import { bytes, dateTime, show } from "../lib/format";
 import { ArtifactDiff } from "./Diff";
+import { tableOf, viewOf, type View } from "../lib/toolview";
 import { Code, Details, Failure, Icon, Keyed, Loading } from "./bits";
 
 const OUTCOME_TONE: Record<ToolCall["outcome"], string> = { succeeded: "text-ok", failed: "text-bad", rejected: "text-bad", held: "text-needs-text", pending: "text-needs-text" };
+
+const clip = (text: string): string => (text.length > 140 ? `${text.slice(0, 140)}…` : text);
+
+function Grid(props: { header: readonly string[]; rows: readonly (readonly string[])[] }): JSX.Element {
+  return (
+    <div class="prose-table max-h-80 overflow-auto"><table><thead><tr><For each={props.header}>{(head) => <th>{head}</th>}</For></tr></thead><tbody><For each={props.rows}>{(row) => <tr><For each={row}>{(item) => <td class="code-ltr" title={item.length > 140 ? item : undefined}>{clip(item)}</td>}</For></tr>}</For></tbody></table></div>
+  );
+}
+
+/** A value inside a card: short text stays inline, a list of objects is a table, a long or multi-line text or anything else nested is a block. */
+function Value(props: { value: unknown }): JSX.Element {
+  const text = (): string => (typeof props.value === "string" ? props.value : props.value === null || props.value === undefined ? "" : typeof props.value === "object" ? JSON.stringify(props.value, null, 2) : String(props.value));
+  const grid = () => { const view = Array.isArray(props.value) ? tableOf(props.value) : null; return view?.kind === "table" ? view : null; };
+  return (
+    <Show when={grid()} fallback={
+      <Show when={text().length > 120 || text().includes("\n") || typeof props.value === "object"} fallback={<span class="break-words">{text()}</span>}>
+        <pre class="t-code code-ltr max-h-60 overflow-auto whitespace-pre-wrap rounded-lg bg-lilac px-2.5 py-2 text-ink">{text()}</pre>
+      </Show>}>
+      {(view) => <Grid header={view().header} rows={view().rows} />}
+    </Show>
+  );
+}
+
+function Fields(props: { fields: readonly (readonly [string, unknown])[] }): JSX.Element {
+  return (
+    <dl class="grid grid-cols-[minmax(6rem,max-content)_1fr] gap-x-4 gap-y-1.5 rounded-xl border border-rule px-3.5 py-3 t-small">
+      <For each={props.fields}>{([key, value]) => <><dt class="font-medium text-ink-3 code-ltr">{key}</dt><dd class="min-w-0 text-ink"><Value value={value} /></dd></>}</For>
+    </dl>
+  );
+}
+
+/** A tool's output as a person wants to read it: a failure called out, an object as a card, a list as a table; the raw text stays one click away. */
+function Output(props: { text: string }): JSX.Element {
+  const [raw, setRaw] = createSignal(false);
+  const view = createMemo(() => viewOf(props.text));
+  return (
+    <div class="flex flex-col gap-2">
+      <Show when={!raw()} fallback={<Code text={props.text} />}>
+        <Switch fallback={<Code text={props.text} />}>
+          <Match when={view().kind === "error" ? (view() as Extract<View, { kind: "error" }>) : null}>
+            {(v) => <div class="flex flex-col gap-2"><p class="rounded-xl bg-bad-soft px-3.5 py-2.5 t-small font-medium text-bad">{v().message}</p><Show when={v().rest.length > 0}><Fields fields={v().rest} /></Show></div>}
+          </Match>
+          <Match when={view().kind === "fields" ? (view() as Extract<View, { kind: "fields" }>) : null}>{(v) => <Fields fields={v().fields} />}</Match>
+          <Match when={view().kind === "table" ? (view() as Extract<View, { kind: "table" }>) : null}>{(v) => <Grid header={v().header} rows={v().rows} />}</Match>
+        </Switch>
+      </Show>
+      <Show when={view().kind !== "text"}><button type="button" class="self-start t-small text-ink-3 underline-offset-2 hover:text-ink hover:underline" aria-pressed={raw()} onClick={() => setRaw(!raw())}>{raw() ? t("evidence.formatted") : t("evidence.raw")}</button></Show>
+    </div>
+  );
+}
 
 function Call(props: { name: string; meta: string; outcome: string; tone: string; input: string; output: string | null }): JSX.Element {
   return (
     <Details class="border-b border-rule py-2 last:border-b-0"
       summary={<><code class="t-code code-ltr shrink-0 font-medium text-ink">{props.name}</code><span class="min-w-0 truncate font-normal text-ink-3 max-sm:hidden">{props.meta}</span><span class={`ms-auto whitespace-nowrap ps-2 ${props.tone}`}>{props.outcome}</span></>}>
       <div class="flex flex-col gap-2 pb-1">
-        <div><p class="mb-1 t-small text-ink-3">{t("evidence.input")}</p><Code text={props.input} /></div>
-        <Show when={props.output !== null}><div><p class="mb-1 t-small text-ink-3">{t("evidence.output")}</p><Code text={props.output ?? ""} /></div></Show>
+        <div><p class="mb-1 t-small text-ink-3">{t("evidence.input")}</p><Output text={props.input} /></div>
+        <Show when={props.output !== null}><div><p class="mb-1 t-small text-ink-3">{t("evidence.output")}</p><Output text={props.output ?? ""} /></div></Show>
       </div>
     </Details>
   );

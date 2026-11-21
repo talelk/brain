@@ -1,0 +1,58 @@
+description = "Adds and removes labels on one GitHub issue or pull request, as the workspace's `github` credential. The call stops until a person approves exactly this change, which can take minutes: wait for the answer and do not send it again. If the answer says the call is held, declined or refused, nothing changed. A label to add must already exist in the repository. Removing a label the issue does not carry is not an error. Returns {\"labels\": [\"<the issue's labels now>\"]}, or {\"error\": \"<why>\"}."
+effect = "write"
+timeout_seconds = 40
+needs = ["bash", "python3", "curl"]
+network = ["api.github.com"]
+secrets = ["github"]
+
+[inputs.repo]
+type = "string"
+description = "The repository, as owner/name."
+required = true
+
+[inputs.number]
+type = "integer"
+description = "The issue or pull request number."
+required = true
+
+[inputs.add]
+type = "array"
+description = "Labels to add. Left out: none."
+required = false
+items = { type = "string" }
+
+[inputs.remove]
+type = "array"
+description = "Labels to remove. Left out: none."
+required = false
+items = { type = "string" }
+
+[translations.fr]
+description = "Ajoute et retire des étiquettes sur une issue ou une pull request GitHub, avec l'identifiant `github` de l'espace de travail. L'appel reste en attente jusqu'à ce qu'une personne approuve exactement ce changement, ce qui peut prendre plusieurs minutes : attendez la réponse et ne le renvoyez pas. Si la réponse indique que l'appel est retenu, refusé ou rejeté, rien n'a changé. Une étiquette à ajouter doit déjà exister dans le dépôt. Retirer une étiquette que l'issue ne porte pas n'est pas une erreur. Renvoie {\"labels\": [\"<les étiquettes de l'issue à présent>\"]}, ou {\"error\": \"<pourquoi>\"}."
+
+[translations.fr.inputs.repo]
+description = "Le dépôt, sous la forme owner/name."
+
+[translations.fr.inputs.number]
+description = "Le numéro de l'issue ou de la pull request."
+
+[translations.fr.inputs.add]
+description = "Étiquettes à ajouter. Omis : aucune."
+
+[translations.fr.inputs.remove]
+description = "Étiquettes à retirer. Omis : aucune."
+
+[translations.ar]
+description = "يضيف تسميات (labels) ويزيلها على issue أو pull request واحدة في GitHub، بصفة اعتماد `github` الخاص بمساحة العمل. يتوقف الاستدعاء حتى يوافق شخص على هذا التغيير بالتحديد، وقد يستغرق ذلك دقائق: انتظر الجواب ولا ترسله مرة أخرى. إذا قال الجواب إن الاستدعاء معلَّق أو مرفوض فلم يتغير شيء. يجب أن تكون التسمية المراد إضافتها موجودة في المستودع. إزالة تسمية لا تحملها الـ issue ليست خطأ. يعيد {\"labels\": [\"<تسميات الـ issue الآن>\"]}، أو {\"error\": \"<السبب>\"}."
+
+[translations.ar.inputs.repo]
+description = "المستودع، بصيغة owner/name."
+
+[translations.ar.inputs.number]
+description = "رقم الـ issue أو الـ pull request."
+
+[translations.ar.inputs.add]
+description = "التسميات المراد إضافتها. إذا تُرك فارغًا: لا شيء."
+
+[translations.ar.inputs.remove]
+description = "التسميات المراد إزالتها. إذا تُرك فارغًا: لا شيء."

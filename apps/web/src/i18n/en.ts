@@ -332,6 +332,8 @@ export const en = {
   "evidence.calls_other": "{n} tool calls",
   "evidence.input": "Input",
   "evidence.output": "Output",
+  "evidence.raw": "Raw",
+  "evidence.formatted": "Formatted",
   "evidence.native": "Native tool activity",
   "evidence.native.run": "Attempt {n}, {agent}",
   "evidence.native.none": "This attempt used no native tool.",

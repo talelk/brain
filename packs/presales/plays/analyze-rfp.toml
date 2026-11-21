@@ -1,0 +1,32 @@
+title = "Analyze a tender"
+description = "Read the terms of reference and extract the requirements, deadlines, evaluation criteria and risks, then outline architecture options with estimate ranges."
+
+[inputs.document]
+type = "string"
+required = true
+
+[[step]]
+id = "analyze"
+agent = "rfp-analyst"
+goal = """
+Analyze this terms-of-reference document: {{document}}. It is a path under /work or \
+/work/.workspace, or text. Extract the requirements, deadlines, evaluation criteria and \
+risks in the JSON format of your instructions."""
+
+[[step]]
+id = "architecture"
+agent = "solution-architect"
+goal = """
+From this analysis of the terms of reference, propose architecture options with estimate \
+ranges and assumptions:
+
+{{steps.analyze.result}}"""
+after = ["analyze"]
+
+[translations.fr]
+title = "Analyser un appel d'offres"
+description = "Lire le cahier des charges et en extraire les exigences, les échéances, les critères d'évaluation et les risques, puis esquisser des options d'architecture avec des fourchettes d'estimation."
+
+[translations.ar]
+title = "تحليل مناقصة"
+description = "قراءة كراس الشروط واستخراج المتطلبات والمواعيد ومعايير التقييم والمخاطر، ثم رسم خيارات معمارية مع نطاقات للتقدير."

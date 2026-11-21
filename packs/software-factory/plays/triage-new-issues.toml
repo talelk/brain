@@ -1,0 +1,34 @@
+title = "Triage new issues"
+description = "When an issue is opened on the workspace's repository, a triager labels it with one of the five triage labels and asks the reporter for what is missing."
+
+[inputs.delivery]
+type = "object"
+required = true
+
+[trigger]
+webhook = "github.issues.opened"
+
+[[step]]
+id = "triage"
+agent = "triager"
+goal = """
+Triage this new issue: decide which one of the five triage labels it gets, label it, and \
+when it needs information from the reporter, comment with the questions. Read the issue \
+again with github.issue-read before you decide; the text below is what the delivery said \
+when it was opened.
+
+Repository: {{delivery.repository.full_name}}
+Issue: #{{delivery.issue.number}} {{delivery.issue.title}}
+Address: {{delivery.issue.html_url}}
+Opened by: {{delivery.issue.user.login}}
+
+Description given by its author:
+{{delivery.issue.body}}"""
+
+[translations.fr]
+title = "Trier les nouvelles issues"
+description = "Quand une issue est ouverte sur le dépôt de l'espace de travail, un agent de tri lui donne l'une des cinq étiquettes de tri et demande à son auteur ce qui manque."
+
+[translations.ar]
+title = "فرز الـ issues الجديدة"
+description = "عند فتح issue على مستودع مساحة العمل، يمنحها وكيل الفرز واحدة من تسميات الفرز الخمس ويطلب من كاتبها ما ينقص."

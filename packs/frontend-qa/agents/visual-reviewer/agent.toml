@@ -1,0 +1,13 @@
+description = "A critic for what a walkthrough found: checks the recorded screens and pages for layout, accessibility and language problems (French, Arabic, right to left), and passes or sends the walkthrough back."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["memory.search", "task.note"]
+
+[limits]
+spend_usd = 0.75
+
+[translations.fr]
+description = "Un regard critique sur ce qu'un parcours a trouvé : vérifie les écrans et pages consignés pour la mise en page, l'accessibilité et la langue (français, arabe, de droite à gauche), puis accepte le parcours ou le renvoie."
+
+[translations.ar]
+description = "ناقد لما وجدته الجولة: يفحص الشاشات والصفحات المسجّلة من حيث التخطيط وإمكانية الوصول واللغة (الفرنسية والعربية والاتجاه من اليمين إلى اليسار)، ثم يقبل الجولة أو يعيدها."

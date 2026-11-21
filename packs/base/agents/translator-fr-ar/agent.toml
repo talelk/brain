@@ -1,0 +1,13 @@
+description = "Writes the French and Arabic translations of pack files (agent, tool and Play descriptions, memory entries) in the form the packs README requires, and saves them beside the English."
+engine = ["pi", "claude"]
+native = "all"
+tools = ["memory.search"]
+
+[limits]
+spend_usd = 0.75
+
+[translations.fr]
+description = "Rédige les traductions française et arabe des fichiers d'un pack (descriptions d'agents, d'outils et de Plays, entrées de mémoire) sous la forme exigée par le README des packs, et les enregistre à côté de l'anglais."
+
+[translations.ar]
+description = "يكتب الترجمتين الفرنسية والعربية لملفات الحزمة (أوصاف الوكلاء والأدوات والـ Plays وإدخالات الذاكرة) بالشكل الذي يشترطه README الخاص بالحزم، ويحفظهما بجانب الإنجليزية."

@@ -7,11 +7,14 @@ conventions the pack files rely on, so the code that loads and runs them matches
 
 | Pack | Requires | Agents | Tools | Plays |
 |---|---|---|---|---|
-| `base` | | planner, checker, worker, workspace-healer | task.create, task.note, task.ask, memory.search, memory.propose, git.open-pr, message.send, workspace.fix, web.fetch | hello |
-| `software-factory` | base | analyst, developer, reviewer, release-manager | | fix-issue, build-feature, review-pull-request, dependency-check |
-| `sre` | base | sre-operator, incident-analyst, evaluator | host.status, host.logs, host.disk, http.check, host.restart, host.redeploy | keep-healthy, incident-triage, weekly-report |
+| `base` | | planner, checker, worker, workspace-healer, grill-partner, translator-fr-ar | doc.extract, task.create, task.note, task.ask, memory.search, memory.propose, git.open-pr, message.send, workspace.fix, web.fetch | hello |
+| `software-factory` | base | analyst, developer, reviewer, release-manager, triager, doc-writer, security-reviewer | github.issue-read, github.issue-comment, github.label, github.pr-status | fix-issue, build-feature, review-pull-request, dependency-check, triage-new-issues |
+| `sre` | base | sre-operator, incident-analyst, evaluator | host.status, host.logs, host.disk, host.cert-expiry, host.backup-status, http.check, host.restart, host.redeploy | keep-healthy, incident-triage, weekly-report |
 | `platform` | base | capitalizer, syncer | platform.workspaces, platform.tasks, platform.task, platform.file, platform.repeats, platform.tool-drift | capitalize, sync-tools |
 | `customer-operations` | base | router, billing-agent, technical-agent, generalist, quality-reviewer | | handle-request, improve-answers |
+| `presales` | base | rfp-analyst, response-writer, solution-architect | | analyze-rfp, draft-response, weekly-tender-watch |
+| `data-engineering` | base | lineage-analyst, dbt-reviewer, data-quality-checker | | review-dbt-change, nightly-quality-check |
+| `frontend-qa` | base | browser-walkthrough, visual-reviewer | | walkthrough-after-change, regression-sweep |
 
 `pack.toml` has exactly `name`, `description` and `requires` (a list of pack names, empty
 for `base`). An agent or a Play of a pack may name agents and tools of the packs it
@@ -219,6 +222,9 @@ JSON object on standard output.
 | Tool | Input | Output |
 |---|---|---|
 | `web.fetch` (base) | `url`* (https only), `max_chars` (1 to 20000, default 8000) | `{"url", "final_url", "status", "content_type", "text", "truncated"}` |
+| `doc.extract` (base) | `path`* (a PDF, DOCX or XLSX under /work), see its file | `{"text", ...}` or `{"error"}`; PDF needs `pdftotext` in the sandbox image |
+| `github.issue-read`, `github.pr-status` (software-factory) | repository and number | issue or pull request state; token from secret `github`, host `api.github.com` |
+| `github.issue-comment`, `github.label` (software-factory, write) | repository, number, text or `add`/`remove` | the comment or the labels afterwards |
 | `http.check` (sre) | `url`* (http or https) | `{"url", "ok", "status", "time_ms"}`, plus `"redirect"` or `"error"`. No answer at all is a finding: `ok` false, `status` 0, exit 0. |
 
 Both declare `needs = ["bash", "python3"]` and also call `curl`, which the tool sandbox

@@ -1,0 +1,13 @@
+description = "A critic for the security of a code change: checks credentials, authentication, authorization and the handling of input against the diff, and passes or sends it back."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["memory.search", "web.fetch"]
+
+[limits]
+spend_usd = 0.75
+
+[translations.fr]
+description = "Un regard critique sur la sécurité d'un changement de code : vérifie les identifiants, l'authentification, l'autorisation et le traitement des entrées à partir du diff, puis l'accepte ou le renvoie."
+
+[translations.ar]
+description = "ناقد لأمان تغيير في الشيفرة: يفحص بيانات الاعتماد والمصادقة والتفويض ومعالجة المدخلات اعتمادًا على الـ diff، ثم يقبله أو يعيده."

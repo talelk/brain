@@ -1,0 +1,27 @@
+title = "Weekly tender watch"
+description = "Every week, check the tender sources the workspace allows and list the new calls that fit the company, with deadlines and a first view of whether to respond."
+
+[trigger]
+schedule = "0 7 * * 1"
+
+[[step]]
+id = "watch"
+agent = "rfp-analyst"
+goal = """
+List new public tenders that fit this consultancy. Find in memory (memory.search) the \
+tender sources to watch, the company's domains and the exclusion rules, then read each \
+source with web.fetch. This pack's web.fetch allows no host: the workspace replaces it \
+with its own tools/web.fetch/tool.toml that lists the hosts it allows. If a fetch is \
+refused, say which address and that the host list needs it; do not work around it. For \
+each fitting call, give the title, buyer, reference, submission deadline, address, and \
+one line on why it fits and the main risk. Mark each recommended, maybe or skip. Report \
+only what the pages say; if nothing is new, say so in one line. Post the recommended \
+ones as one note with task.note."""
+
+[translations.fr]
+title = "Veille hebdomadaire des appels d'offres"
+description = "Chaque semaine, consulter les sources d'appels d'offres autorisées par l'espace de travail et lister les nouveaux appels adaptés à l'entreprise, avec leurs échéances et un premier avis sur l'opportunité de répondre."
+
+[translations.ar]
+title = "المراقبة الأسبوعية للمناقصات"
+description = "كل أسبوع، الاطلاع على مصادر المناقصات التي تسمح بها مساحة العمل وسرد المناقصات الجديدة الملائمة للشركة مع مواعيدها ورأي أولي في جدوى المشاركة."

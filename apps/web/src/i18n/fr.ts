@@ -334,6 +334,8 @@ export const fr: Catalog = {
   "evidence.calls_other": "{n} appels d'outils",
   "evidence.input": "Entrée",
   "evidence.output": "Sortie",
+  "evidence.raw": "Brut",
+  "evidence.formatted": "Mis en forme",
   "evidence.native": "Activité des outils natifs",
   "evidence.native.run": "Tentative {n}, {agent}",
   "evidence.native.none": "Cette tentative n'a utilisé aucun outil natif.",

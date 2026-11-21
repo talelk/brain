@@ -1,0 +1,17 @@
+description = """
+Shows the state of this workspace's host backup: for the nightly backup timer and the \
+service it starts, when it last ran and when it runs next, and whether the last run \
+succeeded, with its exit status and the time it ended; the same for the monthly restore \
+test. Read-only, no inputs. A last run that failed, or older than 26 hours for the \
+nightly backup, is urgent. It reports the host's schedule only: the archives themselves \
+are kept on a second host, which this tool cannot list. The operator of the runner host \
+fixed the real command line; you cannot change it. Returns the command's output as text."""
+effect = "read"
+host_command = "host.backup-status"
+timeout_seconds = 30
+
+[translations.fr]
+description = "Montre l'état de la sauvegarde de l'hôte de cet espace de travail : pour le minuteur de la sauvegarde nocturne et le service qu'il lance, quand elle a tourné pour la dernière fois et quand elle tourne ensuite, et si la dernière exécution a réussi, avec son code de sortie et l'heure de fin ; de même pour le test de restauration mensuel. Lecture seule, sans entrée. Une dernière exécution en échec, ou vieille de plus de 26 heures pour la sauvegarde nocturne, est urgente. Il ne rapporte que le calendrier de l'hôte : les archives elles-mêmes sont conservées sur un second hôte, que cet outil ne peut pas lister. L'opérateur de l'hôte du runner a fixé la ligne de commande réelle ; vous ne pouvez pas la modifier. Renvoie la sortie de la commande sous forme de texte."
+
+[translations.ar]
+description = "يعرض حالة النسخ الاحتياطي للجهاز المضيف لمساحة العمل هذه: لمؤقّت النسخ الليلي والخدمة التي يشغّلها، متى جرى آخر تشغيل ومتى التشغيل التالي، وهل نجح آخر تشغيل، مع رمز الخروج ووقت الانتهاء؛ وكذلك لاختبار الاستعادة الشهري. للقراءة فقط وبلا مدخلات. آخر تشغيل فاشل، أو أقدم من 26 ساعة في حالة النسخ الليلي، أمر عاجل. يعرض جدول الجهاز المضيف فقط: فالأرشيفات نفسها محفوظة على جهاز مضيف ثانٍ لا تستطيع هذه الأداة سرده. حدّد مشغّل الجهاز المضيف للـ runner سطر الأوامر الفعلي ولا يمكنك تغييره. يعيد مخرجات الأمر نصًّا."

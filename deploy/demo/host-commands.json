@@ -17,6 +17,16 @@
       "effect": "read",
       "argv": ["df", "-h"]
     },
+    "host.cert-expiry": {
+      "effect": "read",
+      "argv": ["sh", "-c", "for f in /etc/letsencrypt/live/*/cert.pem; do printf \"%s \" \"$(basename \"$(dirname \"$f\")\")\"; openssl x509 -enddate -noout -in \"$f\"; done"],
+      "timeoutMs": 60000
+    },
+    "host.backup-status": {
+      "effect": "read",
+      "argv": ["systemctl", "show", "brain-backup.timer", "brain-backup.service", "brain-restore-test.timer", "brain-restore-test.service", "--property=Id,ActiveState,Result,ExecMainStatus,ExecMainExitTimestamp,LastTriggerUSec,NextElapseUSecRealtime", "--no-pager"],
+      "timeoutMs": 15000
+    },
     "host.restart": {
       "effect": "privileged",
       "argv": ["docker", "restart", "{container}"],
