@@ -28,6 +28,15 @@ export function updatesOf(gov: Gov, manifest: SnapshotManifest): PackUpdate[] {
   });
 }
 
+/** The text of a brain.toml with each pack in `updates` pinned to its latest release; the rest of the file is as it was. */
+export function pinned(text: string, updates: readonly PackUpdate[]): string {
+  const latest = new Map(updates.map((one) => [one.pack, one.latest]));
+  const start = text.search(/^packs[ \t]*=[ \t]*\[/mu);
+  const end = start < 0 ? -1 : text.indexOf("]", start);
+  if (end < 0) return text;
+  return text.slice(0, start) + text.slice(start, end).replace(/"([^"]+)"/gu, (whole, ref: string) => { const name = ref.split("@")[0] as string; return latest.has(name) ? `"${name}@${latest.get(name)}"` : whole; }) + text.slice(end);
+}
+
 /** `packs/<name>/<path>` for every file of every shipped pack: what the platform workspace starts with. */
 export function seedPacks(gov: Gov): Map<string, Uint8Array> {
   const seed = new Map<string, Uint8Array>();
@@ -141,6 +150,40 @@ export function registerPacks({ gov: { registry } }: Governor): void {
       activate(ctx.gov, ctx.db, input.workspaceId, committed, ctx.actor, "workspace.changed");
       append(ctx.db, { type: "pack.released", workspaceId: input.workspaceId, subject: `pack:${name}`, payload: { name, version, commit: committed.commit }, actor: ctx.actor });
       return { version };
+    },
+  });
+
+  registry.command<"packs.updateAll", { readonly done: Array<{ readonly workspaceId: string; readonly slug: string; readonly name: string; readonly packs: PackUpdate[]; readonly committed: Committed }>; readonly failed: Array<{ readonly slug: string; readonly message: string }> }>("packs.updateAll", {
+    async prepare(ctx, input) {
+      const platform = getWorkspace(ctx.db, input.workspaceId);
+      if (manifestOf(ctx.gov, platform.snapshotDigest).platform !== "admin") throw new BrainError("FORBIDDEN", "Only the admin workspace updates the other workspaces");
+      const rows = ctx.gov.db.prepare("SELECT id, slug, name, active_snapshot AS snapshot FROM workspaces WHERE status = 'active' AND active_snapshot != '' ORDER BY slug").all() as Array<{ id: string; slug: string; name: string; snapshot: string }>;
+      const done: Array<{ workspaceId: string; slug: string; name: string; packs: PackUpdate[]; committed: Committed }> = [];
+      const failed: Array<{ slug: string; message: string }> = [];
+      for (const row of rows) {
+        const packs = updatesOf(ctx.gov, manifestOf(ctx.gov, row.snapshot as never));
+        if (packs.length === 0) continue;
+        try {
+          const dir = workspaceDir(ctx.gov, row.slug);
+          const brain = (await readHead(dir)).files.get("brain.toml");
+          if (!brain) throw new BrainError("NOT_FOUND", "The workspace has no brain.toml");
+          const committed = await commitFolder(ctx.gov, row.slug, {
+            write: new Map([["brain.toml", encode(pinned(decode(brain), packs))]]), remove: [], message: `Update ${packs.map((one) => `${one.pack} to v${one.latest}`).join(", ")}`,
+            author: { name: ctx.user?.name ?? "Brain", email: ctx.user?.email ?? "brain@localhost" }, instanceAdmin: ctx.user?.instanceAdmin === true,
+          });
+          done.push({ workspaceId: row.id, slug: row.slug, name: row.name, packs, committed });
+        } catch (e) {
+          failed.push({ slug: row.slug, message: e instanceof Error ? e.message : String(e) });
+        }
+      }
+      return { done, failed };
+    },
+    run(ctx, input, { done, failed }): CommandOutputs["packs.updateAll"] {
+      for (const one of done) {
+        activate(ctx.gov, ctx.db, one.workspaceId, one.committed, ctx.actor, "workspace.changed");
+        append(ctx.db, { type: "packs.updated", workspaceId: one.workspaceId, subject: `workspace:${one.workspaceId}`, payload: { packs: one.packs.map((pack) => `${pack.pack}@${pack.latest}`), commit: one.committed.commit, by: input.workspaceId }, actor: ctx.actor });
+      }
+      return { updated: done.map(({ slug, name, packs }) => ({ slug, name, packs })), failed };
     },
   });
 }

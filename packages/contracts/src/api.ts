@@ -624,6 +624,8 @@ export const commands = table({
   })],
   /** Releases a pack of the platform workspace: its version goes up by one and that content is frozen. */
   "pack.release": ["admin", z.strictObject({ ...inWorkspace, name: name("a pack name") })],
+  /** Moves every active workspace to the latest release of each pack it uses, as the commit of its `brain.toml` pins (a workspace that has none to take is left alone). Only from the admin workspace. */
+  "packs.updateAll": ["admin", z.strictObject(inWorkspace)],
   "workspace.archive": ["admin", z.strictObject(inWorkspace)],
   "workspace.stopAll": ["member", z.strictObject(inWorkspace)],
   /** Writes files of the workspace folder in one commit, and removes the paths of `remove` in it (a rename). A `base64` file is bytes of a document. Refused with INVALID_WORKSPACE, and nothing written, when the folder would not be valid. */
@@ -722,6 +724,7 @@ export interface CommandOutputs {
   "setup.create": { readonly userId: string };
   "workspace.create": { readonly workspaceId: string; readonly slug: string; readonly snapshotDigest: Digest };
   "pack.release": { readonly version: number };
+  "packs.updateAll": { readonly updated: ReadonlyArray<{ readonly slug: string; readonly name: string; readonly packs: readonly PackUpdate[] }>; readonly failed: ReadonlyArray<{ readonly slug: string; readonly message: string }> };
   "workspace.archive": Record<string, never>;
   "workspace.stopAll": { readonly stopped: number };
   "file.write": FileChange;

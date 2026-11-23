@@ -308,3 +308,17 @@ describe("a read platform workspace", () => {
     expect((await harness.admin.query("packs.list", {})).packs.find((pack) => pack.name === "base")?.working).toEqual({ changed: false });
   });
 });
+
+describe("update all workspaces", () => {
+  it("the admin workspace moves every workspace to the latest release at once, and only the admin workspace may", async () => {
+    const { version } = await harness.admin.command("pack.release", { workspaceId: platformId, name: "base" });
+    await expect(harness.admin.command("packs.updateAll", { workspaceId: alpha.workspaceId })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const done = await harness.admin.command("packs.updateAll", { workspaceId: platformId });
+    expect(done.failed).toEqual([]);
+    expect(done.updated.find((one) => one.slug === "alpha")?.packs).toEqual([expect.objectContaining({ pack: "base", latest: version })]);
+    expect((await harness.admin.query("workspace.get", { workspaceId: alpha.workspaceId })).updates).toEqual([]);
+    expect((await harness.admin.query("workspace.get", { workspaceId: alpha.workspaceId })).snapshot.pins).toMatchObject({ base: version });
+    expect(events("packs.updated", alpha.workspaceId)).toHaveLength(1);
+    expect(await harness.admin.command("packs.updateAll", { workspaceId: platformId })).toEqual({ updated: [], failed: [] });
+  });
+});

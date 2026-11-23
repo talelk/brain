@@ -570,7 +570,7 @@ A pin `base@N` is read only from the admin workspace's releases. A workspace cho
 `packs = ["base@2"]` is released version 2. A workspace whose pack has a newer release than the
 one it uses (the baseline counts as 0) shows **Update available**; an admin of that workspace
 sees the difference and presses **Update to vN**, which commits the new pin like any edit of
-`brain.toml` and is audited. Brain never changes a workspace's pins by itself.
+`brain.toml` and is audited. Brain never changes a workspace's pins by itself; the admin workspace's **Update all workspaces** is an admin's explicit act that does this for every active workspace at once (each one a commit of `brain.toml`, audited as `packs.updated`; a workspace that fails is reported and the others still go).
 
 ### Capitalisation
 

@@ -36,13 +36,24 @@ export function PacksTab(): JSX.Element {
     toast.success({ title: t("packs.released", { name, version: made.version }) });
     packs.refetch();
   });
+  const updateAll = useAction(async () => {
+    const made = await command("packs.updateAll", { workspaceId: place.id() });
+    toast.success({ title: t("packs.updateAll.done", { count: made.updated.length }) });
+    if (made.failed.length > 0) toast.error({ title: t("packs.updateAll.failed", { count: made.failed.length, names: made.failed.map((one) => one.slug).join(", ") }) });
+    packs.refetch();
+  });
   const options = (pack: PackInfo): { label: string; value: string }[] => [0, ...pack.released, ...(pack.working ? ["working" as const] : [])].map((version) => ({ label: label(version), value: String(version) }));
   const parse = (value: string): Version => (value === "working" ? "working" : Number(value));
   const open = (name: string): void => { setShown(shown() === name ? undefined : name); setFrom(0); setTo("working"); };
   return (
     <div class="flex flex-col gap-4">
       <p class="t-small text-ink-2">{t("packs.hint")}</p>
+      <div class="flex flex-wrap items-center gap-3">
+        <Button variant="outline" size="md" loading={updateAll.busy()} onClick={() => void updateAll.run()}>{t("packs.updateAll")}</Button>
+        <span class="t-small text-ink-2">{t("packs.updateAll.hint")}</span>
+      </div>
       <Failure error={release.error()} />
+      <Failure error={updateAll.error()} />
       <Show when={packs.data()} fallback={<Show when={packs.error()} fallback={<Loading />}><Failure error={packs.error()} /></Show>}>
         {(loaded) => (
           <ul class="flex flex-col gap-3">
