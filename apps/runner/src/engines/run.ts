@@ -7,7 +7,7 @@ import { SANDBOX_REFUSAL } from "./sandboxed";
 
 /** Why the runner aborted an attempt; carried as the reason of its abort signal. */
 export type AbortCause = "stopped" | "lease" | "timeout";
-export const abortCause = (signal: AbortSignal): AbortCause | undefined => (signal.aborted ? (["stopped", "lease", "timeout"] as const).find((cause) => cause === signal.reason) ?? "stopped" : undefined);
+const abortCause = (signal: AbortSignal): AbortCause | undefined => (signal.aborted ? (["stopped", "lease", "timeout"] as const).find((cause) => cause === signal.reason) ?? "stopped" : undefined);
 
 export interface SessionRequest {
   readonly engine: EngineAdapter;
@@ -49,7 +49,7 @@ export function engineFailure(detail: string, turnTokens = Number.POSITIVE_INFIN
 }
 
 /** One engine session from start to its terminal event, with the agent's limits and the attempt's time limit enforced. */
-export async function runSession(request: SessionRequest): Promise<SessionResult> {
+async function runSession(request: SessionRequest): Promise<SessionResult> {
   const { engine, spec, emit } = request;
   const before = request.usedBefore ?? NO_USE;
   let usage = before;

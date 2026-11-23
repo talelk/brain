@@ -5,17 +5,17 @@ import type { Gov } from "../dispatch";
  * `platform.repeats` (docs/architecture.md section 7): work that was done the same way, found without a model. Pure grouping over plain rows,
  * so a test can feed it jobs; `repeatsOf` reads the rows.
  */
-export const MIN_REPEATS = 4;
+const MIN_REPEATS = 4;
 const SIMILAR = 0.6;
 const DAY_MS = 86_400_000;
 /** The calls that are bookkeeping of a task, not what it did. */
 const NOISE = new Set(["task.note", "task.ask", "task.create", "memory.search", "memory.propose"]);
 const STOP = new Set(["the", "and", "for", "with", "from", "that", "this", "are", "was", "has", "have", "you", "your", "all", "any", "into", "its", "not", "but", "les", "des", "pour", "avec", "dans", "une", "que", "qui", "est", "sur", "par", "aux", "ces", "ses", "son", "vos", "nos"]);
 
-export interface Job { readonly id: string; readonly workspace: string; readonly agent: string; readonly tools: readonly string[]; readonly goal: string; readonly at: number }
+interface Job { readonly id: string; readonly workspace: string; readonly agent: string; readonly tools: readonly string[]; readonly goal: string; readonly at: number }
 
 /** A goal as its set of words: lower case, no URL, no word with a digit, only letters, three or more of them, no stop word. */
-export function wordsOf(goal: string): ReadonlySet<string> {
+function wordsOf(goal: string): ReadonlySet<string> {
   const text = goal.toLowerCase().replace(/https?:\/\/\S+/gu, " ");
   return new Set((text.match(/[\p{L}\p{N}]+/gu) ?? []).filter((word) => /^\p{L}{3,}$/u.test(word) && !STOP.has(word)));
 }
@@ -28,7 +28,7 @@ const similar = (a: ReadonlySet<string>, b: ReadonlySet<string>): boolean => {
 interface Group { readonly words: ReadonlySet<string>; readonly jobs: Job[] }
 
 /** Groups of `min` or more jobs of the same agent with the same tools and similar goals, the biggest first. */
-export function groupRepeats(jobs: readonly Job[], min = MIN_REPEATS): JsonValue[] {
+function groupRepeats(jobs: readonly Job[], min = MIN_REPEATS): JsonValue[] {
   const byKind = new Map<string, Group[]>();
   for (const job of [...jobs].sort((a, b) => a.at - b.at)) {
     const kind = `${job.agent}\n${job.tools.join(">")}`;

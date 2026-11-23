@@ -13,14 +13,14 @@ import { attemptFolder, egressHosts, hardening, isDirectory, network, refuse, ty
  */
 export const ENGINE_IMAGE = "brain-sandbox-engine";
 export const ENGINE_LABEL = "brain.engine-sandbox";
-export const ENGINES: ReadonlySet<string> = new Set(["pi", "claude", "opencode", "codex"]);
+const ENGINES: ReadonlySet<string> = new Set(["pi", "claude", "opencode", "codex"]);
 /** Engines start threads and child processes (a shell, an ACP agent): more than a tool's 128, still a hard bound. */
-export const ENGINE_PIDS_LIMIT = 512;
-export const ENGINE_FIELDS = ["engine", "attemptId", "requestId", "cpuMillicores", "memoryMb", "egressHosts", "work"] as const;
+const ENGINE_PIDS_LIMIT = 512;
+const ENGINE_FIELDS = ["engine", "attemptId", "requestId", "cpuMillicores", "memoryMb", "egressHosts", "work"] as const;
 const WORK_MODES = new Set(["none", "ro", "rw"]);
 const READY = /^@brain-engine \{"type":"ready"\}$/u;
 
-export interface EngineSandboxShape {
+interface EngineSandboxShape {
   readonly name: string;
   readonly requestId: string;
   readonly cpuMillicores: number;
@@ -34,7 +34,7 @@ export interface EngineSandboxShape {
 }
 
 /** The `docker run` argv of an engine sandbox: nothing in it comes from the caller except the values named in the shape. */
-export function engineSandboxArgs(shape: EngineSandboxShape): string[] {
+function engineSandboxArgs(shape: EngineSandboxShape): string[] {
   const work = shape.work === "none" ? [] : ["-v", `${join(shape.attemptDirectory, "work")}:/work:${shape.work}`];
   return ["run", "-i", "--rm", "--name", shape.name, ...shape.network,
     ...hardening(shape.cpuMillicores, shape.memoryMb, ENGINE_PIDS_LIMIT, shape.user, 256),

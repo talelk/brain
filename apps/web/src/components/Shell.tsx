@@ -44,7 +44,7 @@ const readCollapsed = (): boolean => { try { return localStorage.getItem(COLLAPS
 const writeCollapsed = (value: boolean): void => { try { localStorage.setItem(COLLAPSED_KEY, value ? "1" : "0"); } catch { /* a per-browser convenience only */ } };
 
 /** The workspace a page is in, from the address. */
-export const slugOf = (pathname: string): string | undefined => /^\/w\/([^/]+)/u.exec(pathname)?.[1];
+const slugOf = (pathname: string): string | undefined => /^\/w\/([^/]+)/u.exec(pathname)?.[1];
 
 /** A workspace as a square with its initial; a dot says something there needs the person. */
 function WorkspaceMark(props: { name: string; needs: number }): JSX.Element {
@@ -127,7 +127,7 @@ function Footer(): JSX.Element {
 
 const LAST_KEY = "brain.workspace";
 export const remember = (slug: string): void => { try { localStorage.setItem(LAST_KEY, slug); } catch { /* a convenience only */ } };
-export const lastSlug = (): string | null => { try { return localStorage.getItem(LAST_KEY); } catch { return null; } };
+const lastSlug = (): string | null => { try { return localStorage.getItem(LAST_KEY); } catch { return null; } };
 
 function Account(props: { compact?: boolean }): JSX.Element {
   const session = useSession();

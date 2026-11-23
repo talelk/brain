@@ -12,7 +12,7 @@ import { existsSync, readFileSync } from "node:fs";
  */
 export type HostCommandEffect = "read" | "privileged";
 
-export interface HostCommand {
+interface HostCommand {
   readonly argv: readonly string[];
   readonly effect: HostCommandEffect;
   /** placeholder name -> anchored pattern the value must match (first character is never "-" so a value cannot become a flag). */
@@ -27,7 +27,7 @@ const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/u;
 /** A placeholder names a tool input: lower-case letters, digits and underscores. */
 const PLACEHOLDER = /\{([a-z][a-z0-9_]*)\}/gu;
 
-export function parseHostCommands(text: string): HostCommandTable {
+function parseHostCommands(text: string): HostCommandTable {
   const raw = JSON.parse(text) as { commands?: Record<string, { argv?: unknown; effect?: unknown; args?: unknown; timeoutMs?: unknown }> };
   const table = new Map<string, HostCommand>();
   for (const [name, entry] of Object.entries(raw.commands ?? {})) {
@@ -52,7 +52,7 @@ export function parseHostCommands(text: string): HostCommandTable {
  * who wants fewer writes the file: it then lists the only commands that exist.
  */
 const ANY_CONTAINER = "^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$";
-export const OPEN_HOST_COMMANDS: HostCommandTable = new Map<string, HostCommand>([
+const OPEN_HOST_COMMANDS: HostCommandTable = new Map<string, HostCommand>([
   ["host.run", { argv: ["sh", "-c", "{command}"], effect: "privileged", args: { command: "^[^\\u0000]{1,4000}$" }, timeoutMs: 120_000 }],
   ["host.status", { argv: ["docker", "ps", "-a", "--format", "{{.Names}}\t{{.Image}}\t{{.Status}}"], effect: "read", args: {}, timeoutMs: 15_000 }],
   ["host.disk", { argv: ["df", "-h"], effect: "read", args: {}, timeoutMs: 15_000 }],

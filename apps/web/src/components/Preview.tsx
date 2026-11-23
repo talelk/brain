@@ -13,7 +13,7 @@ import { Markdown } from "./Markdown";
 const MAX_TEXT = 200_000;
 
 /** RFC 4180 rows: quotes may hold commas, doubled quotes and line breaks. */
-export function csvRows(text: string, separator = ","): string[][] {
+function csvRows(text: string, separator = ","): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";

@@ -24,7 +24,7 @@ const PLATFORM_WRITABLE = /^packs\/[a-z][a-z0-9-]*\/.+$/u;
 const text = (bytes: Uint8Array): string => new TextDecoder().decode(bytes);
 const bytes = (value: string): Uint8Array => new TextEncoder().encode(value);
 
-export interface FixInput { readonly task?: string | undefined; readonly files: ReadonlyArray<{ readonly path: string; readonly content: string }>; readonly message: string; readonly why: string }
+interface FixInput { readonly task?: string | undefined; readonly files: ReadonlyArray<{ readonly path: string; readonly content: string }>; readonly message: string; readonly why: string }
 /** What a proposal is bound to: the diff the approver reads and the commit it was made on. */
 export interface FixPlan { readonly patchDigest: Digest; readonly baseCommit: string }
 
@@ -57,7 +57,7 @@ export function currentText(gov: Gov, slug: string, manifest: SnapshotManifest, 
 // --- the diff an approver reads ---
 
 /** Lines changed between two texts, as a unified diff with three lines of context. Texts too long for the comparison are shown as replaced whole. */
-export function unifiedDiff(path: string, before: string | undefined, after: string): string {
+function unifiedDiff(path: string, before: string | undefined, after: string): string {
   const old = before === undefined || before === "" ? [] : before.replace(/\n$/u, "").split("\n");
   const now = after === "" ? [] : after.replace(/\n$/u, "").split("\n");
   type Edit = { readonly kind: " " | "-" | "+"; readonly line: string };

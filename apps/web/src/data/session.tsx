@@ -13,7 +13,8 @@ export interface Session {
 }
 const SessionContext = createContext<Session>();
 /** The recent goals of the open workspace, for the search of the top bar; the Overview supplies those of the others. */
-export const [recentGoals, setRecentGoals] = createSignal<ReadonlyArray<{ rootId: string; title: string; workspaceId: string }>>([]);
+const [recentGoalsNow, setRecentGoals] = createSignal<ReadonlyArray<{ rootId: string; title: string; workspaceId: string }>>([]);
+export const recentGoals = recentGoalsNow;
 export const SessionProvider = (props: { value: Session; children: JSX.Element }): JSX.Element => <SessionContext.Provider value={props.value}>{props.children}</SessionContext.Provider>;
 export function useSession(): Session {
   const value = useContext(SessionContext);

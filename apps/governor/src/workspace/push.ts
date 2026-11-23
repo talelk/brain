@@ -16,7 +16,7 @@ import { getWorkspace, manifestOf, workspaceDir } from "./store";
 const PUSH_TIMEOUT_MS = 60_000;
 
 /** The text of an error with anything that could be a secret or a password in an address taken out. */
-export function scrub(text: string, secrets: readonly string[]): string {
+function scrub(text: string, secrets: readonly string[]): string {
   const hidden = secrets.filter((value) => value.length >= 4).reduce((shown, value) => shown.split(value).join("[secret]"), text);
   return hidden.replace(/(https?:\/\/)[^\s/@]+@/gu, "$1").slice(0, 400);
 }

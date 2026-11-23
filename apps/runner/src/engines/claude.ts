@@ -12,7 +12,7 @@ const PACKAGE = "@anthropic-ai/claude-agent-sdk";
 const MCP_PREFIX = "mcp__brain__";
 
 /** Claude Code's own tools at each level: reading and searching, then editing and the shell. */
-export const CLAUDE_NATIVE: NativeToolNames = { none: [], read: ["Read", "Glob", "Grep"], all: ["Read", "Glob", "Grep", "Edit", "Write", "Bash"] };
+const CLAUDE_NATIVE: NativeToolNames = { none: [], read: ["Read", "Glob", "Grep"], all: ["Read", "Glob", "Grep", "Edit", "Write", "Bash"] };
 
 function schemaToZod(schema: Record<string, JsonValue>): ZodTypeAny {
   if (Array.isArray(schema["enum"]) && schema["enum"].every((value) => typeof value === "string") && schema["enum"].length) return z.enum(schema["enum"] as [string, ...string[]]);

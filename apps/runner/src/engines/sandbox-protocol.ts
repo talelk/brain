@@ -6,7 +6,7 @@ import type { EngineEvent, EngineProbe, EngineSessionSpec } from "./port";
  * project's setup command in the same sandbox the agent will work in. The gateway token travels in the `start` frame only, never in the
  * container's argv or environment.
  */
-export const FRAME_PREFIX = "@brain-engine ";
+const FRAME_PREFIX = "@brain-engine ";
 
 export type HostRequest =
   | { readonly id: number; readonly op: "init"; readonly engine: string }

@@ -10,7 +10,7 @@ import { classifyPath, readPack, type Files } from "./files";
  * A workspace folder and its packs, read into a snapshot (docs/architecture.md section 2). Pure apart from reading the packs directory:
  * the same files give the same manifest, and every problem is reported with the file it is in.
  */
-export interface LoadedFile {
+interface LoadedFile {
   readonly bytes: Uint8Array;
   /** `workspace`, or the pack that supplies the file. */
   readonly source: string;

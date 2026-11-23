@@ -55,7 +55,7 @@ const LINE = /^[ \t>*-]*FIXTURE[ \t]+(.*)$/gmu;
 const KINDS = new Set(["work", "plan", "check", "judge", "correction"]);
 
 /** The attempt's kind and round, as the first line of the composed task text states them. */
-export function attemptHeader(task: string): { kind: string; round: number } {
+function attemptHeader(task: string): { kind: string; round: number } {
   if (task.startsWith(CORRECTION_HEADER)) return { kind: "correction", round: 1 };
   const header = /^\[(work|plan|check|judge) attempt, round (\d+)\]/mu.exec(task);
   return { kind: header?.[1] ?? "work", round: header ? Number(header[2]) : 1 };

@@ -5,7 +5,7 @@ import type { AttemptKind, AttemptState, Task, TaskState } from "@brain/contract
  * the stretches a person was waited for, a tick for each tool call, and the critical path. No text and no DOM: the component draws it, and the time
  * scale, the packing of overlapping attempts and the critical path are checked on their own.
  */
-export type WaitKind = "approval" | "question" | "sign-off";
+type WaitKind = "approval" | "question" | "sign-off";
 export interface TimelineBar {
   readonly id: string;
   readonly taskId: string;
@@ -25,7 +25,7 @@ export interface TimelineBar {
 }
 /** A stretch in which a person was asked for something. `open` while nobody has answered. */
 export interface TimelineWait { readonly id: string; readonly taskId: string; readonly kind: WaitKind; readonly tool: string; readonly from: number; readonly to: number; readonly open: boolean }
-export interface TimelineTick { readonly at: number; readonly attemptId: string; readonly tool: string; readonly failed: boolean }
+interface TimelineTick { readonly at: number; readonly attemptId: string; readonly tool: string; readonly failed: boolean }
 export interface TimelineRow {
   readonly taskId: string;
   readonly title: string;
@@ -147,7 +147,7 @@ export function buildTimeline(record: Task, now: number): Timeline {
 
 /** The part of the time axis in view. */
 export interface View { readonly from: number; readonly to: number }
-export const MIN_SPAN_MS = 1000;
+const MIN_SPAN_MS = 1000;
 
 /** Where `at` falls in the view, from 0 at its start to 1 at its end (the page's reading direction decides which side that is). */
 export const fractionOf = (view: View, at: number): number => (at - view.from) / (view.to - view.from);

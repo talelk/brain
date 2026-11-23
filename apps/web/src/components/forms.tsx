@@ -18,7 +18,7 @@ import { ScheduleEditor } from "./Schedule";
 
 /** The forms of the Workspace screen. Each starts from the active snapshot, and saving writes whole files through `file.write`. */
 
-export interface FileDraft { readonly path: string; readonly content: string }
+interface FileDraft { readonly path: string; readonly content: string }
 export type Write = Action<[files: readonly FileDraft[], message: string]>;
 
 /** Saving files: one commit, a short confirmation, or the refusal with each problem. */

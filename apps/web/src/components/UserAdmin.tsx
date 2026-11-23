@@ -13,7 +13,7 @@ import { Rows } from "./fields";
 /** The pieces of the Users and Profile screens: the one-use link, invitations, the person's detail, groups, sessions. */
 
 const roleOptions = (): { label: string; value: string; description: string }[] => ROLES.map((role) => ({ label: t(`role.${role}`), value: role, description: t(`role.${role}.help`) }));
-export const STATUS_THEME: Record<UserState, "green" | "amber" | "gray"> = { active: "green", invited: "amber", deactivated: "gray" };
+const STATUS_THEME: Record<UserState, "green" | "amber" | "gray"> = { active: "green", invited: "amber", deactivated: "gray" };
 
 export const StatusBadge = (props: { status: UserState }): JSX.Element => <Badge theme={STATUS_THEME[props.status]} size="md" label={t(`users.status.${props.status}`)} />;
 export const InstanceRole = (props: { admin: boolean }): JSX.Element => (
@@ -23,7 +23,7 @@ export const InstanceRole = (props: { admin: boolean }): JSX.Element => (
 );
 
 /** "Chrome on Linux", from the browser's own words; the person sees which device is which. */
-export function deviceOf(agent: string | null): string {
+function deviceOf(agent: string | null): string {
   if (!agent) return t("sessions.unknown");
   const browser = /Edg\//u.test(agent) ? "Edge" : /Firefox\//u.test(agent) ? "Firefox" : /Chrome\//u.test(agent) ? "Chrome" : /Safari\//u.test(agent) ? "Safari" : undefined;
   const system = /Android/u.test(agent) ? "Android" : /iPhone|iPad/u.test(agent) ? "iOS" : /Windows/u.test(agent) ? "Windows" : /Mac OS X/u.test(agent) ? "macOS" : /Linux/u.test(agent) ? "Linux" : undefined;
@@ -31,7 +31,7 @@ export function deviceOf(agent: string | null): string {
 }
 
 /** A link shown once, ready to copy. */
-export function LinkBox(props: { link: string; label: string }): JSX.Element {
+function LinkBox(props: { link: string; label: string }): JSX.Element {
   const copy = async (): Promise<void> => {
     try {
       await navigator.clipboard.writeText(props.link);
@@ -203,7 +203,7 @@ export function SignInLog(props: { entries: readonly SignInRow[] }): JSX.Element
 }
 
 /** Every workspace a person reaches, the role they have there, and whether it is their own or a group's. */
-export function AccessMatrix(props: { rows: readonly AccessRow[] }): JSX.Element {
+function AccessMatrix(props: { rows: readonly AccessRow[] }): JSX.Element {
   return (
     <ul class="divide-y divide-(--rule)">
       <For each={props.rows} fallback={<li class="py-2 t-small text-ink-3">{t("access.none")}</li>}>

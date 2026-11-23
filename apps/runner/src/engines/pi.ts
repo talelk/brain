@@ -12,7 +12,7 @@ import { boundedToolText, engineToolDescription, ToolRequests } from "./tool-cal
 const PACKAGE = "@earendil-works/pi-coding-agent";
 
 /** Pi's own tools at each level: reading and searching, then editing and the shell. */
-export const PI_NATIVE: NativeToolNames = { none: [], read: ["read", "grep", "find", "ls"], all: ["read", "grep", "find", "ls", "edit", "write", "bash"] };
+const PI_NATIVE: NativeToolNames = { none: [], read: ["read", "grep", "find", "ls"], all: ["read", "grep", "find", "ls", "edit", "write", "bash"] };
 
 /** The offer names a route, not a model, so the window is not known here; this is what compaction assumes. */
 const PROVIDER = "brain";

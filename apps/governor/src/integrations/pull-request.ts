@@ -22,7 +22,7 @@ import { repoPath } from "./github";
  */
 
 /** The part of a diff that concerns one project: the file sections (each starts at a `diff --git` line) whose paths start with `<project>/`. */
-export function projectDiff(diff: Uint8Array, project: string): Buffer {
+function projectDiff(diff: Uint8Array, project: string): Buffer {
   const buffer = Buffer.from(diff);
   const starts: number[] = [];
   for (let at = buffer.indexOf("diff --git "); at >= 0; at = buffer.indexOf("diff --git ", at + 1)) if (at === 0 || buffer[at - 1] === 0x0a) starts.push(at);

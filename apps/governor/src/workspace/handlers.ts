@@ -24,10 +24,10 @@ const encode = (content: string): Uint8Array => new TextEncoder().encode(content
 const author = (ctx: Ctx) => ({ name: ctx.user?.name ?? "Brain", email: ctx.user?.email ?? "brain@localhost" });
 
 /** The project's name when it is not given: the last part of its address (`https://github.com/acme/shop.git` is `shop`). */
-export const projectNameOf = (repo: string): string => slugify(repo.replace(/[/?#]+$/u, "").replace(/\.git$/u, "").split(/[/:]/u).at(-1) ?? "") || "project";
+const projectNameOf = (repo: string): string => slugify(repo.replace(/[/?#]+$/u, "").replace(/\.git$/u, "").split(/[/:]/u).at(-1) ?? "") || "project";
 
 /** The branch the repository itself calls its default, asked of the server in at most three seconds; undefined when it cannot be known. */
-export async function defaultBranchOf(gov: Gov, repo: string, token: string | undefined): Promise<string | undefined> {
+async function defaultBranchOf(gov: Gov, repo: string, token: string | undefined): Promise<string | undefined> {
   if (!/^https?:\/\//u.test(repo)) return undefined;
   try {
     const headers = token ? { authorization: `Basic ${Buffer.from(token.includes(":") ? token : `x-access-token:${token}`).toString("base64")}` } : {};
@@ -91,7 +91,7 @@ export function createWorkspace(gov: Gov, db: Db, input: CommandInput<"workspace
 }
 
 /** The pack a first workspace is made from, and that workspace: what a person sees before they have made anything. Its `hello` Play is the sample goal. */
-export const STARTER_PACK = "base";
+const STARTER_PACK = "base";
 export const starterWorkspace = (gov: Gov): CommandInput<"workspace.create"> | undefined =>
   (readPack(gov.packsDir, STARTER_PACK) ? { name: "Starter", description: "A first workspace to try Brain in. Start the Play \"Say hello\" to see a goal become a checked result.", packs: [STARTER_PACK] } : undefined);
 
