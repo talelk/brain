@@ -23,7 +23,7 @@ const lag = monitorEventLoopDelay({ resolution: 20 });
 let measuring = false;
 
 /** The part of the address that says what kind of request it was: never an id. */
-export function routeClass(path: string): string {
+function routeClass(path: string): string {
   if (path === "/metrics" || path.startsWith("/health/")) return path.slice(1).split("/")[0] as string;
   return /^\/(v1\/(?:command|query|events|artifacts)|runner|model|hooks|api\/auth)(?:\/|$)/u.exec(path)?.[1] ?? "web";
 }

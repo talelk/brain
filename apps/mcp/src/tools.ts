@@ -5,7 +5,7 @@ import { BrainClient, BrainRequestError, type BrainConfig } from "./client";
 import { compact, compactText } from "./compact";
 
 /** What the model is told when it connects: the product in a paragraph, and the safe way to change it. */
-export const INSTRUCTIONS = `Brain runs agents on work. A workspace is a folder of plain files: brain.toml (settings), agents/<name>/agent.toml (+ prompt), tools/<name>/tool.toml, plays/<name>.toml (a Play is a named recipe of steps run by agents), memory and packs (shared bundles of the same files, hiding or extended by workspace files). A project is a git repository agents work on. A task is one unit of work: a goal (root task) is planned into sub-tasks, each run in attempts by an agent, then checked by another agent or a person; states are waiting, ready, running, needs_you, done, failed, stopped. Ids: pass workspaceId exactly as brain_workspaces shows it.
+const INSTRUCTIONS = `Brain runs agents on work. A workspace is a folder of plain files: brain.toml (settings), agents/<name>/agent.toml (+ prompt), tools/<name>/tool.toml, plays/<name>.toml (a Play is a named recipe of steps run by agents), memory and packs (shared bundles of the same files, hiding or extended by workspace files). A project is a git repository agents work on. A task is one unit of work: a goal (root task) is planned into sub-tasks, each run in attempts by an agent, then checked by another agent or a person; states are waiting, ready, running, needs_you, done, failed, stopped. Ids: pass workspaceId exactly as brain_workspaces shows it.
 
 Plan work: brain_task_create with a goal (free text) or a play name plus inputs; follow it with brain_task_get and brain_task_events; steer, stop, retry, answer a question (needs.kind=answer) or record a check.
 
@@ -35,7 +35,7 @@ const fileText = (output: unknown): string => {
 const rawShape = (type: QueryType | CommandType, kind: Kind): z.ZodRawShape => ((kind === "query" ? queries : commands) as Record<string, { input: { shape: z.ZodRawShape } }>)[type]!.input.shape;
 const omit = (shape: z.ZodRawShape, ...names: string[]): z.ZodRawShape => Object.fromEntries(Object.entries(shape).filter(([key]) => !names.includes(key)));
 
-export const READ_TOOLS: readonly ToolSpec[] = [
+const READ_TOOLS: readonly ToolSpec[] = [
   read("brain_overview", "overview", "What every workspace you can see is doing now: counts of tasks by state, what needs you, recent events. Start here."),
   read("brain_queue", "queue", "Runners, their slots and the waiting list in dispatch order, for all workspaces or one."),
   read("brain_insights", "insights", "What happened over the last 7, 30 or 90 days: outcomes per day, durations, queue wait, failure reasons, repeated work, cost. The main input to optimising."),
@@ -50,7 +50,7 @@ export const READ_TOOLS: readonly ToolSpec[] = [
   read("brain_schedules_list", "schedules.list", "Every scheduled or webhook Play of the visible workspaces with its next and last run."),
 ];
 
-export const WRITE_TOOLS: readonly ToolSpec[] = [
+const WRITE_TOOLS: readonly ToolSpec[] = [
   write("brain_task_create", "task.create", "Starts work: a goal in words, or a Play with its inputs. Returns the task id; follow it with brain_task_get."),
   write("brain_task_steer", "task.steer", "Sets a task's priority and/or whether it is paused."),
   write("brain_task_stop", "task.stop", "Stops a task and what is running for it."),

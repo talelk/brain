@@ -50,7 +50,7 @@ function Row(props: { item: NeedsItem; showWorkspace: boolean; open: boolean }):
   const need = () => task().needs;
   const kind = (): string => { const asked = need(); return task().heals ? t(asked?.kind === "approval" ? "need.heal.fix" : "need.heal.ask", { task: task().heals?.title ?? "" }) : asked ? needText(asked) : t("link.needsYou"); };
   /** What a task that is not an approval or a question says about itself: the check, plan or sign-off to open. */
-  const plain = (): "confirm-plan" | "check" | "sign-off" | "judge" | "failed-subtask" => { const asked = need()?.kind; return asked === undefined || asked === "approval" || asked === "answer" ? "check" : asked; };
+  const plain = (): "confirm-plan" | "check" | "sign-off" | "judge" | "failed-subtask" | "checkpoint" => { const asked = need()?.kind; return asked === undefined || asked === "approval" || asked === "answer" ? "check" : asked; };
   const step = (): string | undefined => (task().id === task().rootId ? undefined : titleOf(task()));
   return (
     <li class="border-b border-outline-gray-1 last:border-b-0">
@@ -75,7 +75,7 @@ function Row(props: { item: NeedsItem; showWorkspace: boolean; open: boolean }):
             <Show when={props.showWorkspace}><p class="mb-2 t-small text-ink-3 sm:hidden">{props.item.workspaceName}</p></Show>
             <Show when={props.item.approval} fallback={
               <Show when={need()?.kind === "answer" && need()} keyed fallback={
-                <div class="flex flex-col items-start gap-3"><p class="t-text text-ink">{t(`need.${plain()}.text`)}</p><Button variant="solid" theme="blue" size="md" route={href()}>{t(`need.${plain()}.open`)}</Button></div>
+                <div class="flex flex-col items-start gap-3"><p class="t-text text-ink">{t(plain() === "checkpoint" ? "need.checkpoint" : `need.${plain()}.text`)}</p><Button variant="solid" theme="blue" size="md" route={href()}>{t(`need.${plain()}.open`)}</Button></div>
               }>
                 {(asked) => <Answer item={props.item} question={asked.kind === "answer" ? asked.question : ""} />}
               </Show>

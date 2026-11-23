@@ -135,6 +135,7 @@ export const fr: Catalog = {
   "need.failed-subtask": "Une sous-tâche a échoué",
   "need.checkpoint": "Point de contrôle : l'objectif vous attend",
   "need.checkpoint.text": "Cet objectif s'est mis en pause pour une personne. Sans réponse, il s'arrête le {until}.",
+  "need.checkpoint.open": "Ouvrir le point de contrôle",
   "need.checkpoint.continue": "Continuer",
   "need.checkpoint.change": "Continuer avec ce nouvel objectif",
   "need.checkpoint.stop": "Arrêter l'objectif",

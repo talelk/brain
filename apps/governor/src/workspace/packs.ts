@@ -29,7 +29,7 @@ export function updatesOf(gov: Gov, manifest: SnapshotManifest): PackUpdate[] {
 }
 
 /** The text of a brain.toml with each pack in `updates` pinned to its latest release; the rest of the file is as it was. */
-export function pinned(text: string, updates: readonly PackUpdate[]): string {
+function pinned(text: string, updates: readonly PackUpdate[]): string {
   const latest = new Map(updates.map((one) => [one.pack, one.latest]));
   const start = text.search(/^packs[ \t]*=[ \t]*\[/mu);
   const end = start < 0 ? -1 : text.indexOf("]", start);

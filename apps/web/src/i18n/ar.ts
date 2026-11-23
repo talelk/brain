@@ -151,6 +151,7 @@ export const ar: Catalog = {
   "need.failed-subtask": "فشلت مهمة فرعية",
   "need.checkpoint": "نقطة تحقق: الهدف ينتظرك",
   "need.checkpoint.text": "توقف هذا الهدف لينظر فيه شخص. إن لم يُجَب فسيتوقف في {until}.",
+  "need.checkpoint.open": "افتح نقطة التوقف",
   "need.checkpoint.continue": "متابعة",
   "need.checkpoint.change": "المتابعة بهذا الهدف الجديد",
   "need.checkpoint.stop": "إيقاف الهدف",

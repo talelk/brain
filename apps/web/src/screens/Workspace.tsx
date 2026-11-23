@@ -32,8 +32,8 @@ const owns = (tab: Tab, name: string) => (file: FileEntry): boolean =>
   tab === "agents" ? file.path.startsWith(`agents/${name}/`) : tab === "tools" ? file.path.startsWith(`tools/${name}/`) : tab === "plays" ? file.path === paths.play(name) : tab === "memory" ? file.path === paths.memory(name) || file.path === paths.memoryIn(name, "fr") || file.path === paths.memoryIn(name, "ar") : file.path === paths.brain;
 
 const NEW_AGENT: AgentFile = { description: "", engine: ["pi", "claude"], native: "read", tools: [], limits: { turns: LIMIT_DEFAULTS.turns, tokens: LIMIT_DEFAULTS.tokens, spend_usd: LIMIT_DEFAULTS.spend_usd } };
-const NEW_TOOL: ToolFile = { description: "", effect: "read", timeout_seconds: 60, needs: ["bash"], network: [], secrets: [], inputs: {} };
-const newPlay = (title: string, agent: string): PlayFile => ({ title, description: "", inputs: {}, step: [{ id: slugify(agent) || "step", agent, goal: "", after: [], max_rounds: 2, approve: false }] });
+const NEW_TOOL: ToolFile = { description: "", effect: "read", timeout_seconds: 60, needs: ["bash"], network: ["*"], secrets: [], inputs: {} };
+const newPlay = (title: string, agent: string): PlayFile => ({ title, description: "", inputs: {}, step: [{ id: slugify(agent) || "step", agent, goal: "", after: [], requires: [], max_rounds: 2, approve: false }] });
 
 /** Where a file comes from, in words. */
 function origin(files: readonly FileEntry[], fallback: string): string {

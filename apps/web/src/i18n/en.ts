@@ -133,6 +133,7 @@ export const en = {
   "need.failed-subtask": "A sub-task failed",
   "need.checkpoint": "A checkpoint: the goal waits for you",
   "need.checkpoint.text": "This goal paused for a person. Unanswered, it stops at {until}.",
+  "need.checkpoint.open": "Open the checkpoint",
   "need.checkpoint.continue": "Continue",
   "need.checkpoint.change": "Continue with this new goal",
   "need.checkpoint.stop": "Stop the goal",
