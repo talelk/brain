@@ -13,7 +13,7 @@ import { activeManifest } from "../workspace/store";
 /** What the Health screen shows (docs/architecture.md section 10): runners, whether each model answers, the state of the audit log, and the last backup. */
 const VERSION = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
 const FRESH_FOR_MS = 60_000;
-type ModelHealth = Health["models"][number];
+type ModelHealth = Omit<Health["models"][number], "priced">;
 const probes = new WeakMap<Gov, Map<string, { at: number; answer: ModelHealth }>>();
 const audits = new WeakMap<Gov, { at: number; problem: string | null }>();
 
@@ -64,7 +64,7 @@ export function registerHealth({ gov, app }: Governor): void {
     const now = ctx.now();
     const manifest = activeManifest(gov, input.workspaceId);
     const own = modelsOf(gov, input.workspaceId, manifest);
-    const models = await Promise.all(own.models.map((model) => modelHealth(gov, own.from?.id ?? input.workspaceId, model, now)));
+    const models = await Promise.all(own.models.map(async (model) => ({ ...(await modelHealth(gov, own.from?.id ?? input.workspaceId, model, now)), priced: model.input_usd_per_mtok !== undefined || model.output_usd_per_mtok !== undefined })));
     const marker = join(gov.dataDir, "backup.marker");
     return {
       version: VERSION, runners: listRunners(gov).map((runner) => (ctx.user?.instanceAdmin ? runner : { ...runner, engines: [], capabilities: [] })), models,

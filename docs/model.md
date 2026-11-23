@@ -48,6 +48,8 @@ packs = ["base", "software-factory"]   # "base@2" uses release 2 of a pack (see 
 
 [limits]
 daily_spend_usd = 20        # 0 (the default) means no cap
+checkpoint = "6h"           # optional: a goal with no Play pauses for a person this often; see Checkpoints
+checkpoint_timeout = "24h"  # an unanswered checkpoint stops the goal after this (the default)
 running_tasks = 4           # 0 (the default) means no cap: runner slots set the pace
 confirm_plans = "person"    # or "auto"
 paused = false              # true: nothing of this workspace starts; see The queue
@@ -115,7 +117,10 @@ never appears in a file, a log or a result.
 
 Cost is what the model server reports for each call. Where it reports none, Brain
 prices the call from its token counts and the model's two prices; a model with no
-prices records no cost, and the task says it was not priced. `timezone` is an IANA
+prices records no cost, and the task says it was not priced. Such a model is **unpriced**: a
+spend cap cannot count what is not priced, so while a workspace's model has no price (and its
+server reports no cost) Today and Health say "model has no price: spend caps do not apply". Brain
+has no token cap in place of it; the warning is the whole answer, and the fix is the two prices. `timezone` is an IANA
 name such as `Europe/Paris`; a Play's `schedule` means that clock.
 
 ### An agent
@@ -172,6 +177,7 @@ call, unless `brain.toml` holds a standing approval that covers it.
 # plays/fix-issue.toml
 title = "Fix an issue"
 description = "Investigate, change, review, and open a pull request."
+checkpoint = "6h"           # optional: pause for a person this often; see Checkpoints
 
 [inputs.issue]
 type = "string"
@@ -327,6 +333,21 @@ planner and a checker; the other packs build on it.
 
 A task is in one of these states: `waiting`, `ready`, `running`, `needs you`, `done`,
 `failed`, `stopped`.
+
+## Checkpoints
+
+A long goal pauses on its own so a person can look. `checkpoint = "6h"` (hours) or
+`checkpoint = "5 rounds"` (work attempts), in a Play (beside `title`) or, for a goal with no Play,
+in `[limits]`; `checkpoint_timeout = "24h"` (the default) is in `[limits]` only. When the goal has run that
+long, or made that many work attempts, since it started or since its last checkpoint, the next task
+to start is not started: it is `needs you` with the need `checkpoint`, carrying a progress summary
+(work attempts, hours, money so far, and the latest note). One checkpoint is open per goal. The
+person chooses **Continue** (the clock restarts), **Change the goal** (the new text is written as a
+note of the goal, and continues) or **Stop** (the goal is stopped). A checkpoint nobody answers in
+`checkpoint_timeout` stops the goal, with the reason recorded as a note and on the goal's result.
+The notes of a goal (`task.note`, and Brain's own) are given to every attempt when it starts, so
+they are the progress the agent re-reads after a pause. A task that comes to need a person is sent to
+the workspace's `[teams]` webhook, a checkpoint included: one short message with the task's link.
 
 ## The queue
 

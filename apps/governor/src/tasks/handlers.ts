@@ -13,8 +13,9 @@ import { inputSchema } from "../workspace/load";
 import { getWorkspace, manifestOf } from "../workspace/store";
 import { HEAL } from "./heal";
 import { queueOf, queuedOf, steerOf } from "./queue";
+import { continueCheckpoint } from "./checkpoint";
 import { personCheck, reviveTask, settle, startPlan, stopTask } from "./orchestrator";
-import { createFromPlay, insertTask, json, needOf, setState, taskIn, TERMINAL, type TaskRow } from "./store";
+import { createFromPlay, insertTask, json, needOf, setState, taskIn, taskOf, TERMINAL, type TaskRow } from "./store";
 
 /** The commands a person steers work with and the queries of the Today, Tasks and Task screens (docs/architecture.md sections 4 and 10). */
 
@@ -162,6 +163,13 @@ export function registerTasks(governor: Governor): void {
     const task = taskIn(ctx.db, input.workspaceId, input.taskId);
     if (TERMINAL.includes(task.state)) throw new BrainError("CONFLICT", `This task is already ${task.state}`);
     stopTask(ctx.gov, task, ctx.actor);
+    settle(ctx.gov, input.workspaceId);
+    return {};
+  });
+  registry.command("task.checkpoint", (ctx, input) => {
+    const task = taskIn(ctx.db, input.workspaceId, input.taskId);
+    if (needOf(task)?.kind !== "checkpoint") throw new BrainError("CONFLICT", "This task has no checkpoint waiting");
+    continueCheckpoint(ctx.gov, taskOf(ctx.db, task.root_id), ctx.user?.name ?? "a person", input.goal);
     settle(ctx.gov, input.workspaceId);
     return {};
   });

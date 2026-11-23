@@ -51,6 +51,9 @@ function Needs(props: { task: Task; need: TaskNeed; onSelect: (id: string) => vo
   const send = useAction(async () => { await command("task.answer", { workspaceId: place.id(), taskId: props.task.id, answer: answer() }); setAnswer(""); });
   const keep = useAction((attemptId: string) => command("task.check", { workspaceId: place.id(), taskId: props.task.id, pass: true, keep: attemptId }));
   const retry = useAction(() => command("task.retry", { workspaceId: place.id(), taskId: props.need.kind === "failed-subtask" ? props.need.taskId : props.task.id }));
+  const [goal, setGoal] = createSignal("");
+  const proceed = useAction((changed: boolean) => command("task.checkpoint", { workspaceId: place.id(), taskId: props.task.id, ...(changed ? { goal: goal() } : {}) }));
+  const stopGoal = useAction(() => command("task.stop", { workspaceId: place.id(), taskId: props.task.rootId }));
   const approval = () => props.task.approvals.find((entry) => props.need.kind === "approval" && entry.id === props.need.approvalId);
   const candidates = (): Attempt[] => (props.need.kind === "judge" ? props.task.attempts.filter((attempt) => (props.need as { attemptIds: readonly string[] }).attemptIds.includes(attempt.id)) : []);
   return (
@@ -100,6 +103,19 @@ function Needs(props: { task: Task; need: TaskNeed; onSelect: (id: string) => vo
                 )}
               </For>
             </ul>
+          </Match>
+          <Match when={props.need.kind === "checkpoint" && props.need}>
+            {(point) => (<>
+              <p class="mb-2 t-text text-ink-2">{t("need.checkpoint.text", { until: dateTime(point().until) })}</p>
+              <p class="mb-3 t-text text-ink" dir="auto">{point().summary}</p>
+              <Textarea size="md" aria-label={t("need.checkpoint.goal")} placeholder={t("need.checkpoint.goal")} rows={3} value={goal()} onInput={(event) => setGoal(event.currentTarget.value)} />
+              <Failure error={proceed.error() ?? stopGoal.error()} class="mt-3" />
+              <div class="mt-3 flex flex-wrap gap-2">
+                <Button variant="solid" theme="blue" size="md" loading={proceed.busy()} onClick={() => void proceed.run(false)}>{t("need.checkpoint.continue")}</Button>
+                <Button variant="outline" size="md" loading={proceed.busy()} disabled={goal().trim() === ""} onClick={() => void proceed.run(true)}>{t("need.checkpoint.change")}</Button>
+                <Button variant="outline" size="md" loading={stopGoal.busy()} onClick={() => void stopGoal.run()}>{t("need.checkpoint.stop")}</Button>
+              </div>
+            </>)}
           </Match>
           <Match when={props.need.kind === "failed-subtask" && props.need}>
             {(failed) => (<>

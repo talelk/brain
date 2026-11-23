@@ -156,7 +156,9 @@ export type TaskNeed =
   | { readonly kind: "check"; readonly findings: string; /** The reviewer asked for the same thing as the round before, so no further round was started. */ readonly repeated?: boolean }
   | { readonly kind: "sign-off" }
   | { readonly kind: "judge"; readonly attemptIds: readonly string[] }
-  | { readonly kind: "failed-subtask"; readonly taskId: string };
+  | { readonly kind: "failed-subtask"; readonly taskId: string }
+  /** The goal ran as long as its checkpoint says: continue, change the goal or stop; unanswered, it is stopped at `until`. */
+  | { readonly kind: "checkpoint"; readonly summary: string; readonly until: number };
 export interface TaskSummary {
   readonly id: string;
   readonly workspaceId: string;
@@ -293,7 +295,8 @@ export interface Task extends TaskSummary {
   readonly heal: { readonly taskId: string; readonly state: TaskState } | null;
   readonly version: number;
 }
-export interface Spend { readonly todayMicroUsd: number; readonly capMicroUsd: number }
+/** `unpriced`: a model of the workspace has no price, so a cap cannot count what it costs (docs/model.md, "Cost"). */
+export interface Spend { readonly todayMicroUsd: number; readonly capMicroUsd: number; readonly unpriced: boolean }
 export interface Today {
   readonly needsYou: readonly TaskSummary[];
   readonly running: readonly TaskSummary[];
@@ -575,7 +578,7 @@ export interface Runner {
 export interface Health {
   readonly version: string;
   readonly runners: readonly Runner[];
-  readonly models: ReadonlyArray<{ readonly name: string; readonly reachable: boolean; readonly detail: string }>;
+  readonly models: ReadonlyArray<{ readonly name: string; readonly reachable: boolean; readonly detail: string; readonly priced: boolean }>;
   readonly audit: { readonly events: number; readonly lastCheckpointAt: number | null; readonly problem: string | null };
   readonly backup: { readonly lastAt: number | null };
   /** Present when the workspace folder has a git remote. */
@@ -643,6 +646,7 @@ export const commands = table({
   ])).min(1).max(100) })],
   "task.stop": ["member", z.strictObject({ ...inWorkspace, taskId: id })],
   /** A task's priority and whether it is paused (docs/model.md, The queue); what is not given stays as it is. */
+  "task.checkpoint": ["member", z.strictObject({ ...inWorkspace, taskId: id, goal: z.string().min(1).max(20000).optional() })],
   "task.steer": ["member", z.strictObject({ ...inWorkspace, taskId: id, priority: z.enum(PRIORITIES).optional(), paused: z.boolean().optional() }).refine((input) => input.priority !== undefined || input.paused !== undefined, "give a priority or paused")],
   "task.retry": ["member", z.strictObject({ ...inWorkspace, taskId: id })],
   /** A person's check or sign-off. `keep` names the candidate attempt a person judging keeps. */
@@ -730,6 +734,7 @@ export interface CommandOutputs {
   "task.confirm": Record<string, never>;
   "task.edit": Record<string, never>;
   "task.stop": Record<string, never>;
+  "task.checkpoint": Record<string, never>;
   "task.steer": Record<string, never>;
   "task.retry": Record<string, never>;
   "task.check": Record<string, never>;

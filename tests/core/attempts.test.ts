@@ -372,7 +372,7 @@ describe("the record of an attempt and the health of what runs it", () => {
     await driver.heartbeat([]);
     const health = await member.query("health", { workspaceId });
     expect(health.runners).toMatchObject([{ name: "test runner", online: true }]);
-    expect(health.models).toEqual([{ name: "main", reachable: true, detail: "" }, { name: "spare", reachable: false, detail: "The model server refused the key" }, { name: "claude", reachable: true, detail: "" }]);
+    expect(health.models).toEqual([{ name: "main", reachable: true, detail: "", priced: false }, { name: "spare", reachable: false, detail: "The model server refused the key", priced: false }, { name: "claude", reachable: true, detail: "", priced: false }]);
     expect(upstream.map((request) => request.url)).toEqual(["https://one.example/v1/models", "https://two.example/v1/models", "https://three.example/v1/models"]);
     expect(health.audit).toMatchObject({ problem: null, events: expect.any(Number) });
     expect(health.backup).toEqual({ lastAt: null });
@@ -426,10 +426,10 @@ describe("a workspace's limits", () => {
     const first = await start("one", capped.workspaceId);
     const offer = (await driver.claim()) as JobOffer;
     // While it runs, the attempt holds what its agent may spend.
-    expect(await spend()).toEqual({ todayMicroUsd: 400_000, capMicroUsd: 1_000_000 });
+    expect(await spend()).toEqual({ todayMicroUsd: 400_000, capMicroUsd: 1_000_000, unpriced: true });
     await driver.ack(offer);
     await driver.finish(offer);
-    expect(await spend()).toEqual({ todayMicroUsd: 700_000, capMicroUsd: 1_000_000 });
+    expect(await spend()).toEqual({ todayMicroUsd: 700_000, capMicroUsd: 1_000_000, unpriced: true });
     await driver.step();
     const second = await start("one", capped.workspaceId);
     expect(await driver.claim()).toBeNull();

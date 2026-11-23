@@ -28,7 +28,7 @@ export async function postTeams(gov: Gov, workspaceId: string, text: string, lin
 
 const NEEDS: Record<TaskNeed["kind"], string> = {
   "confirm-plan": "has a plan to confirm", approval: "has a call waiting for approval", answer: "has a question for you", check: "has a result to check", "sign-off": "is waiting for your sign-off",
-  judge: "has candidates to choose from", "failed-subtask": "has a sub-task that failed",
+  judge: "has candidates to choose from", "failed-subtask": "has a sub-task that failed", checkpoint: "reached its checkpoint: continue, change the goal or stop it",
 };
 const delivering = new WeakMap<Gov, Promise<void>>();
 

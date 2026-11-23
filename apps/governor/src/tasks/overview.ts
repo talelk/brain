@@ -7,7 +7,7 @@ import { auditProblem, modelHealth } from "../health/health";
 import { listRunners } from "../attempts/runners";
 import { updatesOf } from "../workspace/packs";
 import { approvalsWhere } from "../trust/approvals";
-import { COST, capOf, spentToday } from "../trust/usage";
+import { COST, capOf, hasUnpricedModel, spentToday } from "../trust/usage";
 import { activeManifest } from "../workspace/store";
 import { summaries } from "./handlers";
 import { utcDay } from "./store";
@@ -91,7 +91,7 @@ export function registerOverview({ gov }: Governor): void {
         id: workspace.id, slug: workspace.slug, name: workspace.name, role: workspace.role, visibility: workspace.visibility, platform: workspace.platform, updates: updatesOf(gov, manifest).length, viaPublic: workspace.viaPublic, projects: manifest.projects.map((project) => project.name), needsYou: workspace.viaPublic ? 0 : (waiting.get(workspace.id) ?? 0), running: running.get(workspace.id) ?? 0,
         doneToday: done.get(today) ?? 0, failedToday,
         lastHour: { done: (hour.get(workspace.id) ?? []).find((row) => row.state === "done")?.n ?? 0, failed: (hour.get(workspace.id) ?? []).find((row) => row.state === "failed")?.n ?? 0 },
-        attemptsRunning: (attemptCounts.get(workspace.id) ?? []).filter((row) => row.state !== "queued").reduce((sum, row) => sum + row.n, 0), attemptsWaiting: (attemptCounts.get(workspace.id) ?? []).find((row) => row.state === "queued")?.n ?? 0, spend: { todayMicroUsd: spentToday(gov, workspace.id), capMicroUsd: capOf(manifest) }, lastActivityAt: last.get(workspace.id) ?? null, days: series,
+        attemptsRunning: (attemptCounts.get(workspace.id) ?? []).filter((row) => row.state !== "queued").reduce((sum, row) => sum + row.n, 0), attemptsWaiting: (attemptCounts.get(workspace.id) ?? []).find((row) => row.state === "queued")?.n ?? 0, spend: { todayMicroUsd: spentToday(gov, workspace.id), capMicroUsd: capOf(manifest), unpriced: hasUnpricedModel(gov, workspace.id, manifest) }, lastActivityAt: last.get(workspace.id) ?? null, days: series,
       };
     });
     const named = new Map(mine.map((workspace) => [workspace.id, workspace]));

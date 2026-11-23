@@ -5,6 +5,7 @@ import { expireApprovals } from "../trust/approvals";
 import { linkArtifact, putArtifact } from "../trust/artifacts";
 import { settleUsage } from "../trust/usage";
 import { manifestOf } from "../workspace/store";
+import { expireCheckpoints, holdForCheckpoint } from "./checkpoint";
 import { closeHealed, healFailed } from "./heal";
 import { closeSuperseded } from "./superseded";
 import { afterCheck, missingMemory, blockedReason, claimedFiles, unkeptClaim, afterPersonCheck, afterWork, checkerOf, doers, groupOutcome, promote, readJudgement, readPlan, readVerdict, passes, renderGoal, retryOf, SKIPPED, type WorkFacts, type WorkState } from "./decide";
@@ -90,7 +91,7 @@ function followSubtasks(gov: Gov, task: TaskRow): boolean {
 /** Queues the work of every ready task that has none queued. How many run at once, and in which order, is decided when a runner claims (tasks/queue.ts). */
 function startReady(gov: Gov, ready: readonly TaskRow[]): void {
   for (const task of ready) {
-    if (activeAttempts(gov, task.id) > 0) continue;
+    if (activeAttempts(gov, task.id) > 0 || holdForCheckpoint(gov, task)) continue;
     const settings = settingsOf(task);
     for (const [index, agent] of doers(settings).entries()) queueAttempt(gov, { task, kind: "work", agent, candidate: settings.candidates === null ? null : index });
   }
@@ -114,7 +115,8 @@ function rest(gov: Gov, workspaceId: string): void {
 
 export function settle(gov: Gov, workspaceId: string): void {
   rest(gov, workspaceId);
-  if (closeSuperseded(gov, workspaceId, stopTask) + closeHealed(gov, workspaceId, stopTask) > 0) rest(gov, workspaceId);
+  const expired = expireCheckpoints(gov, workspaceId, (root) => void stopTask(gov, root, SYSTEM));
+  if (closeSuperseded(gov, workspaceId, stopTask) + closeHealed(gov, workspaceId, stopTask) + expired > 0) rest(gov, workspaceId);
 }
 
 // --- when an attempt ends ---
