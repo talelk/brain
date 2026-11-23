@@ -58,6 +58,9 @@ export const OPEN_HOST_COMMANDS: HostCommandTable = new Map<string, HostCommand>
   ["host.disk", { argv: ["df", "-h"], effect: "read", args: {}, timeoutMs: 15_000 }],
   ["host.logs", { argv: ["docker", "logs", "--tail", "{lines}", "{container}"], effect: "read", args: { lines: "^([1-9][0-9]?|[1-4][0-9]{2}|500)$", container: ANY_CONTAINER }, timeoutMs: 30_000 }],
   ["host.restart", { argv: ["docker", "restart", "{container}"], effect: "privileged", args: { container: ANY_CONTAINER }, timeoutMs: 90_000 }],
+  ["host.redeploy", { argv: ["docker", "compose", "--project-directory", "/srv/demos/{stack}", "up", "-d", "--pull", "always"], effect: "privileged", args: { stack: "^(?!brain$)[a-z0-9][a-z0-9_-]{0,62}$" }, timeoutMs: 300_000 }],
+  ["host.cert-expiry", { argv: ["sh", "-c", 'for f in /etc/letsencrypt/live/*/cert.pem; do printf "%s " "$(basename "$(dirname "$f")")"; openssl x509 -enddate -noout -in "$f"; done'], effect: "read", args: {}, timeoutMs: 60_000 }],
+  ["host.backup-status", { argv: ["systemctl", "show", "brain-backup.timer", "brain-backup.service", "brain-restore-test.timer", "brain-restore-test.service", "--property=Id,ActiveState,Result,ExecMainStatus,ExecMainExitTimestamp,LastTriggerUSec,NextElapseUSecRealtime", "--no-pager"], effect: "read", args: {}, timeoutMs: 15_000 }],
 ]);
 
 export function loadHostCommands(path: string | undefined): HostCommandTable {

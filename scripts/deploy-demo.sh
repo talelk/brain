@@ -11,7 +11,7 @@
 #   data/                the Governor's data, mounted into its container; `pnpm brain backup` reads it from the host
 #   run/                 launcher socket, the runner's folder, egress grants, the Governor's runner token
 #   archive/             what earlier versions left: data-<time>/, config-<time>/. Never deleted by any deploy.
-#   docker-compose.yml, .env, runner.env, host-commands.json     written by this script
+#   docker-compose.yml, .env, runner.env                         written by this script
 #
 # Steps, in order:
 #   1. Once, before the first deploy of this version (no /srv/demos/brain/.simplified-model yet): stop and disable the units
@@ -19,7 +19,7 @@
 #      in the earlier stack's Docker volume is copied there instead, and the volume is left as it is), move the earlier
 #      run/ and configuration to archive/config-<time>/, and make an empty data/. Nothing is deleted.
 #   2. Sync the source.
-#   3. Install docker-compose.yml, .env and host-commands.json (the host commands of the `sre` pack).
+#   3. Install docker-compose.yml and .env (the launcher offers the host commands open; to limit them, write a host-commands file and set BRAIN_LAUNCHER_HOST_COMMANDS).
 #   4. Build the Governor image and the sandbox images.
 #   5. Start the Governor and wait for /health/ready.
 #   6. Start the egress proxy, the only way a sandbox reaches a network.
@@ -160,7 +160,7 @@ else
     echo "    there is no earlier data directory on this host"
   fi
   if [ -n "$VOLUME" ]; then echo "    the Docker volume $VOLUME of the earlier stack is left as it is"; fi
-  for kept in run .env docker-compose.yml host-commands.json runner-agents.env runner-evaluators.env runner-sre-host.env replica.env replica; do
+  for kept in run .env docker-compose.yml runner-agents.env runner-evaluators.env runner-sre-host.env replica.env replica; do
     if [ -e "$REMOTE_DIR/$kept" ]; then
       mkdir -p "$ARCHIVE/config-$TS"
       as_root mv "$REMOTE_DIR/$kept" "$ARCHIVE/config-$TS/$kept"
@@ -192,7 +192,6 @@ cd "$REMOTE_DIR"
 install -m 0644 src/deploy/demo/docker-compose.yml docker-compose.yml
 # host.status, host.logs, host.disk, host.restart and host.redeploy: the launcher runs exactly these command lines, as the
 # deploy user. They use Docker, so that user must be in the docker group.
-install -m 0644 src/deploy/demo/host-commands.json host-commands.json
 if ! id -nG "$DEPLOY_USER" | tr ' ' '\n' | grep -qx docker; then as_root usermod -aG docker "$DEPLOY_USER"; fi
 BRIDGE_IP="$(docker network inspect bridge --format '{{range .IPAM.Config}}{{.Gateway}} {{end}}' | tr ' ' '\n' | grep -E '^[0-9]+(\.[0-9]+){3}$' | head -n 1)"
 [ -n "$BRIDGE_IP" ] || { echo "Docker's bridge network has no IPv4 gateway address" >&2; exit 1; }
@@ -263,7 +262,6 @@ WorkingDirectory=$REMOTE_DIR/src
 Environment=BRAIN_LAUNCHER_SOCKET=$REMOTE_DIR/run/launcher.sock
 Environment=BRAIN_LAUNCHER_ATTEMPTS_ROOT=$REMOTE_DIR/run/runner/attempts
 Environment=BRAIN_LAUNCHER_EGRESS_GRANTS_DIR=$REMOTE_DIR/run/egress-grants
-Environment=BRAIN_LAUNCHER_HOST_COMMANDS=$REMOTE_DIR/host-commands.json
 ExecStart=$NODE --import tsx apps/launcher/src/main.ts
 Restart=always
 RestartSec=3

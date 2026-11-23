@@ -11,7 +11,7 @@ The demo is `https://brain.mykeyrus.tn`, on the demos host under `/srv/demos/bra
 | `data/` | the Governor's data (`brain.db`, `cas/`, `workspaces/`, `instance.key`, `audit/`) |
 | `run/` | launcher socket, the runner's folder (`run/runner`), egress grants |
 | `archive/` | what earlier versions left (`data-<time>/`, `config-<time>/`). Never delete it. |
-| `docker-compose.yml`, `.env`, `runner.env`, `host-commands.json` | written by the deploy |
+| `docker-compose.yml`, `.env`, `runner.env` | written by the deploy |
 
 What runs: the container `brain-governor-1` on `127.0.0.1:3100` behind the host's nginx, the container
 `brain-egress-proxy`, and the systemd units `brain-launcher` and `brain-runner` (one runner, engines
@@ -70,7 +70,7 @@ archived folders back while the Governor is stopped.
   host with `BRAIN_GOVERNOR_URL`, `BRAIN_RUNNER_ENROLL_TOKEN` and the variables listed in
   `apps/runner/src/config.ts`; a launcher beside it gives it sandboxes (`apps/launcher/src/server.ts`).
 - Host commands of the `sre` pack (`host.status`, `host.logs`, `host.disk`, `host.restart`, `host.redeploy`)
-  are the command lines in `deploy/demo/host-commands.json`. The launcher runs them as the deploy user, who
+  are built into the launcher (`apps/launcher/src/host-commands.ts`) and open; `host.run` runs one shell line. Privileged ones wait for approval. To limit them, write a host-commands file and set `BRAIN_LAUNCHER_HOST_COMMANDS`. The launcher runs them as the deploy user, who
   is in the `docker` group. `host.redeploy` takes the name of a folder under `/srv/demos` other than `brain`.
 - Engines in sandboxes reach the model gateway at `host.docker.internal:3100`, the Governor's port on
   Docker's bridge address. The last step of the deploy checks that path.
