@@ -5,7 +5,7 @@
 - **VictoriaLogs** (127.0.0.1:9428): container logs shipped by vector.
 - **Grafana** (127.0.0.1:3060, `ai.mykeyrus.tn` path): dashboards over both.
 - **Docker health**: `docker ps` shows `(healthy)` for most services. Containers without a health check (n8n, kios-rh-new-1, of-vue360-ai-app-1, victoria-vmagent, victoria-vector, victoria-node-exporter) can be "Up" and still broken: check their logs and the public URL.
-- **Brain** itself: `https://brain.mykeyrus.tn/v1/doctor` (readiness) and the Health page in Administration.
+- **Brain** itself: `https://brain.mykeyrus.tn/health/ready` (readiness) and the Health page in Administration.
 
 ## What counts as a problem
 | Signal | Threshold | First action |

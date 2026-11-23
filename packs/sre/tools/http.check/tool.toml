@@ -6,7 +6,7 @@ true for a status from 200 to 399, and for 401 or 403, which show the service is
 this tool file with its own copy whose `network` lists the hosts. \
 Take the addresses to check from the runbook in memory."""
 effect = "read"
-timeout_seconds = 20
+timeout_seconds = 30
 needs = ["bash", "python3"]
 secrets = []
 

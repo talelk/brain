@@ -41,7 +41,7 @@ trap 'rm -rf "$work"' EXIT
 
 set +e
 meta="$(curl -q --silent --show-error \
-  --proto '=http,https' --max-time 10 \
+  --proto '=http,https' --max-time 20 \
   --user-agent 'brain-http-check/1' \
   --output /dev/null \
   --write-out '%{http_code}\t%{time_total}\t%{redirect_url}' \

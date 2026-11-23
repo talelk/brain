@@ -41,7 +41,18 @@ function refresh(gov: Gov, workspaceId: string, manifest: SnapshotManifest): voi
   }
 }
 
-/** Starts every scheduled Play whose time has come. Times missed while the Governor was down are not replayed; an occurrence is skipped while the one before it still runs. */
+/**
+ * Whether a run still runs: it is not finished, and it is not held for a person. A run whose only open work waits for an answer, a check or an
+ * approval does not stop the next occurrence, or one approval nobody gave would stop a schedule for as long as it stays open.
+ */
+function stillRuns(gov: Gov, taskId: string): boolean {
+  const root = gov.db.prepare("SELECT state FROM tasks WHERE id=?").get(taskId) as Pick<TaskRow, "state"> | undefined;
+  if (!root || TERMINAL.includes(root.state)) return false;
+  const below = (gov.db.prepare("WITH RECURSIVE tree(id) AS (SELECT id FROM tasks WHERE parent_id = ? UNION ALL SELECT t.id FROM tasks t JOIN tree ON t.parent_id = tree.id) SELECT t.state FROM tasks t JOIN tree ON t.id = tree.id").all(taskId) as Array<Pick<TaskRow, "state">>).map((row) => row.state);
+  return !(below.includes("needs_you") && !below.some((state) => state === "running" || state === "ready"));
+}
+
+/** Starts every scheduled Play whose time has come. Times missed while the Governor was down are not replayed; an occurrence is skipped while the one before it still runs (a run held for a person does not count). */
 export function runSchedules(gov: Gov): void {
   const now = gov.clock.nowMs();
   const due = gov.db.prepare(`SELECT g.workspace_id, g.play, g.spec, g.next_run_at_ms AS at, g.last_task_id, w.active_snapshot FROM triggers g JOIN workspaces w ON w.id = g.workspace_id
@@ -50,9 +61,8 @@ export function runSchedules(gov: Gov): void {
   for (const trigger of due) {
     try {
       tx(gov.db, () => {
-        const last = trigger.last_task_id === null ? undefined : (gov.db.prepare("SELECT state FROM tasks WHERE id=?").get(trigger.last_task_id) as Pick<TaskRow, "state"> | undefined);
         const next = nextCron(trigger.spec, now, manifestOf(gov, trigger.active_snapshot).timezone) ?? null;
-        if (now - trigger.at > MISSED_AFTER_MS || (last && !TERMINAL.includes(last.state))) {
+        if (now - trigger.at > MISSED_AFTER_MS || (trigger.last_task_id !== null && stillRuns(gov, trigger.last_task_id))) {
           gov.db.prepare("UPDATE triggers SET next_run_at_ms=? WHERE workspace_id=? AND play=?").run(next, trigger.workspace_id, trigger.play);
           return;
         }
@@ -87,7 +97,7 @@ export function registerTriggers(governor: Governor): void {
           play, title: spec.title, translations: spec.translations, source: spec.source, kind, spec: trigger.schedule ?? trigger.webhook ?? "", paused: trigger.paused === true,
           nextRunAt: kind === "schedule" && trigger.paused !== true ? (kept?.next_run_at_ms ?? null) : null,
           lastRunAt: last?.at ?? null, lastTask: last ? { id: last.id, state: last.state } : null,
-          skipsNext: kind === "schedule" && trigger.paused !== true && last !== undefined && !TERMINAL.includes(last.state),
+          skipsNext: kind === "schedule" && trigger.paused !== true && last !== undefined && stillRuns(gov, last.id),
           steps: spec.step.map((step) => ({ id: step.id, agent: step.agent ?? (Array.isArray(step.candidates) ? step.candidates.join(", ") : "") })),
         });
       }

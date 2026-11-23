@@ -528,7 +528,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 - `[trigger] schedule = "<cron>"` starts the Play at each time, on the wall clock of the workspace's `timezone` (UTC
   when `brain.toml` names none; five fields; lists, ranges and steps). A time the clock skips when it is set forward does
   not come, and one it shows twice comes twice. Missed times are not replayed (a time more than five minutes past is
-  missed); an occurrence is skipped while the previous one is still running.
+  missed); an occurrence is skipped while the previous one is still running (a run held for a person, with nothing else running, does not stop the next).
 - `[trigger] paused = true` keeps a schedule in the file without firing it: its `triggers` row stays (so its last start is
   kept) with no next time, and one that is resumed gets its next time again. The cron fields are read by one parser in
   `packages/contracts/src/cron.ts`, used by the scheduler, by `PlayFile` validation (so a schedule that could never fire is

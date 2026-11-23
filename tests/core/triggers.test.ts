@@ -110,6 +110,21 @@ describe("a schedule", () => {
     await driver.drain();
   });
 
+  it("does not skip a time because the run before it is held for a person", async () => {
+    clock.now = (Math.floor(clock.now / QUARTER) + 1) * QUARTER;
+    tick(0);
+    const held = patrols();
+    const root = harness.governor.gov.db.prepare("SELECT id FROM tasks WHERE parent_id IS NULL AND title='Patrol' ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get() as { id: string };
+    // Everything the run has open now waits for a person: an approval nobody gave must not stop the schedule.
+    harness.governor.gov.db.prepare("UPDATE tasks SET state='needs_you' WHERE parent_id=?").run(root.id);
+    tick(QUARTER);
+    expect(patrols()).toBe(held + 1);
+    await driver.drain();
+    harness.governor.gov.db.prepare("UPDATE tasks SET state='stopped' WHERE id=? OR parent_id=?").run(root.id, root.id);
+    const { tasks } = await harness.admin.query("tasks.list", { workspaceId, rootsOnly: true, state: "running" });
+    for (const task of tasks) await harness.admin.command("task.stop", { workspaceId, taskId: task.id });
+  });
+
   it("is read in the workspace's time zone, and follows the time zone when it changes", async () => {
     const tokyo = await makeWorkspace(harness, "Tokyo", {
       brain: 'timezone = "Asia/Tokyo"\n', agents: { reviewer: {} },
@@ -146,10 +161,11 @@ describe("a schedule", () => {
   });
 
   it("follows the workspace's files: a Play that is removed no longer starts", async () => {
+    const before = patrols();
     await harness.admin.command("file.delete", { workspaceId, paths: ["plays/patrol.toml"] });
     tick(QUARTER);
     tick(QUARTER);
-    expect(patrols()).toBe(3);
+    expect(patrols()).toBe(before);
     expect(harness.governor.gov.db.prepare("SELECT play, kind FROM triggers WHERE workspace_id=? ORDER BY play").all(workspaceId)).toEqual([{ play: "on-pull-request", kind: "webhook" }, { play: "on-push", kind: "webhook" }]);
   });
 });
