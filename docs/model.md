@@ -309,6 +309,16 @@ planner and a checker; the other packs build on it.
    The task text tells every agent what is kept (the project folders under `/work`, and the files in `/out`;
    a file written anywhere else is lost when the attempt ends) and not to search the rest of the
    file system, and what the model is sent of one tool's answer is bounded, Pi's own tools included.
+   What is kept in `/out` (any folders, up to 200 files and 32 MB) is shown by its type, where the task's
+   Evidence and the Files screen list it, grouped by folder with each file's size, and with all of it as one
+   zip. The type comes from the file's name, in one table shared by runner, Governor and web app. Markdown
+   is drawn, CSV and XLSX are a table, JSON a collapsible tree, images, PDF and video play in the page, and a
+   page (`.html`) runs in an iframe with `sandbox="allow-scripts"` and no `allow-same-origin`, from a route
+   that also sends `content-security-policy: sandbox allow-scripts`: it never runs as Brain's own origin.
+   Only those types are ever served to be shown, and only when asked to (`?view=1`); every other type, and
+   every plain request, is a download. An agent may add `/out/manifest.json` with `{ "title", "kind",
+   "entry" }`: `entry` names the file (by its path in `/out`) that is the deliverable, and it is shown
+   first, open, above the rest.
 5. The result is **checked** by something other than the agent that produced it: the
    step's reviewer, the base pack's `checker`, or a person. Only a checked task is done. When a
    reviewer's verdict repeats almost word for word the one before, the rounds stop there and a

@@ -26,7 +26,7 @@ import { registerOverview } from "./tasks/overview";
 import { registerTriggers } from "./tasks/triggers";
 import { registerApprovals } from "./trust/approvals";
 import { registerRetention } from "./trust/retention";
-import { readableLink, readArtifact } from "./trust/artifacts";
+import { fileResponse, readableLink, readArtifact } from "./trust/artifacts";
 import { readCapped } from "./body-limit";
 import { checkpoint, ensureAuditKey } from "./trust/audit";
 import { registerTrust } from "./trust/handlers";
@@ -225,10 +225,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
     const digest = c.req.param("digest");
     const link = isDigest(digest) ? readableLink(gov, digest, user.id) : undefined;
     if (!link) throw new BrainError("NOT_FOUND", "No such file");
-    // Stored bytes come from agents: they are downloaded, never rendered as a page of Brain.
-    return new Response(Buffer.from(readArtifact(gov, digest)), {
-      headers: { "content-type": link.mediaType, "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(link.name)}`, "x-content-type-options": "nosniff", "content-security-policy": "sandbox" },
-    });
+    return fileResponse(readArtifact(gov, digest), link.name, c.req.query("view") === "1");
   });
 
   // Each module registers its commands, queries, routes and timers here, before the web app's catch-all route below.

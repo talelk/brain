@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, lstatSync, readFileSync } from "node:fs";
-import { extname, join } from "node:path";
-import type { OfferProject } from "@brain/contracts";
+import { join } from "node:path";
+import { mediaTypeOf, type OfferProject } from "@brain/contracts";
 import { execa } from "execa";
 import { touchMirror } from "./cache";
 
@@ -257,7 +257,6 @@ export async function prepareWorkingCopy(request: WorkingCopyRequest): Promise<W
   };
 }
 
-const MEDIA_TYPES: Readonly<Record<string, string>> = { ".md": "text/markdown", ".txt": "text/plain", ".log": "text/plain", ".json": "application/json", ".csv": "text/csv", ".html": "text/html", ".patch": "text/x-diff", ".diff": "text/x-diff", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".pdf": "application/pdf" };
 const MAX_OUTPUT_FILES = 200;
 const MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
 
@@ -276,7 +275,7 @@ export function collectOutputs(outDir: string): { files: OutputFile[]; skipped: 
       const path = join(dir, entry.name);
       if (entry.isDirectory()) { walk(path, name); continue; }
       if (!entry.isFile() || lstatSync(path).size > MAX_OUTPUT_BYTES || files.length >= MAX_OUTPUT_FILES) { skipped.push(name); continue; }
-      files.push({ name, bytes: new Uint8Array(readFileSync(path)), mediaType: MEDIA_TYPES[extname(entry.name).toLowerCase()] ?? "application/octet-stream" });
+      files.push({ name, bytes: new Uint8Array(readFileSync(path)), mediaType: mediaTypeOf(entry.name) });
     }
   };
   if (existsSync(outDir)) walk(outDir, "");
