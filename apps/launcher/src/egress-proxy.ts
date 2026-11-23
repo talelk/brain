@@ -128,7 +128,12 @@ export function internalAddress(address: string, own: ReadonlySet<string> = ownA
 
 /** All addresses a name has now; the first one is the one the connection is pinned to. */
 export type Resolver = (host: string) => Promise<readonly string[]>;
-const systemResolver: Resolver = async (host) => (await lookup(host, { all: true, verbatim: true })).map((entry) => entry.address);
+// The system resolver now and then fails a lookup that the next one answers, so a name is tried three times before it counts as unresolved.
+const systemResolver: Resolver = async (host) => {
+  for (let attempt = 1; ; attempt += 1) {
+    try { return (await lookup(host, { all: true, verbatim: true })).map((entry) => entry.address); } catch (error) { if (attempt === 3) throw error; }
+  }
+};
 
 type Decision = { ok: true; grantId: string; grant: EgressGrant } | { ok: false; status: 403 | 407; reason: string };
 

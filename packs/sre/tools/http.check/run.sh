@@ -67,7 +67,7 @@ if code != 0:
     result = {"url": url, "ok": False, "status": 0, "time_ms": time_ms,
               "error": "no answer (curl exit %d): %s" % (code, reason or "no detail")}
 else:
-    result = {"url": url, "ok": 200 <= status <= 399, "status": status, "time_ms": time_ms}
+    result = {"url": url, "ok": 200 <= status <= 399 or status in (401, 403), "status": status, "time_ms": time_ms}
     if redirect:
         result["redirect"] = redirect
 print(json.dumps(result))

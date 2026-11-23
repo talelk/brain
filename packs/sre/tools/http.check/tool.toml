@@ -2,7 +2,7 @@ description = """
 Checks whether one http or https address answers: sends a single GET, follows no \
 redirect, and returns {"url", "ok", "status", "time_ms"}, plus "redirect" when the answer \
 points elsewhere and "error" when there was no answer at all (then status is 0). "ok" is \
-true for a status from 200 to 399. Read-only. It reaches any public host; a workspace that wants fewer replaces \
+true for a status from 200 to 399, and for 401 or 403, which show the service is up and asks for a login. Read-only. It reaches any public host; a workspace that wants fewer replaces \
 this tool file with its own copy whose `network` lists the hosts. \
 Take the addresses to check from the runbook in memory."""
 effect = "read"
@@ -16,13 +16,13 @@ description = "The full address to check, starting with http:// or https://. No 
 required = true
 
 [translations.fr]
-description = "Vérifie si une adresse http ou https répond : envoie un seul GET, ne suit aucune redirection et renvoie {\"url\", \"ok\", \"status\", \"time_ms\"}, plus \"redirect\" lorsque la réponse pointe ailleurs et \"error\" lorsqu'il n'y a eu aucune réponse (status vaut alors 0). \"ok\" est vrai pour un statut de 200 à 399. Lecture seule. Il atteint n'importe quel hôte public ; un espace de travail qui veut moins remplace ce fichier d'outil par sa propre copie dont `network` liste les hôtes. Prenez les adresses à vérifier dans le runbook en mémoire."
+description = "Vérifie si une adresse http ou https répond : envoie un seul GET, ne suit aucune redirection et renvoie {\"url\", \"ok\", \"status\", \"time_ms\"}, plus \"redirect\" lorsque la réponse pointe ailleurs et \"error\" lorsqu'il n'y a eu aucune réponse (status vaut alors 0). \"ok\" est vrai pour un statut de 200 à 399, ainsi que 401 ou 403, qui montrent que le service est actif et demande une connexion. Lecture seule. Il atteint n'importe quel hôte public ; un espace de travail qui veut moins remplace ce fichier d'outil par sa propre copie dont `network` liste les hôtes. Prenez les adresses à vérifier dans le runbook en mémoire."
 
 [translations.fr.inputs.url]
 description = "L'adresse complète à vérifier, commençant par http:// ou https://. Sans nom d'utilisateur ni mot de passe."
 
 [translations.ar]
-description = "يفحص ما إذا كان عنوان http أو https يستجيب: يرسل طلب GET واحدًا ولا يتبع أي إعادة توجيه، ويعيد {\"url\", \"ok\", \"status\", \"time_ms\"}، مع \"redirect\" إذا أشارت الإجابة إلى عنوان آخر و\"error\" إذا لم تكن هناك إجابة أصلًا (فتكون status صفرًا). تكون \"ok\" صحيحة للحالة من 200 إلى 399. للقراءة فقط. يصل إلى أي مضيف عام؛ ومساحة العمل التي تريد أقل تستبدل ملف هذه الأداة بنسختها الخاصة التي يسرد `network` فيها المضيفين. خذ العناوين المراد فحصها من runbook في الذاكرة."
+description = "يفحص ما إذا كان عنوان http أو https يستجيب: يرسل طلب GET واحدًا ولا يتبع أي إعادة توجيه، ويعيد {\"url\", \"ok\", \"status\", \"time_ms\"}، مع \"redirect\" إذا أشارت الإجابة إلى عنوان آخر و\"error\" إذا لم تكن هناك إجابة أصلًا (فتكون status صفرًا). تكون \"ok\" صحيحة للحالة من 200 إلى 399 ولـ 401 أو 403، فهما يدلان على أن الخدمة تعمل وتطلب تسجيل الدخول. للقراءة فقط. يصل إلى أي مضيف عام؛ ومساحة العمل التي تريد أقل تستبدل ملف هذه الأداة بنسختها الخاصة التي يسرد `network` فيها المضيفين. خذ العناوين المراد فحصها من runbook في الذاكرة."
 
 [translations.ar.inputs.url]
 description = "العنوان الكامل المراد فحصه، ويبدأ بـ http:// أو https://. دون اسم مستخدم أو كلمة مرور."

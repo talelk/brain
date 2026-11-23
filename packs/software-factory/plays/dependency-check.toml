@@ -18,14 +18,14 @@ manifest files show instead."""
 
 [[step]]
 id = "report"
-agent = "analyst"
+agent = "worker"
 goal = """
 From the scan in your context, write the weekly dependency report: at most ten updates \
 worth doing, ordered by urgency (a known vulnerability first, then major versions behind, \
 then the rest), each with the project, the dependency, the versions, the reason and the \
 risk of updating, judged from where the code uses it. End with one line per project giving \
 the totals. Report only what the scan shows; mark as unknown what it could not check. \
-Post the top three as one note with task.note."""
+Save the report as /out/dependency-report.md, and post the top three as one note with task.note."""
 after = ["scan"]
 
 [translations.fr]
