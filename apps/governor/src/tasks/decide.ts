@@ -239,7 +239,10 @@ export function claimedFiles(result: string): string[] {
   const claims = new Set<string>();
   for (const line of result.split("\n")) {
     if (!/\b(?:sav|wr[io]t|creat|deliver|produc|stor)\w*/iu.test(line)) continue;
-    for (const found of line.matchAll(/\/(?:out|work)\/[^\s`'"()[\]<>]+/gu)) claims.add(found[0].replace(/[.,;:!?*]+$/u, ""));
+    for (const found of line.matchAll(/\/(?:out|work)\/[^\s`'"()[\]<>]+/gu)) {
+      // /work/.workspace is the workspace's own files, given to read and never kept: naming it in a line that says "wrote" is not a claim.
+      if (!/^\/work\/\.workspace(?:\/|$)/u.test(found[0])) claims.add(found[0].replace(/[.,;:!?*]+$/u, ""));
+    }
   }
   return [...claims];
 }

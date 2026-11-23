@@ -172,6 +172,7 @@ describe("what an agent says it did", () => {
   it("finds the files a result says it saved, not the ones it only names or reads", () => {
     const result = "I read /out/old.md for context.\nSaved the list to /out/improvements.md.\nThe report is written in `/work/improvements.md`, done.";
     expect(claimedFiles(result)).toEqual(["/out/improvements.md", "/work/improvements.md"]);
+    expect(claimedFiles("I wrote /out/a.md after reading /work/.workspace/manifest.json and /work/.workspace/memory/x.md")).toEqual(["/out/a.md"]);
   });
   it("finds nothing wrong when every claimed file is kept, and says what is lost otherwise", () => {
     expect(unkeptClaim(["/out/a.md"], new Set(["a.md"]), [])).toBeUndefined();
