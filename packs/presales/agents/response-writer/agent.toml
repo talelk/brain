@@ -1,7 +1,7 @@
 description = "Drafts the response to a tender from the analysis and the workspace's memory, in the buyer's language. Never invents references, certifications or prices."
 engine = ["pi", "claude"]
 native = "read"
-tools = ["doc.extract", "memory.search", "task.note"]
+tools = ["doc.extract", "memory.search", "task.note", "doc.build", "chart.make", "sheet.build"]
 
 [limits]
 spend_usd = 1.00

@@ -6,6 +6,8 @@
 # A project's `setup` runs here too, so the image carries what the common ones need: bun, and a compiler, make and python3 for native
 # Node modules (node-gyp). The Node headers are in the image (npm_config_nodedir), so a native build downloads nothing from nodejs.org
 # and the project's `network` needs only its package registry.
+# An engine script that builds a deliverable in /out can import python-docx, python-pptx, openpyxl and matplotlib (pinned, as in
+# deploy/sandbox.Dockerfile); pandoc and LibreOffice are only in the tool sandbox, where doc.build runs.
 # A browser is here too (Playwright 1.65.1 and its Chromium, in /opt/playwright), for the frontend-qa pack: a script run by the shell
 # uses `require("playwright")` through NODE_PATH and launches Chromium with --no-sandbox (the container is already the sandbox).
 # Build from the repository root: docker build -f deploy/engine-sandbox.Dockerfile -t brain-sandbox-engine .
@@ -14,9 +16,10 @@
 FROM node:24-slim
 RUN apt-get update \
  && apt-get install -y --no-install-recommends bash ca-certificates curl git ripgrep fd-find \
-    build-essential python3 \
+    build-essential python3 python3-pip fonts-noto-core \
  && ln -s /usr/bin/fdfind /usr/local/bin/fd \
  && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir --break-system-packages python-docx==1.1.2 python-pptx==1.0.2 openpyxl==3.1.5 matplotlib==3.10.0
 RUN corepack enable && corepack prepare pnpm@12.11.2 --activate && npm install --global tsx@4.20.6 bun@1.2.23
 ENV npm_config_nodedir=/usr/local
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright NODE_PATH=/usr/local/lib/node_modules

@@ -1,0 +1,51 @@
+description = """
+Builds an Excel workbook (xlsx) from a CSV or JSON file and saves it in /out. A JSON file \
+is a list of objects, or an object of sheet name to such a list (one sheet each). Numbers \
+are written as numbers; the header row is bold on a coloured fill, frozen and filtered, \
+and the columns fit their content; a sheet of Arabic text reads right to left. The data \
+is under /work or /out. It touches nothing outside /out. Returns {"path", "rows", \
+"columns"}, or {"error": "<why>"}."""
+effect = "read"
+timeout_seconds = 90
+needs = ["bash", "python3", "openpyxl"]
+network = []
+secrets = []
+
+[inputs.data]
+type = "string"
+description = "The CSV or JSON file, under /work or /out."
+required = true
+
+[inputs.name]
+type = "string"
+description = "The workbook's path inside /out, ending with .xlsx, such as tables/budget.xlsx. The data file's name with .xlsx when left out."
+required = false
+
+[inputs.sheet]
+type = "string"
+description = "The sheet's name for a CSV or a plain JSON list, at most 31 characters. Data when left out."
+required = false
+
+[translations.fr]
+description = "Construit un classeur Excel (xlsx) à partir d'un fichier CSV ou JSON et l'enregistre dans /out. Un fichier JSON est une liste d'objets, ou un objet nom de feuille vers une telle liste (une feuille chacune). Les nombres sont écrits comme des nombres ; la ligne d'en-tête est en gras sur fond coloré, figée et filtrable, et les colonnes s'ajustent à leur contenu ; une feuille de texte arabe se lit de droite à gauche. Les données sont sous /work ou /out. Rien n'est touché hors de /out. Renvoie {\"path\", \"rows\", \"columns\"}, ou {\"error\": \"<pourquoi>\"}."
+
+[translations.fr.inputs.data]
+description = "Le fichier CSV ou JSON, sous /work ou /out."
+
+[translations.fr.inputs.name]
+description = "Le chemin du classeur dans /out, finissant par .xlsx, par exemple tables/budget.xlsx. Le nom du fichier de données avec .xlsx si omis."
+
+[translations.fr.inputs.sheet]
+description = "Le nom de la feuille pour un CSV ou une simple liste JSON, 31 caractères au plus. Data si omis."
+
+[translations.ar]
+description = "يبني مصنّف Excel (xlsx) من ملف CSV أو JSON ويحفظه في /out. ملف JSON هو قائمة كائنات، أو كائن من اسم ورقة إلى قائمة كهذه (ورقة لكل منها). تُكتب الأرقام كأرقام؛ صف الترويسة بخط عريض على خلفية ملوّنة، مثبّت وقابل للتصفية، وتتلاءم الأعمدة مع محتواها؛ وتُقرأ الورقة ذات النص العربي من اليمين إلى اليسار. تكون البيانات تحت /work أو /out. لا يمسّ شيئًا خارج /out. يعيد {\"path\", \"rows\", \"columns\"}، أو {\"error\": \"<السبب>\"}."
+
+[translations.ar.inputs.data]
+description = "ملف CSV أو JSON، تحت /work أو /out."
+
+[translations.ar.inputs.name]
+description = "مسار المصنّف داخل /out، وينتهي بـ .xlsx، مثل tables/budget.xlsx. اسم ملف البيانات مع .xlsx إذا تُرك فارغًا."
+
+[translations.ar.inputs.sheet]
+description = "اسم الورقة لملف CSV أو قائمة JSON بسيطة، بحد أقصى 31 حرفًا. Data إذا تُرك فارغًا."

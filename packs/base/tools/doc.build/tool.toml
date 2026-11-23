@@ -1,0 +1,61 @@
+description = """
+Builds a deliverable file from a Markdown file: a Word document (docx), a slide deck \
+(pptx, one slide per H2 heading), a PDF or a standalone HTML page. The source is under \
+/work or /out; the result is saved in /out under `name` (subdirectories allowed), which \
+is what the task keeps as an artifact. Arabic text is set right to left. It touches \
+nothing outside /out. Returns {"path", "format", "bytes"}, or {"error": "<why>"}."""
+effect = "read"
+timeout_seconds = 180
+needs = ["bash", "python3", "pandoc", "soffice"]
+network = []
+secrets = []
+
+[inputs.source]
+type = "string"
+description = "The Markdown file, under /work or /out."
+required = true
+
+[inputs.format]
+type = "string"
+description = "docx, pptx, pdf or html."
+required = true
+
+[inputs.name]
+type = "string"
+description = "The file's path inside /out, ending with the format's extension, such as reports/offer.docx. The source's name with the extension of the format when left out."
+required = false
+
+[inputs.title]
+type = "string"
+description = "The document's or the deck's title, when the Markdown has none."
+required = false
+
+[translations.fr]
+description = "Construit un livrable à partir d'un fichier Markdown : un document Word (docx), une présentation (pptx, une diapositive par titre H2), un PDF ou une page HTML autonome. La source est sous /work ou /out ; le résultat est enregistré dans /out sous `name` (sous-dossiers permis), ce que la tâche conserve comme artefact. Le texte arabe est écrit de droite à gauche. Rien n'est touché hors de /out. Renvoie {\"path\", \"format\", \"bytes\"}, ou {\"error\": \"<pourquoi>\"}."
+
+[translations.fr.inputs.source]
+description = "Le fichier Markdown, sous /work ou /out."
+
+[translations.fr.inputs.format]
+description = "docx, pptx, pdf ou html."
+
+[translations.fr.inputs.name]
+description = "Le chemin du fichier dans /out, finissant par l'extension du format, par exemple reports/offre.docx. Le nom de la source avec l'extension du format si omis."
+
+[translations.fr.inputs.title]
+description = "Le titre du document ou de la présentation, si le Markdown n'en a pas."
+
+[translations.ar]
+description = "يبني ملفًا جاهزًا للتسليم من ملف Markdown: مستند Word (docx) أو عرضًا تقديميًا (pptx، شريحة لكل عنوان H2) أو ملف PDF أو صفحة HTML مستقلة. يكون المصدر تحت /work أو /out، ويُحفظ الناتج في /out باسم `name` (يُسمح بمجلدات فرعية)، وهو ما تحتفظ به المهمة كمُخرَج. يُكتب النص العربي من اليمين إلى اليسار. لا يمسّ شيئًا خارج /out. يعيد {\"path\", \"format\", \"bytes\"}، أو {\"error\": \"<السبب>\"}."
+
+[translations.ar.inputs.source]
+description = "ملف Markdown، تحت /work أو /out."
+
+[translations.ar.inputs.format]
+description = "docx أو pptx أو pdf أو html."
+
+[translations.ar.inputs.name]
+description = "مسار الملف داخل /out، وينتهي بامتداد الصيغة، مثل reports/offer.docx. اسم المصدر بامتداد الصيغة إذا تُرك فارغًا."
+
+[translations.ar.inputs.title]
+description = "عنوان المستند أو العرض، إذا لم يكن في ملف Markdown عنوان."

@@ -400,7 +400,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   packs' agents; such an attempt says its engine was `fixture`.
 - **Workspace tools** with `run.sh`: the runner fetches the files by digest, validates
   the input against the schema, and runs the script in a tool sandbox with the task's
-  working copy mounted read-only at `/work`, the declared hosts on the egress proxy and
+  working copy mounted read-only at `/work`, the attempt's `/out` writable (a tool that builds a deliverable saves it there), the declared hosts on the egress proxy and
   the declared secrets leased for that call. `effect = "read"` runs at once.
 - **Effects** (`write`, `privileged`): the runner posts the call to `tool-call`. The
   Governor builds the approval subject (tool, digest of the tool's definition, input and its digest, task,

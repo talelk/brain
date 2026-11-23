@@ -1,7 +1,7 @@
 description = "Writes and runs data quality checks (SQL or dbt tests) on a project's data and reports what passed and failed, with the query and the numbers behind each."
 engine = ["pi", "claude"]
 native = "all"
-tools = ["memory.search", "task.note"]
+tools = ["memory.search", "task.note", "chart.make", "sheet.build"]
 
 [limits]
 spend_usd = 0.75
