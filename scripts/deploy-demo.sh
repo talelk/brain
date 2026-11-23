@@ -11,7 +11,7 @@
 #   data/                the Governor's data, mounted into its container; `pnpm brain backup` reads it from the host
 #   run/                 launcher socket, the runner's folder, egress grants, the Governor's runner token
 #   archive/             what earlier versions left: data-<time>/, config-<time>/. Never deleted by any deploy.
-#   docker-compose.yml, .env, runner.env                         written by this script
+#   docker-compose.yml, .env, runner.env, metrics.token          written by this script
 #
 # Steps, in order:
 #   1. Once, before the first deploy of this version (no /srv/demos/brain/.simplified-model yet): stop and disable the units
@@ -21,7 +21,8 @@
 #   2. Sync the source.
 #   3. Install docker-compose.yml and .env (the launcher offers the host commands open; to limit them, write a host-commands file and set BRAIN_LAUNCHER_HOST_COMMANDS).
 #   4. Build the Governor image and the sandbox images.
-#   5. Start the Governor and wait for /health/ready.
+#   5. Start the Governor and wait for /health/ready. (The metrics token is made in step 3 and handed to it; a vmagent job for /metrics
+#      is added to the host's /srv/demos/victoria/vmagent.yml between marker lines, only when that stack is there.)
 #   6. Start the egress proxy, the only way a sandbox reaches a network.
 #   7. Node and the dependencies of the launcher and the runner on the host.
 #   8. The systemd units brain-launcher, brain-store (the git store, port 3110 on this host only) and brain-runner; the runner enrols by itself the first time, with the token the
@@ -196,7 +197,9 @@ if ! id -nG "$DEPLOY_USER" | tr ' ' '\n' | grep -qx docker; then as_root usermod
 BRIDGE_IP="$(docker network inspect bridge --format '{{range .IPAM.Config}}{{.Gateway}} {{end}}' | tr ' ' '\n' | grep -E '^[0-9]+(\.[0-9]+){3}$' | head -n 1)"
 [ -n "$BRIDGE_IP" ] || { echo "Docker's bridge network has no IPv4 gateway address" >&2; exit 1; }
 umask 077
-printf 'BRAIN_BASE_URL=https://%s\nBRAIN_UID=%s\nBRAIN_GID=%s\nBRAIN_BRIDGE_IP=%s\n' "$DOMAIN" "$(id -u)" "$(id -g)" "$BRIDGE_IP" > .env
+# The token GET /metrics asks for: made once, kept in metrics.token (readable by the deploy user only), never printed.
+[ -s metrics.token ] || openssl rand -hex 32 > metrics.token
+printf 'BRAIN_BASE_URL=https://%s\nBRAIN_UID=%s\nBRAIN_GID=%s\nBRAIN_BRIDGE_IP=%s\nBRAIN_METRICS_TOKEN=%s\n' "$DOMAIN" "$(id -u)" "$(id -g)" "$BRIDGE_IP" "$(cat metrics.token)" > .env
 SCRIPT
 
 # ---- 4. images ----
@@ -217,6 +220,47 @@ done
 echo "!! the Governor is not ready after two minutes. The end of its log:" >&2
 docker compose logs --no-color --tail=40 governor >&2 || true
 exit 1
+SCRIPT
+
+# ---- 5b. the metrics scrape job ----
+on_host "Let the host's vmagent scrape the Governor's /metrics (a marked block of /srv/demos/victoria/vmagent.yml; skipped when that stack is not there)" <<'SCRIPT'
+VMA=/srv/demos/victoria/vmagent.yml
+if [ ! -f "$VMA" ] || ! docker inspect victoria-vmagent >/dev/null 2>&1; then
+  echo "    no vmagent on this host: Brain's metrics are not scraped (see docs/wiki/ops-live-server.md)"
+  exit 0
+fi
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+umask 077
+# Only the block between the two marker lines is ours; the rest of the file is left byte for byte as it is. The token is in the block, so
+# the file is made readable by its owner and group only (vmagent reads it as root); it is never printed.
+awk '/^# >>> brain-governor/{skip=1} !skip{print} /^# <<< brain-governor/{skip=0}' "$VMA" > "$WORK/base.yml"
+{
+  cat "$WORK/base.yml"
+  cat <<BLOCK
+# >>> brain-governor (written by Brain's scripts/deploy-demo.sh; edits between these lines are replaced)
+  - job_name: brain-governor
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials: "$(cat "$REMOTE_DIR/metrics.token")"
+    static_configs:
+      - targets: ["127.0.0.1:3100"]
+# <<< brain-governor
+BLOCK
+} > "$WORK/new.yml"
+if cmp -s "$WORK/new.yml" "$VMA"; then echo "    the scrape job is already there"; exit 0; fi
+# vmagent checks the file itself before the live one is touched; the host's file is kept once as vmagent.yml.before-brain.
+if ! docker run --rm -v "$WORK/new.yml:/etc/vmagent.yml:ro" "$(docker inspect victoria-vmagent --format '{{.Image}}')" -promscrape.config=/etc/vmagent.yml -remoteWrite.url=http://127.0.0.1:9/api/v1/write -dryRun >/dev/null 2>&1; then
+  echo "!! vmagent did not accept the new configuration: the host's vmagent.yml is untouched. Add the scrape job by hand (docs/wiki/ops-live-server.md)." >&2
+  exit 0
+fi
+[ -e "$VMA.before-brain" ] || cp -p "$VMA" "$VMA.before-brain"
+# Written in place: vmagent.yml is a single-file bind mount, which a replaced file would leave behind.
+cat "$WORK/new.yml" > "$VMA"
+chmod 640 "$VMA"
+docker kill --signal=HUP victoria-vmagent >/dev/null
+echo "    vmagent reloaded its configuration with the brain-governor job"
 SCRIPT
 
 # ---- 6. the egress proxy ----

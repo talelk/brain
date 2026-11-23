@@ -12,6 +12,7 @@ import { log } from "./log";
  *   BRAIN_STORE_URL                the address runners reach the git store at (apps/store); without it an attempt that needs the store fails
  *   BRAIN_PACKS_DIR                the packs directory (default the one shipped with Brain)
  *   LOG_LEVEL                      the least level logged: debug, info, warn or error (default info)
+ *   BRAIN_METRICS_TOKEN            the bearer token GET /metrics asks for; without it the route answers 404
  *   BRAIN_LOCAL_RUNNER_TOKEN_FILE  where to leave a one-use runner token while no runner is enrolled
  */
 const port = Number(process.env["PORT"] ?? 3100);

@@ -9,6 +9,7 @@ import { verify } from "../trust/audit";
 import { readSecret } from "../trust/secrets";
 import { lastPush } from "../workspace/push";
 import { activeManifest } from "../workspace/store";
+import { metricsResponse } from "./metrics";
 
 /** What the Health screen shows (docs/architecture.md section 10): runners, whether each model answers, the state of the audit log, and the last backup. */
 const VERSION = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
@@ -59,6 +60,9 @@ export function registerHealth({ gov, app }: Governor): void {
     gov.db.prepare("SELECT 1").get();
     return c.json({ ready: true });
   });
+
+  // For a scraper beside the Governor; not a command, not a person's route.
+  app.get("/metrics", (c) => metricsResponse(gov, c, VERSION));
 
   gov.registry.query("health", async (ctx, input) => {
     const now = ctx.now();

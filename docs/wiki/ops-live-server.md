@@ -47,6 +47,49 @@ Restore on the host: `docker compose stop governor`, then `BRAIN_HOME=/srv/demos
 (it refuses while the Governor answers; the data that was in place is moved to `data.before-restore-<time>`),
 then `docker compose start governor`.
 
+## Brain's own metrics
+
+The Governor answers `GET /metrics` (Prometheus text; the list is in [docs/architecture.md](../architecture.md) section 9) to a bearer token
+only. The deploy makes the token once in `/srv/demos/brain/metrics.token` (mode 600, never printed), gives it to the Governor as
+`BRAIN_METRICS_TOKEN`, and adds a scrape job to the host's vmagent (`/srv/demos/victoria/vmagent.yml`) between the lines
+`# >>> brain-governor` and `# <<< brain-governor`. It checks the new file with `vmagent -dryRun` first, keeps the original once as
+`vmagent.yml.before-brain`, writes the file in place (it is a single-file bind mount), makes it mode 640 because the token is inside, and
+reloads vmagent with SIGHUP (no restart). If vmagent does not accept the file, the deploy leaves it alone and says so. The same job by hand, appended
+under `scrape_configs:` (the token is `cat /srv/demos/brain/metrics.token`), then `docker kill --signal=HUP victoria-vmagent`:
+
+```yaml
+  - job_name: brain-governor
+    metrics_path: /metrics
+    authorization: { type: Bearer, credentials: "<the token>" }
+    static_configs:
+      - targets: ["127.0.0.1:3100"]
+```
+
+The public name cannot reach it: nginx adds `X-Forwarded-For`, and the Governor answers 404 to any request that has it. The scrape goes to
+`127.0.0.1:3100` directly. Series are labelled `env="demos"`, `host="demos.mykeyrus.tn"`, `job="brain-governor"`; VictoriaMetrics keeps one day.
+
+Look without Grafana (`https://victoria.mykeyrus.tn/vm/` is behind the host's basic auth; the API path is `/vm/api/v1/query`):
+
+```bash
+q() { curl -fsS -u "$VM_USER:$VM_PASS" --data-urlencode "query=$1" https://victoria.mykeyrus.tn/vm/api/v1/query; }
+q 'sum by (state) (brain_tasks{job="brain-governor"})'                                   # queue depth and what is running
+q 'sum by (wait) (brain_tasks_waiting)'                                                  # why tasks wait (daily-cap, slot, no-runner, ...)
+q 'brain_oldest_queued_seconds'                                                          # longest wait for a slot
+q 'sum(brain_tokens_today{direction=~"input|output"})'                                   # tokens today (resets at 00:00 UTC)
+q 'sum by (workspace) (brain_micro_usd_today) / 1e6'                                     # dollars today
+q 'brain_goals_today{result="failed"}'                                                   # goals failed today
+q 'histogram_quantile(0.95, sum by (le, route) (rate(brain_http_request_duration_seconds_bucket[5m])))'   # p95 latency by route
+q 'sum by (route) (rate(brain_http_request_duration_seconds_count{status="5xx"}[5m]))'   # server errors per second
+q 'brain_runner_free_slots == 0 and on() brain_tasks_waiting{wait="slot"} > 0'           # runners full with work waiting
+q 'brain_runners{state="online"} == 0'                                                   # no runner online
+q 'brain_schedules_overdue > 0'                                                          # a scheduled Play did not start
+q 'brain_event_loop_lag_seconds{quantile="0.99"}'                                        # the Governor is blocked when this passes ~0.2
+q 'brain_sqlite_bytes{file="wal"}'                                                       # a WAL that keeps growing is a stuck checkpoint
+q 'brain_process_resident_memory_bytes / 2^20'                                           # Governor memory in MiB
+```
+
+Counters of the histogram reset when the Governor restarts (`resets()` and `rate()` handle it); the `*_today` gauges are recounted from the database.
+
 ## Starting over (the playground reset)
 
 To start a Brain from empty without losing the old one, move the data aside; never delete it. `data/` and the git
