@@ -69,12 +69,19 @@ describe("a report", () => {
     expect(checks).toBe(1);
   });
 
+  it("of an agent that cannot write files, which says it saved /out/<name>, is kept by Brain as that file", async () => {
+    driver.script({ dev: () => "# Report\nSaved to /out/report.md.", checker: () => pass() });
+    const goal = await getTask(member, workspaceId, (await member.command("task.create", { workspaceId, play: "job" })).taskId);
+    await driver.drain();
+    expect(step(await getTask(member, workspaceId, goal.id), "do")).toMatchObject({ state: "done", round: 1 });
+  });
+
   it("that starts with BLOCKED goes back with the reason and is never reviewed", async () => {
     let checks = 0;
     driver.script({ dev: () => "BLOCKED: I have no tool to write a file.", checker: () => { checks += 1; return pass(); } });
     const goal = await getTask(member, workspaceId, (await member.command("task.create", { workspaceId, play: "job" })).taskId);
     await driver.drain();
-    expect(step(await getTask(member, workspaceId, goal.id), "do")).toMatchObject({ state: "needs_you", needs: { kind: "check", findings: expect.stringContaining("I have no tool to write a file") } });
+    expect(step(await getTask(member, workspaceId, goal.id), "do")).toMatchObject({ state: "needs_you", round: 2, needs: { kind: "check", repeated: true, findings: expect.stringContaining("I have no tool to write a file") } });
     expect(checks).toBe(0);
   });
 });

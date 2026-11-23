@@ -157,11 +157,14 @@ export async function planFix(gov: Gov, attempt: AttemptRow, task: TaskRow, rowI
 
 // --- carrying it out ---
 
+/** The refusal of a proposal whose workspace moved on after it was made. */
+export class WorkspaceChanged extends ToolRefusal {}
+
 /** Commits an approved proposal, as `file.write` does. Refused when the workspace changed since the proposal was made. */
 export async function commitFix(gov: Gov, task: TaskRow, rawInput: JsonValue, baseCommit: string | undefined): Promise<Committed> {
   const input = inputOf(rawInput);
   const workspace = getWorkspace(gov.db, task.workspace_id);
-  const changed = new ToolRefusal("The workspace changed after this fix was proposed, so the approval no longer fits it. Propose the fix again from the new files");
+  const changed = new WorkspaceChanged("The workspace changed after this fix was proposed, so the approval no longer fits it. Propose the fix again from the new files");
   if (baseCommit !== commitOf(gov.db, workspace.id, workspace.snapshotDigest)) throw changed;
   const healed = healedBy(task);
   return commitFolder(gov, workspace.slug, {

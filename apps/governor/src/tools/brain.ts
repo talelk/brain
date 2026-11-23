@@ -7,8 +7,8 @@ import { proposeMemory, searchMemory } from "../memory/memory";
 import { settle } from "../tasks/orchestrator";
 import { insertTask, taskOf, type AttemptRow, type TaskRow } from "../tasks/store";
 import { authorizeCall, callRowId, finishCall, openCall, type PullRequestChange } from "../trust/approvals";
-import { manifestOf } from "../workspace/store";
-import { applyFix, commitFix, planFix, type FixPlan } from "./fix";
+import { getWorkspace, manifestOf } from "../workspace/store";
+import { applyFix, commitFix, planFix, WorkspaceChanged, type FixPlan } from "./fix";
 import { runPlatform } from "./platform";
 import { inputProblem, ToolRefusal } from "./schema";
 import { errorFields, log } from "../log";
@@ -137,7 +137,11 @@ export function runBrainTool(gov: Gov, attempt: AttemptRow, request: Omit<BrainT
       const output = await runOutside(gov, attempt, task, request.tool, input, first.change);
       return tx(db, () => finish("succeeded", output));
     } catch (e) {
-      return tx(db, () => finish("failed", { error: words(e) }));
+      return tx(db, () => {
+        // The agent that runs next reads the files as they are now, and is told to propose its fix again from them.
+        if (e instanceof WorkspaceChanged) db.prepare("UPDATE tasks SET snapshot_digest=? WHERE id=?").run(getWorkspace(db, task.workspace_id).snapshotDigest, task.id);
+        return finish("failed", { error: words(e) });
+      });
     }
   };
   // The same call asked twice at once is carried out once.

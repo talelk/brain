@@ -1,7 +1,7 @@
 import { MAX_ATTEMPTS, type TaskNeed } from "@brain/contracts";
 import { describe, expect, it } from "vitest";
 import {
-  afterCheck, afterPersonCheck, afterWork, repeats, backoffMs, checkerOf, doers, forEachItems, groupOutcome, promote, readJudgement, readPlan, readVerdict, blockedReason, claimedFiles, unkeptClaim, renderGoal, resultObject, retryOf, whenHolds,
+  afterCheck, afterPersonCheck, afterWork, repeats, backoffMs, checkerOf, doers, forEachItems, groupOutcome, promote, readJudgement, readPlan, readVerdict, blockedReason, claimedFiles, missingMemory, unkeptClaim, renderGoal, resultObject, retryOf, whenHolds,
   type Scope, type StepSettings, type WorkFacts,
 } from "../../apps/governor/src/tasks/decide";
 
@@ -103,7 +103,10 @@ describe("the check", () => {
     expect(afterCheck(task, { pass: false, score: 0.2, findings: `${asked} Also fix the table.` }, asked)).toEqual({ next: "needs", need: { kind: "check", findings: `${asked} Also fix the table.`, repeated: true } });
     expect(afterCheck(task, { pass: false, score: 0.2, findings: "The summary leaves out the second migration and its rollback plan entirely, so the checker cannot verify the claim." }, asked)).toEqual({ next: "again", round: 2 });
     expect(afterCheck(task, { pass: true, score: 0.9, findings: asked }, asked)).toEqual({ next: "done" });
-    expect([repeats(undefined, asked), repeats("no test", "no test"), repeats(asked, asked)]).toEqual([false, false, true]);
+    expect([repeats(undefined, asked), repeats("no test", "no test"), repeats("no test", "no docs"), repeats(asked, asked)]).toEqual([false, true, false, true]);
+  });
+  it("a step that requires memory is skipped until an entry matches", () => {
+    expect([missingMemory(["app-screens-*"], ["welcome", "template-app-screens"]), missingMemory(["app-screens-*"], ["app-screens-kios"]), missingMemory([], [])]).toEqual(["app-screens-*", undefined, undefined]);
   });
   it("with a target score, a pass below it is not a pass", () => {
     expect(afterCheck({ ...task, targetScore: 0.8 }, { pass: true, score: 0.7, findings: "nearly" })).toEqual({ next: "again", round: 2 });

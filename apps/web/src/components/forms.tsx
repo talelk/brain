@@ -186,7 +186,7 @@ export function ToolForm(props: { name: string; initial: ToolFile; isNew: boolea
   );
 }
 
-const blankStep = (agent: string): StepSpec => ({ id: "", agent, goal: "", after: [], max_rounds: 2, approve: false });
+const blankStep = (agent: string): StepSpec => ({ id: "", agent, goal: "", after: [], requires: [], max_rounds: 2, approve: false });
 
 export function PlayForm(props: { name: string; initial: PlayFile; isNew: boolean; snapshot: SnapshotManifest; readOnly: boolean; onSaved: () => void }): JSX.Element {
   const [play, setPlay] = createStore<PlayFile>(structuredClone(strip(props.initial)));

@@ -105,7 +105,7 @@ function findingsOf(db: Db, task: TaskRow): string[] {
   const calls = (db.prepare(`SELECT c.tool, c.input_json, c.output_json, c.outcome, p.state FROM tool_calls c JOIN approvals p ON p.id = c.approval_id JOIN attempts a ON a.id = c.attempt_id
     WHERE c.task_id=? AND a.state='held' AND p.state != 'pending' ORDER BY c.rowid`).all(task.id) as Array<{ tool: string; input_json: string; output_json: string | null; outcome: string; state: string }>).map((row) => {
     const call = `Your earlier call to ${row.tool} with ${clip(row.input_json)}`;
-    if (row.state === "approved") return row.outcome === "succeeded" ? `${call} was approved after you stopped, and it ran. Its answer: ${clip(row.output_json ?? "null")}` : `${call} was approved after you stopped, but it did not succeed: ${clip(row.output_json ?? "no answer")}`;
+    if (row.state === "approved") return row.outcome === "succeeded" ? `${call} was approved after you stopped, and it ran. Its answer: ${clip(row.output_json ?? "null")}` : `${call} was approved after you stopped, but it did not succeed: ${clip(row.output_json ?? "no answer")}${row.tool === "workspace.fix" && /workspace changed after/u.test(row.output_json ?? "") ? ". The files you read are now the current ones: read them again and call workspace.fix again with the change made on them, without asking anyone" : ""}`;
     return `${call} did not happen (${row.state === "rejected" ? "a person declined it" : "nobody decided in time"}): ${clip(row.output_json ?? "")}. Do not repeat it.`;
   });
   // A plan the Governor refused: the planner that makes the plan again is told why.

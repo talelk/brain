@@ -217,6 +217,7 @@ Step fields, and nothing else:
 | `review_by`, `max_rounds`, `target_score` | A second agent checks the result and sends it back until it passes. |
 | `candidates`, `judge` | Several agents attempt the step; a judge agent, or a person, keeps one. |
 | `when` | Run only if a condition on an earlier result holds. |
+| `requires` | Memory entry names the step needs (`*` for any run of characters, as in `app-screens-*`). When one has no entry, the step is skipped with a note that says which, instead of running and failing. |
 | `approve` | A person signs off before the step counts as done. |
 
 ### Memory
@@ -319,7 +320,9 @@ planner and a checker; the other packs build on it.
    whose first line starts with `BLOCKED:` is the agent saying it cannot do the task as it is set
    up: it goes back the same way, with its reason, and the reviewer is not asked. Every agent is
    told so in its task text; both count as rounds, so they end at the step's limit and a person
-   is asked.
+   is asked. A block reason or a failed check that comes back unchanged ends the rounds at once,
+   with the reason said. An agent that cannot write files has only its answer to save, so when
+   its result says it saved `/out/<name>` Brain keeps the result itself as that file.
 6. Code changes leave only as a pull request opened from the working copy's diff.
 
 A task is in one of these states: `waiting`, `ready`, `running`, `needs you`, `done`,
@@ -449,7 +452,8 @@ finds the cause of the repeated failure. It then does one of two things:
   files as a diff with the reason, and approves exactly that change. The change is
   committed like any edit of the folder, and the failed task, and only it, runs again on
   that new commit. A rejection ends the goal; the failed task shows the healer's analysis
-  and the proposal.
+  and the proposal. When the workspace changed after the proposal was made, the approval no
+  longer fits it: the healer is given the current files and proposes again by itself.
 - The cause is not in the configuration (the model is down, the project's code is wrong),
   or the healer cannot tell: it asks a person a question with `task.ask`. The person's
   answer comes back to the healer, which may then call `workspace.fix`.

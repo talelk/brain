@@ -192,6 +192,8 @@ export const StepSpec = z.strictObject({
   candidates: z.union([z.int().min(2).max(8), z.array(slug("an agent name")).min(2).max(8)]).optional(),
   judge: slug("a judge").optional(),
   when: z.string().min(1).optional(),
+  /** Memory entry names the step needs (`*` matches any run of characters): when one has no entry, the step is skipped. */
+  requires: z.array(z.string().regex(/^[a-z0-9*][a-z0-9*._-]*$/u, "must be a memory entry name, with * for any run of characters")).default([]),
   approve: z.boolean().default(false),
 });
 export type StepSpec = z.infer<typeof StepSpec>;

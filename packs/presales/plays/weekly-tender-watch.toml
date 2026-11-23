@@ -7,8 +7,9 @@ schedule = "0 7 * * 1"
 [[step]]
 id = "watch"
 agent = "rfp-analyst"
+requires = ["tender-sources*"]
 goal = """
-List new public tenders that fit this consultancy. Find in memory (memory.search) the \
+List new public tenders that fit this consultancy. Find in memory (memory.search, the entry named tender-sources) the \
 tender sources to watch, the company's domains and the exclusion rules, then read each \
 source with web.fetch. If a fetch is refused or fails, say which address and why; do \
 not work around it. For \

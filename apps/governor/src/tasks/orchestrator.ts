@@ -2,11 +2,12 @@ import { ATTEMPT_COMPLETED_EVENT, BrainError, MAX_ATTEMPTS, type Actor, type Att
 import type { Gov } from "../dispatch";
 import { append, SYSTEM } from "../events";
 import { expireApprovals } from "../trust/approvals";
+import { linkArtifact, putArtifact } from "../trust/artifacts";
 import { settleUsage } from "../trust/usage";
 import { manifestOf } from "../workspace/store";
 import { closeHealed, healFailed } from "./heal";
 import { closeSuperseded } from "./superseded";
-import { afterCheck, blockedReason, claimedFiles, unkeptClaim, afterPersonCheck, afterWork, checkerOf, doers, groupOutcome, promote, readJudgement, readPlan, readVerdict, passes, renderGoal, retryOf, SKIPPED, type WorkFacts, type WorkState } from "./decide";
+import { afterCheck, missingMemory, blockedReason, claimedFiles, unkeptClaim, afterPersonCheck, afterWork, checkerOf, doers, groupOutcome, promote, readJudgement, readPlan, readVerdict, passes, renderGoal, retryOf, SKIPPED, type WorkFacts, type WorkState } from "./decide";
 import {
   ACTIVE_ATTEMPT, agentCapsOf, agentsOf, attemptOf, createPlanned, failureOf, insertTask, json, needOf, payloadOf, queueAttempt, scopeOf, setState, settingsOf, stepOf, taskOf, TERMINAL,
   type AttemptRow, type TaskRow,
@@ -39,6 +40,12 @@ function advanceWaiting(gov: Gov, task: TaskRow): boolean {
   }
   if (db.prepare(undone).get(task.id)) return false;
   const step = stepOf(gov, task);
+  const absent = missingMemory(step?.requires ?? [], manifestOf(gov, task.snapshot_digest).memory.map((entry) => entry.name));
+  if (absent !== undefined) {
+    gov.db.prepare("INSERT INTO notes(workspace_id, root_id, author, attempt_id, text, created_at_ms) VALUES (?,?,?,NULL,?,?)").run(task.workspace_id, task.root_id, "brain", `Skipped ${step?.id}: the workspace has no memory entry "${absent}", which this step requires.`, gov.clock.nowMs());
+    setState(gov, task, "done", { result: SKIPPED });
+    return true;
+  }
   const scope = scopeOf(db, task);
   const next = promote({ agent: task.agent, when: task.when_expr, forEach: task.for_each }, scope);
   if (next.to === "skipped") setState(gov, task, "done", { result: SKIPPED });
@@ -176,7 +183,18 @@ function reportProblem(gov: Gov, task: TaskRow, work: AttemptRow): string | unde
   const claims = claimedFiles(work.result ?? "");
   if (claims.length === 0) return undefined;
   const kept = new Set((gov.db.prepare("SELECT name FROM artifact_links WHERE attempt_id=? AND kind='output'").all(work.id) as Array<{ name: string }>).map((row) => row.name));
-  return unkeptClaim(claims, kept, Object.keys(manifestOf(gov, task.snapshot_digest).projects));
+  const manifest = manifestOf(gov, task.snapshot_digest);
+  // An agent that cannot write files has only its answer to save: Brain keeps the answer as the /out file the goal asked for.
+  if (manifest.agents[work.agent]?.native !== "all") {
+    for (const claim of claims) {
+      const [, root, ...rest] = claim.split("/");
+      const name = rest.join("/");
+      if (root !== "out" || name === "" || kept.has(name)) continue;
+      linkArtifact(gov.db, { digest: putArtifact(gov, new TextEncoder().encode(work.result ?? "")), workspaceId: task.workspace_id, taskId: task.id, attemptId: work.id, name, kind: "output", mediaType: name.endsWith(".md") ? "text/markdown" : "text/plain" }, gov.clock.nowMs());
+      kept.add(name);
+    }
+  }
+  return unkeptClaim(claims, kept, Object.keys(manifest.projects));
 }
 
 /** The check Brain makes itself: a report that is wrong in a way code can see goes back as a failed round, with the reason, and no reviewer is asked. */

@@ -7,11 +7,11 @@ schedule = "0 6 * * 1"
 [[step]]
 id = "sweep"
 agent = "browser-walkthrough"
+requires = ["app-screens-*"]
 goal = """
 Walk through every screen of every app in the workspace's notes as a first-time user, in a \
 real browser, and report every issue. Find the apps' addresses, the sign-in and the screens \
-with memory.search ("app screens"). If there is no such note, answer with a first line \
-BLOCKED: and say that the note is missing. Visit each screen at a wide and a phone width, \
+with memory.search ("app screens"). Visit each screen at a wide and a phone width, \
 and in French and Arabic if the app has them. Never skip a screen; if you cannot reach one, \
 say which and why."""
 
@@ -24,6 +24,7 @@ visited at both widths, and the layout, accessibility and language of what it re
 repeatable steps and evidence for every issue. Post the most serious issues as one note \
 with task.note."""
 after = ["sweep"]
+requires = ["app-screens-*"]
 
 [translations.fr]
 title = "Balayage hebdomadaire de non-régression"

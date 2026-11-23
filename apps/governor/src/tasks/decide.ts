@@ -81,6 +81,14 @@ export function promote(task: { readonly agent: string | null; readonly when: st
   return task.agent === null ? { to: "running" } : { to: "ready" };
 }
 
+/** The first pattern (`*` for any run of characters) that no memory entry name matches; undefined when every one does. */
+export function missingMemory(requires: readonly string[], names: readonly string[]): string | undefined {
+  return requires.find((pattern) => {
+    const match = new RegExp(`^${pattern.split("*").map((part) => part.replace(/[.+?^${}()|[\]\\]/gu, "\\$&")).join(".*")}$`, "u");
+    return !names.some((name) => match.test(name));
+  });
+}
+
 // --- attempts that fail ---
 
 /** How long a retry waits (`RETRY_DELAYS_MS`: 5 s, 20 s, 80 s, then minutes, then an hour). */
@@ -179,7 +187,8 @@ const words = (text: string): Set<string> => new Set(text.toLowerCase().match(/[
 export function repeats(previous: string | undefined, current: string): boolean {
   if (previous === undefined) return false;
   const [a, b] = [words(previous), words(current)];
-  if (a.size < 8 || b.size < 8) return false;
+  // Too few words to compare by overlap: only the same words count (an identical block reason, an identical failed check).
+  if (a.size < 8 || b.size < 8) return a.size > 0 && a.size === b.size && [...a].every((word) => b.has(word));
   let shared = 0;
   for (const word of a) if (b.has(word)) shared += 1;
   return shared / (a.size + b.size - shared) >= 0.6;
