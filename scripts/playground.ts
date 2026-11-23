@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse, stringify, TomlDate } from "smol-toml";
 
@@ -130,4 +130,32 @@ for (const entry of WITH_STARTER) {
   const files = [{ path: "brain.toml", content: stringify(config) }, ...(entry.memory ?? []).map((name) => ({ path: `memory/${name}.md`, content: readFileSync(join(HERE, "playground", `${name}.md`), "utf8") }))];
   await command("file.write", { workspaceId: id, files, message: known ? "Apply the playground manifest" : "Set up the playground workspace" });
   console.log(`${known ? "updated" : "created"}  ${entry.slug}  ${id}`);
+}
+
+// Deliver the packs shipped with this Brain: the admin workspace keeps an editable copy of each under packs/<name>/ and releases come from
+// it, so a change to a shipped pack reaches the workspaces only through the copy. Each shipped pack is written into the copy (a file the pack
+// no longer has is removed, and the copy's `version` line stays), a pack whose copy changed is released, and every workspace is moved to the
+// latest release. Skipped when there is no admin workspace.
+const admin = PLAYGROUND.find((entry) => entry.platform === "admin");
+const adminId = admin ? ((await query("me")) as { workspaces: Array<{ id: string; slug: string }> }).workspaces.find((one) => one.slug === admin.slug)?.id : undefined;
+if (adminId) {
+  const root = join(HERE, "..", "packs");
+  const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)]));
+  const existing = ((await query("workspace.files", { workspaceId: adminId })) as { files: Array<{ path: string }> }).files.map((file) => file.path);
+  const changed: string[] = [];
+  for (const pack of readdirSync(root, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)) {
+    const shipped = new Map<string, string>(walk(join(root, pack)).map((path) => [`packs/${pack}/${relative(join(root, pack), path).split(sep).join("/")}`, readFileSync(path, "utf8")]));
+    const before = ((await query("pack.files", { workspaceId: adminId, name: pack, version: "working" }).catch(() => ({ files: [] }))) as { files: Array<{ path: string; content: string }> }).files;
+    const version = /^version\s*=.*$/mu.exec(before.find((file) => file.path === "pack.toml")?.content ?? "")?.[0];
+    const manifest = `packs/${pack}/pack.toml`;
+    if (version && shipped.has(manifest)) shipped.set(manifest, shipped.get(manifest)!.replace(/^(name\s*=.*)$/mu, `$1\n${version}`));
+    const writes = [...shipped].filter(([path, content]) => before.find((file) => `packs/${pack}/${file.path}` === path)?.content !== content);
+    const removes = existing.filter((path) => path.startsWith(`packs/${pack}/`) && !shipped.has(path));
+    if (writes.length === 0 && removes.length === 0) continue;
+    await command("file.write", { workspaceId: adminId, files: writes.map(([path, content]) => ({ path, content })), remove: removes, message: `Deliver the shipped ${pack} pack` });
+    changed.push(pack);
+  }
+  for (const pack of changed) console.log(`released  ${pack}  v${((await command("pack.release", { workspaceId: adminId, name: pack })) as { version: number }).version}`);
+  const moved = (await command("packs.updateAll", { workspaceId: adminId })) as { updated: unknown[]; failed: Array<{ slug: string; message: string }> };
+  console.log(`updated   ${moved.updated.length} workspaces${moved.failed.length > 0 ? `, failed: ${moved.failed.map((one) => one.slug).join(", ")}` : ""}`);
 }
