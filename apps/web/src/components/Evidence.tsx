@@ -3,20 +3,13 @@ import type { Attempt, AttemptEvent, Task, ToolCall } from "@brain/contracts";
 import { artifactUrl, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
 import { t, tn } from "../i18n";
-import { bytes, dateTime, show } from "../lib/format";
+import { dateTime, show } from "../lib/format";
 import { ArtifactDiff } from "./Diff";
 import { tableOf, viewOf, type View } from "../lib/toolview";
-import { Code, Details, Failure, Icon, Keyed, Loading } from "./bits";
+import { Code, Details, Failure, Grid, Keyed, Loading } from "./bits";
+import { Outputs } from "./Outputs";
 
 const OUTCOME_TONE: Record<ToolCall["outcome"], string> = { succeeded: "text-ok", failed: "text-bad", rejected: "text-bad", held: "text-needs-text", pending: "text-needs-text" };
-
-const clip = (text: string): string => (text.length > 140 ? `${text.slice(0, 140)}…` : text);
-
-function Grid(props: { header: readonly string[]; rows: readonly (readonly string[])[] }): JSX.Element {
-  return (
-    <div class="prose-table max-h-80 overflow-auto"><table><thead><tr><For each={props.header}>{(head) => <th>{head}</th>}</For></tr></thead><tbody><For each={props.rows}>{(row) => <tr><For each={row}>{(item) => <td class="code-ltr" title={item.length > 140 ? item : undefined}>{clip(item)}</td>}</For></tr>}</For></tbody></table></div>
-  );
-}
 
 /** A value inside a card: short text stays inline, a list of objects is a table, a long or multi-line text or anything else nested is a block. */
 function Value(props: { value: unknown }): JSX.Element {
@@ -126,11 +119,7 @@ export function Evidence(props: { task: Task }): JSX.Element {
         <Show when={files().length > 0}>
           <div>
             <h4 class="mb-1 t-small font-semibold text-ink-2">{t("evidence.files")}</h4>
-            <ul>
-              <For each={files()}>
-                {(file) => <li class="flex items-center gap-2 border-b border-rule py-2 last:border-b-0"><Icon name="lucide-file-text" class="size-4 text-ink-3" /><a class="link t-code code-ltr min-w-0 truncate" href={artifactUrl(file.digest)} target="_blank" rel="noreferrer">{file.name}</a><span class="ms-auto t-small text-ink-3">{bytes(file.bytes)}</span></li>}
-              </For>
-            </ul>
+            <Outputs files={files().map((file) => ({ name: file.name, bytes: file.bytes, url: artifactUrl(file.digest) }))} />
           </div>
         </Show>
         <Show when={files().length === 0 && !patch() && props.task.attempts.some((attempt) => attempt.kind === "work" && attempt.state === "succeeded")}>

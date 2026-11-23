@@ -152,6 +152,14 @@ export function Details(props: { summary: JSX.Element; open?: boolean; class?: s
 /** A block of real code or file content. */
 export const Code = (props: { text: string; class?: string }): JSX.Element => <pre class={`t-code code-ltr max-h-80 overflow-auto rounded-xl bg-lilac px-3.5 py-3 text-ink ${props.class ?? ""}`}>{props.text}</pre>;
 
+const clip = (text: string): string => (text.length > 140 ? `${text.slice(0, 140)}…` : text);
+/** Rows of text as a table that scrolls inside its own box. */
+export function Grid(props: { header: readonly string[]; rows: readonly (readonly string[])[] }): JSX.Element {
+  return (
+    <div class="prose-table max-h-80 overflow-auto"><table><thead><tr><For each={props.header}>{(head) => <th>{head}</th>}</For></tr></thead><tbody><For each={props.rows}>{(row) => <tr><For each={row}>{(item) => <td class="code-ltr" title={item.length > 140 ? item : undefined}>{clip(item)}</td>}</For></tr>}</For></tbody></table></div>
+  );
+}
+
 /** A confirm-and-cancel dialog for something that cannot be undone. */
 export function ConfirmButton(props: { label: string; confirm: string; busy?: boolean; onConfirm: () => void; icon?: string }): JSX.Element {
   const [open, setOpen] = createSignal(false);

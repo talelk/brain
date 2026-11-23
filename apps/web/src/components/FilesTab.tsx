@@ -9,7 +9,10 @@ import { usePlace } from "../data/session";
 import { t, tn } from "../i18n";
 import { DEFAULT_FOLDER, MAX_EDITED, MAX_FILE, MAX_UPLOAD, base64Of, cleanPath, downloadUrl, extensionOf, folderOf, foldersOf, isConfiguration, isImage, isMarkdown, mb, nameOk, pathOk, rowsOf, under, type Row } from "../lib/documents";
 import { ago, bytes } from "../lib/format";
+import { previewOf } from "@brain/contracts/media";
+import { downloadZip } from "../lib/zip";
 import { CodeEditor } from "./CodeEditor";
+import { Preview } from "./Preview";
 import { Markdown } from "./Markdown";
 import { ConfirmButton, Failure, Icon } from "./bits";
 import { DeleteDialog, downloadAll, TransferDialog } from "./FileOps";
@@ -111,6 +114,7 @@ function FileView(props: { path: string; isNew: boolean; readOnly: boolean; open
       <Show when={props.readOnly}><p class="mb-5 rounded-control bg-surface-gray-2 px-4 py-3 t-small text-ink-2">{t("files.readOnly")}</p></Show>
       <Show when={props.isNew || file.data()} fallback={<Failure error={file.error()} />}>
         <Switch>
+          <Match when={result() && previewOf(props.path) !== "file"}><Preview name={props.path} url={downloadUrl(place.id(), props.path)} /></Match>
           <Match when={binary()}>
             <Show when={isImage(props.path)}>
               <img class="mb-4 max-h-96 max-w-full rounded-xl border border-rule bg-paper object-contain" src={downloadUrl(place.id(), props.path)} alt={props.path} />
@@ -404,6 +408,7 @@ export function FilesTab(props: { files: readonly FileEntry[]; readOnly: boolean
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" iconLeft="lucide-download" onClick={() => void downloadAll(place.id(), chosen().map((file) => file.path))}>{t("files.download.n", { n: chosen().length })}</Button>
+          <Show when={chosen().length > 1}><Button variant="outline" size="sm" iconLeft="lucide-archive" onClick={() => void downloadZip(chosen().map((file) => ({ name: file.path, url: downloadUrl(place.id(), file.path) })), "files.zip")}>{t("outputs.zip")}</Button></Show>
           <Show when={!props.readOnly}>
             <Button variant="outline" size="sm" iconLeft="lucide-copy" onClick={() => setTransfer("copy")}>{t("files.copy.n", { n: chosen().length })}</Button>
             <Button variant="outline" size="sm" iconLeft="lucide-folder-input" disabled={!onlyMine()} onClick={() => setTransfer("move")}>{t("files.move.n", { n: chosen().length })}</Button>

@@ -1,4 +1,4 @@
-import { BrainError, isDigest, sha256Digest, type Digest } from "@brain/contracts";
+import { BrainError, isDigest, mediaTypeOf, PAGE_SANDBOX, previewOf, sha256Digest, shownInline, type Digest } from "@brain/contracts";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { accessOf } from "../access";
@@ -58,4 +58,22 @@ export function linkArtifact(tx: Db, link: ArtifactLinkInput, atMs: number): voi
 export function readableLink(gov: Gov, digest: Digest, userId: string): { name: string; mediaType: string } | undefined {
   const links = gov.db.prepare("SELECT l.workspace_id AS workspaceId, l.name, l.media_type AS mediaType FROM artifact_links l WHERE l.digest=? ORDER BY l.id").all(digest) as Array<{ workspaceId: string; name: string; mediaType: string }>;
   return links.find((link) => accessOf(gov, userId, link.workspaceId));
+}
+
+/**
+ * Stored bytes come from agents, so they are a download and never a page of Brain. Only with `view`, and only a page (which runs sandboxed, with no
+ * origin of its own), an image, a PDF or a video is sent to be shown, with the type its name gives; the stored type is never trusted.
+ */
+export function fileResponse(bytes: Uint8Array, name: string, view: boolean): Response {
+  const inline = view && shownInline(name);
+  const kind = previewOf(name);
+  const type = mediaTypeOf(name);
+  const headers: Record<string, string> = {
+    "content-type": inline || type !== "text/html" ? type : "application/octet-stream",
+    "content-disposition": `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(name.split("/").at(-1) ?? "file")}`,
+    "x-content-type-options": "nosniff", "cache-control": "private, no-store",
+  };
+  // A PDF runs nothing of its own, and browsers do not open one under a sandbox.
+  if (!(inline && kind === "pdf")) headers["content-security-policy"] = inline && kind === "html" ? PAGE_SANDBOX : "sandbox";
+  return new Response(Buffer.from(bytes), { headers });
 }

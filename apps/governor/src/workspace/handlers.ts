@@ -10,6 +10,7 @@ import type { Db } from "../db";
 import type { Ctx, Gov } from "../dispatch";
 import { append } from "../events";
 import { httpOver } from "../integrations/pull-request";
+import { fileResponse } from "../trust/artifacts";
 import { setSecret } from "../trust/secrets";
 import { classifyPath, readPack } from "./files";
 import type { Author } from "./git";
@@ -95,11 +96,6 @@ export const starterWorkspace = (gov: Gov): CommandInput<"workspace.create"> | u
   (readPack(gov.packsDir, STARTER_PACK) ? { name: "Starter", description: "A first workspace to try Brain in. Start the Play \"Say hello\" to see a goal become a checked result.", packs: [STARTER_PACK] } : undefined);
 
 const BINARY = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".pdf", ".zip", ".gz", ".tar", ".docx", ".xlsx", ".pptx", ".odt", ".ods", ".mp3", ".mp4", ".mov", ".woff", ".woff2"]);
-/** What a download says its bytes are. Anything a browser could run as a page is plain bytes; an SVG stays an image so that `<img>` can show it. */
-const MEDIA: Record<string, string> = {
-  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml", ".pdf": "application/pdf",
-  ".md": "text/plain; charset=utf-8", ".markdown": "text/plain; charset=utf-8", ".txt": "text/plain; charset=utf-8", ".csv": "text/csv; charset=utf-8", ".json": "application/json", ".toml": "text/plain; charset=utf-8",
-};
 /** A file is text when it is valid UTF-8 without NUL and not of a kind that is always bytes. */
 function textOf(path: string, bytes: Uint8Array): string | undefined {
   if (BINARY.has(extname(path).toLowerCase()) || bytes.includes(0)) return undefined;
@@ -187,13 +183,7 @@ export function registerWorkspace({ gov: { registry }, gov, app }: Governor): vo
     let path: string;
     try { path = decodeURIComponent(c.req.path.slice(`/v1/workspaces/${workspaceId}/files/`.length)); } catch { throw new BrainError("INVALID_INPUT", "The file path is not valid"); }
     const file = await readFileOf(gov, workspaceId, path);
-    return new Response(Buffer.from(file.bytes), {
-      headers: {
-        "content-type": MEDIA[extname(path).toLowerCase()] ?? "application/octet-stream",
-        "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(path.split("/").at(-1) ?? "file")}`,
-        "x-content-type-options": "nosniff", "content-security-policy": "sandbox", "cache-control": "private, no-store",
-      },
-    });
+    return fileResponse(file.bytes, path, c.req.query("view") === "1");
   });
 
 }
