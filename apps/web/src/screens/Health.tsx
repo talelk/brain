@@ -128,6 +128,7 @@ export default function HealthScreen(): JSX.Element {
                             <code class="t-code code-ltr font-medium text-ink">{model().name}</code>
                             <Sign ok={model().reachable} yes={t("health.models.reachable")} no={t("health.models.unreachable")} />
                             <span class="min-w-0 flex-1 basis-48 t-small text-ink-2">{said(model().detail)}</span>
+                            <Show when={!model().priced}><span class="t-small text-needs-text">{t("health.models.unpriced")}</span></Show>
                           </li>
                         )}
                       </Keyed>

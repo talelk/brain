@@ -122,6 +122,7 @@ function Lists(props: { today: TodayData }): JSX.Element {
           {...trend(days())} />
         <NumberCard title={t("overview.stat.done")} value={doneToday()} {...trend(goals())} />
         <p class="px-1 t-small text-ink-3">{spend().capMicroUsd > 0 ? t("today.spend.cap", { spent: money(spend().todayMicroUsd), cap: money(spend().capMicroUsd) }) : t("today.spend", { spent: money(spend().todayMicroUsd) })}</p>
+        <Show when={spend().unpriced}><p class="px-1 t-small text-needs-text" data-testid="unpriced">{t("today.spend.unpriced")}</p></Show>
       </aside>
     </div>
   );

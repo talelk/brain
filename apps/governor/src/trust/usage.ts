@@ -3,6 +3,7 @@ import type { Governor } from "../app";
 import type { Db } from "../db";
 import type { Gov } from "../dispatch";
 import { utcDay, type AttemptRow } from "../tasks/store";
+import { modelsOf } from "../workspace/platform";
 import { activeManifest } from "../workspace/store";
 
 /**
@@ -54,7 +55,13 @@ export function settleUsage(gov: Gov, attemptId: string, reported?: AttemptUsage
     cached_input_tokens=COALESCE(?, cached_input_tokens) WHERE attempt_id=?`).run(reported?.microUsd ?? 0, gov.clock.nowMs(), tokens?.inputTokens ?? null, tokens?.outputTokens ?? null, tokens?.cachedInputTokens ?? null, attemptId);
 }
 
-export const spendOf = (gov: Gov, workspaceId: string): Spend => ({ todayMicroUsd: spentToday(gov, workspaceId), capMicroUsd: capOf(activeManifest(gov, workspaceId)) });
+/** True when a model the workspace calls has no price: a cap cannot count what it costs unless its server reports cost (docs/model.md, "Cost"). */
+export const hasUnpricedModel = (gov: Gov, workspaceId: string, manifest: SnapshotManifest): boolean =>
+  modelsOf(gov, workspaceId, manifest).models.some((model) => model.input_usd_per_mtok === undefined && model.output_usd_per_mtok === undefined);
+export const spendOf = (gov: Gov, workspaceId: string): Spend => {
+  const manifest = activeManifest(gov, workspaceId);
+  return { todayMicroUsd: spentToday(gov, workspaceId), capMicroUsd: capOf(manifest), unpriced: hasUnpricedModel(gov, workspaceId, manifest) };
+};
 
 const SUMS = `COALESCE(SUM(${COST}), 0) AS microUsd, COALESCE(SUM(u.input_tokens), 0) AS inputTokens, COALESCE(SUM(u.output_tokens), 0) AS outputTokens, COALESCE(SUM(u.cached_input_tokens), 0) AS cachedInputTokens`;
 /** The usage of some attempts: `where` is a condition on `usage u`. */

@@ -179,7 +179,7 @@ Commands: `setup.create`, `workspace.create` (its input may carry `platform: "ad
 `file.write`, `file.delete`, `secret.set`, `secret.delete`, `member.set`,
 `member.remove`, `task.create` (a goal, optionally a Play and inputs), `task.confirm`
 (accept a proposed plan), `task.edit` (change, add or remove sub-tasks not yet started),
-`task.stop`, `task.steer` (a task's priority and pause), `task.retry`, `task.check` (a person's check or sign-off), `task.answer`,
+`task.stop`, `task.steer` (a task's priority and pause), `task.checkpoint` (continue a goal paused at its checkpoint, with an optional new goal written as a note; events `task.checkpointed` and `task.checkpoint_expired`; docs/model.md, "Checkpoints"), `task.retry`, `task.check` (a person's check or sign-off), `task.answer`,
 `approval.decide`, `memory.decide`, `runner.token`, `runner.remove`; and for users (docs/model.md, Users, invitations and groups) `user.invite`, `invitation.revoke`, `invitation.accept` (public: it redeems an invitation or a reset link), `user.set` (instance role, active), `user.resetLink`, `session.revoke` (the caller's own, or any person's for an instance admin), `profile.set` (name, password), `group.set`, `group.delete`.
 
 Queries: `setup.status`, `me`, `packs.list`, `workspace.get`, `workspace.files`,

@@ -84,6 +84,10 @@ export type JsonSchema = { readonly [key: string]: JsonValue };
 
 // --- brain.toml ---
 
+/** `"6h"`: hours, or `"5 rounds"`: work attempts (docs/model.md, "Checkpoints"). */
+export const CHECKPOINT = /^([1-9]\d{0,3})(h| rounds)$/u;
+const checkpoint = z.string().regex(CHECKPOINT, 'must be hours such as "6h" or work attempts such as "5 rounds"');
+
 export const BrainFile = z.strictObject({
   name: z.string().min(1).max(100),
   description: z.string().max(2000).default(""),
@@ -101,6 +105,9 @@ export const BrainFile = z.strictObject({
     confirm_plans: z.enum(["person", "auto"]).default("person"),
     /** True: nothing of this workspace starts; what runs goes on. */
     paused: z.boolean().default(false),
+    /** A goal with no Play pauses for a person this often; an unanswered checkpoint stops it after `checkpoint_timeout` (docs/model.md, "Checkpoints"). */
+    checkpoint: checkpoint.optional(),
+    checkpoint_timeout: z.string().regex(/^([1-9]\d{0,3})h$/u, 'must be hours such as "24h"').default("24h"),
   }).prefault({}),
   /** What happens when a task has failed all its attempts: a heal task analyses it. `per_day` is the heal tasks of a UTC day; 0 is no cap. */
   healing: z.strictObject({ mode: z.enum(["auto", "off"]).default("auto"), per_day: z.int().min(0).default(LIMIT_DEFAULTS.healing_per_day) }).prefault({}),
@@ -197,6 +204,7 @@ export const StepSpec = z.strictObject({
 export type StepSpec = z.infer<typeof StepSpec>;
 export const PlayFile = z.strictObject({
   title: z.string().min(1).max(200),
+  checkpoint: checkpoint.optional(),
   description: z.string().default(""),
   inputs,
   trigger: z.strictObject({
