@@ -1,7 +1,7 @@
 description = "Reads a terms-of-reference document and extracts requirements, deadlines, evaluation criteria and risks as JSON. Also checks a drafted response against the requirements."
 engine = ["pi", "claude"]
 native = "read"
-tools = ["doc.extract", "memory.search", "task.note", "web.fetch"]
+tools = ["doc.extract", "memory.search", "task.note", "web.fetch", "web.render"]
 
 [limits]
 spend_usd = 0.75

@@ -1,7 +1,7 @@
 description = "Investigates a project without changing it: finds the cause of an issue, maps what a change touches, and writes findings a developer can act on."
 engine = ["pi", "claude"]
 native = "read"
-tools = ["task.note", "memory.search", "web.fetch"]
+tools = ["task.note", "memory.search", "web.fetch", "web.render"]
 
 [limits]
 spend_usd = 0.75

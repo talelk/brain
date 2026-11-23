@@ -1,0 +1,52 @@
+description = """
+Opens one https address in a headless browser, lets its scripts run, and returns the text a \
+person would see and the links on the page. Use it for a page that web.fetch returns empty \
+because the page builds itself with JavaScript (a tender portal, a dashboard). Slower than \
+web.fetch, so use web.fetch first. It only opens the page: it clicks nothing and submits \
+nothing. It reaches any public host; a workspace that wants fewer replaces this tool file with \
+its own copy whose `network` lists the hosts it allows. A refusal or an error is an answer, not \
+something to work around. Returns {"url", "final_url", "status", "title", "text", \
+"links": [{"text", "href"}], "truncated"}, or {"error": "<why>"}."""
+effect = "read"
+timeout_seconds = 60
+needs = ["bash", "python3"]
+secrets = []
+
+[inputs.url]
+type = "string"
+description = "The full address, starting with https://. No user name or password in it."
+required = true
+
+[inputs.max_chars]
+type = "integer"
+description = "The most text to return, from 1 to 20000 characters. 8000 when left out."
+required = false
+
+[inputs.wait_ms]
+type = "integer"
+description = "How long to let the page's scripts run after it loads, from 0 to 15000 milliseconds. 3000 when left out."
+required = false
+
+[translations.fr]
+description = "Ouvre une adresse https dans un navigateur sans interface, laisse ses scripts s'exécuter et renvoie le texte qu'une personne verrait ainsi que les liens de la page. À utiliser pour une page que web.fetch renvoie vide parce qu'elle se construit en JavaScript (un portail d'appels d'offres, un tableau de bord). Plus lent que web.fetch : essayer web.fetch d'abord. Il ouvre seulement la page : il ne clique sur rien et n'envoie rien. Il atteint n'importe quel hôte public ; un espace de travail qui veut moins remplace ce fichier d'outil par sa propre copie dont `network` liste les hôtes autorisés. Un refus ou une erreur est une réponse, pas un obstacle à contourner. Renvoie {\"url\", \"final_url\", \"status\", \"title\", \"text\", \"links\": [{\"text\", \"href\"}], \"truncated\"}, ou {\"error\": \"<pourquoi>\"}."
+
+[translations.fr.inputs.url]
+description = "L'adresse complète, commençant par https://. Sans nom d'utilisateur ni mot de passe."
+
+[translations.fr.inputs.max_chars]
+description = "Le maximum de texte à renvoyer, de 1 à 20000 caractères. 8000 si omis."
+
+[translations.fr.inputs.wait_ms]
+description = "Le temps laissé aux scripts de la page après son chargement, de 0 à 15000 millisecondes. 3000 si omis."
+
+[translations.ar]
+description = "يفتح عنوان https واحدًا في متصفح بلا واجهة، ويترك سكربتاته تعمل، ويعيد النص الذي يراه الشخص وروابط الصفحة. يُستخدم للصفحة التي يعيدها web.fetch فارغة لأنها تبني نفسها بـ JavaScript (بوابة مناقصات أو لوحة معلومات). أبطأ من web.fetch، فجرّب web.fetch أولًا. يفتح الصفحة فقط: لا ينقر على شيء ولا يرسل شيئًا. يصل إلى أي مضيف عام؛ ومساحة العمل التي تريد أقل تستبدل ملف هذه الأداة بنسختها الخاصة التي يسرد `network` فيها المضيفين المسموح بهم. الرفض أو الخطأ إجابة، لا عقبة يُلتفّ عليها. يعيد {\"url\", \"final_url\", \"status\", \"title\", \"text\", \"links\": [{\"text\", \"href\"}], \"truncated\"}، أو {\"error\": \"<السبب>\"}."
+
+[translations.ar.inputs.url]
+description = "العنوان الكامل، ويبدأ بـ https://. دون اسم مستخدم أو كلمة مرور."
+
+[translations.ar.inputs.max_chars]
+description = "أقصى قدر من النص يُعاد، من 1 إلى 20000 حرف. 8000 إذا تُرك فارغًا."
+
+[translations.ar.inputs.wait_ms]
+description = "المدة التي تُترك فيها سكربتات الصفحة تعمل بعد تحميلها، من 0 إلى 15000 مللي ثانية. 3000 إذا تُرك فارغًا."

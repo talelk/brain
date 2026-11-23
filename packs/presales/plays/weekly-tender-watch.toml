@@ -11,7 +11,8 @@ requires = ["tender-sources*"]
 goal = """
 List new public tenders that fit this consultancy. Find in memory (memory.search, the entry named tender-sources) the \
 tender sources to watch, the company's domains and the exclusion rules, then read each \
-source with web.fetch. If a fetch is refused or fails, say which address and why; do \
+source with web.fetch; when a page comes back empty because it builds itself with JavaScript, read it \
+with web.render instead. If a fetch is refused or fails, say which address and why; do \
 not work around it. For \
 each fitting call, give the title, buyer, reference, submission deadline, address, and \
 one line on why it fits and the main risk. Mark each recommended, maybe or skip. Report \

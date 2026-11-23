@@ -13,7 +13,7 @@ export const TOOL_LABEL = "brain.tool-run";
 export const TOOL_FIELDS = ["attemptId", "tool", "requestId", "egressHosts", "input", "timeoutMs", "secretEnv"] as const;
 const TOOL_CPU_MILLICORES = 1000;
 const TOOL_MEMORY_MB = 1024;
-const TOOL_PIDS = 128;
+const TOOL_PIDS = 512;
 
 export interface ToolSandboxShape {
   readonly name: string;
