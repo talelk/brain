@@ -7,7 +7,7 @@ export interface Timer {
   sleep(ms: number, signal?: AbortSignal): Promise<void>;
 }
 
-export const systemTimer: Timer = {
+const systemTimer: Timer = {
   now: () => Date.now(),
   sleep: (ms, signal) => new Promise((resolve) => {
     if (signal?.aborted) { resolve(); return; }

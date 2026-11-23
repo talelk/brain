@@ -12,7 +12,7 @@ import type { Files } from "./files";
 export interface PlatformWorkspace { readonly id: string; readonly slug: string; readonly kind: PlatformKind }
 
 /** Every platform workspace, from the active snapshots. */
-export function platformWorkspaces(gov: Gov): PlatformWorkspace[] {
+function platformWorkspaces(gov: Gov): PlatformWorkspace[] {
   return (gov.db.prepare("SELECT id, slug, active_snapshot AS snapshot FROM workspaces WHERE active_snapshot != '' ORDER BY slug").all() as Array<{ id: string; slug: string; snapshot: string }>)
     .flatMap((row) => { const kind = manifestOf(gov, row.snapshot as never).platform; return kind ? [{ id: row.id, slug: row.slug, kind }] : []; });
 }
@@ -35,7 +35,7 @@ export function modelsOf(gov: Gov, workspaceId: string, own: SnapshotManifest): 
 }
 
 /** What a folder's own `brain.toml` says about `platform`. */
-export function platformOfFiles(files: Files): PlatformKind | undefined {
+function platformOfFiles(files: Files): PlatformKind | undefined {
   const bytes = files.get("brain.toml");
   if (!bytes) return undefined;
   try {

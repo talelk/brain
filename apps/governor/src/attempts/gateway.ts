@@ -28,7 +28,7 @@ const usageOf = (value: unknown): Record<string, unknown> | undefined => (value 
 const refusal = (status: number, message: string): Response => Response.json({ error: { message, type: status === 401 ? "invalid_api_key" : "gateway_refused", code: null } }, { status });
 
 /** Adds to `into` what one JSON answer (or one frame of a stream) says about usage, in either vendor's words. */
-export function readUsage(value: unknown, into: AttemptUsage): AttemptUsage {
+function readUsage(value: unknown, into: AttemptUsage): AttemptUsage {
   const usage = usageOf(value);
   if (!usage || typeof usage !== "object") return into;
   const count = (name: string): number | undefined => (typeof usage[name] === "number" ? Math.max(0, Math.round(usage[name])) : undefined);

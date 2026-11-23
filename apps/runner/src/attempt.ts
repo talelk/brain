@@ -50,7 +50,7 @@ export function pickEngine(offer: JobOffer, engines: readonly string[], sandboxA
 }
 
 /** The final answers that must be JSON, by kind (packs/README.md, "Final-answer formats"). */
-export function answerFormat(offer: JobOffer): AnswerFormat | undefined {
+function answerFormat(offer: JobOffer): AnswerFormat | undefined {
   if (offer.kind === "plan") return { shape: PLAN_SHAPE, problems: (value) => {
     if (!isJsonObject(value)) return ["the answer is not an object"];
     const problems: string[] = [];

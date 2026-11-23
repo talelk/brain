@@ -2,7 +2,7 @@ import { createMemo, For, Show, type JSX } from "solid-js";
 import type { Problem } from "@brain/contracts";
 
 /** The line a problem names: "line 12" when the message says so, else the line that sets the key the message starts with (`limits.turns: …`). */
-export function problemLine(text: string, message: string): number | undefined {
+function problemLine(text: string, message: string): number | undefined {
   const named = /\bline (\d+)/iu.exec(message);
   if (named) return Number(named[1]);
   const key = /^([A-Za-z0-9_.-]+): /u.exec(message)?.[1]?.split(".").filter((part) => !/^\d+$/u.test(part)).at(-1);

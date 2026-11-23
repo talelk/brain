@@ -21,7 +21,7 @@ export function resultObject(text: string): { readonly [key: string]: JsonValue 
 }
 
 export const SKIPPED = "skipped";
-export interface StepResult { readonly result: string; readonly output?: JsonValue | null }
+interface StepResult { readonly result: string; readonly output?: JsonValue | null }
 /** What a step's templates can read: the Play's inputs, the results of earlier steps by step id, and the item of a `for_each` copy. */
 export interface Scope {
   readonly inputs: Readonly<Record<string, JsonValue>>;
@@ -39,7 +39,7 @@ function dig(value: JsonValue | undefined, path: readonly string[]): JsonValue |
 }
 
 /** The value a reference names, or undefined when it does not resolve (a missing field, a result that is not JSON, a skipped step). */
-export function resolveRef(ref: Ref, scope: Scope): JsonValue | undefined {
+function resolveRef(ref: Ref, scope: Scope): JsonValue | undefined {
   if (ref.kind === "input") return dig(scope.inputs[ref.name], ref.path);
   if (ref.kind === "item") return dig(scope.item, ref.path);
   const step = scope.steps[ref.step];
@@ -264,7 +264,7 @@ export function unkeptClaim(claims: readonly string[], kept: ReadonlySet<string>
 /** What an agent can do: the workspace tools it has, and whether it can write files (its native tools are at level `all`). */
 export interface AgentCaps { readonly tools: readonly string[]; readonly writes: boolean }
 /** The need of a task that saves files; the other needs are tool names. */
-export const WRITE_FILES = "files.write";
+const WRITE_FILES = "files.write";
 
 export interface PlannedTask { readonly title: string; readonly goal: string; readonly agent: string; readonly after: readonly string[] }
 /**

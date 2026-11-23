@@ -11,7 +11,8 @@ const COALESCE_MS = 250;
 const FALLBACK_MS = 15_000;
 
 /** Whether the stream is open, and when a screen last had a fresh answer: what the "updated" indicator of the top bar says. */
-export const [connected, setConnected] = createSignal(false);
+const [connectedNow, setConnected] = createSignal(false);
+export const connected = connectedNow;
 export const [updatedAt, markFresh] = createSignal(Date.now());
 
 const listeners = new Set<Listener>();

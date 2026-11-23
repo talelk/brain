@@ -7,7 +7,7 @@ import { direction } from "../i18n";
  */
 
 /** Which of four strengths a value is drawn in, against the biggest value; 0 for none. */
-export const levelOf = (value: number, max: number): 0 | 1 | 2 | 3 | 4 => (value <= 0 || max <= 0 ? 0 : (Math.min(4, Math.max(1, Math.ceil((value / max) * 4))) as 1 | 2 | 3 | 4));
+const levelOf = (value: number, max: number): 0 | 1 | 2 | 3 | 4 => (value <= 0 || max <= 0 ? 0 : (Math.min(4, Math.max(1, Math.ceil((value / max) * 4))) as 1 | 2 | 3 | 4));
 
 export interface HeatCell { readonly value: number; readonly label: string }
 
@@ -96,7 +96,7 @@ export function DayBars(props: { values: readonly number[]; label: (index: numbe
 }
 
 /** A line of values over the window, drawn small beside the number it belongs to. */
-export function Trend(props: { values: readonly number[]; class?: string }): JSX.Element {
+function Trend(props: { values: readonly number[]; class?: string }): JSX.Element {
   const path = (): string => {
     const peak = Math.max(...props.values, 0);
     if (props.values.length < 2 || peak === 0) return "";

@@ -9,7 +9,7 @@ import { compact, toToml, type TomlTable, type TomlValue } from "./toml";
 
 export type Model = SnapshotManifest["models"][number] & { input_usd_per_mtok?: number; output_usd_per_mtok?: number };
 export type Project = SnapshotManifest["projects"][number];
-export type Approvals = SnapshotManifest["approvals"];
+type Approvals = SnapshotManifest["approvals"];
 /** What `brain.toml` holds; `timezone` is optional and newer than the manifest type. */
 export interface Brain {
   name: string;

@@ -10,7 +10,7 @@ import { GovernorClient, GovernorError } from "./governor-client";
 import { loadOrCreateKeys, readCredential, type RunnerKeys, signNonce, writeCredential } from "./keys";
 
 /** The reason a request did not get through, as one short phrase: the error code of the connection (ECONNREFUSED, ETIMEDOUT) before its message. */
-export function causeOf(error: unknown): string {
+function causeOf(error: unknown): string {
   for (let e: unknown = error, depth = 0; e instanceof Error && depth < 5; e = e.cause, depth++) {
     const code = (e as { code?: unknown }).code;
     if (typeof code === "string") return code;
@@ -40,7 +40,7 @@ export class Outage {
   }
 }
 
-export const RUNNER_VERSION = "brain-runner/0.1.0";
+const RUNNER_VERSION = "brain-runner/0.1.0";
 /** The capability a runner states itself, never the operator: an agent's native tools can run here. */
 const NATIVE_TOOLS = "native-tools";
 const SWEEP_EVERY_MS = 6 * 3_600_000;

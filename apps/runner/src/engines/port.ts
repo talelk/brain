@@ -16,7 +16,7 @@ export interface EngineTool {
 
 /** Where the model is: the Governor's gateway (OpenAI-compatible), the attempt's token for it, and the route name sent as the model name. */
 /** The model an attempt calls, through the Governor's gateway. `contextTokens` is its window and `compactAt` the share of it at which an engine that keeps a conversation compacts it. */
-export interface EngineModel { readonly baseUrl: string; readonly token: string; readonly name: string; readonly contextTokens?: number; readonly compactAt?: number }
+interface EngineModel { readonly baseUrl: string; readonly token: string; readonly name: string; readonly contextTokens?: number; readonly compactAt?: number }
 
 export interface EngineLimits {
   readonly timeoutMs: number; readonly maxTokens: number; readonly maxMicroUsd: number; readonly maxTurns: number;

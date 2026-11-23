@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 /** What one sandbox may reach: `host` (ports 80 and 443) or `host:port`, lower-case. */
-export interface EgressGrant { readonly token: string; readonly hosts: readonly string[] }
+interface EgressGrant { readonly token: string; readonly hosts: readonly string[] }
 
 const GRANT_ID = /^[a-f0-9]{32}$/u;
 /** One entry of a grant: a lower-case name or IPv4 address with an optional port. The Governor and the launcher both refuse anything else. */
@@ -107,7 +107,7 @@ function ownAddresses(): Set<string> {
  * which holds the cloud metadata address), shared, reserved and multicast IPv4; the unspecified, loopback, unique-local, link-local and
  * multicast IPv6; every IPv4 form wrapped in IPv6 (mapped, compatible, NAT64); and an address of the proxy's own interfaces.
  */
-export function internalAddress(address: string, own: ReadonlySet<string> = ownAddresses()): string | undefined {
+function internalAddress(address: string, own: ReadonlySet<string> = ownAddresses()): string | undefined {
   if (own.has(address.toLowerCase())) return "the proxy's own network";
   const version = isIP(address);
   if (version === 4) {
@@ -127,7 +127,7 @@ export function internalAddress(address: string, own: ReadonlySet<string> = ownA
 }
 
 /** All addresses a name has now; the first one is the one the connection is pinned to. */
-export type Resolver = (host: string) => Promise<readonly string[]>;
+type Resolver = (host: string) => Promise<readonly string[]>;
 // The system resolver now and then fails a lookup that the next one answers, so a name is tried three times before it counts as unresolved.
 const systemResolver: Resolver = async (host) => {
   for (let attempt = 1; ; attempt += 1) {
@@ -164,8 +164,8 @@ function target(authority: string, defaultPort: number): { host: string; port: n
 
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "proxy-connection", "te", "trailer", "transfer-encoding", "upgrade", "host"]);
 
-export interface EgressProxy { readonly port: number; close(): Promise<void> }
-export interface EgressProxyOptions {
+interface EgressProxy { readonly port: number; close(): Promise<void> }
+interface EgressProxyOptions {
   readonly port: number;
   readonly grantsDir: string;
   readonly bindHost?: string;
@@ -176,7 +176,7 @@ export interface EgressProxyOptions {
   readonly allowInternal?: readonly string[];
 }
 
-export async function startEgressProxy(options: EgressProxyOptions): Promise<EgressProxy> {
+async function startEgressProxy(options: EgressProxyOptions): Promise<EgressProxy> {
   const log = options.log ?? (() => undefined);
   const refuse = (res: ServerResponse, status: number, text: string): void => {
     res.writeHead(status, { "content-type": "text/plain", "content-length": Buffer.byteLength(text), ...(status === 407 ? { "proxy-authenticate": 'Basic realm="brain-egress"' } : {}) });

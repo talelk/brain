@@ -8,14 +8,14 @@ import { hashOf, seeded, TILE, type Dir, type Emote, type Ground, type Layout, t
 
 type Ctx = CanvasRenderingContext2D;
 /** Scenery is painted at this many canvas pixels per world pixel, so it stays sharp when zoomed in. */
-export const RES = 4;
+const RES = 4;
 const GROUND_RES = 2;
 const MAX_GROUND_PIXELS = 16_000_000;
 const canvas = (w: number, h: number): HTMLCanvasElement => { const c = document.createElement("canvas"); c.width = Math.ceil(w); c.height = Math.ceil(h); return c; };
 const ctxOf = (c: HTMLCanvasElement): Ctx => c.getContext("2d") as Ctx;
 
 /** Mixes two colours, `t` of the way from `a` to `b`. */
-export function mix(a: string, b: string, t: number): string {
+function mix(a: string, b: string, t: number): string {
   const p = (hex: string, i: number): number => Number.parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16);
   const c = [0, 1, 2].map((i) => Math.round(p(a, i) + (p(b, i) - p(a, i)) * t));
   return `#${c.map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, "0")).join("")}`;
@@ -54,7 +54,7 @@ const SKINS = ["#f6d3b3", "#eab98f", "#d39a6c", "#a8714a", "#7a4e33"] as const;
 const HAIRS = ["#3b2a20", "#7a4a26", "#c9883a", "#ecd27a", "#2b3550", "#a63d3d", "#e5e1ee", "#5b3d7a"] as const;
 const EYES = ["#3a6ea5", "#4f8a3c", "#6b4426", "#5b3d7a", "#2b2b38"] as const;
 const TUNICS = ["#3f7fd1", "#c0453b", "#2e9a6a", "#8e5bd1", "#d68f1a", "#1f9fb4", "#5a6fd6", "#b8478a"] as const;
-export const CAPES = ["#c0392b", "#2e86c1", "#27ae60", "#8e44ad", "#e67e22", "#16a085"] as const;
+const CAPES = ["#c0392b", "#2e86c1", "#27ae60", "#8e44ad", "#e67e22", "#16a085"] as const;
 type Hair = "short" | "long" | "spiky" | "bun" | "bald" | "tail";
 const HAIR_STYLES: readonly Hair[] = ["short", "long", "spiky", "bun", "bald", "tail"];
 

@@ -79,7 +79,7 @@ function noteStates(gov: Gov, attempt: AttemptRow, stateCommits: Readonly<Record
 }
 
 /** A token for the model gateway, bound to the attempt and its fence. It holds its own proof, so nothing is stored. */
-export function modelToken(gov: Gov, attemptId: string, attemptFence: number, expiresAt: number): string {
+function modelToken(gov: Gov, attemptId: string, attemptFence: number, expiresAt: number): string {
   const bound = `${attemptId}.${attemptFence}.${expiresAt}`;
   return `bmt_${bound}.${hmacSha256Hex(gov.keys.digests, Buffer.from(`model-token\n${bound}`))}`;
 }

@@ -58,7 +58,6 @@
   "ignoreBinaries": [
     "tail"
   ],
-  "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [
     "@tailwindcss/forms",
     "@tailwindcss/typography",

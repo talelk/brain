@@ -10,12 +10,12 @@ import { attemptFolder, egressHosts, hardening, isDirectory, network, refuse, ty
  */
 export const TOOL_IMAGE = "brain-sandbox-tool";
 export const TOOL_LABEL = "brain.tool-run";
-export const TOOL_FIELDS = ["attemptId", "tool", "requestId", "egressHosts", "input", "timeoutMs", "secretEnv"] as const;
+const TOOL_FIELDS = ["attemptId", "tool", "requestId", "egressHosts", "input", "timeoutMs", "secretEnv"] as const;
 const TOOL_CPU_MILLICORES = 1000;
 const TOOL_MEMORY_MB = 1024;
 const TOOL_PIDS = 512;
 
-export interface ToolSandboxShape {
+interface ToolSandboxShape {
   readonly name: string;
   readonly requestId: string;
   /** The host folder of the tool's files and of the attempt's working copy, already checked to be under the operator's root. */
@@ -29,7 +29,7 @@ export interface ToolSandboxShape {
 }
 
 /** The `docker run` argv of a tool run: nothing in it comes from the caller except the values named in the shape. */
-export function toolSandboxArgs(shape: ToolSandboxShape): string[] {
+function toolSandboxArgs(shape: ToolSandboxShape): string[] {
   return ["run", "-i", "--rm", "--name", shape.name, ...shape.network,
     ...hardening(TOOL_CPU_MILLICORES, TOOL_MEMORY_MB, TOOL_PIDS, shape.user, 64),
     "-v", `${shape.toolDirectory}:/tools:ro`, "-v", `${shape.workDirectory}:/work:ro`, ...(shape.outDirectory ? ["-v", `${shape.outDirectory}:/out:rw`] : []), "-w", "/work",

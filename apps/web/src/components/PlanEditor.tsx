@@ -11,7 +11,7 @@ type Change = CommandRequest<"task.edit">["changes"][number];
 const editable = (task: SubtaskSummary): boolean => task.state === "waiting" || task.state === "ready";
 
 /** The sub-tasks in the order they will run: each after the ones it waits for, otherwise as the plan listed them. */
-export function planOrder(tasks: readonly SubtaskSummary[]): SubtaskSummary[] {
+function planOrder(tasks: readonly SubtaskSummary[]): SubtaskSummary[] {
   const placed = new Set<string>();
   const order: SubtaskSummary[] = [];
   const rest = [...tasks];

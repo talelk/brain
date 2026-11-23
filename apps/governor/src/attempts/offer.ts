@@ -58,7 +58,7 @@ function inheritedTasks(db: Db, task: TaskRow): string[] {
 const stateOf = (payload: string): Record<string, string> | undefined => (JSON.parse(payload) as { stateCommits?: Record<string, string> }).stateCommits;
 
 /** The state commits a task starts from: those of the attempts whose changes were accepted, oldest first, each once (the store's side of `inheritedPatches`). */
-export function inheritedStates(db: Db, task: TaskRow): Array<{ attemptId: string; commits: Record<string, string> }> {
+function inheritedStates(db: Db, task: TaskRow): Array<{ attemptId: string; commits: Record<string, string> }> {
   const states: Array<{ attemptId: string; commits: Record<string, string> }> = [];
   for (const id of inheritedTasks(db, task)) {
     const attempt = db.prepare("SELECT a.id, a.working_copy AS patch, a.payload_json AS payload FROM checks c JOIN attempts a ON a.id = c.attempt_id WHERE c.task_id=? AND c.pass=1 ORDER BY c.id DESC LIMIT 1").get(id) as { id: string; patch: Digest | null; payload: string } | undefined;

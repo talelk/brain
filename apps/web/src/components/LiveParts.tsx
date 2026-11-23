@@ -37,7 +37,7 @@ export function useTick(everyMs: number): Accessor<number> {
 export const Tick = (props: { now: number }): JSX.Element => <>{new Intl.DateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit" }).format(props.now)}</>;
 
 /** A number that glides to its new value; it jumps when the tab is hidden or the person asked for less motion. */
-export function Counter(props: { value: number; format?: (value: number) => string; class?: string; testId?: string }): JSX.Element {
+function Counter(props: { value: number; format?: (value: number) => string; class?: string; testId?: string }): JSX.Element {
   const [shown, setShown] = createSignal(props.value);
   let frame = 0;
   createEffect(on(() => props.value, (to) => {
@@ -128,7 +128,7 @@ export function River(props: { counts: StageCounts; activity: readonly number[];
 
 const THEMES = ["violet", "blue", "green", "amber", "red"] as const;
 /** One agent keeps one colour. */
-export const themeOf = (name: string): (typeof THEMES)[number] => THEMES[[...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % THEMES.length] ?? "violet";
+const themeOf = (name: string): (typeof THEMES)[number] => THEMES[[...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % THEMES.length] ?? "violet";
 
 /** What ended an attempt, for the pill that is leaving. */
 /** How a run left its slot: the state its task is in now, so a retried or checked attempt is not shown as done. */

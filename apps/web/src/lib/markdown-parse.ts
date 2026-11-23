@@ -24,7 +24,7 @@ export function parseInline(text: string): Inline[] {
   return out;
 }
 
-export interface ListItem { text: string; children: ListNode[] }
+interface ListItem { text: string; children: ListNode[] }
 export interface ListNode { ordered: boolean; items: ListItem[] }
 type Align = "left" | "right" | "center" | undefined;
 export type Block =

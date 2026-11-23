@@ -5,7 +5,7 @@ import type { Overview, OverviewEvent, Queue } from "@brain/contracts";
  * Nothing here reads the clock or the page; the screen passes `now`.
  */
 
-export const HOUR = 3_600_000;
+const HOUR = 3_600_000;
 
 /** The stages of the flow, left to right. Failed branches off Running. */
 export const STAGES = ["queued", "running", "checking", "needs", "done", "failed"] as const;
@@ -52,7 +52,7 @@ export function flowLinks(counts: StageCounts): readonly FlowLink[] {
 /** A ribbon's thickness in pixels: the square root keeps one large stage from flattening the rest, with a floor so a single task stays visible. */
 export const ribbonWidth = (value: number, largest: number, max: number): number => (value <= 0 ? 0 : Math.max(2, max * Math.sqrt(value / Math.max(1, largest))));
 
-export type FeedKind = "goal-done" | "goal-failed" | "goal-started" | "task-done" | "task-failed" | "task-started" | "task-stopped" | "approval" | "approved" | "check-passed" | "check-failed" | "question" | "plan" | "sign-off" | "judge" | "failed-subtask";
+type FeedKind = "goal-done" | "goal-failed" | "goal-started" | "task-done" | "task-failed" | "task-started" | "task-stopped" | "approval" | "approved" | "check-passed" | "check-failed" | "question" | "plan" | "sign-off" | "judge" | "failed-subtask";
 
 export interface FeedEvent {
   /** The audit event's position: one event has one id however often the Governor tells it. */

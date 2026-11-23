@@ -29,7 +29,7 @@ export const engineToolDescription = (tool: EngineTool): string => `[${tool.name
  * What one tool answer may weigh in the model's context. The whole answer is in the attempt's events; the model sees at most this much,
  * because every character is sent again with every later turn of the attempt.
  */
-export const TOOL_RESULT_CHARS = 16_000;
+const TOOL_RESULT_CHARS = 16_000;
 
 /** The text a model is shown for a tool answer: as it is when short, else its beginning and a plain note of what was left out. */
 export function boundedToolText(output: JsonValue, limit: number = TOOL_RESULT_CHARS): string {

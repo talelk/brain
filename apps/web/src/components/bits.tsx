@@ -12,7 +12,7 @@ import { said } from "../lib/said";
 export const Icon = (props: { name: string; class?: string }): JSX.Element => <GlyphIcon icon={props.name} class={`shrink-0 ${props.class ?? "size-4"}`} />;
 
 /** What went wrong, in the interface's words, then the Governor's own sentence when it sent one. */
-export function failureText(failure: ApiFailure): string {
+function failureText(failure: ApiFailure): string {
   const known = tKey(`error.${failure.code}`, "");
   // For these the interface's sentence says it all; the Governor's would repeat it.
   const enough = failure.code === "INVALID_WORKSPACE" || failure.code === "STALE_VERSION";
@@ -20,7 +20,7 @@ export function failureText(failure: ApiFailure): string {
 }
 
 /** Each thing to fix, with the file or the field it names. */
-export function Problems(props: { problems: readonly Problem[] }): JSX.Element {
+function Problems(props: { problems: readonly Problem[] }): JSX.Element {
   return (
     <Show when={props.problems.length > 0}>
       <ul class="mt-1 flex flex-col gap-1 t-small">

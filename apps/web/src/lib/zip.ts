@@ -11,10 +11,10 @@ function crc32(bytes: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-export interface ZipEntry { readonly name: string; readonly bytes: Uint8Array }
+interface ZipEntry { readonly name: string; readonly bytes: Uint8Array }
 
 /** An archive that stores the files as they are (no compression), names in UTF-8. */
-export function zipOf(entries: readonly ZipEntry[]): Blob {
+function zipOf(entries: readonly ZipEntry[]): Blob {
   const parts: BlobPart[] = [];
   const central: Uint8Array[] = [];
   const encoder = new TextEncoder();
@@ -55,7 +55,7 @@ export async function downloadZip(files: readonly { readonly name: string; reado
 }
 
 /** The text of the named parts of a zip (an office file is one), or nothing for a part that is missing. Only stored and deflated parts are read. */
-export async function zipText(buffer: ArrayBuffer, names: (name: string) => boolean): Promise<Map<string, string>> {
+async function zipText(buffer: ArrayBuffer, names: (name: string) => boolean): Promise<Map<string, string>> {
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
   const found = new Map<string, string>();

@@ -5,9 +5,9 @@
  */
 
 export const TILE = 16;
-export const LOT_W = 14;
-export const LOT_H = 11;
-export const ROAD = 2;
+const LOT_W = 14;
+const LOT_H = 11;
+const ROAD = 2;
 
 export type Ground = "grass" | "road" | "stone" | "path";
 export type Dir = 0 | 1 | 2 | 3; // down, left, right, up
@@ -184,7 +184,7 @@ export function path(map: Pick<Layout, "w" | "h" | "walk">, from: { x: number; y
   return out.reverse();
 }
 
-export type Mode = "arrive" | "work" | "done" | "failed" | "leave" | "wander" | "handoff";
+type Mode = "arrive" | "work" | "done" | "failed" | "leave" | "wander" | "handoff";
 export type Emote = "!" | "ok" | "no" | "note" | "zz" | "dots" | "heart" | "?" | "scroll";
 export interface Hero {
   readonly id: string;

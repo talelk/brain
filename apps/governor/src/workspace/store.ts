@@ -37,7 +37,7 @@ export function manifestOf(gov: Gov, digest: Digest): SnapshotManifest {
 export const activeManifest = (gov: Gov, workspaceId: string): SnapshotManifest => manifestOf(gov, getWorkspace(gov.db, workspaceId).snapshotDigest);
 
 /** The folder as it is committed, read with its packs. */
-export async function loadFolder(gov: Gov, slug: string): Promise<Loaded & { commit: string }> {
+async function loadFolder(gov: Gov, slug: string): Promise<Loaded & { commit: string }> {
   const head = await readHead(workspaceDir(gov, slug));
   return { ...loadWorkspace(head.files, gov.packsDir, releasedDirOf(gov.dataDir)), commit: head.commit };
 }

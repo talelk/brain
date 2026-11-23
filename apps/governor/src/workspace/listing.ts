@@ -6,7 +6,7 @@ import { getWorkspace, manifestOf, workspaceDir } from "./store";
 import { readArtifact } from "../trust/artifacts";
 
 /** The source of a file that is a task's result, not part of the folder: read only, listed under `out/` and `work/`. */
-export const RESULTS = "results";
+const RESULTS = "results";
 interface Kept { readonly path: string; readonly digest: string; readonly bytes: number; readonly title: string; readonly atMs: number }
 
 /**
