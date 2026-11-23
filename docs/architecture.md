@@ -546,6 +546,19 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 - Health: `GET /health/ready` answers when the process and its database do. The `health` query reports runners, whether
   each model's server answers (asked at most once a minute), the audit log's verification, and the time of the last
   backup: the modification time of `<data>/backup.marker`, which the backup command leaves.
+- Metrics (`health/metrics.ts`): `GET /metrics`, Prometheus text, for a scraper beside the Governor (the demo host's vmagent); it is an
+  HTTP route like `/health/ready`, not a command or query. It asks for `Authorization: Bearer <BRAIN_METRICS_TOKEN>`
+  (compared in constant time; 401 otherwise). It answers 404, as if absent, while `BRAIN_METRICS_TOKEN` is unset and to any request that carries
+  `X-Forwarded-For` or `X-Real-IP`, so the public reverse proxy, which sets both, cannot expose it even to someone who has the token.
+  The answer is built from cheap queries and kept 5 seconds. Labels are few: workspace slug, state, kind, route class; never an id.
+  All names start `brain_`: `build_info{version,node}`, `uptime_seconds`, `process_resident_memory_bytes`,
+  `event_loop_lag_seconds{quantile}` (since the last scrape), `workspaces`, `tasks{workspace,state}`, `goals_today{result=started|done|failed}`
+  (root tasks, since 00:00 UTC), `attempts_today{kind,state}`, `tokens_today{workspace,direction}`, `micro_usd_today{workspace}`,
+  `approvals_pending`, `tasks_waiting{wait}` (the kinds of `Wait`: slot, daily-cap, task, no-runner, capability, backoff, ...),
+  `oldest_queued_seconds`, `schedules_overdue` (a scheduled Play more than 5 minutes past its time and not started), `runners{state=enrolled|online}`,
+  `runner_slots`, `runner_free_slots`, `sqlite_bytes{file=db|wal}`, `audit_events` (length of the chain) and the histogram
+  `http_request_duration_seconds{route,status}` (route class: `v1/command`, `v1/query`, `v1/events`, `v1/artifacts`, `runner`, `model`, `hooks`,
+  `api/auth`, `health`, `metrics`, `web`; status class `2xx`..`5xx`). `tests/core/metrics.test.ts` covers the token, the 404s and the presence of the metrics.
 - Backup (`health/backup.ts`, run by `pnpm brain backup [file]`): one `.tar.gz`, readable by its owner only, with a
   consistent copy of `brain.db` taken through SQLite's backup API while the Governor runs, `cas/`, `workspaces/`,
   `instance.key` and `audit/`. `pnpm brain restore <file>` refuses while the Governor runs, checks the database of the

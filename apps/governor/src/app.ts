@@ -17,6 +17,7 @@ import { errorFields, log } from "./log";
 import { Registry, runCommand, runQuery, type Gov } from "./dispatch";
 import { onChanged } from "./events";
 import { registerHealth } from "./health/health";
+import { observe } from "./health/metrics";
 import { registerGithub } from "./integrations/github";
 import { registerTeams } from "./integrations/teams";
 import { registerMemory } from "./memory/memory";
@@ -147,7 +148,9 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
     const requestId = randomUUID().slice(0, 8);
     requestIds.set(c.req.raw, requestId);
     c.header("x-request-id", requestId);
+    const began = performance.now();
     await next();
+    observe(c.req.path, c.res.status, (performance.now() - began) / 1000);
   });
 
   // A cookie is sent by the browser on its own, so a request that changes something with one must come from Brain's own pages.

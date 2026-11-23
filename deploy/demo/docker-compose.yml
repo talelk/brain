@@ -16,6 +16,8 @@ services:
       # Where runners (on the host) fetch and push the state of an attempt: the git store, a unit of the host (brain-store.service).
       BRAIN_STORE_URL: http://127.0.0.1:3110
       BRAIN_LOCAL_RUNNER_TOKEN_FILE: /host-run/runner.token
+      # GET /metrics answers only to this bearer token, and only to a request that did not come through the proxy (see docs/architecture.md section 9).
+      BRAIN_METRICS_TOKEN: ${BRAIN_METRICS_TOKEN}
     ports:
       - "127.0.0.1:3100:3100"
       - "${BRAIN_BRIDGE_IP}:3100:3100"

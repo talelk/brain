@@ -142,6 +142,16 @@ export function queuedOf(gov: Gov, taskId: string): { taskId: string; title: str
   return found ? { taskId: found.entry.task.id, title: found.entry.task.title, wait: found.wait, rank: found.rank, startsAt: found.startsAt } : null;
 }
 
+/** How many tasks wait for each reason (the `kind` of their `Wait`), whoever they belong to: the queue as the dispatcher sees it, and the tasks that wait for another task. */
+export function waitKinds(gov: Gov): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const { wait } of placed(gov).items) counts.set(wait.kind, (counts.get(wait.kind) ?? 0) + 1);
+  const blocked = (gov.db.prepare(`SELECT COUNT(*) AS n FROM tasks t JOIN tasks r ON r.id = t.root_id WHERE t.state='waiting' AND t.agent IS NOT NULL AND r.state NOT IN ('done','failed','stopped')
+    AND EXISTS (SELECT 1 FROM task_deps d JOIN tasks w ON w.id = d.waits_for WHERE d.task_id = t.id AND w.state != 'done')`).get() as { n: number }).n;
+  if (blocked > 0) counts.set("task", (counts.get("task") ?? 0) + blocked);
+  return counts;
+}
+
 /** The queue for a person: every workspace they see (an instance admin sees all of them), or one. */
 /** The last few things an attempt did, as short labels (a tool or call named, the first words it said), for the Live screen. */
 function doingOf(db: Db, attemptId: string): QueueAction[] {
