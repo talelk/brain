@@ -7,7 +7,7 @@ conventions the pack files rely on, so the code that loads and runs them matches
 
 | Pack | Requires | Agents | Tools | Plays |
 |---|---|---|---|---|
-| `base` | | planner, checker, worker, workspace-healer, grill-partner, translator-fr-ar | doc.extract, task.create, task.note, task.ask, memory.search, memory.propose, git.open-pr, message.send, workspace.fix, web.fetch | hello |
+| `base` | | planner, checker, worker, workspace-healer, grill-partner, translator-fr-ar | doc.extract, doc.build, chart.make, sheet.build, task.create, task.note, task.ask, memory.search, memory.propose, git.open-pr, message.send, workspace.fix, web.fetch | hello |
 | `software-factory` | base | analyst, developer, reviewer, release-manager, triager, doc-writer, security-reviewer | github.issue-read, github.issue-comment, github.label, github.pr-status | fix-issue, build-feature, review-pull-request, dependency-check, triage-new-issues |
 | `sre` | base | sre-operator, incident-analyst, evaluator | host.status, host.logs, host.disk, host.cert-expiry, host.backup-status, http.check, host.restart, host.redeploy | keep-healthy, incident-triage, weekly-report |
 | `platform` | base | capitalizer, syncer | platform.workspaces, platform.tasks, platform.task, platform.file, platform.repeats, platform.tool-drift | capitalize, sync-tools |
@@ -223,11 +223,19 @@ JSON object on standard output.
 |---|---|---|
 | `web.fetch` (base) | `url`* (https only), `max_chars` (1 to 20000, default 8000) | `{"url", "final_url", "status", "content_type", "text", "truncated"}` |
 | `doc.extract` (base) | `path`* (a PDF, DOCX or XLSX under /work), see its file | `{"text", ...}` or `{"error"}`; PDF needs `pdftotext` in the sandbox image |
+| `doc.build` (base) | `source`* (Markdown under /work or /out), `format`* (docx, pptx, pdf, html), `name` (path in /out), `title` | `{"path", "format", "bytes"}`; a deck has one slide per H2; needs `pandoc` and `soffice` |
+| `chart.make` (base) | `data`* (CSV or JSON), `type` (bar, barh, line, pie, scatter), `name`, `title`, `x`, `y`, `xlabel`, `ylabel` | `{"png", "svg", "rows", "series"}` in /out; needs matplotlib, Arabic labels use arabic-reshaper and python-bidi |
+| `sheet.build` (base) | `data`* (CSV or JSON), `name` (path in /out), `sheet` | `{"path", "rows", "columns"}`; a styled, frozen, filtered header; needs openpyxl |
 | `github.issue-read`, `github.pr-status` (software-factory) | repository and number | issue or pull request state; token from secret `github`, host `api.github.com` |
 | `github.issue-comment`, `github.label` (software-factory, write) | repository, number, text or `add`/`remove` | the comment or the labels afterwards |
 | `http.check` (sre) | `url`* (http or https) | `{"url", "ok", "status", "time_ms"}`, plus `"redirect"` or `"error"`. No answer at all is a finding: `ok` false, `status` 0, exit 0. |
 
-Both declare `needs = ["bash", "python3"]` and also call `curl`, which the tool sandbox
+The three deliverable tools (`doc.build`, `chart.make`, `sheet.build`) are `effect = "read"` with `network = []`:
+they read only under /work and /out and write only under /out, which the tool sandbox mounts writable
+(the task keeps what is there as artifacts). Their `test.sh` builds real files in a temporary folder and is
+skipped with a message where `pandoc`, `soffice`, matplotlib or openpyxl is missing.
+
+`web.fetch` and `doc.extract` declare `needs = ["bash", "python3"]` and also call `curl`, which the tool sandbox
 must provide. Both reach any public host (`network` left out is `["*"]`): a workspace that wants fewer
 places its own `tools/<name>/tool.toml` that lists the hosts it allows (`network = []` is no
 network). Only that file is replaced; `run.sh` and `test.sh` still come from the pack.

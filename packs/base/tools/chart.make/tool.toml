@@ -1,0 +1,106 @@
+description = """
+Draws a chart from a CSV or JSON file (a JSON file is a list of objects) and saves it as a \
+PNG and an SVG in /out, ready to place in a document or a deck. The data is under /work or \
+/out. Types: bar, barh, line, pie, scatter. Arabic labels are shaped and read right to \
+left. It touches nothing outside /out. Returns {"png", "svg", "rows", "series"}, or \
+{"error": "<why>"}."""
+effect = "read"
+timeout_seconds = 90
+needs = ["bash", "python3", "matplotlib"]
+network = []
+secrets = []
+
+[inputs.data]
+type = "string"
+description = "The CSV or JSON file, under /work or /out."
+required = true
+
+[inputs.type]
+type = "string"
+description = "bar, barh, line, pie or scatter. bar when left out."
+required = false
+
+[inputs.name]
+type = "string"
+description = "The chart's path inside /out without extension, such as charts/sales; the PNG and the SVG share it. The data file's name when left out."
+required = false
+
+[inputs.title]
+type = "string"
+description = "The chart's title."
+required = false
+
+[inputs.x]
+type = "string"
+description = "The column for the labels (the x axis). The first column when left out."
+required = false
+
+[inputs.y]
+type = "array"
+items = { type = "string" }
+description = "The numeric columns to draw, up to 12. Every numeric column but x when left out."
+required = false
+
+[inputs.xlabel]
+type = "string"
+description = "The label of the x axis."
+required = false
+
+[inputs.ylabel]
+type = "string"
+description = "The label of the y axis."
+required = false
+
+[translations.fr]
+description = "Dessine un graphique à partir d'un fichier CSV ou JSON (un fichier JSON est une liste d'objets) et l'enregistre en PNG et en SVG dans /out, prêt à placer dans un document ou une présentation. Les données sont sous /work ou /out. Types : bar, barh, line, pie, scatter. Les libellés arabes sont mis en forme et lus de droite à gauche. Rien n'est touché hors de /out. Renvoie {\"png\", \"svg\", \"rows\", \"series\"}, ou {\"error\": \"<pourquoi>\"}."
+
+[translations.fr.inputs.data]
+description = "Le fichier CSV ou JSON, sous /work ou /out."
+
+[translations.fr.inputs.type]
+description = "bar, barh, line, pie ou scatter. bar si omis."
+
+[translations.fr.inputs.name]
+description = "Le chemin du graphique dans /out sans extension, par exemple charts/ventes ; le PNG et le SVG le partagent. Le nom du fichier de données si omis."
+
+[translations.fr.inputs.title]
+description = "Le titre du graphique."
+
+[translations.fr.inputs.x]
+description = "La colonne des libellés (l'axe x). La première colonne si omis."
+
+[translations.fr.inputs.y]
+description = "Les colonnes numériques à dessiner, jusqu'à 12. Toutes les colonnes numériques sauf x si omis."
+
+[translations.fr.inputs.xlabel]
+description = "Le libellé de l'axe x."
+
+[translations.fr.inputs.ylabel]
+description = "Le libellé de l'axe y."
+
+[translations.ar]
+description = "يرسم مخططًا من ملف CSV أو JSON (ملف JSON هو قائمة كائنات) ويحفظه بصيغتي PNG وSVG في /out، جاهزًا لوضعه في مستند أو عرض. تكون البيانات تحت /work أو /out. الأنواع: bar وbarh وline وpie وscatter. تُشكَّل التسميات العربية وتُقرأ من اليمين إلى اليسار. لا يمسّ شيئًا خارج /out. يعيد {\"png\", \"svg\", \"rows\", \"series\"}، أو {\"error\": \"<السبب>\"}."
+
+[translations.ar.inputs.data]
+description = "ملف CSV أو JSON، تحت /work أو /out."
+
+[translations.ar.inputs.type]
+description = "bar أو barh أو line أو pie أو scatter. bar إذا تُرك فارغًا."
+
+[translations.ar.inputs.name]
+description = "مسار المخطط داخل /out بلا امتداد، مثل charts/sales؛ يشترك فيه ملفا PNG وSVG. اسم ملف البيانات إذا تُرك فارغًا."
+
+[translations.ar.inputs.title]
+description = "عنوان المخطط."
+
+[translations.ar.inputs.x]
+description = "عمود التسميات (المحور x). العمود الأول إذا تُرك فارغًا."
+
+[translations.ar.inputs.y]
+description = "الأعمدة الرقمية المراد رسمها، حتى 12. كل الأعمدة الرقمية عدا x إذا تُرك فارغًا."
+
+[translations.ar.inputs.xlabel]
+description = "تسمية المحور x."
+
+[translations.ar.inputs.ylabel]
+description = "تسمية المحور y."

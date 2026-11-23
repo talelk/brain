@@ -1,7 +1,7 @@
 description = "Proposes architecture options for a tender's requirements, with estimate ranges and the assumptions behind them."
 engine = ["pi", "claude"]
 native = "read"
-tools = ["doc.extract", "memory.search", "task.note"]
+tools = ["doc.extract", "memory.search", "task.note", "doc.build", "chart.make"]
 
 [limits]
 spend_usd = 0.75
