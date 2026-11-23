@@ -44,6 +44,14 @@
         "src/**/*.ts"
       ]
     },
+    "apps/mcp": {
+      "entry": [
+        "src/main.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
+    },
     "apps/web": {
       "project": [
         "src/**/*.{ts,tsx,css}"
