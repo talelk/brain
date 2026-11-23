@@ -48,3 +48,7 @@ shows them). Long text and lists in answers are cut and say so.
 
 Read `brain_insights` and failed or `needs_you` tasks, open the worst with `brain_task_get` and `brain_task_events`, read the agent,
 tool or Play behind it with `brain_file_read`, change a small thing with `brain_file_write`, run a task to verify, and compare.
+
+## Brain's metrics (optional)
+
+With `BRAIN_MCP_METRICS_ENV_FILE` pointing to a dotenv file (mode 600) that holds `VM_URL` (for example `https://victoria.mykeyrus.tn/vm`), `VM_USER` and `VM_PASS`, three more read-only tools exist: `brain_metrics_names`, `brain_metrics_query` and `brain_metrics_range`. They ask the host's VictoriaMetrics, where the Governor's `/metrics` series (`brain_*`) are scraped. They are served even in read-only mode, and without the file they are not offered.

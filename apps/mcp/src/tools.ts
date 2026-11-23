@@ -3,9 +3,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { z } from "zod";
 import { BrainClient, BrainRequestError, type BrainConfig } from "./client";
 import { compact, compactText } from "./compact";
+import { askMetrics, METRIC_TOOLS, type MetricsConfig } from "./metrics";
 
 /** What the model is told when it connects: the product in a paragraph, and the safe way to change it. */
 const INSTRUCTIONS = `Brain runs agents on work. A workspace is a folder of plain files: brain.toml (settings), agents/<name>/agent.toml (+ prompt), tools/<name>/tool.toml, plays/<name>.toml (a Play is a named recipe of steps run by agents), memory and packs (shared bundles of the same files, hiding or extended by workspace files). A project is a git repository agents work on. A task is one unit of work: a goal (root task) is planned into sub-tasks, each run in attempts by an agent, then checked by another agent or a person; states are waiting, ready, running, needs_you, done, failed, stopped. Ids: pass workspaceId exactly as brain_workspaces shows it.
+
+Performance: when brain_metrics_* tools are offered, they query Brain's own series (brain_*) in VictoriaMetrics: start with brain_metrics_names, then brain_metrics_query or brain_metrics_range.
 
 Plan work: brain_task_create with a goal (free text) or a play name plus inputs; follow it with brain_task_get and brain_task_events; steer, stop, retry, answer a question (needs.kind=answer) or record a check.
 
@@ -76,7 +79,7 @@ const failure = (error: unknown): { content: Array<{ type: "text"; text: string 
 };
 
 /** The tools served: only the reads when `readonly`. Each takes the contract's own input and sends it as that command or query. */
-export const createServer = (config: BrainConfig, readonly = false): McpServer => {
+export const createServer = (config: BrainConfig, readonly = false, metrics?: MetricsConfig): McpServer => {
   const client = new BrainClient(config);
   const server = new McpServer({ name: "brain", version: "0.1.0" }, { instructions: INSTRUCTIONS });
   for (const spec of readonly ? READ_TOOLS : [...READ_TOOLS, ...WRITE_TOOLS]) {
@@ -97,6 +100,14 @@ export const createServer = (config: BrainConfig, readonly = false): McpServer =
         return failure(error);
       }
     });
+  }
+  // Brain's own performance, when the host's VictoriaMetrics is set up: read-only whatever the mode.
+  if (metrics) {
+    for (const tool of METRIC_TOOLS) {
+      server.registerTool(tool.name, { title: tool.name, description: tool.description, inputSchema: tool.shape, annotations: { readOnlyHint: true, openWorldHint: false } }, async (args: Record<string, unknown>) => {
+        try { return { content: [{ type: "text" as const, text: await askMetrics(metrics, tool, args) }] }; } catch (error) { return failure(error); }
+      });
+    }
   }
   return server;
 };

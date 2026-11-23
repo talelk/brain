@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import type { BrainConfig } from "./client";
+import type { MetricsConfig } from "./metrics";
 
 /** `NAME=value` lines of a dotenv file (quotes around a value are dropped; `#` lines and `export ` are ignored). */
 export const parseEnvFile = (text: string): Record<string, string> => {
@@ -22,4 +23,14 @@ export const readConfig = (env: NodeJS.ProcessEnv): BrainConfig => {
   const password = pick("BRAIN_PASSWORD", "BRAIN_LIVE_ADMIN_PASSWORD");
   if (url === undefined || email === undefined || password === undefined) throw new Error("set BRAIN_URL and either BRAIN_EMAIL and BRAIN_PASSWORD or BRAIN_MCP_ENV_FILE (a dotenv file with BRAIN_LIVE_ADMIN_EMAIL and BRAIN_LIVE_ADMIN_PASSWORD)");
   return { url, email, password };
+};
+
+/** Where the metrics are, from VM_URL, VM_USER and VM_PASS, or from the file BRAIN_MCP_METRICS_ENV_FILE names; none when it is not set up. */
+export const readMetricsConfig = (env: NodeJS.ProcessEnv): MetricsConfig | undefined => {
+  const file = env.BRAIN_MCP_METRICS_ENV_FILE === undefined ? {} : parseEnvFile(readFileSync(env.BRAIN_MCP_METRICS_ENV_FILE, "utf8"));
+  const pick = (name: string): string | undefined => [env[name], file[name]].find((value) => value !== undefined && value !== "");
+  const url = pick("VM_URL");
+  const user = pick("VM_USER");
+  const password = pick("VM_PASS");
+  return url === undefined || user === undefined || password === undefined ? undefined : { url, user, password };
 };
