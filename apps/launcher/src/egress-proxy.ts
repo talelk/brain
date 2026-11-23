@@ -18,6 +18,7 @@ const GRANT_ID = /^[a-f0-9]{32}$/u;
 /** One entry of a grant: a lower-case name or IPv4 address with an optional port. The Governor and the launcher both refuse anything else. */
 export function isEgressHost(entry: string): boolean {
   const colon = entry.lastIndexOf(":");
+  if (entry === "*") return true;
   const host = colon < 0 ? entry : entry.slice(0, colon);
   const port = colon < 0 ? undefined : entry.slice(colon + 1);
   const nameOk = host.length >= 1 && host.length <= 253 && /^[a-z0-9.-]+$/u.test(host) && /^[a-z0-9]/u.test(host) && /[a-z0-9]$/u.test(host) && !/\.\.|\.-|-\./u.test(host);
@@ -58,9 +59,9 @@ function readGrant(dir: string, id: string): EgressGrant | undefined {
   } catch { return undefined; }
 }
 
-/** `host` allows ports 80 and 443; `host:port` allows exactly that port. Exact names only: no wildcards, no subdomains. */
+/** `host` allows ports 80 and 443; `host:port` allows exactly that port; `*` allows any host on ports 80 and 443 (never an internal address). Otherwise exact names only: no subdomains. */
 function allowed(hosts: readonly string[], host: string, port: number): boolean {
-  return hosts.some((entry) => entry === `${host}:${port}` || (entry === host && (port === 80 || port === 443)));
+  return hosts.some((entry) => entry === `${host}:${port}` || ((entry === host || entry === "*") && (port === 80 || port === 443)));
 }
 
 /** The IPv4 ranges a sandbox may never reach through an allow-listed name: this host, private, shared, loopback, link-local (cloud metadata), reserved and multicast. */

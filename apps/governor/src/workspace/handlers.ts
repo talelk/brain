@@ -48,7 +48,7 @@ function firstBrainToml(input: CommandInput<"workspace.create">, branch: string)
     packs: input.packs,
     limits: { daily_spend_usd: 20 },
     ...(model ? { model: [{ name: model.name, provider: model.provider, url: model.url, model: model.model, ...(model.key ? { key: `secret:model-${model.name}` } : {}) }] } : {}),
-    ...(project ? { project: [{ name: project.name ?? projectNameOf(project.repo), repo: project.repo, ...(branch !== "main" ? { branch } : {}), ...(project.access === "write" ? { access: "write" } : {}), ...(project.credential && !onGithub ? { credential: "secret:github" } : {}) }] } : {}),
+    ...(project ? { project: [{ name: project.name ?? projectNameOf(project.repo), repo: project.repo, ...(branch !== "main" ? { branch } : {}), ...(project.access === "read" ? { access: "read" } : {}), ...(project.credential && !onGithub ? { credential: "secret:github" } : {}) }] } : {}),
     ...(project?.credential && onGithub ? { github: { credential: "secret:github" } } : {}),
     ...(input.folderRemote ? { git: { remote: input.folderRemote } } : {}),
   });

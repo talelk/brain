@@ -75,7 +75,7 @@ compact_at = 0.7            # compacted at this share of it (default 0.7), never
 name = "kios-newrh"
 repo = "https://github.com/keyrustunisie/kios-newrh.git"
 branch = "master"
-access = "write"            # "read", or "write" to allow pull requests
+access = "read"             # "write" (the default) allows pull requests; "read" limits to reading
 credential = "secret:github"
 setup = "pnpm install --frozen-lockfile"
 network = ["registry.npmjs.org"]
@@ -102,7 +102,7 @@ is `kios-rh`. An address is never numbered: a name that makes the address of an 
 workspace (archived ones included, whatever the case or accents) is refused, and the person
 changes the name. A new workspace's first project takes its name from the repository's address
 and its branch from the repository's own default (`main` when that cannot be asked). Values that
-are the default (`access = "read"`, `branch = "main"`, the limits above) are not written to a file.
+are the default (`access = "write"`, `branch = "main"`, the limits above) are not written to a file.
 
 The folder is pushed to `[git] remote` after every change, in the background (an `http` or
 `https` address with no password in it; `credential` is the `[github]` one when left out). The
@@ -153,7 +153,7 @@ description = "Restarts one named container of this workspace's stack."
 effect = "privileged"       # "read", "write" or "privileged"
 timeout_seconds = 90
 needs = ["bash"]            # what the runner must have
-network = []                # hosts the sandbox may reach
+network = ["api.github.com"]  # hosts the sandbox may reach. Left out: any public host ("*"); [] is none
 secrets = []                # secret names the tool receives
 
 [inputs.container]

@@ -228,9 +228,9 @@ JSON object on standard output.
 | `http.check` (sre) | `url`* (http or https) | `{"url", "ok", "status", "time_ms"}`, plus `"redirect"` or `"error"`. No answer at all is a finding: `ok` false, `status` 0, exit 0. |
 
 Both declare `needs = ["bash", "python3"]` and also call `curl`, which the tool sandbox
-must provide. Both ship with `network = []`: a workspace makes them useful by placing its
-own `tools/<name>/tool.toml` that lists the hosts it allows. Only that file is replaced;
-`run.sh` and `test.sh` still come from the pack.
+must provide. Both reach any public host (`network` left out is `["*"]`): a workspace that wants fewer
+places its own `tools/<name>/tool.toml` that lists the hosts it allows (`network = []` is no
+network). Only that file is replaced; `run.sh` and `test.sh` still come from the pack.
 
 ## Host commands of the `sre` pack
 
@@ -246,7 +246,12 @@ For a host that runs its services with Docker, the declarations would be:
 | `host.restart` | privileged | `container` | `docker restart {container}` |
 | `host.redeploy` | privileged | `stack` | `docker compose -f /srv/{stack}/compose.yaml up -d --pull always` |
 
-The operator should restrict `container` and `stack` to a pattern such as
+**Open by default.** With no operator file, the launcher offers `host.status`, `host.logs`, `host.disk`,
+`host.restart` (any container) and `host.run` (one shell line): the privileged ones wait for a person's
+approval, call by call. Writing the file (`BRAIN_LAUNCHER_HOST_COMMANDS`) is the option to limit: it then
+lists the only commands that exist.
+
+The operator who limits should restrict `container` and `stack` to a pattern such as
 `^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$`. The agents treat the output as text.
 
 ## What the content expects from the engine

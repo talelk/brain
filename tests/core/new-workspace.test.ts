@@ -53,8 +53,8 @@ describe("the address", () => {
 
 describe("the project", () => {
   it("is named from its address, and takes the branch the repository itself calls its default", async () => {
-    const made = await harness.createWorkspace({ name: "Shop", project: { repo: `${server.origin}/shop.git`, access: "read" } });
-    expect((await harness.admin.query("workspace.get", { workspaceId: made.workspaceId })).snapshot.projects).toMatchObject([{ name: "shop", branch: "trunk", access: "read" }]);
+    const made = await harness.createWorkspace({ name: "Shop", project: { repo: `${server.origin}/shop.git` } });
+    expect((await harness.admin.query("workspace.get", { workspaceId: made.workspaceId })).snapshot.projects).toMatchObject([{ name: "shop", branch: "trunk", access: "write" }]);
     const text = (await harness.admin.query("file.read", { workspaceId: made.workspaceId, path: "brain.toml" })).content;
     expect(text).not.toContain("access");
     expect(text).not.toContain("running_tasks");

@@ -192,7 +192,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
         const launcher = cfg.launcher!;
         const wanted = [hostOf(offer.model.gatewayUrl), ...offer.projects.flatMap((project) => project.network.map((host) => host.toLowerCase()))].filter((host): host is string => host !== undefined);
         // The egress proxy grants exact names; a pattern cannot be granted and is left out, in the open.
-        const patterns = wanted.filter((host) => host.includes("*"));
+        const patterns = wanted.filter((host) => host !== "*" && host.includes("*"));
         if (patterns.length > 0) emit({ kind: "status", phase: "setup", detail: `the egress proxy grants exact host names only, so these are not reachable: ${patterns.join(", ")}` });
         const sandbox = new SandboxedEngine(() => launcher.openEngine({
           engine: picked.id, attemptId, requestId: `engine-${attemptId}-${fence}`, cpuMillicores: cfg.sandbox.cpuMillicores, memoryMb: cfg.sandbox.memoryMb,

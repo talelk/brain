@@ -1,0 +1,26 @@
+description = """
+Runs one shell line on the runner's host and returns its output (exit code, stdout, stderr). \
+It changes nothing by itself but can do anything the host user can, so it is privileged: a \
+person approves each call and sees the exact line first. Prefer the narrower tools \
+(host.status, host.logs, host.disk, host.restart) when one fits. The operator may limit the \
+host to a fixed list of commands, in which case this tool is refused."""
+effect = "privileged"
+host_command = "host.run"
+timeout_seconds = 120
+
+[inputs.command]
+type = "string"
+description = "The shell line to run, at most 4000 characters."
+required = true
+
+[translations.fr]
+description = "Exécute une ligne de shell sur l'hôte du runner et renvoie sa sortie (code de sortie, stdout, stderr). Il ne change rien par lui-même mais peut faire tout ce que peut l'utilisateur de l'hôte : il est donc privilégié, une personne approuve chaque appel et voit d'abord la ligne exacte. Préférez les outils plus étroits (host.status, host.logs, host.disk, host.restart) quand l'un convient. L'opérateur peut limiter l'hôte à une liste fixe de commandes ; cet outil est alors refusé."
+
+[translations.fr.inputs.command]
+description = "La ligne de shell à exécuter, 4000 caractères au plus."
+
+[translations.ar]
+description = "ينفّذ سطر shell واحدًا على الجهاز المضيف للـ runner ويعيد مخرجاته (رمز الخروج وstdout وstderr). لا يغيّر شيئًا بنفسه لكنه يستطيع فعل كل ما يستطيعه مستخدم الجهاز المضيف، لذا هو متميّز: يوافق شخص على كل استدعاء ويرى السطر بالضبط أولًا. فضّل الأدوات الأضيق (host.status وhost.logs وhost.disk وhost.restart) متى ناسبت. قد يقصر المشغّل المضيف على قائمة ثابتة من الأوامر، وعندها يُرفض هذه الأداة."
+
+[translations.ar.inputs.command]
+description = "سطر shell المراد تنفيذه، حتى 4000 حرف."

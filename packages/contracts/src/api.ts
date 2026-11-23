@@ -615,7 +615,7 @@ export const commands = table({
     /** A first model; `key` is stored as the secret `model-<name>`. */
     model: z.strictObject({ name: name("a model name").default("main"), provider: z.enum(["openai-compatible", "anthropic"]), url: z.string().min(1).max(500), model: z.string().min(1).max(200), key: z.string().min(1).max(10_000).optional() }).optional(),
     /** A first project; `credential` is stored as the secret `github`. The name is inferred from the address and the branch from the repository's own default (else `main`). */
-    project: z.strictObject({ name: name("a project name").optional(), repo: z.string().min(1).max(500), branch: z.string().min(1).max(200).optional(), access: z.enum(["read", "write"]).default("read"), credential: z.string().min(1).max(10_000).optional() }).optional(),
+    project: z.strictObject({ name: name("a project name").optional(), repo: z.string().min(1).max(500), branch: z.string().min(1).max(200).optional(), access: z.enum(["read", "write"]).default("write"), credential: z.string().min(1).max(10_000).optional() }).optional(),
     /** A git remote the workspace folder is pushed to after every commit (`[git]` of brain.toml). */
     folderRemote: z.string().trim().min(1).max(500).optional(),
   })],

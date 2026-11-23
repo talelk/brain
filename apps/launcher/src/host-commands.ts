@@ -46,9 +46,23 @@ export function parseHostCommands(text: string): HostCommandTable {
   return table;
 }
 
+/**
+ * The runner host is open by default: with no operator file, `host.run` runs any shell line the approved call carries, and the usual
+ * status, disk, logs and restart commands name any container (the privileged ones are approved call by call and run once). An operator
+ * who wants fewer writes the file: it then lists the only commands that exist.
+ */
+const ANY_CONTAINER = "^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$";
+export const OPEN_HOST_COMMANDS: HostCommandTable = new Map<string, HostCommand>([
+  ["host.run", { argv: ["sh", "-c", "{command}"], effect: "privileged", args: { command: "^[^\\u0000]{1,4000}$" }, timeoutMs: 120_000 }],
+  ["host.status", { argv: ["docker", "ps", "-a", "--format", "{{.Names}}\t{{.Image}}\t{{.Status}}"], effect: "read", args: {}, timeoutMs: 15_000 }],
+  ["host.disk", { argv: ["df", "-h"], effect: "read", args: {}, timeoutMs: 15_000 }],
+  ["host.logs", { argv: ["docker", "logs", "--tail", "{lines}", "{container}"], effect: "read", args: { lines: "^([1-9][0-9]?|[1-4][0-9]{2}|500)$", container: ANY_CONTAINER }, timeoutMs: 30_000 }],
+  ["host.restart", { argv: ["docker", "restart", "{container}"], effect: "privileged", args: { container: ANY_CONTAINER }, timeoutMs: 90_000 }],
+]);
+
 export function loadHostCommands(path: string | undefined): HostCommandTable {
-  if (!path || !existsSync(path)) return new Map();
-  return parseHostCommands(readFileSync(path, "utf8"));
+  if (!path) return OPEN_HOST_COMMANDS;
+  return existsSync(path) ? parseHostCommands(readFileSync(path, "utf8")) : new Map();
 }
 
 export type Resolved = { readonly ok: true; readonly argv: readonly string[]; readonly command: HostCommand } | { readonly ok: false; readonly status: number; readonly error: string };

@@ -43,15 +43,14 @@ interface Workspace {
 /** The containers the platform workspace may restart without waiting for a person: the web containers of the host, never Brain, the model or memory. deploy/demo/host-commands.json lists the same names in the `container` pattern of host.logs and host.restart: keep the two in step. */
 const RESTARTABLE = ["cvinsights-web-1", "health360-web-1", "kios-rh-new-1", "of-vue360-ai-app-1", "omniflow-docus-docus-1", "zain-docus-docus-1", "teknova-nao", "ps-insights-rill-1", "synthetic-api", "newqlik-query-1", "newqlik-build-1"];
 const GH = (repo: string): string => `https://github.com/${repo}.git`;
-const NPM = ["registry.npmjs.org"];
 const PLAYGROUND: readonly Workspace[] = [
-  { slug: "sandbox", name: "Sandbox", description: "Where to try agents, tools and Plays safely: a throwaway repository, low spend caps, no healing.", packs: ["base", "software-factory", "frontend-qa"], projects: [{ repo: GH("talelk/playground-scratch"), network: NPM, access: "write" }], limits: { daily_spend_usd: 2, running_tasks: 1 }, healing: "off" },
-  { slug: "brain-dev", name: "Brain development", description: "Brain on itself: issues triaged, ready-for-agent work built, changes reviewed.", packs: ["base", "software-factory"], projects: [{ repo: GH("talelk/brain"), setup: "pnpm install --frozen-lockfile", network: NPM, access: "write" }] },
-  { slug: "telco-orange", name: "Telco Orange", description: "The Orange customer 360 and selfcare work.", packs: ["base", "software-factory", "customer-operations"], projects: [{ repo: GH("keyrustunisie/of-vue360-ai"), setup: "bun install", network: NPM }, { repo: GH("keyrustunisie/selfcare-obf"), network: NPM }] },
+  { slug: "sandbox", name: "Sandbox", description: "Where to try agents, tools and Plays safely: a throwaway repository, low spend caps, no healing.", packs: ["base", "software-factory", "frontend-qa"], projects: [{ repo: GH("talelk/playground-scratch") }], limits: { daily_spend_usd: 2, running_tasks: 1 }, healing: "off" },
+  { slug: "brain-dev", name: "Brain development", description: "Brain on itself: issues triaged, ready-for-agent work built, changes reviewed.", packs: ["base", "software-factory"], projects: [{ repo: GH("talelk/brain"), setup: "pnpm install --frozen-lockfile" }] },
+  { slug: "telco-orange", name: "Telco Orange", description: "The Orange customer 360 and selfcare work.", packs: ["base", "software-factory", "customer-operations"], projects: [{ repo: GH("keyrustunisie/of-vue360-ai"), setup: "bun install" }, { repo: GH("keyrustunisie/selfcare-obf") }] },
   { slug: "presales-rfp", name: "Presales and RFP", description: "Tenders, terms of reference, responses and leads. Documents only: its memory holds what it has learned.", packs: ["base", "presales"] },
-  { slug: "data-bi", name: "Data and BI", description: "Associative BI, analytics and ETL lineage.", packs: ["base", "software-factory", "data-engineering"], projects: [{ repo: GH("talelk/newmoon"), network: NPM }, { repo: GH("talelk/kamaris"), network: NPM }, { repo: GH("keyrustunisie/mg-etl-intelligence"), network: NPM }] },
-  { slug: "bff-platform", name: "BFF platform", description: "The configuration-aware customer BFF: Studio and runtime.", packs: ["base", "software-factory"], projects: [{ repo: GH("keyrustunisie/360v3"), setup: "bun install", network: NPM }] },
-  { slug: "kios-newrh", name: "Kios RH", description: "Workforce cost platform (Nuxt, Prisma).", packs: ["base", "software-factory"], projects: [{ repo: GH("keyrustunisie/kios-newrh"), branch: "master", setup: "pnpm install --frozen-lockfile", network: NPM, access: "write" }] },
+  { slug: "data-bi", name: "Data and BI", description: "Associative BI, analytics and ETL lineage.", packs: ["base", "software-factory", "data-engineering"], projects: [{ repo: GH("talelk/newmoon") }, { repo: GH("talelk/kamaris") }, { repo: GH("keyrustunisie/mg-etl-intelligence") }] },
+  { slug: "bff-platform", name: "BFF platform", description: "The configuration-aware customer BFF: Studio and runtime.", packs: ["base", "software-factory"], projects: [{ repo: GH("keyrustunisie/360v3"), setup: "bun install" }] },
+  { slug: "kios-newrh", name: "Kios RH", description: "Workforce cost platform (Nuxt, Prisma).", packs: ["base", "software-factory"], projects: [{ repo: GH("keyrustunisie/kios-newrh"), branch: "master", setup: "pnpm install --frozen-lockfile" }] },
   { slug: "ops", name: "Ops", description: "The demos host: health, incidents, restarts.", packs: ["base", "sre"], memory: ["inventory", "monitoring", "runbook"] },
   { slug: "brain-admin", name: "Brain admin", description: "Optimizing the platform: its configuration, its workspaces and what they keep repeating. Reads every workspace; each change it proposes waits for an admin.", packs: ["base", "platform"], platform: "admin" },
 ];
@@ -91,7 +90,7 @@ for (const entry of WITH_STARTER) {
   const created = entry.platform === "read" ? entry.packs.filter((name) => name !== "platform") : entry.packs;
   const id = known?.id ?? ((await command("workspace.create", {
     name: entry.name, slug: entry.slug, description: entry.description, packs: created, model, ...(entry.platform === "admin" ? { platform: "admin" } : {}),
-    ...(first ? { project: { repo: first.repo, branch: first.branch ?? "main", access: first.access ?? "read", credential: token } } : {}),
+    ...(first ? { project: { repo: first.repo, branch: first.branch ?? "main", access: first.access ?? "write", credential: token } } : {}),
   })) as { workspaceId: string }).workspaceId;
   if (known && first) await command("secret.set", { workspaceId: id, name: "github", value: token });
   if (known && process.env["BRAIN_MODEL_KEY"]) await command("secret.set", { workspaceId: id, name: "model-main", value: process.env["BRAIN_MODEL_KEY"] });
@@ -115,11 +114,13 @@ for (const entry of WITH_STARTER) {
     const name = one.repo.replace(/\.git$/u, "").split("/").pop() ?? one.repo;
     let project = projects.find((existing) => existing["repo"] === one.repo);
     if (!project) {
-      project = { name, repo: one.repo, branch: one.branch ?? "main", ...(one.access === "write" ? { access: "write" } : {}), credential: "secret:github" };
+      project = { name, repo: one.repo, branch: one.branch ?? "main", credential: "secret:github" };
       projects.push(project);
     }
     if (one.setup) project["setup"] = one.setup;
-    if (one.network) project["network"] = [...one.network];
+    // Open by default (docs/model.md): the network and write access are written only to limit them.
+    if (one.network) project["network"] = [...one.network]; else delete project["network"];
+    if (one.access === "read") project["access"] = "read"; else delete project["access"];
   }
   if (projects.length > 0) config.project = projects;
   if (entry.packs.includes("sre")) {

@@ -1,14 +1,12 @@
 description = """
 Fetches one https address and returns its readable text (HTML is reduced to text). GET \
-only: it reads and never submits anything. It reaches only the hosts listed under \
-`network`, and this pack ships that list empty, so every fetch is refused until the \
-workspace replaces this tool file with its own copy that names the hosts it allows. A \
+only: it reads and never submits anything. It reaches any public host; a workspace that wants fewer \
+replaces this tool file with its own copy whose `network` lists the hosts it allows. A \
 refusal or an error is an answer, not something to work around. Returns {"url", \
 "final_url", "status", "content_type", "text", "truncated"}, or {"error": "<why>"}."""
 effect = "read"
 timeout_seconds = 30
 needs = ["bash", "python3"]
-network = []
 secrets = []
 
 [inputs.url]
@@ -22,7 +20,7 @@ description = "The most text to return, from 1 to 20000 characters. 8000 when le
 required = false
 
 [translations.fr]
-description = "Récupère une adresse https et renvoie son texte lisible (le HTML est réduit à du texte). GET uniquement : il lit et n'envoie jamais rien. Il n'atteint que les hôtes listés sous `network`, et ce pack livre cette liste vide : toute récupération est donc refusée tant que l'espace de travail n'a pas remplacé ce fichier d'outil par sa propre copie nommant les hôtes autorisés. Un refus ou une erreur est une réponse, pas un obstacle à contourner. Renvoie {\"url\", \"final_url\", \"status\", \"content_type\", \"text\", \"truncated\"}, ou {\"error\": \"<pourquoi>\"}."
+description = "Récupère une adresse https et renvoie son texte lisible (le HTML est réduit à du texte). GET uniquement : il lit et n'envoie jamais rien. Il atteint n'importe quel hôte public ; un espace de travail qui veut moins remplace ce fichier d'outil par sa propre copie dont `network` liste les hôtes autorisés. Un refus ou une erreur est une réponse, pas un obstacle à contourner. Renvoie {\"url\", \"final_url\", \"status\", \"content_type\", \"text\", \"truncated\"}, ou {\"error\": \"<pourquoi>\"}."
 
 [translations.fr.inputs.url]
 description = "L'adresse complète, commençant par https://. Sans nom d'utilisateur ni mot de passe."
@@ -31,7 +29,7 @@ description = "L'adresse complète, commençant par https://. Sans nom d'utilisa
 description = "Le maximum de texte à renvoyer, de 1 à 20000 caractères. 8000 si omis."
 
 [translations.ar]
-description = "يجلب عنوان https واحدًا ويعيد نصه المقروء (يُختزل HTML إلى نص). GET فقط: يقرأ ولا يرسل شيئًا أبدًا. لا يصل إلا إلى المضيفين المدرجين تحت `network`، وتأتي هذه الحزمة (pack) بقائمة فارغة، فيُرفض كل جلب إلى أن تستبدل مساحة العمل ملف هذه الأداة بنسختها الخاصة التي تسمّي المضيفين المسموح بهم. الرفض أو الخطأ إجابة، لا عقبة يُلتفّ عليها. يعيد {\"url\", \"final_url\", \"status\", \"content_type\", \"text\", \"truncated\"}، أو {\"error\": \"<السبب>\"}."
+description = "يجلب عنوان https واحدًا ويعيد نصه المقروء (يُختزل HTML إلى نص). GET فقط: يقرأ ولا يرسل شيئًا أبدًا. يصل إلى أي مضيف عام؛ ومساحة العمل التي تريد أقل تستبدل ملف هذه الأداة بنسختها الخاصة التي يسرد `network` فيها المضيفين المسموح بهم. الرفض أو الخطأ إجابة، لا عقبة يُلتفّ عليها. يعيد {\"url\", \"final_url\", \"status\", \"content_type\", \"text\", \"truncated\"}، أو {\"error\": \"<السبب>\"}."
 
 [translations.ar.inputs.url]
 description = "العنوان الكامل، ويبدأ بـ https://. دون اسم مستخدم أو كلمة مرور."

@@ -10,9 +10,8 @@ agent = "rfp-analyst"
 goal = """
 List new public tenders that fit this consultancy. Find in memory (memory.search) the \
 tender sources to watch, the company's domains and the exclusion rules, then read each \
-source with web.fetch. This pack's web.fetch allows no host: the workspace replaces it \
-with its own tools/web.fetch/tool.toml that lists the hosts it allows. If a fetch is \
-refused, say which address and that the host list needs it; do not work around it. For \
+source with web.fetch. If a fetch is refused or fails, say which address and why; do \
+not work around it. For \
 each fitting call, give the title, buyer, reference, submission deadline, address, and \
 one line on why it fits and the main risk. Mark each recommended, maybe or skip. Report \
 only what the pages say; if nothing is new, say so in one line. Post the recommended \

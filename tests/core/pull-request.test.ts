@@ -51,7 +51,7 @@ beforeAll(async () => {
   store = await startCoreStore(() => harness);
   harness = await createHarness({ fetch: (input, init) => fetch(input, init), storeUrl: `http://127.0.0.1:${store.port}` });
   ({ workspaceId } = await makeWorkspace(harness, "Shop", {
-    brain: `[[project]]\nname = "shop"\nrepo = "${server.origin}/origin.git"\nbranch = "main"\naccess = "write"\ncredential = "secret:github"\n[[project]]\nname = "docs"\nrepo = "${server.origin}/origin.git"\n`,
+    brain: `[[project]]\nname = "shop"\nrepo = "${server.origin}/origin.git"\nbranch = "main"\naccess = "write"\ncredential = "secret:github"\n[[project]]\nname = "docs"\nrepo = "${server.origin}/origin.git"\naccess = "read"\n`,
     agents: { developer: { tools: ["git.open-pr"], native: "all" }, releaser: { tools: ["git.open-pr"], native: "read" } },
     plays: { fix: play, solo: 'title = "Solo"\n[[step]]\nid = "change"\nagent = "developer"\ngoal = "Change and open."\n' },
   }));

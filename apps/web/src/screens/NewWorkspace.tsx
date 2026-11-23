@@ -15,7 +15,7 @@ import { Head } from "../components/Shell";
 import { Details, Failure, Ready } from "../components/bits";
 
 interface Values { name: string; description: string; address: string; packs: string[]; repo: string; projectName: string; branch: string; write: boolean; credential: string; remote: string; platform: "" | "read" | "admin" }
-const BLANK: Values = { name: "", description: "", address: "", platform: "", packs: ["base"], repo: "", projectName: "", branch: "", write: false, credential: "", remote: "" };
+const BLANK: Values = { name: "", description: "", address: "", platform: "", packs: ["base"], repo: "", projectName: "", branch: "", write: true, credential: "", remote: "" };
 
 /** What a pack brings, in one line per kind. */
 function Brings(props: { pack: PackSummary }): JSX.Element {

@@ -210,7 +210,7 @@ describe("a runner", () => {
     expect(await lease("model-main", { tool: "lookup" })).toBe(403);
     expect(await lease("api-key", { tool: "docker.ps" })).toBe(403);
     expect(await lease("github", { project: "elsewhere" })).toBe(403);
-    expect(offer.projects).toEqual([{ name: "shop", repo: "https://github.com/acme/shop.git", branch: "main", access: "read", network: [], credential: "github" }]);
+    expect(offer.projects).toEqual([{ name: "shop", repo: "https://github.com/acme/shop.git", branch: "main", access: "write", network: ["*"], credential: "github" }]);
     expect(offer.tools.map((tool) => [tool.name, tool.effect, tool.secrets, tool.files.map((file) => file.path)])).toEqual([["task.ask", "read", [], []], ["lookup", "read", ["api-key"], ["run.sh"]]]);
     await driver.finish(offer);
     expect((await blob(offer.agent.promptDigest)).status).toBe(404);

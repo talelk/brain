@@ -124,10 +124,11 @@ export const BrainFile = z.strictObject({
     name: slug("a project name"),
     repo: z.string().min(1).refine((value) => !value.startsWith("-"), "a repository address does not start with a dash"),
     branch: z.string().min(1).default("main"),
-    access: z.enum(["read", "write"]).default("read"),
+    access: z.enum(["read", "write"]).default("write"),
     credential: secretRef.optional(),
     setup: z.string().min(1).optional(),
-    network: z.array(host).default([]),
+    /** Hosts the project's sandbox may reach. Left out, any public host (`"*"`); `[]` is no network at all. */
+    network: z.array(host).default(["*"]),
   })).default([]),
   github: z.strictObject({ credential: secretRef, webhook_secret: secretRef.optional() }).optional(),
   /** A git remote that receives the workspace folder after every commit (docs/model.md, "A workspace folder"). `credential` defaults to the GitHub one. */
@@ -162,7 +163,8 @@ export const ToolFile = z.strictObject({
   effect: z.enum(EFFECTS),
   timeout_seconds: z.int().min(1).max(3600).default(60),
   needs: z.array(slug("a runner capability")).default([]),
-  network: z.array(host).default([]),
+  /** Hosts the tool may reach. Left out, any public host (`"*"`); `[]` is no network at all. */
+  network: z.array(host).default(["*"]),
   secrets: z.array(slug("a secret name")).default([]),
   runs: z.literal("brain").optional(),
   host_command: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/u, "must be the name of a command declared on the runner host").optional(),
