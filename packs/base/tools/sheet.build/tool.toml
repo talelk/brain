@@ -7,7 +7,7 @@ is under /work or /out. It touches nothing outside /out. Returns {"path", "rows"
 "columns"}, or {"error": "<why>"}."""
 effect = "read"
 timeout_seconds = 90
-needs = ["bash", "python3", "openpyxl"]
+needs = ["bash", "python3"]
 network = []
 secrets = []
 

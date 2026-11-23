@@ -6,7 +6,7 @@ left. It touches nothing outside /out. Returns {"png", "svg", "rows", "series"},
 {"error": "<why>"}."""
 effect = "read"
 timeout_seconds = 90
-needs = ["bash", "python3", "matplotlib"]
+needs = ["bash", "python3"]
 network = []
 secrets = []
 

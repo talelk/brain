@@ -6,7 +6,7 @@ is what the task keeps as an artifact. Arabic text is set right to left. It touc
 nothing outside /out. Returns {"path", "format", "bytes"}, or {"error": "<why>"}."""
 effect = "read"
 timeout_seconds = 180
-needs = ["bash", "python3", "pandoc", "soffice"]
+needs = ["bash", "python3"]
 network = []
 secrets = []
 
