@@ -196,7 +196,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
         if (patterns.length > 0) emit({ kind: "status", phase: "setup", detail: `the egress proxy grants exact host names only, so these are not reachable: ${patterns.join(", ")}` });
         const sandbox = new SandboxedEngine(() => launcher.openEngine({
           engine: picked.id, attemptId, requestId: `engine-${attemptId}-${fence}`, cpuMillicores: cfg.sandbox.cpuMillicores, memoryMb: cfg.sandbox.memoryMb,
-          work: offer.agent.native === "all" ? "rw" : offer.agent.native === "read" ? "ro" : "none", egressHosts: [...new Set(wanted.filter((host) => !host.includes("*")))],
+          work: offer.agent.native === "all" ? "rw" : offer.agent.native === "read" ? "ro" : "none", egressHosts: [...new Set(wanted.filter((host) => host === "*" || !host.includes("*")))],
         }), picked.id);
         engine = sandbox;
       } else {

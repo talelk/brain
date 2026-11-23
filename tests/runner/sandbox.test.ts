@@ -46,12 +46,12 @@ describe("an engine in its sandbox", () => {
     const origin = bareRepository({ "a.txt": "a\n", ".gitignore": "*.log\n" });
     const offer = gov.offer({
       agent: { engines: ["pi"], native: "all" }, model: { gatewayUrl: "https://Brain.Example.test:8443/model/v1", route: "main", contextTokens: 200_000, compactAt: 0.7 },
-      projects: [{ name: "app", repo: origin.repo, branch: "main", access: "write", network: ["registry.npmjs.org", "*.example.test"], setup: "echo installed > setup.log" }],
+      projects: [{ name: "app", repo: origin.repo, branch: "main", access: "write", network: ["registry.npmjs.org", "*.example.test", "*"], setup: "echo installed > setup.log" }],
       tools: [gov.tool("task.note", { runs: "brain", inputSchema: { type: "object" } })],
       task: { goal: 'FIXTURE read app/setup.log\nFIXTURE write app/b.txt b\\n\nFIXTURE tool task.note {"text": "hello"}\nFIXTURE reply done: %last%' },
     });
     await runner.runOnce();
-    expect(launcher.opened).toEqual([{ engine: "pi", attemptId: offer.attemptId, requestId: `engine-${offer.attemptId}-1`, cpuMillicores: 1000, memoryMb: 1024, work: "rw", egressHosts: ["brain.example.test:8443", "registry.npmjs.org"] }]);
+    expect(launcher.opened).toEqual([{ engine: "pi", attemptId: offer.attemptId, requestId: `engine-${offer.attemptId}-1`, cpuMillicores: 1000, memoryMb: 1024, work: "rw", egressHosts: ["brain.example.test:8443", "registry.npmjs.org", "*"] }]);
     expect(launcher.closed).toBe(1);
     const done = gov.completions.get(offer.attemptId)!;
     expect(done).toMatchObject({ outcome: "succeeded", engine: "pi", result: 'done: {"ok":true}' });
