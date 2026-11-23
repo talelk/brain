@@ -37,6 +37,7 @@ apps/governor/src/
 apps/runner/   kept; edited for the new protocol, native tools and working copies
 apps/launcher/ kept; engine sandbox gains the working-copy mount
 apps/store/    the git store: `git http-backend` behind a signed-token check; a process of its own that never talks to the Governor (section 8)
+apps/mcp/     the MCP server for a person's own Claude (section 12): stdio, talks to a live Brain over the API
 apps/web/src/  new app, nine screens
 scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, runner, backup, restore, audit-verify), deploy-demo.sh
 deploy/        the sandbox images; demo/ (the demo host's compose file, host commands and backup units)
@@ -604,6 +605,21 @@ the handoffs between them, read from the Plays' steps and the recent tasks the w
   from a pack with its first goal; Files (browse, edit and save a document, a broken `brain.toml` refused, upload with an overwrite confirmation and a size refusal, download, delete; a pack's file listed and a copy edited; selection by box, range and key, copy, move, bulk download and delete, and a dropped file; axe light and dark at 390; Arabic); Schedules (the list, the form with its live check and preview, pause and remove); users (invite, accept, sign in, deactivate); sharing (adding a person by email, the private and public switch, the invited person's grouped sidebar and a public workspace read only); the Overview across several workspaces (needs-you list, a call decided in place, a jump into a task); the Live screen (the runner lane and its slots, the numbers of the flow, a need that pulses, axe in light, dark and reduced motion); axe on Today and Task (light and dark) and an Arabic right-to-left check. It is not
   part of `pnpm verify`.
 
+- `tests/unit/mcp.test.ts`: the MCP server against a stub Brain (the tool list and read-only mode with no human gate offered, the request each tool sends, sign-in again when the session ends, a refusal reported with its problems).
+
 `pnpm verify` = lint, typecheck, unit, runner, core and e2e tests, and `scripts/complexity.mjs`,
 which fails when tables, commands plus queries, glossary terms, step fields or screens exceed the
 budget written in `docs/complexity.json`.
+
+## 12. MCP server (`apps/mcp`)
+
+A stdio MCP server that runs on a person's own machine and lets their Claude plan work in a live Brain and optimise it. It has no
+command or query of its own and reads no Brain file: it signs in with `POST /api/auth/sign-in/email` (the person's account, so every
+role check, audit entry and idempotency rule of section 4 applies as to any client), keeps the session cookie, signs in again on a
+401, and sends `POST /v1/query` and `/v1/command`. Each tool takes the contract's own input schema (`packages/contracts`, the only
+shared code) and is checked with it before a request is made. Tools are `brain_*`: reads (overview, queue, insights, workspaces,
+files, tasks, task events, packs, audit, schedules), work (task create, steer, stop, retry, check, answer, checkpoint) and
+configuration (file write and delete, pack release, workspace create and archive). Approving a call, deciding a memory proposal and
+users and secrets are left out on purpose: a human gate stays human. `BRAIN_MCP_READONLY=1` serves the reads only. Answers are
+compacted for a model (long text and lists cut, with a note saying so). Configuration is by environment (`BRAIN_URL`,
+`BRAIN_EMAIL`, `BRAIN_PASSWORD`, or `BRAIN_MCP_ENV_FILE`); credentials are never printed. See `apps/mcp/README.md`.
