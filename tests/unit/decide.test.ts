@@ -177,6 +177,8 @@ describe("what an agent says it did", () => {
   it("finds nothing wrong when every claimed file is kept, and says what is lost otherwise", () => {
     expect(unkeptClaim(["/out/a.md"], new Set(["a.md"]), [])).toBeUndefined();
     expect(unkeptClaim(["/work/app/src/x.ts"], new Set(), ["app"])).toBeUndefined();
+    expect(unkeptClaim(["/out/deck", "/out/deck/"], new Set(["deck/a.pptx"]), [])).toBeUndefined();
+    expect(unkeptClaim(["/out/other/"], new Set(["deck/a.pptx"]), [])).toContain("/out/other");
     expect(unkeptClaim(["/out/a.md", "/work/b.md"], new Set(["a.md"]), [])).toContain('"/work/b.md" was saved, but nothing was kept there');
   });
 });

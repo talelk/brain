@@ -251,7 +251,9 @@ export function claimedFiles(result: string): string[] {
 export function unkeptClaim(claims: readonly string[], kept: ReadonlySet<string>, projects: readonly string[]): string | undefined {
   const missing = claims.filter((claim) => {
     const [, root = "", ...rest] = claim.split("/");
-    return root === "out" ? !kept.has(rest.join("/")) : !projects.includes(rest[0] ?? "");
+    // A folder of /out is kept when a file under it is; a trailing slash names a folder.
+    const name = rest.join("/").replace(/\/+$/u, "");
+    return root === "out" ? name !== "" && !kept.has(name) && ![...kept].some((file) => file.startsWith(`${name}/`)) : !projects.includes(rest[0] ?? "");
   });
   if (missing.length === 0) return undefined;
   return `Your result says ${missing.map((path) => `"${path}"`).join(", ")} ${missing.length === 1 ? "was" : "were"} saved, but nothing was kept there: only files saved in /out${projects.length > 0 ? ` and changes to the project folders under /work (${projects.join(", ")})` : ""} are kept, and a file anywhere else is lost when the attempt ends. Save the file in /out, or take the claim out of your result.`;

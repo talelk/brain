@@ -90,7 +90,8 @@ function Activity(props: { attempt: Attempt }): JSX.Element {
 export function Evidence(props: { task: Task }): JSX.Element {
   const [opened, setOpened] = createSignal<readonly string[]>([]);
   const runs = (): Attempt[] => props.task.attempts.filter((attempt) => attempt.kind === "work" || attempt.kind === "plan");
-  const files = () => props.task.artifacts.filter((artifact) => artifact.kind === "output");
+  // A name saved by several attempts is shown once, as the last attempt left it.
+  const files = () => [...new Map(props.task.artifacts.filter((artifact) => artifact.kind === "output").map((artifact) => [artifact.name, artifact])).values()];
   const patch = () => props.task.artifacts.filter((artifact) => artifact.kind === "patch").at(-1);
   const empty = (): boolean => props.task.toolCalls.length === 0 && runs().length === 0 && files().length === 0 && !patch();
   return (
