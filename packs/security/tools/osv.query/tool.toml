@@ -1,0 +1,45 @@
+description = "Looks one package version up in the OSV vulnerability database (api.osv.dev) and lists the known advisories that affect it. Read-only, needs no secret. Returns {\"vulnerabilities\": [{\"id\", \"summary\", \"severity\", \"fixed_in\"}]}, or {\"error\": \"<why>\"}. `severity` and `fixed_in` are left out when OSV does not give them. An empty list means no advisory is known for that exact version, not that it is safe."
+effect = "read"
+timeout_seconds = 40
+needs = ["bash", "python3", "curl"]
+network = ["api.osv.dev"]
+secrets = []
+
+[inputs.ecosystem]
+type = "string"
+description = "The OSV ecosystem, such as npm, PyPI, Go, crates.io, Maven or NuGet."
+required = true
+
+[inputs.name]
+type = "string"
+description = "The package name, as the registry spells it."
+required = true
+
+[inputs.version]
+type = "string"
+description = "The exact installed version."
+required = true
+
+[translations.fr]
+description = "Cherche une version de paquet dans la base de vulnérabilités OSV (api.osv.dev) et liste les avis connus qui la touchent. Lecture seule, sans secret. Renvoie {\"vulnerabilities\": [{\"id\", \"summary\", \"severity\", \"fixed_in\"}]}, ou {\"error\": \"<pourquoi>\"}. `severity` et `fixed_in` sont omis quand OSV ne les donne pas. Une liste vide veut dire qu'aucun avis n'est connu pour cette version exacte, pas qu'elle est sûre."
+
+[translations.fr.inputs.ecosystem]
+description = "L'écosystème OSV, comme npm, PyPI, Go, crates.io, Maven ou NuGet."
+
+[translations.fr.inputs.name]
+description = "Le nom du paquet, tel que le registre l'écrit."
+
+[translations.fr.inputs.version]
+description = "La version exacte installée."
+
+[translations.ar]
+description = "يبحث عن إصدار حزمة في قاعدة الثغرات OSV (api.osv.dev) ويسرد الإشعارات المعروفة التي تمسّه. للقراءة فقط وبلا سرّ. يعيد {\"vulnerabilities\": [{\"id\", \"summary\", \"severity\", \"fixed_in\"}]}، أو {\"error\": \"<السبب>\"}. يُحذف severity وfixed_in حين لا يوفرهما OSV. القائمة الفارغة تعني أنه لا إشعار معروفًا لهذا الإصدار بالضبط، لا أنه آمن."
+
+[translations.ar.inputs.ecosystem]
+description = "منظومة OSV، مثل npm وPyPI وGo وcrates.io وMaven وNuGet."
+
+[translations.ar.inputs.name]
+description = "اسم الحزمة كما يكتبه السجل."
+
+[translations.ar.inputs.version]
+description = "الإصدار المثبَّت بالضبط."

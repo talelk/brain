@@ -1,0 +1,35 @@
+title = "Assess a codebase for migration"
+description = "An analyst inventories the modules of a project, rates their risk and orders them for migration, and keeps the assessment as a Markdown file."
+
+[inputs.target]
+type = "string"
+required = true
+
+[inputs.scope]
+type = "string"
+required = false
+
+[[step]]
+id = "assess"
+agent = "legacy-analyst"
+goal = """
+Assess the project for this migration: {{target}}
+
+Scope (all of the project when empty): {{scope}}
+
+Write the assessment as the Markdown file `/out/assessment.md`: one section per module \
+with its public interface, its dependants, its tests and how to run them, what the target \
+changes in it (with file and line), and its risk with the reason. Then give the order of \
+migration, from the safest module to the riskiest, with one line of reason each.
+
+Your final answer is one JSON object and nothing else, no code fence, with the modules in \
+that order: {"modules": [{"title": "string", "goal": "string"}]}. The goal of each module \
+says the module's path, the target, what the module owns and how to run its tests."""
+
+[translations.fr]
+title = "Évaluer une base de code avant migration"
+description = "Un analyste inventorie les modules d'un projet, évalue leur risque et les ordonne pour la migration, et conserve l'évaluation dans un fichier Markdown."
+
+[translations.ar]
+title = "تقييم قاعدة شيفرة قبل الترحيل"
+description = "يجرد المحلل وحدات المشروع ويقيّم مخاطرها ويرتبها للترحيل، ويحتفظ بالتقييم في ملف Markdown."

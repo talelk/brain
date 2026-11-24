@@ -2,7 +2,7 @@ title = "Weekly tender watch"
 description = "Every week, check the tender sources the workspace allows and list the new calls that fit the company, with deadlines and a first view of whether to respond."
 
 [trigger]
-schedule = "0 7 * * 1"
+schedule = "15 7 * * 1"
 
 [[step]]
 id = "watch"

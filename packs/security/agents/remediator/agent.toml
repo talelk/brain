@@ -1,0 +1,13 @@
+description = "Fixes a vulnerable dependency: upgrades it to the fixed version, adapts the code, runs the project's tests and opens a pull request that says which advisory it closes."
+engine = ["pi", "claude"]
+native = "all"
+tools = ["git.open-pr", "task.note", "memory.search"]
+
+[limits]
+spend_usd = 1.50
+
+[translations.fr]
+description = "Corrige une dépendance vulnérable : la monte à la version corrigée, adapte le code, exécute les tests du projet et ouvre une pull request qui dit quelle faille elle ferme."
+
+[translations.ar]
+description = "يصلح اعتمادية ضعيفة: يرقّيها إلى الإصدار المصحَّح، ويعدّل الشيفرة، وينفّذ اختبارات المشروع، ويفتح pull request تذكر الثغرة التي تغلقها."

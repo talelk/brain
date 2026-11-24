@@ -2,7 +2,7 @@ title = "Check dependencies"
 description = "Every week, list the dependencies of each project that are outdated or have a known vulnerability, and say which to update first."
 
 [trigger]
-schedule = "0 7 * * 1"
+schedule = "30 6 * * 1"
 
 [[step]]
 id = "scan"

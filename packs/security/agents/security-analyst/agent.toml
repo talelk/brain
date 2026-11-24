@@ -1,0 +1,13 @@
+description = "Finds the known vulnerabilities of a project's dependencies: reads the lockfiles, looks each package up in OSV and reports what is affected, how badly and which version fixes it, with the evidence."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["osv.query", "memory.search", "task.note"]
+
+[limits]
+spend_usd = 0.75
+
+[translations.fr]
+description = "Trouve les vulnérabilités connues des dépendances d'un projet : lit les fichiers de verrouillage, cherche chaque paquet dans OSV et rapporte ce qui est touché, la gravité et la version qui corrige, avec les preuves."
+
+[translations.ar]
+description = "يجد الثغرات المعروفة في اعتماديات المشروع: يقرأ ملفات القفل، ويبحث عن كل حزمة في OSV، ويبلّغ عمّا تأثر ومدى خطورته والإصدار الذي يصلحه، مع الأدلة."

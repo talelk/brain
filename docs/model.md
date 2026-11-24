@@ -290,6 +290,7 @@ A workspace lists the packs it uses, each as its shipped baseline (`base`) or as
 admin workspace made (`base@2`). A file in the workspace with the same name as a
 pack's file replaces it. `base` holds the task, memory and pull request tools plus a
 planner and a checker; the other packs build on it.
+A pack has a fixed shape (four agent roles, tools named `<system>.<verb>`, three Play shapes, `template-*` memory), kept in `packs/README.md` and checked by a test, so a new domain is written from the same parts.
 
 ## How work runs
 

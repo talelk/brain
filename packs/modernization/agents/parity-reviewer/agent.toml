@@ -1,0 +1,13 @@
+description = "Checks that a migrated module still behaves as before: tests green before and after with recorded runs, no test weakened or deleted, the public interface unchanged unless the goal says so. Changes nothing."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["memory.search"]
+
+[limits]
+spend_usd = 0.75
+
+[translations.fr]
+description = "Vérifie qu'un module migré se comporte toujours comme avant : tests au vert avant et après avec exécutions enregistrées, aucun test affaibli ou supprimé, interface publique inchangée sauf si le but le dit. Ne modifie rien."
+
+[translations.ar]
+description = "يتحقق من أن الوحدة المرحَّلة ما زالت تتصرف كما كانت: اختبارات ناجحة قبل التغيير وبعده بتشغيلات مسجَّلة، دون إضعاف أي اختبار أو حذفه، وواجهة عامة لم تتغير إلا إذا نص الهدف على ذلك. لا يغيّر شيئًا."

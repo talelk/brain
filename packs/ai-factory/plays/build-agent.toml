@@ -1,0 +1,57 @@
+title = "Build an agent"
+description = "Turn a job into evaluation cases, write the agent's prompt and configuration in the project with a review of every round, and open a pull request that a person signs off."
+
+[inputs.job]
+type = "string"
+required = true
+
+[inputs.agent]
+type = "string"
+required = true
+
+[[step]]
+id = "cases"
+agent = "eval-author"
+goal = """
+Write the evaluation cases for the agent named below, from the job. Read any failure history \
+and existing cases in the project first. Return the cases in Markdown, ready to be saved as \
+evals/{{agent}}/cases.md.
+
+Agent: {{agent}}
+Job: {{job}}"""
+
+[[step]]
+id = "design"
+agent = "agent-designer"
+goal = """
+Write the agent's prompt and configuration in the project, and save the cases of your \
+context as evals/{{agent}}/cases.md. Every case must be decided by the prompt. Run the \
+project's checks for these files and report the commands and their outcome. Do not open the \
+pull request; a later step does.
+
+Agent: {{agent}}
+Job: {{job}}"""
+after = ["cases"]
+review_by = "eval-judge"
+max_rounds = 3
+target_score = 0.8
+
+[[step]]
+id = "release"
+agent = "agent-designer"
+goal = """
+Open one pull request for the reviewed agent files and cases in the working copy, with a \
+title and a description that follow the project's conventions and list the cases. Give the \
+pull request's address in your result.
+
+Agent: {{agent}}"""
+after = ["design"]
+approve = true
+
+[translations.fr]
+title = "Construire un agent"
+description = "Transformer un travail en cas d'évaluation, écrire le prompt et la configuration de l'agent dans le projet avec une relecture à chaque tour, et ouvrir une pull request qu'une personne approuve."
+
+[translations.ar]
+title = "بناء وكيل"
+description = "تحويل مهمة إلى حالات تقييم، وكتابة موجِّه الوكيل وإعداداته في المشروع مع مراجعة في كل جولة، وفتح طلب سحب (pull request) يوافق عليه شخص."

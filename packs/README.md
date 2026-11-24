@@ -15,10 +15,54 @@ conventions the pack files rely on, so the code that loads and runs them matches
 | `presales` | base | rfp-analyst, response-writer, solution-architect | | analyze-rfp, draft-response, weekly-tender-watch |
 | `data-engineering` | base | lineage-analyst, dbt-reviewer, data-quality-checker | | review-dbt-change, nightly-quality-check |
 | `frontend-qa` | base | browser-walkthrough, visual-reviewer | | walkthrough-after-change, regression-sweep |
+| `security` | base | security-analyst, remediator, evidence-reviewer | osv.query | scan-dependencies, fix-vulnerability |
+| `modernization` | base | legacy-analyst, migrator, parity-reviewer | | assess-codebase, migrate-modules |
+| `ai-factory` | base | eval-author, agent-designer, eval-judge | | build-agent, regression-check |
 
 `pack.toml` has exactly `name`, `description` and `requires` (a list of pack names, empty
 for `base`). An agent or a Play of a pack may name agents and tools of the packs it
 requires.
+
+## The shape of a pack
+
+A new domain (security, modernization, an AI factory) is a pack built from these parts and
+nothing else. If a domain cannot be written this way, that is what the model lacks: change
+`docs/model.md` first. `tests/unit/packs.test.ts` fails when a shipped pack leaves the shape.
+
+**Four roles.** Every agent of a pack is one of these; the name says the domain
+(`rfp-analyst`, `incident-analyst`), the role fixes what it may do.
+
+| Role | `native` | Tools | Spend per attempt | Returns |
+|---|---|---|---|---|
+| Analyst | `read` (`none` when it only calls tools) | read tools only | up to 0.75 | free text with its evidence |
+| Producer | `all` | read and `write` tools | up to 2.00 | the work, and a short report |
+| Critic | `read` or `none` | read tools only | up to 0.75 | the verdict below, and nothing else |
+| Operator | `none` | `privileged` tools, a person approves each call | up to 0.75 | what it did, with the state before and after |
+
+A critic is any agent a Play names in `review_by`, and `base/checker`. It never changes
+anything, never reviews its own work, and its prompt has these sections in this order:
+*What you are given*, *How to work* (the only domain part), *Score*, *Findings*, *Final
+answer* with the verdict format of Final-answer formats. A pass is evidence, not confidence.
+
+**A tool is `<system>.<verb>`**, one system per tool name (`github.label`, `host.restart`).
+`effect` is the truth: `read` changes nothing, `write` changes the system and can be
+undone, `privileged` is what a person must see first. A script tool has `run.sh` and
+`test.sh` together; a connector to a system (CI, a cluster, a ticket tool, a scanner) is a
+script tool with one secret named for the system and one host in `network`, and the
+`test.sh` of `github.*` is its model. A read connector goes before its write one.
+
+**A Play is one of three shapes**, and uses only the step fields of model.md:
+
+- *Job*: analyst, producer with `review_by`, then `approve = true` on the step with an effect
+  (`fix-issue`, `handle-request`).
+- *Sweep*: a `[trigger] schedule`, a collecting step and a reporting step (the check may be one step), `requires` for the
+  memory entries the sweep reads so it is skipped, not failed, when they are missing
+  (`regression-sweep`, `weekly-report`). No two scheduled Plays share a start time; the
+  Monday morning slots are 06:00 to 09:00 in steps of 15 minutes.
+- *Reaction*: a `[trigger] webhook` and as few steps as the job needs (`triage-new-issues`, `review-pull-request`).
+
+**Memory.** An entry the workspace must copy and fill in is named `template-<what>`; every
+other entry is a rule or a lesson that agents read as it is. Both exist in French and Arabic.
 
 ## Fields used
 

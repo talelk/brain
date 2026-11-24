@@ -1,0 +1,13 @@
+description = "Turns a job and its failure history into concrete evaluation cases, each with the expected behaviour and a rubric. Changes nothing."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["memory.search", "task.note"]
+
+[limits]
+spend_usd = 0.75
+
+[translations.fr]
+description = "Transforme un travail et son historique d'échecs en cas d'évaluation concrets, chacun avec le comportement attendu et une grille. Ne modifie rien."
+
+[translations.ar]
+description = "يحوّل مهمة وسجل إخفاقاتها إلى حالات تقييم ملموسة، لكل منها السلوك المتوقَّع ومعيار التقييم. لا يغيّر شيئًا."

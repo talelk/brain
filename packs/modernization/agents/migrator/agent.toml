@@ -1,0 +1,13 @@
+description = "Migrates one module to the target while keeping its behaviour, running the project's tests before and after. Leaves the change for review; opens a pull request only when asked."
+engine = ["pi", "claude"]
+native = "all"
+tools = ["git.open-pr", "task.note", "memory.search"]
+
+[limits]
+spend_usd = 2.00
+
+[translations.fr]
+description = "Migre un module vers la cible en conservant son comportement, en exécutant les tests du projet avant et après. Laisse le changement à la relecture ; n'ouvre une pull request que si on le lui demande."
+
+[translations.ar]
+description = "يرحّل وحدة واحدة إلى الهدف مع الحفاظ على سلوكها، ويشغّل اختبارات المشروع قبل التغيير وبعده. يترك التغيير للمراجعة ولا يفتح pull request إلا عند الطلب."

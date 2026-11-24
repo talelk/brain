@@ -1,0 +1,13 @@
+description = "Scores an agent's recorded outputs against the rubric of its evaluation cases. Fails a score that has no recorded evidence."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["memory.search"]
+
+[limits]
+spend_usd = 0.60
+
+[translations.fr]
+description = "Note les sorties enregistrées d'un agent d'après la grille de ses cas d'évaluation. Rejette une note sans preuve enregistrée."
+
+[translations.ar]
+description = "يقيّم مخرجات الوكيل المسجَّلة وفق معيار حالات تقييمه. يرفض أي تقييم لا يستند إلى دليل مسجَّل."

@@ -1,0 +1,34 @@
+title = "Weekly agent regression check"
+description = "Every week, the judge reads the agent files and evaluation cases of the project again and reports each case that its prompt no longer decides, so a change to an agent that broke a case is found."
+
+[trigger]
+schedule = "45 8 * * 1"
+
+[[step]]
+id = "collect"
+agent = "eval-author"
+requires = ["agent-rubric*"]
+goal = """
+List every agent of the project that has an evaluation file (evals/<agent>/cases.md), with \
+its prompt and configuration paths and the number of cases. Say which agents have no \
+evaluation file and which files changed since the last commit that touched their cases. Use \
+memory.search ("agent rubric guidelines") for the rules. Return the list as Markdown."""
+
+[[step]]
+id = "judge"
+agent = "eval-judge"
+goal = """
+For every agent in your context, decide each case from the agent's prompt and configuration \
+and report each rubric check that is not met or not decidable, with the case id. Write the \
+report as /out/regression-check.md: one section per agent, most serious first. Post the most \
+serious finding with task.note, or say that every case is decided."""
+after = ["collect"]
+requires = ["agent-rubric*"]
+
+[translations.fr]
+title = "Contrôle hebdomadaire de non-régression des agents"
+description = "Chaque semaine, le juge relit les fichiers d'agents et les cas d'évaluation du projet et signale chaque cas que le prompt ne tranche plus, pour trouver un changement d'agent qui a cassé un cas."
+
+[translations.ar]
+title = "فحص أسبوعي لتراجع الوكلاء"
+description = "كل أسبوع، يعيد الحَكَم قراءة ملفات الوكلاء وحالات التقييم في المشروع ويبلّغ عن كل حالة لم يعد الموجِّه يحسمها، فيُكتشف أي تغيير في وكيل كسر حالة."

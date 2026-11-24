@@ -1,0 +1,13 @@
+description = "Reads a codebase and inventories its modules, dependencies, tests and risks, then orders the modules for migration from the safest to the riskiest."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["task.note", "memory.search", "doc.extract"]
+
+[limits]
+spend_usd = 0.75
+
+[translations.fr]
+description = "Lit une base de code et inventorie ses modules, dépendances, tests et risques, puis ordonne les modules à migrer du plus sûr au plus risqué."
+
+[translations.ar]
+description = "يقرأ قاعدة شيفرة ويجرد وحداتها وتبعياتها واختباراتها ومخاطرها، ثم يرتّب الوحدات المراد ترحيلها من الأكثر أمانًا إلى الأكثر خطورة."

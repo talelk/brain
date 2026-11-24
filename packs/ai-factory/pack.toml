@@ -1,0 +1,9 @@
+name = "ai-factory"
+description = "Building and checking AI agents for a project: an author turns a job and its failures into evaluation cases, a designer writes the agent's prompt and configuration as files in the project, and a judge scores the agent's recorded outputs against a rubric. Brain has no registry of scenarios: the cases are Markdown files in the project, at evals/<agent>/cases.md, and a weekly Play judges them again."
+requires = ["base"]
+
+[translations.fr]
+description = "Construire et vérifier des agents d'IA pour un projet : un auteur transforme un travail et ses échecs en cas d'évaluation, un concepteur écrit le prompt et la configuration de l'agent comme fichiers du projet, et un juge note les sorties enregistrées de l'agent d'après une grille. Brain n'a pas de registre de scénarios : les cas sont des fichiers Markdown du projet, evals/<agent>/cases.md, et un Play hebdomadaire les juge de nouveau."
+
+[translations.ar]
+description = "بناء وكلاء ذكاء اصطناعي والتحقق منهم لمشروع ما: يحوّل المؤلِّف مهمة وإخفاقاتها إلى حالات تقييم، ويكتب المصمِّم موجِّه الوكيل وإعداداته كملفات في المشروع، ويقيّم الحَكَم مخرجات الوكيل المسجَّلة وفق معيار تقييم. لا يملك Brain سجلًا للسيناريوهات: الحالات ملفات Markdown في المشروع، evals/<agent>/cases.md، ويعيد Play أسبوعي تقييمها."

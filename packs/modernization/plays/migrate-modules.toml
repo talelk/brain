@@ -1,0 +1,66 @@
+title = "Migrate modules"
+description = "An analyst orders the modules, migrators change them in parallel with a parity review of each, and one pull request goes to a person for sign-off."
+
+[inputs.target]
+type = "string"
+required = true
+
+[inputs.scope]
+type = "string"
+required = false
+
+[[step]]
+id = "plan"
+agent = "legacy-analyst"
+goal = """
+Split this migration into the smallest set of modules that migrators can change at the \
+same time: one to five tasks, each owning different files so that the changes do not \
+collide, ordered from the safest to the riskiest. If the scope is small, one task is the \
+right plan.
+
+Reply with one JSON object and nothing else, no code fence: \
+{"tasks": [{"title": "string", "goal": "string"}]}. The goal of each task says the module's \
+path, the files it owns, the target, and how to run its tests.
+
+Migration: {{target}}
+Scope (all of the project when empty): {{scope}}"""
+
+[[step]]
+id = "migrate"
+agent = "migrator"
+goal = """
+{{item.title}}
+
+{{item.goal}}
+
+This is one module of a larger migration that other migrators are working on at the same \
+time. Stay inside the files this module owns. Run the module's tests before you change \
+anything and again after, keep its behaviour and its public interface, and report the \
+commands and their outcome. Do not open a pull request; a later step does.
+
+The whole migration, for context: {{target}}"""
+after = ["plan"]
+for_each = "steps.plan.result.tasks"
+review_by = "parity-reviewer"
+max_rounds = 3
+
+[[step]]
+id = "release"
+agent = "migrator"
+goal = """
+The working copy holds the reviewed modules of this migration together. Open one pull \
+request for the whole migration with `git.open-pr`: a title and a description that follow \
+the project's conventions, what each module changed, and the test runs before and after \
+for each. Give the pull request's address in your result.
+
+Migration: {{target}}"""
+after = ["migrate"]
+approve = true
+
+[translations.fr]
+title = "Migrer des modules"
+description = "Un analyste ordonne les modules, des migrateurs les changent en parallèle avec une relecture de parité de chacun, et une seule pull request est soumise à l'accord d'une personne."
+
+[translations.ar]
+title = "ترحيل وحدات"
+description = "يرتب المحلل الوحدات، ويغيّرها المُرحِّلون بالتوازي مع مراجعة تكافؤ لكل وحدة، ثم يُرفع pull request واحد إلى شخص ليوافق عليه."

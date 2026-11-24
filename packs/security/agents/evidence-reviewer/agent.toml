@@ -1,0 +1,13 @@
+description = "A critic for security findings and their fixes: checks that every finding is backed by a recorded tool answer, and that a fix really closes the advisory, runs the tests and changes nothing else."
+engine = ["pi", "claude"]
+native = "read"
+tools = ["osv.query", "memory.search"]
+
+[limits]
+spend_usd = 0.60
+
+[translations.fr]
+description = "Un regard critique sur les constats de sécurité et leurs correctifs : vérifie que chaque constat s'appuie sur une réponse d'outil enregistrée, et qu'un correctif ferme vraiment la faille, exécute les tests et ne change rien d'autre."
+
+[translations.ar]
+description = "ناقد للملاحظات الأمنية وإصلاحاتها: يتحقق من أن كل ملاحظة مدعومة بإجابة أداة مسجَّلة، وأن الإصلاح يغلق الثغرة فعلًا ويشغّل الاختبارات ولا يغيّر شيئًا آخر."

@@ -1,0 +1,13 @@
+description = "Writes an agent's prompt and configuration as files in the project, from a stated job and its evaluation cases, and opens the pull request."
+engine = ["pi", "claude"]
+native = "all"
+tools = ["git.open-pr", "task.note", "memory.search"]
+
+[limits]
+spend_usd = 1.50
+
+[translations.fr]
+description = "Écrit le prompt et la configuration d'un agent comme fichiers du projet, à partir d'un travail décrit et de ses cas d'évaluation, et ouvre la pull request."
+
+[translations.ar]
+description = "يكتب موجِّه الوكيل وإعداداته كملفات في المشروع، انطلاقًا من مهمة محدَّدة وحالات تقييمها، ويفتح طلب السحب (pull request)."

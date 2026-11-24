@@ -1,0 +1,35 @@
+title = "Scan dependencies for vulnerabilities"
+description = "Every week, look every dependency of each project up in the OSV database and report the known vulnerabilities, ranked by the workspace's security policy."
+
+[trigger]
+schedule = "45 6 * * 1"
+
+[[step]]
+id = "scan"
+agent = "security-analyst"
+requires = ["security-policy*"]
+goal = """
+For each project under `/work`, list the direct dependencies with their exact versions from \
+the lockfile and look each one up with `osv.query`. Change no file. Report one line per \
+advisory (project, package@version, advisory id, severity, fixed version, whether the code \
+uses the package) and, per project, the packages you could not check and why."""
+
+[[step]]
+id = "report"
+agent = "worker"
+after = ["scan"]
+requires = ["security-policy*"]
+goal = """
+From the scan in your context, write the weekly vulnerability report: first what the \
+workspace's security policy (memory.search "security policy") says must be fixed now, then \
+the rest by severity, each with the project, the package, the versions and the fix. Report \
+only what the scan shows; mark as unknown what it could not check. Save it as \
+/out/vulnerability-report.md and post the items that must be fixed now as one note with task.note."""
+
+[translations.fr]
+title = "Analyser les dépendances à la recherche de vulnérabilités"
+description = "Chaque semaine, cherche chaque dépendance de chaque projet dans la base OSV et rapporte les vulnérabilités connues, classées selon la politique de sécurité de l'espace de travail."
+
+[translations.ar]
+title = "فحص الاعتماديات بحثًا عن الثغرات"
+description = "كل أسبوع، يبحث عن كل اعتمادية في كل مشروع داخل قاعدة OSV ويبلّغ عن الثغرات المعروفة، مرتبة وفق سياسة الأمان الخاصة بمساحة العمل."
