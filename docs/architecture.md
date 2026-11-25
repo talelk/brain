@@ -391,7 +391,9 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   answer to `usage`: the cost the answer reports (`usage.cost`, in dollars), or else its token counts at the model's
   `input_usd_per_mtok` and `output_usd_per_mtok`. A model with no prices whose server reports no cost records zero, and
   `task.get` marks such an attempt `priced: false`. The gateway refuses a call once the attempt has used its agent's
-  `spend_usd` or the workspace its daily cap, and, for an agent with `model_in_commands`, its `tokens`. At `complete` the larger of the gateway's figure and the runner's is settled.
+  `spend_usd` or the workspace its daily cap, and, for an agent with `model_in_commands`, its `tokens`. The commands of
+  such an agent are given `/model/v1/commands` as their address, the same two endpoints under it, which refuse from
+  `WRAP_UP_SHARE` (80%) of either of the agent's limits. At `complete` the larger of the gateway's figure and the runner's is settled.
 
 ## 7. Tools
 

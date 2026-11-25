@@ -16,6 +16,8 @@ export const RETRY_DELAYS_MS: readonly number[] = [5_000, 20_000, 80_000, 300_00
 export const MAX_ATTEMPTS = RETRY_DELAYS_MS.length + 1;
 /** A model's context window, and the share of it at which a long conversation is compacted, when `[[model]]` says nothing. */
 export const MODEL_DEFAULTS = { context_tokens: 200_000, compact_at: 0.7 } as const;
+/** The share of its allowance an attempt may use before it is to write its answer: engines refuse further tool calls, and the gateway refuses the calls of an agent's commands. */
+export const WRAP_UP_SHARE = 0.8;
 /** The longest reply a model may write in one call, unless the agent's `tokens` is smaller. */
 export const MAX_REPLY_TOKENS = 32_768;
 

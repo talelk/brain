@@ -158,7 +158,9 @@ commands' environment (`BRAIN_MODEL_URL`, `BRAIN_MODEL_TOKEN`, `BRAIN_MODEL_NAME
 `BRAIN_MODEL_API`). Those calls are counted on the attempt like the agent's own, so the option
 needs `native = "all"`, a `spend_usd` limit and a `tokens` limit. For such an agent the
 gateway itself holds both: it refuses a call once the attempt's calls have used either, so a
-model with no price is still bounded by the tokens. The model's key never leaves the Governor,
+model with no price is still bounded by the tokens. The commands' calls are refused earlier,
+from 80% of either, so that the agent can still write its answer. A limit is read before a
+call is sent, so the last call may pass it. The model's key never leaves the Governor,
 the token stops working when the attempt ends, and the runner removes it from the events and
 the result it sends. Any code such an agent runs, the project's included, can use up the
 limits.

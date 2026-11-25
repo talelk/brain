@@ -1,5 +1,5 @@
 import { readCapped } from "../body-limit";
-import { secretName, type AttemptUsage, type SnapshotManifest } from "@brain/contracts";
+import { secretName, WRAP_UP_SHARE, type AttemptUsage, type SnapshotManifest } from "@brain/contracts";
 import type { Context } from "hono";
 import type { Governor } from "../app";
 import type { Gov } from "../dispatch";
@@ -15,7 +15,8 @@ import { attemptOfModelToken } from "./routes";
 /**
  * The model gateway (docs/architecture.md section 6). An engine, and the commands of an agent with `model_in_commands`, reach a model only
  * here, with the token of the attempt: OpenAI-style at
- * `/model/v1/chat/completions`, Anthropic-style at `/model/v1/messages`. The Governor forwards to the workspace's models of that kind in
+ * `/model/v1/chat/completions`, Anthropic-style at `/model/v1/messages`, and for commands the same two under `/model/v1/commands`, which
+ * stop earlier. The Governor forwards to the workspace's models of that kind in
  * order (the agent's own first), moves to the next when one refuses for quota or is not available, keeps the keys to itself, and adds the
  * token counts and the cost of each answer to the attempt's usage: the cost the model server reports, or else the token counts at the
  * model's prices in `brain.toml` (nothing when it has none). It keeps no request and no answer.
@@ -43,7 +44,7 @@ function readUsage(value: unknown, into: AttemptUsage): AttemptUsage {
   return next;
 }
 
-async function forward(gov: Gov, c: Context, provider: Provider): Promise<Response> {
+async function forward(gov: Gov, c: Context, provider: Provider, fromCommand = false): Promise<Response> {
   const request = c.req.raw;
   const token = /^Bearer (.+)$/u.exec(request.headers.get("authorization") ?? "")?.[1] ?? request.headers.get("x-api-key") ?? "";
   const attempt = attemptOfModelToken(gov, token);
@@ -59,6 +60,10 @@ async function forward(gov: Gov, c: Context, provider: Provider): Promise<Respon
   if (agent?.model_in_commands && (metered?.tokens ?? 0) >= agent.limits.tokens) return refusal(403, "This attempt has used up its agent's token limit; this call was not sent");
   const used = metered?.micro ?? 0;
   if (limit > 0 && used >= limit) return refusal(403, "This attempt has used up its agent's spend limit; this call was not sent");
+  // Commands stop earlier, so what is left is the agent's own, to write its answer: an attempt whose commands used everything would end with none.
+  if (fromCommand && agent?.model_in_commands && ((metered?.tokens ?? 0) >= agent.limits.tokens * WRAP_UP_SHARE || used >= limit * WRAP_UP_SHARE)) {
+    return refusal(403, `The commands of this attempt have used their ${WRAP_UP_SHARE * 100}% of its agent's token or spend limit; this call was not sent. The rest is left for the agent to write its answer`);
+  }
   const preferred = agent?.model;
   const { models: available, from } = modelsOf(gov, attempt.workspace_id, manifest);
   const models = available.filter((model) => model.provider === provider).sort((a, b) => Number(b.name === preferred) - Number(a.name === preferred));
@@ -170,4 +175,6 @@ function relay(gov: Gov, upstream: Response, attemptId: string, workspaceId: str
 export function registerGateway({ gov, app }: Governor): void {
   app.post("/model/v1/chat/completions", (c) => forward(gov, c, "openai-compatible"));
   app.post("/model/v1/messages", (c) => forward(gov, c, "anthropic"));
+  app.post("/model/v1/commands/chat/completions", (c) => forward(gov, c, "openai-compatible", true));
+  app.post("/model/v1/commands/messages", (c) => forward(gov, c, "anthropic", true));
 }

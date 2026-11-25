@@ -1,3 +1,4 @@
+import { WRAP_UP_SHARE } from "@brain/contracts";
 import type { EngineLimits } from "./port";
 
 /** A cap of 0 means no cap; only a positive one is enforced. */
@@ -8,9 +9,6 @@ export function overCostCap(microUsd: number, maxMicroUsd: number): boolean {
 /** What an attempt has used so far; `turns` counts the model's replies (a reply that calls a tool is one); `lastTurnTokens` is what the latest turn cost. */
 export interface AttemptUse { readonly tokens: number; readonly microUsd: number; readonly turns: number; readonly lastTurnTokens?: number }
 type Allowance = Pick<EngineLimits, "maxTokens" | "maxMicroUsd" | "maxTurns">;
-
-/** The share of its allowance an attempt may use before further tool calls are refused and the model is told to write its answer. */
-const WRAP_UP_SHARE = 0.8;
 
 /**
  * The agent's limits, judged while the attempt runs. The stop is staged because every turn sends the whole conversation again, so an

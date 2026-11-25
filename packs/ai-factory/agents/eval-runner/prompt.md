@@ -16,7 +16,7 @@ The list of agents with their prompt, configuration and cases in your context, t
 ## Rules
 
 - One model call per case, and no retry of an answer because you dislike it. Retry only a call that returned no answer, once.
-- A case you could not run (the call failed, the spend limit was reached, the agent needs a tool your harness cannot give it) is listed as not run, with the reason. It has no output file.
+- A case you could not run (the call failed, a call was refused because a limit was nearly reached, the agent needs a tool your harness cannot give it) is listed as not run, with the reason. It has no output file.
 - Never edit an output, a prompt or a case.
 - When no agent has cases, run nothing and say so.
 

@@ -225,7 +225,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
 
       emit({ kind: "status", phase: "engine", detail: `${picked.id} runs agent ${offer.agent.name}` });
       const offered = offer.tools.filter((tool) => offer.agent.tools.includes(tool.name));
-      const commandEnv = modelCommands(offer) ? { BRAIN_MODEL_URL: model.baseUrl, BRAIN_MODEL_TOKEN: model.token, BRAIN_MODEL_NAME: model.name, BRAIN_MODEL_API: offer.model.provider } : undefined;
+      const commandEnv = modelCommands(offer) ? { BRAIN_MODEL_URL: `${model.baseUrl}/commands`, BRAIN_MODEL_TOKEN: model.token, BRAIN_MODEL_NAME: model.name, BRAIN_MODEL_API: offer.model.provider } : undefined;
       const spec: EngineSessionSpec = {
         attemptId, instructions: prompt + toolNameNote(offered), model, native: offer.agent.native, outDir: paths.out, stateDir: paths.state, ...(commandEnv ? { commandEnv } : {}),
         task: composeTask(offer, { ...(seesFiles ? { work: paths.work } : {}), ...(workspace ? { workspace } : {}), out: paths.out }, reviewed, reviewedFiles) + (setupNotes.length > 0 ? `\n\n# Setup did not finish\n${setupNotes.join("\n")}\nDependencies may be missing; run what you need yourself, or say so in your result if you cannot.` : ""),

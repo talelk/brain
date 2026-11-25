@@ -53,7 +53,7 @@ describe("an engine in its sandbox", () => {
       gov.offer({ agent: { engines: ["pi"], native: "all", modelInCommands }, task: { goal: "FIXTURE reply ran" } });
       await runner.runOnce();
     }
-    expect(started.map((spec) => spec.commandEnv)).toEqual([{ BRAIN_MODEL_URL: "http://governor.test/model/v1", BRAIN_MODEL_TOKEN: expect.any(String) as string, BRAIN_MODEL_NAME: "main", BRAIN_MODEL_API: "openai-compatible" }, undefined]);
+    expect(started.map((spec) => spec.commandEnv)).toEqual([{ BRAIN_MODEL_URL: "http://governor.test/model/v1/commands", BRAIN_MODEL_TOKEN: expect.any(String) as string, BRAIN_MODEL_NAME: "main", BRAIN_MODEL_API: "openai-compatible" }, undefined]);
     expect(started[0]!.commandEnv!["BRAIN_MODEL_TOKEN"]).toBe(started[0]!.model.token);
     expect(started.map((spec) => spec.task.includes("BRAIN_MODEL_TOKEN"))).toEqual([true, false]);
   });

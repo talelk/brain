@@ -38,7 +38,7 @@ beforeAll(async () => {
 [[model]]\nname = "spare"\nprovider = "openai-compatible"\nurl = "https://two.example/v1"\nmodel = "large"\nkey = "secret:model-spare"
 [[model]]\nname = "claude"\nprovider = "anthropic"\nurl = "https://three.example"\nmodel = "opus"\nkey = "secret:model-claude"
 [[project]]\nname = "shop"\nrepo = "https://github.com/acme/shop.git"\n[github]\ncredential = "secret:github"\n`,
-    agents: { dev: { tools: ["task.ask", "lookup"] }, needy: { tools: ["docker.ps"] }, hands: { native: "all" }, thrifty: { spend: 0.004 }, prober: { native: "all", spend: 1, commands: 30 } },
+    agents: { dev: { tools: ["task.ask", "lookup"] }, needy: { tools: ["docker.ps"] }, hands: { native: "all" }, thrifty: { spend: 0.004 }, prober: { native: "all", spend: 1, commands: 100 } },
     tools: { lookup: 'description = "Looks something up."\neffect = "read"\nsecrets = ["api-key"]\n', "docker.ps": 'description = "Lists containers."\neffect = "read"\nneeds = ["docker"]\n' },
     plays: { one: one("dev"), needy: one("needy"), hands: one("hands"), thrifty: one("thrifty"), prober: one("prober") },
   }));
@@ -300,7 +300,7 @@ describe("a runner", () => {
     answer = () => Response.json({});
   });
 
-  it("is refused by the gateway, for an agent with model_in_commands, once its token limit is used up, whatever the calls cost", async () => {
+  it("is refused by the gateway, for an agent with model_in_commands, once its tokens are used up, and its commands from 80% of them, whatever the calls cost", async () => {
     driver.script({ prober: () => "Stopped at the limit." });
     await start("prober");
     const offer = (await driver.claim()) as JobOffer;
@@ -308,13 +308,21 @@ describe("a runner", () => {
     await driver.ack(offer);
     const token = await modelTokenOf(driver, offer);
     answer = () => Response.json({ choices: [], usage: { prompt_tokens: 20, completion_tokens: 20 } });
-    const call = () => harness.anonymous.fetch("/model/v1/chat/completions", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: JSON.stringify({ messages: [] }) });
-    const first = await call();
-    await first.text();
+    const call = async (path: string) => {
+      const response = await harness.anonymous.fetch(path, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: JSON.stringify({ messages: [] }) });
+      return { status: response.status, body: await response.text() };
+    };
+    const [command, own] = ["/model/v1/commands/chat/completions", "/model/v1/chat/completions"] as const;
+    // 40 tokens a call, of 100: the commands are refused at 80, the agent's own calls at 100.
+    expect([(await call(command)).status, (await call(command)).status]).toEqual([200, 200]);
     upstream.length = 0;
-    const second = await call();
-    expect([first.status, second.status, upstream.length]).toEqual([200, 403, 0]);
-    expect(((await second.json()) as { error: { message: string } }).error.message).toContain("token limit");
+    const early = await call(command);
+    expect([early.status, upstream.length]).toEqual([403, 0]);
+    expect(early.body).toContain("80%");
+    expect((await call(own)).status).toBe(200);
+    const spent = await call(own);
+    expect([spent.status, upstream.length]).toEqual([403, 1]);
+    expect(spent.body).toContain("token limit");
     await driver.finish(offer);
     await driver.drain();
     answer = () => Response.json({});
