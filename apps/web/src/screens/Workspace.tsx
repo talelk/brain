@@ -33,7 +33,7 @@ const owns = (tab: Tab, name: string) => (file: FileEntry): boolean =>
 
 const NEW_AGENT: AgentFile = { description: "", engine: ["pi", "claude"], native: "read", tools: [], limits: { turns: LIMIT_DEFAULTS.turns, tokens: LIMIT_DEFAULTS.tokens, spend_usd: LIMIT_DEFAULTS.spend_usd } };
 const NEW_TOOL: ToolFile = { description: "", effect: "read", timeout_seconds: 60, needs: ["bash"], network: ["*"], secrets: [], inputs: {} };
-const newPlay = (title: string, agent: string): PlayFile => ({ title, description: "", inputs: {}, step: [{ id: slugify(agent) || "step", agent, goal: "", after: [], requires: [], max_rounds: 2, approve: false }] });
+const newPlay = (title: string, agent: string): PlayFile => ({ title, description: "", inputs: {}, step: [{ id: slugify(agent) || "step", agent, goal: "", after: [], requires: [], max_rounds: LIMIT_DEFAULTS.max_rounds, approve: false }] });
 
 /** Where a file comes from, in words. */
 function origin(files: readonly FileEntry[], fallback: string): string {

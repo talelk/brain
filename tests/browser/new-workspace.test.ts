@@ -72,7 +72,7 @@ test("a name that makes an address a workspace already has is refused while typi
   await page.getByRole("button", { name: "Next" }).click();
   await page.getByRole("button", { name: "Next" }).click();
 
-  // One repository field: the name and branch are inferred, and write access is one switch.
+  // One repository field: the name and branch are inferred, and write access is one switch, on until turned off.
   await page.getByRole("textbox", { name: /^Code repository/u }).fill("http://127.0.0.1:9/acme/billing-api.git");
   await expect(page.getByTestId("inferred-project")).toContainText("billing-api");
   await page.getByText("Let agents open pull requests", { exact: true }).click();
@@ -83,7 +83,7 @@ test("a name that makes an address a workspace already has is refused while typi
   const made = (await api.query("me", {})).workspaces.find((workspace) => workspace.slug === "corner-shop");
   const text = (await api.query("file.read", { workspaceId: made?.id ?? "", path: "brain.toml" })).content;
   expect(text).toContain('name = "billing-api"');
-  expect(text).toContain('access = "write"');
+  expect(text).toContain('access = "read"');
   expect(text).toContain("[git]");
   expect(text).toContain('remote = "http://127.0.0.1:9/acme/corner-shop-files.git"');
 });

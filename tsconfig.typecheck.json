@@ -4,7 +4,8 @@
     "types": ["node"],
     "declaration": false,
     "paths": {
-      "@brain/contracts": ["./packages/contracts/src/index.ts"]
+      "@brain/contracts": ["./packages/contracts/src/index.ts"],
+      "@brain/contracts/limits": ["./packages/contracts/src/limits.ts"]
     }
   },
   "include": ["packages/contracts/src", "apps/governor/src", "apps/governor/scripts", "apps/runner/src", "apps/launcher/src", "apps/store/src", "apps/mcp/src", "tests", "scripts/*.ts", "vitest.config.ts", "playwright.config.ts"],

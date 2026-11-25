@@ -29,8 +29,10 @@ export function Head(props: HeadState & { text?: string }): JSX.Element {
   const set = useContext(HeadContext);
   /** Kept apart so a new title does not rebuild the actions: a dialog opened from one stays open. */
   const actions = createMemo(() => props.actions);
+  /** Built once for each value: a title that is an element must not be made again inside the effect, or the heading shows it twice. */
+  const title = createMemo(() => props.title);
   createEffect(() => {
-    set?.({ title: props.title, description: props.description, breadcrumbs: props.breadcrumbs, actions: actions() });
+    set?.({ title: title(), description: props.description, breadcrumbs: props.breadcrumbs, actions: actions() });
     document.title = props.text ? `${props.text} · Brain` : "Brain";
   });
   /** A page with no heading of its own must not wear the last page's. */

@@ -3,6 +3,7 @@ import { createStore, unwrap } from "solid-js/store";
 import { Button, Switch, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Select, toast } from "@talelk/newui-molecules";
 import type { AgentFile, InputSpec, PlayFile, Problem, SnapshotManifest, StepSpec, ToolFile } from "@brain/contracts";
+import { LIMIT_DEFAULTS } from "@brain/contracts/limits";
 import { ApiFailure, command, useAction, useQuery, type Action } from "../data/api";
 import { usePlace, useSession } from "../data/session";
 import { said } from "../lib/said";
@@ -186,7 +187,7 @@ export function ToolForm(props: { name: string; initial: ToolFile; isNew: boolea
   );
 }
 
-const blankStep = (agent: string): StepSpec => ({ id: "", agent, goal: "", after: [], requires: [], max_rounds: 2, approve: false });
+const blankStep = (agent: string): StepSpec => ({ id: "", agent, goal: "", after: [], requires: [], max_rounds: LIMIT_DEFAULTS.max_rounds, approve: false });
 
 export function PlayForm(props: { name: string; initial: PlayFile; isNew: boolean; snapshot: SnapshotManifest; readOnly: boolean; onSaved: () => void }): JSX.Element {
   const [play, setPlay] = createStore<PlayFile>(structuredClone(strip(props.initial)));
@@ -265,7 +266,7 @@ export function PlayForm(props: { name: string; initial: PlayFile; isNew: boolea
                     <Details class="mt-3" summary={<span>{t("play.step.more")}{[current().review_by && t("play.step.tag.review", { agent: current().review_by ?? "" }), current().approve && t("play.step.tag.approve"), current().when && t("play.step.tag.when"), current().for_each && t("play.step.tag.forEach"), current().candidates !== undefined && t("play.step.tag.candidates")].filter(Boolean).map((tag) => ` (${tag})`).join("")}</span>}>
                       <div class="grid gap-4 pt-1 sm:grid-cols-2">
                         <Select size="md" label={t("play.step.reviewBy")} description={t("play.step.reviewBy.help")} options={[{ label: t("play.step.reviewBy.default"), value: "" }, ...agents().filter((agent) => agent.value !== current().agent)]} value={current().review_by ?? ""} onValueChange={(value) => step(index, { review_by: value || undefined })} disabled={props.readOnly} />
-                        <NumberField label={t("play.step.maxRounds")} min={1} max={10} step={1} value={current().max_rounds} onChange={(value) => step(index, { max_rounds: value ?? 2 })} disabled={props.readOnly} />
+                        <NumberField label={t("play.step.maxRounds")} min={1} max={10} step={1} value={current().max_rounds} onChange={(value) => step(index, { max_rounds: value ?? LIMIT_DEFAULTS.max_rounds })} disabled={props.readOnly} />
                         <NumberField label={t("play.step.targetScore")} description={t("play.step.targetScore.help")} min={0} max={1} step={0.05} value={current().target_score} onChange={(value) => step(index, { target_score: value })} disabled={props.readOnly} />
                         <TextInput size="md" label={t("play.step.when")} description={t("play.step.when.help")} class="t-code" value={current().when ?? ""} onInput={(event) => step(index, { when: event.currentTarget.value || undefined })} disabled={props.readOnly} />
                         <TextInput size="md" label={t("play.step.forEach")} description={t("play.step.forEach.help")} class="t-code" value={current().for_each ?? ""} onInput={(event) => step(index, { for_each: event.currentTarget.value || undefined })} disabled={props.readOnly} />

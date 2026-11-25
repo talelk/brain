@@ -7,7 +7,7 @@ import { compact, toToml, type TomlTable, type TomlValue } from "./toml";
  * changes some fields and writes the whole file back; what equals a default is left out so the file stays short.
  */
 
-export type Model = SnapshotManifest["models"][number] & { input_usd_per_mtok?: number; output_usd_per_mtok?: number };
+export type Model = SnapshotManifest["models"][number];
 export type Project = SnapshotManifest["projects"][number];
 type Approvals = SnapshotManifest["approvals"];
 /** What `brain.toml` holds; `timezone` is optional and newer than the manifest type. */
@@ -38,9 +38,11 @@ export function brainOf(snapshot: SnapshotManifest): Brain {
 }
 
 const differs = <T>(value: T, standard: T): T | undefined => (value === standard ? undefined : value);
+/** The hosts a file names: left out when they are the default, any public host; an empty list, which is no network, is written. */
+const hosts = (network: readonly string[]): readonly string[] | undefined => (network.length === 1 && network[0] === "*" ? undefined : network);
 
 export function brainToml(brain: Brain): string {
-  return toToml(compact({
+  const file = compact({
     name: brain.name,
     description: brain.description,
     timezone: brain.timezone,
@@ -48,16 +50,18 @@ export function brainToml(brain: Brain): string {
     platform: brain.platform,
     packs: brain.packs,
     // A value that is the default is not written: the file says only what was chosen.
-    limits: { daily_spend_usd: differs(brain.limits.daily_spend_usd, LIMIT_DEFAULTS.daily_spend_usd), running_tasks: differs(brain.limits.running_tasks, LIMIT_DEFAULTS.running_tasks), confirm_plans: differs(brain.limits.confirm_plans, "person"), paused: differs(brain.limits.paused, false) },
+    limits: { daily_spend_usd: differs(brain.limits.daily_spend_usd, LIMIT_DEFAULTS.daily_spend_usd), running_tasks: differs(brain.limits.running_tasks, LIMIT_DEFAULTS.running_tasks), confirm_plans: differs(brain.limits.confirm_plans, "person"), paused: differs(brain.limits.paused, false), checkpoint: brain.limits.checkpoint, checkpoint_timeout: differs(brain.limits.checkpoint_timeout, "24h") },
     healing: { mode: differs(brain.healing.mode, "auto"), per_day: differs(brain.healing.per_day, LIMIT_DEFAULTS.healing_per_day) },
     cleanup: { superseded_after_hours: differs(brain.cleanup.superseded_after_hours, 24) },
     model: brain.models.map((model) => ({ ...model })),
-    project: brain.projects.map((project) => ({ ...project, branch: differs(project.branch, "main"), access: differs(project.access, "read"), network: project.network.length > 0 ? project.network : undefined })),
     github: brain.github ? { ...brain.github } : undefined,
     git: brain.git ? { ...brain.git } : undefined,
     teams: brain.teams ? { ...brain.teams } : undefined,
     approvals: Object.fromEntries(Object.entries(brain.approvals).map(([tool, rule]) => [tool, { ...rule }])),
-  }));
+  });
+  // The projects are added after `compact`, which would drop the empty list that means no network.
+  const project = brain.projects.map(({ network, ...rest }) => ({ ...compact({ ...rest, branch: differs(rest.branch, "main"), access: differs(rest.access, "write") }), network: hosts(network) }));
+  return toToml({ ...file, ...(project.length > 0 ? { project } : {}) });
 }
 
 export function agentToml(agent: AgentFile): string {
@@ -81,17 +85,17 @@ function keepInputs(translations: ToolFile["translations"] | PlayFile["translati
 export function toolToml(tool: ToolFile): string {
   const { description, effect, timeout_seconds, needs, network, secrets, runs, host_command, inputs, translations } = tool;
   // `inputs` is filled after `compact`, which would drop a `required = false` it must keep.
-  return toToml({ ...compact({ description, runs, host_command, effect, timeout_seconds: differs(timeout_seconds, 60), needs, network, secrets }), inputs: inputsTable(inputs), ...compact({ translations: keepInputs(translations, inputs) }) });
+  return toToml({ ...compact({ description, runs, host_command, effect, timeout_seconds: differs(timeout_seconds, 60), needs, secrets }), network: hosts(network), inputs: inputsTable(inputs), ...compact({ translations: keepInputs(translations, inputs) }) });
 }
 
 function stepTable(step: StepSpec): TomlTable {
-  const { id, agent, goal, after, for_each, review_by, max_rounds, target_score, candidates, judge, when, approve } = step;
-  return compact({ id, agent, goal, after, for_each, when, review_by, max_rounds: review_by && max_rounds !== 2 ? max_rounds : undefined, target_score, candidates: candidates as TomlValue, judge, approve: approve || undefined });
+  const { id, agent, goal, after, for_each, review_by, max_rounds, target_score, candidates, judge, when, requires, approve } = step;
+  return compact({ id, agent, goal, after, for_each, when, requires, review_by, max_rounds: differs(max_rounds, LIMIT_DEFAULTS.max_rounds), target_score, candidates: candidates as TomlValue, judge, approve: approve || undefined });
 }
 
 export function playToml(play: PlayFile): string {
-  const { title, description, inputs, trigger, step, translations } = play;
-  return toToml({ ...compact({ title, description }), inputs: inputsTable(inputs), ...compact({ trigger: trigger ? { ...trigger } : undefined }), step: step.map(stepTable), ...compact({ translations: keepInputs(translations, inputs) }) });
+  const { title, description, checkpoint, inputs, trigger, step, translations } = play;
+  return toToml({ ...compact({ title, description, checkpoint }), inputs: inputsTable(inputs), ...compact({ trigger: trigger ? { ...trigger } : undefined }), step: step.map(stepTable), ...compact({ translations: keepInputs(translations, inputs) }) });
 }
 
 /** Where each kind of thing lives in the workspace folder. */

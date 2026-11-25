@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
-    alias: { "@brain/contracts": fileURLToPath(new URL("./packages/contracts/src/index.ts", import.meta.url)) },
+    alias: { "@brain/contracts/limits": fileURLToPath(new URL("./packages/contracts/src/limits.ts", import.meta.url)), "@brain/contracts": fileURLToPath(new URL("./packages/contracts/src/index.ts", import.meta.url)) },
   },
   test: {
     include: ["tests/unit/**/*.test.ts", "tests/core/**/*.test.ts", "tests/runner/**/*.test.ts", "tests/e2e/**/*.test.ts"],

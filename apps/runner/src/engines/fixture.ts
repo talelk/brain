@@ -93,7 +93,7 @@ function defaultAnswer(kind: string, task: string): string {
   if (kind === "plan") {
     const lines = task.split("\n");
     const agents: string[] = [];
-    for (let at = lines.indexOf("## Agents") + 1; at > 0 && lines[at]?.startsWith("- "); at++) agents.push(lines[at]!.slice(2).split(":")[0]!);
+    for (let at = lines.indexOf("## Agents") + 1; at > 0 && lines[at]?.startsWith("- "); at++) agents.push(lines[at]!.slice(2).split(/[ :]/u)[0]!);
     const goal = /^# Goal\n+([^\n]*)/mu.exec(task)?.[1] ?? "the goal";
     return JSON.stringify({ summary: "fixture plan", tasks: [{ title: goal.slice(0, 60) || "Do the work", goal, agent: agents.includes("worker") ? "worker" : agents[0] ?? "worker", after: [] }] });
   }

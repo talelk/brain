@@ -52,7 +52,7 @@ describe("the fixture script language", () => {
     expect((await session({ task: "[work attempt, round 1]\n# Goal\nShip it" })).text).toBe("fixture: done");
     expect(JSON.parse((await session({ task: "[check attempt, round 1]" })).text)).toEqual({ pass: true, score: 1, findings: "fixture check" });
     expect(JSON.parse((await session({ task: "[judge attempt, round 1]\n\n# The candidates\n## Candidate attempt-7 (by agent worker)\n## Candidate attempt-8 (by agent worker)" })).text)).toEqual({ keep: "attempt-7", findings: "fixture judge" });
-    const plan = JSON.parse((await session({ task: "[plan attempt, round 1]\n\n# Goal\nShip the feature\n\nDetails.\n\n# This workspace\n## Agents\n- planner: plans\n- worker: works\n## Tools\n- task.note: notes" })).text) as { tasks: Array<{ agent: string; goal: string; after: string[] }> };
+    const plan = JSON.parse((await session({ task: "[plan attempt, round 1]\n\n# Goal\nShip the feature\n\nDetails.\n\n# This workspace\n## Agents\n- billing-agent (tools: task.note; can write files): bills\n- planner: plans\n- worker (tools: task.note): works\n## Tools\n- task.note: notes" })).text) as { tasks: Array<{ agent: string; goal: string; after: string[] }> };
     expect(plan.tasks).toEqual([{ title: "Ship the feature", goal: "Ship the feature", agent: "worker", after: [] }]);
   });
 

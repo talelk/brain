@@ -9,6 +9,8 @@ const play = 'title = "Job"\n[[step]]\nid = "run"\nagent = "needy"\ngoal = "Run 
 test("the queue shows the runner's slots, the waiting tasks in order with the reason each waits, and Run next moves one to the front @phone", async ({ page, stack }) => {
   const api = await stack.setUp();
   const workspace = await starter(api);
+  // Without a model every task would wait for that instead.
+  await workspace.connectModel();
   await workspace.write({ "agents/needy/agent.toml": needy, "agents/needy/prompt.md": "You are needy.\n", "tools/docker.ps/tool.toml": tool, "tools/docker.ps/run.sh": "echo ok\n", "tools/docker.ps/test.sh": "echo ok\n", "plays/job.toml": play });
   for (const title of ["First job", "Second job", "Third job"]) await api.command("task.create", { workspaceId: workspace.id, play: "job", title });
 
