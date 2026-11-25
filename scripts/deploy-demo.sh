@@ -37,6 +37,8 @@
 #   BRAIN_DEMO_DOMAIN (brain.mykeyrus.tn)
 #   BRAIN_DEPLOY_ENGINES (pi,claude)  BRAIN_DEPLOY_RUNNER_SLOTS (8)
 #   BRAIN_DEPLOY_SANDBOX_CPU_MILLICORES (2000)  BRAIN_DEPLOY_SANDBOX_MEMORY_MB (4096)
+#   BRAIN_DEPLOY_PROXY_DNS (1.1.1.1,8.8.8.8)  the resolvers the egress proxy asks: the host's own one drops queries, and
+#                            every address a sandbox asks for then failed or took seconds. Empty: the host's.
 set -euo pipefail
 
 DRY=0
@@ -61,12 +63,15 @@ ENGINES="${BRAIN_DEPLOY_ENGINES:-pi,claude}"
 SLOTS="${BRAIN_DEPLOY_RUNNER_SLOTS:-8}"
 SANDBOX_CPU="${BRAIN_DEPLOY_SANDBOX_CPU_MILLICORES:-2000}"
 SANDBOX_MEMORY="${BRAIN_DEPLOY_SANDBOX_MEMORY_MB:-4096}"
+PROXY_DNS="${BRAIN_DEPLOY_PROXY_DNS-1.1.1.1,8.8.8.8}"
 TARGET="$USER_SSH@$HOST"
 
 for value in "$PORT" "$SLOTS" "$SANDBOX_CPU" "$SANDBOX_MEMORY"; do
   [[ "$value" =~ ^[1-9][0-9]*$ ]] || { echo "the port, the slots and the sandbox limits must be positive integers" >&2; exit 1; }
 done
 [[ "$REMOTE_DIR" =~ ^/[A-Za-z0-9._/-]+$ && "$DOMAIN" =~ ^[a-z0-9.-]+$ && "$ENGINES" =~ ^[a-z,]+$ && "$USER_SSH" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "the deploy directory, the domain, the engines or the user is not written as expected" >&2; exit 1; }
+
+[[ "$PROXY_DNS" =~ ^([0-9]{1,3}(\.[0-9]{1,3}){3}(,[0-9]{1,3}(\.[0-9]{1,3}){3})*)?$ ]] || { echo "the proxy's resolvers are IPv4 addresses separated by commas" >&2; exit 1; }
 
 cd "$(dirname "$0")/.."
 if [ "$DRY" = 1 ]; then
@@ -83,6 +88,7 @@ fi
 prelude() {
   printf 'set -euo pipefail\n'
   printf 'REMOTE_DIR=%q DOMAIN=%q DEPLOY_USER=%q ENGINES=%q SLOTS=%q SANDBOX_CPU=%q SANDBOX_MEMORY=%q\n' "$REMOTE_DIR" "$DOMAIN" "$USER_SSH" "$ENGINES" "$SLOTS" "$SANDBOX_CPU" "$SANDBOX_MEMORY"
+  printf 'PROXY_DNS=%q\n' "$PROXY_DNS"
   printf 'SUDO_PASSWORD=%q\n' "$SUDO_PASSWORD"
   printf 'as_root() { sudo -k -S -p "" "$@" <<<"$SUDO_PASSWORD"; }\n'
 }
@@ -269,7 +275,9 @@ on_host "Start the egress proxy" <<'SCRIPT'
 # address (host.docker.internal:3100) because that is granted here; every other private address is refused.
 docker network inspect brain-internal >/dev/null 2>&1 || docker network create --internal brain-internal >/dev/null
 docker rm -f brain-egress-proxy >/dev/null 2>&1 || true
-docker run -d --restart unless-stopped --name brain-egress-proxy --user "$(id -u):$(id -g)" --read-only --cap-drop ALL \
+DNS=()
+for resolver in ${PROXY_DNS//,/ }; do DNS+=(--dns "$resolver"); done
+docker run -d ${DNS[@]+"${DNS[@]}"} --restart unless-stopped --name brain-egress-proxy --user "$(id -u):$(id -g)" --read-only --cap-drop ALL \
   --security-opt no-new-privileges:true --memory 256m --pids-limit 128 --add-host host.docker.internal:host-gateway \
   -e BRAIN_EGRESS_ALLOW_INTERNAL=host.docker.internal:3100 -v "$REMOTE_DIR/run/egress-grants:/grants:ro" brain-egress-proxy >/dev/null
 docker network connect --alias brain-egress-proxy brain-internal brain-egress-proxy
@@ -420,6 +428,12 @@ if docker exec brain-egress-proxy node -e "fetch('http://host.docker.internal:31
   echo "    sandboxes reach the model gateway"
 else
   echo "!! the egress proxy cannot reach the Governor at host.docker.internal:3100: engines in sandboxes will get no model. Check the host's firewall for the Docker bridge." >&2
+fi
+# A resolver that drops queries shows as health checks and installs failing now and then: twenty lookups of this Brain's own name.
+if docker exec -e NAME="$DOMAIN" brain-egress-proxy node -e "const {lookup}=require('node:dns/promises');(async()=>{let bad=0;for(let i=0;i<20;i++){const t=Date.now();try{await lookup(process.env.NAME,{all:true})}catch{bad++;continue}if(Date.now()-t>1000)bad++}console.log('    the egress proxy resolves names: '+(20-bad)+' of 20 within a second');process.exit(bad?1:0)})()"; then
+  :
+else
+  echo "!! the egress proxy's resolver fails or is slow: set BRAIN_DEPLOY_PROXY_DNS to resolvers that answer, and deploy again." >&2
 fi
 if [ -s "$REMOTE_DIR/data/setup.token" ]; then
   echo "    This is a fresh install. Create the first account here:"

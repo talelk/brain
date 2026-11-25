@@ -117,6 +117,11 @@ archived folders back while the Governor is stopped.
   is in the `docker` group. `host.redeploy` takes the name of a folder under `/srv/demos` other than `brain`.
 - Engines in sandboxes reach the model gateway at `host.docker.internal:3100`, the Governor's port on
   Docker's bridge address. The last step of the deploy checks that path.
+- The egress proxy asks `1.1.1.1` and `8.8.8.8` (`BRAIN_DEPLOY_PROXY_DNS`), not the host's resolver
+  (`213.186.33.99`), which on 2026-11-25 failed 5 to 30 percent of lookups and took up to 25 seconds:
+  health checks and anything a sandbox fetched failed now and then (`deny ... unresolved` in
+  `docker logs brain-egress-proxy`). Asking for IPv4 only did not help. The host and its other demos
+  still use that resolver. The names sandboxes ask for are therefore seen by Cloudflare and Google.
 
 ## Locally
 
