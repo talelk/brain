@@ -10,7 +10,7 @@ agent = "eval-author"
 goal = """
 List every agent of the project that has an evaluation file (evals/<agent>/cases.md), with \
 its prompt and configuration paths and the number of cases. Say which agents have no \
-evaluation file and which files changed since the last commit that touched their cases. Use \
+evaluation file. Use \
 memory.search ("agent rubric guidelines") for the rules. Return the list as Markdown. When no agent has an evaluation file, say so and where one goes: that is the result, not a failure."""
 
 [[step]]
