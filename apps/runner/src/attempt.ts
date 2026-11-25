@@ -12,8 +12,9 @@ import { createEngine, type EngineHosting, engineHosting, nativeToolsAllowed } f
 import { boundedToolText, toolNameNote } from "./engines/tool-calls";
 import { type GovernorClient, isLeaseLost } from "./governor-client";
 import { EventSpool } from "./spool";
-import { CHECK_SHAPE, composeTask, JUDGE_SHAPE, PLAN_SHAPE, type ReviewPatch } from "./task-text";
+import { CHECK_SHAPE, composeTask, JUDGE_SHAPE, PLAN_SHAPE, type ReviewPatch, modelCommands } from "./task-text";
 import { ToolCalls } from "./tools/calls";
+import { scrubValue } from "./tools/script";
 import { placeWorkspaceFiles } from "./workspace-files";
 import { collectOutputs, prepareWorkingCopy, SetupError, type WorkingCopy } from "./working-copy";
 
@@ -104,7 +105,9 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
   if (lease.stop) stop("stopped");
   let deadline = performance.now() + (lease.leaseExpiresAt - Date.now()) - LEASE_MARGIN_MS;
   const spool = new EventSpool((events) => client.events(attemptId, { fence, events }).catch((error: unknown) => { if (isLeaseLost(error)) { spool.discard(); stop("lease"); } throw error; }));
-  const emit = (event: AttemptEventBody): void => spool.push(event);
+  /** The attempt's model token: a command or the model may print it, and it still works while the attempt runs, so it leaves in no event and no result. */
+  const hidden: string[] = [];
+  const emit = (event: AttemptEventBody): void => spool.push(scrubValue(event as unknown as JsonValue, hidden) as unknown as AttemptEventBody);
   const renewing = setInterval(() => {
     void client.renew(attemptId, { fence }).then((renewed) => {
       deadline = performance.now() + (renewed.leaseExpiresAt - Date.now()) - LEASE_MARGIN_MS;
@@ -188,6 +191,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
       const prompt = new TextDecoder().decode(await client.blob({ digest: offer.agent.promptDigest }));
       const model = { baseUrl: offer.model.gatewayUrl, token: picked.id === "fixture" ? "" : (await client.modelToken(attemptId, { fence })).token, name: offer.model.route, contextTokens: offer.model.contextTokens, compactAt: offer.model.compactAt };
 
+      hidden.push(model.token);
       if (sandboxed) {
         const launcher = cfg.launcher!;
         const wanted = [hostOf(offer.model.gatewayUrl), ...offer.projects.flatMap((project) => project.network.map((host) => host.toLowerCase()))].filter((host): host is string => host !== undefined);
@@ -221,8 +225,9 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
 
       emit({ kind: "status", phase: "engine", detail: `${picked.id} runs agent ${offer.agent.name}` });
       const offered = offer.tools.filter((tool) => offer.agent.tools.includes(tool.name));
+      const commandEnv = modelCommands(offer) ? { BRAIN_MODEL_URL: model.baseUrl, BRAIN_MODEL_TOKEN: model.token, BRAIN_MODEL_NAME: model.name, BRAIN_MODEL_API: offer.model.provider } : undefined;
       const spec: EngineSessionSpec = {
-        attemptId, instructions: prompt + toolNameNote(offered), model, native: offer.agent.native, outDir: paths.out, stateDir: paths.state,
+        attemptId, instructions: prompt + toolNameNote(offered), model, native: offer.agent.native, outDir: paths.out, stateDir: paths.state, ...(commandEnv ? { commandEnv } : {}),
         task: composeTask(offer, { ...(seesFiles ? { work: paths.work } : {}), ...(workspace ? { workspace } : {}), out: paths.out }, reviewed, reviewedFiles) + (setupNotes.length > 0 ? `\n\n# Setup did not finish\n${setupNotes.join("\n")}\nDependencies may be missing; run what you need yourself, or say so in your result if you cannot.` : ""),
         ...(seesFiles ? { workDir: paths.work } : {}),
         tools: offered.map((tool) => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, effect: tool.effect })),
@@ -258,10 +263,12 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
     // An attempt whose lease is gone belongs to someone else now: nothing more is said about it.
     if (abort.signal.aborted && abort.signal.reason === ("lease" satisfies AbortCause)) return;
     await spool.drain().catch(() => undefined);
-    const receipt = { attemptId, fence, snapshotDigest: offer.snapshotDigest, resultDigest: resultDigest(ended.result, ended.output ?? null) };
+    const result = scrubValue(ended.result, hidden) as string;
+    const output = ended.output === undefined ? undefined : scrubValue(ended.output, hidden);
+    const receipt = { attemptId, fence, snapshotDigest: offer.snapshotDigest, resultDigest: resultDigest(result, output ?? null) };
     await client.complete(attemptId, {
-      fence, outcome: ended.outcome, result: ended.result, usage, engine: engineName, baseCommits: copy?.baseCommits ?? {}, stateCommits: ended.stateCommits ?? {},
-      ...(ended.output !== undefined ? { output: ended.output } : {}), ...(ended.failure ? { failure: ended.failure } : {}), ...(ended.workingCopy ? { workingCopy: ended.workingCopy } : {}),
+      fence, outcome: ended.outcome, result, usage, engine: engineName, baseCommits: copy?.baseCommits ?? {}, stateCommits: ended.stateCommits ?? {},
+      ...(output !== undefined ? { output } : {}), ...(ended.failure ? { failure: ended.failure } : {}), ...(ended.workingCopy ? { workingCopy: ended.workingCopy } : {}),
       receipt: { receipt, signature: signReceipt(receipt, context.privateKeyPem) },
     }).catch((error: unknown) => { if (!isLeaseLost(error)) throw error; });
   } finally {

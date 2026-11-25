@@ -3,10 +3,12 @@ description = "Turn a job into evaluation cases, write the agent's prompt and co
 
 [inputs.job]
 type = "string"
+description = "What the agent must do, in a few sentences"
 required = true
 
 [inputs.agent]
 type = "string"
+description = "The agent's name, in lower-case words joined by hyphens"
 required = true
 
 [[step]]
@@ -25,9 +27,10 @@ id = "design"
 agent = "agent-designer"
 goal = """
 Write the agent's prompt and configuration in the project, and save the cases of your \
-context as evals/{{agent}}/cases.md. Every case must be decided by the prompt. Run the \
-project's checks for these files and report the commands and their outcome. Do not open the \
-pull request; a later step does.
+context as evals/{{agent}}/cases.md. Make them executable with evals/{{agent}}/run.sh, run \
+every case against the prompt you deliver, and keep each answer as \
+/out/cases/{{agent}}/<case id>.md. Run the project's checks for these files and report the \
+commands and their outcome. Do not open the pull request; a later step does.
 
 Agent: {{agent}}
 Job: {{job}}"""
@@ -51,7 +54,11 @@ approve = true
 [translations.fr]
 title = "Construire un agent"
 description = "Transformer un travail en cas d'évaluation, écrire le prompt et la configuration de l'agent dans le projet avec une relecture à chaque tour, et ouvrir une pull request qu'une personne approuve."
+inputs.job.description = "Ce que l'agent doit faire, en quelques phrases"
+inputs.agent.description = "Le nom de l'agent, en mots minuscules reliés par des traits d'union"
 
 [translations.ar]
 title = "بناء وكيل"
 description = "تحويل مهمة إلى حالات تقييم، وكتابة موجِّه الوكيل وإعداداته في المشروع مع مراجعة في كل جولة، وفتح طلب سحب (pull request) يوافق عليه شخص."
+inputs.job.description = "ما يجب على الوكيل فعله، في بضع جمل"
+inputs.agent.description = "اسم الوكيل، بكلمات صغيرة الأحرف تفصلها شرطات"

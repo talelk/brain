@@ -21,6 +21,8 @@ export function withLimit(gov: Gov, attempt: AttemptRow, failure: AttemptFailure
   if (!refused) return failure;
   if (cap > 0 && spentBesides(gov, attempt.workspace_id, attempt.id) >= cap) return hit({ name: "workspace.daily_spend_usd", value: active.limits.daily_spend_usd, used: spentBesides(gov, attempt.workspace_id, attempt.id) / 1_000_000 });
   if (limits.spend_usd > 0 && micro >= microUsd(limits.spend_usd) * 0.98) return hit({ name: "agent.spend_usd", value: limits.spend_usd, used: micro / 1_000_000, ...agent });
+  // The gateway refuses an agent with `model_in_commands` past its token limit, so there that limit explains a refusal too.
+  if (manifest.agents[attempt.agent]?.model_in_commands && tokens >= limits.tokens) return hit({ name: "agent.tokens", value: limits.tokens, used: tokens, ...agent });
   if (failure.reason !== "limit") return failure;
   if (limits.tokens > 0 && tokens >= limits.tokens * 0.9) return hit({ name: "agent.tokens", value: limits.tokens, used: tokens, ...agent });
   return limits.turns > 0 ? hit({ name: "agent.turns", value: limits.turns, used: null, ...agent }) : failure;

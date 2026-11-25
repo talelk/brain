@@ -119,6 +119,8 @@ export interface JobOffer {
     readonly promptDigest: Digest;
     readonly engines: ReadonlyArray<string>;
     readonly native: NativeLevel;
+    /** The commands of the agent's own tools are given the gateway address and the attempt's token. */
+    readonly modelInCommands: boolean;
     readonly limits: { readonly turns: number; readonly tokens: number; readonly spendMicroUsd: number };
     readonly tools: ReadonlyArray<string>;
   };
@@ -135,7 +137,7 @@ export interface JobOffer {
   /** The git store this attempt fetches those commits from and pushes its own to; absent when the Governor has none. */
   readonly store?: { readonly url: string; readonly token: string; readonly goalId: string };
   /** The model route the attempt calls, with its context window and the share of it at which a long conversation is compacted. */
-  readonly model: { readonly gatewayUrl: string; readonly route: string; readonly contextTokens: number; readonly compactAt: number };
+  readonly model: { readonly gatewayUrl: string; readonly provider: "openai-compatible" | "anthropic"; readonly route: string; readonly contextTokens: number; readonly compactAt: number };
   /** For `act`: the approved call to run, and nothing else. */
   readonly act?: { readonly callId: string; readonly approvalId: string; readonly tool: string; readonly input: JsonValue };
 }

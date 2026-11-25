@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { FixtureEngine } from "../../apps/runner/src/engines/fixture";
+import type { EngineSessionSpec } from "../../apps/runner/src/engines/port";
 import { serveEngineHost } from "../../apps/runner/src/engines/sandbox-host";
 import type { EngineChannel, EngineSandboxRequest } from "../../apps/runner/src/engines/sandboxed";
 import type { Launcher } from "../../apps/runner/src/launcher-client";
@@ -13,7 +14,7 @@ import { ECHO_SCRIPT, runnerWorld } from "./world";
  * asked for, and speaks the real frame protocol with the runner. The only thing a container would add is the mounts, so the paths the
  * runner sends (`/work`, `/out`, `/state`) are rewritten to the attempt's folders on their way in.
  */
-function inProcessLauncher(attemptsRoot: () => string): Launcher & { opened: EngineSandboxRequest[]; closed: number } {
+function inProcessLauncher(attemptsRoot: () => string, started: EngineSessionSpec[] = []): Launcher & { opened: EngineSandboxRequest[]; closed: number } {
   const launcher = {
     opened: [] as EngineSandboxRequest[], closed: 0,
     health: async () => ({ docker: true, missingImages: [] }),
@@ -24,7 +25,7 @@ function inProcessLauncher(attemptsRoot: () => string): Launcher & { opened: Eng
       const dir = join(attemptsRoot(), request.attemptId);
       const input = new PassThrough();
       const output = new PassThrough({ encoding: "utf8" });
-      void serveEngineHost(input, (text) => { output.write(text); }, () => new FixtureEngine()).then(() => output.end());
+      void serveEngineHost(input, (text) => { output.write(text); }, () => recording(new FixtureEngine(), started)).then(() => output.end());
       return {
         send: async (line) => { input.write(line.replace(/"\/(work|out|state)(?=["/])/gu, (_all, name: string) => `"${dir}/${name}`)); },
         lines: () => (async function* () { let rest = ""; for await (const chunk of output) { rest += String(chunk); const lines = rest.split("\n"); rest = lines.pop() ?? ""; yield* lines; } })(),
@@ -35,7 +36,40 @@ function inProcessLauncher(attemptsRoot: () => string): Launcher & { opened: Eng
   return launcher;
 }
 
+/** The engine, keeping the specification of every session it is asked to start. */
+function recording(engine: FixtureEngine, started: EngineSessionSpec[]): FixtureEngine {
+  const start = engine.start.bind(engine);
+  engine.start = async (spec, signal) => { started.push(spec); await start(spec, signal); };
+  return engine;
+}
+
 describe("an engine in its sandbox", () => {
+  it("gives the commands of an agent with model_in_commands the gateway and the attempt's token, and no other agent's", async () => {
+    let root = "";
+    const started: EngineSessionSpec[] = [];
+    const { gov, runner, stateDir } = await runnerWorld({ engines: ["pi"], launcher: inProcessLauncher(() => root, started), unsandboxedForTests: false });
+    root = join(stateDir, "attempts");
+    for (const modelInCommands of [true, false]) {
+      gov.offer({ agent: { engines: ["pi"], native: "all", modelInCommands }, task: { goal: "FIXTURE reply ran" } });
+      await runner.runOnce();
+    }
+    expect(started.map((spec) => spec.commandEnv)).toEqual([{ BRAIN_MODEL_URL: "http://governor.test/model/v1", BRAIN_MODEL_TOKEN: expect.any(String) as string, BRAIN_MODEL_NAME: "main", BRAIN_MODEL_API: "openai-compatible" }, undefined]);
+    expect(started[0]!.commandEnv!["BRAIN_MODEL_TOKEN"]).toBe(started[0]!.model.token);
+    expect(started.map((spec) => spec.task.includes("BRAIN_MODEL_TOKEN"))).toEqual([true, false]);
+  });
+
+  it("sends no event and no result that holds the attempt's model token", async () => {
+    let root = "";
+    const { gov, runner, stateDir } = await runnerWorld({ engines: ["pi"], launcher: inProcessLauncher(() => root), unsandboxedForTests: false });
+    root = join(stateDir, "attempts");
+    // The fake Governor's token of the first attempt, printed by a command and repeated in the answer.
+    const offer = gov.offer({ agent: { engines: ["pi"], native: "all", modelInCommands: true }, task: { goal: "FIXTURE write note.txt model-token-attempt-1\nFIXTURE read note.txt\nFIXTURE reply it is model-token-attempt-1" } });
+    await runner.runOnce();
+    expect(offer.attemptId).toBe("attempt-1");
+    expect(gov.completions.get(offer.attemptId)!.result).toBe("it is [redacted]");
+    expect(JSON.stringify(gov.events.get(offer.attemptId))).not.toContain("model-token-attempt-1");
+  });
+
   it("runs setup and the session over the sandbox channel, with the working copy mounted for the agent's native level", async () => {
     let root = "";
     const launcher = inProcessLauncher(() => root);
@@ -45,7 +79,7 @@ describe("an engine in its sandbox", () => {
     expect(gov.hellos[0]).toMatchObject({ engines: ["pi"], capabilities: ["bash", "native-tools"] });
     const origin = bareRepository({ "a.txt": "a\n", ".gitignore": "*.log\n" });
     const offer = gov.offer({
-      agent: { engines: ["pi"], native: "all" }, model: { gatewayUrl: "https://Brain.Example.test:8443/model/v1", route: "main", contextTokens: 200_000, compactAt: 0.7 },
+      agent: { engines: ["pi"], native: "all" }, model: { gatewayUrl: "https://Brain.Example.test:8443/model/v1", provider: "openai-compatible", route: "main", contextTokens: 200_000, compactAt: 0.7 },
       projects: [{ name: "app", repo: origin.repo, branch: "main", access: "write", network: ["registry.npmjs.org", "*.example.test", "*"], setup: "echo installed > setup.log" }],
       tools: [gov.tool("task.note", { runs: "brain", inputSchema: { type: "object" } })],
       task: { goal: 'FIXTURE read app/setup.log\nFIXTURE write app/b.txt b\\n\nFIXTURE tool task.note {"text": "hello"}\nFIXTURE reply done: %last%' },

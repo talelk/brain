@@ -32,6 +32,8 @@ export interface EngineSessionSpec {
   readonly model: EngineModel;
   /** The level the engine's own tools are enabled at. The runner passes anything but `none` only to an engine that runs sandboxed, or to the fixture. */
   readonly native: NativeLevel;
+  /** Environment variables of the commands the engine's own tools run, beside what the sandbox sets; none unless the agent has `model_in_commands`. */
+  readonly commandEnv?: Readonly<Record<string, string>>;
   /** The working directory of the engine's own tools, as the engine sees it (`/work` in a sandbox). Absent when the attempt has no working copy the engine may see. */
   readonly workDir?: string;
   /** Where files the agent wants kept go, as the engine sees it (`/out` in a sandbox). */

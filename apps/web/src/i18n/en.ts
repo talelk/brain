@@ -457,6 +457,8 @@ export const en = {
   "agent.native.none.help": "The engine's own tools are off.",
   "agent.native.read.help": "Read and search the working copy.",
   "agent.native.all.help": "Read, search, edit and run commands.",
+  "agent.modelInCommands": "Commands may call the model",
+  "agent.modelInCommands.help": "Lets the commands this agent runs call the model themselves, for example to test an agent of a project. Any code it runs can use the model up to the agent's spend and token limits, which must both be set.",
   "agent.workspaceTools": "Workspace tools",
   "agent.limits": "Limits",
   "agent.limits.text": "One attempt of this agent stops when it reaches any of these.",

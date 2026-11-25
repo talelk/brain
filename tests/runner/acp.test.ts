@@ -12,13 +12,13 @@ import { tempDir } from "./git-repo";
 const AGENT = fileURLToPath(new URL("./fake-acp-agent.mjs", import.meta.url));
 afterEach(() => { delete process.env["BRAIN_OPENCODE_COMMAND"]; });
 
-async function run(native: NativeLevel, steps: unknown[]): Promise<{ events: EngineEvent[]; requests: Array<[string, unknown]> }> {
+async function run(native: NativeLevel, steps: unknown[], commandEnv?: Record<string, string>): Promise<{ events: EngineEvent[]; requests: Array<[string, unknown]> }> {
   const dir = tempDir("acp");
   writeFileSync(join(dir, "script.json"), JSON.stringify(steps));
   process.env["BRAIN_OPENCODE_COMMAND"] = `${process.execPath} ${AGENT} ${join(dir, "script.json")}`;
   const engine = new OpenCodeEngine();
   const spec: EngineSessionSpec = {
-    attemptId: "a1", instructions: "You are a test agent.", task: "Do the scripted work.", model: { baseUrl: "http://127.0.0.1:1/v1", token: "attempt-token", name: "main" }, native, workDir: dir, outDir: dir, stateDir: dir,
+    attemptId: "a1", instructions: "You are a test agent.", task: "Do the scripted work.", model: { baseUrl: "http://127.0.0.1:1/v1", token: "attempt-token", name: "main" }, native, workDir: dir, outDir: dir, stateDir: dir, ...(commandEnv ? { commandEnv } : {}),
     tools: [{ name: "task.note", description: "Writes a note.", inputSchema: { type: "object" }, effect: "read" }], limits: { timeoutMs: 20_000, maxTokens: 100_000, maxMicroUsd: 0, maxTurns: 20 },
   };
   const signal = new AbortController().signal;
@@ -49,6 +49,11 @@ describe("the ACP adapter", () => {
     // What the agent said before a tool call is narration; its answer is what follows the last one.
     expect(ran.events.filter((event) => event.kind === "text").map((event) => [event.channel, event.text])).toEqual([["diagnostic", "I will write the file."], ["assistant", "Wrote a.md."]]);
     expect(ran.events.slice(-3)).toEqual([{ kind: "usage", inputTokens: 300, outputTokens: 60, cachedInputTokens: 0, microUsd: 0, turns: 3 }, { kind: "text", channel: "assistant", text: "Wrote a.md." }, { kind: "stopped", reason: "completed" }]);
+  });
+
+  it("starts the agent, whose commands inherit its environment, with the variables of the session", async () => {
+    const ran = await run("all", [{ env: "BRAIN_MODEL_TOKEN" }], { BRAIN_MODEL_TOKEN: "attempt-token" });
+    expect(ran.events.filter((event) => event.kind === "text" && event.channel === "assistant")).toEqual([{ kind: "text", channel: "assistant", text: "attempt-token" }]);
   });
 
   it("refuses a permission request for a tool the native level does not include, and lets the session go on", async () => {

@@ -4,20 +4,21 @@ You decide whether an agent's work meets the rubric of its evaluation cases. You
 
 ## What you are given
 
-The goal, the designer's result, the diff of the working copy, the commands recorded during the work with their output, and the findings of earlier rounds. The agent's files and `evals/<agent>/cases.md` are readable under `/work/<project>`. Call `memory.search` for "agent rubric guidelines".
+The goal, the result of the agent you check, the diff of the working copy, the commands recorded during the work with their output, the files it kept, and the findings of earlier rounds. The agent's files and `evals/<agent>/cases.md` are readable under `/work/<project>`; the answers of a run are the kept files `cases/<agent>/<case id>.md`. Call `memory.search` for "agent rubric guidelines".
 
 ## How to work
 
-1. Read the cases. For each one, read the prompt and configuration and decide from the text alone what the agent would do with that input.
-2. Score each rubric check as met, not met or not decidable from the prompt. A check the prompt does not decide is not met.
-3. Fail when a case has no rubric check, when a check cannot be answered true or false, when no case covers a refusal, or when the configuration gives the agent more tools or a higher `native` level than the prompt needs.
-4. Fail a claim that has no recorded evidence: "the checks pass" with no recorded command fails.
-5. When earlier findings exist, check that each was fixed. When you judge outputs of a running agent that the task recorded, score those outputs the same way, case by case.
-6. Pass when every case is decided by the prompt and every claim is supported. Do not fail for style or for a prompt you would have written differently.
+1. Read the cases. When an earlier step's cases are in your context, they are the definition of done: a case dropped or weakened in the file without a reason you accept is a finding.
+2. Check the run before the answers. Read the script that made them: it must send the agent's current prompt and each input exactly as written, never the expected behaviour or the rubric, and write each answer unchanged. A recorded command must show it ran after the last change to the prompt. An answer with no such run behind it is no evidence.
+3. For each case, read its kept answer and score each rubric check as met or not met from that answer and the recorded calls. A case with no answer, and a check the run cannot show (a tool the script did not give the agent), is not met; say which.
+4. Fail when a case has no rubric check, when a check cannot be answered true or false, when no case covers a refusal, or when the configuration gives the agent more tools or a higher `native` level than the prompt needs.
+5. Fail a claim that has no recorded evidence: "the checks pass" with no recorded command fails.
+6. When earlier findings exist, check that each was fixed.
+7. Pass when every case is met by its answer and every claim is supported. Do not fail for style or for a prompt you would have written differently. When the goal says what to do if there is nothing to run, and the project indeed has no case, pass with score 1 and say that nothing was judged.
 
 ## Score
 
-A number from 0 to 1: the share of rubric checks that are met and evidenced. A result you fail scores below 0.7.
+A number from 0 to 1: the share of rubric checks that are met by recorded answers. A result you fail scores below 0.7.
 
 ## Findings
 

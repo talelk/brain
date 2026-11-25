@@ -38,9 +38,9 @@ beforeAll(async () => {
 [[model]]\nname = "spare"\nprovider = "openai-compatible"\nurl = "https://two.example/v1"\nmodel = "large"\nkey = "secret:model-spare"
 [[model]]\nname = "claude"\nprovider = "anthropic"\nurl = "https://three.example"\nmodel = "opus"\nkey = "secret:model-claude"
 [[project]]\nname = "shop"\nrepo = "https://github.com/acme/shop.git"\n[github]\ncredential = "secret:github"\n`,
-    agents: { dev: { tools: ["task.ask", "lookup"] }, needy: { tools: ["docker.ps"] }, hands: { native: "all" }, thrifty: { spend: 0.004 } },
+    agents: { dev: { tools: ["task.ask", "lookup"] }, needy: { tools: ["docker.ps"] }, hands: { native: "all" }, thrifty: { spend: 0.004 }, prober: { native: "all", spend: 1, commands: 30 } },
     tools: { lookup: 'description = "Looks something up."\neffect = "read"\nsecrets = ["api-key"]\n', "docker.ps": 'description = "Lists containers."\neffect = "read"\nneeds = ["docker"]\n' },
-    plays: { one: one("dev"), needy: one("needy"), hands: one("hands"), thrifty: one("thrifty") },
+    plays: { one: one("dev"), needy: one("needy"), hands: one("hands"), thrifty: one("thrifty"), prober: one("prober") },
   }));
   for (const [name, value] of [["model-main", "key-one"], ["model-spare", "key-two"], ["model-claude", "key-three"], ["github", "ghp-credential"], ["api-key", "the-api-key"], ["unrelated", "never-leased"]] as const) {
     await harness.admin.command("secret.set", { workspaceId, name, value });
@@ -295,6 +295,26 @@ describe("a runner", () => {
     const second = await call();
     expect([first.status, second.status, upstream.length]).toEqual([200, 403, 0]);
     expect(((await second.json()) as { error: { message: string } }).error.message).toContain("spend limit");
+    await driver.finish(offer);
+    await driver.drain();
+    answer = () => Response.json({});
+  });
+
+  it("is refused by the gateway, for an agent with model_in_commands, once its token limit is used up, whatever the calls cost", async () => {
+    driver.script({ prober: () => "Stopped at the limit." });
+    await start("prober");
+    const offer = (await driver.claim()) as JobOffer;
+    expect(offer.agent.modelInCommands).toBe(true);
+    await driver.ack(offer);
+    const token = await modelTokenOf(driver, offer);
+    answer = () => Response.json({ choices: [], usage: { prompt_tokens: 20, completion_tokens: 20 } });
+    const call = () => harness.anonymous.fetch("/model/v1/chat/completions", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: JSON.stringify({ messages: [] }) });
+    const first = await call();
+    await first.text();
+    upstream.length = 0;
+    const second = await call();
+    expect([first.status, second.status, upstream.length]).toEqual([200, 403, 0]);
+    expect(((await second.json()) as { error: { message: string } }).error.message).toContain("token limit");
     await driver.finish(offer);
     await driver.drain();
     answer = () => Response.json({});

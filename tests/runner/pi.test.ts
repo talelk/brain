@@ -40,13 +40,13 @@ async function gateway(steps: Step[]): Promise<{ baseUrl: string; seen: Seen[] }
   return { baseUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`, seen };
 }
 
-async function run(native: NativeLevel, steps: Step[], limits: Partial<EngineSessionSpec["limits"]> = {}): Promise<{ events: EngineEvent[]; seen: Seen[]; workDir: string; requests: Array<[string, unknown]> }> {
+async function run(native: NativeLevel, steps: Step[], limits: Partial<EngineSessionSpec["limits"]> = {}, commandEnv?: Record<string, string>): Promise<{ events: EngineEvent[]; seen: Seen[]; workDir: string; requests: Array<[string, unknown]> }> {
   const { baseUrl, seen } = await gateway(steps);
   const workDir = tempDir("pi-work");
   const stateDir = tempDir("pi-state");
   const engine = new PiEngine();
   const spec: EngineSessionSpec = {
-    attemptId: "a1", instructions: "You are a test agent.", task: "Do the scripted work.", model: { baseUrl, token: "attempt-token", name: "main" }, native, workDir, outDir: stateDir, stateDir,
+    attemptId: "a1", instructions: "You are a test agent.", task: "Do the scripted work.", model: { baseUrl, token: "attempt-token", name: "main" }, native, workDir, outDir: stateDir, stateDir, ...(commandEnv ? { commandEnv } : {}),
     tools: [{ name: "task.note", description: "Writes a note on the shared board.", inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] }, effect: "read" }],
     limits: { timeoutMs: 60_000, maxTokens: 100_000, maxMicroUsd: 0, maxTurns: 20, ...limits },
   };
@@ -92,6 +92,15 @@ describe("the Pi adapter", () => {
     expect(ran.events.filter((event) => event.kind === "text" && event.channel === "assistant").map((event) => (event as { text: string }).text)).toEqual(["Wrote notes/a.md."]);
     expect(ran.events.filter((event) => event.kind === "usage").at(-1)).toMatchObject({ inputTokens: 400, outputTokens: 80, turns: 4 });
     expect(ran.events.at(-1)).toEqual({ kind: "stopped", reason: "completed" });
+  });
+
+  it("gives the commands it runs the variables of the session, and takes them back after it", async () => {
+    const steps: Step[] = [{ tool: "bash", args: { command: 'echo "token=$BRAIN_MODEL_TOKEN"' } }, { text: "Done." }];
+    const given = await run("all", steps, {}, { BRAIN_MODEL_TOKEN: "attempt-token" });
+    expect(given.events.find((event) => event.kind === "native.result")).toMatchObject({ output: expect.stringContaining("token=attempt-token") as string });
+    expect(process.env["BRAIN_MODEL_TOKEN"]).toBeUndefined();
+    const without = await run("all", steps);
+    expect(without.events.find((event) => event.kind === "native.result")).toMatchObject({ output: expect.stringMatching(/^token=\s*$/u) as string });
   });
 
   it("offers only reading and searching at native read, and nothing of its own at native none", async () => {

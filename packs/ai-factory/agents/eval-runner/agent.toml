@@ -1,0 +1,14 @@
+description = "Runs the evaluation cases of a project's agents against their current prompts, with a real model call for each case, and keeps what each agent answered. Changes no project file."
+engine = ["pi", "claude"]
+native = "all"
+tools = ["memory.search", "task.note"]
+model_in_commands = true
+
+[limits]
+spend_usd = 1.00
+
+[translations.fr]
+description = "Exécute les cas d'évaluation des agents d'un projet avec leurs prompts actuels, par un appel réel au modèle pour chaque cas, et garde ce que chaque agent a répondu. Ne modifie aucun fichier du projet."
+
+[translations.ar]
+description = "يشغّل حالات تقييم وكلاء المشروع على موجِّهاتهم الحالية، باستدعاء حقيقي للنموذج لكل حالة، ويحفظ ما أجاب به كل وكيل. لا يغيّر أي ملف في المشروع."

@@ -102,7 +102,10 @@ export function AgentForm(props: { name: string; initial: AgentFile; isNew: bool
         </Show>
       </Group>
       <Group title={t("agent.tools")} text={t("agent.tools.text")}>
-        <Choice label={t("agent.native")} value={agent.native} onChange={(value) => setAgent("native", value)} disabled={props.readOnly} options={NATIVE_LEVELS.map((level) => ({ value: level, label: t(`agent.native.${level}`), help: t(`agent.native.${level}.help`) }))} />
+        <Choice label={t("agent.native")} value={agent.native} onChange={(value) => { setAgent("native", value); if (value !== "all") setAgent("model_in_commands", false); }} disabled={props.readOnly} options={NATIVE_LEVELS.map((level) => ({ value: level, label: t(`agent.native.${level}`), help: t(`agent.native.${level}.help`) }))} />
+        <Show when={agent.native === "all"}>
+          <Switch label={t("agent.modelInCommands")} description={t("agent.modelInCommands.help")} checked={agent.model_in_commands} onCheckedChange={(on) => setAgent("model_in_commands", on)} disabled={props.readOnly} />
+        </Show>
         <PickMany label={t("agent.workspaceTools")} options={Object.entries(props.snapshot.tools).map(([name, tool]) => ({ value: name, label: name, help: t(`effect.${tool.effect}`) }))} value={agent.tools} onChange={(value) => setAgent("tools", value)} disabled={props.readOnly} />
       </Group>
       <Group title={t("agent.limits")} text={t("agent.limits.text")}>

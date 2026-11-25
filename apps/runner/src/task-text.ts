@@ -43,6 +43,10 @@ function environment(paths: AttemptPaths, projects: number): string {
   return `# Where you are\n${work}${own} ${paths.out} is where every file to keep as a result goes (a report, a plan, a list); the reviewer and the person read it from there. The task text above and your tools hold everything else you need. Do not search or list the rest of the file system (\`/\`, \`/state\`, \`/app\`): it holds nothing of this task and only fills your context. Brain checks the files your answer says you saved: never claim work you did not do. If you cannot do this task with the tools and folders you have, start your answer with \`BLOCKED:\` and the reason; that is a valid answer, and it goes back to be fixed.`;
 }
 
+/** Whether the commands this agent runs may call the model themselves (docs/model.md, "An agent"). */
+export const modelCommands = (offer: JobOffer): boolean => offer.agent.modelInCommands && offer.agent.native === "all";
+const MODEL_IN_COMMANDS = "# The model, from a command\nA command you run may call the model itself, to run code that needs one (an agent of the project on its test cases). The environment holds `BRAIN_MODEL_URL`, `BRAIN_MODEL_TOKEN`, `BRAIN_MODEL_NAME` and `BRAIN_MODEL_API`. With `BRAIN_MODEL_API` equal to `openai-compatible`, POST to `$BRAIN_MODEL_URL/chat/completions`; with `anthropic`, POST to `$BRAIN_MODEL_URL/messages`. Send `Authorization: Bearer $BRAIN_MODEL_TOKEN` and the model `$BRAIN_MODEL_NAME`. These calls count against your spend limit. The token ends with this attempt; never print it or write it to a file.";
+
 export function composeTask(offer: JobOffer, paths: AttemptPaths, patches: ReadonlyMap<string, ReviewPatch> = new Map(), files?: ReadonlyMap<string, ReviewPatch>): string {
   const { task, context, kind } = offer;
   const parts: string[] = [`[${kind} attempt, round ${task.round}]`, `# Goal\n${task.title}\n\n${task.goal}`];
@@ -64,6 +68,7 @@ export function composeTask(offer: JobOffer, paths: AttemptPaths, patches: Reado
     }).join("\n\n")}`);
   }
   parts.push(environment(paths, offer.projects.length));
+  if (modelCommands(offer)) parts.push(MODEL_IN_COMMANDS);
   if (offer.projects.length > 0 && paths.work) parts.push(`# Working copy\n${offer.projects.map((project) => `- ${project.name}: ${paths.work}/${project.name} (branch ${project.branch})`).join("\n")}\nFiles to keep as results go in ${paths.out}.`);
   if (kind === "judge") parts.push(`# Final answer\nKeep exactly one candidate. Reply with one JSON object and nothing else:\n${JUDGE_SHAPE}`);
   return parts.join("\n\n");

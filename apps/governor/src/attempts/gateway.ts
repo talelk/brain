@@ -13,7 +13,8 @@ import { activeManifest, manifestOf } from "../workspace/store";
 import { attemptOfModelToken } from "./routes";
 
 /**
- * The model gateway (docs/architecture.md section 6). An engine reaches its model only here, with the token of its attempt: OpenAI-style at
+ * The model gateway (docs/architecture.md section 6). An engine, and the commands of an agent with `model_in_commands`, reach a model only
+ * here, with the token of the attempt: OpenAI-style at
  * `/model/v1/chat/completions`, Anthropic-style at `/model/v1/messages`. The Governor forwards to the workspace's models of that kind in
  * order (the agent's own first), moves to the next when one refuses for quota or is not available, keeps the keys to itself, and adds the
  * token counts and the cost of each answer to the attempt's usage: the cost the model server reports, or else the token counts at the
@@ -53,7 +54,10 @@ async function forward(gov: Gov, c: Context, provider: Provider): Promise<Respon
   if (cap > 0 && spentBesides(gov, attempt.workspace_id, attempt.id) >= cap) return refusal(403, "The workspace's daily spend cap is used up; this call was not sent");
   const agent = manifest.agents[attempt.agent];
   const limit = microUsd(agent?.limits.spend_usd ?? 0);
-  const used = (gov.db.prepare("SELECT metered_micro_usd AS n FROM usage WHERE attempt_id=?").get(attempt.id) as { n: number } | undefined)?.n ?? 0;
+  const metered = gov.db.prepare("SELECT metered_micro_usd AS micro, input_tokens + output_tokens AS tokens FROM usage WHERE attempt_id=?").get(attempt.id) as { micro: number; tokens: number } | undefined;
+  // The calls of an agent's commands are in no engine's count, and an unpriced model makes no spend: here the token limit holds for them.
+  if (agent?.model_in_commands && (metered?.tokens ?? 0) >= agent.limits.tokens) return refusal(403, "This attempt has used up its agent's token limit; this call was not sent");
+  const used = metered?.micro ?? 0;
   if (limit > 0 && used >= limit) return refusal(403, "This attempt has used up its agent's spend limit; this call was not sent");
   const preferred = agent?.model;
   const { models: available, from } = modelsOf(gov, attempt.workspace_id, manifest);

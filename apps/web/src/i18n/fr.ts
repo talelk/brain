@@ -459,6 +459,8 @@ export const fr: Catalog = {
   "agent.native.none.help": "Les outils propres au moteur sont désactivés.",
   "agent.native.read.help": "Lire la copie de travail et y rechercher.",
   "agent.native.all.help": "Lire, rechercher, modifier et exécuter des commandes.",
+  "agent.modelInCommands": "Les commandes peuvent appeler le modèle",
+  "agent.modelInCommands.help": "Permet aux commandes lancées par cet agent d'appeler elles-mêmes le modèle, par exemple pour tester un agent d'un projet. Tout code qu'il exécute peut utiliser le modèle jusqu'aux limites de dépense et de tokens de l'agent, qui doivent toutes deux être définies.",
   "agent.workspaceTools": "Outils de l'espace de travail",
   "agent.limits": "Limites",
   "agent.limits.text": "Une tentative de cet agent s'arrête dès qu'elle atteint l'une de ces limites.",

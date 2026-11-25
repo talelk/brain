@@ -3,6 +3,7 @@
 //   {"own": {"name", "kind", "input", "output", "ask": bool}}   one of the agent's own tools; with "ask" it requests permission first
 //   {"mcp": {"tool", "input"}}                                  a workspace tool, called on the MCP server of session/new through "execute"
 //   {"say": "text"}                                             a message
+//   {"env": "NAME"}                                             a message holding that variable of the agent's environment
 import { readFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 
@@ -20,6 +21,7 @@ async function prompt() {
   let call = 0;
   for (const step of steps) {
     const toolCallId = `call_${++call}`;
+    if (step.env) update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: process.env[step.env] ?? "" } });
     if (step.say) update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: step.say } });
     if (step.own) {
       const { name, kind, input, output } = step.own;

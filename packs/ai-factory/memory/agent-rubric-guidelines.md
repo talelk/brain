@@ -1,6 +1,6 @@
 # Agent rubric guidelines
 
-The rules the evaluation author, the designer and the judge follow. Edit them to match how your team judges an agent. Brain has no registry of scenarios: an agent's cases are the Markdown file `evals/<agent>/cases.md` in the project, and a change to that file is a change to the definition of done.
+The rules the evaluation author, the designer and the judge follow. Edit them to match how your team judges an agent. An agent's cases are the Markdown file `evals/<agent>/cases.md` in the project, and a change to that file is a change to the definition of done. `evals/<agent>/run.sh` runs them; each answer is kept as `/out/cases/<agent>/<case id>.md`.
 
 ## A rubric check
 
@@ -17,7 +17,7 @@ The rules the evaluation author, the designer and the judge follow. Edit them to
 
 ## What counts as evidence
 
-A tool call recorded in the task, a line of a file, or the text of the answer. "It would work" is not evidence. A check no prompt text decides counts as not met.
+The answer a run kept for the case, a tool call recorded in the task, or a line of a file. "It would work" is not evidence, and neither is what the prompt says the agent should do. A check the run cannot show counts as not met. The expected behaviour and the rubric are never sent to the agent under test.
 
 ## Scoring
 

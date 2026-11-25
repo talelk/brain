@@ -154,12 +154,19 @@ export const AgentFile = z.strictObject({
   native: z.enum(NATIVE_LEVELS).default("none"),
   tools: z.array(toolName).default([]),
   model: slug("a model name").optional(),
+  /** The commands the agent runs may call the model through the gateway, with the attempt's token (docs/model.md, "An agent"). */
+  model_in_commands: z.boolean().default(false),
   limits: z.strictObject({
     turns: z.int().min(0).default(LIMIT_DEFAULTS.turns),
     tokens: z.int().min(0).default(LIMIT_DEFAULTS.tokens),
     spend_usd: z.number().min(0).default(LIMIT_DEFAULTS.spend_usd),
   }).prefault({}),
   translations: translations({ description: z.string().min(1).optional() }),
+}).superRefine((agent, ctx) => {
+  if (!agent.model_in_commands) return;
+  if (agent.native !== "all") ctx.addIssue({ code: "custom", path: ["model_in_commands"], message: 'needs native = "all": an agent that runs no command has nothing to call the model with' });
+  if (agent.limits.spend_usd === 0) ctx.addIssue({ code: "custom", path: ["model_in_commands"], message: "needs a spend limit: set [limits] spend_usd, which also caps what the commands spend" });
+  if (agent.limits.tokens === 0) ctx.addIssue({ code: "custom", path: ["model_in_commands"], message: "needs a token limit: set [limits] tokens, the only cap when the model has no price" });
 });
 export type AgentFile = z.infer<typeof AgentFile>;
 

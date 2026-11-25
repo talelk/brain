@@ -17,7 +17,7 @@ conventions the pack files rely on, so the code that loads and runs them matches
 | `frontend-qa` | base | browser-walkthrough, visual-reviewer | | walkthrough-after-change, regression-sweep |
 | `security` | base | security-analyst, remediator, evidence-reviewer | osv.query | scan-dependencies, fix-vulnerability |
 | `modernization` | base | legacy-analyst, migrator, parity-reviewer | | assess-codebase, migrate-modules |
-| `ai-factory` | base | eval-author, agent-designer, eval-judge | | build-agent, regression-check |
+| `ai-factory` | base | eval-author, agent-designer, eval-runner, eval-judge | | build-agent, regression-check |
 
 `pack.toml` has exactly `name`, `description` and `requires` (a list of pack names, empty
 for `base`). An agent or a Play of a pack may name agents and tools of the packs it
@@ -69,7 +69,8 @@ other entry is a rule or a lesson that agents read as it is. Both exist in Frenc
 
 ## Fields used
 
-- `agent.toml`: `description`, `engine`, `native`, `tools`, `[limits]` with `turns`,
+- `agent.toml`: `description`, `engine`, `native`, `tools`, `model_in_commands` (only a
+  producer whose commands must call a model, as `ai-factory`'s do), `[limits]` with `turns`,
   `tokens`, `spend_usd` (a pack agent sets only the spend, so the defaults of docs/model.md, Limits, apply to turns and tokens). No pack agent sets `model`.
 - `tool.toml`, three shapes:
   - Brain-run: `description`, `runs = "brain"`, `effect`, `[inputs.*]`. No script.

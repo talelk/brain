@@ -25,7 +25,7 @@ export interface WorkspaceFiles {
   /** Makes it a platform workspace of this kind (the instance admin creates it). */
   readonly platform?: "admin" | "read";
   /** Agents by name: the tools each may use and the level of native tools. Each runs on the fixture engine. */
-  readonly agents?: Record<string, { tools?: readonly string[]; native?: "none" | "read" | "all"; spend?: number; uncapped?: boolean }>;
+  readonly agents?: Record<string, { tools?: readonly string[]; native?: "none" | "read" | "all"; spend?: number; uncapped?: boolean; commands?: number }>;
   /** Plays by name, as TOML. */
   readonly plays?: Record<string, string>;
   /** Other tools by name, as the TOML of `tool.toml`; a tool that is not Brain-run gets a `run.sh`. */
@@ -48,7 +48,7 @@ export async function makeWorkspace(harness: Harness, name: string, files: Works
     files: [
       { path: "brain.toml", content: `name = "${name}"\n${files.platform ? `platform = "${files.platform}"\n` : ""}packs = ${JSON.stringify(packs)}\n${files.brain ?? ""}\n${files.noModel || /\[\[model\]\]/u.test(files.brain ?? "") ? "" : MODEL}` },
       ...Object.entries(files.agents ?? {}).flatMap(([agent, spec]) => [
-        { path: `agents/${agent}/agent.toml`, content: `description = "The ${agent}."\nengine = ["fixture"]\nnative = "${spec.native ?? "none"}"\ntools = ${JSON.stringify(spec.tools ?? [])}\n[limits]\n${spec.uncapped ? "turns = 0\ntokens = 0\n" : ""}spend_usd = ${spec.spend ?? 0}\n` },
+        { path: `agents/${agent}/agent.toml`, content: `description = "The ${agent}."\nengine = ["fixture"]\nnative = "${spec.native ?? "none"}"\n${spec.commands ? "model_in_commands = true\n" : ""}tools = ${JSON.stringify(spec.tools ?? [])}\n[limits]\n${spec.uncapped ? "turns = 0\ntokens = 0\n" : ""}${spec.commands ? `tokens = ${spec.commands}\n` : ""}spend_usd = ${spec.spend ?? 0}\n` },
         { path: `agents/${agent}/prompt.md`, content: `You are the ${agent}.\n` },
       ]),
       ...Object.entries(tools).flatMap(([tool, toml]) => [{ path: `tools/${tool}/tool.toml`, content: toml }, ...(/runs = "brain"|host_command/u.test(toml) ? [] : [{ path: `tools/${tool}/run.sh`, content: "#!/bin/sh\ncat\n" }])]),

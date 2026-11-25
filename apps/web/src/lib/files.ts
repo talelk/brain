@@ -65,8 +65,8 @@ export function brainToml(brain: Brain): string {
 }
 
 export function agentToml(agent: AgentFile): string {
-  const { description, engine, native, tools, model, limits, translations } = agent;
-  return toToml(compact({ description, engine, native: differs(native, "none"), tools, model, limits: { turns: differs(limits.turns, LIMIT_DEFAULTS.turns), tokens: differs(limits.tokens, LIMIT_DEFAULTS.tokens), spend_usd: differs(limits.spend_usd, LIMIT_DEFAULTS.spend_usd) }, translations: translations as TomlTable | undefined }));
+  const { description, engine, native, tools, model, model_in_commands, limits, translations } = agent;
+  return toToml(compact({ description, engine, native: differs(native, "none"), tools, model, model_in_commands: model_in_commands || undefined, limits: { turns: differs(limits.turns, LIMIT_DEFAULTS.turns), tokens: differs(limits.tokens, LIMIT_DEFAULTS.tokens), spend_usd: differs(limits.spend_usd, LIMIT_DEFAULTS.spend_usd) }, translations: translations as TomlTable | undefined }));
 }
 
 const inputsTable = (inputs: ToolFile["inputs"]): TomlTable => Object.fromEntries(Object.entries(inputs).map(([name, spec]) => [name, { type: spec.type, description: spec.description || undefined, required: spec.required, enum: spec.enum, items: spec.items ? { ...spec.items } : undefined }]));

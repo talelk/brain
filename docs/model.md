@@ -132,6 +132,7 @@ engine = ["pi", "claude"]
 native = "all"              # the engine's own tools: "none", "read" or "all"
 tools = ["git.open-pr", "task.note"]    # workspace and pack tools, by name
 model = "main"              # optional; the workspace's first model otherwise
+model_in_commands = false   # true: the commands it runs may call the model (see below)
 
 [limits]
 turns = 12                 # 0 means no cap; 100 when not written
@@ -149,6 +150,18 @@ An agent has two kinds of tools:
   allows reading and searching only; `"none"` turns them off.
 - **Workspace tools** are the files under `tools/` and in packs. Anything that leaves the
   sandbox (a pull request, a restart, a message) is a workspace tool.
+
+A command the agent runs cannot call a model through Brain unless the agent says
+`model_in_commands = true`, for code that needs one, such as an agent of a project run on its
+test cases. Brain then puts the address of its model gateway and the attempt's token in the
+commands' environment (`BRAIN_MODEL_URL`, `BRAIN_MODEL_TOKEN`, `BRAIN_MODEL_NAME`,
+`BRAIN_MODEL_API`). Those calls are counted on the attempt like the agent's own, so the option
+needs `native = "all"`, a `spend_usd` limit and a `tokens` limit. For such an agent the
+gateway itself holds both: it refuses a call once the attempt's calls have used either, so a
+model with no price is still bounded by the tokens. The model's key never leaves the Governor,
+the token stops working when the attempt ends, and the runner removes it from the events and
+the result it sends. Any code such an agent runs, the project's included, can use up the
+limits.
 
 ### A tool
 

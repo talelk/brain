@@ -77,8 +77,8 @@ export class FakeGovernor {
       attemptId: `attempt-${++this.attempts}`, fence: 1, kind: "work", workspaceId: "ws1", offerExpiresAt: Date.now() + 60_000, snapshotDigest: sha256Digest(new Uint8Array(Buffer.from("snapshot"))),
       task: { id: "task-1", title: "The task", goal: "Do the thing.", round: 1, findings: [], ...task },
       context: { results: [], notes: [], answers: [], catalog: { agents: [], tools: [], plays: [] }, ...context },
-      agent: { name: "worker", promptDigest: this.blob(prompt).digest, engines: ["fixture"], native: "none", limits: { turns: 20, tokens: 200_000, spendMicroUsd: 0 }, tools: tools.map((tool) => tool.name), ...agent },
-      tools, projects: [], inheritedStates: [], model: { gatewayUrl: `${this.url}/model/v1`, route: "main", contextTokens: 200_000, compactAt: 0.7 },
+      agent: { name: "worker", promptDigest: this.blob(prompt).digest, engines: ["fixture"], native: "none", modelInCommands: false, limits: { turns: 20, tokens: 200_000, spendMicroUsd: 0 }, tools: tools.map((tool) => tool.name), ...agent },
+      tools, projects: [], inheritedStates: [], model: { gatewayUrl: `${this.url}/model/v1`, provider: "openai-compatible", route: "main", contextTokens: 200_000, compactAt: 0.7 },
       ...rest,
     };
     // An attempt on a project hands its work on through the git store, a real one.

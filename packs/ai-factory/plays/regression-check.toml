@@ -1,5 +1,5 @@
 title = "Weekly agent regression check"
-description = "Every week, the judge reads the agent files and evaluation cases of the project again and reports each case that its prompt no longer decides, so a change to an agent that broke a case is found."
+description = "Every week, run the evaluation cases of the project's agents against their current prompts and have the judge score the answers, so a change that broke a case is found. A failed check waits for a person."
 
 [trigger]
 schedule = "45 8 * * 1"
@@ -14,19 +14,22 @@ evaluation file and which files changed since the last commit that touched their
 memory.search ("agent rubric guidelines") for the rules. Return the list as Markdown. When no agent has an evaluation file, say so and where one goes: that is the result, not a failure."""
 
 [[step]]
-id = "judge"
-agent = "eval-judge"
+id = "run"
+agent = "eval-runner"
 goal = """
-For every agent in your context, decide each case from the agent's prompt and configuration \
-and report each rubric check that is not met or not decidable, with the case id. Write the \
-report as /out/regression-check.md: one section per agent, most serious first. Post the most \
-serious finding with task.note, or say that every case is decided. When there is no case to decide, say that nothing was judged."""
+Run every case of every agent in your context against its current prompt, one model call per \
+case, and keep each answer as /out/cases/<agent>/<case id>.md. Write the list of what ran as \
+/out/regression-check.md. When there is no case to run, say so: that is the result, not a \
+failure, and there is nothing to judge."""
 after = ["collect"]
+review_by = "eval-judge"
+max_rounds = 1
+target_score = 0.8
 
 [translations.fr]
 title = "Contrôle hebdomadaire de non-régression des agents"
-description = "Chaque semaine, le juge relit les fichiers d'agents et les cas d'évaluation du projet et signale chaque cas que le prompt ne tranche plus, pour trouver un changement d'agent qui a cassé un cas."
+description = "Chaque semaine, exécuter les cas d'évaluation des agents du projet avec leurs prompts actuels et faire noter les réponses par le juge, pour trouver un changement qui a cassé un cas. Une vérification échouée attend une personne."
 
 [translations.ar]
 title = "فحص أسبوعي لتراجع الوكلاء"
-description = "كل أسبوع، يعيد الحَكَم قراءة ملفات الوكلاء وحالات التقييم في المشروع ويبلّغ عن كل حالة لم يعد الموجِّه يحسمها، فيُكتشف أي تغيير في وكيل كسر حالة."
+description = "كل أسبوع، تُشغَّل حالات تقييم وكلاء المشروع على موجِّهاتهم الحالية ويقيّم الحَكَم الإجابات، فيُكتشف أي تغيير كسر حالة. الفحص الفاشل ينتظر شخصًا."

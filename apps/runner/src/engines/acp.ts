@@ -261,7 +261,7 @@ export class AcpEngine implements EngineAdapter {
     const requests = new ToolRequests(spec.tools, (event) => this.push(event), { ...(spec.limits.maxTurns > 0 ? { maxCalls: spec.limits.maxTurns } : {}) });
     this.requests = requests;
     try {
-      this.spawnAgent(cwd, this.options.env(spec));
+      this.spawnAgent(cwd, { ...spec.commandEnv, ...this.options.env(spec) });
       const capabilities = ((await this.initialize())["agentCapabilities"] ?? {}) as { mcpCapabilities?: { http?: unknown } };
       if (signal.aborted) throw new Error("aborted");
       // Only the tools this agent may use are served, and only when there are any: an agent with none is told about no server.

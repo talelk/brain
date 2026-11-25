@@ -177,12 +177,12 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
     context: { results, notes, answers, catalog: { agents: describe(manifest.agents), tools: describe(manifest.tools), plays: describe(manifest.plays) }, ...(review.length > 0 ? { review } : {}) },
     snapshotDigest: task.snapshot_digest,
     agent: {
-      name: attempt.agent, promptDigest: agent.prompt.digest, engines: agent.engine, native: agent.native,
+      name: attempt.agent, promptDigest: agent.prompt.digest, engines: agent.engine, native: agent.native, modelInCommands: agent.model_in_commands,
       limits: { turns: agent.limits.turns, tokens: agent.limits.tokens, spendMicroUsd: microUsd(agent.limits.spend_usd) }, tools: agent.tools,
     },
     tools, projects, inheritedStates: inherited,
     ...(gov.store && manifest.projects.length > 0 ? { store: { url: gov.store.url, goalId: task.root_id, token: signStoreGrant({ workspaceId: attempt.workspace_id, goalId: task.root_id, attemptId: attempt.id, expiresAt: Math.floor(gov.clock.nowMs() / 1000) + STORE_TOKEN_SECONDS }, gov.store.privateKeyPem) } } : {}),
-    model: { gatewayUrl: `${gov.gatewayUrl}/model/v1`, route: agent.model ?? routed?.name ?? "", contextTokens: routed?.context_tokens ?? MODEL_DEFAULTS.context_tokens, compactAt: routed?.compact_at ?? MODEL_DEFAULTS.compact_at },
+    model: { gatewayUrl: `${gov.gatewayUrl}/model/v1`, provider: routed?.provider ?? "openai-compatible", route: agent.model ?? routed?.name ?? "", contextTokens: routed?.context_tokens ?? MODEL_DEFAULTS.context_tokens, compactAt: routed?.compact_at ?? MODEL_DEFAULTS.compact_at },
     ...(payload.act ? { act: payload.act } : {}),
   };
 }

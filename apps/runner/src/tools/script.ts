@@ -30,7 +30,7 @@ function scrubSecrets(text: string, values: readonly string[]): string {
 }
 
 /** The same removal on a decoded JSON value, keys and strings alike: an escape the text form did not show (`\u0041`) is plain here. */
-function scrubValue(value: JsonValue, secrets: readonly string[]): JsonValue {
+export function scrubValue(value: JsonValue, secrets: readonly string[]): JsonValue {
   if (typeof value === "string") return scrubSecrets(value, secrets);
   if (Array.isArray(value)) return value.map((item) => scrubValue(item, secrets));
   if (value !== null && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [scrubSecrets(key, secrets), scrubValue(item, secrets)]));

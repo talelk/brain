@@ -1,6 +1,6 @@
 # Règles de grille pour un agent
 
-Les règles que l'auteur des évaluations, le concepteur et le juge suivent. Modifiez-les pour qu'elles correspondent à la façon dont votre équipe juge un agent. Brain n'a pas de registre de scénarios : les cas d'un agent sont le fichier Markdown `evals/<agent>/cases.md` du projet, et modifier ce fichier modifie la définition du travail terminé.
+Les règles que l'auteur des évaluations, le concepteur et le juge suivent. Modifiez-les pour qu'elles correspondent à la façon dont votre équipe juge un agent. Les cas d'un agent sont le fichier Markdown `evals/<agent>/cases.md` du projet, et modifier ce fichier modifie la définition du travail terminé. `evals/<agent>/run.sh` les exécute ; chaque réponse est gardée dans `/out/cases/<agent>/<id du cas>.md`.
 
 ## Un point de la grille
 
@@ -17,7 +17,7 @@ Les règles que l'auteur des évaluations, le concepteur et le juge suivent. Mod
 
 ## Ce qui compte comme preuve
 
-Un appel d'outil enregistré dans la tâche, une ligne d'un fichier, ou le texte de la réponse. « Cela fonctionnerait » n'est pas une preuve. Un point que le texte du prompt ne tranche pas compte comme non atteint.
+La réponse qu'une exécution a gardée pour le cas, un appel d'outil enregistré dans la tâche, ou une ligne d'un fichier. « Cela fonctionnerait » n'est pas une preuve, pas plus que ce que le prompt dit que l'agent devrait faire. Un point que l'exécution ne peut pas montrer compte comme non atteint. Le comportement attendu et la grille ne sont jamais envoyés à l'agent testé.
 
 ## La note
 

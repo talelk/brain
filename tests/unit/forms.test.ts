@@ -1,7 +1,7 @@
-import { BrainFile, PlayFile, ToolFile } from "@brain/contracts";
+import { AgentFile, BrainFile, PlayFile, ToolFile } from "@brain/contracts";
 import { parse } from "smol-toml";
 import { describe, expect, it } from "vitest";
-import { brainOf, brainToml, playToml, toolToml } from "../../apps/web/src/lib/files";
+import { agentToml, brainOf, brainToml, playToml, toolToml } from "../../apps/web/src/lib/files";
 
 /** Editing in the app writes the file (docs/model.md): what a form saves reads back as what it was given, left alone settings included. */
 describe("a file saved by a form says what the file said", () => {
@@ -24,5 +24,9 @@ describe("a file saved by a form says what the file said", () => {
       const play = PlayFile.parse({ title: "P", checkpoint: "6h", step: [{ id: "a", agent: "x", goal: "g", max_rounds, requires: ["notes-*"] }] });
       expect(PlayFile.parse(parse(playToml(play)))).toEqual(play);
     }
+  });
+  it("an agent keeps model_in_commands", () => {
+    const agent = AgentFile.parse({ description: "x", engine: ["pi"], native: "all", model_in_commands: true, limits: { spend_usd: 1 } });
+    expect(AgentFile.parse(parse(agentToml(agent)))).toEqual(agent);
   });
 });

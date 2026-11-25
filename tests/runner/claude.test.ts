@@ -50,13 +50,13 @@ async function gateway(steps: Step[]): Promise<{ baseUrl: string; seen: Seen[] }
   return { baseUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}/model/v1`, seen };
 }
 
-async function run(native: NativeLevel, steps: Step[]): Promise<{ events: EngineEvent[]; seen: Seen[]; workDir: string; requests: Array<[string, unknown]> }> {
+async function run(native: NativeLevel, steps: Step[], commandEnv?: Record<string, string>): Promise<{ events: EngineEvent[]; seen: Seen[]; workDir: string; requests: Array<[string, unknown]> }> {
   const { baseUrl, seen } = await gateway(steps);
   const workDir = tempDir("claude-work");
   const stateDir = tempDir("claude-state");
   const engine = new ClaudeEngine();
   const spec: EngineSessionSpec = {
-    attemptId: "a1", instructions: "You are a test agent.", task: "Do the scripted work.", model: { baseUrl, token: "attempt-token", name: "main" }, native, workDir, outDir: stateDir, stateDir,
+    attemptId: "a1", instructions: "You are a test agent.", task: "Do the scripted work.", model: { baseUrl, token: "attempt-token", name: "main" }, native, workDir, outDir: stateDir, stateDir, ...(commandEnv ? { commandEnv } : {}),
     tools: [{ name: "task.note", description: "Writes a note on the shared board.", inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] }, effect: "read" }],
     limits: { timeoutMs: 60_000, maxTokens: 100_000, maxMicroUsd: 0, maxTurns: 20 },
   };
@@ -76,6 +76,11 @@ const BUILT_IN = ["Read", "Glob", "Grep", "Edit", "Write", "Bash", "Task", "Agen
 const builtIn = (seen: Seen): string[] => seen.tools.filter((name) => BUILT_IN.includes(name)).sort();
 
 describe("the Claude adapter", () => {
+  it("gives the commands it runs the variables of the session", async () => {
+    const ran = await run("all", [{ tool: "Bash", args: { command: 'echo "token=$BRAIN_MODEL_TOKEN"' } }, { text: "Done." }], { BRAIN_MODEL_TOKEN: "attempt-token" });
+    expect(ran.events.find((event) => event.kind === "native.result")).toMatchObject({ output: expect.stringContaining("token=attempt-token") as string });
+  });
+
   it("offers Claude's own tools at native all, runs them in the working copy and reports each as a native call", async () => {
     const ran = await run("all", [
       { tool: "Write", args: { file_path: "notes/a.md", content: "hello from claude\n" } },

@@ -370,7 +370,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   digest, agent (prompt digest, engine list, native level, limits, tool names), tools (per tool: effect, input schema,
   file digests, network hosts, secret names, `runs`, `host_command`), projects (name, repo, branch, access, setup,
   network, credential secret name, base commit), the state commits it starts from (the tasks it waits for, then its own earlier attempt's) and the git store's address and token (section 8), model
-  (gateway URL, route name), and for `act` the approved call to run.
+  (gateway URL, the kind of API, route name), and for `act` the approved call to run.
 - `events` appends to `attempt_events`; a `tool.call` and its `tool.result` also record the call in `tool_calls`.
   `artifacts` stores bytes in the CAS, linked to the attempt and its task. `blobs/:digest` serves only what the
   snapshots of the attempts the runner holds name (manifest, prompts, tool files) and what their offers named.
@@ -381,6 +381,8 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   commits, the state commits, and a receipt signed with the runner's key over the attempt id, fence, snapshot digest and result digest. The
   Governor checks the receipt against the enrolled key and records it in the audit chain. An `act` attempt ends
   `succeeded` with `output {tool, outcome, output}`.
+- For an agent with `model_in_commands`, the offer says so and the runner gives the commands of the engine's own tools
+  the gateway address and that token as `BRAIN_MODEL_*` variables (`commandEnv` of the engine port).
 - The model is always reached through the Governor's model gateway, with a token bound to the attempt and its fence
   (`model-token`; valid while the attempt runs): OpenAI-style at `/model/v1/chat/completions`, Anthropic-style at
   `/model/v1/messages`. The offer names the gateway at the Governor's base address, or at `BRAIN_GATEWAY_URL` where
@@ -389,7 +391,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   answer to `usage`: the cost the answer reports (`usage.cost`, in dollars), or else its token counts at the model's
   `input_usd_per_mtok` and `output_usd_per_mtok`. A model with no prices whose server reports no cost records zero, and
   `task.get` marks such an attempt `priced: false`. The gateway refuses a call once the attempt has used its agent's
-  `spend_usd` or the workspace its daily cap. At `complete` the larger of the gateway's figure and the runner's is settled.
+  `spend_usd` or the workspace its daily cap, and, for an agent with `model_in_commands`, its `tokens`. At `complete` the larger of the gateway's figure and the runner's is settled.
 
 ## 7. Tools
 

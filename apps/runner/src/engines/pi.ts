@@ -43,6 +43,18 @@ function resultText(result: SessionEvent["result"]): string {
  */
 const windowOf = (spec: EngineSessionSpec): number => spec.model.contextTokens ?? MODEL_DEFAULTS.context_tokens;
 
+/** Sets variables of this process and returns what puts the earlier values back. */
+function withEnv(added: Readonly<Record<string, string>>): () => void {
+  const before = Object.keys(added).map((name) => [name, process.env[name]] as const);
+  Object.assign(process.env, added);
+  return () => {
+    for (const [name, value] of before) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  };
+}
+
 /** What the model is sent of a tool's answer is bounded like the answers of workspace tools: Pi's own tools may return far more than a conversation can carry again with every turn. */
 function boundToolMessages(payload: unknown): unknown {
   const messages = (payload as { messages?: unknown } | null)?.messages;
@@ -63,6 +75,8 @@ export class PiEngine implements EngineAdapter {
   private tokensAtLastCheck = 0;
   private toolsEnded = false;
   private keepAnswer = false;
+  /** Takes back what a session added to this process's environment, which Pi's shell tool passes on to its commands. */
+  private restoreEnv: (() => void) | undefined;
 
   async probe() {
     let ready = false;
@@ -230,6 +244,8 @@ export class PiEngine implements EngineAdapter {
   async start(spec: EngineSessionSpec, signal: AbortSignal): Promise<void> {
     this.session?.dispose();
     this.session = null;
+    this.restoreEnv?.();
+    this.restoreEnv = withEnv(spec.commandEnv ?? {});
     this.output = "";
     this.failure = undefined;
     this.tokensAtLastCheck = 0;
@@ -256,6 +272,8 @@ export class PiEngine implements EngineAdapter {
     this.requests?.clear();
     this.session?.dispose();
     this.session = null;
+    this.restoreEnv?.();
+    this.restoreEnv = undefined;
     this.stream.close();
   }
 }
