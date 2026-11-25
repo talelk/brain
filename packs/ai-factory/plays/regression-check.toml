@@ -7,12 +7,11 @@ schedule = "45 8 * * 1"
 [[step]]
 id = "collect"
 agent = "eval-author"
-requires = ["agent-rubric*"]
 goal = """
 List every agent of the project that has an evaluation file (evals/<agent>/cases.md), with \
 its prompt and configuration paths and the number of cases. Say which agents have no \
 evaluation file and which files changed since the last commit that touched their cases. Use \
-memory.search ("agent rubric guidelines") for the rules. Return the list as Markdown."""
+memory.search ("agent rubric guidelines") for the rules. Return the list as Markdown. When no agent has an evaluation file, say so and where one goes: that is the result, not a failure."""
 
 [[step]]
 id = "judge"
@@ -21,9 +20,8 @@ goal = """
 For every agent in your context, decide each case from the agent's prompt and configuration \
 and report each rubric check that is not met or not decidable, with the case id. Write the \
 report as /out/regression-check.md: one section per agent, most serious first. Post the most \
-serious finding with task.note, or say that every case is decided."""
+serious finding with task.note, or say that every case is decided. When there is no case to decide, say that nothing was judged."""
 after = ["collect"]
-requires = ["agent-rubric*"]
 
 [translations.fr]
 title = "Contrôle hebdomadaire de non-régression des agents"

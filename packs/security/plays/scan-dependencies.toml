@@ -7,7 +7,6 @@ schedule = "45 6 * * 1"
 [[step]]
 id = "scan"
 agent = "security-analyst"
-requires = ["security-policy*"]
 goal = """
 For each project under `/work`, list the direct dependencies with their exact versions from \
 the lockfile and look each one up with `osv.query`. Change no file. Report one line per \
@@ -18,7 +17,6 @@ uses the package) and, per project, the packages you could not check and why."""
 id = "report"
 agent = "worker"
 after = ["scan"]
-requires = ["security-policy*"]
 goal = """
 From the scan in your context, write the weekly vulnerability report: first what the \
 workspace's security policy (memory.search "security policy") says must be fixed now, then \

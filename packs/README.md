@@ -34,32 +34,35 @@ nothing else. If a domain cannot be written this way, that is what the model lac
 
 | Role | `native` | Tools | Spend per attempt | Returns |
 |---|---|---|---|---|
-| Analyst | `read` (`none` when it only calls tools) | read tools only | up to 0.75 | free text with its evidence |
-| Producer | `all` | read and `write` tools | up to 2.00 | the work, and a short report |
-| Critic | `read` or `none` | read tools only | up to 0.75 | the verdict below, and nothing else |
+| Analyst | `read` or `none` | read tools only | up to 1.00 | its findings with their evidence, or the JSON its Play asks for |
+| Producer | what its product needs: `all` for code or files it writes itself; `read` or `none` when the product is its answer, a file a tool builds, or a `write` call | read and `write` tools | up to 2.00 with `all`, else 1.00 | the work, and a short report |
+| Critic | `read` or `none` | read tools only | up to 0.75 | the verdict of Final-answer formats |
 | Operator | `none` | `privileged` tools, a person approves each call | up to 0.75 | what it did, with the state before and after |
 
 A critic is any agent a Play names in `review_by`, and `base/checker`. It never changes
-anything, never reviews its own work, and its prompt has these sections in this order:
-*What you are given*, *How to work* (the only domain part), *Score*, *Findings*, *Final
-answer* with the verdict format of Final-answer formats. A pass is evidence, not confidence.
+anything and never reviews its own work. Its prompt says what it is given, how to work (the
+only domain part) and how it scores, and gives the verdict format. A pass is evidence, not
+confidence. An agent that both analyses and checks (`rfp-analyst`) keeps the critic's limits.
 
 **A tool is `<system>.<verb>`**, one system per tool name (`github.label`, `host.restart`).
 `effect` is the truth: `read` changes nothing, `write` changes the system and can be
 undone, `privileged` is what a person must see first. A script tool has `run.sh` and
 `test.sh` together; a connector to a system (CI, a cluster, a ticket tool, a scanner) is a
-script tool with one secret named for the system and one host in `network`, and the
+script tool with at most one secret, named for the system, and one host in `network`, and the
 `test.sh` of `github.*` is its model. A read connector goes before its write one.
 
 **A Play is one of three shapes**, and uses only the step fields of model.md:
 
-- *Job*: analyst, producer with `review_by`, then `approve = true` on the step with an effect
+- *Job*: analyse, then produce. A produced change is reviewed (`review_by`), and what leaves
+  the sandbox is approved by a person: the tool's own approval, or `approve = true` on its step
   (`fix-issue`, `handle-request`).
-- *Sweep*: a `[trigger] schedule`, a collecting step and a reporting step (the check may be one step), `requires` for the
-  memory entries the sweep reads so it is skipped, not failed, when they are missing
-  (`regression-sweep`, `weekly-report`). No two scheduled Plays share a start time; the
-  Monday morning slots are 06:00 to 09:00 in steps of 15 minutes.
-- *Reaction*: a `[trigger] webhook` and as few steps as the job needs (`triage-new-issues`, `review-pull-request`).
+- *Sweep*: a `[trigger] schedule`, a collecting step and a reporting step (one step may do
+  both). `requires` names only entries the workspace writes itself (`regression-sweep`,
+  `weekly-tender-watch`), so the sweep is skipped, not failed, until they exist; no pack ships
+  an entry that matches it. No two scheduled Plays share a start time; the Monday morning
+  slots are 06:00 to 09:00 in steps of 15 minutes.
+- *Reaction*: a `[trigger] webhook` and as few steps as the job needs (`triage-new-issues`,
+  `review-pull-request`).
 
 **Memory.** An entry the workspace must copy and fill in is named `template-<what>`; every
 other entry is a rule or a lesson that agents read as it is. Both exist in French and Arabic.

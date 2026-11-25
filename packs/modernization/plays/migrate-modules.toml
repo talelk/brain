@@ -51,7 +51,8 @@ goal = """
 The working copy holds the reviewed modules of this migration together. Open one pull \
 request for the whole migration with `git.open-pr`: a title and a description that follow \
 the project's conventions, what each module changed, and the test runs before and after \
-for each. Give the pull request's address in your result.
+for each. Give the pull request's address in your result. When no module was migrated, open \
+none and say so.
 
 Migration: {{target}}"""
 after = ["migrate"]

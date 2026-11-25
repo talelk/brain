@@ -42,7 +42,7 @@ describe("the packs shipped with Brain", () => {
   describe("keep the shape in packs/README.md, The shape of a pack", () => {
     const read = (path: string): string => readFileSync(`${packsDir}/${path}`, "utf8");
     const dirs = (path: string): string[] => (existsSync(`${packsDir}/${path}`) ? readdirSync(`${packsDir}/${path}`, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name) : []);
-    const plays = shipped.flatMap((pack) => readdirSync(`${packsDir}/${pack}/plays`).filter((f) => f.endsWith(".toml")).map((f) => ({ pack, file: f, play: parseToml(read(`${pack}/plays/${f}`)) as { trigger?: { schedule?: string }; step?: { review_by?: string }[] } })));
+    const plays = shipped.flatMap((pack) => readdirSync(`${packsDir}/${pack}/plays`).filter((f) => f.endsWith(".toml")).map((f) => ({ pack, file: f, play: parseToml(read(`${pack}/plays/${f}`)) as { trigger?: { schedule?: string }; step?: { review_by?: string; requires?: string[] }[] } })));
     const agents = shipped.flatMap((pack) => dirs(`${pack}/agents`).map((name) => ({ pack, name, spec: parseToml(read(`${pack}/agents/${name}/agent.toml`)) as { native?: string; tools?: string[]; limits?: { spend_usd?: number } } })));
     const tools = shipped.flatMap((pack) => dirs(`${pack}/tools`).map((name) => ({ pack, name, spec: parseToml(read(`${pack}/tools/${name}/tool.toml`)) as { effect: string } })));
     const critics = new Set(["checker", ...plays.flatMap((p) => (p.play.step ?? []).map((s) => s.review_by ?? "")).filter(Boolean)]);
@@ -57,9 +57,18 @@ describe("the packs shipped with Brain", () => {
       }
       expect(bad).toEqual([]);
     });
-    it("every agent has a spend limit of at most 2.00 and no agent of a pack sets model", () => {
-      expect(agents.filter((a) => !((a.spec.limits?.spend_usd ?? 0) > 0 && (a.spec.limits?.spend_usd ?? 0) <= 2)).map((a) => a.name)).toEqual([]);
+    it("every agent has a spend limit of at most 2.00 with all native tools and 1.00 without, and no agent of a pack sets model", () => {
+      expect(agents.filter((a) => !((a.spec.limits?.spend_usd ?? 0) > 0 && (a.spec.limits?.spend_usd ?? 0) <= (a.spec.native === "all" ? 2 : 1))).map((a) => a.name)).toEqual([]);
       expect(agents.filter((a) => "model" in a.spec).map((a) => a.name)).toEqual([]);
+    });
+    it("an agent with a privileged tool is an operator: no native tools, and at most 0.75", () => {
+      const operators = agents.filter((a) => (a.spec.tools ?? []).some((tool) => tools.some((t) => t.name === tool && t.spec.effect === "privileged")));
+      expect(operators.filter((a) => (a.spec.native ?? "none") !== "none" || (a.spec.limits?.spend_usd ?? 0) > 0.75).map((a) => a.name)).toEqual([]);
+    });
+    it("no pack ships a memory entry that satisfies a step's requires: only the workspace's own entries can", () => {
+      const entries = shipped.flatMap((pack) => (dirs(pack).includes("memory") ? readdirSync(`${packsDir}/${pack}/memory`).map((f) => f.replace(/(\.(fr|ar))?\.md$/u, "")) : []));
+      const patterns = plays.flatMap((p) => (p.play.step ?? []).flatMap((s) => s.requires ?? []));
+      expect(patterns.filter((pattern) => entries.some((entry) => new RegExp(`^${pattern.replaceAll(".", "\\.").replaceAll("*", ".*")}$`, "u").test(entry)))).toEqual([]);
     });
     it("a tool that runs a script has run.sh and test.sh, and a tool name is <system>.<verb>", () => {
       const bad: string[] = [];
