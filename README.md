@@ -39,7 +39,7 @@ goal.
 ## Develop
 
 ```bash
-pnpm verify        # lint, typecheck, unit and core tests, complexity budget
+pnpm verify        # lint (ESLint, Biome, knip), typecheck, unit, runner, core and e2e tests, the pack tools' test.sh, complexity budget
 pnpm test:browser  # the first-time-user walkthrough in a real browser
 ```
 

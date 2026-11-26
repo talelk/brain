@@ -40,14 +40,17 @@
     "rules": {
       "correctness": {
         "noUnusedVariables": "error",
-        "noUnusedImports": "error"
+        "noUnusedImports": "error",
+        "noVoidTypeReturn": "off",
+        "noEmptyPattern": "off"
       },
       "suspicious": {
         "noDebugger": "error",
         "noDoubleEquals": "error",
         "noExplicitAny": "warn",
         "noImplicitAnyLet": "off",
-        "noAssignInExpressions": "off"
+        "noAssignInExpressions": "off",
+        "noControlCharactersInRegex": "off"
       },
       "security": {
         "noGlobalEval": "error"
@@ -60,7 +63,8 @@
       "style": {
         "useTemplate": "off",
         "noNonNullAssertion": "off"
-      }
+      },
+      "a11y": "off"
     }
   },
   "assist": {

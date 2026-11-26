@@ -36,7 +36,7 @@ export function layout(boxes: readonly Box[], links: readonly Link[]): Layout {
       keyed.sort((a, b) => a.key - b.key || a.at - b.at);
       column.splice(0, column.length, ...keyed.map((entry) => entry.box));
     }
-    column.forEach((box, row) => rows.set(box.id, row));
+    column.forEach((box, row) => { rows.set(box.id, row); });
   });
   const heights = sorted.map((column) => column.reduce((sum, box) => sum + box.h, 0) + Math.max(0, column.length - 1) * ROW_GAP);
   const height = Math.max(0, ...heights);

@@ -13,7 +13,7 @@
 # Build from the repository root: docker build -f deploy/engine-sandbox.Dockerfile -t brain-sandbox-engine .
 # An ACP agent (OpenCode, a Codex ACP adapter) is not part of this image: add its binary in a derived image and name it with
 # BRAIN_OPENCODE_COMMAND / BRAIN_CODEX_COMMAND there (the launcher passes no command to the container).
-FROM node:24-slim
+FROM node:24-slim@sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530
 RUN apt-get update \
  && apt-get install -y --no-install-recommends bash ca-certificates curl git ripgrep fd-find \
     build-essential python3 python3-pip fonts-noto-core \

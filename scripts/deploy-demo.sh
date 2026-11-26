@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploys this checkout to the demo host: the Governor in a container behind the host's nginx, and on the host itself the
+# Deploys one commit of this repository to the demo host (what is not committed is never sent): the Governor in a container behind the host's nginx, and on the host itself the
 # launcher, one runner, the egress proxy and the backup timers.
 #
 #   scripts/deploy-demo.sh             deploy
@@ -7,7 +7,7 @@
 #                                      credential is read
 #
 # Layout on the host, under /srv/demos/brain:
-#   src/                 this repository (rsync; nothing else is ever synced)
+#   src/                 the files of the deployed commit (rsync; nothing else is ever synced)
 #   data/                the Governor's data, mounted into its container; `pnpm brain backup` reads it from the host
 #   run/                 launcher socket, the runner's folder, egress grants, the Governor's runner token
 #   archive/             what earlier versions left: data-<time>/, config-<time>/. Never deleted by any deploy.
@@ -18,7 +18,7 @@
 #      of the earlier stack that no longer exist, stop the earlier Governor, MOVE data/ to archive/data-<time>/ (data kept
 #      in the earlier stack's Docker volume is copied there instead, and the volume is left as it is), move the earlier
 #      run/ and configuration to archive/config-<time>/, and make an empty data/. Nothing is deleted.
-#   2. Sync the source.
+#   2. Take the commit out of git and sync it. To go back, deploy the earlier commit: BRAIN_DEPLOY_REF=<commit>.
 #   3. Install docker-compose.yml and .env (the launcher offers the host commands open; to limit them, write a host-commands file and set BRAIN_LAUNCHER_HOST_COMMANDS).
 #   4. Build the Governor image and the sandbox images.
 #   5. Start the Governor and wait for /health/ready. (The metrics token is made in step 3 and handed to it; a vmagent job for /metrics
@@ -32,6 +32,7 @@
 # Attempts that are running when the Governor or the runner restarts are taken back and run again.
 #
 # Environment:
+#   BRAIN_DEPLOY_REF (HEAD)   the commit to deploy
 #   BRAIN_DEPLOY_HOST (demos.mykeyrus.tn)  BRAIN_DEPLOY_PORT (42242)  BRAIN_DEPLOY_USER (talel)  BRAIN_DEPLOY_DIR (/srv/demos/brain)
 #   BRAIN_DEPLOY_SUDO_PASSWORD   the deploy user's sudo password; never stored in the repository
 #   BRAIN_DEMO_DOMAIN (brain.mykeyrus.tn)
@@ -74,6 +75,9 @@ done
 [[ "$PROXY_DNS" =~ ^([0-9]{1,3}(\.[0-9]{1,3}){3}(,[0-9]{1,3}(\.[0-9]{1,3}){3})*)?$ ]] || { echo "the proxy's resolvers are IPv4 addresses separated by commas" >&2; exit 1; }
 
 cd "$(dirname "$0")/.."
+REF="${BRAIN_DEPLOY_REF:-HEAD}"
+COMMIT="$(git rev-parse --verify --quiet "$REF^{commit}")" || { echo "BRAIN_DEPLOY_REF does not name a commit: $REF" >&2; exit 1; }
+if [ -n "$(git status --porcelain)" ]; then echo "note: the changes of the working tree that are not committed are NOT deployed" >&2; fi
 if [ "$DRY" = 1 ]; then
   SUDO_PASSWORD="<the sudo password>"
   echo "DRY RUN: nothing below is done. It is what a deploy to $TARGET (port $PORT), directory $REMOTE_DIR, would do."
@@ -88,7 +92,7 @@ fi
 prelude() {
   printf 'set -euo pipefail\n'
   printf 'REMOTE_DIR=%q DOMAIN=%q DEPLOY_USER=%q ENGINES=%q SLOTS=%q SANDBOX_CPU=%q SANDBOX_MEMORY=%q\n' "$REMOTE_DIR" "$DOMAIN" "$USER_SSH" "$ENGINES" "$SLOTS" "$SANDBOX_CPU" "$SANDBOX_MEMORY"
-  printf 'PROXY_DNS=%q\n' "$PROXY_DNS"
+  printf 'PROXY_DNS=%q COMMIT=%q\n' "$PROXY_DNS" "$COMMIT"
   printf 'SUDO_PASSWORD=%q\n' "$SUDO_PASSWORD"
   printf 'as_root() { sudo -k -S -p "" "$@" <<<"$SUDO_PASSWORD"; }\n'
 }
@@ -185,13 +189,22 @@ mkdir -p "$REMOTE_DIR/src" "$REMOTE_DIR/data" "$REMOTE_DIR/run/governor" "$REMOT
 chmod 700 "$REMOTE_DIR/data" "$REMOTE_DIR/run" "$REMOTE_DIR/run/governor" "$REMOTE_DIR/run/runner" "$REMOTE_DIR/run/egress-grants"
 SCRIPT
 
-# ---- 2. the source ----
-locally "Sync the source to $TARGET:$REMOTE_DIR/src (nothing else is ever synced)" \
-  rsync -az --delete --info=stats1 -e "ssh -p $PORT -o ConnectTimeout=15" \
+# ---- 2. the source: the files of the commit, never the working tree ----
+if [ "$DRY" = 1 ]; then
+  STAGE="<a temporary folder>"
+else
+  STAGE="$(mktemp -d)"
+  trap 'rm -rf "$STAGE"' EXIT
+  chmod 755 "$STAGE"
+fi
+locally "Take commit $COMMIT out of git" bash -c 'set -o pipefail; git archive "$1" | tar -x -C "$2"' _ "$COMMIT" "$STAGE"
+# The excludes also keep what the host made in src/ (dependencies, builds) from being deleted.
+locally "Sync commit ${COMMIT:0:12} to $TARGET:$REMOTE_DIR/src (nothing else is ever synced)" \
+  rsync -az --delete --checksum --info=stats1 -e "ssh -p $PORT -o ConnectTimeout=15" \
   --exclude .git/ --exclude node_modules/ --exclude dist/ --exclude test-results/ --exclude playwright-report/ \
   --exclude .cache/ --exclude .claude/ --exclude .pi-agent/ --exclude .tower/ --exclude .vitest/ --exclude .zcode/ \
   --exclude '*.log' --exclude '*.pdf' \
-  ./ "$TARGET:$REMOTE_DIR/src/"
+  "$STAGE/" "$TARGET:$REMOTE_DIR/src/"
 
 # ---- 3. configuration ----
 on_host "Install docker-compose.yml, .env and the host commands of the sre pack" <<'SCRIPT'
@@ -205,7 +218,7 @@ BRIDGE_IP="$(docker network inspect bridge --format '{{range .IPAM.Config}}{{.Ga
 umask 077
 # The token GET /metrics asks for: made once, kept in metrics.token (readable by the deploy user only), never printed.
 [ -s metrics.token ] || openssl rand -hex 32 > metrics.token
-printf 'BRAIN_BASE_URL=https://%s\nBRAIN_UID=%s\nBRAIN_GID=%s\nBRAIN_BRIDGE_IP=%s\nBRAIN_METRICS_TOKEN=%s\n' "$DOMAIN" "$(id -u)" "$(id -g)" "$BRIDGE_IP" "$(cat metrics.token)" > .env
+printf 'BRAIN_BASE_URL=https://%s\nBRAIN_UID=%s\nBRAIN_GID=%s\nBRAIN_BRIDGE_IP=%s\nBRAIN_METRICS_TOKEN=%s\nBRAIN_COMMIT=%s\n' "$DOMAIN" "$(id -u)" "$(id -g)" "$BRIDGE_IP" "$(cat metrics.token)" "$COMMIT" > .env
 SCRIPT
 
 # ---- 4. images ----
@@ -295,7 +308,11 @@ if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0
 fi
 command -v pnpm >/dev/null || as_root npm install -g pnpm@12.11.2 >/dev/null
 cd "$REMOTE_DIR/src"
-if [ ! -d node_modules ] || [ pnpm-lock.yaml -nt node_modules/.modules.yaml ]; then pnpm install --frozen-lockfile > "$WORK/install.log" 2>&1 || { tail -n 30 "$WORK/install.log" >&2; exit 1; }; fi
+# Installed again when the lockfile is not the one the dependencies were installed from, an earlier one included.
+if ! sha256sum --status -c node_modules/.brain-lock.sha256 2>/dev/null; then
+  pnpm install --frozen-lockfile > "$WORK/install.log" 2>&1 || { tail -n 30 "$WORK/install.log" >&2; exit 1; }
+  sha256sum pnpm-lock.yaml > node_modules/.brain-lock.sha256
+fi
 SCRIPT
 
 # ---- 8. the launcher and the runner ----

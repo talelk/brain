@@ -49,7 +49,7 @@ const text = (result: unknown) => (result as { content: Array<{ text: string }> 
 
 describe("the MCP server", () => {
   const closers: Array<() => void> = [];
-  afterEach(() => { closers.splice(0).forEach((close) => close()); });
+  afterEach(() => { for (const close of closers.splice(0)) close(); });
 
   it("offers the reads and the writes, but no approval, memory decision or secret, and only the reads in read-only mode", async () => {
     const brain = await stubBrain();

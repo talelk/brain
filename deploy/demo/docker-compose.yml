@@ -6,7 +6,10 @@
 # Never run `docker compose down -v` here, and never delete data/ or archive/.
 services:
   governor:
-    build: ./src
+    build:
+      context: ./src
+      args:
+        BRAIN_COMMIT: ${BRAIN_COMMIT}
     image: brain-governor:demo
     restart: unless-stopped
     user: "${BRAIN_UID}:${BRAIN_GID}"

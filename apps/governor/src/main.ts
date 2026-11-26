@@ -14,6 +14,7 @@ import { log } from "./log";
  *   LOG_LEVEL                      the least level logged: debug, info, warn or error (default info)
  *   BRAIN_METRICS_TOKEN            the bearer token GET /metrics asks for; without it the route answers 404
  *   BRAIN_LOCAL_RUNNER_TOKEN_FILE  where to leave a one-use runner token while no runner is enrolled
+ *   BRAIN_COMMIT                   the commit this build was made from, shown on the Health screen and in brain_build_info
  */
 const port = Number(process.env["PORT"] ?? 3100);
 const hostnames = (process.env["BRAIN_BIND_HOST"] ?? "127.0.0.1").split(",").map((entry) => entry.trim()).filter(Boolean);

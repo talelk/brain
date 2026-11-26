@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Nightly encrypted backup of the live Brain data to a second host. Runs ON the demo server (systemd timer).
 #   * `pnpm brain backup` makes one archive while the Governor runs: a consistent copy of brain.db (SQLite's backup API), cas/,
-#     workspaces/, the instance key and the audit key, and leaves data/backup.marker, whose time the Health screen shows
+#     workspaces/, the instance key, the audit key and the git store, and leaves data/backup.marker, whose time the Health screen shows
 #   * AES-256 encryption with a key that never leaves this host and the owner's safe (/srv/demos/brain/backup.key)
 #   * copy to BRAIN_BACKUP_HOST; keep 14 nightly + 8 weekly (Sundays) there
 # Env (from /srv/demos/brain/backup.env): BRAIN_BACKUP_HOST (required), BRAIN_BACKUP_USER, BRAIN_BACKUP_DIR.

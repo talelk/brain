@@ -21,8 +21,8 @@ import { verify } from "../apps/governor/src/trust/audit";
  *                    stopped. The token is read from the file, or from BRAIN_RUNNER_ENROLL_TOKEN; `--token <token>` works too but puts
  *                    the token on the command line, where `ps` shows it. The runner keeps its key in <home>/joined-<address>, so only
  *                    the first start needs the token.
- *   backup [file]    writes one archive of the data (brain.db through SQLite's backup API, cas/, workspaces/, the instance key and the
- *                    audit key) and leaves <data>/backup.marker. Works while Brain runs. Default: <home>/backups/brain-<time>.tar.gz
+ *   backup [file]    writes one archive of the data (brain.db through SQLite's backup API, cas/, workspaces/, the instance key, the
+ *                    audit key, the store's keys and repositories) and leaves <data>/backup.marker. Works while Brain runs. Default: <home>/backups/brain-<time>.tar.gz
  *   restore <file>   puts a backup in place of the data. Refuses while Brain runs; what was there is moved aside, never deleted.
  *   audit-verify     verifies the audit log from its first event; exits 0 only when it holds.
  *
@@ -39,6 +39,7 @@ import { verify } from "../apps/governor/src/trust/audit";
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const HOME = resolve(process.env["BRAIN_HOME"] ?? join(homedir(), ".local", "share", "brain"));
 const DATA = resolve(process.env["BRAIN_DATA_DIR"] ?? join(HOME, "data"));
+const STORE = join(HOME, "store");
 const RUN = resolve(process.env["BRAIN_RUN_DIR"] ?? join(HOME, "run"));
 const PORT = process.env["BRAIN_PORT"] ?? "3100";
 const LOCAL = `http://127.0.0.1:${PORT}`;
@@ -160,6 +161,14 @@ function prepareSandboxes(): { bridge: string; gatewayUrl: string } | undefined 
   return { bridge, gatewayUrl: `http://host.docker.internal:${PORT}` };
 }
 
+/** The commit of this checkout, marked when files differ from it; empty outside a git checkout. */
+function commitOf(): string {
+  const git = (...args: string[]) => spawnSync("git", ["-C", ROOT, ...args], { encoding: "utf8" });
+  const head = git("rev-parse", "HEAD");
+  if (head.status !== 0) return "";
+  return `${head.stdout.trim()}${git("status", "--porcelain").stdout.trim() ? "-dirty" : ""}`;
+}
+
 async function start(): Promise<void> {
   mkdirSync(RUN, { recursive: true, mode: 0o700 });
   if (existsSync(DATA) && readdirSync(DATA).length > 0 && !existsSync(join(DATA, "brain.db"))) {
@@ -171,7 +180,7 @@ async function start(): Promise<void> {
 
   if (!pidOf("governor")) rmSync(RUNNER_TOKEN, { force: true });
   startPart("governor", {
-    BRAIN_DATA_DIR: DATA, PORT, BRAIN_BASE_URL: BASE_URL, BRAIN_LOCAL_RUNNER_TOKEN_FILE: RUNNER_TOKEN, BRAIN_STORE_URL: `http://127.0.0.1:${STORE_PORT}`,
+    BRAIN_COMMIT: commitOf(), BRAIN_DATA_DIR: DATA, PORT, BRAIN_BASE_URL: BASE_URL, BRAIN_LOCAL_RUNNER_TOKEN_FILE: RUNNER_TOKEN, BRAIN_STORE_URL: `http://127.0.0.1:${STORE_PORT}`,
     ...(sandboxes ? { BRAIN_BIND_HOST: `127.0.0.1,${sandboxes.bridge}`, BRAIN_GATEWAY_URL: sandboxes.gatewayUrl } : {}),
   });
   for (let waited = 0; waited < 60_000 && !(await ready()); waited += 500) {
@@ -181,7 +190,7 @@ async function start(): Promise<void> {
   if (!(await ready())) throw new Error(`the Governor is not ready after a minute. Its last lines:\n${lastLines("governor")}`);
 
   // Where attempts leave the state their successors start from; it checks tokens with the public key the Governor wrote.
-  startPart("store", { BRAIN_STORE_DIR: join(HOME, "store"), BRAIN_STORE_PUBLIC_KEY_FILE: join(DATA, "store.pub"), PORT: STORE_PORT });
+  startPart("store", { BRAIN_STORE_DIR: STORE, BRAIN_STORE_PUBLIC_KEY_FILE: join(DATA, "store.pub"), PORT: STORE_PORT });
 
   if (sandboxes) {
     startPart("launcher", { BRAIN_LAUNCHER_SOCKET: SOCKET, BRAIN_LAUNCHER_ATTEMPTS_ROOT: join(RUN, "runner", "attempts"), BRAIN_LAUNCHER_EGRESS_GRANTS_DIR: join(RUN, "egress-grants") });
@@ -267,15 +276,15 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "backup") {
-    const made = await backup(DATA, argument ?? join(HOME, "backups", `brain-${new Date().toISOString().replace(/[:.]/gu, "-")}.tar.gz`));
+    const made = await backup(DATA, argument ?? join(HOME, "backups", `brain-${new Date().toISOString().replace(/[:.]/gu, "-")}.tar.gz`), STORE);
     say(`Backup written to ${made.file}\nIt holds the key that encrypts this Brain's secrets: keep it as you would keep them.`);
     return;
   }
   if (command === "restore") {
     if (!argument) throw new Error("say which backup: pnpm brain restore <file>");
     if (pidOf("governor") || (await ready())) throw new Error('Brain is running on this data; stop it first ("pnpm brain stop"), then restore');
-    const { kept } = restore(argument, DATA);
-    say(`Restored ${resolve(argument)} into ${DATA}.${kept ? `\nWhat was there before is kept in ${kept}` : ""}\nStart Brain with "pnpm brain start".`);
+    const { kept, keptStore } = restore(argument, DATA, STORE);
+    say(`Restored ${resolve(argument)} into ${DATA}.${[kept, keptStore].filter(Boolean).map((path) => `\nWhat was there before is kept in ${path}`).join("")}\nStart Brain with "pnpm brain start".`);
     return;
   }
   if (command === "audit-verify") {

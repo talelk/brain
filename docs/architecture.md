@@ -559,7 +559,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   (compared in constant time; 401 otherwise). It answers 404, as if absent, while `BRAIN_METRICS_TOKEN` is unset and to any request that carries
   `X-Forwarded-For` or `X-Real-IP`, so the public reverse proxy, which sets both, cannot expose it even to someone who has the token.
   The answer is built from cheap queries and kept 5 seconds. Labels are few: workspace slug, state, kind, route class; never an id.
-  All names start `brain_`: `build_info{version,node}`, `uptime_seconds`, `process_resident_memory_bytes`,
+  All names start `brain_`: `build_info{version,commit,node}` (the commit is `BRAIN_COMMIT`, which the deploy and `pnpm brain start` set from git; the `health` query shows it after the version), `uptime_seconds`, `process_resident_memory_bytes`,
   `event_loop_lag_seconds{quantile}` (since the last scrape), `workspaces`, `tasks{workspace,state}`, `goals_today{result=started|done|failed}`
   (root tasks, since 00:00 UTC), `attempts_today{kind,state}`, `tokens_today{workspace,direction}`, `micro_usd_today{workspace}`,
   `approvals_pending`, `tasks_waiting{wait}` (the kinds of `Wait`: slot, daily-cap, task, no-runner, capability, backoff, ...),
@@ -569,8 +569,9 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   `api/auth`, `health`, `metrics`, `web`; status class `2xx`..`5xx`). `tests/core/metrics.test.ts` covers the token, the 404s and the presence of the metrics.
 - Backup (`health/backup.ts`, run by `pnpm brain backup [file]`): one `.tar.gz`, readable by its owner only, with a
   consistent copy of `brain.db` taken through SQLite's backup API while the Governor runs, `cas/`, `workspaces/`,
-  `instance.key` and `audit/`. `pnpm brain restore <file>` refuses while the Governor runs, checks the database of the
-  archive, moves the data that is in place aside (it deletes nothing) and puts the archive's in its place; the Governor
+  `instance.key`, `audit/`, `store.key`, `store.pub` and the git store's repositories (`<home>/store`, in the archive as `store/`).
+  `pnpm brain restore <file>` refuses while the Governor runs, checks the database of the
+  archive, moves the data and the store that are in place aside (it deletes nothing) and puts the archive's in their place; the Governor
   that starts on it takes up a workspace commit newer than the database copy, as after a crash.
 
 ## 10. Web app (`apps/web`)
@@ -627,7 +628,7 @@ the handoffs between them, read from the Plays' steps and the recent tasks the w
 
 - `tests/unit/mcp.test.ts`: the MCP server against a stub Brain (the tool list and read-only mode with no human gate offered, the request each tool sends, sign-in again when the session ends, a refusal reported with its problems).
 
-`pnpm verify` = lint, typecheck, unit, runner, core and e2e tests, and `scripts/complexity.mjs`,
+`pnpm verify` = lint (ESLint, Biome and knip), typecheck, unit, runner (which runs every pack tool's `test.sh`), core and e2e tests, and `scripts/complexity.mjs`,
 which fails when tables, commands plus queries, glossary terms, step fields or screens exceed the
 budget written in `docs/complexity.json`.
 

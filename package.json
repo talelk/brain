@@ -22,7 +22,7 @@
     "test:e2e": "node scripts/with-tmpdir.mjs vitest run tests/e2e",
     "test:browser": "pnpm build && node scripts/with-tmpdir.mjs playwright test",
     "complexity": "node scripts/complexity.mjs",
-    "verify": "pnpm lint && pnpm exec knip && pnpm typecheck && pnpm typecheck:web && pnpm test:unit && pnpm test:runner && pnpm test:core && pnpm test:e2e && pnpm complexity",
+    "verify": "pnpm lint && pnpm check:biome && pnpm exec knip && pnpm typecheck && pnpm typecheck:web && pnpm test:unit && pnpm test:runner && pnpm test:core && pnpm test:e2e && pnpm complexity",
     "build": "pnpm --filter @brain/web build",
     "brain": "tsx scripts/brain.ts",
     "playground": "tsx scripts/playground.ts"

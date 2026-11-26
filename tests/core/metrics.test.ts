@@ -1,11 +1,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createHarness, type Harness } from "./harness";
+import { makeWorkspace } from "./work";
 
 /** GET /metrics (docs/architecture.md section 9): absent without a token, closed to a request that came through a proxy, and the measures in Prometheus text. */
 let harness: Harness;
 beforeAll(async () => { harness = await createHarness(); });
 afterAll(() => harness.close());
-afterEach(() => { delete process.env["BRAIN_METRICS_TOKEN"]; });
+afterEach(() => { delete process.env["BRAIN_METRICS_TOKEN"]; delete process.env["BRAIN_COMMIT"]; });
 
 const scrape = (headers: Record<string, string> = {}) => harness.anonymous.fetch("/metrics", { headers });
 const bearer = { authorization: "Bearer scrape-token-123" };
@@ -20,6 +21,14 @@ describe("metrics", () => {
     expect((await scrape()).status).toBe(401);
     expect((await scrape({ authorization: "Bearer scrape-token-124" })).status).toBe(401);
     expect((await scrape({ ...bearer, "x-forwarded-for": "203.0.113.9" })).status).toBe(404);
+  });
+
+  it("says which commit runs, in the build series and on the Health screen", async () => {
+    process.env["BRAIN_METRICS_TOKEN"] = "scrape-token-123";
+    process.env["BRAIN_COMMIT"] = "0123456789abcdef0123456789abcdef01234567";
+    const { workspaceId } = await makeWorkspace(harness, "Built");
+    expect((await harness.admin.query("health", { workspaceId })).version).toBe("0.1.0+0123456789ab");
+    expect(await (await scrape(bearer)).text()).toMatch(/brain_build_info\{version="0\.1\.0",commit="0123456789abcdef0123456789abcdef01234567",node="v/u);
   });
 
   it("lists the tasks, the queue, the runners, the database and the requests served", async () => {

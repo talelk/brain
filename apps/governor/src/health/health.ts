@@ -13,6 +13,8 @@ import { metricsResponse } from "./metrics";
 
 /** What the Health screen shows (docs/architecture.md section 10): runners, whether each model answers, the state of the audit log, and the last backup. */
 const VERSION = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
+/** The commit this build was made from, as the deploy or `pnpm brain start` names it; empty when nothing says. */
+const commit = (): string => process.env["BRAIN_COMMIT"] ?? "";
 const FRESH_FOR_MS = 60_000;
 type ModelHealth = Omit<Health["models"][number], "priced">;
 const probes = new WeakMap<Gov, Map<string, { at: number; answer: ModelHealth }>>();
@@ -62,7 +64,7 @@ export function registerHealth({ gov, app }: Governor): void {
   });
 
   // For a scraper beside the Governor; not a command, not a person's route.
-  app.get("/metrics", (c) => metricsResponse(gov, c, VERSION));
+  app.get("/metrics", (c) => metricsResponse(gov, c, { version: VERSION, commit: commit() }));
 
   gov.registry.query("health", async (ctx, input) => {
     const now = ctx.now();
@@ -71,7 +73,7 @@ export function registerHealth({ gov, app }: Governor): void {
     const models = await Promise.all(own.models.map(async (model) => ({ ...(await modelHealth(gov, own.from?.id ?? input.workspaceId, model, now)), priced: model.input_usd_per_mtok !== undefined || model.output_usd_per_mtok !== undefined })));
     const marker = join(gov.dataDir, "backup.marker");
     return {
-      version: VERSION, runners: listRunners(gov).map((runner) => (ctx.user?.instanceAdmin ? runner : { ...runner, engines: [], capabilities: [] })), models,
+      version: commit() ? `${VERSION}+${commit().slice(0, 12)}` : VERSION, runners: listRunners(gov).map((runner) => (ctx.user?.instanceAdmin ? runner : { ...runner, engines: [], capabilities: [] })), models,
       audit: {
         events: (ctx.db.prepare("SELECT COALESCE(MAX(seq), 0) AS n FROM events").get() as { n: number }).n,
         lastCheckpointAt: (ctx.db.prepare("SELECT MAX(created_at_ms) AS at FROM audit_checkpoints").get() as { at: number | null }).at, problem: auditProblem(gov, now),

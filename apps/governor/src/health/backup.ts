@@ -1,18 +1,19 @@
 import Database from "better-sqlite3";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
 /**
  * Backup and restore of a data directory (`pnpm brain backup`, `pnpm brain restore`). A backup is one `.tar.gz` holding everything a
  * Governor needs to come back as it was: a consistent copy of `brain.db` taken through SQLite's backup API (so it can be made while the
- * Governor runs), `cas/`, `workspaces/`, and the two things the copy cannot be read without, `instance.key` (it encrypts the secrets
- * and keys the sign-in sessions) and `audit/` (the audit signing key). The archive therefore holds secrets: it is written owner-only.
+ * Governor runs), `cas/`, `workspaces/`, the two things the copy cannot be read without, `instance.key` (it encrypts the secrets
+ * and keys the sign-in sessions) and `audit/` (the audit signing key), the keys of the git store's tokens and, when the store's folder
+ * is given, its repositories as `store/` (the work of the goals that have not ended). The archive holds secrets: it is written owner-only.
  *
  * The database is copied first. Stored bytes are never rewritten, so every digest the copy names is in `cas/`; a workspace commit made
  * after the copy is taken up when the restored Governor starts, as after a crash.
  */
-const PARTS = ["cas", "workspaces", "audit", "instance.key"] as const;
+const PARTS = ["cas", "workspaces", "audit", "instance.key", "store.key", "store.pub"] as const;
 const stamp = (): string => new Date().toISOString().replace(/[:.]/gu, "-");
 
 function tar(args: readonly string[]): { status: number; error: string } {
@@ -22,7 +23,7 @@ function tar(args: readonly string[]): { status: number; error: string } {
 }
 
 /** Writes a backup of `dataDir` to `file` (never over an existing file) and leaves `<data>/backup.marker`, whose time the Health screen shows. */
-export async function backup(dataDir: string, file: string): Promise<{ file: string }> {
+export async function backup(dataDir: string, file: string, storeDir?: string): Promise<{ file: string }> {
   const data = resolve(dataDir);
   const target = resolve(file);
   if (!existsSync(join(data, "brain.db"))) throw new Error(`${data} holds no Brain database (brain.db), so there is nothing to back up`);
@@ -38,9 +39,12 @@ export async function backup(dataDir: string, file: string): Promise<{ file: str
     }
     const parts = PARTS.filter((part) => existsSync(join(data, part)));
     const partial = join(staging, basename(target));
+    const store = storeDir !== undefined && existsSync(storeDir) ? resolve(storeDir) : undefined;
+    // The store's folder goes in under the name `store`, whatever it is called where it is.
+    const stored = store === undefined ? [] : ["-C", dirname(store), `--transform=s,^${basename(store).replace(/[.*+?^$[\]\\,]/gu, "\\$&")}\\(/\\|$\\),store\\1,`, basename(store)];
     // tar answers 1 when a file changed while it was read (a workspace being committed at that moment): the copy is made again.
     let made = { status: 1, error: "" };
-    for (let tries = 0; tries < 3 && made.status === 1; tries += 1) made = tar(["-czf", partial, "--exclude=*.part", "-C", staging, "brain.db", "-C", data, ...parts]);
+    for (let tries = 0; tries < 3 && made.status === 1; tries += 1) made = tar(["-czf", partial, "--exclude=*.part", "-C", staging, "brain.db", "-C", data, ...parts, ...stored]);
     if (made.status !== 0) throw new Error(`the archive could not be written: ${made.error || `tar ended with ${made.status}`}`);
     chmodSync(partial, 0o600);
     renameSync(partial, target);
@@ -52,10 +56,10 @@ export async function backup(dataDir: string, file: string): Promise<{ file: str
 }
 
 /**
- * Puts the content of a backup in place of `dataDir`. The Governor of that directory must be stopped: the caller checks. What was there
- * is never deleted: it is moved beside the directory, and the answer says where.
+ * Puts the content of a backup in place of `dataDir`, and its repositories in place of `storeDir`. The Governor of that directory must be
+ * stopped: the caller checks. What was there is never deleted: it is moved beside the folder, and the answer says where.
  */
-export function restore(file: string, dataDir: string): { kept: string | null } {
+export function restore(file: string, dataDir: string, storeDir?: string): { kept: string | null; keptStore: string | null } {
   const data = resolve(dataDir);
   const archive = resolve(file);
   if (!existsSync(archive)) throw new Error(`${archive} does not exist`);
@@ -73,6 +77,9 @@ export function restore(file: string, dataDir: string): { kept: string | null } 
       db.close();
     }
     chmodSync(staging, 0o700);
+    const repositories = join(staging, "store");
+    const keptStore = existsSync(repositories) && storeDir !== undefined ? putStore(repositories, resolve(storeDir)) : null;
+    rmSync(repositories, { recursive: true, force: true });
     const kept = existsSync(data) && readdirSync(data).length > 0 ? `${data}.before-restore-${stamp()}` : null;
     if (kept) renameSync(data, kept);
     else rmSync(data, { recursive: true, force: true });
@@ -82,9 +89,18 @@ export function restore(file: string, dataDir: string): { kept: string | null } 
       if (kept) renameSync(kept, data);
       throw e;
     }
-    return { kept };
+    return { kept, keptStore };
   } catch (e) {
     rmSync(staging, { recursive: true, force: true });
     throw e;
   }
+}
+
+/** Copies the repositories of a backup to the store's folder, moving what is there aside; answers where that went. */
+function putStore(from: string, store: string): string | null {
+  const kept = existsSync(store) && readdirSync(store).length > 0 ? `${store}.before-restore-${stamp()}` : null;
+  if (kept) renameSync(store, kept);
+  mkdirSync(dirname(store), { recursive: true });
+  cpSync(from, store, { recursive: true });
+  return kept;
 }

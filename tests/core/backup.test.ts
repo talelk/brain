@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -65,13 +65,33 @@ describe("a backup", () => {
     rmSync(kept ?? "", { recursive: true, force: true });
   });
 
+  it("holds the key that signs the git store's tokens and the store's repositories, and puts both back", async () => {
+    harness = await createHarness();
+    const store = join(scratch, "live-store");
+    const ref = join(store, "ws1", "app.git", "HEAD");
+    mkdirSync(join(store, "ws1", "app.git"), { recursive: true });
+    writeFileSync(ref, "ref: refs/heads/main\n");
+    writeFileSync(join(harness.dataDir, "store.key"), "the private key");
+    writeFileSync(join(harness.dataDir, "store.pub"), "the public key");
+    const file = join(scratch, "with-store.tar.gz");
+    await backup(harness.dataDir, file, store);
+    writeFileSync(ref, "changed after the backup\n");
+    const data = join(scratch, "restored", "data");
+    const restored = restore(file, data, store);
+    expect([readFileSync(join(data, "store.key"), "utf8"), readFileSync(join(data, "store.pub"), "utf8")]).toEqual(["the private key", "the public key"]);
+    expect(readFileSync(ref, "utf8")).toBe("ref: refs/heads/main\n");
+    // What the store held is moved aside like the data, never deleted, and the store is not left inside the data.
+    expect(readFileSync(join(restored.keptStore ?? "", "ws1", "app.git", "HEAD"), "utf8")).toBe("changed after the backup\n");
+    expect(existsSync(join(data, "store"))).toBe(false);
+  });
+
   it("restores into an empty place, and refuses a file that is not a backup without touching what is there", async () => {
     harness = await createHarness();
     const { workspaceId } = await makeWorkspace(harness, "Moved");
     const file = join(scratch, "second.tar.gz");
     await backup(harness.dataDir, file);
     const elsewhere = join(scratch, "elsewhere", "data");
-    expect(restore(file, elsewhere)).toEqual({ kept: null });
+    expect(restore(file, elsewhere)).toEqual({ kept: null, keptStore: null });
     expect(statSync(elsewhere).mode & 0o777).toBe(0o700);
     expect(existsSync(join(elsewhere, "brain.db")) && existsSync(join(elsewhere, "workspaces", "moved", "brain.toml"))).toBe(true);
     expect(existsSync(join(elsewhere, "backup.marker"))).toBe(false);

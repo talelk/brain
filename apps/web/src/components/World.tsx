@@ -84,8 +84,8 @@ function chiptune(): { play: (kind: "arrive" | "done" | "failed" | "needs") => v
   return {
     play: (kind) => {
       if (kind === "arrive") { note(660, 0, 0.08); note(880, 0.08, 0.1); }
-      if (kind === "done") [523, 659, 784, 1046].forEach((f, i) => note(f, i * 0.09, 0.16));
-      if (kind === "failed") [392, 330, 262].forEach((f, i) => note(f, i * 0.12, 0.2, "triangle"));
+      if (kind === "done") [523, 659, 784, 1046].forEach((f, i) => { note(f, i * 0.09, 0.16); });
+      if (kind === "failed") [392, 330, 262].forEach((f, i) => { note(f, i * 0.12, 0.2, "triangle"); });
       if (kind === "needs") { note(988, 0, 0.1); note(988, 0.18, 0.1); }
     },
     close: () => { void audio.close(); },

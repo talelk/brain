@@ -39,8 +39,8 @@ export function observe(path: string, status: number, seconds: number): void {
   own.count += 1;
 }
 
-const escape = (value: string): string => value.replace(/\\/gu, "\\\\").replace(/"/gu, '\\"').replace(/\n/gu, "\\n");
-const labels = (pairs: Record<string, string>): string => `{${Object.entries(pairs).map(([name, value]) => `${name}="${escape(value)}"`).join(",")}}`;
+const escaped = (value: string): string => value.replace(/\\/gu, "\\\\").replace(/"/gu, '\\"').replace(/\n/gu, "\\n");
+const labels = (pairs: Record<string, string>): string => `{${Object.entries(pairs).map(([name, value]) => `${name}="${escaped(value)}"`).join(",")}}`;
 const sizeOf = (path: string): number => { try { return statSync(path).size; } catch { return 0; } };
 const one = (gov: Gov, sql: string, ...values: unknown[]): number => (gov.db.prepare(sql).get(...values) as { n: number | null }).n ?? 0;
 
@@ -61,13 +61,15 @@ class Page {
   text(): string { return `${this.lines.join("\n")}\n`; }
 }
 
-function collect(gov: Gov, version: string, now: number): string {
+interface Build { readonly version: string; readonly commit: string }
+
+function collect(gov: Gov, build: Build, now: number): string {
   const page = new Page();
   const { db } = gov;
   const day = utcDay(now);
   const startOfDay = Date.parse(`${day}T00:00:00Z`);
 
-  page.gauge("brain_build_info", "Which build runs: always 1.", 1, { version, node: process.version });
+  page.gauge("brain_build_info", "Which build runs: always 1.", 1, { ...build, node: process.version });
   page.gauge("brain_uptime_seconds", "Seconds since the Governor process started.", Math.round((Date.now() - STARTED) / 1000));
   page.gauge("brain_process_resident_memory_bytes", "Resident set size of the Governor process.", process.memoryUsage().rss);
   page.gauge("brain_event_loop_lag_seconds", "Event loop delay since the last scrape: the 99th percentile and the longest.", Number.isFinite(lag.percentile(99)) ? lag.percentile(99) / 1e9 : 0, { quantile: "0.99" });
@@ -117,7 +119,7 @@ function collect(gov: Gov, version: string, now: number): string {
   page.head("brain_http_request_duration_seconds", "Time to answer a request, by route class and status class.", "histogram");
   for (const [key, series] of [...requests].sort(([a], [b]) => a.localeCompare(b))) {
     const [route, status] = key.split("\n") as [string, string];
-    BUCKETS.forEach((bound, index) => page.raw(`brain_http_request_duration_seconds_bucket${labels({ route, status, le: String(bound) })} ${series.buckets[index]}`));
+    BUCKETS.forEach((bound, index) => { page.raw(`brain_http_request_duration_seconds_bucket${labels({ route, status, le: String(bound) })} ${series.buckets[index]}`); });
     page.raw(`brain_http_request_duration_seconds_bucket${labels({ route, status, le: "+Inf" })} ${series.count}`);
     page.raw(`brain_http_request_duration_seconds_sum${labels({ route, status })} ${series.sum}`);
     page.raw(`brain_http_request_duration_seconds_count${labels({ route, status })} ${series.count}`);
@@ -128,7 +130,7 @@ function collect(gov: Gov, version: string, now: number): string {
 const cached = new WeakMap<Gov, { at: number; text: string }>();
 
 /** The route's answer. It does not exist (404) without BRAIN_METRICS_TOKEN, nor for a request that came through a proxy: a scraper reaches the Governor directly. */
-export function metricsResponse(gov: Gov, c: Context, version: string): Response {
+export function metricsResponse(gov: Gov, c: Context, build: Build): Response {
   const token = process.env["BRAIN_METRICS_TOKEN"];
   if (!token || c.req.header("x-forwarded-for") !== undefined || c.req.header("x-real-ip") !== undefined) {
     return c.json({ error: { code: "NOT_FOUND", message: "There is nothing at this address" } }, 404);
@@ -139,6 +141,6 @@ export function metricsResponse(gov: Gov, c: Context, version: string): Response
   if (!measuring) { lag.enable(); measuring = true; }
   const now = gov.clock.nowMs();
   let hit = cached.get(gov);
-  if (!hit || now - hit.at >= CACHE_MS) cached.set(gov, (hit = { at: now, text: collect(gov, version, now) }));
+  if (!hit || now - hit.at >= CACHE_MS) cached.set(gov, (hit = { at: now, text: collect(gov, build, now) }));
   return new Response(hit.text, { headers: { "content-type": "text/plain; version=0.0.4; charset=utf-8", "cache-control": "no-store" } });
 }

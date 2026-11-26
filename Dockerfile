@@ -1,7 +1,7 @@
 # The Governor: the API and the built web app in one process (docs/architecture.md section 1).
 # It runs from its TypeScript sources with tsx, as everywhere in this repository. The packs it ships with are in the image
 # (/app/packs). Data lives outside it, on /data. Runners and the launcher are not in this image: they run on a runner host.
-FROM node:24-slim
+FROM node:24-slim@sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
@@ -17,6 +17,10 @@ COPY apps/web apps/web
 RUN pnpm install --frozen-lockfile --filter "@brain/governor..." --filter "@brain/web..." \
   && pnpm --filter @brain/web build
 COPY packs packs
+
+# The commit this image is built from (scripts/deploy-demo.sh passes it).
+ARG BRAIN_COMMIT=""
+ENV BRAIN_COMMIT=$BRAIN_COMMIT
 
 ENV NODE_ENV=production \
     HOME=/tmp \
