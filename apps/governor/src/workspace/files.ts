@@ -1,4 +1,4 @@
-import { isSkillName, isSlug, isToolName, PackFile, splitPackRef, PlayFile, parseMemoryTranslationName, pathProblem, type Language, type PackSummary } from "@brain/contracts";
+import { isSkillName, isSlug, isToolName, PACK_MANIFEST, packContents, readPackManifest, splitPackRef, PlayFile, parseMemoryTranslationName, pathProblem, type Language, type PackSummary } from "@brain/contracts";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse as parseToml } from "smol-toml";
@@ -41,10 +41,13 @@ export function releasedVersions(releasedDir: string, name: string): number[] {
   return readdirSync(releasedDir).flatMap((entry) => (entry.startsWith(`${name}@`) && /^[1-9][0-9]*$/u.test(entry.slice(name.length + 1)) ? [Number(entry.slice(name.length + 1))] : [])).sort((a, b) => a - b);
 }
 
-/** Every file under `<packs>/<name>` (the shipped pack), or under `<released>/<name>@<pin>` for a release; undefined when there is no such pack. */
+/**
+ * Every file under `<packs>/<name>` (the shipped pack), or under `<released>/<name>@<pin>` for a release, by its path in the pack
+ * (`packContents` says where a workspace holds it); undefined when there is no such pack.
+ */
 export function readPack(packsDir: string, name: string, pin = 0, releasedDir?: string): Files | undefined {
   const root = pin === 0 ? join(packsDir, name) : join(releasedDir ?? join(packsDir, "..", "released"), `${name}@${pin}`);
-  if (!isSlug(name) || !existsSync(join(root, "pack.toml"))) return undefined;
+  if (!isSlug(name) || !existsSync(join(root, PACK_MANIFEST))) return undefined;
   const files: Files = new Map();
   for (const entry of readdirSync(root, { recursive: true, withFileTypes: true })) {
     if (!entry.isFile()) continue;
@@ -59,14 +62,16 @@ const toml = (bytes: Uint8Array | undefined): Record<string, unknown> => {
 };
 const words = (value: unknown): string => (typeof value === "string" ? value : "");
 
-/** What a pack holds, for choosing it; undefined when its `pack.toml` cannot be read. A file of it that does not parse is listed with what could be read. */
+/** What a pack holds, for choosing it; undefined when its `plugin.json` is not valid. A file of it that does not parse is listed with what could be read. */
 export function summaryOf(name: string, files: Files, shipped: boolean): PackSummary | undefined {
-  const pack = PackFile.safeParse(toml(files.get("pack.toml")));
-  if (!pack.success) return undefined;
-  const summary = { name, shipped, description: pack.data.description, translations: pack.data.translations, requires: pack.data.requires.map((ref) => splitPackRef(ref).name), agents: [] as PackSummary["agents"][number][], tools: [] as PackSummary["tools"][number][], plays: [] as PackSummary["plays"][number][] };
-  for (const path of [...files.keys()].sort()) {
+  const manifest = files.get(PACK_MANIFEST);
+  const { pack } = readPackManifest(manifest ? new TextDecoder().decode(manifest) : "");
+  if (!pack) return undefined;
+  const summary = { name, shipped, description: pack.description, translations: pack.translations, requires: pack.requires.map((ref) => splitPackRef(ref).name), agents: [] as PackSummary["agents"][number][], tools: [] as PackSummary["tools"][number][], plays: [] as PackSummary["plays"][number][] };
+  const held = packContents(files).files;
+  for (const path of [...held.keys()].sort()) {
     const kind = classifyPath(path);
-    const read = toml(files.get(path));
+    const read = toml(held.get(path));
     if (kind?.kind === "agent" && kind.file === "agent.toml") summary.agents.push({ name: kind.name, description: words(read["description"]) });
     else if (kind?.kind === "tool" && kind.file === "tool.toml") summary.tools.push({ name: kind.name, description: words(read["description"]), effect: read["effect"] === "write" || read["effect"] === "privileged" ? read["effect"] : "read" });
     else if (kind?.kind === "play") summary.plays.push({ name: kind.name, title: words(read["title"]), description: words(read["description"]), translations: PlayFile.shape.translations.safeParse(read["translations"]).data });

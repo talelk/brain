@@ -11,6 +11,8 @@ import { parse as parseToml } from "smol-toml";
 import { loadWorkspace } from "../apps/governor/src/workspace/load";
 import { packShapeProblems } from "../apps/governor/src/workspace/pack-shape";
 import { fieldSchema, PLATFORM_PACK, ToolFile, type Problem } from "../packages/contracts/src/files";
+import { PACK_MANIFEST, packContents, packPath, splitPackRef } from "../packages/contracts/src/packs";
+import { readPackManifest } from "../packages/contracts/src/plugin";
 import type { JsonValue } from "../packages/contracts/src/protocol";
 import { schemaProblem } from "../packages/contracts/src/validate";
 
@@ -76,19 +78,29 @@ function filesOf(root: string): Map<string, Uint8Array> {
 }
 
 /** Everything wrong with a workspace folder or a pack folder, and what each tool's proof said. */
-export async function checkFolder(folder: string, packsDir: string): Promise<{ kind: "workspace" | "pack"; problems: Problem[]; proofs: Array<Proof & { tool: string }> }> {
-  const isPack = existsSync(join(folder, "pack.toml"));
-  if (!isPack && !existsSync(join(folder, "brain.toml"))) throw new Error(`${folder} holds neither pack.toml nor brain.toml`);
-  const files = filesOf(folder);
+export async function checkFolder(folder: string, packsDir: string): Promise<{ kind: "workspace" | "pack"; problems: Problem[]; notes: string[]; proofs: Array<Proof & { tool: string }> }> {
+  const isPack = existsSync(join(folder, PACK_MANIFEST));
+  if (!isPack && !existsSync(join(folder, "brain.toml"))) throw new Error(`${folder} holds neither ${PACK_MANIFEST} nor brain.toml`);
+  let files = filesOf(folder);
+  const notes: string[] = [];
+  const problems: Problem[] = [];
   if (isPack) {
     // A pack is checked as a workspace that holds its files over the packs it requires.
-    const pack = parseToml(readFileSync(join(folder, "pack.toml"), "utf8")) as { name?: string; requires?: string[] };
-    files.set("brain.toml", new TextEncoder().encode(`name = "Check"\n${pack.name === PLATFORM_PACK ? 'platform = "admin"\n' : ""}packs = ${JSON.stringify((pack.requires ?? []).filter((name) => name !== pack.name))}\n`));
+    const { pack, problems: wrong, ignored } = readPackManifest(readFileSync(join(folder, PACK_MANIFEST), "utf8"));
+    problems.push(...wrong.map((message) => ({ path: PACK_MANIFEST, message })));
+    notes.push(...ignored.map((field) => `${PACK_MANIFEST}: ${field} is not of the format and is ignored`));
+    const held = packContents(files);
+    problems.push(...held.misplaced);
+    files = held.files;
+    const requires = (pack?.requires ?? []).filter((ref) => splitPackRef(ref).name !== pack?.name);
+    files.set("brain.toml", new TextEncoder().encode(`name = "Check"\n${pack?.name === PLATFORM_PACK ? 'platform = "admin"\n' : ""}packs = ${JSON.stringify(requires)}\n`));
   }
+  /** Where the folder holds a file the loader names. */
+  const here = (path: string): string => (!isPack || path.startsWith("packs/") ? path : path === "brain.toml" ? PACK_MANIFEST : packPath(path));
   const loaded = loadWorkspace(files, packsDir);
-  const problems = [...loaded.problems, ...(isPack && loaded.manifest ? packShapeProblems(loaded.manifest, "workspace") : [])];
+  problems.push(...[...loaded.problems, ...(isPack && loaded.manifest ? packShapeProblems(loaded.manifest, "workspace") : [])].map((problem) => ({ path: here(problem.path), message: problem.message })));
   const tools = [...files.keys()].filter((path) => /^tools\/[^/]+\/test\.sh$/u.test(path)).map((path) => dirname(path)).sort();
   const proofs: Array<Proof & { tool: string }> = [];
-  for (const tool of tools) proofs.push({ tool: tool.slice("tools/".length), ...(await proveTool(join(folder, tool))) });
-  return { kind: isPack ? "pack" : "workspace", problems, proofs };
+  for (const tool of tools) proofs.push({ tool: tool.slice("tools/".length), ...(await proveTool(join(folder, here(tool)))) });
+  return { kind: isPack ? "pack" : "workspace", problems, notes, proofs };
 }

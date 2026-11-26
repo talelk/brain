@@ -57,7 +57,7 @@ export type Language = (typeof LANGUAGES)[number];
 export const isLanguage = (value: string): value is Language => (LANGUAGES as readonly string[]).includes(value);
 const INPUT_NAME = /^[a-z][a-z0-9_]{0,62}$/u;
 /** `[translations.fr]` and `[translations.ar]`: the human-facing keys of the file, and nothing else. Optional in every language. */
-const translations = <S extends z.ZodRawShape>(shape: S) => z.strictObject({ fr: z.strictObject(shape).optional(), ar: z.strictObject(shape).optional() }).optional();
+export const translations = <S extends z.ZodRawShape>(shape: S) => z.strictObject({ fr: z.strictObject(shape).optional(), ar: z.strictObject(shape).optional() }).optional();
 const translatedInputs = z.record(z.string().regex(INPUT_NAME), z.strictObject({ description: z.string() })).optional();
 /** A translation of an input names an input the file has. */
 function translatedInputsExist(file: { inputs: Record<string, unknown>; translations?: Partial<Record<Language, { inputs?: Record<string, unknown> | undefined } | undefined>> | undefined }, ctx: z.RefinementCtx): void {
@@ -269,19 +269,6 @@ export const PlayFile = z.strictObject({
   translations: translations({ title: z.string().min(1).max(200).optional(), description: z.string().optional(), inputs: translatedInputs }),
 }).superRefine(translatedInputsExist);
 export type PlayFile = z.infer<typeof PlayFile>;
-
-// --- packs/<name>/pack.toml ---
-
-export const PackFile = z.strictObject({
-  name: slug("a pack name"),
-  description: z.string().default(""),
-  /** The packs it needs; a release names the release of each, such as `base@2`. */
-  requires: z.array(packRef).default([]),
-  /** The last release of a copy kept in the platform workspace (none: not released yet). */
-  version: z.int().min(1).optional(),
-  translations: translations({ description: z.string().optional() }),
-});
-export type PackFile = z.infer<typeof PackFile>;
 
 // --- memory/<name>.md ---
 

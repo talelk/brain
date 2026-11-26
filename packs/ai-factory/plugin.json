@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ai-factory",
+  "description": "Building and checking AI agents for a project: an author turns a job and its failures into evaluation cases, a designer writes the agent's prompt and configuration as files in the project with a script that runs the cases, and a judge scores what the agent answered against a rubric. The cases are Markdown files in the project, at evals/<agent>/cases.md, and a weekly Play runs them again. Running them calls the workspace's model from the sandbox, within the agent's spend limit.",
+  "extensions": {
+    "io.github.talelk.brain": {
+      "requires": [
+        "base"
+      ],
+      "translations": {
+        "fr": {
+          "description": "Construire et vérifier des agents d'IA pour un projet : un auteur transforme un travail et ses échecs en cas d'évaluation, un concepteur écrit le prompt et la configuration de l'agent comme fichiers du projet, avec un script qui exécute les cas, et un juge note ce que l'agent a répondu d'après une grille. Les cas sont des fichiers Markdown du projet, evals/<agent>/cases.md, et un Play hebdomadaire les exécute de nouveau. Les exécuter appelle le modèle de l'espace de travail depuis le bac à sable, dans la limite de dépense de l'agent."
+        },
+        "ar": {
+          "description": "بناء وكلاء ذكاء اصطناعي والتحقق منهم لمشروع ما: يحوّل المؤلِّف مهمة وإخفاقاتها إلى حالات تقييم، ويكتب المصمِّم موجِّه الوكيل وإعداداته كملفات في المشروع مع سكربت يشغّل الحالات، ويقيّم الحَكَم ما أجاب به الوكيل وفق معيار تقييم. الحالات ملفات Markdown في المشروع، evals/<agent>/cases.md، ويعيد Play أسبوعي تشغيلها. تشغيلها يستدعي نموذج مساحة العمل من البيئة المعزولة، ضمن حدّ إنفاق الوكيل."
+        }
+      }
+    }
+  }
+}

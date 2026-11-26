@@ -77,10 +77,13 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   carries `skills {name: description, files}` (left out when there is none); an agent's `skills` must exist and needs native
   reading. The offer carries the agent's skills; the runner writes them read-only (scripts executable) under
   `/work/.workspace/skills/` and names them in the task text.
-- A pack is a folder `packs/<name>/` with `pack.toml` (`name`, `description`,
-  `requires = [...]` naming other packs, which are pulled in with it) and the same
-  `agents/`, `tools/`, `plays/`, `memory/` layout as a workspace. `packs/README.md`
-  documents the conventions the shipped packs rely on.
+- A pack is a folder `packs/<name>/` in the Agent Plugins 1.0 format: `plugin.json` (read and written by
+  `packages/contracts/src/plugin.ts`: the format's fields, Brain's strict entry `extensions."io.github.talelk.brain"` with `requires` and
+  `translations`, other entries and unknown fields kept and ignored; any other `$schema` refused, none fetched), `skills/`,
+  and `io.github.talelk.brain/` holding `agents/`, `tools/`, `plays/`, `memory/`. `packContents` (`packages/contracts/src/packs.ts`) is the one
+  mapping between a pack's paths and a workspace's: the loader, the file listing, a fix's current text, import and
+  `brain check` use it, and `packPath` goes back (tool drift, the update screen's overrides, problems named in a pack).
+  Releases keep the folder's own layout. `packs/README.md` documents the conventions the shipped packs rely on.
 - **Pins and releases.** An entry of `packs` is `<name>` (the shipped baseline in `packs/` of the repository) or `<name>@<n>` (release `n`,
   `n >= 1`; one pin per pack, and it must be released). A released pack is read from `<data>/released/<name>@<n>/`, written once by `pack.release`
   and never changed; its own `requires` and any pack the workspace does not pin are the baseline. The manifest keeps `packs` as names and
@@ -93,7 +96,7 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   `pack.imported`. A release's `requires` names the latest release of each; `resolvePacks` takes the workspace's own pin, else
   the newest a pack in use names; two packs with one path, neither requiring the other, are a problem. `packs.list` lists unshipped packs too.
   **Releasing** is the command `pack.release` (an admin of the admin workspace): it reads `packs/<name>/` of the admin workspace's folder, sets its
-  `pack.toml` `version` to the last release plus one, checks that a workspace using that content is valid and that the pack keeps its shape (`workspace/pack-shape.ts`), writes `<data>/released/<name>@<n>/`, commits
+  `plugin.json` `version` to the last release plus one, checks that a workspace using that content is valid and that the pack keeps its shape (`workspace/pack-shape.ts`), writes `<data>/released/<name>@<n>/`, commits
   the version (`Release <name> n`) and tags the commit `<name>@<n>` (the audit event `pack.released`). At start `reconcile` rewrites a released
   directory that is missing from its tag. The commit that makes a workspace the admin workspace also writes `packs/<name>/` for every shipped pack.
 - In a step, `goal` may contain `{{<input name>}}` and `{{steps.<id>.result}}` (or a
@@ -492,7 +495,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   each joins the first group whose first goal shares at least 0.6 of the words (Jaccard) or starts a group. A group of 4 or more is a
   candidate: agent, tools, count, workspaces with their counts, up to 3 goals and 8 task ids, first and last time.
   `platform.tool-drift` compares, for every workspace but the admin one, each tool with a `run.sh`, each agent and each Play whose files are
-  the workspace's own (`source = "workspace"` in its snapshot) with the same file in `packs/<pack>/` of the platform workspace's folder:
+  the workspace's own (`source = "workspace"` in its snapshot) with the same file in `packs/<pack>/` of the platform workspace's folder (where the pack holds it, `packPath`):
   `differs` when a file's text is not the same, `new` when no pack has it. A tool with no `run.sh` (Brain-run, host command) is left out.
   Identical copies in several workspaces are one entry listing them; an entry says whether a tool has its `test.sh`, and at most 30 are returned.
 ## 8. Runner on disk and working copies

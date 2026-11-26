@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "presales",
+  "description": "Answering public tenders and RFPs: an analyst reads the terms of reference, an architect sizes the solution, a writer drafts the response from the analysis and the workspace's memory, and the analyst checks it against the requirements. A weekly Play watches for new tenders.",
+  "extensions": {
+    "io.github.talelk.brain": {
+      "requires": [
+        "base"
+      ],
+      "translations": {
+        "fr": {
+          "description": "Répondre aux appels d'offres publics et aux RFP : un analyste lit le cahier des charges, un architecte dimensionne la solution, un rédacteur prépare la réponse à partir de l'analyse et de la mémoire de l'espace de travail, et l'analyste la vérifie face aux exigences. Un Play hebdomadaire surveille les nouveaux appels d'offres."
+        },
+        "ar": {
+          "description": "الرد على المناقصات العمومية وطلبات تقديم العروض (RFP): يقرأ المحلل كراس الشروط، ويقدّر المهندس المعماري الحل، ويصوغ كاتب الرد انطلاقًا من التحليل وذاكرة مساحة العمل، ثم يتحقق المحلل منه مقابل المتطلبات. ويراقب Play أسبوعي المناقصات الجديدة."
+        }
+      }
+    }
+  }
+}

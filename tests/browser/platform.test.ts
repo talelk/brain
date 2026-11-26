@@ -2,9 +2,9 @@ import { expect, openWorkspace, signIn, test } from "./stack";
 
 // The capitalizer's prompt is its script: it proposes a tool in the platform workspace's base pack, which an admin approves; releasing the pack makes Alpha offer the update.
 const files = [
-  { path: "packs/base/tools/style.lint/tool.toml", content: 'description = "Lints the repository."\neffect = "read"\nneeds = ["bash"]\n' },
-  { path: "packs/base/tools/style.lint/run.sh", content: "#!/bin/sh\ncat >/dev/null\necho '{\"ok\": true}'\n" },
-  { path: "packs/base/tools/style.lint/test.sh", content: '#!/bin/sh\necho "style.lint: ok"\n' },
+  { path: "packs/base/io.github.talelk.brain/tools/style.lint/tool.toml", content: 'description = "Lints the repository."\neffect = "read"\nneeds = ["bash"]\n' },
+  { path: "packs/base/io.github.talelk.brain/tools/style.lint/run.sh", content: "#!/bin/sh\ncat >/dev/null\necho '{\"ok\": true}'\n" },
+  { path: "packs/base/io.github.talelk.brain/tools/style.lint/test.sh", content: '#!/bin/sh\necho "style.lint: ok"\n' },
 ];
 // The fixture engine unescapes a line once, so the JSON's own escapes are written twice.
 const call = JSON.stringify({ files, message: "Add the style.lint tool", why: "dev ran lint four times in alpha." }).replaceAll("\\", "\\\\");
@@ -30,9 +30,9 @@ test("the platform workspace is badged; a tool it proposes is approved, released
   // Its Capitalize Play runs by hand and proposes a change to its own base pack, shown as a diff; approving it commits it there.
   await api.command("task.create", { workspaceId: admin.workspaceId, play: "capitalize" });
   await page.getByRole("link", { name: "Today" }).first().click();
-  await expect(page.getByText("packs/base/tools/style.lint/run.sh").first()).toBeVisible();
+  await expect(page.getByText("packs/base/io.github.talelk.brain/tools/style.lint/run.sh").first()).toBeVisible();
   await page.getByRole("button", { name: "Approve this change to the packs" }).click();
-  await expect.poll(async () => (await api.query("file.read", { workspaceId: admin.workspaceId, path: "packs/base/tools/style.lint/test.sh" }).catch(() => ({ content: "" }))).content).toContain("style.lint: ok");
+  await expect.poll(async () => (await api.query("file.read", { workspaceId: admin.workspaceId, path: "packs/base/io.github.talelk.brain/tools/style.lint/test.sh" }).catch(() => ({ content: "" }))).content).toContain("style.lint: ok");
   expect((await api.query("workspace.get", { workspaceId: alpha.workspaceId })).updates).toEqual([]);
 
   // Releasing the pack from its Packs tab offers it to the workspaces; Alpha's admin updates and gets the tool.

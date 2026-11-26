@@ -1,7 +1,6 @@
-import { BrainError, PackFile, PLATFORM_PACK, splitPackRef, withPins, type CommandOutputs, type PackImport, type PackInfo, type PackUpdate, type SnapshotManifest } from "@brain/contracts";
+import { BrainError, PACK_MANIFEST, packPath, PLATFORM_PACK, readPackManifest, splitPackRef, withPins, writePackManifest, type CommandOutputs, type PackImport, type PackInfo, type PackUpdate, type SnapshotManifest } from "@brain/contracts";
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { parse as parseToml } from "smol-toml";
 import type { Governor } from "../app";
 import type { Gov } from "../dispatch";
 import { append } from "../events";
@@ -54,13 +53,10 @@ export function seedPacks(gov: Gov): Map<string, Uint8Array> {
   return seed;
 }
 
-/** A pack.toml with its `requires` list set. */
-const withRequires = (text: string, requires: readonly string[]): string => text.replace(/^requires[ \t]*=[ \t]*\[[^\]]*\]/mu, `requires = ${JSON.stringify(requires)}`);
-/** A pack.toml with its `version` line set. */
-const withVersion = (text: string, version: number): string => (/^version\s*=.*$/mu.test(text) ? text.replace(/^version\s*=.*$/mu, `version = ${version}`) : text.replace(/^(name\s*=.*)$/mu, `$1\nversion = ${version}`));
-/** The files of a pack compared without its `version` line. */
+/** The files of a pack compared without the version its manifest names. */
 const sameFiles = (a: Files, b: Files): boolean => {
-  const plain = (files: Files): Array<[string, string]> => [...files].map(([path, bytes]): [string, string] => [path, path === "pack.toml" ? decode(bytes).replace(/^version\s*=.*\n?/mu, "") : Buffer.from(bytes).toString("base64")]).sort(([x], [y]) => (x < y ? -1 : 1));
+  const without = (bytes: Uint8Array): string => (readPackManifest(decode(bytes)).pack ? writePackManifest(decode(bytes), { version: 0 }) : decode(bytes));
+  const plain = (files: Files): Array<[string, string]> => [...files].map(([path, bytes]): [string, string] => [path, path === PACK_MANIFEST ? without(bytes) : Buffer.from(bytes).toString("base64")]).sort(([x], [y]) => (x < y ? -1 : 1));
   return JSON.stringify(plain(a)) === JSON.stringify(plain(b));
 };
 const packOf = (files: Files, prefix: string): Files => new Map([...files].filter(([path]) => path.startsWith(prefix)).map(([path, bytes]) => [path.slice(prefix.length), bytes] as const));
@@ -76,7 +72,7 @@ async function infos(gov: Gov): Promise<PackInfo[]> {
   const workspaces = (gov.db.prepare("SELECT slug, name, active_snapshot AS snapshot FROM workspaces WHERE active_snapshot != '' ORDER BY slug").all() as Array<{ slug: string; name: string; snapshot: string }>).map((row) => ({ ...row, manifest: manifestOf(gov, row.snapshot as never) }));
   const shipped = listPacks(gov.packsDir);
   // The packs the admin workspace wrote or imported, listed as their last release holds them, or their copy when none was made.
-  const others = [...new Set([...[...(folder?.keys() ?? [])].flatMap((path) => /^packs\/([^/]+)\/pack\.toml$/u.exec(path)?.[1] ?? []), ...releasedNames(releasedDirOf(gov.dataDir))])]
+  const others = [...new Set([...[...(folder?.keys() ?? [])].flatMap((path) => /^packs\/([^/]+)\/plugin\.json$/u.exec(path)?.[1] ?? []), ...releasedNames(releasedDirOf(gov.dataDir))])]
     .filter((name) => !shipped.some((pack) => pack.name === name)).sort().flatMap((name) => {
       const latest = releasedVersions(releasedDirOf(gov.dataDir), name).at(-1);
       const files = latest === undefined ? packOf(folder ?? new Map(), `packs/${name}/`) : readPack(gov.packsDir, name, latest, releasedDirOf(gov.dataDir));
@@ -146,23 +142,24 @@ export function registerPacks({ gov: { registry } }: Governor): void {
       if (manifestOf(ctx.gov, workspace.snapshotDigest).platform !== "admin") throw new BrainError("FORBIDDEN", "Only the admin workspace releases packs");
       const dir = workspaceDir(ctx.gov, workspace.slug);
       const files = packOf((await readHead(dir)).files, `packs/${input.name}/`);
-      const packToml = files.get("pack.toml");
-      if (!packToml) throw new BrainError("NOT_FOUND", `The platform workspace has no packs/${input.name}/pack.toml`);
-      const parsed = PackFile.safeParse((() => { try { return parseToml(decode(packToml)); } catch { return {}; } })());
-      if (!parsed.success) throw new BrainError("INVALID_INPUT", `packs/${input.name}/pack.toml is not valid`, parsed.error.issues.map((issue) => ({ path: `packs/${input.name}/pack.toml`, message: issue.message })));
-      const version = Math.max(parsed.data.version ?? 0, lastRelease(ctx.gov, input.name)) + 1;
+      const manifest = files.get(PACK_MANIFEST);
+      const manifestPath = `packs/${input.name}/${PACK_MANIFEST}`;
+      if (!manifest) throw new BrainError("NOT_FOUND", `The platform workspace has no ${manifestPath}`);
+      const { pack, problems } = readPackManifest(decode(manifest));
+      if (!pack) throw new BrainError("INVALID_INPUT", `${manifestPath} is not valid`, problems.map((message) => ({ path: manifestPath, message })));
+      const version = Math.max(pack.version, lastRelease(ctx.gov, input.name)) + 1;
       // A release names the release of each pack it requires, so what it holds never moves under it.
-      const requires = parsed.data.requires.map((ref) => { const { name } = splitPackRef(ref); const latest = lastRelease(ctx.gov, name); return latest > 0 ? `${name}@${latest}` : name; });
-      const bumped = encode(withRequires(withVersion(decode(packToml), version), requires));
-      files.set("pack.toml", bumped);
+      const requires = pack.requires.map((ref) => { const { name } = splitPackRef(ref); const latest = lastRelease(ctx.gov, name); return latest > 0 ? `${name}@${latest}` : name; });
+      const bumped = encode(writePackManifest(decode(manifest), { version, requires }));
+      files.set(PACK_MANIFEST, bumped);
       const target = freeze(ctx.gov, input.name, version, files);
       try {
         const check = loadWorkspace(new Map([["brain.toml", encode(`name = "Check"\n${input.name === PLATFORM_PACK ? "platform = \"admin\"\n" : ""}packs = ["${input.name}@${version}"]\n`)]]), ctx.gov.packsDir, releasedDirOf(ctx.gov.dataDir));
         if (!check.manifest) throw new BrainError("INVALID_WORKSPACE", `${input.name} would not be a valid pack as it is, so nothing was released`, check.problems);
         const shape = packShapeProblems(check.manifest, input.name);
-        if (shape.length > 0) throw new BrainError("INVALID_WORKSPACE", `${input.name} leaves the shape of a pack, so nothing was released`, shape.map((one) => ({ path: `packs/${input.name}/${one.path}`, message: one.message })));
+        if (shape.length > 0) throw new BrainError("INVALID_WORKSPACE", `${input.name} leaves the shape of a pack, so nothing was released`, shape.map((one) => ({ path: `packs/${input.name}/${packPath(one.path)}`, message: one.message })));
         const committed = await commitFolder(ctx.gov, workspace.slug, {
-          write: new Map([[`packs/${input.name}/pack.toml`, bumped]]), remove: [], message: `Release ${input.name} ${version}`, author: { name: ctx.user?.name ?? "Brain", email: ctx.user?.email ?? "brain@localhost" }, instanceAdmin: ctx.user?.instanceAdmin === true,
+          write: new Map([[manifestPath, bumped]]), remove: [], message: `Release ${input.name} ${version}`, author: { name: ctx.user?.name ?? "Brain", email: ctx.user?.email ?? "brain@localhost" }, instanceAdmin: ctx.user?.instanceAdmin === true,
         });
         await tagCommit(dir, `${input.name}@${version}`, committed.commit);
         return { committed, version, name: input.name };

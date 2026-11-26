@@ -2,7 +2,9 @@
 
 The reusable content shipped with Brain. A workspace lists the packs it uses in
 `brain.toml`; a file in the workspace with the same path replaces the pack's file.
-File formats are those of [docs/model.md](../docs/model.md). This page records the
+File formats are those of [docs/model.md](../docs/model.md); each pack is an Agent Plugins 1.0
+folder, with its skills in `skills/` and its agents, tools, Plays and memory in `io.github.talelk.brain/`
+(paths on this page are those a workspace sees, without it). This page records the
 conventions the pack files rely on, so the code that loads and runs them matches.
 
 | Pack | Requires | Agents | Tools | Plays |
@@ -19,9 +21,10 @@ conventions the pack files rely on, so the code that loads and runs them matches
 | `modernization` | base | legacy-analyst, migrator, parity-reviewer | | assess-codebase, migrate-modules |
 | `ai-factory` | base | eval-author, agent-designer, eval-runner, eval-judge | | build-agent, regression-check |
 
-`pack.toml` has `name`, `description`, `requires` (a list of pack names, empty for `base`;
-a release names the release of each, `base@2`), translations and, in the admin workspace, the
-`version` of the last release. An agent or a Play of a pack may name agents and tools of the packs it
+`plugin.json` has the format's `$schema`, `name`, `description` and, in the admin workspace, the
+`version` of the last release (`2.0.0`); its entry `extensions."io.github.talelk.brain"` has `requires` (a
+list of pack names, none for `base`; a release names the release of each, `base@2`) and the
+`translations`. An agent or a Play of a pack may name agents and tools of the packs it
 requires.
 
 ## The shape of a pack
@@ -93,7 +96,7 @@ English; it has no translation.
   of model.md. Every step in the packs has a `goal`.
 - A memory entry: Markdown whose first line is `# <title>`.
 - Translations: every pack file that people read carries `[translations.fr]` and
-  `[translations.ar]` (`pack.toml`, `agent.toml`: `description`; `tool.toml`:
+  `[translations.ar]` (`agent.toml`, and `plugin.json` in Brain's entry: `description`; `tool.toml`:
   `description` and `[translations.<lang>.inputs.<name>] description`; a Play: `title`,
   `description`), and every memory entry has `memory/<name>.fr.md` and `.ar.md`. Product
   words (Brain, Play, pack, agent and tool names, code, cron) stay as they are. A test
@@ -212,7 +215,8 @@ workspace, and each call is audited. Texts are cut (a cut text ends with `[cut: 
 | `platform.tool-drift` | (none) | `{"drift": [{"kind": "tool" or "agent" or "play", "name", "status": "differs" or "new", "pack", "workspaces", "files": [{"path", "workspace"}], "hasTest"}]}`; `pack` is the platform pack holding the same name (none for `new`) |
 
 `capitalizer` and `syncer` (free text, ending with their proposals): the platform workspace changes only itself. Each proposal is a
-`workspace.fix` call (no `workspace` input) for files under `packs/<pack>/` of the platform workspace, each approved on its own; the
+`workspace.fix` call (no `workspace` input) for files under `packs/<pack>/` of the platform workspace (agents, tools, Plays and
+memory in its `io.github.talelk.brain/`), each approved on its own; the
 packs are then released and workspaces update. `capitalizer` calls `platform.repeats`, reads the evidence with `platform.tasks`,
 `platform.task` and `platform.file` (including the analyses of `workspace-healer`), and for each candidate worth it proposes a new
 tool (`tool.toml`, `run.sh`, `test.sh` and the agents' `tools` lists), an update of a tool, agent or Play, or a memory note.

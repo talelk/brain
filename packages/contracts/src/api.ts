@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AuditVerifyResult } from "./audit-chain";
-import { isSlug, MAX_FILE_BYTES, PLATFORM_KINDS, type PlatformKind, type Language, type PackFile, type PlayFile, type Problem, type SnapshotManifest, packRef, isRemoteAddress } from "./files";
+import { isSlug, MAX_FILE_BYTES, PLATFORM_KINDS, type PlatformKind, type Language, type PlayFile, type Problem, type SnapshotManifest, packRef, isRemoteAddress } from "./files";
+import type { PackExtension } from "./plugin";
 import { PRIORITIES, type Priority } from "./limits";
 import type { ApprovalState, AttemptEvent, AttemptFailure, AttemptKind, Digest, Effect, JsonValue, RunnerCapability, ToolOutcome } from "./protocol";
 
@@ -95,7 +96,7 @@ export interface FileContent extends FileEntry {
 export interface PackSummary {
   readonly name: string;
   readonly description: string;
-  readonly translations: PackFile["translations"];
+  readonly translations: PackExtension["translations"];
   readonly requires: readonly string[];
   /** Whether Brain ships this pack; one the admin workspace wrote or imported is used by one of its releases only. */
   readonly shipped: boolean;

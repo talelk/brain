@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "customer-operations",
+  "description": "Answering customer requests: a router sends each request to a billing, technical or general agent, a quality reviewer scores every draft until it is good enough, and a person approves what is sent. A weekly Play proposes improvements to the workspace's answers.",
+  "extensions": {
+    "io.github.talelk.brain": {
+      "requires": [
+        "base"
+      ],
+      "translations": {
+        "fr": {
+          "description": "Répondre aux demandes des clients : un routeur envoie chaque demande à un agent de facturation, à un agent technique ou à un généraliste, un relecteur qualité note chaque brouillon jusqu'à ce qu'il soit assez bon, et une personne approuve ce qui est envoyé. Un Play hebdomadaire propose des améliorations aux réponses de l'espace de travail."
+        },
+        "ar": {
+          "description": "الرد على طلبات العملاء: يوجّه الموجِّه (router) كل طلب إلى وكيل الفوترة أو الوكيل التقني أو الوكيل العام، ويقيّم مراجع الجودة كل مسودة حتى تصبح جيدة بما يكفي، ويوافق شخص على ما يُرسَل. ويقترح Play أسبوعي تحسينات لإجابات مساحة العمل."
+        }
+      }
+    }
+  }
+}

@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse, stringify, TomlDate } from "smol-toml";
+import { PACK_MANIFEST } from "../packages/contracts/src/packs";
+import { readPackManifest, writePackManifest } from "../packages/contracts/src/plugin";
 
 /**
  * `pnpm playground`: creates (or brings up to date) the playground workspaces on a running Brain. Safe to repeat: a workspace that exists keeps its
@@ -134,7 +136,7 @@ for (const entry of WITH_STARTER) {
 
 // Deliver the packs shipped with this Brain: the admin workspace keeps an editable copy of each under packs/<name>/ and releases come from
 // it, so a change to a shipped pack reaches the workspaces only through the copy. Each shipped pack is written into the copy (a file the pack
-// no longer has is removed, and the copy's `version` line stays), a pack whose copy changed is released, and every workspace is moved to the
+// no longer has is removed, and the copy's `version` stays), a pack whose copy changed is released, and every workspace is moved to the
 // latest release. Skipped when there is no admin workspace.
 const admin = PLAYGROUND.find((entry) => entry.platform === "admin");
 const adminId = admin ? ((await query("me")) as { workspaces: Array<{ id: string; slug: string }> }).workspaces.find((one) => one.slug === admin.slug)?.id : undefined;
@@ -146,9 +148,9 @@ if (adminId) {
   for (const pack of readdirSync(root, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)) {
     const shipped = new Map<string, string>(walk(join(root, pack)).map((path) => [`packs/${pack}/${relative(join(root, pack), path).split(sep).join("/")}`, readFileSync(path, "utf8")]));
     const before = ((await query("pack.files", { workspaceId: adminId, name: pack, version: "working" }).catch(() => ({ files: [] }))) as { files: Array<{ path: string; content: string }> }).files;
-    const version = /^version\s*=.*$/mu.exec(before.find((file) => file.path === "pack.toml")?.content ?? "")?.[0];
-    const manifest = `packs/${pack}/pack.toml`;
-    if (version && shipped.has(manifest)) shipped.set(manifest, shipped.get(manifest)!.replace(/^(name\s*=.*)$/mu, `$1\n${version}`));
+    const version = readPackManifest(before.find((file) => file.path === PACK_MANIFEST)?.content ?? "").pack?.version ?? 0;
+    const manifest = `packs/${pack}/${PACK_MANIFEST}`;
+    if (version > 0 && shipped.has(manifest)) shipped.set(manifest, writePackManifest(shipped.get(manifest)!, { version }));
     const writes = [...shipped].filter(([path, content]) => before.find((file) => `packs/${pack}/${file.path}` === path)?.content !== content);
     const removes = existing.filter((path) => path.startsWith(`packs/${pack}/`) && !shipped.has(path));
     if (writes.length === 0 && removes.length === 0) continue;

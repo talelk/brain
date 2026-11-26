@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "software-factory",
+  "description": "Changes to code, from issue to pull request: an analyst, a developer, a reviewer and a release manager, with Plays that plan the work, run developers in parallel, have every change reviewed and ask a person to sign off.",
+  "extensions": {
+    "io.github.talelk.brain": {
+      "requires": [
+        "base"
+      ],
+      "translations": {
+        "fr": {
+          "description": "Des changements de code, de l'issue à la pull request : un analyste, un développeur, un relecteur et un responsable de livraison, avec des Plays qui planifient le travail, font travailler des développeurs en parallèle, font relire chaque changement et demandent l'accord d'une personne."
+        },
+        "ar": {
+          "description": "تغييرات على الشيفرة، من الـ issue حتى الـ pull request: محلل ومطوّر ومراجع ومسؤول إصدار، مع Plays تخطّط العمل وتُشغّل المطوّرين بالتوازي وتجعل كل تغيير يُراجَع ثم تطلب موافقة شخص."
+        }
+      }
+    }
+  }
+}

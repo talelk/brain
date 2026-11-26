@@ -1,4 +1,4 @@
-import { AgentFile, BrainFile, MemoryEntry, PackFile, parseRef, parseWhen, PlayFile, renderTemplate, splitMemoryEntry, templateRefs, ToolFile } from "@brain/contracts";
+import { AgentFile, BrainFile, MemoryEntry, PACK_SCHEMA, PackExtension, readPackManifest, writePackManifest, parseRef, parseWhen, PlayFile, renderTemplate, splitMemoryEntry, templateRefs, ToolFile } from "@brain/contracts";
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 
@@ -46,8 +46,7 @@ describe("file schemas accept what docs/model.md shows", () => {
     expect(messages(PlayFile, { ...play, trigger: { webhook: "github.issues.opened" } })).toEqual([]);
     expect(messages(PlayFile, { title: "Compete", step: [{ id: "draft", candidates: ["a", "b"], judge: "person", for_each: "steps.x.result.items", when: 'steps.x.result.ok == true', target_score: 0.8 }] })).toEqual([]);
   });
-  it("pack.toml and a memory entry", () => {
-    expect(messages(PackFile, { name: "base", description: "The base pack.", requires: [] })).toEqual([]);
+  it("a memory entry", () => {
     expect(MemoryEntry.parse(splitMemoryEntry("# Release checklist\n\nTag, then deploy.\n"))).toEqual({ title: "Release checklist", body: "Tag, then deploy." });
   });
   it("fills in what a file leaves out", () => {
@@ -93,7 +92,7 @@ describe("file schemas refuse", () => {
     ["a webhook that is not a GitHub event", PlayFile, { ...play, trigger: { webhook: "gitlab.push" } }, /GitHub event/u],
     ["a single candidate", PlayFile, { ...play, step: [{ id: "a", agent: "b", candidates: 1 }] }, /candidates/u],
     ["max_rounds of zero", PlayFile, { ...play, step: [{ id: "a", agent: "b", max_rounds: 0 }] }, /max_rounds/u],
-    ["a pack with an unknown key", PackFile, { name: "base", versions: 2 }, /Unrecognized key/u],
+    ["an unknown key in Brain's part of a pack manifest", PackExtension, { require: ["base"] }, /Unrecognized key/u],
     ["a memory entry without a title line", MemoryEntry, splitMemoryEntry("Tag, then deploy."), /title/u],
   ])("%s", (_name, schema, value, expected) => {
     expect(messages(schema, value).join("\n")).toMatch(expected);
@@ -124,5 +123,43 @@ describe("step templates", () => {
     expect(parseWhen("steps.a.result.x > 3")).toBeUndefined();
     expect(parseWhen("steps.a.result.x == billing")).toBeUndefined();
     expect(parseWhen("steps.a.result.x")).toBeUndefined();
+  });
+});
+
+describe("plugin.json, the manifest of a pack (docs/model.md, Packs)", () => {
+  const ns = "io.github.talelk.brain";
+  const manifest = (more: object = {}) => JSON.stringify({ $schema: PACK_SCHEMA, name: "support", ...more });
+
+  it("is read: the format's fields, and Brain's own under its namespace", () => {
+    expect(readPackManifest(manifest())).toEqual({ pack: { name: "support", description: "", version: 0, requires: [], translations: undefined }, problems: [], ignored: [] });
+    expect(readPackManifest(manifest({ description: "Support.", version: "3.0.0", license: "MIT", extensions: { [ns]: { requires: ["base@2"] } } })).pack).toMatchObject({ description: "Support.", version: 3, requires: ["base@2"] });
+    // Another publisher's version names no release of Brain.
+    expect(readPackManifest(manifest({ version: "nightly" })).pack?.version).toBe(0);
+  });
+
+  it("ignores what it does not know, another client's entry whatever it holds, and says which fields those were", () => {
+    expect(readPackManifest(manifest({ colour: "blue", extensions: { "com.example.other": { anything: 1 }, "org.example.odd": 7 } }))).toMatchObject({ pack: { name: "support" }, problems: [], ignored: ["colour"] });
+    expect(readPackManifest(manifest({ extensions: "none" }))).toMatchObject({ pack: { requires: [] }, ignored: ["extensions"] });
+  });
+
+  it.each<[string, string, RegExp]>([
+    ["text that is not JSON", "name = 'support'", /not a JSON object/u],
+    ["no schema", JSON.stringify({ name: "support" }), /\$schema/u],
+    ["a schema of another version", JSON.stringify({ $schema: PACK_SCHEMA.replace("1.0.0", "2.0.0"), name: "support" }), /\$schema/u],
+    ["a name the format refuses", manifest({ name: "two--dashes" }), /name: a pack name/u],
+    ["a field of the wrong type", manifest({ keywords: "support" }), /keywords/u],
+    ["an unknown key in Brain's entry", manifest({ extensions: { [ns]: { require: ["base"] } } }), /extensions\.io\.github\.talelk\.brain: Unrecognized key/u],
+  ])("is refused for %s", (_name, source, expected) => {
+    const read = readPackManifest(source);
+    expect(read.pack).toBeUndefined();
+    expect(read.problems.join("\n")).toMatch(expected);
+  });
+
+  it("is written again the same way, keeping what others said in it", () => {
+    const source = manifest({ colour: "blue", extensions: { "com.example.other": { a: 1 }, [ns]: { requires: ["base"] } } });
+    const released = writePackManifest(source, { version: 2, requires: ["base@1"] });
+    expect(JSON.parse(released)).toEqual({ $schema: PACK_SCHEMA, name: "support", version: "2.0.0", colour: "blue", extensions: { "com.example.other": { a: 1 }, [ns]: { requires: ["base@1"] } } });
+    expect(Object.keys(JSON.parse(released) as object)).toEqual(["$schema", "name", "version", "extensions", "colour"]);
+    expect(writePackManifest(released, { version: 0 })).toBe(writePackManifest(source, { requires: ["base@1"] }));
   });
 });

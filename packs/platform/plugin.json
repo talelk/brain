@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "platform",
+  "description": "For the platform workspace only: read-only tools that look across every workspace, the capitalizer, which turns work that keeps repeating into tools and lessons, and the syncer, which brings home what workspaces improved; both propose changes to the platform workspace's own pack sources.",
+  "extensions": {
+    "io.github.talelk.brain": {
+      "requires": [
+        "base"
+      ],
+      "translations": {
+        "fr": {
+          "description": "Pour l'espace de travail de plateforme uniquement : des outils en lecture seule qui regardent tous les espaces de travail, le capitaliseur, qui transforme le travail qui se répète en outils et en leçons, et le synchroniseur, qui rapatrie ce que les espaces de travail ont amélioré ; tous deux proposent des modifications aux sources de packs de l'espace de plateforme lui-même."
+        },
+        "ar": {
+          "description": "لمساحة عمل المنصّة وحدها: أدوات للقراءة فقط تطّلع على كل مساحات العمل، والمُرسِّخ (capitalizer) الذي يحوّل العمل المتكرر إلى أدوات ودروس، والمُزامِن (syncer) الذي يستعيد ما حسّنته مساحات العمل؛ وكلاهما يقترح تعديلات على مصادر حزم مساحة المنصّة نفسها."
+        }
+      }
+    }
+  }
+}

@@ -171,11 +171,11 @@ describe("the capitalizer's proposals", () => {
   });
 
   it("land only in the admin workspace's pack sources, each approved by an admin of it, and no other workspace is written", async () => {
-    const worker = (await harness.admin.query("file.read", { workspaceId: platformId, path: "packs/base/agents/worker/agent.toml" })).content;
+    const worker = (await harness.admin.query("file.read", { workspaceId: platformId, path: "packs/base/io.github.talelk.brain/agents/worker/agent.toml" })).content;
     const tool = (name: string): JsonValue[] => [
-      { path: `packs/base/tools/${name}/tool.toml`, content: `description = "Lints the repository and reports the style problems."\neffect = "read"\nneeds = ["bash"]\n[inputs.path]\ntype = "string"\nrequired = false\n` },
-      { path: `packs/base/tools/${name}/run.sh`, content: "#!/bin/sh\ncat >/dev/null\necho '{\"ok\": true}'\n" }, { path: `packs/base/tools/${name}/test.sh`, content: `#!/bin/sh\necho "${name}: ok"\n` },
-      { path: "packs/base/agents/worker/agent.toml", content: worker.replace(/tools = \[/u, `tools = ["${name}", `) },
+      { path: `packs/base/io.github.talelk.brain/tools/${name}/tool.toml`, content: `description = "Lints the repository and reports the style problems."\neffect = "read"\nneeds = ["bash"]\n[inputs.path]\ntype = "string"\nrequired = false\n` },
+      { path: `packs/base/io.github.talelk.brain/tools/${name}/run.sh`, content: "#!/bin/sh\ncat >/dev/null\necho '{\"ok\": true}'\n" }, { path: `packs/base/io.github.talelk.brain/tools/${name}/test.sh`, content: `#!/bin/sh\necho "${name}: ok"\n` },
+      { path: "packs/base/io.github.talelk.brain/agents/worker/agent.toml", content: worker.replace(/tools = \[/u, `tools = ["${name}", `) },
     ];
     const proposals: Array<{ state: string; error?: string }> = [];
     driver.script({
@@ -185,10 +185,10 @@ describe("the capitalizer's proposals", () => {
         const send = async (input: JsonValue) => { const answer = await turn.brain("workspace.fix", input); proposals.push(answer as { state: string }); return answer; };
         await send({ files: tool("style.lint"), message: "Add the style.lint tool", why: "dev ran lint.run four times in alpha and beta." });
         // Refused at once: another workspace, a file outside packs/, the platform setting, a heal's task input.
-        await send({ workspace: "alpha", files: [{ path: "packs/base/memory/x.md", content: "# X\n" }], message: "x", why: "x" });
+        await send({ workspace: "alpha", files: [{ path: "packs/base/io.github.talelk.brain/memory/x.md", content: "# X\n" }], message: "x", why: "x" });
         await send({ files: [{ path: "tools/style.lint/tool.toml", content: lint }], message: "x", why: "x" });
         await send({ files: [{ path: "brain.toml", content: 'name = "Brain admin"\npackages = []\n' }], message: "x", why: "x" });
-        await send({ task: "t_x", files: [{ path: "packs/base/memory/x.md", content: "# X\n" }], message: "x", why: "x" });
+        await send({ task: "t_x", files: [{ path: "packs/base/io.github.talelk.brain/memory/x.md", content: "# X\n" }], message: "x", why: "x" });
         return { outcome: "held", result: "I proposed a change and stopped." };
       },
     });
@@ -206,10 +206,10 @@ describe("the capitalizer's proposals", () => {
     const alphaBefore = (await alpha.admin.query("workspace.get", { workspaceId: alpha.workspaceId })).snapshotDigest;
     await decide(harness.admin, platformId, pending[0] as Approval, "approve");
     await driver.drain();
-    expect((await harness.admin.query("file.read", { workspaceId: platformId, path: "packs/base/tools/style.lint/test.sh" })).content).toContain("style.lint: ok");
-    expect((await harness.admin.query("file.read", { workspaceId: platformId, path: "packs/base/tools/style.lint/test.sh" })).lastCommit?.message).toContain("Add the style.lint tool");
+    expect((await harness.admin.query("file.read", { workspaceId: platformId, path: "packs/base/io.github.talelk.brain/tools/style.lint/test.sh" })).content).toContain("style.lint: ok");
+    expect((await harness.admin.query("file.read", { workspaceId: platformId, path: "packs/base/io.github.talelk.brain/tools/style.lint/test.sh" })).lastCommit?.message).toContain("Add the style.lint tool");
     expect((await alpha.admin.query("workspace.get", { workspaceId: alpha.workspaceId })).snapshotDigest).toBe(alphaBefore);
-    expect(events("workspace.changed", alpha.workspaceId).at(-1)?.payload["paths"]).not.toContain("packs/base/tools/style.lint/run.sh");
+    expect(events("workspace.changed", alpha.workspaceId).at(-1)?.payload["paths"]).not.toContain("packs/base/io.github.talelk.brain/tools/style.lint/run.sh");
   });
 });
 
@@ -242,14 +242,14 @@ describe("releases and pins", () => {
 
     // The platform edits its copy and releases again: the pinned workspace keeps what it pinned until its admin updates.
     const before = (await alpha.admin.query("file.read", { workspaceId: alpha.workspaceId, path: "agents/planner/prompt.md" })).content;
-    await harness.admin.command("file.write", { workspaceId: platformId, files: [{ path: "packs/base/agents/planner/prompt.md", content: `${before}\nAlways answer in French.\n` }] });
+    await harness.admin.command("file.write", { workspaceId: platformId, files: [{ path: "packs/base/io.github.talelk.brain/agents/planner/prompt.md", content: `${before}\nAlways answer in French.\n` }] });
     expect((await harness.admin.query("packs.list", {})).packs.find((pack) => pack.name === "base")?.working).toEqual({ changed: true });
     expect((await alpha.admin.query("file.read", { workspaceId: alpha.workspaceId, path: "agents/planner/prompt.md" })).content).toBe(before);
     expect(await harness.admin.command("pack.release", { workspaceId: platformId, name: "base" })).toEqual({ version: 2 });
     expect((await alpha.admin.query("file.read", { workspaceId: alpha.workspaceId, path: "agents/planner/prompt.md" })).content).toBe(before);
     expect((await packs(alpha.admin, alpha.workspaceId)).updates).toEqual([{ pack: "base", pinned: 1, latest: 2 }]);
     // Its admin reads the difference, then the update commits the new pin; the first release is still readable as it was.
-    const files = async (version: number) => (await alpha.admin.query("pack.files", { workspaceId: alpha.workspaceId, name: "base", version })).files.find((file) => file.path === "agents/planner/prompt.md")?.content;
+    const files = async (version: number) => (await alpha.admin.query("pack.files", { workspaceId: alpha.workspaceId, name: "base", version })).files.find((file) => file.path === "io.github.talelk.brain/agents/planner/prompt.md")?.content;
     expect(await files(1)).toBe(before);
     expect(await files(2)).toContain("Always answer in French.");
     await expect(alpha.admin.query("pack.files", { workspaceId: alpha.workspaceId, name: "base", version: "working" })).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -303,7 +303,7 @@ describe("a read platform workspace", () => {
     await expect(harness.admin.command("pack.release", { workspaceId: readerId, name: "base" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(harness.admin.query("pack.files", { workspaceId: readerId, name: "base", version: "working" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect((await harness.admin.query("workspace.files", { workspaceId: readerId })).files.some((file) => file.path.startsWith("packs/"))).toBe(false);
-    await harness.admin.command("file.write", { workspaceId: readerId, files: [{ path: "packs/base/tools/sneaky/tool.toml", content: 'description = "Sneaky."\neffect = "read"\n' }] });
+    await harness.admin.command("file.write", { workspaceId: readerId, files: [{ path: "packs/base/io.github.talelk.brain/tools/sneaky/tool.toml", content: 'description = "Sneaky."\neffect = "read"\n' }] });
     expect(Object.keys((await harness.admin.query("workspace.get", { workspaceId: readerId })).snapshot.tools)).not.toContain("sneaky");
     expect((await harness.admin.query("packs.list", {})).packs.find((pack) => pack.name === "base")?.working).toEqual({ changed: false });
   });
@@ -323,7 +323,7 @@ describe("update all workspaces", () => {
   });
 
   it("releases nothing that leaves the shape of a pack, and says what", async () => {
-    const path = "packs/base/agents/worker/agent.toml";
+    const path = "packs/base/io.github.talelk.brain/agents/worker/agent.toml";
     const before = (await harness.admin.query("file.read", { workspaceId: platformId, path })).content;
     await harness.admin.command("file.write", { workspaceId: platformId, files: [{ path, content: before.replace(/spend_usd = [0-9.]+/u, "spend_usd = 90") }] });
     await expect(harness.admin.command("pack.release", { workspaceId: platformId, name: "base" })).rejects.toMatchObject({ code: "INVALID_WORKSPACE", problems: [expect.objectContaining({ path, message: expect.stringContaining("spend limit") as string })] });

@@ -1,3 +1,0 @@
-name = "core"
-description = "A worker, a checker and two tools, for tests."
-requires = []

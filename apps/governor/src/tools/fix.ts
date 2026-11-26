@@ -1,4 +1,4 @@
-import { canonicalJsonBytes, MAX_FILE_BYTES, pathProblem, type Digest, type JsonSchema, type JsonValue, type SnapshotManifest } from "@brain/contracts";
+import { packContents, canonicalJsonBytes, MAX_FILE_BYTES, pathProblem, type Digest, type JsonSchema, type JsonValue, type SnapshotManifest } from "@brain/contracts";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Gov } from "../dispatch";
@@ -49,7 +49,8 @@ export function currentText(gov: Gov, slug: string, manifest: SnapshotManifest, 
   const own = join(workspaceDir(gov, slug), path);
   if (existsSync(own)) return text(new Uint8Array(readFileSync(own)));
   for (const pack of [...manifest.packs].reverse()) {
-    const found = readPack(gov.packsDir, pack, manifest.pins?.[pack], releasedDirOf(gov.dataDir))?.get(path);
+    const held = readPack(gov.packsDir, pack, manifest.pins?.[pack], releasedDirOf(gov.dataDir));
+    const found = held && packContents(held).files.get(path);
     if (found) return text(found);
   }
   return undefined;

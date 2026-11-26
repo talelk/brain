@@ -1,4 +1,4 @@
-import type { JsonValue, SnapshotManifest } from "@brain/contracts";
+import { packPath, type JsonValue, type SnapshotManifest } from "@brain/contracts";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Gov } from "../dispatch";
@@ -33,7 +33,7 @@ export function driftOf(gov: Gov, platform: PlatformWorkspace): { readonly entri
   /** The platform's copy of a path: the first pack that has it. */
   const inPacks = (path: string): { pack: string; text: string } | undefined => {
     for (const pack of packs) {
-      const text = textOf(join(platformDir, "packs", pack, path));
+      const text = textOf(join(platformDir, "packs", pack, packPath(path)));
       if (text !== undefined) return { pack, text };
     }
     return undefined;

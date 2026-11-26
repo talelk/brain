@@ -1,9 +1,0 @@
-name = "security"
-description = "Known vulnerabilities in a project's dependencies, from finding to fix: an analyst looks each package up in the OSV database, a remediator changes the code and opens the pull request, and an evidence reviewer checks that every finding is proven and that the fix closes it. It complements software-factory's security-reviewer, which judges a single change. A weekly Play scans every project."
-requires = ["base"]
-
-[translations.fr]
-description = "Les vulnérabilités connues des dépendances d'un projet, du constat au correctif : un analyste cherche chaque paquet dans la base OSV, un correcteur modifie le code et ouvre la pull request, et un relecteur de preuves vérifie que chaque constat est démontré et que le correctif le ferme. Il complète le security-reviewer de software-factory, qui juge un seul changement. Un Play hebdomadaire analyse chaque projet."
-
-[translations.ar]
-description = "الثغرات المعروفة في اعتماديات المشروع، من الرصد حتى الإصلاح: يبحث المحلل عن كل حزمة في قاعدة OSV، ويعدّل المصحِّح الشيفرة ويفتح الـ pull request، ويتحقق مراجع الأدلة من أن كل ملاحظة مثبتة وأن الإصلاح يغلقها. وهو يكمّل security-reviewer في software-factory الذي يحكم على تغيير واحد. ويفحص Play أسبوعي كل مشروع."

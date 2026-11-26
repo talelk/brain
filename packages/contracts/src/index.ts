@@ -6,6 +6,7 @@ export * from "./git-auth";
 export * from "./env";
 export * from "./runner-schemas";
 export * from "./files";
+export * from "./plugin";
 export * from "./api";
 export * from "./protocol";
 export * from "./ports";

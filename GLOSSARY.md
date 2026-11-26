@@ -61,7 +61,7 @@ _Avoid_: super workspace, root workspace
 that workspace's agents.
 _Avoid_: knowledge base, context, scope
 
-**Pack**: A reusable bundle of agents, tools, Plays and memory that a workspace lists.
+**Pack**: A reusable bundle of agents, tools, Plays, memory and skills that a workspace lists, kept as an Agent Plugins folder.
 _Avoid_: template, starter kit, release
 
 **Task**: A goal and its result. A task can have sub-tasks; the top one is the goal a

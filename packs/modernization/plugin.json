@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "modernization",
+  "description": "Migrating, refactoring and upgrading code without changing what it does: an analyst inventories the modules and orders them by risk, a migrator changes one module at a time and runs the tests before and after, a parity reviewer checks that behaviour is unchanged, and a person signs off the pull request.",
+  "extensions": {
+    "io.github.talelk.brain": {
+      "requires": [
+        "base"
+      ],
+      "translations": {
+        "fr": {
+          "description": "Migrer, refactorer et mettre à niveau du code sans changer ce qu'il fait : un analyste inventorie les modules et les ordonne par risque, un migrateur change un module à la fois et exécute les tests avant et après, un relecteur de parité vérifie que le comportement est inchangé, et une personne approuve la pull request."
+        },
+        "ar": {
+          "description": "ترحيل الشيفرة وإعادة هيكلتها وترقيتها دون تغيير ما تفعله: يجرد المحلل الوحدات ويرتبها حسب المخاطر، ويغيّر المُرحِّل وحدة واحدة في كل مرة ويشغّل الاختبارات قبل التغيير وبعده، ويتحقق مراجع التكافؤ من أن السلوك لم يتغير، ويوافق شخص على الـ pull request."
+        }
+      }
+    }
+  }
+}

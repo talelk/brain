@@ -1,9 +1,0 @@
-name = "data-engineering"
-description = "Working on data projects (dbt, SQL, DuckDB, BI models, ETL such as SSIS or Talend): an analyst derives source-to-target lineage by reading the code, a reviewer criticises dbt changes, and a checker writes and runs data quality checks and reports with evidence."
-requires = ["base"]
-
-[translations.fr]
-description = "Travailler sur des projets de données (dbt, SQL, DuckDB, modèles BI, ETL comme SSIS ou Talend) : un analyste déduit le lignage source-cible en lisant le code, un relecteur critique les changements dbt, et un contrôleur écrit et exécute des contrôles de qualité des données et rend compte avec des preuves."
-
-[translations.ar]
-description = "العمل على مشاريع البيانات (dbt وSQL وDuckDB ونماذج BI وأدوات ETL مثل SSIS أو Talend): يستنتج المحلل نسب البيانات من المصدر إلى الهدف بقراءة الشيفرة، ويراجع المراجع تغييرات dbt نقديًا، ويكتب المدقق فحوص جودة البيانات وينفذها ويقدّم تقريرًا مدعومًا بالأدلة."

@@ -374,6 +374,26 @@ upload is limited to 5 MB per file and 20 MB in all.
 
 ### Packs
 
+A pack is an [Agent Plugins 1.0](https://agent-plugins.org/specification) folder, so the
+format's other clients can read it too:
+
+```
+support/
+  plugin.json
+  skills/refund-rules/SKILL.md
+  io.github.talelk.brain/
+    agents/  tools/  plays/  memory/
+```
+
+`plugin.json` names the pack (`name`, `description`, and in a release its `version`, `N.0.0`
+for release N). What only Brain needs is its entry `extensions."io.github.talelk.brain"`: `requires`, the
+packs it builds on, and `translations`. Skills stand where the format puts them; agents,
+tools, Plays and memory stand in Brain's directory, and a workspace holds the same files
+without it. Other clients get a pack's skills and nothing of Brain's: the format has no
+agents or Plays. Brain leaves other clients' entries and directories, and `mcp.json`, as they
+are and reads none of them; a field the format does not know is ignored and said by
+`brain check`; an agent, tool, Play or memory entry outside Brain's directory is refused.
+
 A pack keeps one written shape (`packs/README.md`), which is checked wherever a pack is
 accepted: by the repository's tests, when a pack is released and by
 `pnpm brain check <folder>`, which also loads a workspace or pack folder as Brain would and
@@ -677,7 +697,7 @@ Its agents **read everything and change only their own workspace**:
 
 The packs shipped with Brain are the baseline. The admin workspace holds an editable copy
 of each under `packs/<name>/` (same layout as a pack; made from the shipped ones in the
-commit that makes a workspace the admin workspace), and `pack.toml` there has a `version`,
+commit that makes a workspace the admin workspace), and `plugin.json` there has a `version`,
 the last release (absent: none). An admin of the admin workspace edits those files like any
 others (Files, the forms, a proposal approved) and **releases** a pack: its version goes up
 by one, the content of that commit is frozen as version N (git tag `<name>@N`; it never changes),
@@ -693,7 +713,7 @@ Nothing uses it until it is released like any other pack; where it came from is 
 log. Sharing a pack is pushing the admin workspace's folder to its `[git] remote`. A pack
 moves only between Brains that read the same format: another is refused, not adapted.
 
-A release names the release of each pack it requires (`requires = ["base@2"]`), so what it holds
+A release names the release of each pack it requires (`"requires": ["base@2"]`), so what it holds
 does not move under it. A workspace's own pin of a pack wins over what a release names.
 A pack Brain does not ship is used by one of its releases only.
 

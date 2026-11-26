@@ -3,7 +3,7 @@ import { unwrap } from "solid-js/store";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Select, toast } from "@talelk/newui-molecules";
 import type { PackImport, PackInfo, PackUpdate, SnapshotManifest } from "@brain/contracts";
-import { withPins } from "@brain/contracts/packs";
+import { packPath, withPins } from "@brain/contracts/packs";
 import { command, query, useAction, useLive, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
 import { t } from "../i18n";
@@ -167,7 +167,7 @@ function KeptCopies(props: { update: PackUpdate }): JSX.Element {
     ]);
     const was = new Map(before.files.map((file) => [file.path, file.content]));
     const now = new Map(after.files.map((file) => [file.path, file.content]));
-    return own.files.filter((file) => file.source === "workspace" && file.replaces === props.update.pack && was.get(file.path) !== now.get(file.path)).map((file) => file.path);
+    return own.files.filter((file) => file.source === "workspace" && file.replaces === props.update.pack && was.get(packPath(file.path)) !== now.get(packPath(file.path))).map((file) => file.path);
   });
   return (
     <Show when={(kept.data()?.length ?? 0) > 0}>

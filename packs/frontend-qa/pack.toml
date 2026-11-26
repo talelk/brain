@@ -1,9 +1,0 @@
-name = "frontend-qa"
-description = "Checking a web app the way a first-time user meets it: a walkthrough agent that drives a real browser through every screen it is told to visit and records each issue with steps and evidence, a visual reviewer for layout, accessibility and language (French, Arabic, right to left), and Plays that run after a change or on a schedule."
-requires = ["base"]
-
-[translations.fr]
-description = "Vérifier une application web comme une personne qui la découvre : un agent de parcours qui pilote un vrai navigateur à travers chaque écran à visiter et consigne chaque problème avec ses étapes et ses preuves, un relecteur visuel pour la mise en page, l'accessibilité et la langue (français, arabe, de droite à gauche), et des Plays lancés après un changement ou selon un horaire."
-
-[translations.ar]
-description = "فحص تطبيق ويب كما يلقاه مستخدم للمرة الأولى: وكيل جولة يقود متصفحًا حقيقيًا عبر كل شاشة طُلب منه زيارتها ويدوّن كل مشكلة بخطواتها وأدلتها، ومراجع بصري للتخطيط وإمكانية الوصول واللغة (الفرنسية والعربية والاتجاه من اليمين إلى اليسار)، وPlays تعمل بعد تغيير أو وفق جدول."

@@ -1,5 +1,5 @@
 import {
-  AgentFile, BRAIN_TOOLS, BrainFile, fieldSchema, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PackFile, parseRef, parseWhen, PLATFORM_PACK, PlayFile, splitPackRef, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
+  AgentFile, BRAIN_TOOLS, BrainFile, fieldSchema, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PACK_MANIFEST, packContents, packPath, readPackManifest, parseRef, parseWhen, PLATFORM_PACK, PlayFile, splitPackRef, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
   type Digest, type JsonSchema, type Language, type Problem, type Ref, type SnapshotManifest, type StepSpec,
 } from "@brain/contracts";
 import { parse as parseToml } from "smol-toml";
@@ -76,8 +76,8 @@ function resolvePacks(refs: readonly string[], packsDir: string, releasedDir: st
       const look = (name: string): void => {
         if (seen.has(name)) return;
         seen.add(name);
-        const packFile = readPack(packsDir, name, found[name] ?? 0, releasedDir)?.get("pack.toml");
-        const pack = packFile ? readToml(PackFile, packFile, `packs/${name}/pack.toml`, []) : undefined;
+        const manifest = readPack(packsDir, name, found[name] ?? 0, releasedDir)?.get(PACK_MANIFEST);
+        const pack = manifest ? readPackManifest(text(manifest)).pack : undefined;
         for (const required of pack?.requires ?? []) {
           const { name: needed, pin } = splitPackRef(required);
           if (pins[needed] === undefined && pin > (found[needed] ?? 0)) { found[needed] = pin; changed = true; }
@@ -100,14 +100,15 @@ function resolvePacks(refs: readonly string[], packsDir: string, releasedDir: st
       return;
     }
     const files = readPack(packsDir, name, inUse[name] ?? 0, releasedDir);
-    const packFile = files?.get("pack.toml");
-    if (!files || !packFile) {
+    const manifest = files?.get(PACK_MANIFEST);
+    if (!files || !manifest) {
       problems.push({ path: namedIn, message: inUse[name] ? `pack "${name}@${inUse[name]}" is not a release of this Brain` : `pack "${name}" does not exist` });
       return;
     }
     state.set(name, "visiting");
-    const path = `packs/${name}/pack.toml`;
-    const pack = readToml(PackFile, packFile, path, problems);
+    const path = `packs/${name}/${PACK_MANIFEST}`;
+    const { pack, problems: wrong } = readPackManifest(text(manifest));
+    for (const message of wrong) problems.push({ path, message });
     if (pack && pack.name !== name) problems.push({ path, message: `name is "${pack.name}" but the pack folder is "${name}"` });
     const needs = (pack?.requires ?? []).map((required) => splitPackRef(required).name);
     for (const required of needs) visit(required, path);
@@ -211,12 +212,15 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
   const brain = brainBytes ? readToml(BrainFile, brainBytes, "brain.toml", problems) : undefined;
 
   const { order: packs, pins } = resolvePacks(brain?.packs ?? [], packsDir, releasedDir, problems);
-  for (const pack of packs) for (const [path, bytes] of pack.files) {
-    if (path === "pack.toml") continue;
-    // A pack's file replaces that of a pack it requires; of two packs neither of which requires the other, none could be said to win.
-    const other = files.get(path)?.source;
-    if (other !== undefined && !pack.below.has(other)) problems.push({ path: "brain.toml", message: `the packs ${other} and ${pack.name} both have the file ${path}, and neither requires the other: a workspace cannot use both` });
-    files.set(path, { bytes, source: pack.name });
+  for (const pack of packs) {
+    const held = packContents(pack.files);
+    for (const { path, message } of held.misplaced) problems.push({ path: `packs/${pack.name}/${path}`, message });
+    for (const [path, bytes] of held.files) {
+      // A pack's file replaces that of a pack it requires; of two packs neither of which requires the other, none could be said to win.
+      const other = files.get(path)?.source;
+      if (other !== undefined && !pack.below.has(other)) problems.push({ path: "brain.toml", message: `the packs ${other} and ${pack.name} both have the file ${path}, and neither requires the other: a workspace cannot use both` });
+      files.set(path, { bytes, source: pack.name });
+    }
   }
   for (const [path, bytes] of workspace) {
     const replaced = files.get(path)?.source;
@@ -226,7 +230,7 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
   /** The path a person finds the file at. */
   const shown = (path: string): string => {
     const source = files.get(path)?.source ?? "workspace";
-    return source === "workspace" ? path : `packs/${source}/${path}`;
+    return source === "workspace" ? path : `packs/${source}/${packPath(path)}`;
   };
 
   const agentNames = new Set<string>();

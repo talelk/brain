@@ -1,9 +1,0 @@
-name = "sre"
-description = "Keeping a host's containers healthy: read-only host tools, a restart and a redeploy that a person approves, an operator, an incident analyst and an evaluator, with Plays for scheduled health checks, incident triage and a weekly report."
-requires = ["base"]
-
-[translations.fr]
-description = "Maintien en bonne santé des conteneurs d'un hôte : outils d'hôte en lecture seule, un redémarrage et un redéploiement qu'une personne approuve, un opérateur, un analyste d'incident et un évaluateur, avec des Plays pour les vérifications de santé planifiées, le tri des incidents et un rapport hebdomadaire."
-
-[translations.ar]
-description = "الحفاظ على سلامة حاويات جهاز مضيف: أدوات قراءة فقط للجهاز المضيف، وإعادة تشغيل وإعادة نشر يوافق عليهما شخص، ومشغّل ومحلّل حوادث ومقيِّم، مع Plays لفحوص السلامة المجدولة وفرز الحوادث وتقرير أسبوعي."

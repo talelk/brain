@@ -73,7 +73,7 @@ describe("a folder is refused, with the file and what to fix, when", () => {
     ["an agent has a prompt and no agent.toml", { "brain.toml": brain, "agents/writer/prompt.md": "x" }, /^agents\/writer\/prompt\.md: agent "writer" has no agent\.toml/u],
     ["a tool has no run.sh", { "brain.toml": brain, "tools/deploy.restart/tool.toml": 'description = "x"\neffect = "privileged"\n' }, /^tools\/deploy\.restart\/tool\.toml: the tool needs a run\.sh/u],
     ["a tool Brain does not implement says runs = brain", { "brain.toml": brain, "tools/deploy.restart/tool.toml": 'description = "x"\neffect = "read"\nruns = "brain"\n' }, /runs = "brain" is only for the tools Brain implements/u],
-    ["a tool Brain runs has a run.sh", { "brain.toml": brain, "tools/task.note/run.sh": "echo" }, /^packs\/core\/tools\/task\.note\/tool\.toml: a tool Brain runs has no run\.sh/u],
+    ["a tool Brain runs has a run.sh", { "brain.toml": brain, "tools/task.note/run.sh": "echo" }, /^packs\/core\/io\.github\.talelk\.brain\/tools\/task\.note\/tool\.toml: a tool Brain runs has no run\.sh/u],
     ["a script has no tool.toml", { "brain.toml": brain, "tools/deploy.restart/run.sh": "echo" }, /tool "deploy\.restart" has no tool\.toml/u],
     ["a standing approval names a tool that does not exist", { "brain.toml": `${brain}[approvals."deploy.restart"]\ntargets = ["a"]\nper_day = 1\nuntil = 2027-01-31\n` }, /approvals names tool "deploy\.restart"/u],
     ["two models share a name", { "brain.toml": `${brain}${'[[model]]\nname = "main"\nprovider = "anthropic"\nurl = "https://m.example"\nmodel = "m"\n'.repeat(2)}` }, /two models are named "main"/u],

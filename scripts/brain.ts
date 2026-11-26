@@ -317,6 +317,7 @@ async function main(): Promise<void> {
     const result = await checkFolder(resolve(argument), join(ROOT, "packs"));
     for (const problem of result.problems) say(`${problem.path}: ${problem.message}`);
     for (const proof of result.proofs) say(proof.ok ? proof.said : [`${proof.tool}: ${proof.said}`, ...proof.problems.map((problem) => `  ${problem}`)].join("\n"));
+    for (const note of result.notes) say(note);
     const wrong = result.problems.length + result.proofs.filter((proof) => !proof.ok).length;
     say(wrong === 0 ? `The ${result.kind} is in order: ${result.proofs.length} tool proofs passed.` : `The ${result.kind} has ${wrong} thing${wrong === 1 ? "" : "s"} to fix.`);
     process.exitCode = wrong === 0 ? 0 : 1;

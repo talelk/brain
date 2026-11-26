@@ -109,7 +109,7 @@ describe("the files of a workspace", () => {
     expect(row("agents/reviewer/prompt.md")?.lastCommit).toBeUndefined();
     expect(row("tools/echo/run.sh")).toMatchObject({ source: "core" });
     expect(row("brain.toml")).toMatchObject({ source: "workspace", lastCommit: { message: "Create the workspace" } });
-    expect(row("pack.toml")).toBeUndefined();
+    expect(row("plugin.json")).toBeUndefined();
     expect(files.filter((file) => file.path === "agents/worker/prompt.md")).toHaveLength(1);
     // Reading one file does not depend on the rest: a pack file, then a folder file over a pack file.
     expect(await harness.admin.query("file.read", { workspaceId: id, path: "tools/echo/run.sh" })).toMatchObject({ source: "core", binary: false });

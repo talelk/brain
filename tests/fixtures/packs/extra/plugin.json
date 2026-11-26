@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "extra",
+  "description": "A reviewer and a reviewed Play, on top of core.",
+  "extensions": {
+    "io.github.talelk.brain": {
+      "requires": [
+        "core"
+      ]
+    }
+  }
+}
