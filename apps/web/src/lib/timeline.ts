@@ -83,6 +83,9 @@ export function criticalPath(nodes: readonly Node[]): Set<string> {
   return path;
 }
 
+/** The room left beside a goal that took `span`: half of it before, all of it after. */
+const padding = (span: number): number => Math.max(1000, span * 0.02);
+
 const BEFORE_PERSON = new Set(["sign-off", "check", "judge", "confirm-plan"]);
 const RUNNING = new Set<AttemptState>(["queued", "offered", "running"]);
 
@@ -94,9 +97,11 @@ export function buildTimeline(record: Task, now: number): Timeline {
   let start = Infinity;
   let end = -Infinity;
   const span = (at: number): void => { start = Math.min(start, at); end = Math.max(end, at); };
-  // About a twelfth of the whole is the least an attempt is given room for: on a phone a bar is at least that wide, and two bars must not lie on one another.
+  // About a twelfth of what is in view is the least an attempt is given room for: on a phone a bar is at least that wide, and two bars must not
+  // lie on one another. The view holds the padding too, which is most of it for a goal that took less than a second.
   const times = record.attempts.flatMap((attempt) => [attempt.createdAt, attempt.finishedAt ?? (RUNNING.has(attempt.state) || attempt.state === "held" ? now : attempt.createdAt)]);
-  const least = (Math.max(...times) - Math.min(...times)) / 12;
+  const taken = times.length > 0 ? Math.max(...times) - Math.min(...times) : 0;
+  const least = (taken + 1.5 * padding(taken)) / 12;
   for (const task of tasks) {
     const mine = attemptsOf(task.id);
     const bars = mine.map((attempt) => {
@@ -139,7 +144,7 @@ export function buildTimeline(record: Task, now: number): Timeline {
   const ended = new Map(rows.map(({ row, end: over }) => [row.taskId, over]));
   const critical = criticalPath(record.subtasks.map((sub) => ({ id: sub.id, parentId: sub.parentId === record.id ? null : sub.parentId, waitsFor: sub.waitsFor, end: ended.get(sub.id) ?? null })));
   if (!Number.isFinite(start)) { start = now - 60_000; end = now; }
-  const pad = Math.max(1000, (end - start) * 0.02);
+  const pad = padding(end - start);
   return { start: start - pad / 2, end: end + pad, groups, critical, notStarted };
 }
 

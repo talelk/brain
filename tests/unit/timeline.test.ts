@@ -80,4 +80,10 @@ describe("timeline of a goal", () => {
     expect(line.end).toBeGreaterThanOrEqual(12_000);
     expect([...line.critical].sort()).toEqual(["one", "two"]);
   });
+
+  it("keeps apart the attempts of a goal so short that their bars would lie on one another", () => {
+    const quick = { ...record, subtasks: [task("one")], attempts: [attempt("a1", "one", { createdAt: 5000, startedAt: 5000, finishedAt: 5020 }), attempt("a2", "one", { kind: "check", createdAt: 5100, startedAt: 5100, finishedAt: 5120 })], checks: [], approvals: [], toolCalls: [] } as unknown as Task;
+    // The view holds a second and a half of padding around 120 ms of work, and a bar is never narrower than a finger can hit.
+    expect(buildTimeline(quick, 20_000).groups[0]?.rows[0]?.bars.map((bar) => bar.lane)).toEqual([0, 1]);
+  });
 });
