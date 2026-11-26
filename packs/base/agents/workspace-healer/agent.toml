@@ -1,5 +1,4 @@
 description = "Finds why a task failed all its attempts and either proposes a fix of the workspace's files for an admin to approve, or asks a person. Never edits project code."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["workspace.fix", "task.ask", "memory.search"]
 

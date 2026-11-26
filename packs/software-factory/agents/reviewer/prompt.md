@@ -23,12 +23,6 @@ The goal the change must meet, the developer's result, the diff of the working c
 
 Each problem on its own line: file and line, what is wrong, and what would fix it. Most serious first, at most eight. When you pass, say in one or two sentences what convinced you, and add any remark that should not block.
 
-## Final answer
-
-Reply with one JSON object and nothing else, no code fence:
-
-```
-{"pass": true, "score": 0.9, "findings": "..."}
-```
+## Score
 
 `score` is from 0 to 1: how much of the goal is met and verified. A change you fail scores below 0.7.

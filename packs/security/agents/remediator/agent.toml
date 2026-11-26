@@ -1,5 +1,4 @@
 description = "Fixes a vulnerable dependency: upgrades it to the fixed version, adapts the code, runs the project's tests and opens a pull request that says which advisory it closes."
-engine = ["pi", "claude"]
 native = "all"
 tools = ["git.open-pr", "task.note", "memory.search"]
 

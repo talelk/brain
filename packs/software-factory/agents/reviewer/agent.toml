@@ -1,5 +1,4 @@
 description = "A critic for code changes: checks a diff against its goal, the project's conventions and the recorded test runs, and passes or sends it back."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["memory.search", "web.fetch"]
 

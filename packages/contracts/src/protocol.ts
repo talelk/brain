@@ -66,6 +66,8 @@ export interface OfferTool {
   readonly description: string;
   readonly effect: Effect;
   readonly inputSchema: JsonSchema;
+  /** What a script's result must fit; absent when the tool declares no outputs. */
+  readonly outputSchema?: JsonSchema;
   /** `run.sh` and the files beside it, fetched from `blobs/:digest`. Empty for a Brain-run or host-command tool. */
   readonly files: ReadonlyArray<OfferFile>;
   readonly network: ReadonlyArray<string>;
@@ -101,7 +103,8 @@ export interface JobOffer {
   readonly kind: AttemptKind;
   readonly workspaceId: string;
   readonly offerExpiresAt: number;
-  readonly task: { readonly id: string; readonly title: string; readonly goal: string; readonly round: number; readonly findings: ReadonlyArray<string> };
+  /** `outputSchema`: for the work of a Play step that declares `outputs`, what its final answer must be. */
+  readonly task: { readonly id: string; readonly title: string; readonly goal: string; readonly round: number; readonly findings: ReadonlyArray<string>; readonly outputSchema?: JsonSchema };
   readonly context: {
     /** Results of the tasks this one waits for. */
     readonly results: ReadonlyArray<{ readonly taskId: string; readonly title: string; readonly result: string; readonly output?: JsonValue }>;

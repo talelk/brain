@@ -1,5 +1,4 @@
 description = "Turns a job and its failure history into concrete evaluation cases, each with the expected behaviour and a rubric. Changes nothing."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["memory.search", "task.note"]
 

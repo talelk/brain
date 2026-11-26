@@ -15,6 +15,43 @@ type = "integer"
 description = "The pull request number."
 required = true
 
+[outputs.number]
+type = "integer"
+description = "The number."
+required = true
+
+[outputs.title]
+type = "string"
+description = "The title."
+required = true
+
+[outputs.state]
+type = "string"
+description = "`open` or `closed`."
+required = true
+
+[outputs.merged]
+type = "boolean"
+description = "Whether it was merged."
+required = true
+
+[outputs.draft]
+type = "boolean"
+description = "Whether it is a draft."
+required = true
+
+[outputs.checks]
+type = "array"
+description = "Each with `name`, `status` and `conclusion`."
+required = true
+items = { type = "object" }
+
+[outputs.reviews]
+type = "array"
+description = "Each with `author` and `state`."
+required = true
+items = { type = "object" }
+
 [translations.fr]
 description = "Lit où en est une pull request : son état, si elle est fusionnée, en brouillon ou fusionnable, les vérifications de son dernier commit et le dernier avis de chaque relecteur. Lecture seule. Utilise le secret `github` de l'espace de travail. Renvoie {\"number\", \"title\", \"state\", \"merged\", \"draft\", \"mergeable\", \"head_sha\", \"checks\": [{\"name\", \"status\", \"conclusion\"}], \"reviews\": [{\"author\", \"state\"}]}, ou {\"error\": \"<pourquoi>\"}. `mergeable` vaut null tant que GitHub ne l'a pas calculé."
 

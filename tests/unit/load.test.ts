@@ -1,7 +1,7 @@
-import { canonicalJsonBytes, sha256Digest, type JsonValue } from "@brain/contracts";
+import { canonicalJsonBytes, fieldSchema, sha256Digest, type JsonValue } from "@brain/contracts";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { inputSchema, loadWorkspace, referencedSecrets } from "../../apps/governor/src/workspace/load";
+import { loadWorkspace, referencedSecrets } from "../../apps/governor/src/workspace/load";
 
 const packsDir = fileURLToPath(new URL("../fixtures/packs", import.meta.url));
 const folder = (files: Record<string, string>) => new Map(Object.entries(files).map(([path, content]) => [path, new TextEncoder().encode(content)]));
@@ -121,6 +121,38 @@ describe("tool inputs", () => {
       required: ["words"],
       additionalProperties: false,
     });
-    expect(inputSchema({})).toEqual({ type: "object", properties: {}, required: [], additionalProperties: false });
+    expect(fieldSchema({}, "inputs")).toEqual({ type: "object", properties: {}, required: [], additionalProperties: false });
+  });
+});
+
+describe("a step's declared outputs", () => {
+  const play = (rest: string) => `title = "Check"
+[[step]]
+id = "check"
+agent = "dev"
+goal = "Check."
+outputs.healthy = { type = "boolean", required = true }
+outputs.names = { type = "array", items = { type = "string" } }
+outputs.kind = { type = "string", enum = ["web", "db"] }
+[[step]]
+id = "act"
+agent = "dev"
+after = ["check"]
+${rest}`;
+  const problems = (rest: string) => problemsOf({ "brain.toml": 'name = "T"\n', "agents/dev/agent.toml": 'description = "Dev."\n', "agents/dev/prompt.md": "Work.\n", "plays/check.toml": play(rest) });
+
+  it("lets later steps read the declared fields, by their types", () => {
+    expect(problems('goal = "Fix {{item}} after {{steps.check.result}}"\nfor_each = "steps.check.result.names"\nwhen = "steps.check.result.healthy == false"\n')).toEqual([]);
+  });
+
+  it("refuses a field the step does not declare, a list that is none, and a comparison that can never hold", () => {
+    expect(problems('goal = "{{steps.check.result.summary}}"\n')).toEqual([expect.stringContaining('reads the field "summary", which step "check" does not declare')]);
+    expect(problems('goal = "x"\nfor_each = "steps.check.result.healthy"\n')).toEqual([expect.stringContaining("names a boolean, not a list")]);
+    expect(problems('goal = "x"\nwhen = \'steps.check.result.healthy == "no"\'\n')).toEqual([expect.stringContaining("compares a boolean with a string")]);
+    expect(problems('goal = "x"\nwhen = \'steps.check.result.kind == "cache"\'\n')).toEqual([expect.stringContaining("a value the field never has")]);
+  });
+
+  it("takes an agent's engines as pi and claude when the file names none", () => {
+    expect(load({ "brain.toml": 'name = "T"\n', "agents/dev/agent.toml": 'description = "Dev."\n', "agents/dev/prompt.md": "Work.\n" }).manifest?.agents["dev"]?.engine).toEqual(["pi", "claude"]);
   });
 });

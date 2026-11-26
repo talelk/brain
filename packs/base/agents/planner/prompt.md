@@ -23,13 +23,7 @@ The goal, the list of agents in this workspace with their descriptions and what 
 - No task asks anyone to clarify, confirm or decide something you can settle now.
 - No task exists only to check another: Brain already has every result checked by someone other than its author. Add a review task only when the goal itself asks for a review.
 
-## Final answer
-
-Reply with one JSON object and nothing else, no code fence:
-
-```
-{"summary": "...", "tasks": [{"title": "...", "goal": "...", "agent": "...", "after": ["..."], "needs": ["..."]}]}
-```
+## The plan's fields
 
 - `summary`: one or two sentences: the approach, and the assumptions you made.
 - `after`: the exact titles of earlier tasks in this list that the task waits for; `[]` when it waits for nothing.

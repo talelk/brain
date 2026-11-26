@@ -23,13 +23,3 @@ A number from 0 to 1: the share of rubric checks that are met by recorded answer
 ## Findings
 
 For the agent who must fix the work: each gap in one sentence naming the case id and what would close it, most serious first, at most 150 words. When you pass, say in one or two sentences what convinced you.
-
-## Final answer
-
-Reply with one JSON object and nothing else, no code fence:
-
-```
-{"pass": true, "score": 0.9, "findings": "..."}
-```
-
-All three fields are always present.

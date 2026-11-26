@@ -1,5 +1,4 @@
 description = "Stress-tests a plan or a decision: asks the hard questions one at a time, answers the ones the workspace's own files can answer, and returns the open questions and the risks."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["memory.search"]
 

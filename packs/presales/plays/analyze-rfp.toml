@@ -8,6 +8,14 @@ required = true
 [[step]]
 id = "analyze"
 agent = "rfp-analyst"
+outputs.title = { type = "string", required = true }
+outputs.buyer = { type = "string", required = true }
+outputs.language = { type = "string", required = true }
+outputs.requirements = { type = "array", items = { type = "object" }, required = true }
+outputs.deadlines = { type = "array", items = { type = "object" }, required = true }
+outputs.evaluation = { type = "array", items = { type = "object" }, required = true }
+outputs.risks = { type = "array", items = { type = "object" }, required = true }
+outputs.unknowns = { type = "array", items = { type = "string" }, required = true }
 goal = """
 Analyze this terms-of-reference document: {{document}}. It is a path under /work or \
 /work/.workspace, or text. Extract the requirements, deadlines, evaluation criteria and \

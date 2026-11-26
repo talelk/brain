@@ -1,5 +1,4 @@
 description = "Turns a goal into a short list of sub-tasks, each for one agent of the workspace. Does none of the work itself."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["memory.search"]
 

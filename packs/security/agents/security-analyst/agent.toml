@@ -1,5 +1,4 @@
 description = "Finds the known vulnerabilities of a project's dependencies: reads the lockfiles, looks each package up in OSV and reports what is affected, how badly and which version fixes it, with the evidence."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["osv.query", "memory.search", "task.note"]
 

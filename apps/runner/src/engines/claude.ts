@@ -14,23 +14,15 @@ const MCP_PREFIX = "mcp__brain__";
 /** Claude Code's own tools at each level: reading and searching, then editing and the shell. */
 const CLAUDE_NATIVE: NativeToolNames = { none: [], read: ["Read", "Glob", "Grep"], all: ["Read", "Glob", "Grep", "Edit", "Write", "Bash"] };
 
-function schemaToZod(schema: Record<string, JsonValue>): ZodTypeAny {
-  if (Array.isArray(schema["enum"]) && schema["enum"].every((value) => typeof value === "string") && schema["enum"].length) return z.enum(schema["enum"] as [string, ...string[]]);
-  if (schema["type"] === "string") return z.string();
-  if (schema["type"] === "number") return z.number();
-  if (schema["type"] === "integer") return z.number().int();
-  if (schema["type"] === "boolean") return z.boolean();
-  if (schema["type"] === "array") return z.array(schemaToZod((schema["items"] as Record<string, JsonValue> | undefined) ?? {}));
-  if (schema["type"] === "object") return z.object(shapeOf(schema)).passthrough();
-  return z.unknown();
-}
-
-/** The top-level properties of a tool's input schema as the SDK's tool definition takes them. */
+/** The top-level properties of a tool's input schema as the SDK's tool definition takes them: each keeps its description and its allowed values. */
 function shapeOf(schema: Record<string, JsonValue>): Record<string, ZodTypeAny> {
   const properties = (schema["properties"] as Record<string, Record<string, JsonValue>> | undefined) ?? {};
   const required = new Set((schema["required"] as string[] | undefined) ?? []);
   const shape: Record<string, ZodTypeAny> = {};
-  for (const [key, value] of Object.entries(properties)) shape[key] = required.has(key) ? schemaToZod(value) : schemaToZod(value).optional();
+  for (const [key, value] of Object.entries(properties)) {
+    const one = z.fromJSONSchema(value as Parameters<typeof z.fromJSONSchema>[0]);
+    shape[key] = required.has(key) ? one : one.optional();
+  }
   return shape;
 }
 

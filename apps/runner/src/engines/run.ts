@@ -115,6 +115,8 @@ async function runSession(request: SessionRequest): Promise<SessionResult> {
 export interface AnswerFormat {
   readonly shape: string;
   readonly problems: (value: JsonValue) => readonly string[];
+  /** A reply that starts "BLOCKED:" stands as it is: the agent says it cannot do the task, and the Governor reads that. */
+  readonly blocked?: boolean;
 }
 
 const CORRECTION_CHARS = 30_000;
@@ -133,7 +135,7 @@ function problemsOf(text: string, format: AnswerFormat): { value?: JsonValue; pr
 
 /**
  * Runs the engine for an attempt. Without a format the answer is the result as written, and it is also the structured output when the
- * whole of it is a JSON object. With a format (plan, check, judge) the answer must be that JSON: a reply that is not gets one corrective
+ * whole of it is a JSON object. With a format (plan, check, judge, a step with outputs) the answer must be that JSON: a reply that is not gets one corrective
  * session, which sees its own reply and what is wrong with it and has no tools; if that does not produce it either, the attempt fails
  * and says so. Both sessions count: usage is the attempt's total.
  */
@@ -141,6 +143,7 @@ export async function runEngine(request: SessionRequest, format?: AnswerFormat):
   const first = await runSession(request);
   if (!first.ok) return first;
   if (!format) { const output = wholeJsonObject(first.text); return output === undefined ? first : { ...first, output }; }
+  if (format.blocked && first.text.trimStart().startsWith("BLOCKED:")) return first;
   const judged = problemsOf(first.text, format);
   if (judged.problems.length === 0) return { ...first, output: judged.value! };
   // A reply that is not the required JSON is a flake of the model, not a fault of the task: the Governor tries again (three times at most).

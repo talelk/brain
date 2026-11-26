@@ -8,12 +8,13 @@ required = true
 [[step]]
 id = "plan"
 agent = "planner"
+outputs.tasks = { type = "array", items = { type = "object" }, required = true }
 goal = """
 Split this feature into the smallest set of pieces that developers can build at the same \
 time: one to five tasks, each touching different files so that the changes do not collide, \
 each with its own tests. Every task is for the agent `developer` and has an empty `after`. \
 If the feature is small, one task is the right plan. State in each task's goal which files \
-or area it owns.
+or area it owns. Each task has a `title` and a `goal`.
 
 Feature: {{feature}}"""
 

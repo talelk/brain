@@ -1,5 +1,4 @@
 description = "Compares the tools, agents and Plays that workspaces improved in their own folders with the platform workspace's packs, and proposes to adopt the improvements into the pack sources, for approval."
-engine = ["pi", "claude"]
 native = "none"
 tools = ["platform.tool-drift", "platform.file", "platform.workspaces", "platform.tasks", "workspace.fix", "memory.search", "task.ask"]
 

@@ -1,5 +1,4 @@
 description = "Opens the pull request for a reviewed change and tells the team. Changes no code."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["git.open-pr", "message.send"]
 

@@ -12,6 +12,11 @@ type = "string"
 description = "The message, in plain text or simple Markdown."
 required = true
 
+[outputs.sent]
+type = "boolean"
+description = "Whether the message was posted."
+required = true
+
 [translations.fr]
 description = "Publie un message sur le canal Teams de cet espace de travail, où ses membres le lisent. L'appel reste en attente jusqu'à ce qu'une personne approuve exactement ce message, ce qui peut prendre plusieurs minutes : attendez la réponse et ne renvoyez pas le message. Si la réponse indique que l'appel est retenu, refusé ou rejeté, rien n'a été publié. Rédigez le message pour qu'il puisse être lu seul, et n'y mettez jamais la valeur d'un secret. Renvoie {\"sent\": true}."
 

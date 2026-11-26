@@ -26,6 +26,21 @@ type = "string"
 description = "The sheet's name for a CSV or a plain JSON list, at most 31 characters. Data when left out."
 required = false
 
+[outputs.path]
+type = "string"
+description = "The workbook in /out."
+required = true
+
+[outputs.rows]
+type = "integer"
+description = "The rows written."
+required = true
+
+[outputs.columns]
+type = "integer"
+description = "The widest sheet's columns."
+required = true
+
 [translations.fr]
 description = "Construit un classeur Excel (xlsx) à partir d'un fichier CSV ou JSON et l'enregistre dans /out. Un fichier JSON est une liste d'objets, ou un objet nom de feuille vers une telle liste (une feuille chacune). Les nombres sont écrits comme des nombres ; la ligne d'en-tête est en gras sur fond coloré, figée et filtrable, et les colonnes s'ajustent à leur contenu ; une feuille de texte arabe se lit de droite à gauche. Les données sont sous /work ou /out. Rien n'est touché hors de /out. Renvoie {\"path\", \"rows\", \"columns\"}, ou {\"error\": \"<pourquoi>\"}."
 

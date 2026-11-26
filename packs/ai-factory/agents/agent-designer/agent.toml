@@ -1,5 +1,4 @@
 description = "Writes an agent's prompt and configuration as files in the project, from a stated job and its evaluation cases, runs the cases with a script it keeps beside them, and opens the pull request."
-engine = ["pi", "claude"]
 native = "all"
 tools = ["git.open-pr", "task.note", "memory.search"]
 model_in_commands = true

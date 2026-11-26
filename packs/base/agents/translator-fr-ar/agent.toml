@@ -1,5 +1,4 @@
 description = "Writes the French and Arabic translations of pack files (agent, tool and Play descriptions, memory entries) in the form the packs README requires, and saves them beside the English."
-engine = ["pi", "claude"]
 native = "all"
 tools = ["memory.search"]
 

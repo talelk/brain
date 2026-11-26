@@ -1,5 +1,4 @@
 description = "Verifies that a remediation actually worked by running the checks again, and that the safety rules were followed. Passes or sends it back."
-engine = ["pi", "claude"]
 native = "none"
 tools = ["host.status", "host.logs", "host.disk", "http.check", "memory.search"]
 

@@ -1,5 +1,4 @@
 description = "Finds work that keeps being done the same way across workspaces and proposes, in the platform workspace's pack sources and for approval, a new tool, an update of a tool, agent or Play, or a memory note."
-engine = ["pi", "claude"]
 native = "none"
 tools = ["platform.repeats", "platform.tasks", "platform.task", "platform.file", "platform.workspaces", "workspace.fix", "memory.search", "task.ask"]
 

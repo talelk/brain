@@ -19,6 +19,36 @@ type = "integer"
 description = "The most text to return, from 1 to 20000 characters. 8000 when left out."
 required = false
 
+[outputs.url]
+type = "string"
+description = "The address asked for."
+required = true
+
+[outputs.final_url]
+type = "string"
+description = "The address that answered."
+required = true
+
+[outputs.status]
+type = "integer"
+description = "The HTTP status."
+required = true
+
+[outputs.content_type]
+type = "string"
+description = "The type of the page."
+required = true
+
+[outputs.text]
+type = "string"
+description = "Its readable text."
+required = true
+
+[outputs.truncated]
+type = "boolean"
+description = "Whether it was cut."
+required = true
+
 [translations.fr]
 description = "Récupère une adresse https et renvoie son texte lisible (le HTML est réduit à du texte). GET uniquement : il lit et n'envoie jamais rien. Il atteint n'importe quel hôte public ; un espace de travail qui veut moins remplace ce fichier d'outil par sa propre copie dont `network` liste les hôtes autorisés. Un refus ou une erreur est une réponse, pas un obstacle à contourner. Renvoie {\"url\", \"final_url\", \"status\", \"content_type\", \"text\", \"truncated\"}, ou {\"error\": \"<pourquoi>\"}."
 

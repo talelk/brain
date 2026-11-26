@@ -8,6 +8,7 @@ import { append } from "../events";
 import { listPacks, readPack, releasedDirOf, releasedVersions, type Files } from "./files";
 import { readFolderAt, readHead, tagCommit, tags } from "./git";
 import { loadWorkspace } from "./load";
+import { packShapeProblems } from "./pack-shape";
 import { adminWorkspace } from "./platform";
 import { activate, commitFolder, getWorkspace, manifestOf, workspaceDir, type Committed } from "./store";
 
@@ -143,6 +144,8 @@ export function registerPacks({ gov: { registry } }: Governor): void {
       try {
         const check = loadWorkspace(new Map([["brain.toml", encode(`name = "Check"\n${input.name === PLATFORM_PACK ? "platform = \"admin\"\n" : ""}packs = ["${input.name}@${version}"]\n`)]]), ctx.gov.packsDir, releasedDirOf(ctx.gov.dataDir));
         if (!check.manifest) throw new BrainError("INVALID_WORKSPACE", `${input.name} would not be a valid pack as it is, so nothing was released`, check.problems);
+        const shape = packShapeProblems(check.manifest, input.name);
+        if (shape.length > 0) throw new BrainError("INVALID_WORKSPACE", `${input.name} leaves the shape of a pack, so nothing was released`, shape.map((one) => ({ path: `packs/${input.name}/${one.path}`, message: one.message })));
         const committed = await commitFolder(ctx.gov, workspace.slug, {
           write: new Map([[`packs/${input.name}/pack.toml`, bumped]]), remove: [], message: `Release ${input.name} ${version}`, author: { name: ctx.user?.name ?? "Brain", email: ctx.user?.email ?? "brain@localhost" }, instanceAdmin: ctx.user?.instanceAdmin === true,
         });

@@ -12,6 +12,12 @@ type = "integer"
 description = "How many days back to count goals and spend. 30 when left out; at most 90."
 required = false
 
+[outputs.workspaces]
+type = "array"
+description = "Each workspace with its packs, counts and spend."
+required = true
+items = { type = "object" }
+
 [translations.fr]
 description = "Liste tous les espaces de travail de ce Brain avec ce qu'ils contiennent et ce qui s'y est passé : leurs packs, le nombre d'agents, d'outils et de Plays, les objectifs créés ces derniers jours par état, et ce qu'ils ont dépensé. Lecture seule ; uniquement pour l'espace de travail de plateforme. Renvoie {\"workspaces\": [{\"slug\", \"name\", \"packs\", \"platform\", \"agents\", \"tools\", \"plays\", \"tasks\": {\"done\", \"failed\", \"needs_you\", \"running\"}, \"spend_usd\"}]}. Utilisez un slug comme espace de travail des autres outils de plateforme."
 

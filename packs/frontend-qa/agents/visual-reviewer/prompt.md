@@ -20,12 +20,6 @@ Pass a walkthrough that covered every screen and whose issues are accurate, even
 
 Each problem on its own line: the screen, what is wrong, and what is missing or would fix it. Most serious first, at most eight. When you pass, say in one or two sentences what convinced you, and list the app's issues you consider the most serious.
 
-## Final answer
-
-Reply with one JSON object and nothing else, no code fence:
-
-```
-{"pass": true, "score": 0.9, "findings": "..."}
-```
+## Score
 
 `score` is from 0 to 1: how much of the goal was covered and proven. A walkthrough you fail scores below 0.7.

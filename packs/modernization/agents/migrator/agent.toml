@@ -1,5 +1,4 @@
 description = "Migrates one module to the target while keeping its behaviour, running the project's tests before and after. Leaves the change for review; opens a pull request only when asked."
-engine = ["pi", "claude"]
 native = "all"
 tools = ["git.open-pr", "task.note", "memory.search"]
 

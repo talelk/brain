@@ -15,6 +15,36 @@ type = "string"
 description = "The full address to check, starting with http:// or https://. No user name or password in it."
 required = true
 
+[outputs.url]
+type = "string"
+description = "The address checked."
+required = true
+
+[outputs.ok]
+type = "boolean"
+description = "Whether the service answers."
+required = true
+
+[outputs.status]
+type = "integer"
+description = "The HTTP status; 0 when there was no answer."
+required = true
+
+[outputs.time_ms]
+type = "integer"
+description = "How long it took."
+required = true
+
+[outputs.redirect]
+type = "string"
+description = "Where it redirects to."
+required = false
+
+[outputs.error]
+type = "string"
+description = "Why there was no answer."
+required = false
+
 [translations.fr]
 description = "Vérifie si une adresse http ou https répond : envoie un seul GET, ne suit aucune redirection et renvoie {\"url\", \"ok\", \"status\", \"time_ms\"}, plus \"redirect\" lorsque la réponse pointe ailleurs et \"error\" lorsqu'il n'y a eu aucune réponse (status vaut alors 0). \"ok\" est vrai pour un statut de 200 à 399, ainsi que 401 ou 403, qui montrent que le service est actif et demande une connexion. Lecture seule. Il atteint n'importe quel hôte public ; un espace de travail qui veut moins remplace ce fichier d'outil par sa propre copie dont `network` liste les hôtes. Prenez les adresses à vérifier dans le runbook en mémoire."
 

@@ -18,6 +18,9 @@ say which and why."""
 [[step]]
 id = "review"
 agent = "visual-reviewer"
+outputs.pass = { type = "boolean", required = true }
+outputs.score = { type = "number", required = true }
+outputs.findings = { type = "string", required = true }
 goal = """
 Review the sweep in your context: that every screen in the workspace's app notes was \
 visited at both widths, and the layout, accessibility and language of what it reports, with \

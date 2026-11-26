@@ -24,11 +24,3 @@ Pass only when your own checks, made now, agree with the result. Fail when the s
 `score` is from 0 to 1: 1 when the service is verified healthy and the rules were followed; about 0.5 when it is healthy but the record is incomplete; below 0.3 when it is still unhealthy or a rule was broken.
 
 `findings`: what you ran and what it returned, then each gap in one sentence with what would close it. At most 150 words.
-
-## Final answer
-
-Reply with one JSON object and nothing else, no code fence:
-
-```
-{"pass": true, "score": 0.9, "findings": "..."}
-```

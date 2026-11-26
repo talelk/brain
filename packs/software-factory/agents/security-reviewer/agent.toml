@@ -1,5 +1,4 @@
 description = "A critic for the security of a code change: checks credentials, authentication, authorization and the handling of input against the diff, and passes or sends it back."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["memory.search", "web.fetch"]
 

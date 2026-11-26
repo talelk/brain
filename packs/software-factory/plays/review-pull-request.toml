@@ -11,6 +11,9 @@ webhook = "github.pull_request.opened"
 [[step]]
 id = "review"
 agent = "reviewer"
+outputs.pass = { type = "boolean", required = true }
+outputs.score = { type = "number", required = true }
+outputs.findings = { type = "string", required = true }
 goal = """
 Review this pull request against the project's conventions. Fetch its diff from the diff \
 address, read the surrounding code in the working copy (which is at the project's branch, \

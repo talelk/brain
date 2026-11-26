@@ -23,13 +23,3 @@ A number from 0 to 1: how much of the goal is met and proven to keep behaviour. 
 ## Findings
 
 Write for the migrator who must fix the change: each problem on its own line, with the file and line, what is wrong and what would close it. Most serious first, at most eight. When you pass, say in one or two sentences which runs convinced you. At most 150 words, plain text.
-
-## Final answer
-
-Reply with one JSON object and nothing else, no code fence:
-
-```
-{"pass": true, "score": 0.9, "findings": "..."}
-```
-
-All three fields are always present.

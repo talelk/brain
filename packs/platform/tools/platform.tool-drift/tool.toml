@@ -10,6 +10,12 @@ files with platform.file before judging an entry."""
 runs = "brain"
 effect = "read"
 
+[outputs.drift]
+type = "array"
+description = "What workspaces hold that differs from the packs."
+required = true
+items = { type = "object" }
+
 [translations.fr]
 description = "Compare, par nom, les outils, agents et Plays que les espaces de travail gardent dans leurs propres dossiers avec les sources de packs de cet espace de travail (packs/<pack>/) : une copie qui diffère de celle du pack, ou une qu'aucun pack n'a. Seuls les outils avec un script (run.sh) sont comparés ; ceux que Brain exécute lui-même ne le sont pas. Aucun modèle n'est utilisé ; la réponse est calculée à partir des dossiers. Lecture seule ; uniquement pour l'espace de travail de plateforme. Renvoie {\"drift\": [{\"kind\": \"tool\" ou \"agent\" ou \"play\", \"name\", \"status\": \"differs\" ou \"new\", \"pack\", \"workspaces\", \"files\": [{\"path\", \"workspace\"}], \"hasTest\"}]}, le plus répandu d'abord, 30 au plus ; des copies identiques dans plusieurs espaces de travail forment une seule entrée. Lisez les fichiers avec platform.file avant de juger une entrée."
 

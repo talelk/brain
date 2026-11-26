@@ -12,6 +12,11 @@ type = "string"
 description = "The question, with enough context to answer it without opening the task."
 required = true
 
+[outputs.status]
+type = "string"
+description = "`waiting`: the question is asked."
+required = true
+
 [translations.fr]
 description = "Pose une question à une personne au sujet de votre tâche en cours. La tâche attend alors et apparaît comme ayant besoin d'une personne jusqu'à ce que quelqu'un réponde ; vous êtes relancé avec la réponse dans votre contexte. Ne demandez que lorsque vous ne pouvez pas décider seul et qu'une mauvaise supposition ferait perdre le travail. Posez une seule question, à laquelle on peut répondre en une phrase, et donnez les options que vous voyez. Après l'appel, terminez votre tour et dites ce que vous attendez. Renvoie {\"status\": \"waiting\"}."
 

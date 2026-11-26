@@ -22,11 +22,3 @@ From 0 to 1: the share of the claims that are both true and evidenced. Fail a re
 ## Findings
 
 Each gap on its own line: what is unproven or wrong and what would close it. Most serious first, at most eight. When you pass, say in one or two sentences which of your own queries agreed.
-
-## Final answer
-
-Reply with one JSON object and nothing else, no code fence:
-
-```
-{"pass": true, "score": 0.9, "findings": "..."}
-```

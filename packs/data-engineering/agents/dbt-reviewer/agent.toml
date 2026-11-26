@@ -1,5 +1,4 @@
 description = "Reviews a change to a dbt project for tests, naming, incremental logic and grain, and passes it or sends it back with what to fix."
-engine = ["pi", "claude"]
 native = "all"
 tools = ["memory.search", "task.note"]
 

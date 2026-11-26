@@ -30,6 +30,21 @@ type = "string"
 description = "The document's or the deck's title, when the Markdown has none."
 required = false
 
+[outputs.path]
+type = "string"
+description = "The file in /out."
+required = true
+
+[outputs.format]
+type = "string"
+description = "Its format."
+required = true
+
+[outputs.bytes]
+type = "integer"
+description = "Its size."
+required = true
+
 [translations.fr]
 description = "Construit un livrable à partir d'un fichier Markdown : un document Word (docx), une présentation (pptx, une diapositive par titre H2), un PDF ou une page HTML autonome. La source est sous /work ou /out ; le résultat est enregistré dans /out sous `name` (sous-dossiers permis), ce que la tâche conserve comme artefact. Le texte arabe est écrit de droite à gauche. Rien n'est touché hors de /out. Renvoie {\"path\", \"format\", \"bytes\"}, ou {\"error\": \"<pourquoi>\"}."
 

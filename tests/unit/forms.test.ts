@@ -25,6 +25,18 @@ describe("a file saved by a form says what the file said", () => {
       expect(PlayFile.parse(parse(playToml(play)))).toEqual(play);
     }
   });
+  it("a tool and a Play step keep their outputs", () => {
+    const outputs = { state: { type: "string", required: true }, names: { type: "array", items: { type: "string" } } };
+    const tool = ToolFile.parse({ description: "x", effect: "read", outputs, inputs: { name: { type: "string", required: true } } });
+    expect(ToolFile.parse(parse(toolToml(tool)))).toEqual(tool);
+    const play = PlayFile.parse({ title: "P", step: [{ id: "a", agent: "x", goal: "g", outputs }, { id: "b", agent: "x", goal: "h", after: ["a"] }] });
+    expect(PlayFile.parse(parse(playToml(play)))).toEqual(play);
+  });
+  it("an agent on the standard engines names none", () => {
+    const agent = AgentFile.parse({ description: "x" });
+    expect(agentToml(agent)).not.toContain("engine");
+    expect(AgentFile.parse(parse(agentToml(agent)))).toEqual(agent);
+  });
   it("an agent keeps model_in_commands", () => {
     const agent = AgentFile.parse({ description: "x", engine: ["pi"], native: "all", model_in_commands: true, limits: { spend_usd: 1 } });
     expect(AgentFile.parse(parse(agentToml(agent)))).toEqual(agent);

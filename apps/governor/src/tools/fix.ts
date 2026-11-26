@@ -9,7 +9,8 @@ import { linkArtifact, putArtifact } from "../trust/artifacts";
 import { classifyPath, readPack, releasedDirOf } from "../workspace/files";
 import { platformOf } from "../workspace/platform";
 import { activate, checkFolder, commitFolder, commitOf, getWorkspace, manifestOf, workspaceDir, type Committed } from "../workspace/store";
-import { inputProblem, ToolRefusal } from "./schema";
+import { ToolRefusal } from "./schema";
+import { schemaProblem } from "@brain/contracts/validate";
 
 /**
  * `workspace.fix` (docs/model.md, "When a task fails"): a heal task's agent proposes a change of the workspace's files for the task it heals.
@@ -102,7 +103,7 @@ function unifiedDiff(path: string, before: string | undefined, after: string): s
  */
 export async function planFix(gov: Gov, attempt: AttemptRow, task: TaskRow, rowId: string, schema: JsonSchema, rawInput: JsonValue): Promise<FixPlan> {
   const { db } = gov;
-  const problem = inputProblem(schema, rawInput);
+  const problem = schemaProblem(schema, rawInput);
   if (problem) throw new ToolRefusal(`The input of workspace.fix is not valid: ${problem}`);
   const input = inputOf(rawInput);
   const earlier = db.prepare("SELECT COUNT(*) AS n FROM tool_calls WHERE task_id=? AND tool='workspace.fix' AND id != ? AND outcome IN ('pending','held','succeeded','rejected')").get(task.id, rowId) as { n: number };

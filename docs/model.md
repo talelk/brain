@@ -17,7 +17,9 @@ not named here, Brain does not have it.
 | **Pack** | A reusable bundle of agents, tools, Plays and memory. | `packs/<name>/` shipped with Brain |
 | **Task** | A goal and its result. A task can have sub-tasks. | The database. |
 
-Everything except tasks is a file. Editing in the app writes the file and commits it.
+Everything except tasks is a file. The form of every file is published as JSON Schema in
+`docs/schemas/`, made from the same definitions Brain checks files with (rules that tie one
+field or file to another are Brain's alone). Editing in the app writes the file and commits it.
 Every task records the commit it ran on, so a result can always be traced to the exact
 agents, tools and Plays that produced it. A task that was healed records the commit of
 the fix, and each attempt keeps the commit it ran on.
@@ -128,7 +130,7 @@ name such as `Europe/Paris`; a Play's `schedule` means that clock.
 ```toml
 # agents/reviewer/agent.toml
 description = "Checks a change against the project's conventions and tests."
-engine = ["pi", "claude"]
+engine = ["pi", "claude"]   # these two when not written
 native = "all"              # the engine's own tools: "none", "read" or "all"
 tools = ["git.open-pr", "task.note"]    # workspace and pack tools, by name
 model = "main"              # optional; the workspace's first model otherwise
@@ -185,9 +187,21 @@ secrets = []                # secret names the tool receives
 type = "string"
 description = "Container name"
 required = true
+
+[outputs.state]             # optional: what the result holds, in the same form as the inputs
+type = "string"
+description = "The container's state after the restart"
+required = true
 ```
 
-`run.sh` does the work; `test.sh` proves it without touching anything real. A `read` tool
+`run.sh` does the work; `test.sh` proves it without touching anything real. One script
+protocol: the validated inputs arrive as one JSON object on standard input; exit 0 with one
+JSON object on standard output is the result; any other exit is a failure, said as
+`{"error": "<why>"}`. A tool that declares `[outputs]` has its result checked against them: a
+result without a required output, or with one of the wrong type, is a failed call (a field
+that is not declared is allowed). A host command answers with text, so it declares no
+outputs. Inputs and outputs are what other systems read as the tool's JSON Schema
+(`inputSchema`, `outputSchema`, as in the Model Context Protocol). A `read` tool
 runs freely. A `write` or `privileged` call stops until a person approves exactly that
 call, unless `brain.toml` holds a standing approval that covers it.
 
@@ -252,6 +266,7 @@ Step fields, and nothing else:
 | `review_by`, `max_rounds`, `target_score` | A second agent checks the result and sends it back until it passes. |
 | `candidates`, `judge` | Several agents attempt the step; a judge agent, or a person, keeps one. |
 | `when` | Run only if a condition on an earlier result holds. |
+| `outputs` | What the step's result holds, in the form of a tool's inputs: `outputs = { healthy = { type = "boolean", required = true } }`. The agent is told to answer with that JSON object and its answer is checked. A `{{steps.<id>.result.<field>}}`, `when` or `for_each` that names a field the step does not declare, or compares it with a value of another type, is refused when the Play is saved. |
 | `requires` | Memory entry names the step needs (`*` for any run of characters, as in `app-screens-*`). When one has no entry, the step is skipped with a note that says which, instead of running and failing. |
 | `approve` | A person signs off before the step counts as done. |
 
@@ -315,6 +330,11 @@ upload is limited to 5 MB per file and 20 MB in all.
 
 ### Packs
 
+A pack keeps one written shape (`packs/README.md`), which is checked wherever a pack is
+accepted: by the repository's tests, when a pack is released and by
+`pnpm brain check <folder>`, which also loads a workspace or pack folder as Brain would and
+runs each tool's `test.sh`, offline, for whoever writes a pack.
+
 A workspace lists the packs it uses, each as its shipped baseline (`base`) or as a release the
 admin workspace made (`base@2`). A file in the workspace with the same name as a
 pack's file replaces it. `base` holds the task, memory and pull request tools plus a
@@ -356,6 +376,8 @@ A pack has a fixed shape (four agent roles, tools named `<system>.<verb>`, three
    every plain request, is a download. An agent may add `/out/manifest.json` with `{ "title", "kind",
    "entry" }`: `entry` names the file (by its path in `/out`) that is the deliverable, and it is shown
    first, open, above the rest.
+   Where Brain reads an answer (a plan, a check, a judgement, a step with `outputs`) it tells
+   the agent the JSON it must answer with; a prompt does not repeat it.
 5. The result is **checked** by something other than the agent that produced it: the
    step's reviewer, the base pack's `checker`, or a person. Only a checked task is done. When a
    reviewer's verdict repeats almost word for word the one before, the rounds stop there and a

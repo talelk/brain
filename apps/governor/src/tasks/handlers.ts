@@ -1,21 +1,19 @@
 import {
-  BrainError, type ArtifactLink, type Attempt, type AttemptEvent, type AttemptFailure, type Check, type JsonValue, type Note, type PullRequest, type PlayFile, type SubtaskSummary, type Task, type TaskSummary, type ToolCall,
-} from "@brain/contracts";
+  BrainError, type ArtifactLink, type Attempt, type AttemptEvent, type AttemptFailure, type Check, type JsonValue, type Note, type PullRequest, type PlayFile, type SubtaskSummary, type Task, type TaskSummary, type ToolCall, fieldSchema } from "@brain/contracts";
 import type { Governor } from "../app";
 import { tx, type Db } from "../db";
 import { log } from "../log";
 import type { Ctx } from "../dispatch";
 import { append } from "../events";
-import { inputProblem } from "../tools/schema";
 import { approvalsWhere } from "../trust/approvals";
 import { COST, spendOf, usageWhere } from "../trust/usage";
-import { inputSchema } from "../workspace/load";
 import { getWorkspace, manifestOf } from "../workspace/store";
 import { HEAL } from "./heal";
 import { queueOf, queuedOf, steerOf } from "./queue";
 import { continueCheckpoint } from "./checkpoint";
 import { personCheck, reviveTask, settle, startPlan, stopTask } from "./orchestrator";
 import { createFromPlay, insertTask, json, needOf, setState, taskIn, taskOf, TERMINAL, type TaskRow } from "./store";
+import { schemaProblem } from "@brain/contracts/validate";
 
 /** The commands a person steers work with and the queries of the Today, Tasks and Task screens (docs/architecture.md sections 4 and 10). */
 
@@ -104,7 +102,7 @@ export function registerTasks(governor: Governor): void {
     if (input.play !== undefined) {
       const play = manifestOf(ctx.gov, workspace.snapshotDigest).plays[input.play];
       if (!play) throw new BrainError("NOT_FOUND", `The workspace has no Play ${input.play}`);
-      const problem = inputProblem(inputSchema(play.inputs), input.inputs as JsonValue);
+      const problem = schemaProblem(fieldSchema(play.inputs, "inputs"), input.inputs as JsonValue);
       if (problem) throw new BrainError("INVALID_INPUT", `The inputs of ${input.play} are not valid: ${problem}`, [{ path: "inputs", message: problem }]);
       root = createFromPlay(ctx.gov, ctx.actor, { workspaceId: workspace.id, snapshotDigest: workspace.snapshotDigest, play: input.play, inputs: input.inputs as Record<string, JsonValue>, title: input.title ?? playTitle(play, input.inputs as Record<string, JsonValue>), goal: input.goal, createdBy });
     } else {

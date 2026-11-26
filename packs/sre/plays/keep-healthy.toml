@@ -7,6 +7,9 @@ schedule = "*/15 * * * *"
 [[step]]
 id = "check"
 agent = "sre-operator"
+outputs.healthy = { type = "boolean", required = true }
+outputs.unhealthy = { type = "array", items = { type = "string" }, required = true }
+outputs.summary = { type = "string", required = true }
 goal = """
 Run the routine health check and change nothing. Call host.status and host.disk once each, \
 find the services and their health addresses in the workspace's runbook with memory.search, \
@@ -15,9 +18,9 @@ when its container is exited, restarting or reported unhealthy, when its check r
 false, or when a disk is more than 90 percent full. Write one note with task.note only if \
 something is unhealthy, naming each failed check and what it returned.
 
-Reply with one JSON object and nothing else, no code fence:
-{"healthy": true or false, "unhealthy": ["<container or address>", ...], "summary": "<what you checked and what failed, in two sentences>"}
-`healthy` is true only when every check you ran passed; `unhealthy` is then an empty list."""
+`healthy` is true only when every check you ran passed. `unhealthy` names each failed container \
+or address, and is empty when healthy. `summary` says what you checked and what failed, in two \
+sentences."""
 
 [[step]]
 id = "diagnose"

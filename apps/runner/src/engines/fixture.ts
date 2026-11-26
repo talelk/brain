@@ -3,6 +3,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import type { JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
 import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineUsage } from "./port";
+import { SCHEMA_LEAD } from "../task-text";
 import { CORRECTION_HEADER } from "./run";
 import { engineToolName, ToolRequests } from "./tool-calls";
 
@@ -36,7 +37,8 @@ import { engineToolName, ToolRequests } from "./tool-calls";
  * the round (written with `%` because `{{ }}` in a Play's goal belongs to the Play). `write`, `delete`, `read` and `tool` each count as
  * one turn.
  *
- * Without a `reply` or `json` the answer depends on the kind: `fixture: done` for work (and for a correction, which therefore fails); a plan of one task for the workspace's
+ * Without a `reply` or `json` the answer depends on the kind: `fixture: done` for work, or the plainest JSON that fits when the step
+ * declares outputs (and for a correction `fixture: done`, which therefore fails); a plan of one task for the workspace's
  * `worker` agent (or its first agent) for plan; `{"pass": true, "score": 1, "findings": "fixture check"}` for check; and the first
  * candidate for judge. The kind, the round, the agents and the candidates are read from the task text the runner composes
  * (`task-text.ts`).
@@ -97,7 +99,17 @@ function defaultAnswer(kind: string, task: string): string {
     const goal = /^# Goal\n+([^\n]*)/mu.exec(task)?.[1] ?? "the goal";
     return JSON.stringify({ summary: "fixture plan", tasks: [{ title: goal.slice(0, 60) || "Do the work", goal, agent: agents.includes("worker") ? "worker" : agents[0] ?? "worker", after: [] }] });
   }
+  const schema = task.split(`${SCHEMA_LEAD}\n`)[1]?.split("\n")[0];
+  if (kind === "work" && schema !== undefined) return JSON.stringify(sample(JSON.parse(schema) as Schema));
   return "fixture: done";
+}
+
+interface Schema { readonly type?: string; readonly enum?: readonly JsonValue[]; readonly properties?: Readonly<Record<string, Schema>> }
+/** The plainest value a schema of Brain's outputs takes: the first allowed one, yes, nothing, or empty. */
+function sample(schema: Schema): JsonValue {
+  if (schema.enum?.[0] !== undefined) return schema.enum[0];
+  if (schema.type === "object") return Object.fromEntries(Object.entries(schema.properties ?? {}).map(([name, inner]) => [name, sample(inner)]));
+  return schema.type === "boolean" ? true : schema.type === "array" ? [] : schema.type === "string" ? "fixture" : 0;
 }
 
 export class FixtureEngine implements EngineAdapter {

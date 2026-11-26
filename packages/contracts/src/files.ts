@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isCron } from "./cron";
-import { MODEL_PROVIDERS } from "./engines";
+import { BUNDLED_ENGINES, MODEL_PROVIDERS } from "./engines";
 import { LIMIT_DEFAULTS } from "./limits";
 import type { Digest, JsonValue } from "./protocol";
 import { isSlug, SLUG } from "./slug";
@@ -75,8 +75,29 @@ export const InputSpec = z.strictObject({
   items: z.strictObject({ type: z.enum(INPUT_TYPES), enum: inputEnum.optional() }).optional(),
 }).refine((spec) => spec.items === undefined || spec.type === "array", { path: ["items"], message: "items is only for an input of type array" });
 export type InputSpec = z.infer<typeof InputSpec>;
-const inputs = z.record(z.string().regex(/^[a-z][a-z0-9_]{0,62}$/u, "an input name must be lower-case letters, digits and underscores"), InputSpec).default({});
+const inputs = z.record(z.string().regex(INPUT_NAME, "an input name must be lower-case letters, digits and underscores"), InputSpec).default({});
+/** What a tool's result or a step's answer holds, written like inputs. */
+const outputFields = z.record(z.string().regex(/^[a-z][A-Za-z0-9_]{0,62}$/u, "an output name starts with a lower-case letter and holds letters, digits and underscores"), InputSpec).optional();
 export type JsonSchema = { readonly [key: string]: JsonValue };
+
+/**
+ * The JSON Schema of `[inputs.<name>]` tables (a call's input, which holds nothing else) or of `[outputs.<name>]` ones (a result, which
+ * may hold more than is declared).
+ */
+export function fieldSchema(fields: Readonly<Record<string, InputSpec>>, kind: "inputs" | "outputs"): JsonSchema {
+  const properties: Record<string, JsonValue> = {};
+  const names = Object.keys(fields).sort();
+  for (const name of names) {
+    const spec = fields[name] as InputSpec;
+    properties[name] = {
+      type: spec.type,
+      ...(spec.description ? { description: spec.description } : {}),
+      ...(spec.enum ? { enum: spec.enum } : {}),
+      ...(spec.items ? { items: { type: spec.items.type, ...(spec.items.enum ? { enum: spec.items.enum } : {}) } } : {}),
+    };
+  }
+  return { type: "object", properties, required: names.filter((name) => fields[name]?.required), ...(kind === "inputs" ? { additionalProperties: false } : {}) };
+}
 
 // --- brain.toml ---
 
@@ -146,7 +167,7 @@ export type BrainFile = z.infer<typeof BrainFile>;
 
 export const AgentFile = z.strictObject({
   description: z.string().min(1),
-  engine: z.array(slug("an engine name")).min(1),
+  engine: z.array(slug("an engine name")).min(1).default([...BUNDLED_ENGINES]),
   native: z.enum(NATIVE_LEVELS).default("none"),
   tools: z.array(toolName).default([]),
   model: slug("a model name").optional(),
@@ -179,10 +200,13 @@ export const ToolFile = z.strictObject({
   runs: z.literal("brain").optional(),
   host_command: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/u, "must be the name of a command declared on the runner host").optional(),
   inputs,
+  /** What the result holds: it is checked, and told to whoever reads the tool's schema. */
+  outputs: outputFields,
   translations: translations({ description: z.string().min(1).optional(), inputs: translatedInputs }),
 }).superRefine((tool, ctx) => {
   translatedInputsExist(tool, ctx);
   if (tool.runs !== undefined && tool.host_command !== undefined) ctx.addIssue({ code: "custom", path: ["host_command"], message: "a tool is run by Brain or by a host command, not both" });
+  if (tool.host_command !== undefined && tool.outputs !== undefined) ctx.addIssue({ code: "custom", path: ["outputs"], message: "a host command answers with text, so it declares no outputs" });
   if (tool.host_command !== undefined && tool.effect === "write") ctx.addIssue({ code: "custom", path: ["effect"], message: "a host command that changes anything must have effect privileged" });
 });
 export type ToolFile = z.infer<typeof ToolFile>;
@@ -205,6 +229,8 @@ export const StepSpec = z.strictObject({
   /** Memory entry names the step needs (`*` matches any run of characters): when one has no entry, the step is skipped. */
   requires: z.array(z.string().regex(/^[a-z0-9*][a-z0-9*._-]*$/u, "must be a memory entry name, with * for any run of characters")).default([]),
   approve: z.boolean().default(false),
+  /** What the step's result holds: the agent is asked for that JSON object, its answer is checked, and later steps may read these fields only. */
+  outputs: outputFields,
 });
 export type StepSpec = z.infer<typeof StepSpec>;
 export const PlayFile = z.strictObject({
@@ -350,8 +376,8 @@ export interface SnapshotManifest {
   readonly teams: BrainFile["teams"] | null;
   readonly approvals: BrainFile["approvals"];
   readonly agents: Readonly<Record<string, AgentFile & Sourced & { readonly prompt: { readonly digest: Digest; readonly bytes: number } }>>;
-  /** `files` are the files beside `tool.toml` (`run.sh`, `test.sh`, ...); `input_schema` is the JSON Schema a call's input must satisfy. */
-  readonly tools: Readonly<Record<string, ToolFile & Sourced & { readonly input_schema: JsonSchema; readonly files: readonly FileRef[] }>>;
+  /** `files` are the files beside `tool.toml` (`run.sh`, `test.sh`, ...); `input_schema` is the JSON Schema a call's input must satisfy, `output_schema` (with `[outputs]`) its result. */
+  readonly tools: Readonly<Record<string, ToolFile & Sourced & { readonly input_schema: JsonSchema; readonly output_schema?: JsonSchema; readonly files: readonly FileRef[] }>>;
   readonly plays: Readonly<Record<string, PlayFile & Sourced>>;
   /** `titles` are the titles of the entry's translations (`memory/<name>.fr.md`), which only people read. */
   readonly memory: ReadonlyArray<Sourced & { readonly name: string; readonly title: string; readonly titles: Readonly<Partial<Record<Language, string>>>; readonly digest: Digest; readonly bytes: number }>;

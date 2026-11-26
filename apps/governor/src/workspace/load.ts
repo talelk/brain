@@ -1,6 +1,6 @@
 import {
-  AgentFile, BRAIN_TOOLS, BrainFile, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PackFile, parseRef, parseWhen, PLATFORM_PACK, PlayFile, splitPackRef, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
-  type Digest, type InputSpec, type JsonSchema, type JsonValue, type Language, type Problem, type Ref, type SnapshotManifest, type StepSpec,
+  AgentFile, BRAIN_TOOLS, BrainFile, fieldSchema, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PackFile, parseRef, parseWhen, PLATFORM_PACK, PlayFile, splitPackRef, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
+  type Digest, type Language, type Problem, type Ref, type SnapshotManifest, type StepSpec,
 } from "@brain/contracts";
 import { parse as parseToml } from "smol-toml";
 import type { z } from "zod";
@@ -25,22 +25,6 @@ export interface Loaded {
   readonly files: ReadonlyMap<string, LoadedFile>;
   /** The bytes the manifest names by digest: prompts, tool files and memory entries. */
   readonly blobs: ReadonlyMap<Digest, Uint8Array>;
-}
-
-/** The JSON Schema a call's input must satisfy, from the `[inputs.<name>]` tables of a tool or a Play. */
-export function inputSchema(inputs: Readonly<Record<string, InputSpec>>): JsonSchema {
-  const properties: Record<string, JsonValue> = {};
-  const names = Object.keys(inputs).sort();
-  for (const name of names) {
-    const spec = inputs[name] as InputSpec;
-    properties[name] = {
-      type: spec.type,
-      ...(spec.description ? { description: spec.description } : {}),
-      ...(spec.enum ? { enum: spec.enum } : {}),
-      ...(spec.items ? { items: { type: spec.items.type, ...(spec.items.enum ? { enum: spec.items.enum } : {}) } } : {}),
-    };
-  }
-  return { type: "object", properties, required: names.filter((name) => inputs[name]?.required), additionalProperties: false };
 }
 
 const text = (bytes: Uint8Array): string => new TextDecoder().decode(bytes);
@@ -140,10 +124,15 @@ function playProblems(play: PlayFile, agents: ReadonlySet<string>): string[] {
     if (step.judge && step.candidates === undefined) say("judge is only for a step with candidates");
 
     const reachable = waitsFor(step);
+    /** What an earlier step declares of a field it is read by; a step with no `outputs` declares nothing, and anything may be read. */
+    const declared = (id: string, field: string) => earlier.get(id)?.outputs?.[field];
+    const undeclared = (id: string, field: string): boolean => earlier.get(id)?.outputs !== undefined && declared(id, field) === undefined;
+    if (step.outputs !== undefined && step.for_each !== undefined) say("outputs is not for a step with for_each: its result is the list of its copies");
     const checkRef = (ref: Ref | undefined, shown: string): void => {
       if (!ref) say(`${shown} is not a value: use an input name, steps.<id>.result or item`);
       else if (ref.kind === "item" && !step.for_each) say(`${shown} is only available in a step with for_each`);
       else if (ref.kind === "step" && !reachable.has(ref.step)) say(`${shown} reads step "${ref.step}", which this step does not wait for (list it in after)`);
+      else if (ref.kind === "step" && ref.path.length > 0 && undeclared(ref.step, ref.path[0] as string)) say(`${shown} reads the field "${ref.path[0]}", which step "${ref.step}" does not declare in its outputs`);
       else if (ref.kind === "input" && !inputNames.has(ref.name)) say(`${shown} is not an input of this Play`);
       else if (ref.kind === "input" && ref.path.length > 0 && ref.name !== "delivery" && play.inputs[ref.name]?.type !== "object") say(`${shown} reads a field of input "${ref.name}", which is not of type object`);
     };
@@ -151,12 +140,22 @@ function playProblems(play: PlayFile, agents: ReadonlySet<string>): string[] {
     if (step.when !== undefined) {
       const when = parseWhen(step.when);
       if (!when) say("when must be one comparison, such as steps.<id>.result.<field> == \"value\"");
-      else checkRef(when.ref, `when (${step.when})`);
+      else {
+        checkRef(when.ref, `when (${step.when})`);
+        const field = when.ref.kind === "step" && when.ref.path.length === 1 ? declared(when.ref.step, when.ref.path[0] as string) : undefined;
+        const type = field?.type === "integer" ? "number" : field?.type;
+        if (type !== undefined && type !== typeof when.value) say(`when (${step.when}) compares a ${field?.type} with a ${typeof when.value}`);
+        else if (field?.enum && !field.enum.includes(when.value)) say(`when (${step.when}) compares with a value the field never has`);
+      }
     }
     if (step.for_each !== undefined) {
       const ref = parseRef(step.for_each);
       if (ref?.kind !== "step") say("for_each must name a list in an earlier result, written steps.<id>.result.<field>");
-      else checkRef(ref, `for_each (${step.for_each})`);
+      else {
+        checkRef(ref, `for_each (${step.for_each})`);
+        const field = ref.path.length === 1 ? declared(ref.step, ref.path[0] as string) : undefined;
+        if (field && field.type !== "array") say(`for_each (${step.for_each}) names a ${field.type}, not a list`);
+      }
     }
     earlier.set(step.id, step);
   }
@@ -229,7 +228,7 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
     } else if (tool.host_command === undefined && !hasScript) problems.push({ path: shown(path), message: "the tool needs a run.sh beside it (or runs = \"brain\", or host_command)" });
     else if (tool.host_command !== undefined && hasScript) problems.push({ path: shown(path), message: "a host command tool has no run.sh" });
     tools[name] = {
-      ...tool, source: file.source, input_schema: inputSchema(tool.inputs),
+      ...tool, source: file.source, input_schema: fieldSchema(tool.inputs, "inputs"), ...(tool.outputs ? { output_schema: fieldSchema(tool.outputs, "outputs") } : {}),
       files: others.map((entry) => ({ path: entry, ...blob((files.get(`tools/${name}/${entry}`) as LoadedFile).bytes) })),
     };
   }

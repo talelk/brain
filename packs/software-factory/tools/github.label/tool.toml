@@ -27,6 +27,12 @@ description = "Labels to remove. Left out: none."
 required = false
 items = { type = "string" }
 
+[outputs.labels]
+type = "array"
+description = "The issue's labels now."
+required = true
+items = { type = "string" }
+
 [translations.fr]
 description = "Ajoute et retire des étiquettes sur une issue ou une pull request GitHub, avec l'identifiant `github` de l'espace de travail. L'appel reste en attente jusqu'à ce qu'une personne approuve exactement ce changement, ce qui peut prendre plusieurs minutes : attendez la réponse et ne le renvoyez pas. Si la réponse indique que l'appel est retenu, refusé ou rejeté, rien n'a changé. Une étiquette à ajouter doit déjà exister dans le dépôt. Retirer une étiquette que l'issue ne porte pas n'est pas une erreur. Renvoie {\"labels\": [\"<les étiquettes de l'issue à présent>\"]}, ou {\"error\": \"<pourquoi>\"}."
 

@@ -51,6 +51,27 @@ type = "string"
 description = "The label of the y axis."
 required = false
 
+[outputs.png]
+type = "string"
+description = "The PNG file in /out."
+required = true
+
+[outputs.svg]
+type = "string"
+description = "The SVG file in /out."
+required = true
+
+[outputs.rows]
+type = "integer"
+description = "The rows drawn."
+required = true
+
+[outputs.series]
+type = "array"
+description = "The columns drawn."
+required = true
+items = { type = "string" }
+
 [translations.fr]
 description = "Dessine un graphique à partir d'un fichier CSV ou JSON (un fichier JSON est une liste d'objets) et l'enregistre en PNG et en SVG dans /out, prêt à placer dans un document ou une présentation. Les données sont sous /work ou /out. Types : bar, barh, line, pie, scatter. Les libellés arabes sont mis en forme et lus de droite à gauche. Rien n'est touché hors de /out. Renvoie {\"png\", \"svg\", \"rows\", \"series\"}, ou {\"error\": \"<pourquoi>\"}."
 

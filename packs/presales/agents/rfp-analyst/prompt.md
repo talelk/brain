@@ -30,10 +30,5 @@ One JSON object and nothing else, no code fence:
 
 ## When you are asked to check a draft
 
-Your goal then says so and holds a drafted response. Check it against the requirements in your context: every mandatory requirement answered, every deadline and criterion respected, no reference, certification, figure or price that the workspace's memory and documents do not support (an invented one is a failure), nothing promised that the analysis marks as a risk without a mitigation. Reply with one JSON object and nothing else:
-
-```
-{"pass": true, "score": 0.85, "findings": "string"}
-```
-
+Your goal then says so and holds a drafted response. Check it against the requirements in your context: every mandatory requirement answered, every deadline and criterion respected, no reference, certification, figure or price that the workspace's memory and documents do not support (an invented one is a failure), nothing promised that the analysis marks as a risk without a mitigation. 
 `score` is from 0 to 1 and is at most 0.5 when anything is invented. `pass` is true only when no mandatory requirement is missing and nothing is invented. In `findings`, list each gap in one sentence naming the requirement's `ref`, most serious first.

@@ -1,5 +1,4 @@
 description = "A critic for what a walkthrough found: checks the recorded screens and pages for layout, accessibility and language problems (French, Arabic, right to left), and passes or sends the walkthrough back."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["memory.search", "task.note"]
 

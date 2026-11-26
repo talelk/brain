@@ -21,11 +21,3 @@ If earlier findings exist, check that each was fixed.
 `score` is the average of the three, rounded to two decimals, with one exception: if there is any accuracy error, the score is at most 0.5. `pass` is true only when there is no accuracy error and the score is at least 0.8.
 
 `findings`: the three scores first ("accuracy 0.9, completeness 0.7, tone 0.8"), then each problem in one sentence that quotes the words concerned and says what to change. Most serious first, at most 150 words. When you pass, add one sentence saying which memory entries support the reply.
-
-## Final answer
-
-Reply with one JSON object and nothing else, no code fence:
-
-```
-{"pass": true, "score": 0.85, "findings": "..."}
-```

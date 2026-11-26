@@ -23,6 +23,21 @@ type = "string"
 description = "The pull request description in Markdown: what changed, why, and how it was verified."
 required = true
 
+[outputs.url]
+type = "string"
+description = "The address of the pull request."
+required = true
+
+[outputs.number]
+type = "integer"
+description = "Its number."
+required = true
+
+[outputs.branch]
+type = "string"
+description = "The branch it is on."
+required = true
+
 [translations.fr]
 description = "Ouvre une pull request sur un projet à partir des modifications de la copie de travail de votre tâche. Brain prend le diff de /work/<project>, le commit sur une nouvelle branche et ouvre la pull request ; vous ne commitez ni ne poussez jamais vous-même, et rien n'est fusionné. L'appel reste en attente jusqu'à ce qu'une personne approuve exactement cet appel, ce qui peut prendre plusieurs minutes : attendez la réponse et ne le rappelez pas. Si la réponse indique que l'appel est retenu, refusé ou rejeté, aucune pull request n'a été ouverte. Renvoie {\"url\": \"<adresse>\", \"number\": <numéro>, \"branch\": \"<branche>\"}."
 

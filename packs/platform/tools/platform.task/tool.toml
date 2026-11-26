@@ -17,6 +17,54 @@ type = "string"
 description = "The id of the task, as platform.tasks gives it."
 required = true
 
+[outputs.id]
+type = "string"
+description = "The task."
+required = true
+
+[outputs.workspace]
+type = "string"
+description = "Its workspace."
+required = true
+
+[outputs.title]
+type = "string"
+description = "Its title."
+required = true
+
+[outputs.state]
+type = "string"
+description = "Its state."
+required = true
+
+[outputs.attempts]
+type = "array"
+description = "Its attempts."
+required = true
+items = { type = "object" }
+
+[outputs.toolCalls]
+type = "array"
+description = "Its tool calls."
+required = true
+items = { type = "object" }
+
+[outputs.checks]
+type = "array"
+description = "Its checks."
+required = true
+items = { type = "object" }
+
+[outputs.cost_usd]
+type = "number"
+description = "What it cost."
+required = true
+
+[outputs.tokens]
+type = "integer"
+description = "The tokens it used."
+required = true
+
 [translations.fr]
 description = "Lit en entier une tâche de n'importe quel espace de travail : objectif, résultat, sous-tâches, chaque essai avec son échec, chaque appel d'outil avec son entrée et sa sortie, les vérifications, le coût et les jetons. Lecture seule ; uniquement pour l'espace de travail de plateforme ; la valeur d'un secret n'est jamais montrée. Renvoie {\"id\", \"workspace\", \"title\", \"agent\", \"state\", \"play\", \"step\", \"goal\", \"result\", \"heals\", \"tasks\", \"attempts\", \"toolCalls\", \"checks\", \"cost_usd\", \"tokens\"}, chaque texte étant tronqué à une taille."
 

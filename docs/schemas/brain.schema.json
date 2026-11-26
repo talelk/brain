@@ -1,0 +1,310 @@
+{
+  "title": "brain.toml",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "description": {
+      "default": "",
+      "type": "string",
+      "maxLength": 2000
+    },
+    "timezone": {
+      "default": "UTC",
+      "type": "string"
+    },
+    "visibility": {
+      "default": "private",
+      "type": "string",
+      "enum": [
+        "private",
+        "public"
+      ]
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "read"
+      ]
+    },
+    "packs": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "limits": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "daily_spend_usd": {
+          "default": 0,
+          "type": "number",
+          "minimum": 0
+        },
+        "running_tasks": {
+          "default": 0,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "confirm_plans": {
+          "default": "person",
+          "type": "string",
+          "enum": [
+            "person",
+            "auto"
+          ]
+        },
+        "paused": {
+          "default": false,
+          "type": "boolean"
+        },
+        "checkpoint": {
+          "type": "string",
+          "pattern": "^([1-9]\\d{0,3})(h| rounds)$"
+        },
+        "checkpoint_timeout": {
+          "default": "24h",
+          "type": "string",
+          "pattern": "^([1-9]\\d{0,3})h$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "healing": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "mode": {
+          "default": "auto",
+          "type": "string",
+          "enum": [
+            "auto",
+            "off"
+          ]
+        },
+        "per_day": {
+          "default": 5,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "additionalProperties": false
+    },
+    "cleanup": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "superseded_after_hours": {
+          "default": 24,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "additionalProperties": false
+    },
+    "model": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "openai-compatible",
+              "anthropic"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https?:\\/\\/\\S+$"
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^secret:[a-z][a-z0-9-]{0,62}$"
+          },
+          "input_usd_per_mtok": {
+            "type": "number",
+            "minimum": 0
+          },
+          "output_usd_per_mtok": {
+            "type": "number",
+            "minimum": 0
+          },
+          "context_tokens": {
+            "type": "integer",
+            "minimum": 8192,
+            "maximum": 9007199254740991
+          },
+          "compact_at": {
+            "type": "number",
+            "minimum": 0.3,
+            "maximum": 0.95
+          }
+        },
+        "required": [
+          "name",
+          "provider",
+          "url",
+          "model"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "project": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "repo": {
+            "type": "string",
+            "minLength": 1
+          },
+          "branch": {
+            "default": "main",
+            "type": "string",
+            "minLength": 1
+          },
+          "access": {
+            "default": "write",
+            "type": "string",
+            "enum": [
+              "read",
+              "write"
+            ]
+          },
+          "credential": {
+            "type": "string",
+            "pattern": "^secret:[a-z][a-z0-9-]{0,62}$"
+          },
+          "setup": {
+            "type": "string",
+            "minLength": 1
+          },
+          "network": {
+            "default": [
+              "*"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "repo"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "github": {
+      "type": "object",
+      "properties": {
+        "credential": {
+          "type": "string",
+          "pattern": "^secret:[a-z][a-z0-9-]{0,62}$"
+        },
+        "webhook_secret": {
+          "type": "string",
+          "pattern": "^secret:[a-z][a-z0-9-]{0,62}$"
+        }
+      },
+      "required": [
+        "credential"
+      ],
+      "additionalProperties": false
+    },
+    "git": {
+      "type": "object",
+      "properties": {
+        "remote": {
+          "type": "string"
+        },
+        "credential": {
+          "type": "string",
+          "pattern": "^secret:[a-z][a-z0-9-]{0,62}$"
+        }
+      },
+      "required": [
+        "remote"
+      ],
+      "additionalProperties": false
+    },
+    "teams": {
+      "type": "object",
+      "properties": {
+        "webhook": {
+          "type": "string",
+          "pattern": "^secret:[a-z][a-z0-9-]{0,62}$"
+        }
+      },
+      "required": [
+        "webhook"
+      ],
+      "additionalProperties": false
+    },
+    "approvals": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "targets": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "per_day": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "until": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": [
+          "targets",
+          "per_day",
+          "until"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "additionalProperties": false
+}

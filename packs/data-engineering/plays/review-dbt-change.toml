@@ -8,6 +8,9 @@ required = true
 [[step]]
 id = "review"
 agent = "dbt-reviewer"
+outputs.pass = { type = "boolean", required = true }
+outputs.score = { type = "number", required = true }
+outputs.findings = { type = "string", required = true }
 goal = """
 Review this dbt change: {{change}}. It may be a branch, a diff or a description of the \
 models changed in the project under /work. Review tests, naming, incremental logic and \

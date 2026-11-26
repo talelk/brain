@@ -20,6 +20,12 @@ type = "string"
 description = "The exact installed version."
 required = true
 
+[outputs.vulnerabilities]
+type = "array"
+description = "Each with `id`, `summary`, and `severity` and `fixed_in` when known."
+required = true
+items = { type = "object" }
+
 [translations.fr]
 description = "Cherche une version de paquet dans la base de vulnérabilités OSV (api.osv.dev) et liste les avis connus qui la touchent. Lecture seule, sans secret. Renvoie {\"vulnerabilities\": [{\"id\", \"summary\", \"severity\", \"fixed_in\"}]}, ou {\"error\": \"<pourquoi>\"}. `severity` et `fixed_in` sont omis quand OSV ne les donne pas. Une liste vide veut dire qu'aucun avis n'est connu pour cette version exacte, pas qu'elle est sûre."
 

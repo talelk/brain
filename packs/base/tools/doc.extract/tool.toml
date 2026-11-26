@@ -21,6 +21,31 @@ type = "integer"
 description = "The most text to return, from 1 to 100000 characters. 20000 when left out."
 required = false
 
+[outputs.path]
+type = "string"
+description = "The file read."
+required = true
+
+[outputs.format]
+type = "string"
+description = "Its format."
+required = true
+
+[outputs.text]
+type = "string"
+description = "Its text."
+required = true
+
+[outputs.truncated]
+type = "boolean"
+description = "Whether the text was cut."
+required = true
+
+[outputs.pages]
+type = "integer"
+description = "The pages of a PDF."
+required = false
+
 [translations.fr]
 description = "Transforme un fichier PDF, DOCX ou XLSX de la copie de travail en texte brut. Le chemin est sous /work (un fichier d'un projet, ou un document de l'espace de travail sous /work/.workspace). Lecture seule : il ne modifie jamais le fichier. Un tableur donne un bloc par feuille, une ligne par rangée, les cellules séparées par des tabulations. Un PDF numérisé sans couche de texte ne donne aucun texte ; le résultat le dit. Renvoie {\"path\", \"format\", \"pages\", \"text\", \"truncated\"} (pages seulement pour un PDF), ou {\"error\": \"<pourquoi>\"}."
 

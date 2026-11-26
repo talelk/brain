@@ -17,6 +17,7 @@ import { ToolCalls } from "./tools/calls";
 import { scrubValue } from "./tools/script";
 import { placeWorkspaceFiles } from "./workspace-files";
 import { collectOutputs, prepareWorkingCopy, SetupError, type WorkingCopy } from "./working-copy";
+import { schemaProblem } from "@brain/contracts/validate";
 
 /** What one attempt needs of its runner. */
 export interface AttemptContext {
@@ -77,7 +78,9 @@ function answerFormat(offer: JobOffer): AnswerFormat | undefined {
       ...(typeof value["findings"] === "string" ? [] : ['"findings" must be a string']),
     ]) };
   }
-  return undefined;
+  const schema = offer.kind === "work" ? offer.task.outputSchema : undefined;
+  if (!schema) return undefined;
+  return { shape: JSON.stringify(schema), blocked: true, problems: (value) => { const problem = schemaProblem(schema, value, "output"); return problem ? [problem] : []; } };
 }
 
 /** `host` or `host:port` of an address, lower-case, as an egress grant names it. */

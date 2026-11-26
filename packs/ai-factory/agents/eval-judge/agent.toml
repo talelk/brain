@@ -1,5 +1,4 @@
 description = "Scores an agent's recorded outputs against the rubric of its evaluation cases. Fails a score that has no recorded evidence."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["memory.search"]
 

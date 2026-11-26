@@ -322,6 +322,14 @@ describe("update all workspaces", () => {
     expect(await harness.admin.command("packs.updateAll", { workspaceId: platformId })).toEqual({ updated: [], failed: [] });
   });
 
+  it("releases nothing that leaves the shape of a pack, and says what", async () => {
+    const path = "packs/base/agents/worker/agent.toml";
+    const before = (await harness.admin.query("file.read", { workspaceId: platformId, path })).content;
+    await harness.admin.command("file.write", { workspaceId: platformId, files: [{ path, content: before.replace(/spend_usd = [0-9.]+/u, "spend_usd = 90") }] });
+    await expect(harness.admin.command("pack.release", { workspaceId: platformId, name: "base" })).rejects.toMatchObject({ code: "INVALID_WORKSPACE", problems: [expect.objectContaining({ path, message: expect.stringContaining("spend limit") as string })] });
+    await harness.admin.command("file.write", { workspaceId: platformId, files: [{ path, content: before }] });
+  });
+
   it("pins a pack the workspace uses only because another pack requires it", async () => {
     const { workspaceId } = await makeWorkspace(harness, "Factory", { packs: ["software-factory"] });
     const factory = () => harness.admin.query("workspace.get", { workspaceId });

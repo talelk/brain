@@ -1,5 +1,4 @@
 description = "Drives a real browser through a web app as a first-time user, screen by screen, and records every issue with its steps and evidence. Changes nothing in the app."
-engine = ["pi", "claude"]
 native = "all"
 tools = ["task.note", "memory.search"]
 

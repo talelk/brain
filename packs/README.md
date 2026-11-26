@@ -27,7 +27,8 @@ requires.
 
 A new domain (security, modernization, an AI factory) is a pack built from these parts and
 nothing else. If a domain cannot be written this way, that is what the model lacks: change
-`docs/model.md` first. `tests/unit/packs.test.ts` fails when a shipped pack leaves the shape.
+`docs/model.md` first. `apps/governor/src/workspace/pack-shape.ts` holds these rules: the
+repository's tests, `pack.release` and `pnpm brain check <folder>` apply them.
 
 **Four roles.** Every agent of a pack is one of these; the name says the domain
 (`rfp-analyst`, `incident-analyst`), the role fixes what it may do.
@@ -36,12 +37,12 @@ nothing else. If a domain cannot be written this way, that is what the model lac
 |---|---|---|---|---|
 | Analyst | `read` or `none` | read tools only | up to 1.00 | its findings with their evidence, or the JSON its Play asks for |
 | Producer | what its product needs: `all` for code or files it writes itself; `read` or `none` when the product is its answer, a file a tool builds, or a `write` call | read and `write` tools | up to 2.00 with `all`, else 1.00 | the work, and a short report |
-| Critic | `read` or `none` | read tools only | up to 0.75 | the verdict of Final-answer formats |
+| Critic | `read` or `none` | read tools only | up to 0.75 | the verdict, in the format Brain states |
 | Operator | `none` | `privileged` tools, a person approves each call | up to 0.75 | what it did, with the state before and after |
 
 A critic is any agent a Play names in `review_by`, and `base/checker`. It never changes
 anything and never reviews its own work. Its prompt says what it is given, how to work (the
-only domain part) and how it scores, and gives the verdict format. A pass is evidence, not
+only domain part) and how it scores. A pass is evidence, not
 confidence. An agent that both analyses and checks (`rfp-analyst`) keeps the critic's limits.
 
 **A tool is `<system>.<verb>`**, one system per tool name (`github.label`, `host.restart`).
@@ -69,7 +70,7 @@ other entry is a rule or a lesson that agents read as it is. Both exist in Frenc
 
 ## Fields used
 
-- `agent.toml`: `description`, `engine`, `native`, `tools`, `model_in_commands` (only a
+- `agent.toml`: `description`, `engine` (left out: `pi` and `claude`), `native`, `tools`, `model_in_commands` (only a
   producer whose commands must call a model, as `ai-factory`'s do), `[limits]` with `turns`,
   `tokens`, `spend_usd` (a pack agent sets only the spend, so the defaults of docs/model.md, Limits, apply to turns and tokens). No pack agent sets `model`.
 - `tool.toml`, three shapes:
@@ -115,8 +116,7 @@ Rules:
   list as compact JSON. A path that does not resolve, including into a `skipped` result,
   becomes an empty string. It is not an error.
 - Text that comes out of a placeholder is never scanned for placeholders again.
-- Single braces are plain text. Several goals show a JSON shape such as
-  `{"healthy": true}` to the agent.
+- Single braces are plain text.
 
 ## `when`
 
@@ -155,69 +155,26 @@ and `after` fields are ignored there because the step fixes the agent.
 
 ## Final-answer formats
 
-An agent that must return structured output replies with one JSON object and nothing
-else.
+Where Brain reads an answer it states the format in the task text, so **no prompt and no goal
+repeats it**:
 
-Planner (`base/agents/planner`), for a `plan` attempt and for a Play step:
+| Attempt | The agent answers with |
+|---|---|
+| `plan` (the `planner`) | `{"summary", "tasks": [{"title", "goal", "agent", "after", "needs"}]}`; `after` holds titles of earlier tasks of the list |
+| `check` (the `checker` and every `review_by` agent) | `{"pass", "score", "findings"}`; `score` is from 0 to 1 |
+| `judge` | `{"keep": "<attemptId>", "findings"}`; the judgement is the check of the kept result unless the step also names `review_by` |
+| `work` of a step with `outputs` | the JSON object those outputs describe, or a first line `BLOCKED:` |
 
-```json
-{"summary": "string", "tasks": [{"title": "string", "goal": "string", "agent": "string", "after": ["title of an earlier task"]}]}
-```
-
-`after` holds titles of earlier tasks of the same list, `[]` when none; titles are
-unique within a plan. `agent` is the name of an agent of the workspace. The planner
-expects the list of the workspace's agents, names and descriptions, in its context.
-
-Checker (`base/agents/checker`), and every agent used as `review_by`
-(`reviewer`, `evaluator`, `quality-reviewer`):
-
-```json
-{"pass": true, "score": 0.9, "findings": "string"}
-```
-
-All three are always present; `score` is from 0 to 1.
-
-Workspace healer (`base/agents/workspace-healer`): free text, ending with one of two calls: `workspace.fix`, or `task.ask`.
-Its final answer is the analysis: the cause, what it ruled out, and the change proposed or the question asked.
-
-Judge (the agent a step names as `judge`), for a `judge` attempt:
-
-```json
-{"keep": "<attemptId>", "findings": "string"}
-```
-
-`keep` is the attempt id of the one candidate to keep, as the judge's context lists the
-candidates; `findings` says why. The judgement is the check of the kept result unless
-the step also names `review_by`.
-
-Router (`customer-operations/agents/router`):
-
-```json
-{"category": "billing | technical | other", "urgency": "low | normal | high", "summary": "string"}
-```
-
-One Play defines a format in a step goal instead of a prompt: the `check` step of
-`keep-healthy` asks `sre-operator` for
-`{"healthy": boolean, "unhealthy": ["string"], "summary": "string"}`.
-
-The drafting agents of `customer-operations` return Markdown with two headings,
-`## Reply` and `## Notes for the team`; only the Reply section is sent.
+A step whose result another step reads by field declares it (`outputs`), as `keep-healthy`
+(`check`), `handle-request` (`route`) and `build-feature` (`plan`) do. A prompt says what the
+fields mean; the step says their types. The `workspace-healer` answers in free text, ending
+with one of two calls: `workspace.fix`, or `task.ask`. The drafting agents of
+`customer-operations` return Markdown with two headings, `## Reply` and `## Notes for the
+team`; only the Reply section is sent.
 
 ## Brain-run tools
 
-Implemented by the Governor. Inputs are the `[inputs.*]` of each `tool.toml`; these are
-the outputs the descriptions promise to agents.
-
-| Tool | Effect | Inputs (`*` required) | Output |
-|---|---|---|---|
-| `task.create` | read | `title`*, `goal`*, `agent`*, `after` (list of task ids) | `{"id": "<task id>"}` |
-| `task.note` | read | `text`* | `{"id": "<note id>"}` |
-| `task.ask` | read | `question`* | `{"status": "waiting"}` |
-| `memory.search` | read | `query`*, `limit` (integer; 5 by default, at most 20) | `{"results": [{"name", "title", "text", "source"}]}`, best first |
-| `memory.propose` | read | `name`* (file name slug), `title`*, `text`* | `{"id": "<proposal id>", "status": "proposed"}` |
-| `git.open-pr` | write | `project`*, `title`*, `body`* | `{"url", "number", "branch"}` |
-| `message.send` | write | `text`* | `{"sent": true}` |
-| `workspace.fix` | write | `task` (id of the failed task; by default the one the heal task heals), `files`* (list of `{"path", "content"}`), `message`*, `why`* | `{"commit", "requeued": true or false}` |
+Implemented by the Governor. Each declares its inputs and outputs in its `tool.toml`.
 
 - `task.create` adds the sub-task under the calling task. In `after`, the tool takes
   task ids; the planner's JSON takes titles.
@@ -258,14 +215,14 @@ answer lists what was proposed and left, with the reason.
 
 ## Script tools
 
-`run.sh` reads one JSON object on standard input (the validated inputs) and writes one
-JSON object on standard output.
+The protocol is that of [docs/model.md](../docs/model.md), "A tool": one JSON object on
+standard input, one on standard output and exit 0; any other exit is a failure, said as
+`{"error": "<why>"}` (these tools use exit 2). A script tool declares its `[outputs]`.
 
-- Exit 0: the output is the result.
-- Exit 2 with `{"error": "<why>"}`: the input was refused or the tool could not do its
-  work.
-- `test.sh` takes no input, uses no network, exits 0 and prints `<tool>: ok`. Both tests
-  put a stub `curl` first on `PATH`.
+`test.sh` takes no input, uses no network, exits 0 and prints `<tool>: ok` (or
+`<tool>: skipped (...)` where something the sandbox image carries is missing here). Tests put
+a stub `curl` first on `PATH`. `pnpm brain check <folder>` runs them and holds what `run.sh`
+printed to the declared outputs.
 
 | Tool | Input | Output |
 |---|---|---|

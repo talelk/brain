@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { backup, restore } from "../apps/governor/src/health/backup";
 import { ENGINE_NAMES } from "../packages/contracts/src/engines";
+import { checkFolder } from "./pack-check";
 import { verify } from "../apps/governor/src/trust/audit";
 
 /**
@@ -26,6 +27,8 @@ import { verify } from "../apps/governor/src/trust/audit";
  *                    audit key, the store's keys and repositories) and leaves <data>/backup.marker. Works while Brain runs. Default: <home>/backups/brain-<time>.tar.gz
  *   restore <file>   puts a backup in place of the data. Refuses while Brain runs; what was there is moved aside, never deleted.
  *   audit-verify     verifies the audit log from its first event; exits 0 only when it holds.
+ *   check <folder>   loads a workspace or pack folder as Brain would, holds a pack to its shape and runs each tool's test.sh, offline;
+ *                    exits 0 only when nothing is wrong. For whoever writes a pack.
  *
  * The environment variables are listed in docs/environment.md (packages/contracts/src/env.ts).
  */
@@ -292,7 +295,17 @@ async function main(): Promise<void> {
     }
     return;
   }
-  throw new Error("usage: pnpm brain start | stop | status | logs [governor|store|launcher|runner] | runner --governor <address> [--token-file <file>] | backup [file] | restore <file> | audit-verify");
+  if (command === "check") {
+    if (!argument) throw new Error("say which folder: pnpm brain check <folder>");
+    const result = await checkFolder(resolve(argument), join(ROOT, "packs"));
+    for (const problem of result.problems) say(`${problem.path}: ${problem.message}`);
+    for (const proof of result.proofs) say(proof.ok ? proof.said : [`${proof.tool}: ${proof.said}`, ...proof.problems.map((problem) => `  ${problem}`)].join("\n"));
+    const wrong = result.problems.length + result.proofs.filter((proof) => !proof.ok).length;
+    say(wrong === 0 ? `The ${result.kind} is in order: ${result.proofs.length} tool proofs passed.` : `The ${result.kind} has ${wrong} thing${wrong === 1 ? "" : "s"} to fix.`);
+    process.exitCode = wrong === 0 ? 0 : 1;
+    return;
+  }
+  throw new Error("usage: pnpm brain start | stop | status | logs [governor|store|launcher|runner] | runner --governor <address> [--token-file <file>] | backup [file] | restore <file> | audit-verify | check <folder>");
 }
 
 try {

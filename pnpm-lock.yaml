@@ -315,9 +315,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.32.2
         version: 1.32.2(zod@4.6.7)
-      ajv:
-        specifier: 8.20.0
-        version: 8.20.0
       execa:
         specifier: 10.2.1
         version: 10.2.1
@@ -397,6 +394,9 @@ importers:
 
   packages/contracts:
     dependencies:
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
       canonicalize:
         specifier: 5.1.0
         version: 5.1.0

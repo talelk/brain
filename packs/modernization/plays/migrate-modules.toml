@@ -12,15 +12,15 @@ required = false
 [[step]]
 id = "plan"
 agent = "legacy-analyst"
+outputs.tasks = { type = "array", items = { type = "object" }, required = true }
 goal = """
 Split this migration into the smallest set of modules that migrators can change at the \
 same time: one to five tasks, each owning different files so that the changes do not \
 collide, ordered from the safest to the riskiest. If the scope is small, one task is the \
 right plan.
 
-Reply with one JSON object and nothing else, no code fence: \
-{"tasks": [{"title": "string", "goal": "string"}]}. The goal of each task says the module's \
-path, the files it owns, the target, and how to run its tests.
+Each task has a `title` and a `goal`. The goal says the module's path, the files it owns, the \
+target, and how to run its tests.
 
 Migration: {{target}}
 Scope (all of the project when empty): {{scope}}"""

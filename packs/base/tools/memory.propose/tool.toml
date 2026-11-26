@@ -22,6 +22,16 @@ type = "string"
 description = "The body of the entry, in Markdown, without the title line."
 required = true
 
+[outputs.id]
+type = "string"
+description = "The id of the proposal."
+required = true
+
+[outputs.status]
+type = "string"
+description = "`proposed`."
+required = true
+
 [translations.fr]
 description = "Propose une nouvelle entrée de mémoire pour cet espace de travail. Rien n'est enregistré tant qu'une personne n'a pas accepté la proposition, ce qui commite l'entrée sous memory/<name>.md. Ne proposez que ce dont l'espace de travail aura de nouveau besoin et que vous avez vérifié dans cette tâche : une convention, un correctif qui a fonctionné, une réponse. Cherchez d'abord dans la mémoire pour ne pas proposer ce qui s'y trouve déjà. Un seul sujet par entrée, rédigée pour pouvoir être lue seule. Renvoie {\"id\": \"<id de la proposition>\", \"status\": \"proposed\"}."
 

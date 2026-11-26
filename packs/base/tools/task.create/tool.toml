@@ -28,6 +28,11 @@ items = { type = "string" }
 description = "Ids of tasks the new sub-task waits for, as returned by earlier task.create calls. Leave out when it waits for nothing."
 required = false
 
+[outputs.id]
+type = "string"
+description = "The id of the new sub-task."
+required = true
+
 [translations.fr]
 description = "Ajoute une sous-tâche sous votre tâche en cours et renvoie son id. C'est le seul moyen de confier une partie du travail à un autre agent : vous ne pouvez pas démarrer un agent directement. La sous-tâche démarre une fois terminées les tâches qu'elle attend, s'exécute avec son propre agent et est vérifiée comme toute autre tâche. Rédigez un objectif qui se suffit à lui-même, car l'autre agent voit l'objectif, pas votre raisonnement. Renvoie {\"id\": \"<id de la tâche>\"}."
 

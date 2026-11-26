@@ -1,5 +1,4 @@
 description = "Checks that a migrated module still behaves as before: tests green before and after with recorded runs, no test weakened or deleted, the public interface unchanged unless the goal says so. Changes nothing."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["memory.search"]
 

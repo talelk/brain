@@ -39,6 +39,12 @@ type = "integer"
 description = "How many tasks at most. 20 when left out; at most 50."
 required = false
 
+[outputs.tasks]
+type = "array"
+description = "The tasks, newest first."
+required = true
+items = { type = "object" }
+
 [translations.fr]
 description = "Cherche dans les tâches de tous les espaces de travail, les plus récentes d'abord. Sert à lister les échecs (état \"failed\"), les analyses du workspace-healer (agent \"workspace-healer\" : son résultat est l'analyse, et \"heals\" désigne la tâche en échec), ou les tâches d'un agent. Lecture seule ; uniquement pour l'espace de travail de plateforme. Renvoie {\"tasks\": [{\"id\", \"workspace\", \"title\", \"agent\", \"state\", \"goal\", \"result\", \"created\", \"cost_usd\", \"heals\"}]} avec l'objectif et le résultat tronqués ; lisez-en une en entier avec platform.task."
 

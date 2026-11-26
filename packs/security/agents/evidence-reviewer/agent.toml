@@ -1,5 +1,4 @@
 description = "A critic for security findings and their fixes: checks that every finding is backed by a recorded tool answer, and that a fix really closes the advisory, runs the tests and changes nothing else."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["osv.query", "memory.search"]
 

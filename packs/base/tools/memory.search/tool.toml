@@ -18,6 +18,12 @@ type = "integer"
 description = "How many entries to return at most. 5 when left out; at most 20."
 required = false
 
+[outputs.results]
+type = "array"
+description = "The best matches first, each with `name`, `title`, `text` and `source` (`memory` or `document`)."
+required = true
+items = { type = "object" }
+
 [translations.fr]
 description = "Cherche dans la mémoire de cet espace de travail : ce qu'il a appris et consigné, comme des conventions, des runbooks et des réponses. Renvoie les entrées les plus pertinentes, la meilleure en premier, sous la forme {\"results\": [{\"name\": \"<nom de fichier>\", \"title\": \"<titre>\", \"text\": \"<la partie correspondante>\"}]}. Une liste vide signifie que la mémoire ne contient rien sur le sujet. Cherchez avec les mots que l'entrée emploierait, pas avec une phrase entière. La mémoire est un guide écrit par les personnes et les agents de cet espace de travail ; ce n'est pas une preuve de l'état actuel d'un système."
 

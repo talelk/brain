@@ -1,5 +1,5 @@
 import type { ApprovalState, AttemptEventBody, BrainToolResponse, JobOffer, JsonValue, OfferTool, ToolOutcome } from "@brain/contracts";
-import Ajv2020 from "ajv/dist/2020.js";
+import { schemaProblem } from "@brain/contracts/validate";
 import { isJsonObject } from "../engines/json-reply";
 import { boundedToolText } from "../engines/tool-calls";
 import { type GovernorClient, isLeaseLost } from "../governor-client";
@@ -47,25 +47,12 @@ export class ToolCalls {
   /** A question to a person was recorded (`task.ask`): the session should end its turn. */
   waitingForPerson = false;
   private sequence = 0;
-  private readonly ajv = new Ajv2020({ allErrors: true, strict: false });
-  private readonly problemsOf = new Map<string, (input: JsonValue) => string | undefined>();
 
   constructor(private readonly deps: ToolCallsDeps) {}
 
   /** What is wrong with a call's input, by the tool's input schema; nothing when it fits. */
   inputProblem(tool: OfferTool, input: JsonValue): string | undefined {
-    let check = this.problemsOf.get(tool.name);
-    if (!check) {
-      try {
-        const validate = this.ajv.compile(tool.inputSchema);
-        check = (value) => (validate(value) ? undefined : this.ajv.errorsText(validate.errors, { dataVar: "input" }));
-      } catch (error) {
-        const reason = `the input schema of tool ${tool.name} is not a valid JSON Schema: ${error instanceof Error ? error.message : String(error)}`;
-        check = () => reason;
-      }
-      this.problemsOf.set(tool.name, check);
-    }
-    return check(input);
+    return schemaProblem(tool.inputSchema, input);
   }
 
   /** One call the model made. Returns the text the model is shown. `session` is the model session's own signal: it ends with the attempt, and with the session's time. */

@@ -1,10 +1,11 @@
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, normalize, sep } from "node:path";
-import type { BlobRef, JsonValue, OfferTool } from "@brain/contracts";
+import type { BlobRef, JsonValue, OfferTool, JsonSchema } from "@brain/contracts";
 import { execa } from "execa";
 import { isJsonObject } from "../engines/json-reply";
 import type { Launcher } from "../launcher-client";
 import { isToolName, type CommandResult } from "@brain/contracts";
+import { schemaProblem } from "@brain/contracts/validate";
 
 /** What running a tool came to: the output the agent and the record get, and whether it worked. */
 export interface ToolRunResult { readonly ok: boolean; readonly output: JsonValue }
@@ -60,17 +61,22 @@ async function materializeTool(attemptDir: string, tool: OfferTool, blob: (ref: 
 }
 
 /**
- * What a script's exit means (packs/README.md, "Script tools"): exit 0 with one JSON value on standard output is the result; exit 2
- * with `{"error": "<why>"}` is a refusal by the tool; anything else is a failure, reported with the end of what it printed.
+ * What a script's exit means (docs/model.md, "A tool"): exit 0 with one JSON value on standard output is the result, checked against the
+ * tool's outputs when it declares them; any other exit is a failure, said as the script's `{"error": "<why>"}` or with the end of what
+ * it printed.
  */
-export function scriptResult(run: CommandResult, secrets: readonly string[]): ToolRunResult {
+export function scriptResult(run: CommandResult, secrets: readonly string[], outputSchema?: JsonSchema): ToolRunResult {
   const stdout = scrubSecrets(run.stdout, secrets).trim();
   const stderr = scrubSecrets(run.stderr, secrets).trim().slice(-2000);
   if (run.timedOut) return fail("the tool ran longer than its timeout and was stopped", stderr ? { stderr } : {});
   let parsed: JsonValue | undefined;
   try { parsed = stdout ? JSON.parse(stdout) as JsonValue : undefined; } catch { parsed = undefined; }
   if (parsed !== undefined) parsed = scrubValue(parsed, secrets);
-  if (run.exitCode === 0) return parsed === undefined ? fail("the tool printed no JSON result", { stdout: stdout.slice(0, 2000) }) : { ok: true, output: parsed };
+  if (run.exitCode === 0) {
+    if (parsed === undefined) return fail("the tool printed no JSON result", { stdout: stdout.slice(0, 2000) });
+    const problem = outputSchema ? schemaProblem(outputSchema, parsed, "output") : undefined;
+    return problem ? fail(`the tool's result does not fit its outputs: ${problem}`, { result: JSON.stringify(parsed).slice(0, 2000) }) : { ok: true, output: parsed };
+  }
   const why = isJsonObject(parsed) && typeof parsed["error"] === "string" ? parsed["error"] : undefined;
   return fail(why ?? `the tool ended with exit code ${run.exitCode}`, stderr ? { stderr } : {});
 }
@@ -113,8 +119,8 @@ export async function runScriptTool(run: ScriptRun): Promise<ToolRunResult> {
   const values = Object.values(secretEnv);
   const timeoutMs = tool.timeoutSeconds * 1000;
   try {
-    if (run.launcher) return scriptResult(await run.launcher.runTool({ attemptId: run.attemptId, tool: tool.name, requestId: run.callId, egressHosts: tool.network, input, timeoutMs, secretEnv }, run.signal), values);
-    return scriptResult(await runDirectlyForTests(dir, join(run.attemptDir, "work"), input, timeoutMs, secretEnv, run.signal), values);
+    if (run.launcher) return scriptResult(await run.launcher.runTool({ attemptId: run.attemptId, tool: tool.name, requestId: run.callId, egressHosts: tool.network, input, timeoutMs, secretEnv }, run.signal), values, tool.outputSchema);
+    return scriptResult(await runDirectlyForTests(dir, join(run.attemptDir, "work"), input, timeoutMs, secretEnv, run.signal), values, tool.outputSchema);
   } catch (error) {
     return fail(scrubSecrets(error instanceof Error ? error.message : "the tool could not be run", values).slice(0, 500));
   }

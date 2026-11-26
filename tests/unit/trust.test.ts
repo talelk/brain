@@ -1,8 +1,8 @@
 import { approvalSubjectDigest, nextCron, type JsonValue, type SnapshotManifest } from "@brain/contracts";
 import { describe, expect, it } from "vitest";
-import { inputProblem } from "../../apps/governor/src/tools/schema";
+import { schemaProblem as inputProblem } from "../../packages/contracts/src/validate";
 import { approvalSubject, standingCovers } from "../../apps/governor/src/trust/approvals";
-import { inputSchema } from "../../apps/governor/src/workspace/load";
+import { fieldSchema } from "../../packages/contracts/src/files";
 
 const tool = { description: "Restarts a container.", effect: "privileged", timeout_seconds: 90, needs: [], network: [], secrets: [], host_command: "host.restart", inputs: {}, source: "sre", input_schema: {}, files: [] };
 const manifest = { tools: { "host.restart": tool } } as unknown as SnapshotManifest;
@@ -44,10 +44,10 @@ describe("a standing approval", () => {
 });
 
 describe("a call's input", () => {
-  const schema = inputSchema({
+  const schema = fieldSchema({
     container: { type: "string", description: "", required: true }, lines: { type: "integer", description: "", required: false },
     mode: { type: "string", description: "", required: false, enum: ["plain", "loud"] }, words: { type: "array", description: "", required: false, items: { type: "string" } },
-  });
+  }, "inputs");
   it("is accepted when it has the required inputs with the right types and nothing else", () => {
     expect(inputProblem(schema, { container: "web-1" })).toBeUndefined();
     expect(inputProblem(schema, { container: "web-1", lines: 50, mode: "loud", words: ["a", "b"] })).toBeUndefined();

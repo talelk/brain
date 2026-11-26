@@ -1,5 +1,4 @@
 description = "Runs the evaluation cases of a project's agents against their current prompts, with a real model call for each case, and keeps what each agent answered. Changes no project file."
-engine = ["pi", "claude"]
 native = "all"
 tools = ["memory.search", "task.note"]
 model_in_commands = true

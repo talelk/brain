@@ -1,5 +1,4 @@
 description = "Drafts replies to billing requests (invoices, charges, refunds, plans) from the workspace's memory. Drafts only; promises nothing memory does not support."
-engine = ["pi", "claude"]
 native = "none"
 tools = ["memory.search", "task.note"]
 

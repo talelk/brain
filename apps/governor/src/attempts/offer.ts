@@ -1,9 +1,9 @@
 import { modelsOf } from "../workspace/platform";
-import { MODEL_DEFAULTS, secretName, signStoreGrant, type BlobRef, type Digest, type JobOffer, type JsonValue, type OfferProject, type OfferTool, type OfferToolCall, type SnapshotManifest, type ToolOutcome, type ModelRoute, speaks } from "@brain/contracts";
+import { MODEL_DEFAULTS, secretName, signStoreGrant, type BlobRef, type Digest, type JobOffer, type JsonValue, type OfferProject, type OfferTool, type OfferToolCall, type SnapshotManifest, type ToolOutcome, type ModelRoute, speaks, fieldSchema } from "@brain/contracts";
 import type { Db } from "../db";
 import type { Gov } from "../dispatch";
 import { repoPath } from "../integrations/github";
-import { attemptOf, json, payloadOf, taskOf, type AttemptRow, type TaskRow } from "../tasks/store";
+import { attemptOf, json, payloadOf, taskOf, type AttemptRow, type TaskRow, stepOf } from "../tasks/store";
 import { microUsd } from "../trust/usage";
 import { manifestOf } from "../workspace/store";
 
@@ -133,6 +133,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
   const manifest = manifestOf(gov, task.snapshot_digest);
   const agent = manifest.agents[attempt.agent] as SnapshotManifest["agents"][string];
   const payload = payloadOf(attempt);
+  const declared = stepOf(gov, task)?.outputs;
 
   // A `for_each` step is given as its copies, not as the list that groups them.
   const results = (db.prepare(`SELECT t.id, t.title, t.result, t.output_json FROM tasks t WHERE t.for_each IS NULL AND (t.id IN (SELECT waits_for FROM task_deps WHERE task_id=?)
@@ -166,7 +167,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
   const tools: OfferTool[] = agent.tools.map((name) => {
     const tool = manifest.tools[name] as SnapshotManifest["tools"][string];
     return {
-      name, description: tool.description, effect: tool.effect, inputSchema: tool.input_schema, files: tool.files.map((file) => ({ path: file.path, digest: file.digest, bytes: file.bytes })),
+      name, description: tool.description, effect: tool.effect, inputSchema: tool.input_schema, ...(tool.output_schema ? { outputSchema: tool.output_schema } : {}), files: tool.files.map((file) => ({ path: file.path, digest: file.digest, bytes: file.bytes })),
       network: tool.network, secrets: tool.secrets, needs: tool.needs, timeoutSeconds: tool.timeout_seconds, ...(tool.runs ? { runs: tool.runs } : {}), ...(tool.host_command ? { hostCommand: tool.host_command } : {}),
     };
   });
@@ -183,7 +184,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
   db.prepare("UPDATE attempts SET payload_json=? WHERE id=?").run(JSON.stringify({ ...payload, offered }), attempt.id);
   return {
     attemptId: attempt.id, fence: attempt.fence, kind: attempt.kind, workspaceId: attempt.workspace_id, offerExpiresAt: attempt.offer_expires_at_ms ?? 0,
-    task: { id: task.id, title: task.title, goal: task.goal, round: task.round, findings: findingsOf(db, task) },
+    task: { id: task.id, title: task.title, goal: task.goal, round: task.round, findings: findingsOf(db, task), ...(attempt.kind === "work" && declared ? { outputSchema: fieldSchema(declared, "outputs") } : {}) },
     context: { results, notes, answers, catalog: { agents: describe(manifest.agents), tools: describe(manifest.tools), plays: describe(manifest.plays) }, ...(review.length > 0 ? { review } : {}) },
     snapshotDigest: task.snapshot_digest,
     agent: {

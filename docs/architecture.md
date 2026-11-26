@@ -25,6 +25,7 @@ packages/contracts/src/   shared types and zod schemas (the only shared package)
   launcher.ts   runner <-> launcher wire types
   engines.ts    the engine names and the model API each speaks
   env.ts        every environment variable; docs/environment.md is written from it (pnpm docs:gen)
+  validate.ts   the one check of a value against a JSON Schema (a subpath of its own: the web app does not carry it)
   audit-chain.ts hash.ts run-receipt.ts   kept, pure
 apps/governor/src/
   main.ts  app.ts (HTTP)  db.ts (SQLite + schema.sql)  events.ts (append + audit chain)
@@ -43,7 +44,7 @@ apps/launcher/ kept; engine sandbox gains the working-copy mount
 apps/store/    the git store: `git http-backend` behind a signed-token check; a process of its own that never talks to the Governor (section 8)
 apps/mcp/     the MCP server for a person's own Claude (section 12): stdio, talks to a live Brain over the API
 apps/web/src/  new app, nine screens
-scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, runner, backup, restore, audit-verify), gen-docs.ts (`pnpm docs:gen`), deploy-demo.sh
+scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, runner, backup, restore, audit-verify), gen-docs.ts (`pnpm docs:gen`: docs/environment.md and docs/schemas/), pack-check.ts (`pnpm brain check`), deploy-demo.sh
 deploy/        the sandbox images; demo/ (the demo host's compose file, host commands and backup units)
 packs/         base, software-factory, sre, customer-operations
 tests/         unit/ (pure), core/ (governor + fixture runner in-process), browser/
@@ -83,7 +84,7 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   carries `updates` (`{pack, pinned, latest}` for each pack used whose newest release is above its pin, the baseline being 0) and `overview` a count;
   nothing changes a pin but a write of `brain.toml`.
   **Releasing** is the command `pack.release` (an admin of the admin workspace): it reads `packs/<name>/` of the admin workspace's folder, sets its
-  `pack.toml` `version` to the last release plus one, checks that a workspace using that content is valid, writes `<data>/released/<name>@<n>/`, commits
+  `pack.toml` `version` to the last release plus one, checks that a workspace using that content is valid and that the pack keeps its shape (`workspace/pack-shape.ts`), writes `<data>/released/<name>@<n>/`, commits
   the version (`Release <name> n`) and tags the commit `<name>@<n>` (the audit event `pack.released`). At start `reconcile` rewrites a released
   directory that is missing from its tag. The commit that makes a workspace the admin workspace also writes `packs/<name>/` for every shipped pack.
 - In a step, `goal` may contain `{{<input name>}}` and `{{steps.<id>.result}}` (or a
@@ -127,8 +128,13 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   no table and no failure reaches the commit. `workspace.get` (`folderPush`) and `health` (`folderPush`) read the last of these events; Settings and Health show it.
 - **The address of a workspace** is `slugify(name)` (accents dropped, anything that is not a letter or digit one dash; `packages/contracts/src/slug.ts`, imported by the web app too), or the given `slug` read the same way. `workspace.create` refuses, with CONFLICT on the path `name`, an address any workspace (archived too) already has; it never numbers. The wizard checks the same against what it already knows and, when the Governor refuses, takes the person back to the name.
   A first project's name comes from the last part of its address and its branch from the repository itself (`git.getRemoteInfo`, at most three seconds, with the typed token), else `main`.
-- A tool's inputs (`[inputs.<name>]` with `type`, `description`, `required`, `enum`,
-  `items`) compile to a JSON Schema used to validate calls.
+- A tool's inputs and outputs (`[inputs.<name>]`, `[outputs.<name>]` with `type`, `description`, `required`, `enum`,
+  `items`) compile to JSON Schemas (`fieldSchema`): `input_schema` allows nothing else, `output_schema` may be given more.
+  Every check of a value against a schema is `contracts/src/validate.ts` (Ajv), in the Governor and in the runner.
+- A step's `outputs` (the same grammar) are checked against what later steps read: a field of a step that declares
+  outputs must be one of them, a `for_each` field must be a list, and a `when` compares with its type and its allowed values.
+- `docs/schemas/*.schema.json` is the form of each definition file, made by `z.toJSONSchema` from `files.ts`
+  (`pnpm docs:gen`; `tests/unit/generated-docs.test.ts` fails when one is stale).
 - A tool with `runs = "brain"` is implemented by the Governor (section 7) and has no
   `run.sh`. A tool with `host_command = "<name>"` runs a command the launcher's operator
   declared on the runner host, with the tool's inputs as named arguments; one that
@@ -376,7 +382,9 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   network, credential secret name, base commit), the state commits it starts from (the tasks it waits for, then its own earlier attempt's) and the git store's address and token (section 8), model
   (gateway URL and the routes the attempt may call, each with its API, name and window: the agent's own model, or else the
   workspace's first model of each API), and for `act` the approved call to run. `contracts/src/engines.ts` names the one API each
-  engine speaks: the queue holds an attempt none of whose engines speaks one of the routes (`unready`, `engine-model`), `claim`
+  engine speaks. `task.outputSchema` is set for the work of a step with `outputs`; the task text then ends with the format the
+  attempt must answer with, as it does for a plan, a check and a judgement, and the runner checks the answer, with one
+  correction session (a first line `BLOCKED:` stands as it is). The queue holds an attempt none of whose engines speaks one of the routes (`unready`, `engine-model`), `claim`
   gives it only to a runner with one that does, and the runner picks the first such engine and calls that route.
 - `events` appends to `attempt_events`; a `tool.call` and its `tool.result` also record the call in `tool_calls`.
   `artifacts` stores bytes in the CAS, linked to the attempt and its task. `blobs/:digest` serves only what the
@@ -413,7 +421,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 - **Workspace tools** with `run.sh`: the runner fetches the files by digest, validates
   the input against the schema, and runs the script in a tool sandbox with the task's
   working copy mounted read-only at `/work`, the attempt's `/out` writable (a tool that builds a deliverable saves it there), the declared hosts on the egress proxy and
-  the declared secrets leased for that call. `effect = "read"` runs at once. The effect is the one the tool's file says, Brain-run tools included.
+  the declared secrets leased for that call. A result of a tool with outputs that does not fit them is a failed call. `effect = "read"` runs at once. The effect is the one the tool's file says, Brain-run tools included.
 - **Effects** (`write`, `privileged`): the runner posts the call to `tool-call`. The
   Governor builds the approval subject (tool, digest of the tool's definition, input and its digest, task,
   snapshot digest, and for a pull request the digest of the diff the approver reads, the state commit whose tree is opened and the commit it is made on). If a standing approval in

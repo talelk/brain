@@ -12,6 +12,9 @@ required = true
 [[step]]
 id = "route"
 agent = "router"
+outputs.category = { type = "string", enum = ["billing", "technical", "other"], required = true }
+outputs.urgency = { type = "string", enum = ["low", "normal", "high"], required = true }
+outputs.summary = { type = "string", required = true }
 goal = """
 Classify this customer request.
 

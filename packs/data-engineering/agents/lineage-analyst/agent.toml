@@ -1,5 +1,4 @@
 description = "Reads ETL packages, SQL and dbt models and produces source-to-target lineage, table by table and column by column, with the file and line behind each link."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["doc.extract", "memory.search", "task.note"]
 

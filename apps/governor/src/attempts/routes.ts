@@ -16,7 +16,6 @@ import { withLimit } from "./limits";
 import { attemptEnded, closeAttempt, settle } from "../tasks/orchestrator";
 import { attemptOf, payloadOf, queueAttempt, setState, taskOf, type AttemptRow } from "../tasks/store";
 import { runBrainTool } from "../tools/brain";
-import { inputProblem } from "../tools/schema";
 import { authorizeCall, callRowId, expireApprovals, finishCall, openCall } from "../trust/approvals";
 import { linkArtifact, putArtifact, readArtifact } from "../trust/artifacts";
 import { readSecret } from "../trust/secrets";
@@ -26,6 +25,7 @@ import { buildOffer, credentialOf, missing, OFFER_FOR_MS } from "./offer";
 import { blockOf, dispatchOrder, standing } from "../tasks/queue";
 import { readCapped } from "../body-limit";
 import { body, runnerOf } from "./runners";
+import { schemaProblem } from "@brain/contracts/validate";
 
 /** The queue and the life of an attempt on a runner (docs/architecture.md section 6): claim, lease, events, tool calls, completion. */
 const LEASE_MS = 60_000;
@@ -200,7 +200,7 @@ export function registerAttempts(governor: Governor): void {
     const manifest = manifestOf(gov, taskOf(db, attempt.task_id).snapshot_digest);
     const tool = manifest.agents[attempt.agent]?.tools.includes(input.tool) ? manifest.tools[input.tool] : undefined;
     if (!tool || tool.runs === "brain") throw new BrainError("FORBIDDEN", `The agent ${attempt.agent} has no tool ${input.tool} that a runner runs`);
-    const problem = inputProblem(tool.input_schema, input.input);
+    const problem = schemaProblem(tool.input_schema, input.input);
     if (problem) throw new BrainError("INVALID_INPUT", `The input of ${input.tool} is not valid: ${problem}`);
     const decision = tx(db, () => authorizeCall(gov, attempt, { callId: input.callId, tool: input.tool, effect: tool.effect, input: input.input }));
     return c.json({ callId: input.callId, state: decision.state, ...(decision.approvalId ? { approvalId: decision.approvalId } : {}), ...(decision.reason ? { reason: decision.reason } : {}) } satisfies ToolCallResponse);

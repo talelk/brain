@@ -27,6 +27,27 @@ type = "integer"
 description = "How long to let the page's scripts run after it loads, from 0 to 15000 milliseconds. 3000 when left out."
 required = false
 
+[outputs.url]
+type = "string"
+description = "The address asked for."
+required = true
+
+[outputs.text]
+type = "string"
+description = "The text a person would see."
+required = true
+
+[outputs.links]
+type = "array"
+description = "The links, each with `text` and `href`."
+required = true
+items = { type = "object" }
+
+[outputs.truncated]
+type = "boolean"
+description = "Whether the text was cut."
+required = true
+
 [translations.fr]
 description = "Ouvre une adresse https dans un navigateur sans interface, laisse ses scripts s'exécuter et renvoie le texte qu'une personne verrait ainsi que les liens de la page. À utiliser pour une page que web.fetch renvoie vide parce qu'elle se construit en JavaScript (un portail d'appels d'offres, un tableau de bord). Plus lent que web.fetch : essayer web.fetch d'abord. Il ouvre seulement la page : il ne clique sur rien et n'envoie rien. Il atteint n'importe quel hôte public ; un espace de travail qui veut moins remplace ce fichier d'outil par sa propre copie dont `network` liste les hôtes autorisés. Un refus ou une erreur est une réponse, pas un obstacle à contourner. Renvoie {\"url\", \"final_url\", \"status\", \"title\", \"text\", \"links\": [{\"text\", \"href\"}], \"truncated\"}, ou {\"error\": \"<pourquoi>\"}."
 

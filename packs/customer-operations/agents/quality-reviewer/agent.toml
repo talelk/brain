@@ -1,5 +1,4 @@
 description = "Scores a drafted reply for tone, accuracy against memory and completeness, and passes it or sends it back with what to fix."
-engine = ["pi", "claude"]
 native = "none"
 tools = ["memory.search"]
 

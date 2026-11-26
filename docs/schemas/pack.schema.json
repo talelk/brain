@@ -1,0 +1,56 @@
+{
+  "title": "pack.toml",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "description": {
+      "default": "",
+      "type": "string"
+    },
+    "requires": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{0,62}$"
+      }
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "translations": {
+      "type": "object",
+      "properties": {
+        "fr": {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "ar": {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "additionalProperties": false
+}

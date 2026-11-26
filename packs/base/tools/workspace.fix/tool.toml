@@ -34,6 +34,16 @@ type = "string"
 description = "The cause of the repeated failure and why this change removes it, for the person who approves. Name what you ruled out."
 required = true
 
+[outputs.commit]
+type = "string"
+description = "The commit that holds the change."
+required = true
+
+[outputs.requeued]
+type = "boolean"
+description = "Whether the healed task runs again."
+required = true
+
 [translations.fr]
 description = "Propose une modification des fichiers de cet espace de travail qui guérit la tâche en échec dont votre propre tâche s'occupe, puis relance cette tâche une fois la modification faite. Vous envoyez le nouveau contenu complet de chaque fichier, pas un patch. Brain vérifie que l'espace de travail reste valide, puis un admin lit la modification sous forme de diff avec votre raison et approuve exactement celle-ci, ce qui peut prendre plusieurs minutes : attendez la réponse et ne rappelez pas l'appel. Seuls brain.toml (hors approvals, github et teams) et les fichiers sous agents/, tools/, plays/, memory/ et docs/ peuvent être modifiés ; jamais le code d'un projet, jamais un secret. Si la réponse indique que l'appel est retenu, refusé ou rejeté, rien n'a changé. Une seule proposition par tâche. Renvoie {\"commit\": \"<commit>\", \"requeued\": true ou false}. Dans l'espace de travail de plateforme, une tâche qui ne guérit rien peut aussi l'appeler, pour des fichiers sous packs/<pack>/ uniquement, jusqu'à dix fois (chacune approuvée séparément) ; la réponse est alors {\"commit\": \"<commit>\", \"requeued\": false}."
 

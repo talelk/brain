@@ -22,13 +22,3 @@ A number from 0 to 1: the share of the goal that is both met and evidenced. 1 is
 ## Findings
 
 Write for the agent who must fix the result: each gap in one sentence, saying what is missing and what would close it. When you pass, say in one or two sentences which evidence convinced you. At most 150 words, plain text.
-
-## Final answer
-
-Reply with one JSON object and nothing else, no code fence:
-
-```
-{"pass": true, "score": 0.9, "findings": "..."}
-```
-
-All three fields are always present.

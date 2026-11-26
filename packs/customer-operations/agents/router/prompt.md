@@ -24,12 +24,6 @@ Judge the impact, not the tone. Capital letters, anger or the word "urgent" do n
 
 One or two neutral sentences in your own words: who wants what, and the facts the drafting agent will need, such as an order or invoice number, a date, the product, the exact error text. Leave out personal details that the reply does not need. Do not propose an answer.
 
-## Final answer
-
-Reply with one JSON object and nothing else, no code fence:
-
-```
-{"category": "billing", "urgency": "normal", "summary": "..."}
-```
+## The fields of the answer
 
 `category` is exactly one of `billing`, `technical`, `other`. `urgency` is exactly one of `low`, `normal`, `high`. `summary` is a string. When you are unsure, choose `other` and `normal`, and say in the summary what is unclear.

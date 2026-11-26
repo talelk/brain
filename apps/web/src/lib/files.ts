@@ -1,5 +1,6 @@
 import { LIMIT_DEFAULTS } from "@brain/contracts/limits";
 import type { AgentFile, PlatformKind, PlayFile, SnapshotManifest, StepSpec, ToolFile } from "@brain/contracts";
+import { BUNDLED_ENGINES } from "@brain/contracts/engines";
 import { compact, toToml, type TomlTable, type TomlValue } from "./toml";
 
 /**
@@ -66,7 +67,8 @@ export function brainToml(brain: Brain): string {
 
 export function agentToml(agent: AgentFile): string {
   const { description, engine, native, tools, model, model_in_commands, limits, translations } = agent;
-  return toToml(compact({ description, engine, native: differs(native, "none"), tools, model, model_in_commands: model_in_commands || undefined, limits: { turns: differs(limits.turns, LIMIT_DEFAULTS.turns), tokens: differs(limits.tokens, LIMIT_DEFAULTS.tokens), spend_usd: differs(limits.spend_usd, LIMIT_DEFAULTS.spend_usd) }, translations: translations as TomlTable | undefined }));
+  const standard = engine.join() === BUNDLED_ENGINES.join();
+  return toToml(compact({ description, engine: standard ? undefined : engine, native: differs(native, "none"), tools, model, model_in_commands: model_in_commands || undefined, limits: { turns: differs(limits.turns, LIMIT_DEFAULTS.turns), tokens: differs(limits.tokens, LIMIT_DEFAULTS.tokens), spend_usd: differs(limits.spend_usd, LIMIT_DEFAULTS.spend_usd) }, translations: translations as TomlTable | undefined }));
 }
 
 const inputsTable = (inputs: ToolFile["inputs"]): TomlTable => Object.fromEntries(Object.entries(inputs).map(([name, spec]) => [name, { type: spec.type, description: spec.description || undefined, required: spec.required, enum: spec.enum, items: spec.items ? { ...spec.items } : undefined }]));
@@ -83,14 +85,15 @@ function keepInputs(translations: ToolFile["translations"] | PlayFile["translati
 }
 
 export function toolToml(tool: ToolFile): string {
-  const { description, effect, timeout_seconds, needs, network, secrets, runs, host_command, inputs, translations } = tool;
+  const { description, effect, timeout_seconds, needs, network, secrets, runs, host_command, inputs, outputs, translations } = tool;
   // `inputs` is filled after `compact`, which would drop a `required = false` it must keep.
-  return toToml({ ...compact({ description, runs, host_command, effect, timeout_seconds: differs(timeout_seconds, 60), needs, secrets }), network: hosts(network), inputs: inputsTable(inputs), ...compact({ translations: keepInputs(translations, inputs) }) });
+  return toToml({ ...compact({ description, runs, host_command, effect, timeout_seconds: differs(timeout_seconds, 60), needs, secrets }), network: hosts(network), inputs: inputsTable(inputs), ...(outputs ? { outputs: inputsTable(outputs) } : {}), ...compact({ translations: keepInputs(translations, inputs) }) });
 }
 
 function stepTable(step: StepSpec): TomlTable {
-  const { id, agent, goal, after, for_each, review_by, max_rounds, target_score, candidates, judge, when, requires, approve } = step;
-  return compact({ id, agent, goal, after, for_each, when, requires, review_by, max_rounds: differs(max_rounds, LIMIT_DEFAULTS.max_rounds), target_score, candidates: candidates as TomlValue, judge, approve: approve || undefined });
+  const { id, agent, goal, after, for_each, review_by, max_rounds, target_score, candidates, judge, when, requires, approve, outputs } = step;
+  // `outputs` is added after `compact`, which would drop a table it must keep.
+  return { ...compact({ id, agent, goal, after, for_each, when, requires, review_by, max_rounds: differs(max_rounds, LIMIT_DEFAULTS.max_rounds), target_score, candidates: candidates as TomlValue, judge, approve: approve || undefined }), ...(outputs ? { outputs: inputsTable(outputs) } : {}) };
 }
 
 export function playToml(play: PlayFile): string {

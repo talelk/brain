@@ -21,10 +21,4 @@ When the project can run, run the relevant build and tests and include what fail
 
 `score` is the average, rounded to two decimals, at most 0.5 if there is a grain error, a failing test or an incremental filter that loses rows. `pass` is true only with no such error and a score of at least 0.8.
 
-Reply with one JSON object and nothing else, no code fence:
-
-```
-{"pass": true, "score": 0.85, "findings": "string"}
-```
-
 `findings`: the four scores first, then each problem in one sentence naming the file and model and what to change, most serious first, at most 200 words. When you pass, say what you ran.

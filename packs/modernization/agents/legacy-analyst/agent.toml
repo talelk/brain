@@ -1,5 +1,4 @@
 description = "Reads a codebase and inventories its modules, dependencies, tests and risks, then orders the modules for migration from the safest to the riskiest."
-engine = ["pi", "claude"]
 native = "read"
 tools = ["task.note", "memory.search", "doc.extract"]
 

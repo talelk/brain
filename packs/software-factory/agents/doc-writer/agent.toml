@@ -1,5 +1,4 @@
 description = "Keeps a project's documentation in step with its code: the model page first, then the glossary and the architecture page, changing only what the code or the model now says differently."
-engine = ["pi", "claude"]
 native = "all"
 tools = ["memory.search", "task.note", "doc.build", "chart.make"]
 

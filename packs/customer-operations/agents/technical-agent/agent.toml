@@ -1,5 +1,4 @@
 description = "Drafts replies to technical requests (errors, access, setup, integrations) from the workspace's memory. Drafts only; gives steps memory supports and asks for what is missing."
-engine = ["pi", "claude"]
 native = "none"
 tools = ["memory.search", "task.note"]
 

@@ -1,5 +1,4 @@
 description = "A capable generalist: researches, writes, analyses and changes files in the working copy. Use it when no specialist fits."
-engine = ["pi", "claude"]
 native = "all"
 tools = ["task.note", "task.ask", "task.create", "memory.search", "memory.propose", "web.fetch", "web.render", "doc.build", "chart.make", "sheet.build"]
 

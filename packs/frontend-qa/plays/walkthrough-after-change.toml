@@ -26,6 +26,9 @@ has them. Never skip a screen; if you cannot reach one, say which and why."""
 [[step]]
 id = "review"
 agent = "visual-reviewer"
+outputs.pass = { type = "boolean", required = true }
+outputs.score = { type = "number", required = true }
+outputs.findings = { type = "string", required = true }
 goal = """
 Review the walkthrough in your context against this goal: the app at {{app_url}} after \
 this change: {{changed}}. Check the coverage, the layout, the accessibility and the \

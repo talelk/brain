@@ -10,8 +10,9 @@ import { authorizeCall, callRowId, finishCall, openCall, type PullRequestChange 
 import { getWorkspace, manifestOf } from "../workspace/store";
 import { applyFix, commitFix, planFix, WorkspaceChanged, type FixPlan } from "./fix";
 import { runPlatform } from "./platform";
-import { inputProblem, ToolRefusal } from "./schema";
+import { ToolRefusal } from "./schema";
 import { errorFields, log } from "../log";
+import { schemaProblem } from "@brain/contracts/validate";
 
 /**
  * The tools the Governor carries out itself, as the attempt that calls them (docs/architecture.md section 7; inputs and outputs in
@@ -113,7 +114,7 @@ export function runBrainTool(gov: Gov, attempt: AttemptRow, request: Omit<BrainT
       // Asked before: the approval stands for the input and the state it was asked with.
       const asked = known !== undefined && known.approval_id !== null;
       try {
-        const problem = asked ? undefined : inputProblem(tool.input_schema, request.input);
+        const problem = asked ? undefined : schemaProblem(tool.input_schema, request.input);
         if (problem) throw new ToolRefusal(`The input of ${request.tool} is not valid: ${problem}`);
         const change = !asked && request.tool === "git.open-pr" ? pullRequestChange(gov, attempt, task, input["project"] as string, request.baseCommits, request.stateCommits) : fix ?? {};
         const decision = authorizeCall(gov, attempt, { callId: request.callId, tool: request.tool, effect: tool.effect, input: request.input, ...change });

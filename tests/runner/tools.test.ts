@@ -21,12 +21,12 @@ describe("tool input validation", () => {
   });
 
   it("says what is wrong with one that does not", () => {
-    expect(calls.inputProblem(tool, {})).toContain("must have required property 'container'");
-    expect(calls.inputProblem(tool, { container: 7 })).toContain("input/container must be string");
-    expect(calls.inputProblem(tool, { container: "web", lines: 1.5 })).toContain("input/lines must be integer");
-    expect(calls.inputProblem(tool, { container: "web", mode: "medium" })).toContain("must be equal to one of the allowed values");
-    expect(calls.inputProblem(tool, { container: "web", extra: true })).toContain("must NOT have additional properties");
-    expect(calls.inputProblem(tool, "web")).toContain("input must be object");
+    expect(calls.inputProblem(tool, {})).toContain('"container" is required');
+    expect(calls.inputProblem(tool, { container: 7 })).toContain('"container" must be of type string');
+    expect(calls.inputProblem(tool, { container: "web", lines: 1.5 })).toContain('"lines" must be of type integer');
+    expect(calls.inputProblem(tool, { container: "web", mode: "medium" })).toContain('"mode" must be one of');
+    expect(calls.inputProblem(tool, { container: "web", extra: true })).toContain('"extra" is not an input');
+    expect(calls.inputProblem(tool, "web")).toContain("the input must be a JSON object");
   });
 
   it("records a call with a wrong input as failed and never runs the tool", async () => {
@@ -34,8 +34,35 @@ describe("tool input validation", () => {
     const offer = gov.offer({ tools: [gov.tool("deploy.mark", { script: markerScript(stateDir, "ran"), inputSchema: SCHEMA })], task: { goal: 'FIXTURE tool deploy.mark {"lines": 5}\nFIXTURE reply told: %last%' } });
     await runner.runOnce();
     expect(existsSync(join(stateDir, "ran"))).toBe(false);
-    expect(gov.eventsOf(offer.attemptId, "tool.result")[0]).toMatchObject({ outcome: "failed", output: { error: "The input does not fit the tool's inputs: input must have required property 'container'" } });
-    expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "succeeded", result: expect.stringContaining("must have required property") as string });
+    expect(gov.eventsOf(offer.attemptId, "tool.result")[0]).toMatchObject({ outcome: "failed", output: { error: "The input does not fit the tool's inputs: \"container\" is required" } });
+    expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "succeeded", result: expect.stringContaining("is required") as string });
+  });
+});
+
+describe("declared outputs", () => {
+  const declared = { type: "object", properties: { state: { type: "string" } }, required: ["state"] };
+
+  it("holds a script's result to the outputs the tool declares, and allows what it does not declare", () => {
+    const run = (stdout: string) => scriptResult({ exitCode: 0, stdout, stderr: "", timedOut: false }, [], declared);
+    expect(run('{"state": "running", "since": 3}')).toEqual({ ok: true, output: { state: "running", since: 3 } });
+    expect(run('{"since": 3}')).toMatchObject({ ok: false, output: { error: "the tool's result does not fit its outputs: \"state\" is required" } });
+    expect(run('{"state": 4}')).toMatchObject({ ok: false, output: { error: expect.stringContaining('"state" must be of type string') as string } });
+  });
+
+  it("tells the agent of a step what to answer, checks the answer, and lets it say it is blocked", async () => {
+    const { gov, runner } = await runnerWorld();
+    const schema = { type: "object", properties: { healthy: { type: "boolean" } }, required: ["healthy"] };
+    const asked = (goal: string) => gov.offer({ task: { goal, outputSchema: schema } });
+    const good = asked('FIXTURE json {"healthy": false}');
+    const wrong = asked("FIXTURE reply all is well");
+    const blocked = asked("FIXTURE reply BLOCKED: there is no runbook");
+    const unsaid = asked("Check the services.");
+    for (let at = 0; at < 4; at++) await runner.runOnce();
+    expect(gov.completions.get(good.attemptId)).toMatchObject({ outcome: "succeeded", output: { healthy: false } });
+    expect(gov.completions.get(wrong.attemptId)).toMatchObject({ outcome: "failed", failure: { reason: "engine", detail: expect.stringContaining("is not the required JSON") as string } });
+    expect(gov.completions.get(blocked.attemptId)).toMatchObject({ outcome: "succeeded", result: "BLOCKED: there is no runbook" });
+    // With nothing said, the fixture answers the plainest JSON that fits, so a Play with outputs runs with no model.
+    expect(gov.completions.get(unsaid.attemptId)).toMatchObject({ outcome: "succeeded", output: { healthy: true } });
   });
 });
 
@@ -156,6 +183,7 @@ describe("the task text", () => {
       "# This workspace\n## Agents\n- worker: Does the work.\n## Tools\n- task.note: Writes a note.\n## Plays\n- fix-issue: Fixes an issue.",
       '# What to check\n## Result attempt-9 (by agent developer)\n### Result\nFixed it.\n### Recorded tool calls\n1. task.note (read, succeeded)\n   input: {"text":"done"}\n   output: {"id":"n1"}\n### Changes\nThe changes to the working copy are in the patch file /work/.brain/attempt-9.patch; read it.',
       "# Working copy\n- app: /work/app (branch main)\nFiles to keep as results go in /out.",
+      '# Final answer\nReply with one JSON object and nothing else, no code fence:\n{"pass": true, "score": 0.9, "findings": "string"}\nAll three are always there. "score" is from 0 to 1.',
     ].join("\n\n"));
   });
 });
