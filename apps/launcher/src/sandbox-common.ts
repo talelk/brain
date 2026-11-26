@@ -2,6 +2,7 @@ import { lstatSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { execa } from "execa";
+import { isAttemptId } from "@brain/contracts";
 import { isEgressHost, removeEgressGrant, writeEgressGrant } from "./egress-proxy";
 
 /**
@@ -34,7 +35,7 @@ export function hardening(cpuMillicores: number, memoryMb: number, pids: number,
 /** The attempt's folder under the operator's root, or why it cannot be used. A name that leaves the root, or a link, never mounts. */
 export function attemptFolder(root: string | undefined, attemptId: string): { ok: true; directory: string } | { ok: false; reply: Reply } {
   if (!root) return { ok: false, reply: refuse(409, "sandboxes are not configured on this launcher (BRAIN_LAUNCHER_ATTEMPTS_ROOT)") };
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(attemptId) || attemptId.includes("..")) return { ok: false, reply: refuse(422, "attemptId invalid") };
+  if (!isAttemptId(attemptId)) return { ok: false, reply: refuse(422, "attemptId invalid") };
   const directory = resolve(root, attemptId);
   if (!directory.startsWith(resolve(root) + sep)) return { ok: false, reply: refuse(422, "attemptId invalid") };
   return isDirectory(directory) ? { ok: true, directory } : { ok: false, reply: refuse(409, "the attempt's folder is absent on this host") };

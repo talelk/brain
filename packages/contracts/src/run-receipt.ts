@@ -1,6 +1,6 @@
 import { sign as edSign, verify as edVerify } from "node:crypto";
 import type { AuditEvent } from "./audit-chain";
-import { canonicalJsonBytes, domainDigest } from "./hash";
+import { canonicalJsonBytes, domainDigest, isDigest } from "./hash";
 import type { Digest, JsonValue } from "./protocol";
 
 /**
@@ -44,7 +44,7 @@ export function receiptShapeProblem(value: unknown): string | undefined {
   for (const key of Object.keys(r)) if (!(RECEIPT_KEYS as readonly string[]).includes(key)) return `the receipt carries an unknown field ${key}`;
   if (typeof r["attemptId"] !== "string" || r["attemptId"].length === 0) return "attemptId must be a non-empty string";
   if (!Number.isSafeInteger(r["fence"]) || (r["fence"] as number) < 0) return "fence must be a count";
-  for (const key of ["snapshotDigest", "resultDigest"]) if (typeof r[key] !== "string" || !/^sha256:[0-9a-f]{64}$/u.test(r[key] as string)) return `${key} must be a digest`;
+  for (const key of ["snapshotDigest", "resultDigest"]) if (typeof r[key] !== "string" || !isDigest(r[key] as string)) return `${key} must be a digest`;
   return undefined;
 }
 

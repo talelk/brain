@@ -1,13 +1,7 @@
 import { readFileSync } from "node:fs";
 import { startStore } from "./store";
 
-/**
- * The git store's environment variables, all of them:
- *   BRAIN_STORE_DIR              where the repositories are kept (required)
- *   BRAIN_STORE_PUBLIC_KEY_FILE  the Governor's `store.pub` (required)
- *   PORT                         the port to listen on (default 3110)
- *   BRAIN_BIND_HOST              the address to listen on (default 127.0.0.1)
- */
+/** The git store's process. Its environment variables are listed in docs/environment.md (packages/contracts/src/env.ts). */
 const root = process.env["BRAIN_STORE_DIR"];
 const keyFile = process.env["BRAIN_STORE_PUBLIC_KEY_FILE"];
 if (!root || !keyFile) throw new Error("BRAIN_STORE_DIR and BRAIN_STORE_PUBLIC_KEY_FILE must be set");

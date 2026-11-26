@@ -1,4 +1,4 @@
-import { secretName, type FolderPush } from "@brain/contracts";
+import { secretName, type FolderPush, gitAuthorization } from "@brain/contracts";
 import git from "isomorphic-git";
 import fs from "node:fs";
 import { tx } from "../db";
@@ -51,7 +51,7 @@ async function pushFolder(gov: Gov, workspaceId: string): Promise<void> {
   try {
     commit = await git.resolveRef({ fs, dir, ref: "HEAD" });
     const branch = (await git.currentBranch({ fs, dir })) ?? "main";
-    const headers = token ? { authorization: `Basic ${Buffer.from(token.includes(":") ? token : `x-access-token:${token}`).toString("base64")}` } : {};
+    const headers = token ? { authorization: gitAuthorization(token) } : {};
     const send: typeof fetch = (input, init) => gov.fetch(input, { ...init, signal: AbortSignal.timeout(PUSH_TIMEOUT_MS) });
     const pushed = await git.push({ fs, http: httpOver(send), dir, url: remote.remote, ref: branch, remoteRef: `refs/heads/${branch}`, force: false, headers });
     if (!pushed.ok) problem = pushed.error ?? "the remote refused the push";

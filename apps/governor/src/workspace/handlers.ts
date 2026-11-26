@@ -1,5 +1,5 @@
 import { modelsOf } from "./platform";
-import { BrainError, isSlug, slugify, MAX_FILE_BYTES, MAX_WRITE_BYTES, type CommandInput, type CommandOutputs, type WorkspaceSummary } from "@brain/contracts";
+import { BrainError, isSlug, slugify, MAX_FILE_BYTES, MAX_WRITE_BYTES, type CommandInput, type CommandOutputs, type WorkspaceSummary, gitAuthorization } from "@brain/contracts";
 import { randomBytes } from "node:crypto";
 import git from "isomorphic-git";
 import { existsSync, rmSync } from "node:fs";
@@ -30,7 +30,7 @@ const projectNameOf = (repo: string): string => slugify(repo.replace(/[/?#]+$/u,
 async function defaultBranchOf(gov: Gov, repo: string, token: string | undefined): Promise<string | undefined> {
   if (!/^https?:\/\//u.test(repo)) return undefined;
   try {
-    const headers = token ? { authorization: `Basic ${Buffer.from(token.includes(":") ? token : `x-access-token:${token}`).toString("base64")}` } : {};
+    const headers = token ? { authorization: gitAuthorization(token) } : {};
     const send: typeof fetch = (input, init) => gov.fetch(input, { ...init, signal: AbortSignal.timeout(3_000) });
     const info = await git.getRemoteInfo({ http: httpOver(send), url: repo, headers });
     const head = (info as { HEAD?: string }).HEAD;

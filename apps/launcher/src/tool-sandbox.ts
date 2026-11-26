@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { isToolName, TOOL_RUN_FIELDS } from "@brain/contracts";
 import { execa } from "execa";
 import { attemptFolder, egressHosts, hardening, isDirectory, network, refuse, type Reply, type SandboxOptions, slug, whenCreated } from "./sandbox-common";
 
@@ -10,7 +11,6 @@ import { attemptFolder, egressHosts, hardening, isDirectory, network, refuse, ty
  */
 export const TOOL_IMAGE = "brain-sandbox-tool";
 export const TOOL_LABEL = "brain.tool-run";
-const TOOL_FIELDS = ["attemptId", "tool", "requestId", "egressHosts", "input", "timeoutMs", "secretEnv"] as const;
 const TOOL_CPU_MILLICORES = 1000;
 const TOOL_MEMORY_MB = 1024;
 const TOOL_PIDS = 512;
@@ -39,9 +39,9 @@ function toolSandboxArgs(shape: ToolSandboxShape): string[] {
 }
 
 export async function runTool(options: SandboxOptions, body: Record<string, unknown>, signal?: AbortSignal): Promise<Reply> {
-  for (const key of Object.keys(body)) if (!(TOOL_FIELDS as readonly string[]).includes(key)) return refuse(422, `field ${key} forbidden`);
+  for (const key of Object.keys(body)) if (!(TOOL_RUN_FIELDS as readonly string[]).includes(key)) return refuse(422, `field ${key} forbidden`);
   const tool = String(body["tool"] ?? "");
-  if (tool.length > 80 || !tool.split(".").every((part) => /^[a-z][a-z0-9-]{0,62}$/u.test(part))) return refuse(422, "tool invalid");
+  if (!isToolName(tool)) return refuse(422, "tool invalid");
   const requestId = String(body["requestId"] ?? "");
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/u.test(requestId)) return refuse(422, "requestId invalid");
   const input = String(body["input"] ?? "");

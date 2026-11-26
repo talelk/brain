@@ -5,6 +5,7 @@ import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { backup, restore } from "../apps/governor/src/health/backup";
+import { ENGINE_NAMES } from "../packages/contracts/src/engines";
 import { verify } from "../apps/governor/src/trust/audit";
 
 /**
@@ -26,15 +27,7 @@ import { verify } from "../apps/governor/src/trust/audit";
  *   restore <file>   puts a backup in place of the data. Refuses while Brain runs; what was there is moved aside, never deleted.
  *   audit-verify     verifies the audit log from its first event; exits 0 only when it holds.
  *
- * Environment:
- *   BRAIN_HOME        where this Brain lives (default ~/.local/share/brain): data/, run/ (pids, logs, the runner's folder), backups/
- *   BRAIN_DATA_DIR    the data directory (default <home>/data)
- *   BRAIN_RUN_DIR     pids, logs, the launcher's socket and the runner's folder (default <home>/run)
- *   BRAIN_PORT        the Governor's port (default 3100)
- *   BRAIN_BASE_URL    the address people open (default http://localhost:<port>)
- *   BRAIN_ENGINES     the runner's engines, comma-separated (default pi)
- *   BRAIN_PROFILE     `fixture` runs every agent on the fixture engine: no Docker, no model, so Brain can be tried anywhere
- * Anything else in the environment reaches the three processes as it is (BRAIN_RUNNER_SLOTS, BRAIN_LAUNCHER_HOST_COMMANDS, ...).
+ * The environment variables are listed in docs/environment.md (packages/contracts/src/env.ts).
  */
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const HOME = resolve(process.env["BRAIN_HOME"] ?? join(homedir(), ".local", "share", "brain"));
@@ -207,7 +200,7 @@ async function start(): Promise<void> {
     BRAIN_RUNNER_SLOTS: process.env["BRAIN_RUNNER_SLOTS"] ?? "2", ...(token ? { BRAIN_RUNNER_ENROLL_TOKEN: token } : {}),
     // What tool scripts find: the tool sandbox image when there are sandboxes; the fixture profile says the same, and runs no script.
     BRAIN_RUNNER_CAPABILITIES: process.env["BRAIN_RUNNER_CAPABILITIES"] ?? (sandboxes || FIXTURE ? "bash,python3,curl,git" : ["bash", "python3", "curl", "git"].filter(has).join(",")),
-    ...(FIXTURE ? { BRAIN_RUNNER_ENGINES: "fixture", BRAIN_RUNNER_FIXTURE_FOR: "pi,claude,opencode,codex" } : { BRAIN_RUNNER_ENGINES: process.env["BRAIN_ENGINES"] ?? "pi" }),
+    ...(FIXTURE ? { BRAIN_RUNNER_ENGINES: "fixture", BRAIN_RUNNER_FIXTURE_FOR: ENGINE_NAMES.join(",") } : { BRAIN_RUNNER_ENGINES: process.env["BRAIN_ENGINES"] ?? "pi" }),
     ...(sandboxes ? { BRAIN_LAUNCHER_SOCKET: SOCKET } : {}),
   });
   for (let waited = 0; waited < 20_000 && pidOf("runner") && !existsSync(join(RUN, "runner", "credential")); waited += 250) await pause(250);
@@ -232,7 +225,7 @@ function joinRunner(governor: string, token: string | undefined): void {
     env: {
       ...process.env, BRAIN_GOVERNOR_URL: address.origin, BRAIN_RUNNER_STATE_DIR: state, BRAIN_RUNNER_NAME: process.env["BRAIN_RUNNER_NAME"] ?? hostname(), ...(token ? { BRAIN_RUNNER_ENROLL_TOKEN: token } : {}),
       BRAIN_RUNNER_CAPABILITIES: process.env["BRAIN_RUNNER_CAPABILITIES"] ?? (FIXTURE ? "bash,python3,curl,git" : ["bash", "python3", "curl", "git"].filter(has).join(",")),
-      ...(FIXTURE ? { BRAIN_RUNNER_ENGINES: "fixture", BRAIN_RUNNER_FIXTURE_FOR: "pi,claude,opencode,codex" } : { BRAIN_RUNNER_ENGINES: process.env["BRAIN_ENGINES"] ?? "pi" }),
+      ...(FIXTURE ? { BRAIN_RUNNER_ENGINES: "fixture", BRAIN_RUNNER_FIXTURE_FOR: ENGINE_NAMES.join(",") } : { BRAIN_RUNNER_ENGINES: process.env["BRAIN_ENGINES"] ?? "pi" }),
     },
   });
   if (ran.error) throw ran.error;

@@ -1,23 +1,7 @@
 import { readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
-import type { EngineChannel, EngineSandboxRequest } from "./engines/sandboxed";
-
-export interface CommandResult { readonly exitCode: number; readonly stdout: string; readonly stderr: string; readonly timedOut: boolean }
-
-/** One run of a tool's `run.sh` in a tool sandbox. The launcher finds the tool's files and the working copy under the attempt's directory. */
-export interface ToolRun {
-  readonly attemptId: string;
-  readonly tool: string;
-  /** Names the container; one per call. */
-  readonly requestId: string;
-  /** The tool's `network` hosts: what its sandbox reaches through the egress proxy. None means no network. */
-  readonly egressHosts: readonly string[];
-  /** The validated input, as JSON, on the script's standard input. */
-  readonly input: string;
-  readonly timeoutMs: number;
-  /** The tool's leased secrets, as environment variables of this one run. */
-  readonly secretEnv: Readonly<Record<string, string>>;
-}
+import type { CommandResult, EngineSandboxRequest, ToolRun } from "@brain/contracts";
+import type { EngineChannel } from "./engines/sandboxed";
 
 /** What the runner asks of the trusted launcher. Tests hand in their own. */
 export interface Launcher {

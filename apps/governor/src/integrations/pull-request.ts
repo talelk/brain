@@ -1,4 +1,4 @@
-import { secretName, signStoreGrant, type Digest, type JsonValue, type SnapshotManifest } from "@brain/contracts";
+import { secretName, signStoreGrant, type Digest, type JsonValue, type SnapshotManifest, gitAuthorization } from "@brain/contracts";
 import git, { type HttpClient } from "isomorphic-git";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
@@ -88,7 +88,7 @@ export async function openPullRequest(gov: Gov, attempt: AttemptRow, task: TaskR
   const branch = `brain/${task.id}`;
   const http = httpOver(gov.fetch);
   // The credential goes with every request to the repository, as a header; it is never part of an address.
-  const headers = { authorization: `Basic ${Buffer.from(token.includes(":") ? token : `x-access-token:${token}`).toString("base64")}` };
+  const headers = { authorization: gitAuthorization(token) };
   const dir = fs.mkdtempSync(join(tmpdir(), "brain-pr-"));
   try {
     await git.clone({ fs, http, dir, url: project.repo, ref: project.branch, singleBranch: true, noTags: true, depth: 1, headers });
@@ -107,7 +107,7 @@ export async function openPullRequest(gov: Gov, attempt: AttemptRow, task: TaskR
     const grant = signStoreGrant({ workspaceId: task.workspace_id, goalId: task.root_id, attemptId: attempt.id, expiresAt: Math.floor(gov.clock.nowMs() / 1000) + 600 }, gov.store.privateKeyPem);
     const url = `${gov.store.url}/${task.workspace_id}/${project.name}.git`;
     await git.addRemote({ fs, dir, remote: "store", url, force: true });
-    await git.fetch({ fs, http, dir, remote: "store", url, ref: at, remoteRef: at, singleBranch: true, tags: false, headers: { authorization: `Basic ${Buffer.from(`x-access-token:${grant}`).toString("base64")}` } })
+    await git.fetch({ fs, http, dir, remote: "store", url, ref: at, remoteRef: at, singleBranch: true, tags: false, headers: { authorization: gitAuthorization(grant) } })
       .catch((e: unknown) => { throw new ToolRefusal(`The state ${stateCommit.slice(0, 12)} of the change could not be read from the git store: ${e instanceof Error ? e.message : "it did not answer"}`); });
     // A commit is named by its content: the one that arrived under that name is the state the approval was given for.
     const { commit: state } = await git.readCommit({ fs, dir, oid: stateCommit }).catch(() => { throw new ToolRefusal(`The git store does not hold the state ${stateCommit.slice(0, 12)} the approval was given for`); });

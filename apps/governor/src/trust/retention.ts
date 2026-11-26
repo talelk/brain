@@ -1,4 +1,4 @@
-import { signStoreGrant, STORE_RETENTION_ATTEMPT, type Digest } from "@brain/contracts";
+import { signStoreGrant, STORE_RETENTION_ATTEMPT, type Digest, gitAuthorization } from "@brain/contracts";
 import { rmSync } from "node:fs";
 import { tx } from "../db";
 import type { Gov } from "../dispatch";
@@ -27,7 +27,7 @@ export async function forgetEnded(gov: Gov): Promise<number> {
       // The git store first: if it cannot be reached the goal is tried again at the next round, and nothing of it is half forgotten.
       if (gov.store) {
         const token = signStoreGrant({ workspaceId: goal.workspaceId, goalId: goal.id, attemptId: STORE_RETENTION_ATTEMPT, expiresAt: Math.floor(gov.clock.nowMs() / 1000) + 300 }, gov.store.privateKeyPem);
-        const answer = await gov.fetch(`${gov.store.url}/${goal.workspaceId}/_goals/${goal.id}`, { method: "DELETE", signal: AbortSignal.timeout(120_000), headers: { authorization: `Basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}` } });
+        const answer = await gov.fetch(`${gov.store.url}/${goal.workspaceId}/_goals/${goal.id}`, { method: "DELETE", signal: AbortSignal.timeout(120_000), headers: { authorization: gitAuthorization(token) } });
         if (!answer.ok) throw new Error(`the git store answered ${answer.status}`);
       }
       const gone = tx(db, () => {

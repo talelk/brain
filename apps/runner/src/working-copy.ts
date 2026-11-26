@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, lstatSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { mediaTypeOf, type OfferProject } from "@brain/contracts";
+import { mediaTypeOf, type OfferProject, gitAuthorization, isSlug } from "@brain/contracts";
 import { execa } from "execa";
 import { touchMirror } from "./cache";
 
@@ -53,8 +53,7 @@ export function credentialEnv(repo: string, credential: string | undefined): Rec
   if (!credential) return {};
   let origin: string;
   try { const url = new URL(repo); if (url.protocol !== "https:" && url.protocol !== "http:") return {}; origin = url.origin; } catch { return {}; }
-  const basic = Buffer.from(credential.includes(":") ? credential : `x-access-token:${credential}`).toString("base64");
-  return { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: `http.${origin}/.extraHeader`, GIT_CONFIG_VALUE_0: `Authorization: Basic ${basic}` };
+  return { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: `http.${origin}/.extraHeader`, GIT_CONFIG_VALUE_0: `Authorization: ${gitAuthorization(credential)}` };
 }
 
 /** One fetch at a time per mirror: slots of this runner share them. */
@@ -205,7 +204,7 @@ async function diffOf(attemptDir: string, copy: Checkout, signal: AbortSignal | 
 export async function prepareWorkingCopy(request: WorkingCopyRequest): Promise<WorkingCopy | undefined> {
   if (request.projects.length === 0) return undefined;
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.workspaceId) || request.workspaceId.includes("..")) throw new SetupError("the workspace id cannot name a folder");
-  const unnamed = request.projects.find((project) => !/^[a-z][a-z0-9-]{0,62}$/u.test(project.name));
+  const unnamed = request.projects.find((project) => !isSlug(project.name));
   if (unnamed) throw new SetupError(`the project name ${unnamed.name} cannot name a folder`);
   const root = join(request.attemptDir, "work");
   mkdirSync(join(request.attemptDir, "git"), { recursive: true });

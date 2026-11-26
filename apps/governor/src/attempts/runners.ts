@@ -1,10 +1,9 @@
 import {
-  BrainError, hmacSha256Hex, RUNNER_ENROLLED_EVENT, RUNNER_REMOVED_EVENT, RUNNER_ROUTES, type Actor, type ChallengeResponse, type EnrollResponse, type HeartbeatResponse, type HelloResponse, type Runner,
-} from "@brain/contracts";
+  BrainError, hmacSha256Hex, RUNNER_ENROLLED_EVENT, RUNNER_REMOVED_EVENT, RUNNER_ROUTES, type Actor, type ChallengeResponse, type EnrollResponse, type HeartbeatResponse, type HelloResponse, type Runner, RUNNER_REQUESTS } from "@brain/contracts";
 import type { Context } from "hono";
 import { createPublicKey, randomBytes, verify } from "node:crypto";
 import { rmSync, writeFileSync } from "node:fs";
-import { z } from "zod";
+import type { z } from "zod";
 import { readJson, type Governor } from "../app";
 import { tx, type Db } from "../db";
 import type { Gov } from "../dispatch";
@@ -23,8 +22,6 @@ const HEARTBEAT_MS = 10_000;
 const ONLINE_FOR_MS = 45_000;
 
 const digestOf = (gov: Gov, kind: "enroll" | "session", token: string): string => hmacSha256Hex(gov.keys.digests, Buffer.from(`runner-${kind}\n${token}`));
-const names = z.array(z.string().min(1).max(100)).max(100);
-const state = { capabilities: names, engines: names, slots: z.int().min(0).max(1000), freeSlots: z.int().min(0).max(1000), version: z.string().max(100) };
 
 /** Reads a route's JSON body against its schema. */
 export async function body<S extends z.ZodType>(c: Context, schema: S): Promise<z.output<S>> {
@@ -93,7 +90,7 @@ export function registerRunners({ gov, app }: Governor): void {
   registry.query("runners.list", () => ({ runners: listRunners(gov) }));
 
   app.post(RUNNER_ROUTES.enroll, async (c) => {
-    const input = await body(c, z.strictObject({ token: z.string().min(1).max(200), name: z.string().trim().min(1).max(100), publicKeyPem: z.string().min(1).max(2000) }));
+    const input = await body(c, RUNNER_REQUESTS.enroll);
     let ed25519 = false;
     try { ed25519 = createPublicKey(input.publicKeyPem).asymmetricKeyType === "ed25519"; } catch { /* not a key */ }
     if (!ed25519) throw new BrainError("INVALID_INPUT", "The runner's public key must be an ed25519 key in PEM");
@@ -110,7 +107,7 @@ export function registerRunners({ gov, app }: Governor): void {
   });
 
   app.post(RUNNER_ROUTES.challenge, async (c) => {
-    const input = await body(c, z.strictObject({ runnerId: z.string().min(1).max(100) }));
+    const input = await body(c, RUNNER_REQUESTS.challenge);
     if (!db.prepare("SELECT 1 FROM runners WHERE id=? AND state='active'").get(input.runnerId)) throw new BrainError("UNAUTHENTICATED", "This runner is not enrolled");
     const answer: ChallengeResponse = { challengeId: newId("ch"), nonce: randomBytes(32).toString("base64url"), expiresAt: gov.clock.nowMs() + 60_000 };
     // A runner holds one challenge at a time: asking again replaces it, so the rows cannot pile up.
@@ -120,7 +117,7 @@ export function registerRunners({ gov, app }: Governor): void {
   });
 
   app.post(RUNNER_ROUTES.hello, async (c) => {
-    const input = await body(c, z.strictObject({ ...state, runnerId: z.string().min(1).max(100), challengeId: z.string().min(1).max(100), signature: z.string().min(1).max(500) }));
+    const input = await body(c, RUNNER_REQUESTS.hello);
     return c.json(tx(db, (): HelloResponse => {
       const now = gov.clock.nowMs();
       const row = db.prepare(`SELECT c.nonce, r.public_key_pem AS key FROM runner_challenges c JOIN runners r ON r.id = c.runner_id
@@ -139,7 +136,7 @@ export function registerRunners({ gov, app }: Governor): void {
 
   app.post(RUNNER_ROUTES.heartbeat, async (c) => {
     const runnerId = runnerOf(gov, c);
-    const input = await body(c, z.strictObject({ ...state, running: z.array(z.string().max(100)).max(1000) }));
+    const input = await body(c, RUNNER_REQUESTS.heartbeat);
     report(db, runnerId, gov.clock.nowMs(), input);
     // Anything the runner still runs that is no longer its own to run: the task was stopped, or the lease moved.
     const mine = new Set((db.prepare("SELECT id FROM attempts WHERE runner_id=? AND state IN ('offered','running')").all(runnerId) as Array<{ id: string }>).map((row) => row.id));

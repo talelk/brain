@@ -2,20 +2,7 @@ import { serve } from "@hono/node-server";
 import { createGovernor } from "./app";
 import { log } from "./log";
 
-/**
- * The Governor's environment variables, all of them:
- *   BRAIN_DATA_DIR                 the directory Brain keeps its data in (required)
- *   PORT                           the port to listen on (default 3100)
- *   BRAIN_BIND_HOST                the addresses to listen on, comma-separated (default 127.0.0.1)
- *   BRAIN_BASE_URL                 the address people reach Brain at (default http://localhost:<port>)
- *   BRAIN_GATEWAY_URL              the address engines reach the model gateway at, when sandboxes cannot use the base address
- *   BRAIN_STORE_URL                the address runners reach the git store at (apps/store); without it an attempt that needs the store fails
- *   BRAIN_PACKS_DIR                the packs directory (default the one shipped with Brain)
- *   LOG_LEVEL                      the least level logged: debug, info, warn or error (default info)
- *   BRAIN_METRICS_TOKEN            the bearer token GET /metrics asks for; without it the route answers 404
- *   BRAIN_LOCAL_RUNNER_TOKEN_FILE  where to leave a one-use runner token while no runner is enrolled
- *   BRAIN_COMMIT                   the commit this build was made from, shown on the Health screen and in brain_build_info
- */
+/** The Governor's process. Its environment variables are listed in docs/environment.md (packages/contracts/src/env.ts). */
 const port = Number(process.env["PORT"] ?? 3100);
 const hostnames = (process.env["BRAIN_BIND_HOST"] ?? "127.0.0.1").split(",").map((entry) => entry.trim()).filter(Boolean);
 const dataDir = process.env["BRAIN_DATA_DIR"];

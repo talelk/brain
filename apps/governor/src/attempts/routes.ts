@@ -1,12 +1,11 @@
 import { modelsOf } from "../workspace/platform";
 import {
-  ATTEMPT_COMPLETED_EVENT, BrainError, hmacSha256Hex, isDigest, LIMIT_NAMES, MAX_ATTEMPTS, receiptShapeProblem, receiptSignatureOk, resultDigest, RUNNER_ROUTES, secretName,
+  ATTEMPT_COMPLETED_EVENT, BrainError, hmacSha256Hex, isDigest, MAX_ATTEMPTS, receiptShapeProblem, receiptSignatureOk, resultDigest, RUNNER_REQUESTS, RUNNER_ROUTES, secretName,
   type ApprovalPollResponse, type ArtifactUploadResponse, type AttemptFailure, type ClaimResponse, type CompleteResponse, type EventsResponse, type JsonValue, type LeaseResponse, type ModelTokenResponse,
   type RunReceipt, type SecretResponse, type ToolCallResponse,
 } from "@brain/contracts";
 import type { Context } from "hono";
 import { timingSafeEqual } from "node:crypto";
-import { z } from "zod";
 import type { Governor } from "../app";
 import { tx } from "../db";
 import type { Gov } from "../dispatch";
@@ -32,29 +31,6 @@ import { body, runnerOf } from "./runners";
 const LEASE_MS = 60_000;
 const MODEL_TOKEN_FOR_MS = 3600_000;
 const MAX_ARTIFACT_BYTES = 64 * 1024 * 1024;
-
-const fence = z.int().min(0);
-const text = z.string().max(2_000_000);
-const commits = z.record(z.string(), z.string().max(100));
-const stateIds = z.record(z.string(), z.string().regex(/^[0-9a-f]{40,64}$/u));
-const call = { fence, callId: z.string().min(1).max(100), tool: z.string().min(1).max(100), input: z.json(), baseCommits: commits.optional(), stateCommits: stateIds.optional() };
-const eventBody = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("status"), phase: z.enum(["setup", "engine", "upload"]), detail: text }),
-  z.object({ kind: z.literal("text"), channel: z.enum(["assistant", "diagnostic"]), text }),
-  z.object({ kind: z.literal("native.call"), callId: z.string().max(200), name: z.string().max(200), input: z.json() }),
-  z.object({ kind: z.literal("native.result"), callId: z.string().max(200), ok: z.boolean(), output: text }),
-  z.object({ kind: z.literal("tool.call"), callId: z.string().max(100), tool: z.string().max(100), effect: z.enum(["read", "write", "privileged"]), input: z.json() }),
-  z.object({ kind: z.literal("tool.result"), callId: z.string().max(100), outcome: z.enum(["succeeded", "failed", "held", "rejected"]), output: z.json() }),
-  z.object({ kind: z.literal("usage"), inputTokens: z.int().min(0), outputTokens: z.int().min(0), cachedInputTokens: z.int().min(0), microUsd: z.int().min(0) }),
-]);
-const usage = z.strictObject({ inputTokens: z.int().min(0), outputTokens: z.int().min(0), cachedInputTokens: z.int().min(0), microUsd: z.int().min(0) });
-const blobRef = z.strictObject({ digest: z.string().refine(isDigest), bytes: z.int().min(0) });
-const completion = z.strictObject({
-  fence, outcome: z.enum(["succeeded", "failed", "held"]), result: text, output: z.json().optional(),
-  failure: z.strictObject({ reason: z.enum(["engine", "model-refused", "setup", "timeout", "limit", "stopped", "runner"]), detail: text, infrastructure: z.boolean(), limit: z.strictObject({ name: z.enum(LIMIT_NAMES), value: z.number(), used: z.number().nullable(), agent: z.string().max(100).optional() }).optional() }).optional(),
-  usage, engine: z.string().max(100), workingCopy: blobRef.optional(), baseCommits: commits, stateCommits: stateIds,
-  receipt: z.strictObject({ receipt: z.unknown(), signature: z.string().min(1).max(500) }),
-});
 
 /** The attempt a request is about, when the caller is the runner that holds it under the fence it names. */
 function heldAttempt(gov: Gov, c: Context, fenceGiven: number): AttemptRow {
@@ -160,7 +136,7 @@ export function registerAttempts(governor: Governor): void {
 
   app.post(RUNNER_ROUTES.claim, async (c) => {
     const runnerId = runnerOf(gov, c);
-    const input = await body(c, z.strictObject({ freeSlots: z.int().min(0) }));
+    const input = await body(c, RUNNER_REQUESTS.claim);
     return c.json(tx(db, (): ClaimResponse => {
       const attempt = input.freeSlots > 0 ? claim(gov, runnerId) : undefined;
       return { offer: attempt ? buildOffer(gov, attempt) : null };
@@ -168,7 +144,7 @@ export function registerAttempts(governor: Governor): void {
   });
 
   app.post(RUNNER_ROUTES.ack, async (c) => {
-    const input = await body(c, z.strictObject({ fence, engine: z.string().min(1).max(100) }));
+    const input = await body(c, RUNNER_REQUESTS.ack);
     const attempt = heldAttempt(gov, c, input.fence);
     const leaseExpiresAt = gov.clock.nowMs() + LEASE_MS;
     db.prepare("UPDATE attempts SET state='running', engine=?, lease_expires_at_ms=?, offer_expires_at_ms=NULL, started_at_ms=COALESCE(started_at_ms, ?) WHERE id=?").run(input.engine, leaseExpiresAt, gov.clock.nowMs(), attempt.id);
@@ -177,7 +153,7 @@ export function registerAttempts(governor: Governor): void {
   });
 
   app.post(RUNNER_ROUTES.renew, async (c) => {
-    const input = await body(c, z.strictObject({ fence }));
+    const input = await body(c, RUNNER_REQUESTS.fenced);
     const stopped = db.prepare("SELECT 1 FROM attempts WHERE id=? AND runner_id=? AND fence=? AND state='stopped'").get(c.req.param("id"), runnerOf(gov, c), input.fence);
     if (stopped) return c.json({ leaseExpiresAt: gov.clock.nowMs(), stop: true } satisfies LeaseResponse);
     const attempt = heldAttempt(gov, c, input.fence);
@@ -188,7 +164,7 @@ export function registerAttempts(governor: Governor): void {
   });
 
   app.post(RUNNER_ROUTES.events, async (c) => {
-    const input = await body(c, z.strictObject({ fence, events: z.array(z.intersection(eventBody, z.object({ seq: z.int().min(0), at: z.number() }))).max(1000) }));
+    const input = await body(c, RUNNER_REQUESTS.events);
     const attempt = heldAttempt(gov, c, input.fence);
     return c.json(tx(db, (): EventsResponse => {
       for (const { seq, at, ...event } of input.events) {
@@ -203,7 +179,7 @@ export function registerAttempts(governor: Governor): void {
   });
 
   app.post(RUNNER_ROUTES.artifacts, async (c) => {
-    const query = z.object({ fence: z.coerce.number().int(), name: z.string().min(1).max(300), kind: z.enum(["patch", "output", "log"]), mediaType: z.string().min(1).max(200) }).safeParse(c.req.query());
+    const query = RUNNER_REQUESTS.artifacts.safeParse(c.req.query());
     if (!query.success) throw new BrainError("INVALID_INPUT", "An upload names fence, name, kind and mediaType");
     const attempt = heldAttempt(gov, c, query.data.fence);
     const bytes = await readCapped(c.req.raw, MAX_ARTIFACT_BYTES);
@@ -217,7 +193,7 @@ export function registerAttempts(governor: Governor): void {
   });
 
   app.post(RUNNER_ROUTES.toolCall, async (c) => {
-    const input = await body(c, z.strictObject(call));
+    const input = await body(c, RUNNER_REQUESTS.call);
     const attempt = heldAttempt(gov, c, input.fence);
     noteCommits(gov, attempt, input.baseCommits);
     noteStates(gov, attempt, input.stateCommits);
@@ -240,7 +216,7 @@ export function registerAttempts(governor: Governor): void {
   });
 
   app.post(RUNNER_ROUTES.brainTool, async (c) => {
-    const input = await body(c, z.strictObject(call));
+    const input = await body(c, RUNNER_REQUESTS.call);
     const attempt = heldAttempt(gov, c, input.fence);
     noteCommits(gov, attempt, input.baseCommits);
     noteStates(gov, attempt, input.stateCommits);
@@ -249,7 +225,7 @@ export function registerAttempts(governor: Governor): void {
   });
 
   app.post(RUNNER_ROUTES.secret, async (c) => {
-    const input = await body(c, z.strictObject({ fence, name: z.string().min(1).max(100), use: z.union([z.strictObject({ tool: z.string() }), z.strictObject({ project: z.string() })]) }));
+    const input = await body(c, RUNNER_REQUESTS.secret);
     const attempt = heldAttempt(gov, c, input.fence);
     const manifest = manifestOf(gov, taskOf(db, attempt.task_id).snapshot_digest);
     // Only a secret a tool of this agent declares, or the credential of a project.
@@ -267,7 +243,7 @@ export function registerAttempts(governor: Governor): void {
   });
 
   app.post(RUNNER_ROUTES.modelToken, async (c) => {
-    const input = await body(c, z.strictObject({ fence }));
+    const input = await body(c, RUNNER_REQUESTS.fenced);
     const attempt = heldAttempt(gov, c, input.fence);
     const expiresAt = gov.clock.nowMs() + MODEL_TOKEN_FOR_MS;
     return c.json({ token: modelToken(gov, attempt.id, attempt.fence, expiresAt), expiresAt } satisfies ModelTokenResponse);
@@ -275,7 +251,7 @@ export function registerAttempts(governor: Governor): void {
 
   app.post(RUNNER_ROUTES.complete, async (c) => {
     const runnerId = runnerOf(gov, c);
-    const input = await body(c, completion);
+    const input = await body(c, RUNNER_REQUESTS.complete);
     const { receipt, signature } = input.receipt;
     const known = db.prepare("SELECT state, receipt_signature FROM attempts WHERE id=? AND runner_id=?").get(c.req.param("id"), runnerId) as { state: string; receipt_signature: string | null } | undefined;
     // A completion sent again, because its answer was lost, is accepted once more and changes nothing.

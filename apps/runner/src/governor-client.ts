@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { RUNNER_ROUTES, sha256Digest } from "@brain/contracts";
+import { RUNNER_ROUTES, sha256Digest, isDigest } from "@brain/contracts";
 import type {
   AckRequest, ApprovalPollResponse, ArtifactUpload, ArtifactUploadResponse, BlobRef, BrainToolRequest, BrainToolResponse, ChallengeRequest, ChallengeResponse, ClaimRequest,
   ClaimResponse, CompleteRequest, CompleteResponse, EnrollRequest, EnrollResponse, EventsRequest, EventsResponse, Fenced, HeartbeatRequest, HeartbeatResponse, HelloRequest,
@@ -114,7 +114,7 @@ export class GovernorClient {
    */
   async blob(ref: Pick<BlobRef, "digest"> & Partial<BlobRef>): Promise<Uint8Array> {
     const matches = (bytes: Uint8Array): boolean => (ref.bytes === undefined || bytes.length === ref.bytes) && sha256Digest(bytes) === ref.digest;
-    if (!/^sha256:[0-9a-f]{64}$/u.test(ref.digest)) throw new Error(`${ref.digest} is not a digest`);
+    if (!isDigest(ref.digest)) throw new Error(`${ref.digest} is not a digest`);
     const cached = join(this.cfg.blobDir, ref.digest.slice("sha256:".length));
     if (existsSync(cached)) {
       const held = new Uint8Array(readFileSync(cached));

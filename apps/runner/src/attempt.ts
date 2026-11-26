@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { resultDigest, sha256Digest, signReceipt, routeOf, speaks } from "@brain/contracts";
+import { isAttemptId, resultDigest, sha256Digest, signReceipt, routeOf, speaks } from "@brain/contracts";
 import type { AttemptEventBody, AttemptFailure, AttemptUsage, BlobRef, CompleteRequest, JobOffer, JsonValue, ModelRoute } from "@brain/contracts";
 import { execa } from "execa";
 import type { RunnerConfig } from "./config";
@@ -95,7 +95,7 @@ interface Ended { readonly outcome: CompleteRequest["outcome"]; readonly result:
 export async function runAttempt(context: AttemptContext, offer: JobOffer, abort: AbortController): Promise<void> {
   const { cfg, client } = context;
   const { attemptId, fence } = offer;
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(attemptId) || attemptId.includes("..")) throw new Error("the attempt id cannot name a folder");
+  if (!isAttemptId(attemptId)) throw new Error("the attempt id cannot name a folder");
   const attemptDir = join(cfg.stateDir, "attempts", attemptId);
   const picked = offer.kind === "act" ? undefined : pickEngine(offer, cfg.engines, context.sandboxAvailable, cfg.fixtureFor);
   const engineName = picked?.id ?? "none";

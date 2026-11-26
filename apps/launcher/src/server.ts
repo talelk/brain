@@ -22,16 +22,7 @@ import { runTool, TOOL_IMAGE, TOOL_LABEL } from "./tool-sandbox";
  *   GET  /v1/engine-sandboxes/:id/output    lines from it
  *   POST /v1/engine-sandboxes/:id/stop
  *
- * The launcher's environment variables, all of them:
- *   BRAIN_LAUNCHER_SOCKET              the socket (default /tmp/brain-launcher/launcher.sock); the token file is <socket>.token
- *   BRAIN_LAUNCHER_TOKEN               the token, instead of a generated one
- *   BRAIN_LAUNCHER_ATTEMPTS_ROOT       the runner's <state>/attempts folder on this host; without it no sandbox starts
- *   BRAIN_LAUNCHER_SANDBOX_USER        uid:gid sandboxes run as (default the launcher's own): the owner of the attempt folders
- *   BRAIN_LAUNCHER_EGRESS_GRANTS_DIR   where the egress proxy reads its grants; without it no sandbox gets a network
- *   BRAIN_LAUNCHER_HOST_COMMANDS       the operator's host-command file
- *   BRAIN_LAUNCHER_IMAGE_DIGESTS       image pins, "name=sha256:...,name=sha256:..."
- *   BRAIN_LAUNCHER_ENGINE_IDLE_MS      how long an engine sandbox may go unspoken to before it is stopped (default 90000)
- * The egress proxy is its own process (egress-proxy.ts) and reads BRAIN_PROXY_PORT, BRAIN_EGRESS_GRANTS_DIR and BRAIN_EGRESS_ALLOW_INTERNAL.
+ * The environment variables of the launcher and of the egress proxy are listed in docs/environment.md (packages/contracts/src/env.ts).
  */
 const IMAGES = [TOOL_IMAGE, ENGINE_IMAGE] as const;
 

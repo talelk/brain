@@ -279,6 +279,9 @@ importers:
 
   apps/launcher:
     dependencies:
+      '@brain/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       execa:
         specifier: 10.2.1
         version: 10.2.1

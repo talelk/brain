@@ -32,32 +32,13 @@ export interface RunnerConfig {
   readonly unsandboxedForTests?: boolean;
 }
 
-/**
- * The runner's environment variables, all of them:
- *   BRAIN_GOVERNOR_URL                    the Governor's address (default http://127.0.0.1:3000)
- *   BRAIN_RUNNER_STATE_DIR                the runner's folder (default ./.runner-state)
- *   BRAIN_RUNNER_NAME                     the name to enrol under (default the host name)
- *   BRAIN_RUNNER_ENROLL_TOKEN             the one-use enrolment token, for the first start only
- *   BRAIN_RUNNER_CAPABILITIES             comma-separated capability names the operator declares (default bash)
- *   BRAIN_RUNNER_ENGINES                  comma-separated engines: fixture, pi, claude, opencode, codex (default fixture)
- *   BRAIN_RUNNER_FIXTURE_FOR              comma-separated engines the fixture stands in for (default none): an agent written for one of
- *                                         them then runs on the fixture, with no model, and its attempts say so
- *   BRAIN_RUNNER_SLOTS                    attempts at a time (default 1)
- *   BRAIN_RUNNER_ATTEMPT_TIMEOUT_SECONDS  how long one engine session may run (default 3600)
- *   BRAIN_RUNNER_SANDBOX_CPU_MILLICORES   cpu of an engine sandbox (default 2000)
- *   BRAIN_RUNNER_SANDBOX_MEMORY_MB        memory of an engine sandbox (default 4096)
- *   BRAIN_LAUNCHER_SOCKET                 the launcher's socket; unset means no launcher
- *   BRAIN_LAUNCHER_TOKEN, BRAIN_LAUNCHER_TOKEN_FILE   the launcher's token, or the file that holds it (default <socket>.token)
- *   BRAIN_OPENCODE_COMMAND, BRAIN_CODEX_COMMAND       the command line of the ACP agent of that engine (defaults: opencode acp, codex-acp)
- * Inside an engine sandbox the launcher sets BRAIN_ENGINE_HOST=1 (engines/sandbox-host.ts), and the stdio relay an ACP agent starts
- * reads BRAIN_MCP_URL and BRAIN_MCP_TOKEN from the adapter (engines/mcp-relay.mjs). The runner holds no model key.
- */
+/** The runner's configuration from its environment; the variables are listed in docs/environment.md (packages/contracts/src/env.ts). */
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): RunnerConfig {
   const list = (name: string, fallback: string): string[] => (env[name] ?? fallback).split(",").map((entry) => entry.trim()).filter(Boolean);
   const positive = (name: string, fallback: number): number => { const value = Number(env[name]); return Number.isInteger(value) && value > 0 ? value : fallback; };
   const socket = env["BRAIN_LAUNCHER_SOCKET"];
   return {
-    governorUrl: env["BRAIN_GOVERNOR_URL"] ?? "http://127.0.0.1:3000",
+    governorUrl: env["BRAIN_GOVERNOR_URL"] ?? "http://127.0.0.1:3100",
     stateDir: env["BRAIN_RUNNER_STATE_DIR"] ?? join(process.cwd(), ".runner-state"),
     name: env["BRAIN_RUNNER_NAME"] ?? hostname(),
     ...(env["BRAIN_RUNNER_ENROLL_TOKEN"] ? { enrollToken: env["BRAIN_RUNNER_ENROLL_TOKEN"] } : {}),

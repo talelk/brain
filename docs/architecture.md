@@ -21,6 +21,10 @@ packages/contracts/src/   shared types and zod schemas (the only shared package)
   files.ts      brain.toml, agent.toml, tool.toml, Play: zod schemas + parsed types
   api.ts        commands and queries: name, input schema, output type, minimum role
   protocol.ts   runner <-> governor wire types (JobOffer, events, receipts)
+  runner-schemas.ts  what the Governor takes from a runner, checked against protocol.ts when compiled
+  launcher.ts   runner <-> launcher wire types
+  engines.ts    the engine names and the model API each speaks
+  env.ts        every environment variable; docs/environment.md is written from it (pnpm docs:gen)
   audit-chain.ts hash.ts run-receipt.ts   kept, pure
 apps/governor/src/
   main.ts  app.ts (HTTP)  db.ts (SQLite + schema.sql)  events.ts (append + audit chain)
@@ -39,7 +43,7 @@ apps/launcher/ kept; engine sandbox gains the working-copy mount
 apps/store/    the git store: `git http-backend` behind a signed-token check; a process of its own that never talks to the Governor (section 8)
 apps/mcp/     the MCP server for a person's own Claude (section 12): stdio, talks to a live Brain over the API
 apps/web/src/  new app, nine screens
-scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, runner, backup, restore, audit-verify), deploy-demo.sh
+scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, runner, backup, restore, audit-verify), gen-docs.ts (`pnpm docs:gen`), deploy-demo.sh
 deploy/        the sandbox images; demo/ (the demo host's compose file, host commands and backup units)
 packs/         base, software-factory, sre, customer-operations
 tests/         unit/ (pure), core/ (governor + fixture runner in-process), browser/

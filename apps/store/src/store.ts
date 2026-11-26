@@ -2,7 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { join } from "node:path";
-import { readStoreGrant, STORE_RETENTION_ATTEMPT, type StoreGrant } from "@brain/contracts";
+import { readStoreGrant, STORE_RETENTION_ATTEMPT, type StoreGrant, isSlug } from "@brain/contracts";
 
 /**
  * The git store (docs/architecture.md, section 8): `git http-backend` over one bare repository per workspace and project, behind a check of the token the
@@ -23,7 +23,6 @@ export interface StoreOptions {
 }
 
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/u;
-const PROJECT = /^[a-z][a-z0-9-]{0,62}$/u;
 const MAX_BYTES = 1024 * 1024 * 1024;
 const ZERO = "0".repeat(40);
 
@@ -95,7 +94,7 @@ function serve(options: StoreOptions, request: IncomingMessage, response: Server
   if (url.pathname === "/health") { response.writeHead(200).end("ok\n"); return; }
   const workspaceId = where?.[1];
   const project = where?.[2];
-  if (!where || !workspaceId || !project || !NAME.test(workspaceId) || !PROJECT.test(project)) return refuse(response, 404, "no such repository");
+  if (!where || !workspaceId || !project || !NAME.test(workspaceId) || !isSlug(project)) return refuse(response, 404, "no such repository");
   const token = basicToken(request.headers.authorization);
   const grant: StoreGrant | undefined = token ? readStoreGrant(token, options.publicKeyPem(), (options.nowSeconds ?? (() => Math.floor(Date.now() / 1000)))()) : undefined;
   if (!grant) return refuse(response, 401, "the token is missing, invalid or expired");

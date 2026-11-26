@@ -1,21 +1,6 @@
 import type { EngineAdapter, EngineEvent, EngineProbe, EngineSessionSpec } from "./port";
 import { decodeFrame, encodeFrame, type ExecResult, type HostFrame, type HostRequest } from "./sandbox-protocol";
 
-/** What the runner asks the launcher for: one engine process, in its own container, for one attempt. */
-export interface EngineSandboxRequest {
-  readonly engine: string;
-  /** Names the attempt's directory on the host: the launcher mounts its `work`, `out` and `state` folders. */
-  readonly attemptId: string;
-  /** Names this container (and makes a repeated request the same container). */
-  readonly requestId: string;
-  readonly cpuMillicores: number;
-  readonly memoryMb: number;
-  /** How the working copy is mounted at `/work`: not at all, read-only, or read-write. */
-  readonly work: "none" | "ro" | "rw";
-  /** The model gateway's host and the projects' hosts: the whole network the container gets, through the egress proxy. */
-  readonly egressHosts: readonly string[];
-}
-
 /** The lines the container's engine host wrote, and the means to write to it and to end it. */
 export interface EngineChannel {
   send(line: string): Promise<void>;

@@ -1,4 +1,5 @@
 import type { FailureBucket, InsightDays, Role, TaskState } from "@brain/contracts";
+import { BUNDLED_ENGINES } from "@brain/contracts/engines";
 
 /**
  * The few values of the model the screens enumerate. They are written here, typed by the contract, because importing values from
@@ -11,5 +12,5 @@ export const INSIGHT_DAYS = [7, 30, 90] as const satisfies readonly InsightDays[
 export const FAILURE_BUCKETS = ["limits", "setup", "engine", "checks", "other"] as const satisfies readonly FailureBucket[];
 export const EFFECTS = ["read", "write", "privileged"] as const;
 export const NATIVE_LEVELS = ["none", "read", "all"] as const;
-export const ENGINES = ["pi", "claude"] as const;
+export const ENGINES = BUNDLED_ENGINES;
 export { isSlug, slugify, slugifyTool } from "@brain/contracts/slug";

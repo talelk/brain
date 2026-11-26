@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@brain/contracts": "workspace:*",
     "execa": "10.2.1"
   }
 }

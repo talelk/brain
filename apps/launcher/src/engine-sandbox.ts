@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { ENGINE_NAMES, ENGINE_SANDBOX_FIELDS, type WorkMount } from "@brain/contracts";
 import { execa } from "execa";
 import { removeEgressGrant } from "./egress-proxy";
 import { attemptFolder, egressHosts, hardening, isDirectory, network, refuse, type Reply, type SandboxOptions, slug } from "./sandbox-common";
@@ -13,10 +14,9 @@ import { attemptFolder, egressHosts, hardening, isDirectory, network, refuse, ty
  */
 export const ENGINE_IMAGE = "brain-sandbox-engine";
 export const ENGINE_LABEL = "brain.engine-sandbox";
-const ENGINES: ReadonlySet<string> = new Set(["pi", "claude", "opencode", "codex"]);
+const ENGINES: ReadonlySet<string> = new Set(ENGINE_NAMES);
 /** Engines start threads and child processes (a shell, an ACP agent): more than a tool's 128, still a hard bound. */
 const ENGINE_PIDS_LIMIT = 512;
-const ENGINE_FIELDS = ["engine", "attemptId", "requestId", "cpuMillicores", "memoryMb", "egressHosts", "work"] as const;
 const WORK_MODES = new Set(["none", "ro", "rw"]);
 const READY = /^@brain-engine \{"type":"ready"\}$/u;
 
@@ -27,7 +27,7 @@ interface EngineSandboxShape {
   readonly memoryMb: number;
   /** The host folder of this attempt, already checked to be under the operator's root. */
   readonly attemptDirectory: string;
-  readonly work: "none" | "ro" | "rw";
+  readonly work: WorkMount;
   /** `uid:gid` the engine runs as: the owner of the attempt's folders. */
   readonly user: string;
   readonly network: readonly string[];
@@ -91,7 +91,7 @@ export class EngineSandboxes {
   }
 
   private async start(body: Record<string, unknown>): Promise<Reply> {
-    for (const key of Object.keys(body)) if (!(ENGINE_FIELDS as readonly string[]).includes(key)) return refuse(422, `field ${key} forbidden`);
+    for (const key of Object.keys(body)) if (!(ENGINE_SANDBOX_FIELDS as readonly string[]).includes(key)) return refuse(422, `field ${key} forbidden`);
     const engine = String(body["engine"] ?? "");
     if (!ENGINES.has(engine)) return refuse(422, "unknown engine");
     const requestId = String(body["requestId"] ?? "");

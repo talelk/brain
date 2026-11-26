@@ -3,7 +3,8 @@ import { dirname, join, normalize, sep } from "node:path";
 import type { BlobRef, JsonValue, OfferTool } from "@brain/contracts";
 import { execa } from "execa";
 import { isJsonObject } from "../engines/json-reply";
-import type { CommandResult, Launcher } from "../launcher-client";
+import type { Launcher } from "../launcher-client";
+import { isToolName, type CommandResult } from "@brain/contracts";
 
 /** What running a tool came to: the output the agent and the record get, and whether it worked. */
 export interface ToolRunResult { readonly ok: boolean; readonly output: JsonValue }
@@ -42,7 +43,7 @@ const toolDir = (attemptDir: string, tool: string): string => join(attemptDir, "
 
 /** Writes the tool's files, fetched and verified by digest, into the attempt's folder for it; done once per tool and attempt. */
 async function materializeTool(attemptDir: string, tool: OfferTool, blob: (ref: BlobRef) => Promise<Uint8Array>): Promise<string> {
-  if (tool.name.length > 80 || !tool.name.split(".").every((part) => /^[a-z][a-z0-9-]{0,62}$/u.test(part))) throw new Error(`the tool name ${tool.name} cannot name a folder`);
+  if (!isToolName(tool.name)) throw new Error(`the tool name ${tool.name} cannot name a folder`);
   const dir = toolDir(attemptDir, tool.name);
   if (existsSync(join(dir, ".complete"))) return dir;
   for (const file of tool.files) {

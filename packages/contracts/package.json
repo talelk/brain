@@ -9,6 +9,7 @@
     "./slug": "./src/slug.ts",
     "./limits": "./src/limits.ts",
     "./packs": "./src/packs.ts",
+    "./engines": "./src/engines.ts",
     "./media": "./src/media.ts"
   },
   "dependencies": {
