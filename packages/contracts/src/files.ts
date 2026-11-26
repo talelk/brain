@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isCron } from "./cron";
+import { MODEL_PROVIDERS } from "./engines";
 import { LIMIT_DEFAULTS } from "./limits";
 import type { Digest, JsonValue } from "./protocol";
 import { isSlug, SLUG } from "./slug";
@@ -10,11 +11,6 @@ const slug = (what: string) => z.string().regex(SLUG, `${what} must be lower-cas
 /** A tool is named by its folder: slugs joined by dots, such as `git.open-pr`. */
 export const isToolName = (name: string): boolean => name.length <= 80 && name.split(".").every((part) => SLUG.test(part));
 const packRef = z.string().refine((ref) => { const [name = "", pin, ...more] = ref.split("@"); return SLUG.test(name) && more.length === 0 && (pin === undefined || /^[1-9][0-9]{0,5}$/u.test(pin)); }, "a pack is its name, or its name and a release such as base@2");
-/** A pack entry of brain.toml split into its name and the release it pins (0: the shipped baseline). */
-export const splitPackRef = (ref: string): { readonly name: string; readonly pin: number } => {
-  const [name = "", pin] = ref.split("@");
-  return { name, pin: pin === undefined ? 0 : Number(pin) };
-};
 const toolName = z.string().refine(isToolName, "a tool name must be lower-case words joined by dots, such as deploy.restart");
 export { isSlug };
 
@@ -115,7 +111,7 @@ export const BrainFile = z.strictObject({
   cleanup: z.strictObject({ superseded_after_hours: z.int().min(0).default(24) }).prefault({}),
   model: z.array(z.strictObject({
     name: slug("a model name"),
-    provider: z.enum(["openai-compatible", "anthropic"]),
+    provider: z.enum(MODEL_PROVIDERS),
     url: z.string().regex(/^https?:\/\/\S+$/u, "must be an http or https address"),
     model: z.string().min(1),
     key: secretRef.optional(),

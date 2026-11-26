@@ -131,7 +131,7 @@ function claim(gov: Gov, runnerId: string): AttemptRow | undefined {
     const { attempt, task } = entry;
     const manifest = manifestOf(gov, task.snapshot_digest);
     const agent = manifest.agents[attempt.agent];
-    if (!agent || missing(manifest, attempt, runner) !== null || blockOf(gov, entry, at) !== null) continue;
+    if (!agent || missing(gov, manifest, attempt, runner) !== null || blockOf(gov, entry, at) !== null) continue;
     db.prepare("UPDATE attempts SET state='offered', runner_id=?, fence=fence+1, offer_expires_at_ms=? WHERE id=?").run(runnerId, now + OFFER_FOR_MS, attempt.id);
     reserveUsage(gov, attempt, agent.model ?? modelsOf(gov, attempt.workspace_id, manifest).models[0]?.name ?? null, microUsd(agent.limits.spend_usd));
     db.prepare("UPDATE tasks SET started_at_ms=COALESCE(started_at_ms, ?) WHERE id=?").run(now, task.id);

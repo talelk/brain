@@ -98,7 +98,7 @@ describe("a runner", () => {
   it("holds an attempt by its lease: when it stops renewing, the fence moves and the attempt is queued again after a wait", async () => {
     const taskId = await start();
     const offer = (await driver.claim()) as JobOffer;
-    expect(offer).toMatchObject({ kind: "work", fence: 1, task: { id: taskId }, model: { gatewayUrl: "http://localhost:3100/model/v1", route: "main", contextTokens: 262144, compactAt: 0.6 } });
+    expect(offer).toMatchObject({ kind: "work", fence: 1, task: { id: taskId }, model: { gatewayUrl: "http://localhost:3100/model/v1", routes: [{ provider: "openai-compatible", route: "main", contextTokens: 262144, compactAt: 0.6 }, { provider: "anthropic", route: "claude" }] } });
     expect((await driver.ack(offer)).leaseExpiresAt).toBe(clock.now + 60_000);
     clock.advance(50_000);
     expect((await (await post(offer, "renew", {})).json()) as object).toEqual({ leaseExpiresAt: clock.now + 60_000, stop: false });
@@ -265,9 +265,9 @@ describe("a runner", () => {
     await start("one", bare.workspaceId);
     const offer = (await driver.claim()) as JobOffer;
     expect(offer.workspaceId).toBe(bare.workspaceId);
-    expect(offer.model.route).toBe("shared");
+    expect(offer.model.routes.map((one) => one.route)).toEqual(["shared"]);
     // A model that says nothing of its window gets the defaults: 200000 tokens, compacted at 0.7.
-    expect(offer.model).toMatchObject({ contextTokens: 200_000, compactAt: 0.7 });
+    expect(offer.model.routes[0]).toMatchObject({ contextTokens: 200_000, compactAt: 0.7 });
     await driver.ack(offer);
     const token = await modelTokenOf(driver, offer);
     upstream.length = 0;

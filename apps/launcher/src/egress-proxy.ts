@@ -15,7 +15,7 @@ import { pathToFileURL } from "node:url";
 interface EgressGrant { readonly token: string; readonly hosts: readonly string[] }
 
 const GRANT_ID = /^[a-f0-9]{32}$/u;
-/** One entry of a grant: a lower-case name or IPv4 address with an optional port. The Governor and the launcher both refuse anything else. */
+/** One entry of a grant: `*`, or a lower-case name or IPv4 address with an optional port. The launcher refuses anything else; a workspace file may hold a pattern, which is never granted (docs/model.md, "A tool"). */
 export function isEgressHost(entry: string): boolean {
   const colon = entry.lastIndexOf(":");
   if (entry === "*") return true;

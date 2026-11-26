@@ -1,5 +1,5 @@
 import { modelsOf } from "../workspace/platform";
-import { MODEL_DEFAULTS, secretName, signStoreGrant, type BlobRef, type Digest, type JobOffer, type JsonValue, type OfferProject, type OfferTool, type OfferToolCall, type SnapshotManifest, type ToolOutcome } from "@brain/contracts";
+import { MODEL_DEFAULTS, secretName, signStoreGrant, type BlobRef, type Digest, type JobOffer, type JsonValue, type OfferProject, type OfferTool, type OfferToolCall, type SnapshotManifest, type ToolOutcome, type ModelRoute, speaks } from "@brain/contracts";
 import type { Db } from "../db";
 import type { Gov } from "../dispatch";
 import { repoPath } from "../integrations/github";
@@ -21,15 +21,27 @@ const clip = (text: string): string => (text.length > MAX_SHOWN ? `${text.slice(
  * What a runner lacks to take an attempt, or null when it can: it needs one of the agent's engines, everything the agent's tools need, and
  * `native-tools` when the agent uses the engine's own. An `act` attempt runs one tool and no engine.
  */
-export function missing(manifest: SnapshotManifest, attempt: AttemptRow, runner: { capabilities: ReadonlySet<string>; engines: ReadonlySet<string> }): { what: "agent" | "engine" | "capability"; name: string } | null {
+export function missing(gov: Gov, manifest: SnapshotManifest, attempt: AttemptRow, runner: { capabilities: ReadonlySet<string>; engines: ReadonlySet<string> }): { what: "agent" | "engine" | "capability"; name: string } | null {
   const agent = manifest.agents[attempt.agent];
   if (!agent) return { what: "agent", name: attempt.agent };
   const lacks = (needs: readonly string[] | undefined): string | undefined => (needs ?? []).find((capability) => !runner.capabilities.has(capability));
   const act = payloadOf(attempt).act;
   if (act) return capability(lacks(manifest.tools[act.tool]?.needs));
-  if (!agent.engine.some((engine) => runner.engines.has(engine))) return { what: "engine", name: agent.engine.join(" or ") };
+  const routes = routesOf(gov, attempt.workspace_id, manifest, agent.model);
+  const speaking = agent.engine.filter((engine) => speaks(engine, routes));
+  // An agent none of whose engines speaks the model's API waits as unready (preflight.ts), not for a runner.
+  const usable = speaking.length > 0 ? speaking : agent.engine;
+  if (!usable.some((engine) => runner.engines.has(engine))) return { what: "engine", name: usable.join(" or ") };
   return capability(agent.tools.map((tool) => lacks(manifest.tools[tool]?.needs)).find((name) => name !== undefined) ?? (agent.native !== "none" && !runner.capabilities.has("native-tools") ? "native-tools" : undefined));
 }
+/** The model routes an agent may call: the model it names, or else the workspace's first model of each API, in the order of `brain.toml`. */
+export function routesOf(gov: Gov, workspaceId: string, manifest: SnapshotManifest, named: string | undefined): ModelRoute[] {
+  const all = modelsOf(gov, workspaceId, manifest).models;
+  const own = all.find((model) => model.name === named);
+  const chosen = own ? [own] : all.filter((model, index) => all.findIndex((other) => other.provider === model.provider) === index);
+  return chosen.map((model) => ({ provider: model.provider, route: model.name, contextTokens: model.context_tokens ?? MODEL_DEFAULTS.context_tokens, compactAt: model.compact_at ?? MODEL_DEFAULTS.compact_at }));
+}
+
 const capability = (name: string | undefined): { what: "capability"; name: string } | null => (name === undefined ? null : { what: "capability", name });
 
 const blob = (db: Db, digest: Digest): BlobRef => ({ digest, bytes: (db.prepare("SELECT bytes FROM artifacts WHERE digest=?").get(digest) as { bytes: number }).bytes });
@@ -121,8 +133,6 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
   const manifest = manifestOf(gov, task.snapshot_digest);
   const agent = manifest.agents[attempt.agent] as SnapshotManifest["agents"][string];
   const payload = payloadOf(attempt);
-  const available = modelsOf(gov, attempt.workspace_id, manifest).models;
-  const routed = available.find((model) => model.name === agent.model) ?? available[0];
 
   // A `for_each` step is given as its copies, not as the list that groups them.
   const results = (db.prepare(`SELECT t.id, t.title, t.result, t.output_json FROM tasks t WHERE t.for_each IS NULL AND (t.id IN (SELECT waits_for FROM task_deps WHERE task_id=?)
@@ -182,7 +192,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
     },
     tools, projects, inheritedStates: inherited,
     ...(gov.store && manifest.projects.length > 0 ? { store: { url: gov.store.url, goalId: task.root_id, token: signStoreGrant({ workspaceId: attempt.workspace_id, goalId: task.root_id, attemptId: attempt.id, expiresAt: Math.floor(gov.clock.nowMs() / 1000) + STORE_TOKEN_SECONDS }, gov.store.privateKeyPem) } } : {}),
-    model: { gatewayUrl: `${gov.gatewayUrl}/model/v1`, provider: routed?.provider ?? "openai-compatible", route: agent.model ?? routed?.name ?? "", contextTokens: routed?.context_tokens ?? MODEL_DEFAULTS.context_tokens, compactAt: routed?.compact_at ?? MODEL_DEFAULTS.compact_at },
+    model: { gatewayUrl: `${gov.gatewayUrl}/model/v1`, routes: routesOf(gov, attempt.workspace_id, manifest, agent.model) },
     ...(payload.act ? { act: payload.act } : {}),
   };
 }

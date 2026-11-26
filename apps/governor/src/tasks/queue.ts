@@ -120,7 +120,7 @@ function placed(gov: Gov): { readonly items: Placed[]; readonly runners: ReturnT
     const blocked = blockOf(gov, entry, at);
     if (blocked?.kind === "paused-workspace" || blocked?.kind === "paused-task" || blocked?.kind === "backoff" || blocked?.kind === "unready") { held.push({ entry, wait: blocked, rank: null, startsAt: null }); continue; }
     const manifest = manifestOf(gov, entry.task.snapshot_digest);
-    const lacks = online.map((runner) => missing(manifest, entry.attempt, { capabilities: new Set(runner.capabilities), engines: new Set(runner.engines) }));
+    const lacks = online.map((runner) => missing(gov, manifest, entry.attempt, { capabilities: new Set(runner.capabilities), engines: new Set(runner.engines) }));
     const wait: Wait = blocked ?? (online.length === 0 ? { kind: "no-runner" } : lacks.every((what) => what !== null) ? { kind: "capability", what: (lacks[0] as NonNullable<(typeof lacks)[0]>).what, missing: (lacks[0] as NonNullable<(typeof lacks)[0]>).name } : { kind: "slot", ahead });
     let startsAt: number | null = null;
     if (wait.kind === "slot") {

@@ -1,11 +1,11 @@
 import type { Wait } from "@brain/contracts";
-import { MODEL_DEFAULTS, secretName } from "@brain/contracts";
+import { MODEL_DEFAULTS, secretName, speaks } from "@brain/contracts";
 import type { Gov } from "../dispatch";
 import { payloadOf, type AttemptRow } from "../tasks/store";
 import { hasSecret } from "../trust/secrets";
 import { modelsOf } from "../workspace/platform";
 import { manifestOf } from "../workspace/store";
-import { credentialOf } from "./offer";
+import { credentialOf, routesOf } from "./offer";
 
 /** A prompt takes about a token in four bytes. */
 const BYTES_PER_TOKEN = 4;
@@ -25,6 +25,8 @@ export function unready(gov: Gov, attempt: AttemptRow, snapshot: Parameters<type
   const holder = from?.id ?? attempt.workspace_id;
   const keyless = models.filter((model) => model.key && !hasSecret(gov, holder, secretName(model.key)));
   if (keyless.length === models.length) return problem("model-key", keyless[0]?.name ?? "");
+  const routes = routesOf(gov, attempt.workspace_id, manifest, agent.model);
+  if (!agent.engine.some((engine) => speaks(engine, routes))) return problem("engine-model", attempt.agent);
   for (const project of manifest.projects) {
     const credential = credentialOf(manifest, project);
     if (credential && !hasSecret(gov, attempt.workspace_id, secretName(credential))) return problem("credential", secretName(credential));

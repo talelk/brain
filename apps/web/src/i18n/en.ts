@@ -1155,6 +1155,7 @@ export const en = {
   "queue.wait.paused-task": "Paused: it does not start until it is resumed.",
   "queue.wait.unready.no-model": "No model: add a [[model]] to brain.toml, or ask the admin for one.",
   "queue.wait.unready.model-key": "The key of the model {name} is not set.",
+  "queue.wait.unready.engine-model": "No engine of the agent {name} speaks the API of the model: add an engine that does, or a model it can call.",
   "queue.wait.unready.credential": "The credential {name} is not set.",
   "queue.wait.unready.prompt": "The agent {name} has a prompt larger than the model's window.",
   "queue.wait.backoff": "The last try failed for a reason outside the task; it is tried again at {time} (try {tries}).",

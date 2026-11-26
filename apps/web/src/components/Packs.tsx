@@ -3,6 +3,7 @@ import { unwrap } from "solid-js/store";
 import { Badge, Button } from "@talelk/newui-atoms";
 import { Select, toast } from "@talelk/newui-molecules";
 import type { PackInfo, PackUpdate, SnapshotManifest } from "@brain/contracts";
+import { withPins } from "@brain/contracts/packs";
 import { command, query, useAction, useLive, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
 import { t } from "../i18n";
@@ -99,7 +100,7 @@ export function PackUpdates(props: { snapshot: SnapshotManifest; updates: readon
   const [shown, setShown] = createSignal<string>();
   const update = useAction(async (change: PackUpdate) => {
     const brain = structuredClone(unwrap(brainOf(props.snapshot)));
-    const packs = brain.packs.map((ref) => (ref.split("@")[0] === change.pack ? `${change.pack}@${change.latest}` : ref));
+    const packs = withPins(brain.packs, [change]);
     await command("file.write", { workspaceId: place.id(), files: [{ path: paths.brain, content: brainToml({ ...brain, packs }) }], message: `Update ${change.pack} to v${change.latest}` });
     toast.success({ title: t("packs.updated", { name: change.pack, version: change.latest }) });
     place.workspace.refetch();

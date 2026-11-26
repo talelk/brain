@@ -79,7 +79,7 @@ describe("an engine in its sandbox", () => {
     expect(gov.hellos[0]).toMatchObject({ engines: ["pi"], capabilities: ["bash", "native-tools"] });
     const origin = bareRepository({ "a.txt": "a\n", ".gitignore": "*.log\n" });
     const offer = gov.offer({
-      agent: { engines: ["pi"], native: "all" }, model: { gatewayUrl: "https://Brain.Example.test:8443/model/v1", provider: "openai-compatible", route: "main", contextTokens: 200_000, compactAt: 0.7 },
+      agent: { engines: ["pi"], native: "all" }, model: { gatewayUrl: "https://Brain.Example.test:8443/model/v1", routes: [{ provider: "openai-compatible", route: "main", contextTokens: 200_000, compactAt: 0.7 }] },
       projects: [{ name: "app", repo: origin.repo, branch: "main", access: "write", network: ["registry.npmjs.org", "*.example.test", "*"], setup: "echo installed > setup.log" }],
       tools: [gov.tool("task.note", { runs: "brain", inputSchema: { type: "object" } })],
       task: { goal: 'FIXTURE read app/setup.log\nFIXTURE write app/b.txt b\\n\nFIXTURE tool task.note {"text": "hello"}\nFIXTURE reply done: %last%' },

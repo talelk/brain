@@ -321,4 +321,16 @@ describe("update all workspaces", () => {
     expect(events("packs.updated", alpha.workspaceId)).toHaveLength(1);
     expect(await harness.admin.command("packs.updateAll", { workspaceId: platformId })).toEqual({ updated: [], failed: [] });
   });
+
+  it("pins a pack the workspace uses only because another pack requires it", async () => {
+    const { workspaceId } = await makeWorkspace(harness, "Factory", { packs: ["software-factory"] });
+    const factory = () => harness.admin.query("workspace.get", { workspaceId });
+    const [update] = (await factory()).updates;
+    expect(update).toMatchObject({ pack: "base", pinned: 0 });
+    const done = await harness.admin.command("packs.updateAll", { workspaceId: platformId });
+    expect(done.failed).toEqual([]);
+    expect((await factory()).updates).toEqual([]);
+    expect((await factory()).snapshot.pins).toEqual({ base: update?.latest });
+    expect((await harness.admin.query("file.read", { workspaceId, path: "brain.toml" })).content).toContain(`packs = ["software-factory", "base@${update?.latest}"]`);
+  });
 });

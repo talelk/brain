@@ -370,7 +370,10 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   digest, agent (prompt digest, engine list, native level, limits, tool names), tools (per tool: effect, input schema,
   file digests, network hosts, secret names, `runs`, `host_command`), projects (name, repo, branch, access, setup,
   network, credential secret name, base commit), the state commits it starts from (the tasks it waits for, then its own earlier attempt's) and the git store's address and token (section 8), model
-  (gateway URL, the kind of API, route name), and for `act` the approved call to run.
+  (gateway URL and the routes the attempt may call, each with its API, name and window: the agent's own model, or else the
+  workspace's first model of each API), and for `act` the approved call to run. `contracts/src/engines.ts` names the one API each
+  engine speaks: the queue holds an attempt none of whose engines speaks one of the routes (`unready`, `engine-model`), `claim`
+  gives it only to a runner with one that does, and the runner picks the first such engine and calls that route.
 - `events` appends to `attempt_events`; a `tool.call` and its `tool.result` also record the call in `tool_calls`.
   `artifacts` stores bytes in the CAS, linked to the attempt and its task. `blobs/:digest` serves only what the
   snapshots of the attempts the runner holds name (manifest, prompts, tool files) and what their offers named.
@@ -406,7 +409,7 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 - **Workspace tools** with `run.sh`: the runner fetches the files by digest, validates
   the input against the schema, and runs the script in a tool sandbox with the task's
   working copy mounted read-only at `/work`, the attempt's `/out` writable (a tool that builds a deliverable saves it there), the declared hosts on the egress proxy and
-  the declared secrets leased for that call. `effect = "read"` runs at once.
+  the declared secrets leased for that call. `effect = "read"` runs at once. The effect is the one the tool's file says, Brain-run tools included.
 - **Effects** (`write`, `privileged`): the runner posts the call to `tool-call`. The
   Governor builds the approval subject (tool, digest of the tool's definition, input and its digest, task,
   snapshot digest, and for a pull request the digest of the diff the approver reads, the state commit whose tree is opened and the commit it is made on). If a standing approval in

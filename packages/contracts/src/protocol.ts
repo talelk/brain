@@ -1,6 +1,7 @@
 import type { JsonSchema } from "./files";
 import type { LimitHit } from "./limits";
 import type { SignedRunReceipt } from "./run-receipt";
+import type { ModelProvider } from "./engines";
 
 /** Wire types between a runner and the Governor (docs/architecture.md section 6). */
 
@@ -136,11 +137,14 @@ export interface JobOffer {
   readonly inheritedStates: ReadonlyArray<{ readonly attemptId: string; readonly commits: Readonly<Record<string, string>> }>;
   /** The git store this attempt fetches those commits from and pushes its own to; absent when the Governor has none. */
   readonly store?: { readonly url: string; readonly token: string; readonly goalId: string };
-  /** The model route the attempt calls, with its context window and the share of it at which a long conversation is compacted. */
-  readonly model: { readonly gatewayUrl: string; readonly provider: "openai-compatible" | "anthropic"; readonly route: string; readonly contextTokens: number; readonly compactAt: number };
+  /** The model gateway, and the model routes the attempt may call: the agent's own model, or else the workspace's first of each API. The engine takes the one it speaks. */
+  readonly model: { readonly gatewayUrl: string; readonly routes: ReadonlyArray<ModelRoute> };
   /** For `act`: the approved call to run, and nothing else. */
   readonly act?: { readonly callId: string; readonly approvalId: string; readonly tool: string; readonly input: JsonValue };
 }
+
+/** One model of the workspace, with its context window and the share of it at which a long conversation is compacted. */
+export interface ModelRoute { readonly provider: ModelProvider; readonly route: string; readonly contextTokens: number; readonly compactAt: number }
 
 /** Every attempt-scoped request names the fence it was offered; a moved fence answers LEASE_LOST. */
 export interface Fenced { readonly fence: number }

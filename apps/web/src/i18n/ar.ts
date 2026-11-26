@@ -1229,6 +1229,7 @@ export const ar: Catalog = {
   "queue.wait.paused-task": "متوقفة مؤقتًا: لن تبدأ قبل استئنافها.",
   "queue.wait.unready.no-model": "لا نموذج: أضف [[model]] إلى brain.toml أو اطلب واحدًا من المسؤول.",
   "queue.wait.unready.model-key": "مفتاح النموذج {name} غير مضبوط.",
+  "queue.wait.unready.engine-model": "لا يوجد محرّك للوكيل {name} يتحدث واجهة النموذج: أضف محرّكًا يتحدثها أو نموذجًا يستطيع استدعاءه.",
   "queue.wait.unready.credential": "بيانات الاعتماد {name} غير مضبوطة.",
   "queue.wait.unready.prompt": "موجّه الوكيل {name} أكبر من نافذة النموذج.",
   "queue.wait.backoff": "فشلت المحاولة الأخيرة لسبب خارج المهمة؛ ستُعاد في {time} (المحاولة {tries}).",

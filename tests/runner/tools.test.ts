@@ -87,21 +87,33 @@ describe("script tools", () => {
 });
 
 describe("choosing an engine and naming tools", () => {
-  const offer = (engines: string[], native: "none" | "read" | "all") => ({ agent: { engines, native } }) as unknown as JobOffer;
+  const OPENAI = { provider: "openai-compatible", route: "open", contextTokens: 200_000, compactAt: 0.7 } as const;
+  const ANTHROPIC = { provider: "anthropic", route: "opus", contextTokens: 200_000, compactAt: 0.7 } as const;
+  const offer = (engines: string[], native: "none" | "read" | "all", routes: JobOffer["model"]["routes"] = [OPENAI, ANTHROPIC]) => ({ agent: { engines, native }, model: { gatewayUrl: "http://localhost/model/v1", routes } }) as unknown as JobOffer;
+
+  it("takes only an engine that speaks the API of a model the workspace has, and calls that model", () => {
+    expect(pickEngine(offer(["pi", "claude"], "none", [ANTHROPIC]), ["pi", "claude"], true)).toEqual({ id: "claude", hosting: "sandboxed", route: ANTHROPIC });
+    expect(pickEngine(offer(["pi", "claude"], "none"), ["pi", "claude"], true)).toEqual({ id: "pi", hosting: "sandboxed", route: OPENAI });
+    expect(pickEngine(offer(["claude"], "none"), ["claude"], true)).toEqual({ id: "claude", hosting: "sandboxed", route: ANTHROPIC });
+    expect(pickEngine(offer(["pi"], "none", [ANTHROPIC]), ["pi"], true)).toBeUndefined();
+    // The fixture calls no model, whatever it stands in for.
+    expect(pickEngine(offer(["pi"], "none", [ANTHROPIC]), ["fixture"], false, ["pi"])).toEqual({ id: "fixture", hosting: "fixture", route: ANTHROPIC });
+  });
+
 
   it("takes the first engine of the agent's list that the runner has", () => {
-    expect(pickEngine(offer(["pi", "claude"], "none"), ["claude", "fixture"], false)).toEqual({ id: "claude", hosting: "in-process" });
+    expect(pickEngine(offer(["pi", "claude"], "none"), ["claude", "fixture"], false)).toEqual({ id: "claude", hosting: "in-process", route: ANTHROPIC });
     expect(pickEngine(offer(["pi"], "none"), ["fixture"], false)).toBeUndefined();
   });
 
   it("gives native tools only to an engine in a sandbox, or to the fixture", () => {
     expect(pickEngine(offer(["pi"], "all"), ["pi"], false)).toBeUndefined();
-    expect(pickEngine(offer(["pi"], "read"), ["pi"], true)).toEqual({ id: "pi", hosting: "sandboxed" });
-    expect(pickEngine(offer(["pi", "fixture"], "all"), ["pi", "fixture"], false)).toEqual({ id: "fixture", hosting: "fixture" });
+    expect(pickEngine(offer(["pi"], "read"), ["pi"], true)).toEqual({ id: "pi", hosting: "sandboxed", route: OPENAI });
+    expect(pickEngine(offer(["pi", "fixture"], "all"), ["pi", "fixture"], false)).toEqual({ id: "fixture", hosting: "fixture", route: OPENAI });
   });
 
   it("where the fixture stands in for an engine, an agent written for that engine runs on the fixture, with no model", async () => {
-    expect(pickEngine(offer(["pi", "claude"], "all"), ["fixture"], false, ["pi", "claude"])).toEqual({ id: "fixture", hosting: "fixture" });
+    expect(pickEngine(offer(["pi", "claude"], "all"), ["fixture"], false, ["pi", "claude"])).toEqual({ id: "fixture", hosting: "fixture", route: OPENAI });
     expect(pickEngine(offer(["opencode"], "none"), ["fixture"], false, ["pi", "claude"])).toBeUndefined();
     const { gov, runner } = await runnerWorld({ fixtureFor: ["pi", "claude"] });
     expect(gov.hellos.at(-1)).toMatchObject({ engines: ["fixture", "pi", "claude"], capabilities: ["bash", "native-tools"] });

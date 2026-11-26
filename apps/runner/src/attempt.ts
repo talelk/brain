@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { resultDigest, sha256Digest, signReceipt } from "@brain/contracts";
-import type { AttemptEventBody, AttemptFailure, AttemptUsage, BlobRef, CompleteRequest, JobOffer, JsonValue } from "@brain/contracts";
+import { resultDigest, sha256Digest, signReceipt, routeOf, speaks } from "@brain/contracts";
+import type { AttemptEventBody, AttemptFailure, AttemptUsage, BlobRef, CompleteRequest, JobOffer, JsonValue, ModelRoute } from "@brain/contracts";
 import { execa } from "execa";
 import type { RunnerConfig } from "./config";
 import { isJsonObject } from "./engines/json-reply";
@@ -38,14 +38,14 @@ const INLINE_PATCH_CHARS = 20_000;
 const NO_USAGE: AttemptUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, microUsd: 0 };
 
 /**
- * The first engine of the agent's list that this runner has and that can give the agent its native tools. Where the runner's fixture
+ * The first engine of the agent's list that this runner has, that speaks the API of one of the offered models and that can give the agent its native tools. Where the runner's fixture
  * stands in for an engine (`fixtureFor`), an agent that names that engine gets the fixture.
  */
-export function pickEngine(offer: JobOffer, engines: readonly string[], sandboxAvailable: boolean, fixtureFor: readonly string[] = []): { id: string; hosting: EngineHosting } | undefined {
+export function pickEngine(offer: JobOffer, engines: readonly string[], sandboxAvailable: boolean, fixtureFor: readonly string[] = []): { id: string; hosting: EngineHosting; route: ModelRoute | undefined } | undefined {
   for (const named of offer.agent.engines) {
     const id = fixtureFor.includes(named) && engines.includes("fixture") ? "fixture" : named;
     const hosting = engineHosting(id, sandboxAvailable);
-    if (engines.includes(id) && hosting !== "unavailable" && (offer.agent.native === "none" || nativeToolsAllowed(hosting))) return { id, hosting };
+    if (engines.includes(id) && speaks(id, offer.model.routes) && hosting !== "unavailable" && (offer.agent.native === "none" || nativeToolsAllowed(hosting))) return { id, hosting, route: routeOf(id, offer.model.routes) };
   }
   return undefined;
 }
@@ -189,7 +189,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
       // An agent that reads files is given the workspace's own definition to read, beside the working copy and never part of it.
       const workspace = seesFiles && (await placeWorkspaceFiles(client, offer.snapshotDigest, join(attemptDir, "work", ".workspace")).then(() => true, () => false)) ? `${paths.work}/.workspace` : undefined;
       const prompt = new TextDecoder().decode(await client.blob({ digest: offer.agent.promptDigest }));
-      const model = { baseUrl: offer.model.gatewayUrl, token: picked.id === "fixture" ? "" : (await client.modelToken(attemptId, { fence })).token, name: offer.model.route, contextTokens: offer.model.contextTokens, compactAt: offer.model.compactAt };
+      const model = { baseUrl: offer.model.gatewayUrl, token: picked.id === "fixture" ? "" : (await client.modelToken(attemptId, { fence })).token, name: picked.route?.route ?? "", ...(picked.route ? { contextTokens: picked.route.contextTokens, compactAt: picked.route.compactAt } : {}) };
 
       hidden.push(model.token);
       if (sandboxed) {
@@ -225,7 +225,7 @@ export async function runAttempt(context: AttemptContext, offer: JobOffer, abort
 
       emit({ kind: "status", phase: "engine", detail: `${picked.id} runs agent ${offer.agent.name}` });
       const offered = offer.tools.filter((tool) => offer.agent.tools.includes(tool.name));
-      const commandEnv = modelCommands(offer) ? { BRAIN_MODEL_URL: `${model.baseUrl}/commands`, BRAIN_MODEL_TOKEN: model.token, BRAIN_MODEL_NAME: model.name, BRAIN_MODEL_API: offer.model.provider } : undefined;
+      const commandEnv = modelCommands(offer) ? { BRAIN_MODEL_URL: `${model.baseUrl}/commands`, BRAIN_MODEL_TOKEN: model.token, BRAIN_MODEL_NAME: model.name, BRAIN_MODEL_API: picked.route?.provider ?? "openai-compatible" } : undefined;
       const spec: EngineSessionSpec = {
         attemptId, instructions: prompt + toolNameNote(offered), model, native: offer.agent.native, outDir: paths.out, stateDir: paths.state, ...(commandEnv ? { commandEnv } : {}),
         task: composeTask(offer, { ...(seesFiles ? { work: paths.work } : {}), ...(workspace ? { workspace } : {}), out: paths.out }, reviewed, reviewedFiles) + (setupNotes.length > 0 ? `\n\n# Setup did not finish\n${setupNotes.join("\n")}\nDependencies may be missing; run what you need yourself, or say so in your result if you cannot.` : ""),

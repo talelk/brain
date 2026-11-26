@@ -143,6 +143,11 @@ spend_usd = 0.50            # 0 means no cap, and is when not written
 `prompt.md` beside it holds the instructions. The agents in a workspace are its team;
 there is no separate team object.
 
+`engine` lists the engines that may run the agent, the preferred one first. Each speaks one
+model API: `pi`, `opencode` and `codex` the OpenAI one, `claude` the Anthropic one. An
+attempt goes to the first engine of the list that a runner has and that can call a model of
+the workspace: the agent's own `model` when it names one, any of them otherwise.
+
 An agent has two kinds of tools:
 
 - **Native tools** are the engine's own: read, search, edit, shell. They run inside the
@@ -185,6 +190,15 @@ required = true
 `run.sh` does the work; `test.sh` proves it without touching anything real. A `read` tool
 runs freely. A `write` or `privileged` call stops until a person approves exactly that
 call, unless `brain.toml` holds a standing approval that covers it.
+
+The file's `effect` is what decides, for a tool Brain runs too: a workspace or pack copy of
+`message.send` that says `effect = "read"` sends without an approval. `git.open-pr` and
+`workspace.fix` carry out only what an approval shows, so a copy that says `read` does
+nothing. Who may write that file decides it: an admin, or a pack an admin chose.
+
+In a tool's `network` and a project's, `"*"` opens any public host. A pattern such as
+`*.example.com` is accepted in the file but is never granted: a project's pattern is left out,
+and the attempt says which hosts it cannot reach; a tool that names one has its call refused.
 
 ### A Play
 
@@ -402,7 +416,7 @@ and on which runner, what waits and in which order, and why each waiting task is
   offered, Brain checks what it can see without leaving the Governor, and the task waits with
   the sentence of the first thing that is wrong: the workspace has no model (its own or the
   admin workspace's); the keys of every
-  model are not set; a project's credential (its own, or the workspace's `[github]` one) is not
+  model are not set; none of the agent's engines speaks the API of a model it can call; a project's credential (its own, or the workspace's `[github]` one) is not
   set; the agent's prompt alone is larger than the model's window before compaction. A secret set
   later is seen at once and the task starts; a file fixed later reaches a task when it runs on the
   new snapshot. Nothing is stored for it.

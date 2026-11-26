@@ -167,6 +167,14 @@ describe("a task that cannot work yet", () => {
     expect(await next()).toEqual({ kind: "unready", problem: "prompt", name: "dev" });
     await write([{ path: "agents/dev/prompt.md", content: "You are the dev.\n" }]);
     expect(await next()).toMatchObject({ kind: "slot" });
+    // pi speaks the OpenAI API only: with nothing but an Anthropic model, an agent that names only pi has no engine that can call it.
+    await write([
+      { path: "brain.toml", content: model('key = "secret:model-key"\n').replace("openai-compatible", "anthropic") },
+      { path: "agents/dev/agent.toml", content: 'description = "Dev."\nengine = ["pi"]\n' },
+    ]);
+    expect(await next()).toEqual({ kind: "unready", problem: "engine-model", name: "dev" });
+    await write([{ path: "agents/dev/agent.toml", content: 'description = "Dev."\nengine = ["pi", "claude"]\n' }]);
+    expect(await next()).toMatchObject({ kind: "slot" });
   });
 });
 

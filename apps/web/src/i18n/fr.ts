@@ -1157,6 +1157,7 @@ export const fr: Catalog = {
   "queue.wait.paused-task": "Suspendue : elle ne démarre pas avant d'être reprise.",
   "queue.wait.unready.no-model": "Aucun modèle : ajoutez un [[model]] à brain.toml, ou demandez-en un à l'admin.",
   "queue.wait.unready.model-key": "La clé du modèle {name} n'est pas définie.",
+  "queue.wait.unready.engine-model": "Aucun moteur de l'agent {name} ne parle l'API du modèle : ajoutez un moteur qui la parle, ou un modèle qu'il sait appeler.",
   "queue.wait.unready.credential": "L'identifiant {name} n'est pas défini.",
   "queue.wait.unready.prompt": "Le prompt de l'agent {name} dépasse la fenêtre du modèle.",
   "queue.wait.backoff": "La dernière tentative a échoué pour une raison étrangère à la tâche ; nouvel essai à {time} (essai {tries}).",

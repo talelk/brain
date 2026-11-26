@@ -1,4 +1,4 @@
-import { BrainError, PackFile, PLATFORM_PACK, type CommandOutputs, type PackInfo, type PackUpdate, type SnapshotManifest } from "@brain/contracts";
+import { BrainError, PackFile, PLATFORM_PACK, withPins, type CommandOutputs, type PackInfo, type PackUpdate, type SnapshotManifest } from "@brain/contracts";
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parse as parseToml } from "smol-toml";
@@ -30,11 +30,18 @@ export function updatesOf(gov: Gov, manifest: SnapshotManifest): PackUpdate[] {
 
 /** The text of a brain.toml with each pack in `updates` pinned to its latest release; the rest of the file is as it was. */
 function pinned(text: string, updates: readonly PackUpdate[]): string {
-  const latest = new Map(updates.map((one) => [one.pack, one.latest]));
   const start = text.search(/^packs[ \t]*=[ \t]*\[/mu);
   const end = start < 0 ? -1 : text.indexOf("]", start);
   if (end < 0) return text;
-  return text.slice(0, start) + text.slice(start, end).replace(/"([^"]+)"/gu, (whole, ref: string) => { const name = ref.split("@")[0] as string; return latest.has(name) ? `"${name}@${latest.get(name)}"` : whole; }) + text.slice(end);
+  const list = text.slice(text.indexOf("[", start) + 1, end);
+  const refs = [...list.matchAll(/"([^"]+)"/gu)].map((match) => match[1] as string);
+  const next = withPins(refs, updates);
+  // Each entry is replaced where it stands, so the way the list is written is kept; added entries follow the last one.
+  let at = 0;
+  const kept = list.replace(/"([^"]+)"/gu, () => JSON.stringify(next[at++]));
+  const added = next.slice(refs.length).map((ref) => JSON.stringify(ref)).join(", ");
+  const after = added === "" ? kept : kept.replace(/("[^"]*")(?![\s\S]*")/u, (last: string) => `${last}, ${added}`);
+  return text.slice(0, text.indexOf("[", start) + 1) + after + text.slice(end);
 }
 
 /** `packs/<name>/<path>` for every file of every shipped pack: what the platform workspace starts with. */

@@ -70,8 +70,9 @@ describe("the ACP adapter", () => {
   });
 
   it("runs an ACP agent only in an engine sandbox", () => {
-    const offer = { agent: { engines: ["opencode"], native: "none" } } as never;
+    const route = { provider: "openai-compatible", route: "main", contextTokens: 200_000, compactAt: 0.7 };
+    const offer = { agent: { engines: ["opencode"], native: "none" }, model: { gatewayUrl: "http://localhost/model/v1", routes: [route] } } as never;
     expect(pickEngine(offer, ["opencode"], false)).toBeUndefined();
-    expect(pickEngine(offer, ["opencode"], true)).toEqual({ id: "opencode", hosting: "sandboxed" });
+    expect(pickEngine(offer, ["opencode"], true)).toEqual({ id: "opencode", hosting: "sandboxed", route });
   });
 });
