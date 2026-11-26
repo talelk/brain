@@ -28,7 +28,7 @@ function VersionDiff(props: { name: string; from: Version; to: Version }): JSX.E
 const hosts = (network: readonly string[]): string => (network.length === 0 ? t("packs.import.noNetwork") : network.includes("*") ? t("packs.import.anyHost") : network.join(", "));
 
 /** Bringing a pack from a git repository into the admin workspace's copy, and what it may do, read before it is released. */
-function ImportPack(props: { onImported: () => void }): JSX.Element {
+function ImportPack(props: { onImported: () => void; onRelease: (name: string) => void; releasing: boolean; /** Whether the pack's copy is what its last release holds. */ released: (name: string) => boolean }): JSX.Element {
   const place = usePlace();
   const [repo, setRepo] = createSignal("");
   const [ref, setRef] = createSignal("");
@@ -53,7 +53,7 @@ function ImportPack(props: { onImported: () => void }): JSX.Element {
           <TextInput size="md" class="t-code" label={t("packs.import.credential")} placeholder="github" value={credential()} onInput={(event) => setCredential(event.currentTarget.value)} />
         </div>
         <div><Button variant="outline" size="md" type="submit" loading={bring.busy()} disabled={repo().trim() === ""}>{t("packs.import.action")}</Button></div>
-        <Failure error={bring.error()} />
+        <Failure error={bring.error()} refused={t("packs.import.refused")} />
       </form>
       <Show when={found()}>
         {(pack) => (
@@ -75,6 +75,7 @@ function ImportPack(props: { onImported: () => void }): JSX.Element {
                 )}
               </For>
             </ul>
+            <div><Button variant="solid" theme="blue" size="md" loading={props.releasing} disabled={props.released(pack().name)} onClick={() => props.onRelease(pack().name)}>{t("packs.release.named", { name: pack().name })}</Button></div>
           </section>
         )}
       </Show>
@@ -104,7 +105,8 @@ export function PacksTab(): JSX.Element {
   const start = (pack: PackInfo): Version => (pack.shipped ? 0 : pack.released.at(-1) ?? "none");
   const options = (pack: PackInfo): { label: string; value: string }[] => [pack.shipped ? 0 : ("none" as const), ...pack.released, ...(pack.working ? ["working" as const] : [])].map((version) => ({ label: label(version), value: String(version) }));
   const parse = (value: string): Version => (value === "working" || value === "none" ? value : Number(value));
-  const open = (pack: PackInfo): void => { setShown(shown() === pack.name ? undefined : pack.name); setFrom(start(pack)); setTo("working"); };
+  // What is compared is chosen before the comparison is shown: it reads at once.
+  const open = (pack: PackInfo): void => { setFrom(start(pack)); setTo("working"); setShown(shown() === pack.name ? undefined : pack.name); };
   return (
     <div class="flex flex-col gap-4">
       <p class="t-small text-ink-2">{t("packs.hint")}</p>
@@ -112,8 +114,8 @@ export function PacksTab(): JSX.Element {
         <Button variant="outline" size="md" loading={updateAll.busy()} onClick={() => void updateAll.run()}>{t("packs.updateAll")}</Button>
         <span class="t-small text-ink-2">{t("packs.updateAll.hint")}</span>
       </div>
-      <ImportPack onImported={() => packs.refetch()} />
-      <Failure error={release.error()} />
+      <ImportPack onImported={() => packs.refetch()} onRelease={(name) => void release.run(name)} releasing={release.busy()} released={(name) => (packs.data()?.packs.find((pack) => pack.name === name)?.working?.changed === false)} />
+      <Failure error={release.error()} refused={t("packs.release.refused")} />
       <Failure error={updateAll.error()} />
       <Show when={packs.data()} fallback={<Show when={packs.error()} fallback={<Loading />}><Failure error={packs.error()} /></Show>}>
         {(loaded) => (

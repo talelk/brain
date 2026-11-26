@@ -31,11 +31,11 @@ function Problems(props: { problems: readonly Problem[] }): JSX.Element {
 }
 
 /** A refusal shown where it happened. `problems` replaces the refusal's own list when the screen shows some of them elsewhere. */
-export function Failure(props: { error: ApiFailure | undefined; retry?: () => void; class?: string; problems?: readonly Problem[] }): JSX.Element {
+export function Failure(props: { error: ApiFailure | undefined; retry?: () => void; class?: string; problems?: readonly Problem[]; /** The sentence for a folder refused, where "save again" is not what to do. */ refused?: string }): JSX.Element {
   return (
     <Show when={props.error}>
       {(error) => (
-        <Alert theme="red" class={props.class} title={failureText(error())} {...(props.retry ? { action: { label: t("action.retry"), onClick: () => props.retry?.() } } : {})}>
+        <Alert theme="red" class={props.class} title={props.refused && error().code === "INVALID_WORKSPACE" ? props.refused : failureText(error())} {...(props.retry ? { action: { label: t("action.retry"), onClick: () => props.retry?.() } } : {})}>
           <Problems problems={props.problems ?? error().problems} />
         </Alert>
       )}
