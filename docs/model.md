@@ -386,7 +386,8 @@ support/
 ```
 
 `plugin.json` names the pack (`name`, `description`, and in a release its `version`, `N.0.0`
-for release N). What only Brain needs is its entry `extensions."io.github.talelk.brain"`: `requires`, the
+for release N; N follows both this Brain's last release and the number an imported
+manifest names). What only Brain needs is its entry `extensions."io.github.talelk.brain"`: `requires`, the
 packs it builds on, and `translations`. Skills stand where the format puts them; agents,
 tools, Plays and memory stand in Brain's directory, and a workspace holds the same files
 without it. Other clients get a pack's skills and nothing of Brain's: the format has no

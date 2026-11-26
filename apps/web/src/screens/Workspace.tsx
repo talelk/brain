@@ -112,7 +112,9 @@ export default function WorkspaceScreen(): JSX.Element {
   const navigate = useNavigate();
   const params = useParams<{ tab?: string; name?: string }>();
   const [search] = useSearchParams<{ new?: string; title?: string }>();
-  const tab = (): Tab => (TABS as readonly string[]).includes(params.tab ?? "") ? (params.tab as Tab) : "agents";
+  /** The Packs tab is the admin workspace's, for its admins: an address that names it elsewhere opens the first tab. */
+  const tabs = (): Tab[] => TABS.filter((entry) => entry !== "packs" || (place.summary().platform === "admin" && place.can("admin")));
+  const tab = (): Tab => (tabs() as string[]).includes(params.tab ?? "") ? (params.tab as Tab) : "agents";
   const name = (): string => params.name ?? "";
   const single = (): boolean => tab() === "projects" || tab() === "settings";
   const readOnly = (): boolean => !place.can("admin");
@@ -193,7 +195,7 @@ export default function WorkspaceScreen(): JSX.Element {
       <Head title={t("nav.workspace")} text={t("nav.workspace")} description={t("workspace.text", { name: place.summary().name })} breadcrumbs={[{ label: place.summary().name, route: place.to() }, { label: t("nav.workspace") }]} actions={<WorkspaceActions />} />
       <Tabs.Root value={tab()} onValueChange={(value) => navigate(href(value as Tab))} variant="underline" size="md">
         <Tabs.List aria-label={t("workspace.tabs")} class="tabs-scroll max-w-full overflow-x-auto overflow-y-hidden">
-          <For each={TABS.filter((entry) => entry !== "packs" || (place.summary().platform === "admin" && place.can("admin")))}>{(entry) => <Tabs.Trigger value={entry}>{t(`workspace.tab.${entry}` as MessageKey)}</Tabs.Trigger>}</For>
+          <For each={tabs()}>{(entry) => <Tabs.Trigger value={entry}>{t(`workspace.tab.${entry}` as MessageKey)}</Tabs.Trigger>}</For>
         </Tabs.List>
         <Tabs.Content value={tab()} class="pt-5">
           {/* The tabs component fixes its own direction to left-to-right; what is in a tab follows the language. */}

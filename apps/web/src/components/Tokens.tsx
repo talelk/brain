@@ -6,7 +6,7 @@ import type { ApiToken, TokenRole } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
 import { t, tn } from "../i18n";
-import { dateTime } from "../lib/format";
+import { day } from "../lib/format";
 import { ROLES } from "../lib/model";
 import { ConfirmButton, Failure, Ready } from "./bits";
 import { Table } from "./Table";
@@ -15,7 +15,7 @@ import { CopyBox } from "./UserAdmin";
 /** A token never has the admin role. */
 const choices = (): TokenRole[] => ROLES.filter((role): role is TokenRole => role !== "admin");
 const holds = (token: ApiToken): boolean => token.revokedAt === null && token.expiresAt > Date.now();
-const standing = (token: ApiToken): string => (token.revokedAt !== null ? t("tokens.revoked", { when: dateTime(token.revokedAt) }) : holds(token) ? t("tokens.until", { when: dateTime(token.expiresAt) }) : t("tokens.expired", { when: dateTime(token.expiresAt) }));
+const standing = (token: ApiToken): string => (token.revokedAt !== null ? t("tokens.revoked", { when: day(token.revokedAt) }) : holds(token) ? t("tokens.until", { when: day(token.expiresAt) }) : t("tokens.expired", { when: day(token.expiresAt) }));
 
 /** The name, role and lifetime of a new token; once made, the token itself, shown this one time. */
 function NewToken(props: { open: boolean; onOpenChange: (open: boolean) => void }): JSX.Element {
@@ -33,7 +33,7 @@ function NewToken(props: { open: boolean; onOpenChange: (open: boolean) => void 
   return (
     <Dialog.Root open={props.open} onOpenChange={change}>
       <Dialog.Content size="md">
-        <Dialog.Header><Dialog.Title>{made() ? t("tokens.made") : t("tokens.new")}</Dialog.Title><Dialog.Description>{made() ? t("tokens.made.text", { when: dateTime(made()?.expiresAt ?? 0) }) : t("tokens.new.text")}</Dialog.Description></Dialog.Header>
+        <Dialog.Header><Dialog.Title>{made() ? t("tokens.made") : t("tokens.new")}</Dialog.Title><Dialog.Description>{made() ? t("tokens.made.text", { when: day(made()?.expiresAt ?? 0) }) : t("tokens.new.text")}</Dialog.Description></Dialog.Header>
         <Show when={made()} fallback={
           <form class="mt-4 flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void create.run(); }}>
             <TextInput size="md" label={t("field.name")} description={t("tokens.name.help")} maxLength={60} value={name()} onInput={(event) => setName(event.currentTarget.value)} required />
