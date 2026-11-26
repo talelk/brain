@@ -51,7 +51,7 @@ function readToml<S extends z.ZodType>(schema: S, bytes: Uint8Array, path: strin
 }
 
 /** The packs in use, required packs first, each once. */
-function resolvePacks(refs: readonly string[], packsDir: string, releasedDir: string | undefined, problems: Problem[]): { order: Array<{ name: string; files: Files }>; pins: Record<string, number> } {
+function resolvePacks(refs: readonly string[], packsDir: string, releasedDir: string | undefined, problems: Problem[]): { order: Array<{ name: string; files: Files; below: ReadonlySet<string> }>; pins: Record<string, number> } {
   const pins: Record<string, number> = {};
   const names: string[] = [];
   for (const ref of refs) {
@@ -60,7 +60,34 @@ function resolvePacks(refs: readonly string[], packsDir: string, releasedDir: st
     else names.push(name);
     if (pin > 0) pins[name] = pin;
   }
-  const order: Array<{ name: string; files: Files }> = [];
+  /*
+   * A release names the releases of the packs it requires. The workspace's own pin of a pack wins; otherwise the newest release any pack in use
+   * names. The pins of the packs in use are found first (a newer release of a required pack may require others), then the packs are read.
+   */
+  const requiredPins = (): Record<string, number> => {
+    const found: Record<string, number> = { ...pins };
+    for (let changed = true; changed;) {
+      changed = false;
+      const seen = new Set<string>();
+      const look = (name: string): void => {
+        if (seen.has(name)) return;
+        seen.add(name);
+        const packFile = readPack(packsDir, name, found[name] ?? 0, releasedDir)?.get("pack.toml");
+        const pack = packFile ? readToml(PackFile, packFile, `packs/${name}/pack.toml`, []) : undefined;
+        for (const required of pack?.requires ?? []) {
+          const { name: needed, pin } = splitPackRef(required);
+          if (pins[needed] === undefined && pin > (found[needed] ?? 0)) { found[needed] = pin; changed = true; }
+          look(needed);
+        }
+      };
+      names.forEach(look);
+    }
+    return found;
+  };
+  const inUse = requiredPins();
+  /** Every pack in use with what it requires, directly or through another. */
+  const below = new Map<string, Set<string>>();
+  const order: Array<{ name: string; files: Files; below: ReadonlySet<string> }> = [];
   const state = new Map<string, "visiting" | "done">();
   const visit = (name: string, namedIn: string): void => {
     if (state.get(name) === "done") return;
@@ -68,22 +95,24 @@ function resolvePacks(refs: readonly string[], packsDir: string, releasedDir: st
       problems.push({ path: namedIn, message: `pack "${name}" requires itself through the packs it requires` });
       return;
     }
-    const files = readPack(packsDir, name, pins[name] ?? 0, releasedDir);
+    const files = readPack(packsDir, name, inUse[name] ?? 0, releasedDir);
     const packFile = files?.get("pack.toml");
     if (!files || !packFile) {
-      problems.push({ path: namedIn, message: pins[name] ? `pack "${name}@${pins[name]}" is not a release of this Brain` : `pack "${name}" does not exist` });
+      problems.push({ path: namedIn, message: inUse[name] ? `pack "${name}@${inUse[name]}" is not a release of this Brain` : `pack "${name}" does not exist` });
       return;
     }
     state.set(name, "visiting");
     const path = `packs/${name}/pack.toml`;
     const pack = readToml(PackFile, packFile, path, problems);
     if (pack && pack.name !== name) problems.push({ path, message: `name is "${pack.name}" but the pack folder is "${name}"` });
-    for (const required of pack?.requires ?? []) visit(required, path);
+    const needs = (pack?.requires ?? []).map((required) => splitPackRef(required).name);
+    for (const required of needs) visit(required, path);
+    below.set(name, new Set(needs.flatMap((required) => [required, ...(below.get(required) ?? [])])));
     state.set(name, "done");
-    order.push({ name, files });
+    order.push({ name, files, below: below.get(name) as Set<string> });
   };
   for (const name of names) visit(name, "brain.toml");
-  return { order, pins };
+  return { order, pins: Object.fromEntries(Object.entries(inUse).filter(([name]) => state.has(name))) };
 }
 
 /** What is wrong with one Play: its steps, the agents they name and the values their templates refer to. */
@@ -178,7 +207,13 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
   const brain = brainBytes ? readToml(BrainFile, brainBytes, "brain.toml", problems) : undefined;
 
   const { order: packs, pins } = resolvePacks(brain?.packs ?? [], packsDir, releasedDir, problems);
-  for (const pack of packs) for (const [path, bytes] of pack.files) if (path !== "pack.toml") files.set(path, { bytes, source: pack.name });
+  for (const pack of packs) for (const [path, bytes] of pack.files) {
+    if (path === "pack.toml") continue;
+    // A pack's file replaces that of a pack it requires; of two packs neither of which requires the other, none could be said to win.
+    const other = files.get(path)?.source;
+    if (other !== undefined && !pack.below.has(other)) problems.push({ path: "brain.toml", message: `the packs ${other} and ${pack.name} both have the file ${path}, and neither requires the other: a workspace cannot use both` });
+    files.set(path, { bytes, source: pack.name });
+  }
   for (const [path, bytes] of workspace) {
     const replaced = files.get(path)?.source;
     files.set(path, { bytes, source: "workspace", ...(replaced ? { replaces: replaced } : {}) });

@@ -1,4 +1,4 @@
-import { isSlug, isToolName, PackFile, PlayFile, parseMemoryTranslationName, pathProblem, type Language, type PackSummary } from "@brain/contracts";
+import { isSlug, isToolName, PackFile, splitPackRef, PlayFile, parseMemoryTranslationName, pathProblem, type Language, type PackSummary } from "@brain/contracts";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse as parseToml } from "smol-toml";
@@ -31,6 +31,8 @@ export function classifyPath(path: string): FileKind | undefined {
 
 /** Where released packs live: `<data>/released/<name>@<n>/`, written once and never changed. */
 export const releasedDirOf = (dataDir: string): string => join(dataDir, "released");
+/** The packs that have a release. */
+export const releasedNames = (releasedDir: string): string[] => (existsSync(releasedDir) ? [...new Set(readdirSync(releasedDir).map((entry) => entry.split("@")[0] as string).filter(isSlug))] : []);
 /** The releases of a pack, oldest first. */
 export function releasedVersions(releasedDir: string, name: string): number[] {
   if (!existsSync(releasedDir)) return [];
@@ -50,27 +52,28 @@ export function readPack(packsDir: string, name: string, pin = 0, releasedDir?: 
   return files;
 }
 
-/** What each shipped pack holds, for choosing packs. A pack whose files do not parse is listed with what could be read. */
+const toml = (bytes: Uint8Array | undefined): Record<string, unknown> => {
+  try { return bytes ? parseToml(new TextDecoder().decode(bytes)) : {}; } catch { return {}; }
+};
+const words = (value: unknown): string => (typeof value === "string" ? value : "");
+
+/** What a pack holds, for choosing it; undefined when its `pack.toml` cannot be read. A file of it that does not parse is listed with what could be read. */
+export function summaryOf(name: string, files: Files, shipped: boolean): PackSummary | undefined {
+  const pack = PackFile.safeParse(toml(files.get("pack.toml")));
+  if (!pack.success) return undefined;
+  const summary = { name, shipped, description: pack.data.description, translations: pack.data.translations, requires: pack.data.requires.map((ref) => splitPackRef(ref).name), agents: [] as PackSummary["agents"][number][], tools: [] as PackSummary["tools"][number][], plays: [] as PackSummary["plays"][number][] };
+  for (const path of [...files.keys()].sort()) {
+    const kind = classifyPath(path);
+    const read = toml(files.get(path));
+    if (kind?.kind === "agent" && kind.file === "agent.toml") summary.agents.push({ name: kind.name, description: words(read["description"]) });
+    else if (kind?.kind === "tool" && kind.file === "tool.toml") summary.tools.push({ name: kind.name, description: words(read["description"]), effect: read["effect"] === "write" || read["effect"] === "privileged" ? read["effect"] : "read" });
+    else if (kind?.kind === "play") summary.plays.push({ name: kind.name, title: words(read["title"]), description: words(read["description"]), translations: PlayFile.shape.translations.safeParse(read["translations"]).data });
+  }
+  return summary;
+}
+
+/** The packs shipped with Brain. */
 export function listPacks(packsDir: string): PackSummary[] {
   if (!existsSync(packsDir)) return [];
-  const packs: PackSummary[] = [];
-  const toml = (bytes: Uint8Array | undefined): Record<string, unknown> => {
-    try { return bytes ? parseToml(new TextDecoder().decode(bytes)) : {}; } catch { return {}; }
-  };
-  const words = (value: unknown): string => (typeof value === "string" ? value : "");
-  for (const name of readdirSync(packsDir).sort()) {
-    const files = readPack(packsDir, name);
-    const pack = PackFile.safeParse(toml(files?.get("pack.toml")));
-    if (!files || !pack.success) continue;
-    const summary = { name, description: pack.data.description, translations: pack.data.translations, requires: pack.data.requires, agents: [] as PackSummary["agents"][number][], tools: [] as PackSummary["tools"][number][], plays: [] as PackSummary["plays"][number][] };
-    for (const path of [...files.keys()].sort()) {
-      const kind = classifyPath(path);
-      const read = toml(files.get(path));
-      if (kind?.kind === "agent" && kind.file === "agent.toml") summary.agents.push({ name: kind.name, description: words(read["description"]) });
-      else if (kind?.kind === "tool" && kind.file === "tool.toml") summary.tools.push({ name: kind.name, description: words(read["description"]), effect: read["effect"] === "write" || read["effect"] === "privileged" ? read["effect"] : "read" });
-      else if (kind?.kind === "play") summary.plays.push({ name: kind.name, title: words(read["title"]), description: words(read["description"]), translations: PlayFile.shape.translations.safeParse(read["translations"]).data });
-    }
-    packs.push(summary);
-  }
-  return packs;
+  return readdirSync(packsDir).sort().flatMap((name) => { const files = readPack(packsDir, name); const summary = files ? summaryOf(name, files, true) : undefined; return summary ? [summary] : []; });
 }

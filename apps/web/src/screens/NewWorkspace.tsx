@@ -58,12 +58,14 @@ export default function NewWorkspaceScreen(): JSX.Element {
     picked.forEach(visit);
     return out;
   };
+  /** A pack Brain ships is taken as it ships; one of the admin workspace by its latest release. */
+  const refOf = (name: string): string => { const pack = packs.data()?.packs.find((entry) => entry.name === name); return pack && !pack.shipped ? `${name}@${pack.version}` : name; };
   const create = useAction(async (values: Values) => {
     const repo = values.repo.trim();
     const project = repo === "" ? undefined : { repo, ...(values.projectName.trim() !== "" ? { name: values.projectName.trim() } : {}), ...(values.branch.trim() !== "" ? { branch: values.branch.trim() } : {}), access: values.write ? "write" as const : "read" as const, ...(values.credential ? { credential: values.credential } : {}) };
     const slug = slugOf(values);
     try {
-      const made = await command("workspace.create", { name: values.name.trim(), description: values.description.trim(), ...(isSlug(slug) ? { slug } : {}), ...(values.platform ? { platform: values.platform } : {}), packs: [...new Set([...required(values.packs), ...values.packs, ...(values.platform ? ["platform"] : [])])].filter((pack) => values.platform !== "" || pack !== "platform"), ...(project ? { project } : {}), ...(values.remote.trim() !== "" ? { folderRemote: values.remote.trim() } : {}) });
+      const made = await command("workspace.create", { name: values.name.trim(), description: values.description.trim(), ...(isSlug(slug) ? { slug } : {}), ...(values.platform ? { platform: values.platform } : {}), packs: [...new Set([...required(values.packs), ...values.packs, ...(values.platform ? ["platform"] : [])])].filter((pack) => values.platform !== "" || pack !== "platform").map(refOf), ...(project ? { project } : {}), ...(values.remote.trim() !== "" ? { folderRemote: values.remote.trim() } : {}) });
       session.refetch();
       navigate(`/w/${made.slug}?new=1`);
     } catch (e) {
@@ -115,7 +117,7 @@ export default function NewWorkspaceScreen(): JSX.Element {
                       <form.Field name="packs">
                         {(field) => (
                           <ul class="flex flex-col gap-3">
-                            <For each={loaded().packs.filter((pack) => pack.name !== "platform" || values().platform !== "")}>
+                            <For each={loaded().packs.filter((pack) => (pack.name !== "platform" || values().platform !== "") && (pack.shipped || pack.version > 0))}>
                               {(pack) => {
                                 const forced = (): boolean => required(field().state.value).has(pack.name) || pack.name === "base" || (pack.name === "platform" && values().platform !== "");
                                 const on = (): boolean => forced() || field().state.value.includes(pack.name);

@@ -10,7 +10,7 @@ import { isSlug, SLUG } from "./slug";
 const slug = (what: string) => z.string().regex(SLUG, `${what} must be lower-case letters, digits and dashes, starting with a letter`);
 /** A tool is named by its folder: slugs joined by dots, such as `git.open-pr`. */
 export const isToolName = (name: string): boolean => name.length <= 80 && name.split(".").every((part) => SLUG.test(part));
-const packRef = z.string().refine((ref) => { const [name = "", pin, ...more] = ref.split("@"); return SLUG.test(name) && more.length === 0 && (pin === undefined || /^[1-9][0-9]{0,5}$/u.test(pin)); }, "a pack is its name, or its name and a release such as base@2");
+export const packRef = z.string().refine((ref) => { const [name = "", pin, ...more] = ref.split("@"); return SLUG.test(name) && more.length === 0 && (pin === undefined || /^[1-9][0-9]{0,5}$/u.test(pin)); }, "a pack is its name, or its name and a release such as base@2");
 const toolName = z.string().refine(isToolName, "a tool name must be lower-case words joined by dots, such as deploy.restart");
 export { isSlug };
 
@@ -32,7 +32,7 @@ export function isTimeZone(name: string): boolean {
   }
 }
 /** A git remote the Governor pushes to: an http or https address, with no user or password written in it. */
-const isRemoteAddress = (value: string): boolean => {
+export const isRemoteAddress = (value: string): boolean => {
   try { const url = new URL(value); return (url.protocol === "https:" || url.protocol === "http:") && url.username === "" && url.password === "" && url.host !== ""; } catch { return false; }
 };
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "must be a date written YYYY-MM-DD");
@@ -258,7 +258,8 @@ export type PlayFile = z.infer<typeof PlayFile>;
 export const PackFile = z.strictObject({
   name: slug("a pack name"),
   description: z.string().default(""),
-  requires: z.array(slug("a pack name")).default([]),
+  /** The packs it needs; a release names the release of each, such as `base@2`. */
+  requires: z.array(packRef).default([]),
   /** The last release of a copy kept in the platform workspace (none: not released yet). */
   version: z.int().min(1).optional(),
   translations: translations({ description: z.string().optional() }),

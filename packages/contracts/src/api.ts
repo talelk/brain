@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AuditVerifyResult } from "./audit-chain";
-import { isSlug, MAX_FILE_BYTES, PLATFORM_KINDS, type PlatformKind, type Language, type PackFile, type PlayFile, type Problem, type SnapshotManifest } from "./files";
+import { isSlug, MAX_FILE_BYTES, PLATFORM_KINDS, type PlatformKind, type Language, type PackFile, type PlayFile, type Problem, type SnapshotManifest, packRef, isRemoteAddress } from "./files";
 import { PRIORITIES, type Priority } from "./limits";
 import type { ApprovalState, AttemptEvent, AttemptFailure, AttemptKind, Digest, Effect, JsonValue, RunnerCapability, ToolOutcome } from "./protocol";
 
@@ -84,9 +84,24 @@ export interface PackSummary {
   readonly description: string;
   readonly translations: PackFile["translations"];
   readonly requires: readonly string[];
+  /** Whether Brain ships this pack; one the admin workspace wrote or imported is used by one of its releases only. */
+  readonly shipped: boolean;
   readonly agents: ReadonlyArray<{ readonly name: string; readonly description: string }>;
   readonly tools: ReadonlyArray<{ readonly name: string; readonly description: string; readonly effect: Effect }>;
   readonly plays: ReadonlyArray<{ readonly name: string; readonly title: string; readonly description: string; readonly translations: PlayFile["translations"] }>;
+}
+/** What an imported pack holds, for the admin to read before releasing it: what each tool may do, where it may reach and which secrets it gets. */
+export interface PackImport {
+  readonly name: string;
+  /** The commit of the repository the files were read from. */
+  readonly commit: string;
+  readonly requires: readonly string[];
+  /** The files of packs it requires that its own replace. */
+  readonly replaces: ReadonlyArray<{ readonly path: string; readonly pack: string }>;
+  /** `shippedEffect` is set for a tool Brain runs whose effect is not the one Brain ships. */
+  readonly tools: ReadonlyArray<{ readonly name: string; readonly effect: Effect; readonly network: readonly string[]; readonly secrets: readonly string[]; readonly shippedEffect?: Effect }>;
+  readonly agents: readonly string[];
+  readonly plays: readonly string[];
 }
 /** A pack as the platform workspace manages it. */
 export interface PackInfo extends PackSummary {
@@ -612,7 +627,7 @@ export const commands = table({
     /** The address: made from the name when left out, and read the same whatever its case or accents. */
     slug: z.string().trim().min(1).max(100).optional(),
     description: z.string().trim().max(2000).default(""),
-    packs: z.array(name("a pack name")).max(20).default([]),
+    packs: z.array(packRef).max(20).default([]),
     /** Makes it a platform workspace (docs/model.md, "The platform workspace"): at most one `admin`, any number of `read`. */
     platform: z.enum(PLATFORM_KINDS).optional(),
     /** A first model; `key` is stored as the secret `model-<name>`. */
@@ -624,6 +639,8 @@ export const commands = table({
   })],
   /** Releases a pack of the platform workspace: its version goes up by one and that content is frozen. */
   "pack.release": ["admin", z.strictObject({ ...inWorkspace, name: name("a pack name") })],
+  /** Copies a pack of a git repository (`path` is its folder, empty for the root) into the admin workspace's `packs/`, checked as any pack is. Nothing uses it until it is released. */
+  "pack.import": ["admin", z.strictObject({ ...inWorkspace, repo: z.string().max(500).refine(isRemoteAddress, "must be an http or https address without a password in it"), ref: z.string().min(1).max(200).optional(), path: z.string().max(200).default(""), credential: name("a secret name").optional() })],
   /** Moves every active workspace to the latest release of each pack it uses, as the commit of its `brain.toml` pins (a workspace that has none to take is left alone). Only from the admin workspace. */
   "packs.updateAll": ["admin", z.strictObject(inWorkspace)],
   "workspace.archive": ["admin", z.strictObject(inWorkspace)],
@@ -724,6 +741,7 @@ export interface CommandOutputs {
   "setup.create": { readonly userId: string };
   "workspace.create": { readonly workspaceId: string; readonly slug: string; readonly snapshotDigest: Digest };
   "pack.release": { readonly version: number };
+  "pack.import": PackImport;
   "packs.updateAll": { readonly updated: ReadonlyArray<{ readonly slug: string; readonly name: string; readonly packs: readonly PackUpdate[] }>; readonly failed: ReadonlyArray<{ readonly slug: string; readonly message: string }> };
   "workspace.archive": Record<string, never>;
   "workspace.stopAll": { readonly stopped: number };

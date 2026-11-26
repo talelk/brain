@@ -1,28 +1,84 @@
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import { unwrap } from "solid-js/store";
-import { Badge, Button } from "@talelk/newui-atoms";
+import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Select, toast } from "@talelk/newui-molecules";
-import type { PackInfo, PackUpdate, SnapshotManifest } from "@brain/contracts";
+import type { PackImport, PackInfo, PackUpdate, SnapshotManifest } from "@brain/contracts";
 import { withPins } from "@brain/contracts/packs";
 import { command, query, useAction, useLive, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
 import { t } from "../i18n";
 import { brainOf, brainToml, paths } from "../lib/files";
 import { packDiff } from "../lib/packdiff";
-import { Failure, Loading } from "./bits";
+import { Details, Failure, Loading } from "./bits";
 import { Diff } from "./Diff";
 
-/** What differs between two versions of a pack: 0 is the shipped baseline, a number a release, `working` the platform workspace's copy. */
-type Version = number | "working";
-const label = (version: Version): string => (version === "working" ? t("packs.version.working") : version === 0 ? t("packs.version.shipped") : `v${version}`);
+/** What differs between two versions of a pack: 0 is the shipped baseline, a number a release, `working` the platform workspace's copy, `none` nothing. */
+type Version = number | "working" | "none";
+const label = (version: Version): string => (version === "working" ? t("packs.version.working") : version === "none" ? t("packs.version.none") : version === 0 ? t("packs.version.shipped") : `v${version}`);
 
 function VersionDiff(props: { name: string; from: Version; to: Version }): JSX.Element {
   const place = usePlace();
   const text = useLive(() => `${place.id()}|${props.name}|${props.from}|${props.to}`, async () => {
-    const [before, after] = await Promise.all([props.from, props.to].map((version) => query("pack.files", { workspaceId: place.id(), name: props.name, version })));
+    const [before, after] = await Promise.all([props.from, props.to].map((version) => (version === "none" ? Promise.resolve({ files: [] }) : query("pack.files", { workspaceId: place.id(), name: props.name, version }))));
     return packDiff(before?.files ?? [], after?.files ?? []);
   });
   return <Show when={text.data() !== undefined} fallback={<Show when={text.error()} fallback={<Loading />}><Failure error={text.error()} /></Show>}><Diff text={text.data() ?? ""} open /></Show>;
+}
+
+const hosts = (network: readonly string[]): string => (network.length === 0 ? t("packs.import.noNetwork") : network.includes("*") ? t("packs.import.anyHost") : network.join(", "));
+
+/** Bringing a pack from a git repository into the admin workspace's copy, and what it may do, read before it is released. */
+function ImportPack(props: { onImported: () => void }): JSX.Element {
+  const place = usePlace();
+  const [repo, setRepo] = createSignal("");
+  const [ref, setRef] = createSignal("");
+  const [path, setPath] = createSignal("");
+  const [credential, setCredential] = createSignal("");
+  const [found, setFound] = createSignal<PackImport>();
+  const bring = useAction(async () => {
+    setFound(undefined);
+    const given = (value: string): string | undefined => (value.trim() === "" ? undefined : value.trim());
+    const refGiven = given(ref());
+    const secret = given(credential());
+    setFound(await command("pack.import", { workspaceId: place.id(), repo: repo().trim(), path: path().trim(), ...(refGiven ? { ref: refGiven } : {}), ...(secret ? { credential: secret } : {}) }));
+    props.onImported();
+  });
+  return (
+    <Details summary={<span>{t("packs.import.title")}</span>}>
+      <form class="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); void bring.run(); }}>
+        <TextInput size="md" class="t-code" label={t("packs.import.repo")} placeholder="https://github.com/acme/packs.git" value={repo()} onInput={(event) => setRepo(event.currentTarget.value)} required />
+        <div class="grid gap-3 sm:grid-cols-3">
+          <TextInput size="md" class="t-code" label={t("packs.import.path")} placeholder="packs/billing" value={path()} onInput={(event) => setPath(event.currentTarget.value)} />
+          <TextInput size="md" class="t-code" label={t("packs.import.ref")} placeholder="main" value={ref()} onInput={(event) => setRef(event.currentTarget.value)} />
+          <TextInput size="md" class="t-code" label={t("packs.import.credential")} placeholder="github" value={credential()} onInput={(event) => setCredential(event.currentTarget.value)} />
+        </div>
+        <div><Button variant="outline" size="md" type="submit" loading={bring.busy()} disabled={repo().trim() === ""}>{t("packs.import.action")}</Button></div>
+        <Failure error={bring.error()} />
+      </form>
+      <Show when={found()}>
+        {(pack) => (
+          <section class="mt-4 flex flex-col gap-2 rounded-card border border-outline-gray-2 p-4" data-testid="imported-pack" aria-live="polite">
+            <p class="t-text text-ink">{t("packs.import.done", { name: pack().name, commit: pack().commit.slice(0, 12) })}</p>
+            <Show when={pack().agents.length > 0}><p class="t-small text-ink-2">{t("packs.import.agents", { names: pack().agents.join(", ") })}</p></Show>
+            <Show when={pack().plays.length > 0}><p class="t-small text-ink-2">{t("packs.import.plays", { names: pack().plays.join(", ") })}</p></Show>
+            <Show when={pack().replaces.length > 0}><p class="t-small text-ink-2">{t("packs.import.replaces", { files: pack().replaces.map((file) => `${file.path} (${file.pack})`).join(", ") })}</p></Show>
+            <ul class="flex flex-col gap-1">
+              <For each={pack().tools}>
+                {(tool) => (
+                  <li class="flex flex-wrap items-center gap-2 t-small text-ink-2">
+                    <span class="code-ltr text-ink">{tool.name}</span>
+                    <Badge theme={tool.effect === "read" ? "gray" : "amber"} size="md" label={t(`effect.${tool.effect}`)} />
+                    <span>{t("packs.import.reach", { hosts: hosts(tool.network), secrets: tool.secrets.join(", ") || t("packs.import.noSecret") })}</span>
+                    <Show when={tool.shippedEffect}>{(standard) => <Badge theme="red" size="md" label={t("packs.import.differs", { effect: t(`effect.${standard()}`) })} />}</Show>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </section>
+        )}
+      </Show>
+    </Details>
+  );
 }
 
 /** The platform workspace's packs: working version, releases, who uses what, the difference between two versions and Release. */
@@ -43,9 +99,11 @@ export function PacksTab(): JSX.Element {
     if (made.failed.length > 0) toast.error({ title: t("packs.updateAll.failed", { count: made.failed.length, names: made.failed.map((one) => one.slug).join(", ") }) });
     packs.refetch();
   });
-  const options = (pack: PackInfo): { label: string; value: string }[] => [0, ...pack.released, ...(pack.working ? ["working" as const] : [])].map((version) => ({ label: label(version), value: String(version) }));
-  const parse = (value: string): Version => (value === "working" ? "working" : Number(value));
-  const open = (name: string): void => { setShown(shown() === name ? undefined : name); setFrom(0); setTo("working"); };
+  /** What a pack is compared from when nothing else is chosen: what it ships as, else its last release, else nothing. */
+  const start = (pack: PackInfo): Version => (pack.shipped ? 0 : pack.released.at(-1) ?? "none");
+  const options = (pack: PackInfo): { label: string; value: string }[] => [pack.shipped ? 0 : ("none" as const), ...pack.released, ...(pack.working ? ["working" as const] : [])].map((version) => ({ label: label(version), value: String(version) }));
+  const parse = (value: string): Version => (value === "working" || value === "none" ? value : Number(value));
+  const open = (pack: PackInfo): void => { setShown(shown() === pack.name ? undefined : pack.name); setFrom(start(pack)); setTo("working"); };
   return (
     <div class="flex flex-col gap-4">
       <p class="t-small text-ink-2">{t("packs.hint")}</p>
@@ -53,6 +111,7 @@ export function PacksTab(): JSX.Element {
         <Button variant="outline" size="md" loading={updateAll.busy()} onClick={() => void updateAll.run()}>{t("packs.updateAll")}</Button>
         <span class="t-small text-ink-2">{t("packs.updateAll.hint")}</span>
       </div>
+      <ImportPack onImported={() => packs.refetch()} />
       <Failure error={release.error()} />
       <Failure error={updateAll.error()} />
       <Show when={packs.data()} fallback={<Show when={packs.error()} fallback={<Loading />}><Failure error={packs.error()} /></Show>}>
@@ -68,7 +127,7 @@ export function PacksTab(): JSX.Element {
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                       <Show when={pack.working?.changed}><Badge theme="amber" size="md" label={t("packs.changed")} /></Show>
-                      <Button variant="outline" size="md" onClick={() => open(pack.name)}>{t("packs.diff")}</Button>
+                      <Button variant="outline" size="md" onClick={() => open(pack)}>{t("packs.diff")}</Button>
                       <Button variant="solid" theme="blue" size="md" loading={release.busy()} disabled={!pack.working || (pack.working.changed === false && pack.version > 0)} onClick={() => void release.run(pack.name)}>{t("packs.release")}</Button>
                     </div>
                   </div>
@@ -91,6 +150,26 @@ export function PacksTab(): JSX.Element {
         )}
       </Show>
     </div>
+  );
+}
+
+/** The files the workspace holds its own copy of that the new release changes: the update does not reach them. */
+function KeptCopies(props: { update: PackUpdate }): JSX.Element {
+  const place = usePlace();
+  const kept = useLive(() => `${place.id()}|${props.update.pack}|${props.update.pinned}|${props.update.latest}`, async () => {
+    const [own, before, after] = await Promise.all([
+      query("workspace.files", { workspaceId: place.id() }),
+      query("pack.files", { workspaceId: place.id(), name: props.update.pack, version: props.update.pinned }),
+      query("pack.files", { workspaceId: place.id(), name: props.update.pack, version: props.update.latest }),
+    ]);
+    const was = new Map(before.files.map((file) => [file.path, file.content]));
+    const now = new Map(after.files.map((file) => [file.path, file.content]));
+    return own.files.filter((file) => file.source === "workspace" && file.replaces === props.update.pack && was.get(file.path) !== now.get(file.path)).map((file) => file.path);
+  });
+  return (
+    <Show when={(kept.data()?.length ?? 0) > 0}>
+      <p class="t-small text-ink-2" data-testid="kept-copies">{t("packs.update.kept")} <span class="code-ltr">{kept.data()?.join(", ")}</span></p>
+    </Show>
   );
 }
 
@@ -121,6 +200,7 @@ export function PackUpdates(props: { snapshot: SnapshotManifest; updates: readon
                   <Show when={props.admin}><Button variant="solid" theme="blue" size="md" loading={update.busy()} onClick={() => void update.run(one)}>{t("packs.update.to", { version: one.latest })}</Button></Show>
                 </div>
               </div>
+              <Show when={props.admin}><KeptCopies update={one} /></Show>
               <Show when={shown() === one.pack}><VersionDiff name={one.pack} from={one.pinned} to={one.latest} /></Show>
             </div>
           )}

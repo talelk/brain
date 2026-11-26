@@ -83,6 +83,11 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   adds `pins` (`{name: n}`, left out when empty), so the same folder and the same releases always give the same snapshot digest. `workspace.get`
   carries `updates` (`{pack, pinned, latest}` for each pack used whose newest release is above its pin, the baseline being 0) and `overview` a count;
   nothing changes a pin but a write of `brain.toml`.
+  **Import** (`workspace/pack-import.ts`, command `pack.import`) fetches a repository with isomorphic-git over `gov.fetch`,
+  reads one folder at one commit (500 files, 5 MB each, 20 MB), checks it as a workspace holding those files over the latest
+  releases of what it requires (loader and pack shape; the files it replaces are listed in the answer), commits it to `packs/<name>/` and records
+  `pack.imported`. A release's `requires` names the latest release of each; `resolvePacks` takes the workspace's own pin, else
+  the newest a pack in use names; two packs with one path, neither requiring the other, are a problem. `packs.list` lists unshipped packs too.
   **Releasing** is the command `pack.release` (an admin of the admin workspace): it reads `packs/<name>/` of the admin workspace's folder, sets its
   `pack.toml` `version` to the last release plus one, checks that a workspace using that content is valid and that the pack keeps its shape (`workspace/pack-shape.ts`), writes `<data>/released/<name>@<n>/`, commits
   the version (`Release <name> n`) and tags the commit `<name>@<n>` (the audit event `pack.released`). At start `reconcile` rewrites a released
@@ -186,7 +191,7 @@ imports the same definitions for types. `GET /v1/events` is server-sent events: 
 `changed` frame per workspace when anything changed (the client refetches).
 `GET /v1/artifacts/:digest` streams bytes to a member of the owning workspace.
 
-Commands: `setup.create`, `workspace.create` (its input may carry `platform: "admin"` or `"read"`, a first project, and `folderRemote`, all kept in the first `brain.toml`; defaults are not written), `pack.release`, `workspace.archive`, `workspace.stopAll`,
+Commands: `setup.create`, `workspace.create` (its input may carry `platform: "admin"` or `"read"`, a first project, and `folderRemote`, all kept in the first `brain.toml`; defaults are not written), `pack.release`, `pack.import`, `workspace.archive`, `workspace.stopAll`,
 `file.write`, `file.delete`, `secret.set`, `secret.delete`, `member.set`,
 `member.remove`, `task.create` (a goal, optionally a Play and inputs), `task.confirm`
 (accept a proposed plan), `task.edit` (change, add or remove sub-tasks not yet started),

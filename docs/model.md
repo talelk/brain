@@ -337,7 +337,8 @@ runs each tool's `test.sh`, offline, for whoever writes a pack.
 
 A workspace lists the packs it uses, each as its shipped baseline (`base`) or as a release the
 admin workspace made (`base@2`). A file in the workspace with the same name as a
-pack's file replaces it. `base` holds the task, memory and pull request tools plus a
+pack's file replaces it, as a pack's file replaces that of a pack it requires; two packs that hold
+the same file, neither requiring the other, cannot be used together. `base` holds the task, memory and pull request tools plus a
 planner and a checker; the other packs build on it.
 A pack has a fixed shape (four agent roles, tools named `<system>.<verb>`, three Play shapes, `template-*` memory), kept in `packs/README.md` and checked by a test, so a new domain is written from the same parts.
 
@@ -618,10 +619,25 @@ others (Files, the forms, a proposal approved) and **releases** a pack: its vers
 by one, the content of that commit is frozen as version N (git tag `<name>@N`; it never changes),
 and any workspace may use it.
 
+**Between Brains.** A pack travels as a folder of a git repository: another Brain gets it by
+**Import** in the admin workspace's Packs tab (the repository's address, the folder, and
+a branch, tag or commit; a secret for a private one). Brain reads it at one commit, holds it to
+what every pack is held to, writes it into `packs/<name>/` and shows what it may do: each tool's
+effect, hosts and secrets, with a Brain tool whose effect differs from the shipped one marked,
+and which files of the packs it requires it replaces.
+Nothing uses it until it is released like any other pack; where it came from is in the audit
+log. Sharing a pack is pushing the admin workspace's folder to its `[git] remote`. A pack
+moves only between Brains that read the same format: another is refused, not adapted.
+
+A release names the release of each pack it requires (`requires = ["base@2"]`), so what it holds
+does not move under it. A workspace's own pin of a pack wins over what a release names.
+A pack Brain does not ship is used by one of its releases only.
+
 A pin `base@N` is read only from the admin workspace's releases. A workspace chooses what it uses in `brain.toml`: `packs = ["base"]` is the shipped baseline,
 `packs = ["base@2"]` is released version 2. A workspace whose pack has a newer release than the
 one it uses (the baseline counts as 0) shows **Update available**; an admin of that workspace
-sees the difference and presses **Update to vN**, which commits the new pin like any edit of
+sees the difference, and which of the workspace's own copies of those files the update will not
+reach, and presses **Update to vN**, which commits the new pin like any edit of
 `brain.toml` and is audited. Brain never changes a workspace's pins by itself; the admin workspace's **Update all workspaces** is an admin's explicit act that does this for every active workspace at once (each one a commit of `brain.toml`, audited as `packs.updated`; a workspace that fails is reported and the others still go).
 
 ### Capitalisation

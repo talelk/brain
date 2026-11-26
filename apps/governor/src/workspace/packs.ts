@@ -1,11 +1,13 @@
-import { BrainError, PackFile, PLATFORM_PACK, withPins, type CommandOutputs, type PackInfo, type PackUpdate, type SnapshotManifest } from "@brain/contracts";
+import { BrainError, PackFile, PLATFORM_PACK, splitPackRef, withPins, type CommandOutputs, type PackImport, type PackInfo, type PackUpdate, type SnapshotManifest } from "@brain/contracts";
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import type { Governor } from "../app";
 import type { Gov } from "../dispatch";
 import { append } from "../events";
-import { listPacks, readPack, releasedDirOf, releasedVersions, type Files } from "./files";
+import { readSecret } from "../trust/secrets";
+import { listPacks, readPack, releasedDirOf, releasedNames, releasedVersions, summaryOf, type Files } from "./files";
+import { checkImported, fetchPack } from "./pack-import";
 import { readFolderAt, readHead, tagCommit, tags } from "./git";
 import { loadWorkspace } from "./load";
 import { packShapeProblems } from "./pack-shape";
@@ -52,6 +54,8 @@ export function seedPacks(gov: Gov): Map<string, Uint8Array> {
   return seed;
 }
 
+/** A pack.toml with its `requires` list set. */
+const withRequires = (text: string, requires: readonly string[]): string => text.replace(/^requires[ \t]*=[ \t]*\[[^\]]*\]/mu, `requires = ${JSON.stringify(requires)}`);
 /** A pack.toml with its `version` line set. */
 const withVersion = (text: string, version: number): string => (/^version\s*=.*$/mu.test(text) ? text.replace(/^version\s*=.*$/mu, `version = ${version}`) : text.replace(/^(name\s*=.*)$/mu, `$1\nversion = ${version}`));
 /** The files of a pack compared without its `version` line. */
@@ -70,11 +74,20 @@ async function platformFiles(gov: Gov): Promise<Files | undefined> {
 async function infos(gov: Gov): Promise<PackInfo[]> {
   const folder = await platformFiles(gov);
   const workspaces = (gov.db.prepare("SELECT slug, name, active_snapshot AS snapshot FROM workspaces WHERE active_snapshot != '' ORDER BY slug").all() as Array<{ slug: string; name: string; snapshot: string }>).map((row) => ({ ...row, manifest: manifestOf(gov, row.snapshot as never) }));
-  return listPacks(gov.packsDir).map((pack): PackInfo => {
+  const shipped = listPacks(gov.packsDir);
+  // The packs the admin workspace wrote or imported, listed as their last release holds them, or their copy when none was made.
+  const others = [...new Set([...[...(folder?.keys() ?? [])].flatMap((path) => /^packs\/([^/]+)\/pack\.toml$/u.exec(path)?.[1] ?? []), ...releasedNames(releasedDirOf(gov.dataDir))])]
+    .filter((name) => !shipped.some((pack) => pack.name === name)).sort().flatMap((name) => {
+      const latest = releasedVersions(releasedDirOf(gov.dataDir), name).at(-1);
+      const files = latest === undefined ? packOf(folder ?? new Map(), `packs/${name}/`) : readPack(gov.packsDir, name, latest, releasedDirOf(gov.dataDir));
+      const summary = files ? summaryOf(name, files, false) : undefined;
+      return summary ? [summary] : [];
+    });
+  return [...shipped, ...others].map((pack): PackInfo => {
     const released = releasedVersions(releasedDirOf(gov.dataDir), pack.name);
     const working = folder ? packOf(folder, `packs/${pack.name}/`) : undefined;
     const last = released.at(-1);
-    const base = last === undefined ? readPack(gov.packsDir, pack.name) : readPack(gov.packsDir, pack.name, last, releasedDirOf(gov.dataDir));
+    const base = last === undefined ? (pack.shipped ? readPack(gov.packsDir, pack.name) : undefined) : readPack(gov.packsDir, pack.name, last, releasedDirOf(gov.dataDir));
     return {
       ...pack, version: last ?? 0, released,
       ...(working && working.size > 0 ? { working: { changed: !base || !sameFiles(working, base) } } : {}),
@@ -138,7 +151,9 @@ export function registerPacks({ gov: { registry } }: Governor): void {
       const parsed = PackFile.safeParse((() => { try { return parseToml(decode(packToml)); } catch { return {}; } })());
       if (!parsed.success) throw new BrainError("INVALID_INPUT", `packs/${input.name}/pack.toml is not valid`, parsed.error.issues.map((issue) => ({ path: `packs/${input.name}/pack.toml`, message: issue.message })));
       const version = Math.max(parsed.data.version ?? 0, lastRelease(ctx.gov, input.name)) + 1;
-      const bumped = encode(withVersion(decode(packToml), version));
+      // A release names the release of each pack it requires, so what it holds never moves under it.
+      const requires = parsed.data.requires.map((ref) => { const { name } = splitPackRef(ref); const latest = lastRelease(ctx.gov, name); return latest > 0 ? `${name}@${latest}` : name; });
+      const bumped = encode(withRequires(withVersion(decode(packToml), version), requires));
       files.set("pack.toml", bumped);
       const target = freeze(ctx.gov, input.name, version, files);
       try {
@@ -160,6 +175,31 @@ export function registerPacks({ gov: { registry } }: Governor): void {
       activate(ctx.gov, ctx.db, input.workspaceId, committed, ctx.actor, "workspace.changed");
       append(ctx.db, { type: "pack.released", workspaceId: input.workspaceId, subject: `pack:${name}`, payload: { name, version, commit: committed.commit }, actor: ctx.actor });
       return { version };
+    },
+  });
+
+  registry.command<"pack.import", { readonly committed: Committed; readonly imported: PackImport }>("pack.import", {
+    async prepare(ctx, input) {
+      const workspace = getWorkspace(ctx.db, input.workspaceId);
+      if (manifestOf(ctx.gov, workspace.snapshotDigest).platform !== "admin") throw new BrainError("FORBIDDEN", "Only the admin workspace imports packs");
+      const credential = input.credential === undefined ? undefined : readSecret(ctx.gov, workspace.id, input.credential);
+      if (input.credential !== undefined && credential === undefined) throw new BrainError("INVALID_INPUT", `The secret ${input.credential} is not set`);
+      const { commit, files } = await fetchPack(ctx.gov, { repo: input.repo, ref: input.ref, path: input.path, credential });
+      const imported = { commit, ...checkImported(ctx.gov, files) };
+      const prefix = `packs/${imported.name}/`;
+      const before = (await readHead(workspaceDir(ctx.gov, workspace.slug))).files;
+      // The pack's folder becomes what the repository holds: a file it no longer has goes too.
+      const committed = await commitFolder(ctx.gov, workspace.slug, {
+        write: new Map([...files].map(([path, bytes]) => [`${prefix}${path}`, bytes])),
+        remove: [...before.keys()].filter((path) => path.startsWith(prefix) && !files.has(path.slice(prefix.length))),
+        message: `Import ${imported.name} from ${input.repo} at ${commit.slice(0, 12)}`, author: { name: ctx.user?.name ?? "Brain", email: ctx.user?.email ?? "brain@localhost" }, instanceAdmin: ctx.user?.instanceAdmin === true,
+      });
+      return { committed, imported };
+    },
+    run(ctx, input, { committed, imported }): CommandOutputs["pack.import"] {
+      activate(ctx.gov, ctx.db, input.workspaceId, committed, ctx.actor, "workspace.changed");
+      append(ctx.db, { type: "pack.imported", workspaceId: input.workspaceId, subject: `pack:${imported.name}`, payload: { name: imported.name, repo: input.repo, commit: imported.commit, path: input.path, folderCommit: committed.commit }, actor: ctx.actor });
+      return imported;
     },
   });
 

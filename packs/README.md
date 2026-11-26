@@ -19,8 +19,9 @@ conventions the pack files rely on, so the code that loads and runs them matches
 | `modernization` | base | legacy-analyst, migrator, parity-reviewer | | assess-codebase, migrate-modules |
 | `ai-factory` | base | eval-author, agent-designer, eval-runner, eval-judge | | build-agent, regression-check |
 
-`pack.toml` has exactly `name`, `description` and `requires` (a list of pack names, empty
-for `base`). An agent or a Play of a pack may name agents and tools of the packs it
+`pack.toml` has `name`, `description`, `requires` (a list of pack names, empty for `base`;
+a release names the release of each, `base@2`), translations and, in the admin workspace, the
+`version` of the last release. An agent or a Play of a pack may name agents and tools of the packs it
 requires.
 
 ## The shape of a pack
