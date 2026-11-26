@@ -4,7 +4,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseEnvFile } from "../../apps/mcp/src/config";
-import { createServer as createMcp } from "../../apps/mcp/src/tools";
+import { CALLED, createServer as createMcp } from "../../apps/mcp/src/tools";
+import { PUBLISHED } from "../../packages/contracts/src/api";
 
 interface Seen { path: string; cookie: string | undefined; body: Record<string, unknown> }
 
@@ -48,6 +49,11 @@ const open = async (url: string, readonly = false) => {
 const text = (result: unknown) => (result as { content: Array<{ text: string }> }).content[0]!.text;
 
 describe("the MCP server", () => {
+  it("calls the entries the published API holds, and no other", () => {
+    const called = (kind: string): string[] => CALLED.filter((tool) => tool.kind === kind).map((tool) => tool.type).sort();
+    expect({ queries: called("query"), commands: called("command") }).toEqual({ queries: [...PUBLISHED.queries].sort(), commands: [...PUBLISHED.commands].sort() });
+  });
+
   const closers: Array<() => void> = [];
   afterEach(() => { for (const close of closers.splice(0)) close(); });
 

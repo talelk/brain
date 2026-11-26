@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { deliverCards } from "../../apps/governor/src/integrations/teams";
+import { deliverNotifications } from "../../apps/governor/src/integrations/teams";
 import { runSchedules } from "../../apps/governor/src/tasks/triggers";
 import { enrolRunner, type Driver } from "./driver";
 import { createHarness, type Harness } from "./harness";
@@ -72,12 +72,12 @@ describe("a GitHub delivery", () => {
   });
 
   it("Teams gets a card when a task needs a person and when a goal is done", async () => {
-    await deliverCards(harness.governor.gov);
+    await deliverNotifications(harness.governor.gov);
     expect(cards).toEqual(['"review" is waiting for your sign-off.', '"After a push" is done.']);
     const review = step(await getTask(harness.admin, workspaceId, (await harness.admin.query("tasks.list", { workspaceId, rootsOnly: true, state: "needs_you" })).tasks[0]?.id ?? ""), "review");
     await harness.admin.command("task.check", { workspaceId, taskId: review.id, pass: true });
-    await deliverCards(harness.governor.gov);
-    await deliverCards(harness.governor.gov);
+    await deliverNotifications(harness.governor.gov);
+    await deliverNotifications(harness.governor.gov);
     expect(cards.slice(2)).toEqual(['"Review a pull request" is done.']);
   });
 });

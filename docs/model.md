@@ -437,6 +437,25 @@ The notes of a goal (`task.note`, and Brain's own) are given to every attempt wh
 they are the progress the agent re-reads after a pause. A task that comes to need a person is sent to
 the workspace's `[teams]` webhook, a checkpoint included: one short message with the task's link.
 
+## Systems that follow work
+
+A workspace may name a webhook, so a ticket tool, a pipeline or another system follows its
+work without asking:
+
+```toml
+[webhook]
+url = "https://ci.example.com/brain"
+secret = "secret:brain-webhook"
+```
+
+It is sent what Teams is sent: every task that comes to need a person, and every goal that is
+done or failed. Each is a [CloudEvent](https://cloudevents.io) (JSON, `type` such as
+`brain.task.done`, `subject` the task, `data` its title, whether it is a goal, what it needs
+and its address), with `x-brain-signature-256: sha256=<HMAC-SHA256 of the body>` made with
+the secret. The `id` is the event's place in the audit log, so a receiver can tell a repeat.
+A delivery is tried three times; one that fails is dropped and recorded in the audit log.
+Only an admin writes the webhook, and a healer's fix cannot change it.
+
 ## The queue
 
 A task that is ready waits in the **queue** until a runner has a free slot. The queue is a

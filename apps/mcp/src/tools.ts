@@ -68,6 +68,9 @@ const WRITE_TOOLS: readonly ToolSpec[] = [
   write("brain_workspace_archive", "workspace.archive", "Archives a workspace."),
 ];
 
+/** Every tool that is a command or a query of Brain, by what it calls: the published API holds the same entries. */
+export const CALLED: ReadonlyArray<{ readonly kind: Kind; readonly type: QueryType | CommandType }> = [...READ_TOOLS, ...WRITE_TOOLS];
+
 const failure = (error: unknown): { content: Array<{ type: "text"; text: string }>; isError: true } => {
   let text = error instanceof Error ? error.message : String(error);
   if (error instanceof BrainRequestError) {

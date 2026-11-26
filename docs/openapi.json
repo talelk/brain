@@ -1,0 +1,6127 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Brain API",
+    "version": "0.1.0",
+    "description": "The commands and queries another system uses. Every request is a POST naming one entry in `type`; `x-brain-operations` gives each entry's input, output and the least role it needs. The file describes the commit it is in: it changes when Brain does."
+  },
+  "paths": {
+    "/v1/query": {
+      "post": {
+        "summary": "Read one thing",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "title": "me",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "me"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/me.input"
+                      }
+                    }
+                  },
+                  {
+                    "title": "overview",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "overview"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/overview.input"
+                      }
+                    }
+                  },
+                  {
+                    "title": "queue",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "queue"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/queue.input"
+                      }
+                    }
+                  },
+                  {
+                    "title": "insights",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "insights"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/insights.input"
+                      }
+                    }
+                  },
+                  {
+                    "title": "workspace.files",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "workspace.files"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/workspace.files.input"
+                      }
+                    }
+                  },
+                  {
+                    "title": "file.read",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "file.read"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/file.read.input"
+                      }
+                    }
+                  },
+                  {
+                    "title": "tasks.list",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "tasks.list"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/tasks.list.input"
+                      }
+                    }
+                  },
+                  {
+                    "title": "task.get",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "task.get"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/task.get.input"
+                      }
+                    }
+                  },
+                  {
+                    "title": "task.events",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "task.events"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/task.events.input"
+                      }
+                    }
+                  },
+                  {
+                    "title": "schedules.list",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "schedules.list"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/schedules.list.input"
+                      }
+                    }
+                  },
+                  {
+                    "title": "packs.list",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "packs.list"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/packs.list.input"
+                      }
+                    }
+                  },
+                  {
+                    "title": "audit.verify",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "audit.verify"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/audit.verify.input"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The output of the named entry (x-brain-operations says which schema)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "output"
+                  ],
+                  "properties": {
+                    "output": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/me.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/overview.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/queue.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/insights.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/workspace.files.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/file.read.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/tasks.list.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/task.get.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/task.events.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/schedules.list.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/packs.list.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/audit.verify.output"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "A refusal, with the matching HTTP status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/command": {
+      "post": {
+        "summary": "Do one thing",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "title": "task.create",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "task.create"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/task.create.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "title": "task.steer",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "task.steer"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/task.steer.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "title": "task.stop",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "task.stop"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/task.stop.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "title": "task.retry",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "task.retry"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/task.retry.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "title": "task.check",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "task.check"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/task.check.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "title": "task.answer",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "task.answer"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/task.answer.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "title": "task.checkpoint",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "task.checkpoint"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/task.checkpoint.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "title": "file.write",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "file.write"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/file.write.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "title": "file.delete",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "file.delete"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/file.delete.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "title": "pack.release",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "pack.release"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/pack.release.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "title": "workspace.create",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "workspace.create"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/workspace.create.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "title": "workspace.archive",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "input",
+                      "idempotencyKey"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "workspace.archive"
+                      },
+                      "input": {
+                        "$ref": "#/components/schemas/workspace.archive.input"
+                      },
+                      "idempotencyKey": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The output of the named entry (x-brain-operations says which schema)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "output"
+                  ],
+                  "properties": {
+                    "output": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/task.create.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/task.steer.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/task.stop.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/task.retry.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/task.check.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/task.answer.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/task.checkpoint.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/file.write.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/file.delete.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/pack.release.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/workspace.create.output"
+                        },
+                        {
+                          "$ref": "#/components/schemas/workspace.archive.output"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "A refusal, with the matching HTTP status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-brain-operations": {
+    "me": {
+      "kind": "query",
+      "role": "public",
+      "input": {
+        "$ref": "#/components/schemas/me.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/me.output"
+      }
+    },
+    "overview": {
+      "kind": "query",
+      "role": "public",
+      "input": {
+        "$ref": "#/components/schemas/overview.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/overview.output"
+      }
+    },
+    "queue": {
+      "kind": "query",
+      "role": "public",
+      "input": {
+        "$ref": "#/components/schemas/queue.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/queue.output"
+      }
+    },
+    "insights": {
+      "kind": "query",
+      "role": "public",
+      "input": {
+        "$ref": "#/components/schemas/insights.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/insights.output"
+      }
+    },
+    "workspace.files": {
+      "kind": "query",
+      "role": "viewer",
+      "input": {
+        "$ref": "#/components/schemas/workspace.files.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/workspace.files.output"
+      }
+    },
+    "file.read": {
+      "kind": "query",
+      "role": "viewer",
+      "input": {
+        "$ref": "#/components/schemas/file.read.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/file.read.output"
+      }
+    },
+    "tasks.list": {
+      "kind": "query",
+      "role": "viewer",
+      "input": {
+        "$ref": "#/components/schemas/tasks.list.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/tasks.list.output"
+      }
+    },
+    "task.get": {
+      "kind": "query",
+      "role": "viewer",
+      "input": {
+        "$ref": "#/components/schemas/task.get.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/task.get.output"
+      }
+    },
+    "task.events": {
+      "kind": "query",
+      "role": "viewer",
+      "input": {
+        "$ref": "#/components/schemas/task.events.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/task.events.output"
+      }
+    },
+    "schedules.list": {
+      "kind": "query",
+      "role": "public",
+      "input": {
+        "$ref": "#/components/schemas/schedules.list.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/schedules.list.output"
+      }
+    },
+    "packs.list": {
+      "kind": "query",
+      "role": "instance-admin",
+      "input": {
+        "$ref": "#/components/schemas/packs.list.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/packs.list.output"
+      }
+    },
+    "audit.verify": {
+      "kind": "query",
+      "role": "instance-admin",
+      "input": {
+        "$ref": "#/components/schemas/audit.verify.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/audit.verify.output"
+      }
+    },
+    "task.create": {
+      "kind": "command",
+      "role": "member",
+      "input": {
+        "$ref": "#/components/schemas/task.create.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/task.create.output"
+      }
+    },
+    "task.steer": {
+      "kind": "command",
+      "role": "member",
+      "input": {
+        "$ref": "#/components/schemas/task.steer.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/task.steer.output"
+      }
+    },
+    "task.stop": {
+      "kind": "command",
+      "role": "member",
+      "input": {
+        "$ref": "#/components/schemas/task.stop.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/task.stop.output"
+      }
+    },
+    "task.retry": {
+      "kind": "command",
+      "role": "member",
+      "input": {
+        "$ref": "#/components/schemas/task.retry.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/task.retry.output"
+      }
+    },
+    "task.check": {
+      "kind": "command",
+      "role": "member",
+      "input": {
+        "$ref": "#/components/schemas/task.check.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/task.check.output"
+      }
+    },
+    "task.answer": {
+      "kind": "command",
+      "role": "member",
+      "input": {
+        "$ref": "#/components/schemas/task.answer.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/task.answer.output"
+      }
+    },
+    "task.checkpoint": {
+      "kind": "command",
+      "role": "member",
+      "input": {
+        "$ref": "#/components/schemas/task.checkpoint.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/task.checkpoint.output"
+      }
+    },
+    "file.write": {
+      "kind": "command",
+      "role": "admin",
+      "input": {
+        "$ref": "#/components/schemas/file.write.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/file.write.output"
+      }
+    },
+    "file.delete": {
+      "kind": "command",
+      "role": "admin",
+      "input": {
+        "$ref": "#/components/schemas/file.delete.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/file.delete.output"
+      }
+    },
+    "pack.release": {
+      "kind": "command",
+      "role": "admin",
+      "input": {
+        "$ref": "#/components/schemas/pack.release.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/pack.release.output"
+      }
+    },
+    "workspace.create": {
+      "kind": "command",
+      "role": "instance-admin",
+      "input": {
+        "$ref": "#/components/schemas/workspace.create.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/workspace.create.output"
+      }
+    },
+    "workspace.archive": {
+      "kind": "command",
+      "role": "admin",
+      "input": {
+        "$ref": "#/components/schemas/workspace.archive.input"
+      },
+      "output": {
+        "$ref": "#/components/schemas/workspace.archive.output"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Approval": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "taskTitle": {
+            "type": "string"
+          },
+          "rootTaskId": {
+            "type": "string"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "attemptId": {
+            "type": "string"
+          },
+          "agent": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "effect": {
+            "$ref": "#/components/schemas/Effect"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/ApprovalSubject"
+          },
+          "subjectDigest": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ApprovalState"
+          },
+          "standing": {
+            "type": "boolean"
+          },
+          "requestedAt": {
+            "type": "number"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "decidedBy": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ]
+              }
+            ]
+          },
+          "decidedAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "version": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "agent",
+          "attemptId",
+          "decidedAt",
+          "decidedBy",
+          "effect",
+          "expiresAt",
+          "goalTitle",
+          "id",
+          "reason",
+          "requestedAt",
+          "rootTaskId",
+          "standing",
+          "state",
+          "subject",
+          "subjectDigest",
+          "taskId",
+          "taskTitle",
+          "tool",
+          "version",
+          "workspaceId"
+        ]
+      },
+      "ApprovalState": {
+        "type": "string",
+        "enum": [
+          "approved",
+          "expired",
+          "pending",
+          "rejected"
+        ]
+      },
+      "ApprovalSubject": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "type": "string"
+          },
+          "toolDigest": {
+            "type": "string"
+          },
+          "input": {},
+          "inputDigest": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "snapshotDigest": {
+            "type": "string"
+          },
+          "patchDigest": {
+            "type": "string"
+          },
+          "stateCommit": {
+            "type": "string"
+          },
+          "baseCommit": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "input",
+          "inputDigest",
+          "snapshotDigest",
+          "taskId",
+          "tool",
+          "toolDigest"
+        ]
+      },
+      "ArtifactLink": {
+        "type": "object",
+        "properties": {
+          "digest": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "number"
+          },
+          "attemptId": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "attemptId",
+          "bytes",
+          "digest",
+          "kind",
+          "mediaType",
+          "name"
+        ]
+      },
+      "Attempt": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AttemptKind"
+          },
+          "agent": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/AttemptState"
+          },
+          "round": {
+            "type": "number"
+          },
+          "runner": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AttemptFailure"
+              }
+            ]
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          },
+          "priced": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "number"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "required": [
+          "agent",
+          "createdAt",
+          "engine",
+          "failure",
+          "finishedAt",
+          "id",
+          "kind",
+          "model",
+          "priced",
+          "result",
+          "round",
+          "runner",
+          "startedAt",
+          "state",
+          "taskId",
+          "usage"
+        ]
+      },
+      "AttemptEvent": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "status"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "engine",
+                  "setup",
+                  "upload"
+                ]
+              },
+              "detail": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "number"
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "detail",
+              "kind",
+              "phase",
+              "seq"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "text"
+              },
+              "channel": {
+                "type": "string",
+                "enum": [
+                  "assistant",
+                  "diagnostic"
+                ]
+              },
+              "text": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "number"
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "channel",
+              "kind",
+              "seq",
+              "text"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "native.call"
+              },
+              "callId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "input": {},
+              "seq": {
+                "type": "number"
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "callId",
+              "input",
+              "kind",
+              "name",
+              "seq"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "native.result"
+              },
+              "callId": {
+                "type": "string"
+              },
+              "ok": {
+                "type": "boolean"
+              },
+              "output": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "number"
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "callId",
+              "kind",
+              "ok",
+              "output",
+              "seq"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "tool.call"
+              },
+              "callId": {
+                "type": "string"
+              },
+              "tool": {
+                "type": "string"
+              },
+              "effect": {
+                "$ref": "#/components/schemas/Effect"
+              },
+              "input": {},
+              "seq": {
+                "type": "number"
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "callId",
+              "effect",
+              "input",
+              "kind",
+              "seq",
+              "tool"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "tool.result"
+              },
+              "callId": {
+                "type": "string"
+              },
+              "outcome": {
+                "$ref": "#/components/schemas/ToolOutcome"
+              },
+              "output": {},
+              "seq": {
+                "type": "number"
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "callId",
+              "kind",
+              "outcome",
+              "output",
+              "seq"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "usage"
+              },
+              "inputTokens": {
+                "type": "number"
+              },
+              "outputTokens": {
+                "type": "number"
+              },
+              "cachedInputTokens": {
+                "type": "number"
+              },
+              "microUsd": {
+                "type": "number"
+              },
+              "seq": {
+                "type": "number"
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "cachedInputTokens",
+              "inputTokens",
+              "kind",
+              "microUsd",
+              "outputTokens",
+              "seq"
+            ]
+          }
+        ]
+      },
+      "AttemptFailure": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "engine",
+              "limit",
+              "model-refused",
+              "runner",
+              "setup",
+              "stopped",
+              "timeout"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "infrastructure": {
+            "type": "boolean"
+          },
+          "limit": {
+            "$ref": "#/components/schemas/LimitHit"
+          }
+        },
+        "required": [
+          "detail",
+          "infrastructure",
+          "reason"
+        ]
+      },
+      "AttemptKind": {
+        "type": "string",
+        "enum": [
+          "act",
+          "check",
+          "judge",
+          "plan",
+          "work"
+        ]
+      },
+      "AttemptState": {
+        "type": "string",
+        "enum": [
+          "failed",
+          "held",
+          "offered",
+          "queued",
+          "running",
+          "stopped",
+          "succeeded"
+        ]
+      },
+      "audit.verify.input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "audit.verify.output": {
+        "$ref": "#/components/schemas/AuditVerifyResult"
+      },
+      "AuditBreak": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/AuditBreakKind"
+          },
+          "seq": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "kind",
+          "seq"
+        ]
+      },
+      "AuditBreakKind": {
+        "type": "string",
+        "enum": [
+          "broken-link",
+          "checkpoint-mismatch",
+          "checkpoint-unknown-key",
+          "checkpoint-unsigned",
+          "event-edited",
+          "key-mismatch",
+          "payload-edited",
+          "receipt",
+          "sequence-gap",
+          "tail-truncated"
+        ]
+      },
+      "AuditVerifyResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "events": {
+            "type": "number"
+          },
+          "checkpoints": {
+            "type": "number"
+          },
+          "head": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "seq": {
+                    "type": "number"
+                  },
+                  "digest": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "digest",
+                  "seq"
+                ]
+              }
+            ]
+          },
+          "break": {
+            "$ref": "#/components/schemas/AuditBreak"
+          }
+        },
+        "required": [
+          "checkpoints",
+          "events",
+          "head",
+          "ok"
+        ]
+      },
+      "Check": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "round": {
+            "type": "number"
+          },
+          "by": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "agent",
+                  "person"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "name"
+            ]
+          },
+          "pass": {
+            "type": "boolean"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "findings": {
+            "type": "string"
+          },
+          "at": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "at",
+          "by",
+          "findings",
+          "id",
+          "pass",
+          "round",
+          "score",
+          "taskId"
+        ]
+      },
+      "Effect": {
+        "type": "string",
+        "enum": [
+          "privileged",
+          "read",
+          "write"
+        ]
+      },
+      "FailureBucket": {
+        "type": "string",
+        "enum": [
+          "checks",
+          "engine",
+          "limits",
+          "other",
+          "setup"
+        ]
+      },
+      "file.delete.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "paths": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "workspaceId",
+          "paths"
+        ],
+        "additionalProperties": false
+      },
+      "file.delete.output": {
+        "$ref": "#/components/schemas/FileChange"
+      },
+      "file.read.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "workspaceId",
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "file.read.output": {
+        "$ref": "#/components/schemas/FileContent"
+      },
+      "file.write.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "files": {
+            "default": [],
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 6990511
+                },
+                "encoding": {
+                  "default": "utf8",
+                  "type": "string",
+                  "enum": [
+                    "utf8",
+                    "base64"
+                  ]
+                }
+              },
+              "required": [
+                "path",
+                "content"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "remove": {
+            "default": [],
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "workspaceId"
+        ],
+        "additionalProperties": false
+      },
+      "file.write.output": {
+        "$ref": "#/components/schemas/FileChange"
+      },
+      "FileChange": {
+        "type": "object",
+        "properties": {
+          "commit": {
+            "type": "string"
+          },
+          "snapshotDigest": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "commit",
+          "snapshotDigest"
+        ]
+      },
+      "FileContent": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "binary": {
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "number"
+          },
+          "source": {
+            "type": "string"
+          },
+          "replaces": {
+            "type": "string"
+          },
+          "lastCommit": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "atMs": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "atMs",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "binary",
+          "bytes",
+          "content",
+          "path",
+          "source"
+        ]
+      },
+      "FileEntry": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "number"
+          },
+          "source": {
+            "type": "string"
+          },
+          "replaces": {
+            "type": "string"
+          },
+          "lastCommit": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "atMs": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "atMs",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "bytes",
+          "path",
+          "source"
+        ]
+      },
+      "InsightFailure": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "$ref": "#/components/schemas/FailureBucket"
+          },
+          "count": {
+            "type": "number"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "rootId": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "goalTitle": {
+                  "type": "string"
+                },
+                "workspaceSlug": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "at",
+                "goalTitle",
+                "id",
+                "rootId",
+                "title",
+                "workspaceSlug"
+              ]
+            }
+          }
+        },
+        "required": [
+          "bucket",
+          "count",
+          "tasks"
+        ]
+      },
+      "InsightPercentiles": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "n": {
+            "type": "number"
+          },
+          "p50": {
+            "type": "number"
+          },
+          "p90": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "n",
+          "p50",
+          "p90"
+        ]
+      },
+      "InsightRank": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "attempts": {
+            "type": "number"
+          },
+          "ms": {
+            "type": "number"
+          },
+          "microUsd": {
+            "type": "number"
+          },
+          "tokens": {
+            "type": "number"
+          },
+          "msPerDay": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "microPerDay": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "attempts",
+          "key",
+          "label",
+          "microPerDay",
+          "microUsd",
+          "ms",
+          "msPerDay",
+          "tokens"
+        ]
+      },
+      "Insights": {
+        "type": "object",
+        "properties": {
+          "now": {
+            "type": "number"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "goals": {
+                "type": "number"
+              },
+              "done": {
+                "type": "number"
+              },
+              "failed": {
+                "type": "number"
+              },
+              "stopped": {
+                "type": "number"
+              },
+              "asked": {
+                "type": "number"
+              },
+              "attempts": {
+                "type": "number"
+              },
+              "microUsd": {
+                "type": "number"
+              },
+              "tokens": {
+                "type": "number"
+              },
+              "runMs": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "asked",
+              "attempts",
+              "done",
+              "failed",
+              "goals",
+              "microUsd",
+              "runMs",
+              "stopped",
+              "tokens"
+            ]
+          },
+          "calendar": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "load": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "outcomes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "done": {
+                  "type": "number"
+                },
+                "failed": {
+                  "type": "number"
+                },
+                "asked": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "asked",
+                "done",
+                "failed"
+              ]
+            }
+          },
+          "byWorkspace": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InsightRank"
+            }
+          },
+          "byAgent": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InsightRank"
+            }
+          },
+          "byPlay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InsightRank"
+            }
+          },
+          "byTool": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InsightTool"
+            }
+          },
+          "playDurations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InsightPercentiles"
+            }
+          },
+          "agentDurations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InsightPercentiles"
+            }
+          },
+          "queueWait": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "n": {
+                  "type": "number"
+                },
+                "p50": {
+                  "type": "number"
+                },
+                "p90": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "n",
+                "p50",
+                "p90"
+              ]
+            }
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InsightFailure"
+            }
+          },
+          "repeats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "play": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "count": {
+                  "type": "number"
+                },
+                "microUsd": {
+                  "type": "number"
+                },
+                "lastTaskId": {
+                  "type": "string"
+                },
+                "workspaceSlug": {
+                  "type": "string"
+                },
+                "lastAt": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "count",
+                "label",
+                "lastAt",
+                "lastTaskId",
+                "microUsd",
+                "play",
+                "workspaceSlug"
+              ]
+            }
+          }
+        },
+        "required": [
+          "agentDurations",
+          "byAgent",
+          "byPlay",
+          "byTool",
+          "byWorkspace",
+          "calendar",
+          "days",
+          "failures",
+          "load",
+          "now",
+          "outcomes",
+          "playDurations",
+          "queueWait",
+          "repeats",
+          "totals"
+        ]
+      },
+      "insights.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "days": {
+            "default": 30,
+            "anyOf": [
+              {
+                "type": "number",
+                "const": 7
+              },
+              {
+                "type": "number",
+                "const": 30
+              },
+              {
+                "type": "number",
+                "const": 90
+              }
+            ]
+          },
+          "timeZone": {
+            "default": "UTC",
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "additionalProperties": false
+      },
+      "insights.output": {
+        "$ref": "#/components/schemas/Insights"
+      },
+      "InsightTool": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "type": "string"
+          },
+          "calls": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "number"
+          },
+          "ms": {
+            "type": "number"
+          },
+          "perDay": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "calls",
+          "failed",
+          "ms",
+          "perDay",
+          "tool"
+        ]
+      },
+      "LimitHit": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "agent.spend_usd",
+              "agent.tokens",
+              "agent.turns",
+              "attempts",
+              "step.max_rounds",
+              "workspace.daily_spend_usd",
+              "workspace.running_tasks"
+            ]
+          },
+          "value": {
+            "type": "number"
+          },
+          "used": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "agent": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "used",
+          "value"
+        ]
+      },
+      "me.input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "me.output": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
+          },
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceSummary"
+            }
+          }
+        },
+        "required": [
+          "user",
+          "workspaces"
+        ]
+      },
+      "Note": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "at": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "at",
+          "author",
+          "id",
+          "taskId",
+          "text"
+        ]
+      },
+      "Overview": {
+        "type": "object",
+        "properties": {
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverviewWorkspace"
+            }
+          },
+          "needsYou": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverviewNeed"
+            }
+          },
+          "running": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverviewRun"
+            }
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverviewEvent"
+            }
+          },
+          "goalsDone": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "workspaceId": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "at",
+                "id",
+                "title",
+                "workspaceId"
+              ]
+            }
+          },
+          "health": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OverviewHealth"
+              }
+            ]
+          }
+        },
+        "required": [
+          "events",
+          "goalsDone",
+          "health",
+          "needsYou",
+          "running",
+          "workspaces"
+        ]
+      },
+      "overview.input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "overview.output": {
+        "$ref": "#/components/schemas/Overview"
+      },
+      "OverviewDay": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string"
+          },
+          "done": {
+            "type": "number"
+          },
+          "microUsd": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "day",
+          "done",
+          "microUsd"
+        ]
+      },
+      "OverviewEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "at": {
+            "type": "number"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "approval.approved",
+              "task.checked",
+              "task.done",
+              "task.failed",
+              "task.needs_you",
+              "task.running",
+              "task.stopped"
+            ]
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "rootId": {
+            "type": "string"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "agent": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "goal": {
+            "type": "boolean"
+          },
+          "need": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "answer",
+                  "approval",
+                  "check",
+                  "checkpoint",
+                  "confirm-plan",
+                  "failed-subtask",
+                  "judge",
+                  "sign-off"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pass": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "agent",
+          "at",
+          "goal",
+          "goalTitle",
+          "id",
+          "need",
+          "pass",
+          "rootId",
+          "taskId",
+          "title",
+          "type",
+          "workspaceId"
+        ]
+      },
+      "OverviewHealth": {
+        "type": "object",
+        "properties": {
+          "runnersOnline": {
+            "type": "number"
+          },
+          "runnersTotal": {
+            "type": "number"
+          },
+          "modelsReachable": {
+            "type": "number"
+          },
+          "modelsTotal": {
+            "type": "number"
+          },
+          "auditProblem": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "auditProblem",
+          "modelsReachable",
+          "modelsTotal",
+          "runnersOnline",
+          "runnersTotal"
+        ]
+      },
+      "OverviewNeed": {
+        "type": "object",
+        "properties": {
+          "workspaceName": {
+            "type": "string"
+          },
+          "workspaceSlug": {
+            "type": "string"
+          },
+          "approval": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Approval"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "rootId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "agent": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "done",
+              "failed",
+              "needs_you",
+              "ready",
+              "running",
+              "stopped",
+              "waiting"
+            ]
+          },
+          "needs": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "confirm-plan"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "approval"
+                  },
+                  "approvalId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "approvalId",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "answer"
+                  },
+                  "question": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "question"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "check"
+                  },
+                  "findings": {
+                    "type": "string"
+                  },
+                  "repeated": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "findings",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "sign-off"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "judge"
+                  },
+                  "attemptIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "attemptIds",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "failed-subtask"
+                  },
+                  "taskId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "taskId"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "checkpoint"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "until": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "summary",
+                  "until"
+                ]
+              }
+            ]
+          },
+          "play": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "stepId": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "round": {
+            "type": "number"
+          },
+          "microUsd": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "number"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "waitingForYou": {
+            "type": "number"
+          },
+          "supersededBy": {
+            "type": "object",
+            "properties": {
+              "taskId": {
+                "type": "string"
+              },
+              "rootId": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "check",
+                  "done"
+                ]
+              },
+              "hours": {
+                "type": "number"
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "hours",
+              "rootId",
+              "state",
+              "taskId"
+            ]
+          },
+          "heals": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "rootId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "rootId",
+              "title"
+            ]
+          }
+        },
+        "required": [
+          "agent",
+          "approval",
+          "createdAt",
+          "finishedAt",
+          "goalTitle",
+          "id",
+          "microUsd",
+          "needs",
+          "parentId",
+          "play",
+          "rootId",
+          "round",
+          "state",
+          "stepId",
+          "title",
+          "updatedAt",
+          "waitingForYou",
+          "workspaceId",
+          "workspaceName",
+          "workspaceSlug"
+        ]
+      },
+      "OverviewRun": {
+        "type": "object",
+        "properties": {
+          "attemptId": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AttemptKind"
+          },
+          "agent": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "workspaceName": {
+            "type": "string"
+          },
+          "workspaceSlug": {
+            "type": "string"
+          },
+          "rootId": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "stepId": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "microUsd": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "agent",
+          "attemptId",
+          "goalTitle",
+          "kind",
+          "microUsd",
+          "rootId",
+          "startedAt",
+          "stepId",
+          "taskId",
+          "title",
+          "workspaceId",
+          "workspaceName",
+          "workspaceSlug"
+        ]
+      },
+      "OverviewWorkspace": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "member",
+              "viewer"
+            ]
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "public"
+            ]
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "read"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updates": {
+            "type": "number"
+          },
+          "viaPublic": {
+            "type": "boolean"
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "needsYou": {
+            "type": "number"
+          },
+          "running": {
+            "type": "number"
+          },
+          "attemptsRunning": {
+            "type": "number"
+          },
+          "attemptsWaiting": {
+            "type": "number"
+          },
+          "doneToday": {
+            "type": "number"
+          },
+          "failedToday": {
+            "type": "number"
+          },
+          "lastHour": {
+            "type": "object",
+            "properties": {
+              "done": {
+                "type": "number"
+              },
+              "failed": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "done",
+              "failed"
+            ]
+          },
+          "spend": {
+            "$ref": "#/components/schemas/Spend"
+          },
+          "lastActivityAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverviewDay"
+            }
+          }
+        },
+        "required": [
+          "attemptsRunning",
+          "attemptsWaiting",
+          "days",
+          "doneToday",
+          "failedToday",
+          "id",
+          "lastActivityAt",
+          "lastHour",
+          "name",
+          "needsYou",
+          "platform",
+          "projects",
+          "role",
+          "running",
+          "slug",
+          "spend",
+          "updates",
+          "viaPublic",
+          "visibility"
+        ]
+      },
+      "pack.release.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspaceId",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "pack.release.output": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "PackInfo": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number"
+          },
+          "working": {
+            "type": "object",
+            "properties": {
+              "changed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "changed"
+            ]
+          },
+          "released": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "usedBy": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "pin": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name",
+                "pin",
+                "slug"
+              ]
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "translations": {
+            "type": "object",
+            "properties": {
+              "fr": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              },
+              "ar": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "shipped": {
+            "type": "boolean"
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "description",
+                "name"
+              ]
+            }
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "effect": {
+                  "$ref": "#/components/schemas/Effect"
+                }
+              },
+              "required": [
+                "description",
+                "effect",
+                "name"
+              ]
+            }
+          },
+          "plays": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "translations": {
+                  "type": "object",
+                  "properties": {
+                    "fr": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "inputs": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "description": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "description"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "ar": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "inputs": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "description": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "description"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "required": [
+                "description",
+                "name",
+                "title"
+              ]
+            }
+          }
+        },
+        "required": [
+          "agents",
+          "description",
+          "name",
+          "plays",
+          "released",
+          "requires",
+          "shipped",
+          "tools",
+          "usedBy",
+          "version"
+        ]
+      },
+      "packs.list.input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "packs.list.output": {
+        "type": "object",
+        "properties": {
+          "packs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PackInfo"
+            }
+          }
+        },
+        "required": [
+          "packs"
+        ]
+      },
+      "PullRequest": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "number": {
+            "type": "number"
+          },
+          "state": {
+            "type": "string"
+          },
+          "at": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "at",
+          "branch",
+          "number",
+          "project",
+          "state",
+          "taskId",
+          "url"
+        ]
+      },
+      "Queue": {
+        "type": "object",
+        "properties": {
+          "now": {
+            "type": "number"
+          },
+          "runners": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueRunner"
+            }
+          },
+          "waiting": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueItem"
+            }
+          },
+          "blocked": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueItem"
+            }
+          },
+          "hidden": {
+            "type": "number"
+          },
+          "running": {
+            "type": "number"
+          },
+          "paused": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "slug"
+              ]
+            }
+          },
+          "admin": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "admin",
+          "blocked",
+          "hidden",
+          "now",
+          "paused",
+          "runners",
+          "running",
+          "waiting"
+        ]
+      },
+      "queue.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "additionalProperties": false
+      },
+      "queue.output": {
+        "$ref": "#/components/schemas/Queue"
+      },
+      "QueueAction": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "native",
+              "status",
+              "text",
+              "tool"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "at": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "at",
+          "kind",
+          "label"
+        ]
+      },
+      "QueueItem": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "rootId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "workspaceSlug": {
+            "type": "string"
+          },
+          "workspaceName": {
+            "type": "string"
+          },
+          "agent": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AttemptKind"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "low",
+              "normal"
+            ]
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "since": {
+            "type": "number"
+          },
+          "wait": {
+            "$ref": "#/components/schemas/Wait"
+          },
+          "startsAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "canSteer": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "agent",
+          "canSteer",
+          "goalTitle",
+          "kind",
+          "paused",
+          "priority",
+          "rank",
+          "rootId",
+          "since",
+          "startsAt",
+          "taskId",
+          "title",
+          "wait",
+          "workspaceId",
+          "workspaceName",
+          "workspaceSlug"
+        ]
+      },
+      "QueueRun": {
+        "type": "object",
+        "properties": {
+          "attemptId": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "rootId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "agent": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AttemptKind"
+          },
+          "workspaceSlug": {
+            "type": "string"
+          },
+          "workspaceName": {
+            "type": "string"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "tokens": {
+            "type": "number"
+          },
+          "microUsd": {
+            "type": "number"
+          },
+          "doing": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueAction"
+            }
+          }
+        },
+        "required": [
+          "agent",
+          "attemptId",
+          "doing",
+          "goalTitle",
+          "kind",
+          "microUsd",
+          "rootId",
+          "startedAt",
+          "taskId",
+          "title",
+          "tokens",
+          "workspaceName",
+          "workspaceSlug"
+        ]
+      },
+      "QueueRunner": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "online": {
+            "type": "boolean"
+          },
+          "slots": {
+            "type": "number"
+          },
+          "freeSlots": {
+            "type": "number"
+          },
+          "engines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "occupied": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueRun"
+            }
+          },
+          "hiddenOccupied": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "capabilities",
+          "engines",
+          "freeSlots",
+          "hiddenOccupied",
+          "id",
+          "name",
+          "occupied",
+          "online",
+          "slots"
+        ]
+      },
+      "Refusal": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "problems": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path",
+                    "message"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ScheduleItem": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string"
+          },
+          "workspaceSlug": {
+            "type": "string"
+          },
+          "workspaceName": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "member",
+              "viewer"
+            ]
+          },
+          "play": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "translations": {
+            "type": "object",
+            "properties": {
+              "fr": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "inputs": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ]
+                    }
+                  }
+                }
+              },
+              "ar": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "inputs": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "source": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "schedule",
+              "webhook"
+            ]
+          },
+          "spec": {
+            "type": "string"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "nextRunAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "lastRunAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "lastTask": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "done",
+                      "failed",
+                      "needs_you",
+                      "ready",
+                      "running",
+                      "stopped",
+                      "waiting"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "state"
+                ]
+              }
+            ]
+          },
+          "skipsNext": {
+            "type": "boolean"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "agent": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "agent",
+                "id"
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "lastRunAt",
+          "lastTask",
+          "nextRunAt",
+          "paused",
+          "play",
+          "role",
+          "skipsNext",
+          "source",
+          "spec",
+          "steps",
+          "timezone",
+          "title",
+          "workspaceId",
+          "workspaceName",
+          "workspaceSlug"
+        ]
+      },
+      "schedules.list.input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "schedules.list.output": {
+        "type": "object",
+        "properties": {
+          "schedules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleItem"
+            }
+          }
+        },
+        "required": [
+          "schedules"
+        ]
+      },
+      "Spend": {
+        "type": "object",
+        "properties": {
+          "todayMicroUsd": {
+            "type": "number"
+          },
+          "capMicroUsd": {
+            "type": "number"
+          },
+          "unpriced": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "capMicroUsd",
+          "todayMicroUsd",
+          "unpriced"
+        ]
+      },
+      "SubtaskSummary": {
+        "type": "object",
+        "properties": {
+          "goal": {
+            "type": "string"
+          },
+          "waitsFor": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "rootId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "agent": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "done",
+              "failed",
+              "needs_you",
+              "ready",
+              "running",
+              "stopped",
+              "waiting"
+            ]
+          },
+          "needs": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "confirm-plan"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "approval"
+                  },
+                  "approvalId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "approvalId",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "answer"
+                  },
+                  "question": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "question"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "check"
+                  },
+                  "findings": {
+                    "type": "string"
+                  },
+                  "repeated": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "findings",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "sign-off"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "judge"
+                  },
+                  "attemptIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "attemptIds",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "failed-subtask"
+                  },
+                  "taskId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "taskId"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "checkpoint"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "until": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "summary",
+                  "until"
+                ]
+              }
+            ]
+          },
+          "play": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "stepId": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "round": {
+            "type": "number"
+          },
+          "microUsd": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "number"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "waitingForYou": {
+            "type": "number"
+          },
+          "supersededBy": {
+            "type": "object",
+            "properties": {
+              "taskId": {
+                "type": "string"
+              },
+              "rootId": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "check",
+                  "done"
+                ]
+              },
+              "hours": {
+                "type": "number"
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "hours",
+              "rootId",
+              "state",
+              "taskId"
+            ]
+          },
+          "heals": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "rootId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "rootId",
+              "title"
+            ]
+          }
+        },
+        "required": [
+          "agent",
+          "createdAt",
+          "finishedAt",
+          "goal",
+          "goalTitle",
+          "id",
+          "microUsd",
+          "needs",
+          "parentId",
+          "play",
+          "rootId",
+          "round",
+          "state",
+          "stepId",
+          "title",
+          "updatedAt",
+          "waitingForYou",
+          "waitsFor",
+          "workspaceId"
+        ]
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "goal": {
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "output": {},
+          "snapshotDigest": {
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "waitsFor": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steer": {
+            "type": "object",
+            "properties": {
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "low",
+                  "normal"
+                ]
+              },
+              "paused": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "paused",
+              "priority"
+            ]
+          },
+          "queued": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "taskId": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "wait": {
+                    "$ref": "#/components/schemas/Wait"
+                  },
+                  "rank": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "startsAt": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "rank",
+                  "startsAt",
+                  "taskId",
+                  "title",
+                  "wait"
+                ]
+              }
+            ]
+          },
+          "settings": {
+            "type": "object",
+            "properties": {
+              "reviewBy": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "maxRounds": {
+                "type": "number"
+              },
+              "targetScore": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "approve": {
+                "type": "boolean"
+              },
+              "when": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "candidates": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "judge": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "approve",
+              "candidates",
+              "judge",
+              "maxRounds",
+              "reviewBy",
+              "targetScore",
+              "when"
+            ]
+          },
+          "subtasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubtaskSummary"
+            }
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attempt"
+            }
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Check"
+            }
+          },
+          "approvals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Approval"
+            }
+          },
+          "toolCalls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolCall"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Note"
+            }
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtifactLink"
+            }
+          },
+          "pullRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PullRequest"
+            }
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          },
+          "heal": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "taskId": {
+                    "type": "string"
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "done",
+                      "failed",
+                      "needs_you",
+                      "ready",
+                      "running",
+                      "stopped",
+                      "waiting"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "taskId"
+                ]
+              }
+            ]
+          },
+          "version": {
+            "type": "number"
+          },
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "rootId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "agent": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "done",
+              "failed",
+              "needs_you",
+              "ready",
+              "running",
+              "stopped",
+              "waiting"
+            ]
+          },
+          "needs": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "confirm-plan"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "approval"
+                  },
+                  "approvalId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "approvalId",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "answer"
+                  },
+                  "question": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "question"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "check"
+                  },
+                  "findings": {
+                    "type": "string"
+                  },
+                  "repeated": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "findings",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "sign-off"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "judge"
+                  },
+                  "attemptIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "attemptIds",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "failed-subtask"
+                  },
+                  "taskId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "taskId"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "checkpoint"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "until": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "summary",
+                  "until"
+                ]
+              }
+            ]
+          },
+          "play": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "stepId": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "round": {
+            "type": "number"
+          },
+          "microUsd": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "number"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "waitingForYou": {
+            "type": "number"
+          },
+          "supersededBy": {
+            "type": "object",
+            "properties": {
+              "taskId": {
+                "type": "string"
+              },
+              "rootId": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "check",
+                  "done"
+                ]
+              },
+              "hours": {
+                "type": "number"
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "hours",
+              "rootId",
+              "state",
+              "taskId"
+            ]
+          },
+          "heals": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "rootId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "rootId",
+              "title"
+            ]
+          }
+        },
+        "required": [
+          "agent",
+          "approvals",
+          "artifacts",
+          "attempts",
+          "checks",
+          "createdAt",
+          "createdBy",
+          "finishedAt",
+          "goal",
+          "goalTitle",
+          "heal",
+          "id",
+          "microUsd",
+          "needs",
+          "notes",
+          "output",
+          "parentId",
+          "play",
+          "pullRequests",
+          "queued",
+          "result",
+          "rootId",
+          "round",
+          "settings",
+          "snapshotDigest",
+          "state",
+          "steer",
+          "stepId",
+          "subtasks",
+          "title",
+          "toolCalls",
+          "updatedAt",
+          "usage",
+          "version",
+          "waitingForYou",
+          "waitsFor",
+          "workspaceId"
+        ]
+      },
+      "task.answer.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "taskId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "answer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "workspaceId",
+          "taskId",
+          "answer"
+        ],
+        "additionalProperties": false
+      },
+      "task.answer.output": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object"
+        }
+      },
+      "task.check.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "taskId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "pass": {
+            "type": "boolean"
+          },
+          "findings": {
+            "default": "",
+            "type": "string",
+            "maxLength": 20000
+          },
+          "keep": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "workspaceId",
+          "taskId",
+          "pass"
+        ],
+        "additionalProperties": false
+      },
+      "task.check.output": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object"
+        }
+      },
+      "task.checkpoint.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "taskId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "goal": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "workspaceId",
+          "taskId"
+        ],
+        "additionalProperties": false
+      },
+      "task.checkpoint.output": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object"
+        }
+      },
+      "task.create.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "goal": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "play": {
+            "type": "string"
+          },
+          "inputs": {
+            "default": {},
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/$defs/__schema0"
+            }
+          }
+        },
+        "required": [
+          "workspaceId"
+        ],
+        "additionalProperties": false,
+        "$defs": {
+          "__schema0": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "task.create.output": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskId"
+        ]
+      },
+      "task.events.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "taskId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "after": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "default": 200,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": [
+          "workspaceId",
+          "taskId",
+          "attemptId"
+        ],
+        "additionalProperties": false
+      },
+      "task.events.output": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttemptEvent"
+            }
+          }
+        },
+        "required": [
+          "events"
+        ]
+      },
+      "task.get.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "taskId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "workspaceId",
+          "taskId"
+        ],
+        "additionalProperties": false
+      },
+      "task.get.output": {
+        "$ref": "#/components/schemas/Task"
+      },
+      "task.retry.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "taskId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "workspaceId",
+          "taskId"
+        ],
+        "additionalProperties": false
+      },
+      "task.retry.output": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object"
+        }
+      },
+      "task.steer.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "taskId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ]
+          },
+          "paused": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "workspaceId",
+          "taskId"
+        ],
+        "additionalProperties": false
+      },
+      "task.steer.output": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object"
+        }
+      },
+      "task.stop.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "taskId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "workspaceId",
+          "taskId"
+        ],
+        "additionalProperties": false
+      },
+      "task.stop.output": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object"
+        }
+      },
+      "tasks.list.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "waiting",
+              "ready",
+              "running",
+              "needs_you",
+              "done",
+              "failed",
+              "stopped"
+            ]
+          },
+          "parentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "rootsOnly": {
+            "type": "boolean"
+          },
+          "search": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "before": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [
+          "workspaceId"
+        ],
+        "additionalProperties": false
+      },
+      "tasks.list.output": {
+        "type": "object",
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskSummary"
+            }
+          }
+        },
+        "required": [
+          "tasks"
+        ]
+      },
+      "TaskSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "rootId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "agent": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "done",
+              "failed",
+              "needs_you",
+              "ready",
+              "running",
+              "stopped",
+              "waiting"
+            ]
+          },
+          "needs": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "confirm-plan"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "approval"
+                  },
+                  "approvalId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "approvalId",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "answer"
+                  },
+                  "question": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "question"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "check"
+                  },
+                  "findings": {
+                    "type": "string"
+                  },
+                  "repeated": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "findings",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "sign-off"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "judge"
+                  },
+                  "attemptIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "attemptIds",
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "failed-subtask"
+                  },
+                  "taskId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "taskId"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "checkpoint"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "until": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "summary",
+                  "until"
+                ]
+              }
+            ]
+          },
+          "play": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "stepId": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "round": {
+            "type": "number"
+          },
+          "microUsd": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "number"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "waitingForYou": {
+            "type": "number"
+          },
+          "supersededBy": {
+            "type": "object",
+            "properties": {
+              "taskId": {
+                "type": "string"
+              },
+              "rootId": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "check",
+                  "done"
+                ]
+              },
+              "hours": {
+                "type": "number"
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "hours",
+              "rootId",
+              "state",
+              "taskId"
+            ]
+          },
+          "heals": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "rootId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "rootId",
+              "title"
+            ]
+          }
+        },
+        "required": [
+          "agent",
+          "createdAt",
+          "finishedAt",
+          "goalTitle",
+          "id",
+          "microUsd",
+          "needs",
+          "parentId",
+          "play",
+          "rootId",
+          "round",
+          "state",
+          "stepId",
+          "title",
+          "updatedAt",
+          "waitingForYou",
+          "workspaceId"
+        ]
+      },
+      "ToolCall": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "attemptId": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "effect": {
+            "$ref": "#/components/schemas/Effect"
+          },
+          "input": {},
+          "output": {},
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "failed",
+              "held",
+              "pending",
+              "rejected",
+              "succeeded"
+            ]
+          },
+          "approvalId": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "at": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "approvalId",
+          "at",
+          "attemptId",
+          "effect",
+          "id",
+          "input",
+          "outcome",
+          "output",
+          "tool"
+        ]
+      },
+      "ToolOutcome": {
+        "type": "string",
+        "enum": [
+          "failed",
+          "held",
+          "rejected",
+          "succeeded"
+        ]
+      },
+      "Usage": {
+        "type": "object",
+        "properties": {
+          "microUsd": {
+            "type": "number"
+          },
+          "inputTokens": {
+            "type": "number"
+          },
+          "outputTokens": {
+            "type": "number"
+          },
+          "cachedInputTokens": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "cachedInputTokens",
+          "inputTokens",
+          "microUsd",
+          "outputTokens"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "instanceAdmin": {
+            "type": "boolean"
+          },
+          "sessionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "id",
+          "instanceAdmin",
+          "name",
+          "sessionId"
+        ]
+      },
+      "Wait": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "slot"
+              },
+              "ahead": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "ahead",
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "running-tasks"
+              },
+              "used": {
+                "type": "number"
+              },
+              "limit": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "limit",
+              "used"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "daily-cap"
+              },
+              "spentMicroUsd": {
+                "type": "number"
+              },
+              "capMicroUsd": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "capMicroUsd",
+              "kind",
+              "spentMicroUsd"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "capability"
+              },
+              "what": {
+                "type": "string",
+                "enum": [
+                  "agent",
+                  "capability",
+                  "engine"
+                ]
+              },
+              "missing": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "missing",
+              "what"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "no-runner"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "task"
+              },
+              "taskId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "taskId",
+              "title"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "paused-workspace"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "paused-task"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "unready"
+              },
+              "problem": {
+                "type": "string",
+                "enum": [
+                  "credential",
+                  "engine-model",
+                  "model-key",
+                  "no-model",
+                  "prompt"
+                ]
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "name",
+              "problem"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "backoff"
+              },
+              "until": {
+                "type": "number"
+              },
+              "tries": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "tries",
+              "until"
+            ]
+          }
+        ]
+      },
+      "workspace.archive.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "workspaceId"
+        ],
+        "additionalProperties": false
+      },
+      "workspace.archive.output": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object"
+        }
+      },
+      "workspace.create.input": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "default": "",
+            "type": "string",
+            "maxLength": 2000
+          },
+          "packs": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "read"
+            ]
+          },
+          "model": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "default": "main",
+                "type": "string"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "openai-compatible",
+                  "anthropic"
+                ]
+              },
+              "url": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "model": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000
+              }
+            },
+            "required": [
+              "provider",
+              "url",
+              "model"
+            ],
+            "additionalProperties": false
+          },
+          "project": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "repo": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "branch": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "access": {
+                "default": "write",
+                "type": "string",
+                "enum": [
+                  "read",
+                  "write"
+                ]
+              },
+              "credential": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000
+              }
+            },
+            "required": [
+              "repo"
+            ],
+            "additionalProperties": false
+          },
+          "folderRemote": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "workspace.create.output": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "snapshotDigest": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "snapshotDigest",
+          "workspaceId"
+        ]
+      },
+      "workspace.files.input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "workspaceId"
+        ],
+        "additionalProperties": false
+      },
+      "workspace.files.output": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileEntry"
+            }
+          }
+        },
+        "required": [
+          "files"
+        ]
+      },
+      "WorkspaceSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "member",
+              "viewer"
+            ]
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "public"
+            ]
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "read"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "viaPublic": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "description",
+          "id",
+          "name",
+          "platform",
+          "role",
+          "slug",
+          "status",
+          "viaPublic",
+          "visibility"
+        ]
+      }
+    }
+  }
+}

@@ -267,6 +267,23 @@
       ],
       "additionalProperties": false
     },
+    "webhook": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "secret": {
+          "type": "string",
+          "pattern": "^secret:[a-z][a-z0-9-]{0,62}$"
+        }
+      },
+      "required": [
+        "url",
+        "secret"
+      ],
+      "additionalProperties": false
+    },
     "approvals": {
       "default": {},
       "type": "object",

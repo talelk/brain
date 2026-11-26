@@ -44,7 +44,7 @@ apps/launcher/ kept; engine sandbox gains the working-copy mount
 apps/store/    the git store: `git http-backend` behind a signed-token check; a process of its own that never talks to the Governor (section 8)
 apps/mcp/     the MCP server for a person's own Claude (section 12): stdio, talks to a live Brain over the API
 apps/web/src/  new app, nine screens
-scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, runner, backup, restore, audit-verify), gen-docs.ts (`pnpm docs:gen`: docs/environment.md and docs/schemas/), pack-check.ts (`pnpm brain check`), deploy-demo.sh
+scripts/       brain.ts (`pnpm brain`: start, stop, status, logs, runner, backup, restore, audit-verify), gen-docs.ts (`pnpm docs:gen`: docs/environment.md, docs/openapi.json and docs/schemas/), pack-check.ts (`pnpm brain check`), mcp-tools.ts (`pnpm brain mcp-tools`), openapi.ts, deploy-demo.sh
 deploy/        the sandbox images; demo/ (the demo host's compose file, host commands and backup units)
 packs/         base, software-factory, sre, customer-operations
 tests/         unit/ (pure), core/ (governor + fixture runner in-process), browser/
@@ -187,7 +187,9 @@ change; that function extends the hash chain (`audit-chain.ts`). There is one ch
 
 `POST /v1/command {type, input, idempotencyKey}` and `POST /v1/query {type, input}`.
 Each entry declares a zod input schema, an output type and the minimum role. The web app
-imports the same definitions for types. `GET /v1/events` is server-sent events: one
+imports the same definitions for types. The entries another system uses (`PUBLISHED`: those the MCP server calls) are in
+`docs/openapi.json`, OpenAPI 3.1 made by `pnpm docs:gen` (`scripts/openapi.ts`): inputs from the zod schemas, outputs read
+from the TypeScript types by the compiler; `tests/core/openapi.test.ts` checks real answers against it. `GET /v1/events` is server-sent events: one
 `changed` frame per workspace when anything changed (the client refetches).
 `GET /v1/artifacts/:digest` streams bytes to a member of the owning workspace.
 
@@ -572,8 +574,10 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   `github.<event>.<action>` one action of it. A task started by a pull request delivery works on that
   pull request's head commit instead of the branch head.
 - `[teams] webhook` receives a card when a task needs a person and when a root task is
-  done or failed; `message.send` posts to it. Cards are sent from the audit log, from where the last one stopped, so a
-  restart neither loses nor repeats one.
+  done or failed; `message.send` posts to it. `[webhook] {url, secret}` receives the same events as CloudEvents 1.0
+  (`integrations/webhook.ts`: `application/cloudevents+json`, signed `x-brain-signature-256`, three tries, a failure recorded
+  as `webhook.failed`). Both are sent from the audit log by one reader, from where it last stopped, so a restart neither
+  loses nor repeats one; a workspace's `webhook` is in the manifest only when it names one.
 - Health: `GET /health/ready` answers when the process and its database do. The `health` query reports runners, whether
   each model's server answers (asked at most once a minute), the audit log's verification, and the time of the last
   backup: the modification time of `<data>/backup.marker`, which the backup command leaves.

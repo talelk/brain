@@ -806,6 +806,11 @@ export interface QueryOutputs {
 }
 export type CommandType = keyof typeof commands;
 export type QueryType = keyof typeof queries;
+/** The entries another system uses, published in docs/openapi.json: what the MCP server offers, and a test holds the two together. */
+export const PUBLISHED: { readonly queries: readonly QueryType[]; readonly commands: readonly CommandType[] } = {
+  queries: ["me", "overview", "queue", "insights", "workspace.files", "file.read", "tasks.list", "task.get", "task.events", "schedules.list", "packs.list", "audit.verify"],
+  commands: ["task.create", "task.steer", "task.stop", "task.retry", "task.check", "task.answer", "task.checkpoint", "file.write", "file.delete", "pack.release", "workspace.create", "workspace.archive"],
+};
 /** What a caller sends (before defaults) and what a handler is given (after them). */
 export type CommandRequest<T extends CommandType> = z.input<(typeof commands)[T]["input"]>;
 export type CommandInput<T extends CommandType> = z.output<(typeof commands)[T]["input"]>;

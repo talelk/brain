@@ -140,7 +140,7 @@ export async function planFix(gov: Gov, attempt: AttemptRow, task: TaskRow, rowI
     throw new ToolRefusal(`The workspace would not be valid with this change: ${(problems ?? []).map((one) => `${one.path}: ${one.message}`).join("; ") || (e as Error).message}`);
   }
   const { manifest } = checked;
-  for (const key of ["approvals", "github", "git", "teams", "platform", "models", "projects"] as const) {
+  for (const key of ["approvals", "github", "git", "teams", "webhook", "platform", "models", "projects"] as const) {
     if (Buffer.compare(canonicalJsonBytes((manifest[key] ?? null) as JsonValue), canonicalJsonBytes((active[key] ?? null) as JsonValue)) !== 0) throw new ToolRefusal(`A fix does not change "${key}" of brain.toml: that is decided by an admin in the settings`);
   }
   if (failed?.agent && !manifest.agents[failed.agent]) throw new ToolRefusal(`The change removes the agent ${failed.agent}, which the failed task needs`);

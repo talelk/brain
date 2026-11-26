@@ -158,6 +158,8 @@ export const BrainFile = z.strictObject({
   /** A git remote that receives the workspace folder after every commit (docs/model.md, "A workspace folder"). `credential` defaults to the GitHub one. */
   git: z.strictObject({ remote: z.string().refine(isRemoteAddress, "must be an http or https address without a password in it"), credential: secretRef.optional() }).optional(),
   teams: z.strictObject({ webhook: secretRef }).optional(),
+  /** Another system told what Teams is told, as signed CloudEvents (docs/model.md, "Systems that follow work"). */
+  webhook: z.strictObject({ url: z.string().refine(isRemoteAddress, "must be an http or https address without a password in it"), secret: secretRef }).optional(),
   approvals: z.record(toolName, z.strictObject({ targets: z.array(z.string().min(1)).min(1), per_day: z.int().min(1), until: day })).default({}),
 });
 export type BrainFile = z.infer<typeof BrainFile>;
@@ -385,6 +387,8 @@ export interface SnapshotManifest {
   /** The remote the folder is pushed to; left out when there is none. */
   readonly git?: NonNullable<BrainFile["git"]>;
   readonly teams: BrainFile["teams"] | null;
+  /** Left out when there is none. */
+  readonly webhook?: NonNullable<BrainFile["webhook"]>;
   readonly approvals: BrainFile["approvals"];
   readonly agents: Readonly<Record<string, AgentFile & Sourced & { readonly prompt: { readonly digest: Digest; readonly bytes: number } }>>;
   /** `files` are the files beside `tool.toml` (`run.sh`, `test.sh`, ...); `input_schema` is the JSON Schema a call's input must satisfy, `output_schema` (with `[outputs]`) its result. */

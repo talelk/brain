@@ -431,6 +431,12 @@ export function SettingsForm(props: { snapshot: SnapshotManifest; readOnly: bool
       <Group title={t("settings.teams")} text={t("settings.teams.text")}>
         <div class="max-w-sm"><SecretField label={t("settings.teams.webhook")} value={brain.teams?.webhook} onChange={(webhook) => set("teams", webhook ? { webhook } : undefined)} disabled={props.readOnly} /></div>
       </Group>
+      <Group title={t("settings.webhook")} text={t("settings.webhook.text")}>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <TextInput size="md" class="t-code" type="url" label={t("settings.webhook.url")} placeholder="https://ci.example.com/brain" value={brain.webhook?.url ?? ""} onInput={(event) => set("webhook", event.currentTarget.value.trim() === "" ? undefined : { secret: brain.webhook?.secret ?? "secret:brain-webhook", url: event.currentTarget.value.trim() })} disabled={props.readOnly} />
+          <SecretField label={t("settings.webhook.secret")} description={t("settings.webhook.secret.help")} value={brain.webhook?.secret} onChange={(secret) => { if (brain.webhook) set("webhook", { url: brain.webhook.url, secret: secret ?? "secret:brain-webhook" }); }} disabled={props.readOnly || !brain.webhook} />
+        </div>
+      </Group>
       <Group title={t("settings.approvals")} text={t("settings.approvals.text")}>
         <Rows label={t("settings.approvals")} items={approvals()} add={t("settings.approvals.add")} disabled={props.readOnly} blank={() => ({ tool: "", targets: [], per_day: 1, until: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10) })}
           onChange={(rows) => set("approvals", Object.fromEntries(rows.map((row) => [row.tool, { targets: row.targets, per_day: row.per_day, until: row.until }])))}>

@@ -6,8 +6,12 @@ import { readEvents } from "../events";
 import { ToolRefusal } from "../tools/schema";
 import { readSecret } from "../trust/secrets";
 import { activeManifest } from "../workspace/store";
+import { postEvent } from "./webhook";
 
-/** Teams (docs/architecture.md section 9): a card when a task needs a person and when a goal is done or failed, and the `message.send` tool. */
+/**
+ * Teams (docs/architecture.md section 9): a card when a task needs a person and when a goal is done or failed, and the `message.send` tool.
+ * The same events go to the workspace's webhook (webhook.ts), from one place in the audit log.
+ */
 
 /** Posts one card to the workspace's Teams webhook. Refuses, in plain words, when the workspace has none. */
 export async function postTeams(gov: Gov, workspaceId: string, text: string, link?: string): Promise<void> {
@@ -33,20 +37,27 @@ const NEEDS: Record<TaskNeed["kind"], string> = {
 const delivering = new WeakMap<Gov, Promise<void>>();
 
 /**
- * Sends the cards for what happened since the last time: every task that came to need a person, every goal that is done or failed. It reads
- * the audit log from where it stopped, so a card is neither lost by a restart nor sent twice. A card that cannot be delivered is dropped.
+ * Tells the workspace's Teams channel and webhook what happened since the last time: every task that came to need a person, every goal that
+ * is done or failed. It reads the audit log from where it stopped, so nothing is lost by a restart or sent twice. What cannot be delivered
+ * is dropped.
  */
-export function deliverCards(gov: Gov): Promise<void> {
+export function deliverNotifications(gov: Gov): Promise<void> {
   const next = (delivering.get(gov) ?? Promise.resolve()).then(async () => {
     for (const event of readEvents(gov.db, Number(getInstance(gov.db, "cards_through") ?? 0))) {
       setInstance(gov.db, "cards_through", String(event.seq));
       if (!event.workspaceId || !["task.needs_you", "task.done", "task.failed"].includes(event.type)) continue;
       const payload = JSON.parse(event.payloadJson) as { title: string; root: boolean; need?: TaskNeed };
       if (event.type !== "task.needs_you" && !payload.root) continue;
-      const row = gov.db.prepare("SELECT status FROM workspaces WHERE id=?").get(event.workspaceId) as { status: string } | undefined;
-      if (row?.status !== "active" || !activeManifest(gov, event.workspaceId).teams) continue;
+      const row = gov.db.prepare("SELECT status, slug FROM workspaces WHERE id=?").get(event.workspaceId) as { status: string; slug: string } | undefined;
+      if (row?.status !== "active") continue;
+      const { teams, webhook } = activeManifest(gov, event.workspaceId);
+      const taskId = event.subject.slice("task:".length);
+      const url = `${gov.baseUrl}/w/${event.workspaceId}/tasks/${taskId}`;
       const text = event.type === "task.needs_you" ? `"${payload.title}" ${payload.need ? NEEDS[payload.need.kind] : "needs you"}.` : `"${payload.title}" ${event.type === "task.done" ? "is done." : "failed."}`;
-      await postTeams(gov, event.workspaceId, text, `${gov.baseUrl}/w/${event.workspaceId}/tasks/${event.subject.slice("task:".length)}`).catch((e: unknown) => console.error(`Teams card not delivered: ${e instanceof Error ? e.message : String(e)}`));
+      await Promise.all([
+        teams ? postTeams(gov, event.workspaceId, text, url).catch((e: unknown) => console.error(`Teams card not delivered: ${e instanceof Error ? e.message : String(e)}`)) : undefined,
+        webhook ? postEvent(gov, webhook, { id: event.seq, type: event.type, atMs: event.createdAtMs, workspaceId: event.workspaceId, workspaceSlug: row.slug, taskId, data: { title: payload.title, goal: payload.root, ...(payload.need ? { need: payload.need.kind } : {}), url } }) : undefined,
+      ]);
     }
   });
   delivering.set(gov, next.catch(() => undefined));
@@ -54,5 +65,5 @@ export function deliverCards(gov: Gov): Promise<void> {
 }
 
 export function registerTeams(governor: Governor): void {
-  governor.every(3_000, () => deliverCards(governor.gov));
+  governor.every(3_000, () => deliverNotifications(governor.gov));
 }

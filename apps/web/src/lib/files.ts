@@ -29,13 +29,14 @@ export interface Brain {
   /** The remote the workspace folder is pushed to. */
   git: SnapshotManifest["git"];
   teams: SnapshotManifest["teams"];
+  webhook?: SnapshotManifest["webhook"];
   approvals: Approvals;
 }
 
 export function brainOf(snapshot: SnapshotManifest): Brain {
-  const { name, description, packs, limits, healing, cleanup, models, projects, github, git, teams, approvals } = snapshot;
+  const { name, description, packs, limits, healing, cleanup, models, projects, github, git, teams, webhook, approvals } = snapshot;
   const pins = snapshot.pins ?? {};
-  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, ...(snapshot.platform ? { platform: snapshot.platform } : {}), packs: packs.map((pack) => (pins[pack] ? `${pack}@${pins[pack]}` : pack)), limits, healing, cleanup, models, projects, github, git, teams, approvals };
+  return { name, description, timezone: snapshot.timezone, visibility: snapshot.visibility, ...(snapshot.platform ? { platform: snapshot.platform } : {}), packs: packs.map((pack) => (pins[pack] ? `${pack}@${pins[pack]}` : pack)), limits, healing, cleanup, models, projects, github, git, teams, ...(webhook ? { webhook } : {}), approvals };
 }
 
 const differs = <T>(value: T, standard: T): T | undefined => (value === standard ? undefined : value);
@@ -58,6 +59,7 @@ export function brainToml(brain: Brain): string {
     github: brain.github ? { ...brain.github } : undefined,
     git: brain.git ? { ...brain.git } : undefined,
     teams: brain.teams ? { ...brain.teams } : undefined,
+    webhook: brain.webhook ? { ...brain.webhook } : undefined,
     approvals: Object.fromEntries(Object.entries(brain.approvals).map(([tool, rule]) => [tool, { ...rule }])),
   });
   // The projects are added after `compact`, which would drop the empty list that means no network.
