@@ -580,7 +580,8 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
 - `[teams] webhook` receives a card when a task needs a person and when a root task is
   done or failed; `message.send` posts to it. `[webhook] {url, secret}` receives the same events as CloudEvents 1.0
   (`integrations/webhook.ts`: `application/cloudevents+json`, signed `x-brain-signature-256`, three tries, a failure recorded
-  as `webhook.failed`). Both are sent from the audit log by one reader, from where it last stopped, so a restart neither
+  as `webhook.failed`; each workspace's deliveries wait in order in memory, at most 100, apart from the Teams cards and from
+  other workspaces, and are lost if the Governor stops). Both are sent from the audit log by one reader, from where it last stopped, so a restart neither
   loses nor repeats one; a workspace's `webhook` is in the manifest only when it names one.
 - Health: `GET /health/ready` answers when the process and its database do. The `health` query reports runners, whether
   each model's server answers (asked at most once a minute), the audit log's verification, and the time of the last

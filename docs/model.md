@@ -472,7 +472,8 @@ done or failed. Each is a [CloudEvent](https://cloudevents.io) (JSON, `type` suc
 `brain.task.done`, `subject` the task, `data` its title, whether it is a goal, what it needs
 and its address), with `x-brain-signature-256: sha256=<HMAC-SHA256 of the body>` made with
 the secret. The `id` is the event's place in the audit log, so a receiver can tell a repeat.
-A delivery is tried three times; one that fails is dropped and recorded in the audit log.
+A delivery is tried three times; one that fails is dropped and recorded in the audit log, and
+one still waiting when Brain stops is lost. A slow receiver delays only its own workspace.
 Only an admin writes the webhook, and a healer's fix cannot change it.
 
 ## The queue

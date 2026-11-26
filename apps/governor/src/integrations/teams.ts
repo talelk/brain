@@ -6,7 +6,7 @@ import { readEvents } from "../events";
 import { ToolRefusal } from "../tools/schema";
 import { readSecret } from "../trust/secrets";
 import { activeManifest } from "../workspace/store";
-import { postEvent } from "./webhook";
+import { queueEvent } from "./webhook";
 
 /**
  * Teams (docs/architecture.md section 9): a card when a task needs a person and when a goal is done or failed, and the `message.send` tool.
@@ -54,10 +54,9 @@ export function deliverNotifications(gov: Gov): Promise<void> {
       const taskId = event.subject.slice("task:".length);
       const url = `${gov.baseUrl}/w/${event.workspaceId}/tasks/${taskId}`;
       const text = event.type === "task.needs_you" ? `"${payload.title}" ${payload.need ? NEEDS[payload.need.kind] : "needs you"}.` : `"${payload.title}" ${event.type === "task.done" ? "is done." : "failed."}`;
-      await Promise.all([
-        teams ? postTeams(gov, event.workspaceId, text, url).catch((e: unknown) => console.error(`Teams card not delivered: ${e instanceof Error ? e.message : String(e)}`)) : undefined,
-        webhook ? postEvent(gov, webhook, { id: event.seq, type: event.type, atMs: event.createdAtMs, workspaceId: event.workspaceId, workspaceSlug: row.slug, taskId, data: { title: payload.title, goal: payload.root, ...(payload.need ? { need: payload.need.kind } : {}), url } }) : undefined,
-      ]);
+      // Handed over, not waited for: another system's receiver is never in the way of the next card.
+      if (webhook) queueEvent(gov, webhook, { id: event.seq, type: event.type, atMs: event.createdAtMs, workspaceId: event.workspaceId, workspaceSlug: row.slug, taskId, data: { title: payload.title, goal: payload.root, ...(payload.need ? { need: payload.need.kind } : {}), url } });
+      if (teams) await postTeams(gov, event.workspaceId, text, url).catch((e: unknown) => console.error(`Teams card not delivered: ${e instanceof Error ? e.message : String(e)}`));
     }
   });
   delivering.set(gov, next.catch(() => undefined));
