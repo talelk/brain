@@ -76,6 +76,8 @@ export interface OfferTool {
   readonly timeoutSeconds: number;
   readonly runs?: "brain";
   readonly hostCommand?: string;
+  /** A tool of an external MCP server: the runner's own client calls it in the tool sandbox. */
+  readonly mcp?: { readonly url: string; readonly tool: string };
 }
 export interface OfferProject {
   readonly name: string;

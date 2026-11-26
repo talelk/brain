@@ -427,6 +427,12 @@ and `blobs/:digest` (snapshot manifest, prompts and tool files).
   the input against the schema, and runs the script in a tool sandbox with the task's
   working copy mounted read-only at `/work`, the attempt's `/out` writable (a tool that builds a deliverable saves it there), the declared hosts on the egress proxy and
   the declared secrets leased for that call. A result of a tool with outputs that does not fit them is a failed call. `effect = "read"` runs at once. The effect is the one the tool's file says, Brain-run tools included.
+- **MCP tools** (`[mcp]`): the loader takes `input_schema` and `output_schema` from `input.schema.json` and
+  `output.schema.json` (a JSON Schema of an object; `$schema` and `$id` are ignored by the check, formats are not asserted) and
+  `needs` bash, python3 and curl. The offer carries `mcp {url, tool}`; the runner writes its own client
+  (`apps/runner/src/tools/mcp-client.sh`: Streamable HTTP, revision 2025-11-25, curl through the egress proxy) as the tool's
+  `run.sh` with `mcp.json` beside it, and the call goes the way of any script. `pnpm brain mcp-tools` (`scripts/mcp-tools.ts`,
+  the official SDK's client) writes the folders.
 - **Effects** (`write`, `privileged`): the runner posts the call to `tool-call`. The
   Governor builds the approval subject (tool, digest of the tool's definition, input and its digest, task,
   snapshot digest, and for a pull request the digest of the diff the approver reads, the state commit whose tree is opened and the commit it is made on). If a standing approval in

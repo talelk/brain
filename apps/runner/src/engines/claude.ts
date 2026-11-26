@@ -20,7 +20,9 @@ function shapeOf(schema: Record<string, JsonValue>): Record<string, ZodTypeAny> 
   const required = new Set((schema["required"] as string[] | undefined) ?? []);
   const shape: Record<string, ZodTypeAny> = {};
   for (const [key, value] of Object.entries(properties)) {
-    const one = z.fromJSONSchema(value as Parameters<typeof z.fromJSONSchema>[0]);
+    // A schema an outside server wrote may use what zod does not read; the call is checked against the schema itself anyway.
+    let one: ZodTypeAny;
+    try { one = z.fromJSONSchema(value as Parameters<typeof z.fromJSONSchema>[0]); } catch { one = z.unknown(); }
     shape[key] = required.has(key) ? one : one.optional();
   }
   return shape;

@@ -156,3 +156,23 @@ ${rest}`;
     expect(load({ "brain.toml": 'name = "T"\n', "agents/dev/agent.toml": 'description = "Dev."\n', "agents/dev/prompt.md": "Work.\n" }).manifest?.agents["dev"]?.engine).toEqual(["pi", "claude"]);
   });
 });
+
+describe("an MCP tool's files", () => {
+  const input = '{"type": "object", "properties": {"title": {"type": "string"}}}';
+  const toml = (extra = "") => `description = "Remote."\neffect = "write"\nnetwork = ["mcp.example.com"]\n${extra}[mcp]\nurl = "https://mcp.example.com/mcp"\ntool = "create"\n`;
+  const problems = (files: Record<string, string>) => problemsOf({ "brain.toml": 'name = "T"\n', ...files });
+
+  it("are its declaration and the server's schemas", () => {
+    expect(problems({ "tools/tickets.create/tool.toml": toml(), "tools/tickets.create/input.schema.json": input })).toEqual([]);
+  });
+
+  it("are refused without a readable schema, with a script, with inputs of its own, a second secret or another host", () => {
+    expect(problems({ "tools/tickets.create/tool.toml": toml() })).toEqual([expect.stringContaining("needs input.schema.json")]);
+    expect(problems({ "tools/tickets.create/tool.toml": toml(), "tools/tickets.create/input.schema.json": "{" })).toEqual([expect.stringContaining("not valid JSON")]);
+    expect(problems({ "tools/tickets.create/tool.toml": toml(), "tools/tickets.create/input.schema.json": '{"type": "string"}' })).toEqual([expect.stringContaining('"type": "object"')]);
+    expect(problems({ "tools/tickets.create/tool.toml": toml(), "tools/tickets.create/input.schema.json": input, "tools/tickets.create/run.sh": "echo" })).toEqual([expect.stringContaining("no run.sh")]);
+    expect(problems({ "tools/tickets.create/tool.toml": toml('secrets = ["a", "b"]\n'), "tools/tickets.create/input.schema.json": input })).toEqual([expect.stringContaining("at most one secret")]);
+    expect(problems({ "tools/tickets.create/tool.toml": toml().replace('["mcp.example.com"]', '["*"]'), "tools/tickets.create/input.schema.json": input })).toEqual([expect.stringContaining('network = ["mcp.example.com"]')]);
+    expect(problems({ "tools/tickets.create/tool.toml": toml('[inputs.title]\ntype = "string"\n'), "tools/tickets.create/input.schema.json": input })).toEqual([expect.stringContaining("no [inputs]")]);
+  });
+});

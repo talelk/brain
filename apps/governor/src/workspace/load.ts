@@ -1,10 +1,11 @@
 import {
   AgentFile, BRAIN_TOOLS, BrainFile, fieldSchema, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PackFile, parseRef, parseWhen, PLATFORM_PACK, PlayFile, splitPackRef, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
-  type Digest, type Language, type Problem, type Ref, type SnapshotManifest, type StepSpec,
+  type Digest, type JsonSchema, type Language, type Problem, type Ref, type SnapshotManifest, type StepSpec,
 } from "@brain/contracts";
 import { parse as parseToml } from "smol-toml";
 import type { z } from "zod";
 import { classifyPath, readPack, type Files } from "./files";
+import { schemaUnreadable } from "@brain/contracts/validate";
 
 /**
  * A workspace folder and its packs, read into a snapshot (docs/architecture.md section 2). Pure apart from reading the packs directory:
@@ -27,6 +28,8 @@ export interface Loaded {
   readonly blobs: ReadonlyMap<Digest, Uint8Array>;
 }
 
+/** What Brain's MCP client needs on a runner, when the tool names nothing itself. */
+const MCP_NEEDS = ["bash", "python3", "curl"] as const;
 const text = (bytes: Uint8Array): string => new TextDecoder().decode(bytes);
 /** TOML dates become the text they were written as, so a schema sees `2027-01-31`. */
 function plain(value: unknown): unknown {
@@ -257,6 +260,27 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
     if (!tool) continue;
     const others = beside.filter((entry) => entry !== "tool.toml");
     const hasScript = others.includes("run.sh");
+    /** A schema file of an MCP tool: a JSON Schema of an object, as the server gave it. */
+    const schemaFile = (file: string, required: boolean): JsonSchema | undefined => {
+      const at = shown(`tools/${name}/${file}`);
+      const found = files.get(`tools/${name}/${file}`);
+      if (!found) { if (required) problems.push({ path: shown(path), message: `an MCP tool needs ${file} beside it` }); return undefined; }
+      let value: unknown;
+      try { value = JSON.parse(text(found.bytes)); } catch { problems.push({ path: at, message: "not valid JSON" }); return undefined; }
+      const why = value === null || typeof value !== "object" || (value as { type?: unknown }).type !== "object" ? 'the schema of an object, with "type": "object"' : schemaUnreadable(value as JsonSchema);
+      if (why !== undefined) { problems.push({ path: at, message: `not a JSON Schema Brain can read: ${why}` }); return undefined; }
+      return value as JsonSchema;
+    };
+    if (tool.mcp !== undefined) {
+      if (hasScript) problems.push({ path: shown(path), message: "an MCP tool has no run.sh: Brain's own client calls the server" });
+      const input = schemaFile("input.schema.json", true);
+      const output = schemaFile("output.schema.json", false);
+      tools[name] = {
+        ...tool, needs: tool.needs.length > 0 ? tool.needs : [...MCP_NEEDS], source: file.source, input_schema: input ?? { type: "object" }, ...(output ? { output_schema: output } : {}),
+        files: others.map((entry) => ({ path: entry, ...blob((files.get(`tools/${name}/${entry}`) as LoadedFile).bytes) })),
+      };
+      continue;
+    }
     if (tool.runs === "brain") {
       if (!(BRAIN_TOOLS as readonly string[]).includes(name)) problems.push({ path: shown(path), message: `runs = "brain" is only for the tools Brain implements: ${BRAIN_TOOLS.join(", ")}` });
       if (hasScript) problems.push({ path: shown(path), message: "a tool Brain runs has no run.sh" });

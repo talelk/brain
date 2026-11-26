@@ -476,6 +476,7 @@ export const fr: Catalog = {
   "tool.runs.brain": "Brain exécute lui-même cet outil. Il n'a pas de script.",
   "tool.runs.host": "Exécute la commande {command} que l'opérateur du runner a déclarée sur l'hôte.",
   "tool.runs.script": "Exécute son script dans un bac à sable sur un runner.",
+  "tool.runs.mcp": "Appelle l'outil {tool} du serveur MCP à {url}, dans un bac à sable, avec une approbation s'il change quelque chose.",
   "tool.inputs": "Entrées",
   "tool.inputs.text": "Ce qu'un appel doit fournir. Un appel non conforme est refusé avant toute exécution.",
   "tool.sandbox": "Où il s'exécute",

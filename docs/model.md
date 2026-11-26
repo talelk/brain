@@ -210,6 +210,31 @@ The file's `effect` is what decides, for a tool Brain runs too: a workspace or p
 `workspace.fix` carry out only what an approval shows, so a copy that says `read` does
 nothing. Who may write that file decides it: an admin, or a pack an admin chose.
 
+A tool can also be **one tool of an external MCP server**. Its folder names the server and
+the tool, and holds the server's schemas beside it:
+
+```toml
+# tools/tickets.create/tool.toml
+description = "Creates a ticket in the tracker."
+effect = "write"
+network = ["mcp.tracker.example"]   # exactly the server's host
+secrets = ["tickets"]               # at most one, sent as a bearer token
+
+[mcp]
+url = "https://mcp.tracker.example/mcp"
+tool = "create_ticket"
+```
+
+`input.schema.json` (and `output.schema.json` when the server gives one) are the server's JSON
+Schemas, pinned in the folder: a call is checked against them, and an approval is bound to
+them. Brain's own client makes the call from the tool sandbox, so it is governed like any tool:
+the same effect, approval, secret lease, egress and record, and an engine never talks to the
+server itself. The tool's structured result is the result; one that only answers in text gives
+`{"text": "..."}`; an error of the server or the tool is a failed call. Servers over HTTP
+(Streamable HTTP) only. `pnpm brain mcp-tools <url> --system <name>` writes these folders
+from a server's list of tools, each `privileged` until an admin lowers it: what a server says
+of its own tools is not trusted.
+
 In a tool's `network` and a project's, `"*"` opens any public host. A pattern such as
 `*.example.com` is accepted in the file but is never granted: a project's pattern is left out,
 and the attempt says which hosts it cannot reach; a tool that names one has its call refused.

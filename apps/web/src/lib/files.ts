@@ -85,9 +85,9 @@ function keepInputs(translations: ToolFile["translations"] | PlayFile["translati
 }
 
 export function toolToml(tool: ToolFile): string {
-  const { description, effect, timeout_seconds, needs, network, secrets, runs, host_command, inputs, outputs, translations } = tool;
+  const { description, effect, timeout_seconds, needs, network, secrets, runs, host_command, mcp, inputs, outputs, translations } = tool;
   // `inputs` is filled after `compact`, which would drop a `required = false` it must keep.
-  return toToml({ ...compact({ description, runs, host_command, effect, timeout_seconds: differs(timeout_seconds, 60), needs, secrets }), network: hosts(network), inputs: inputsTable(inputs), ...(outputs ? { outputs: inputsTable(outputs) } : {}), ...compact({ translations: keepInputs(translations, inputs) }) });
+  return toToml({ ...compact({ description, runs, host_command, effect, timeout_seconds: differs(timeout_seconds, 60), needs, secrets, mcp: mcp ? { ...mcp } : undefined }), network: hosts(network), inputs: inputsTable(inputs), ...(outputs ? { outputs: inputsTable(outputs) } : {}), ...compact({ translations: keepInputs(translations, inputs) }) });
 }
 
 function stepTable(step: StepSpec): TomlTable {

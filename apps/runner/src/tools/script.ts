@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, normalize, sep } from "node:path";
 import type { BlobRef, JsonValue, OfferTool, JsonSchema } from "@brain/contracts";
 import { execa } from "execa";
@@ -47,6 +47,14 @@ async function materializeTool(attemptDir: string, tool: OfferTool, blob: (ref: 
   if (!isToolName(tool.name)) throw new Error(`the tool name ${tool.name} cannot name a folder`);
   const dir = toolDir(attemptDir, tool.name);
   if (existsSync(join(dir, ".complete"))) return dir;
+  if (tool.mcp) {
+    // An MCP tool runs Brain's own client: its files are the schemas, which the call has been checked against already.
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "run.sh"), readFileSync(new URL("./mcp-client.sh", import.meta.url)), { mode: 0o755 });
+    writeFileSync(join(dir, "mcp.json"), JSON.stringify({ url: tool.mcp.url, tool: tool.mcp.tool, secretEnv: tool.secrets[0] ? secretEnvName(tool.secrets[0]) : null, timeout: tool.timeoutSeconds }), { mode: 0o644 });
+    writeFileSync(join(dir, ".complete"), "");
+    return dir;
+  }
   for (const file of tool.files) {
     const relative = normalize(file.path);
     if (relative.startsWith("..") || relative.startsWith(sep) || relative.includes(`..${sep}`)) throw new Error(`tool ${tool.name} has a file outside its folder: ${file.path}`);

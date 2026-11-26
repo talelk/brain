@@ -168,7 +168,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
     const tool = manifest.tools[name] as SnapshotManifest["tools"][string];
     return {
       name, description: tool.description, effect: tool.effect, inputSchema: tool.input_schema, ...(tool.output_schema ? { outputSchema: tool.output_schema } : {}), files: tool.files.map((file) => ({ path: file.path, digest: file.digest, bytes: file.bytes })),
-      network: tool.network, secrets: tool.secrets, needs: tool.needs, timeoutSeconds: tool.timeout_seconds, ...(tool.runs ? { runs: tool.runs } : {}), ...(tool.host_command ? { hostCommand: tool.host_command } : {}),
+      network: tool.network, secrets: tool.secrets, needs: tool.needs, timeoutSeconds: tool.timeout_seconds, ...(tool.runs ? { runs: tool.runs } : {}), ...(tool.host_command ? { hostCommand: tool.host_command } : {}), ...(tool.mcp ? { mcp: tool.mcp } : {}),
     };
   });
   const projects: OfferProject[] = manifest.projects.map((project) => {

@@ -148,7 +148,7 @@ function InputRows(props: { label: string; rows: readonly InputRow[]; onChange: 
 export function ToolForm(props: { name: string; initial: ToolFile; isNew: boolean; readOnly: boolean; onSaved: () => void }): JSX.Element {
   const [tool, setTool] = createStore<ToolFile>(structuredClone(strip(props.initial)));
   const [inputs, setInputs] = createSignal(toRows(props.initial.inputs));
-  const scripted = (): boolean => tool.runs === undefined && tool.host_command === undefined;
+  const scripted = (): boolean => tool.runs === undefined && tool.host_command === undefined && tool.mcp === undefined;
   const [script, setScript, scriptError] = useFileText(() => paths.script(props.name), "#!/bin/sh\nset -eu\n\n# The call's input arrives as JSON on standard input; print the result as JSON.\n", props.isNew || !scripted());
   const write = useWrite(props.onSaved);
   const file = (): ToolFile => ({ ...unwrap(tool), inputs: fromRows(inputs()) });
@@ -159,18 +159,21 @@ export function ToolForm(props: { name: string; initial: ToolFile; isNew: boolea
         <Problems items={problemsOf(write, paths.tool(props.name))} />
         <Textarea size="md" label={t("field.description")} description={t("tool.description.help")} rows={4} value={tool.description} onInput={(event) => setTool("description", event.currentTarget.value)} required disabled={props.readOnly} />
         <Choice label={t("tool.effect")} value={tool.effect} onChange={(value) => setTool("effect", value)} disabled={props.readOnly} options={EFFECTS.map((effect) => ({ value: effect, label: t(`effect.${effect}`), help: t(`effect.${effect}.help`) }))} />
-        <p class="t-small text-ink-2">{tool.runs === "brain" ? t("tool.runs.brain") : tool.host_command !== undefined ? t("tool.runs.host", { command: tool.host_command }) : t("tool.runs.script")}</p>
+        <p class="t-small text-ink-2">{tool.runs === "brain" ? t("tool.runs.brain") : tool.host_command !== undefined ? t("tool.runs.host", { command: tool.host_command }) : tool.mcp ? t("tool.runs.mcp", { tool: tool.mcp.tool, url: tool.mcp.url }) : t("tool.runs.script")}</p>
       </Group>
-      <Group title={t("tool.inputs")} text={t("tool.inputs.text")}>
-        <InputRows label={t("tool.inputs")} rows={inputs()} onChange={setInputs} readOnly={props.readOnly} />
-      </Group>
+      {/* An MCP tool's inputs are the server's schema, kept in the file beside it. */}
+      <Show when={tool.mcp === undefined}>
+        <Group title={t("tool.inputs")} text={t("tool.inputs.text")}>
+          <InputRows label={t("tool.inputs")} rows={inputs()} onChange={setInputs} readOnly={props.readOnly} />
+        </Group>
+      </Show>
       <Show when={tool.runs === undefined}>
         <Group title={t("tool.sandbox")} text={t("tool.sandbox.text")}>
           <div class="grid gap-4 sm:grid-cols-2">
             <NumberField label={t("tool.timeout")} min={1} max={3600} step={1} value={tool.timeout_seconds} onChange={(value) => setTool("timeout_seconds", value ?? 60)} disabled={props.readOnly} />
             <Show when={scripted()}><ListField label={t("tool.needs")} description={t("tool.needs.help")} value={tool.needs} onChange={(value) => setTool("needs", value)} disabled={props.readOnly} /></Show>
           </div>
-          <Show when={scripted()}>
+          <Show when={scripted() || tool.mcp !== undefined}>
             <div class="grid gap-4 sm:grid-cols-2">
               <ListField label={t("tool.network")} description={t("tool.network.help")} value={tool.network} onChange={(value) => setTool("network", value)} disabled={props.readOnly} />
               <ListField label={t("tool.secrets")} description={t("tool.secrets.help")} value={tool.secrets} onChange={(value) => setTool("secrets", value)} disabled={props.readOnly} />

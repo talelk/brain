@@ -74,10 +74,12 @@ other entry is a rule or a lesson that agents read as it is. Both exist in Frenc
 - `agent.toml`: `description`, `engine` (left out: `pi` and `claude`), `native`, `tools`, `model_in_commands` (only a
   producer whose commands must call a model, as `ai-factory`'s do), `[limits]` with `turns`,
   `tokens`, `spend_usd` (a pack agent sets only the spend, so the defaults of docs/model.md, Limits, apply to turns and tokens). No pack agent sets `model`.
-- `tool.toml`, three shapes:
+- `tool.toml`, four shapes:
   - Brain-run: `description`, `runs = "brain"`, `effect`, `[inputs.*]`. No script.
   - Host command: `description`, `effect`, `host_command`, `timeout_seconds`,
     `[inputs.*]`. No script.
+  - MCP: `description`, `effect`, `network` (the server's host), at most one of `secrets`, `[mcp]`, with `input.schema.json`
+    (and `output.schema.json`) beside it.
   - Script: `description`, `effect`, `timeout_seconds`, `needs`, `network`, `secrets`,
     `[inputs.*]`, with `run.sh` and `test.sh` beside it.
 - A tool input: `type` (`string`, `integer` or `array` here), `description`, `required`

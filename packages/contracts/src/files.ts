@@ -199,6 +199,8 @@ export const ToolFile = z.strictObject({
   secrets: z.array(slug("a secret name")).default([]),
   runs: z.literal("brain").optional(),
   host_command: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/u, "must be the name of a command declared on the runner host").optional(),
+  /** A tool of an external MCP server: its URL and the tool's name there. Its schemas are the files beside, `input.schema.json` and `output.schema.json`. */
+  mcp: z.strictObject({ url: z.string().refine(isRemoteAddress, "must be an http or https address without a password in it"), tool: z.string().min(1).max(128) }).optional(),
   inputs,
   /** What the result holds: it is checked, and told to whoever reads the tool's schema. */
   outputs: outputFields,
@@ -207,6 +209,14 @@ export const ToolFile = z.strictObject({
   translatedInputsExist(tool, ctx);
   if (tool.runs !== undefined && tool.host_command !== undefined) ctx.addIssue({ code: "custom", path: ["host_command"], message: "a tool is run by Brain or by a host command, not both" });
   if (tool.host_command !== undefined && tool.outputs !== undefined) ctx.addIssue({ code: "custom", path: ["outputs"], message: "a host command answers with text, so it declares no outputs" });
+  if (tool.mcp !== undefined) {
+    const add = (path: string, message: string): void => ctx.addIssue({ code: "custom", path: [path], message });
+    if (tool.runs !== undefined || tool.host_command !== undefined) add("mcp", "a tool is one of: a script, run by Brain, a host command, or a tool of an MCP server");
+    if (Object.keys(tool.inputs).length > 0 || tool.outputs !== undefined) add("mcp", "the server's schemas describe an MCP tool: write input.schema.json (and output.schema.json) beside it, no [inputs] or [outputs]");
+    if (tool.secrets.length > 1) add("secrets", "an MCP tool has at most one secret, sent to its server as a bearer token");
+    const server = (() => { try { return new URL(tool.mcp.url).host.toLowerCase(); } catch { return undefined; } })();
+    if (server !== undefined && (tool.network.length !== 1 || tool.network[0] !== server)) add("network", `an MCP tool reaches its server and nothing else: network = ["${server}"]`);
+  }
   if (tool.host_command !== undefined && tool.effect === "write") ctx.addIssue({ code: "custom", path: ["effect"], message: "a host command that changes anything must have effect privileged" });
 });
 export type ToolFile = z.infer<typeof ToolFile>;

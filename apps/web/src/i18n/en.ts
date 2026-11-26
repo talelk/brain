@@ -474,6 +474,7 @@ export const en = {
   "tool.runs.brain": "Brain runs this tool itself. It has no script.",
   "tool.runs.host": "Runs the command {command} that the runner's operator declared on the host.",
   "tool.runs.script": "Runs its script in a sandbox on a runner.",
+  "tool.runs.mcp": "Calls the tool {tool} of the MCP server at {url}, in a sandbox, with an approval when it changes something.",
   "tool.inputs": "Inputs",
   "tool.inputs.text": "What a call must give. A call that does not fit is refused before anything runs.",
   "tool.sandbox": "Where it runs",

@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { backup, restore } from "../apps/governor/src/health/backup";
 import { ENGINE_NAMES } from "../packages/contracts/src/engines";
+import { writeMcpTools } from "./mcp-tools";
 import { checkFolder } from "./pack-check";
 import { verify } from "../apps/governor/src/trust/audit";
 
@@ -27,6 +28,10 @@ import { verify } from "../apps/governor/src/trust/audit";
  *                    audit key, the store's keys and repositories) and leaves <data>/backup.marker. Works while Brain runs. Default: <home>/backups/brain-<time>.tar.gz
  *   restore <file>   puts a backup in place of the data. Refuses while Brain runs; what was there is moved aside, never deleted.
  *   audit-verify     verifies the audit log from its first event; exits 0 only when it holds.
+ *   mcp-tools <url> --system <name> [--out <folder>] [--token-env <VARIABLE>]
+ *                    writes each tool of an MCP server as a tool folder (privileged until an admin lowers it) into a local folder
+ *                    (default ./mcp-tools). A server that asks for a token is given the value of the named environment variable, and the
+ *                    tools are written to take the workspace secret named after the system.
  *   check <folder>   loads a workspace or pack folder as Brain would, holds a pack to its shape and runs each tool's test.sh, offline;
  *                    exits 0 only when nothing is wrong. For whoever writes a pack.
  *
@@ -295,6 +300,18 @@ async function main(): Promise<void> {
     }
     return;
   }
+  if (command === "mcp-tools") {
+    const option = (name: string): string | undefined => { const at = process.argv.indexOf(name); return at < 0 ? undefined : process.argv[at + 1]; };
+    const system = option("--system");
+    if (!argument || !system) throw new Error("say which server and what to call it: pnpm brain mcp-tools <url> --system <name>");
+    const variable = option("--token-env");
+    const token = variable ? process.env[variable] : undefined;
+    if (variable && !token) throw new Error(`the environment variable ${variable} is not set`);
+    const out = resolve(option("--out") ?? "mcp-tools");
+    const names = await writeMcpTools({ url: argument, system, out, ...(token ? { token } : {}) });
+    say(`Wrote ${names.length} tool${names.length === 1 ? "" : "s"} to ${join(out, "tools")}: ${names.join(", ")}.\nEach waits for a person until its effect is lowered. Add them in the workspace's Files tab, and name them in the agents that may use them.`);
+    return;
+  }
   if (command === "check") {
     if (!argument) throw new Error("say which folder: pnpm brain check <folder>");
     const result = await checkFolder(resolve(argument), join(ROOT, "packs"));
@@ -305,7 +322,7 @@ async function main(): Promise<void> {
     process.exitCode = wrong === 0 ? 0 : 1;
     return;
   }
-  throw new Error("usage: pnpm brain start | stop | status | logs [governor|store|launcher|runner] | runner --governor <address> [--token-file <file>] | backup [file] | restore <file> | audit-verify | check <folder>");
+  throw new Error("usage: pnpm brain start | stop | status | logs [governor|store|launcher|runner] | runner --governor <address> [--token-file <file>] | backup [file] | restore <file> | audit-verify | check <folder> | mcp-tools <url> --system <name>");
 }
 
 try {
