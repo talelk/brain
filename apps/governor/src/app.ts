@@ -11,6 +11,7 @@ import { registerAttempts } from "./attempts/routes";
 import { offerLocalRunnerToken, registerRunners } from "./attempts/runners";
 import { createAuth } from "./auth/auth";
 import { ensureSetupToken, registerAuth } from "./auth/handlers";
+import { registerTokens, tokenUser } from "./auth/tokens";
 import { registerUsers } from "./auth/users";
 import { openDb } from "./db";
 import { errorFields, log } from "./log";
@@ -179,10 +180,15 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
     if (process.env["BRAIN_AUTH_TRUSTED_PROXIES"]) return c.req.header("x-forwarded-for")?.split(",").at(-1)?.trim() || "unknown";
     return (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress ?? "local";
   };
-  const caller = async (c: Context) => ({ user: await gov.auth.user(c.req.raw.headers), cookies: [] as string[], ip: clientIp(c) });
+  // Commands and queries also take an API token; one that no longer holds is refused rather than answered as the session beside it.
+  const caller = async (c: Context) => {
+    const bearer = tokenUser(db, keys.digests, gov.clock.nowMs(), c.req.raw.headers);
+    if (bearer === null) throw new BrainError("UNAUTHENTICATED", "This API token is not valid: it is wrong, revoked or expired");
+    return { user: bearer ?? await gov.auth.user(c.req.raw.headers), session: bearer === undefined, cookies: [] as string[], ip: clientIp(c) };
+  };
   app.post("/v1/command", async (c) => {
     const who = await caller(c);
-    const output = await runCommand(gov, who, await readJson(c.req.raw, who.user !== null));
+    const output = await runCommand(gov, who, await readJson(c.req.raw, who.session && who.user !== null));
     for (const cookie of who.cookies) c.header("set-cookie", cookie, { append: true });
     return c.json({ output });
   });
@@ -232,7 +238,7 @@ export async function createGovernor(options: GovernorOptions): Promise<Governor
   });
 
   // Each module registers its commands, queries, routes and timers here, before the web app's catch-all route below.
-  for (const register of [registerAuth, registerUsers, registerWorkspace, registerPacks, registerTrust, registerUsage, registerApprovals, registerRetention, registerMemory, registerTriggers, registerTasks, registerOverview, registerInsights, registerRunners, registerAttempts, registerGateway, registerGithub, registerTeams, registerHealth]) register(governor);
+  for (const register of [registerAuth, registerUsers, registerTokens, registerWorkspace, registerPacks, registerTrust, registerUsage, registerApprovals, registerRetention, registerMemory, registerTriggers, registerTasks, registerOverview, registerInsights, registerRunners, registerAttempts, registerGateway, registerGithub, registerTeams, registerHealth]) register(governor);
   governor.every(15 * 60_000, () => void checkpoint(gov));
 
   ensureAuditKey(gov);

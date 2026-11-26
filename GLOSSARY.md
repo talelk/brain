@@ -123,5 +123,8 @@ _Avoid_: control plane, backend, server (unqualified)
 log.
 _Avoid_: trace, history, trust layer
 
+**API token**: A workspace's credential for another system, with the role `viewer` or `member`; it never does what waits for a person.
+_Avoid_: API key, service account, personal access token
+
 **Audit log**: The append-only, hash-chained list of every change and decision.
 _Avoid_: event store, activity log

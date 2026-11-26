@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { z } from "zod";
-import { commands, PUBLISHED, queries } from "../packages/contracts/src/api";
+import { commands, PUBLISHED, queries, TOKEN_MAY } from "../packages/contracts/src/api";
 
 type Schema = Record<string, unknown>;
 const SOURCE = fileURLToPath(new URL("../packages/contracts/src/api.ts", import.meta.url));
@@ -91,7 +91,8 @@ export function openApi(): string {
       const { $schema: _dialect, ...input } = z.toJSONSchema(entry.input, { io: "input", unrepresentable: "any" });
       components[key] = input;
       components[`${name}.output`] = output(kind === "command" ? "CommandOutputs" : "QueryOutputs", name);
-      operations[name] = { kind, role: entry.role, input: { $ref: `${REF}${key}` }, output: { $ref: `${REF}${name}.output` } };
+      const token = ((kind === "command" ? TOKEN_MAY.commands : TOKEN_MAY.queries) as readonly string[]).includes(name);
+      operations[name] = { kind, role: entry.role, token, input: { $ref: `${REF}${key}` }, output: { $ref: `${REF}${name}.output` } };
       return { title: name, type: "object", required: kind === "command" ? ["type", "input", "idempotencyKey"] : ["type", "input"], properties: { type: { const: name }, input: { $ref: `${REF}${key}` }, ...(kind === "command" ? { idempotencyKey: { type: "string" } } : {}) } };
     });
     return {
@@ -111,10 +112,10 @@ export function openApi(): string {
     openapi: "3.1.0",
     info: {
       title: "Brain API", version,
-      description: "The commands and queries another system uses. Every request is a POST naming one entry in `type`; `x-brain-operations` gives each entry's input, output and the least role it needs. The file describes the commit it is in: it changes when Brain does.",
+      description: "The commands and queries another system uses. Every request is a POST naming one entry in `type`; `x-brain-operations` gives each entry's input, output, the least role it needs and whether an API token may call it. A system signs requests with an API token (`Authorization: Bearer`) or with a signed-in session. The file describes the commit it is in: it changes when Brain does.",
     },
     paths,
     "x-brain-operations": operations,
-    components: { schemas: Object.fromEntries(Object.entries(components).sort(([a], [b]) => a.localeCompare(b))) },
+    components: { securitySchemes: { token: { type: "http", scheme: "bearer", description: "An API token of a workspace, made by one of its admins" } }, schemas: Object.fromEntries(Object.entries(components).sort(([a], [b]) => a.localeCompare(b))) },
   }, null, 2)}\n`;
 }

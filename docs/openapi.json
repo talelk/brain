@@ -3,7 +3,7 @@
   "info": {
     "title": "Brain API",
     "version": "0.1.0",
-    "description": "The commands and queries another system uses. Every request is a POST naming one entry in `type`; `x-brain-operations` gives each entry's input, output and the least role it needs. The file describes the commit it is in: it changes when Brain does."
+    "description": "The commands and queries another system uses. Every request is a POST naming one entry in `type`; `x-brain-operations` gives each entry's input, output, the least role it needs and whether an API token may call it. A system signs requests with an API token (`Authorization: Bearer`) or with a signed-in session. The file describes the commit it is in: it changes when Brain does."
   },
   "paths": {
     "/v1/query": {
@@ -609,6 +609,7 @@
     "me": {
       "kind": "query",
       "role": "public",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/me.input"
       },
@@ -619,6 +620,7 @@
     "overview": {
       "kind": "query",
       "role": "public",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/overview.input"
       },
@@ -629,6 +631,7 @@
     "queue": {
       "kind": "query",
       "role": "public",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/queue.input"
       },
@@ -639,6 +642,7 @@
     "insights": {
       "kind": "query",
       "role": "public",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/insights.input"
       },
@@ -649,6 +653,7 @@
     "workspace.files": {
       "kind": "query",
       "role": "viewer",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/workspace.files.input"
       },
@@ -659,6 +664,7 @@
     "file.read": {
       "kind": "query",
       "role": "viewer",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/file.read.input"
       },
@@ -669,6 +675,7 @@
     "tasks.list": {
       "kind": "query",
       "role": "viewer",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/tasks.list.input"
       },
@@ -679,6 +686,7 @@
     "task.get": {
       "kind": "query",
       "role": "viewer",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/task.get.input"
       },
@@ -689,6 +697,7 @@
     "task.events": {
       "kind": "query",
       "role": "viewer",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/task.events.input"
       },
@@ -699,6 +708,7 @@
     "schedules.list": {
       "kind": "query",
       "role": "public",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/schedules.list.input"
       },
@@ -709,6 +719,7 @@
     "packs.list": {
       "kind": "query",
       "role": "instance-admin",
+      "token": false,
       "input": {
         "$ref": "#/components/schemas/packs.list.input"
       },
@@ -719,6 +730,7 @@
     "audit.verify": {
       "kind": "query",
       "role": "instance-admin",
+      "token": false,
       "input": {
         "$ref": "#/components/schemas/audit.verify.input"
       },
@@ -729,6 +741,7 @@
     "task.create": {
       "kind": "command",
       "role": "member",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/task.create.input"
       },
@@ -739,6 +752,7 @@
     "task.steer": {
       "kind": "command",
       "role": "member",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/task.steer.input"
       },
@@ -749,6 +763,7 @@
     "task.stop": {
       "kind": "command",
       "role": "member",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/task.stop.input"
       },
@@ -759,6 +774,7 @@
     "task.retry": {
       "kind": "command",
       "role": "member",
+      "token": true,
       "input": {
         "$ref": "#/components/schemas/task.retry.input"
       },
@@ -769,6 +785,7 @@
     "task.check": {
       "kind": "command",
       "role": "member",
+      "token": false,
       "input": {
         "$ref": "#/components/schemas/task.check.input"
       },
@@ -779,6 +796,7 @@
     "task.answer": {
       "kind": "command",
       "role": "member",
+      "token": false,
       "input": {
         "$ref": "#/components/schemas/task.answer.input"
       },
@@ -789,6 +807,7 @@
     "task.checkpoint": {
       "kind": "command",
       "role": "member",
+      "token": false,
       "input": {
         "$ref": "#/components/schemas/task.checkpoint.input"
       },
@@ -799,6 +818,7 @@
     "file.write": {
       "kind": "command",
       "role": "admin",
+      "token": false,
       "input": {
         "$ref": "#/components/schemas/file.write.input"
       },
@@ -809,6 +829,7 @@
     "file.delete": {
       "kind": "command",
       "role": "admin",
+      "token": false,
       "input": {
         "$ref": "#/components/schemas/file.delete.input"
       },
@@ -819,6 +840,7 @@
     "pack.release": {
       "kind": "command",
       "role": "admin",
+      "token": false,
       "input": {
         "$ref": "#/components/schemas/pack.release.input"
       },
@@ -829,6 +851,7 @@
     "workspace.create": {
       "kind": "command",
       "role": "instance-admin",
+      "token": false,
       "input": {
         "$ref": "#/components/schemas/workspace.create.input"
       },
@@ -839,6 +862,7 @@
     "workspace.archive": {
       "kind": "command",
       "role": "admin",
+      "token": false,
       "input": {
         "$ref": "#/components/schemas/workspace.archive.input"
       },
@@ -848,6 +872,13 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "token": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "An API token of a workspace, made by one of its admins"
+      }
+    },
     "schemas": {
       "Approval": {
         "type": "object",

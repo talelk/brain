@@ -1,4 +1,5 @@
 import type { PlatformKind, Role, WorkspaceSummary } from "@brain/contracts";
+import { isTokenId, tokenGrant } from "./auth/tokens";
 import type { Gov } from "./dispatch";
 import { manifestOf } from "./workspace/store";
 
@@ -7,6 +8,7 @@ import { manifestOf } from "./workspace/store";
  * a member has their role; any other signed-in person is a `viewer` of an active workspace whose active snapshot says `visibility = "public"`;
  * an instance admin is an `admin` of every workspace, private and archived ones too (the Brain's own admin looks after all of them);
  * everyone else is told the workspace does not exist. A snapshot made before visibility existed reads as private.
+ * An API token is none of these: it holds its one role in its one workspace, and nothing anywhere else, public or not.
  */
 export interface Access { readonly role: Role; readonly status: "active" | "archived"; readonly viaPublic: boolean }
 
@@ -25,6 +27,10 @@ const platformOfRow = (gov: Gov, row: Row): PlatformKind | null => (row.snapshot
 export function accessOf(gov: Gov, userId: string, workspaceId: string): Access | undefined {
   const row = gov.db.prepare(`${SELECT} WHERE w.id = @workspace`).get({ user: userId, workspace: workspaceId }) as Row | undefined;
   if (!row) return undefined;
+  if (isTokenId(userId)) {
+    const grant = tokenGrant(gov.db, userId, gov.clock.nowMs());
+    return grant?.workspaceId === workspaceId && platformOfRow(gov, row) === null ? { role: grant.role, status: row.status, viaPublic: false } : undefined;
+  }
   // A platform workspace holds what every workspace did: it exists only for instance admins, members or not (docs/model.md).
   if (platformOfRow(gov, row) !== null && !isInstanceAdmin(gov, userId)) return undefined;
   if (row.role === "admin" || isInstanceAdmin(gov, userId)) return { role: "admin", status: row.status, viaPublic: false };
@@ -35,6 +41,14 @@ export function accessOf(gov: Gov, userId: string, workspaceId: string): Access 
 /** The workspaces a person sees: those they are a member of, and the public active ones; an instance admin sees all of them. */
 export function visibleWorkspaces(gov: Gov, userId: string): WorkspaceSummary[] {
   const rows = gov.db.prepare(`${SELECT} ORDER BY w.status, w.name, w.id`).all({ user: userId }) as Row[];
+  if (isTokenId(userId)) {
+    return rows.flatMap((row): WorkspaceSummary[] => {
+      const access = accessOf(gov, userId, row.id);
+      if (!access) return [];
+      const { id, slug, name, description, status } = row;
+      return [{ id, slug, name, description, status, role: access.role, visibility: isPublic(gov, row) ? "public" : "private", platform: null, viaPublic: false }];
+    });
+  }
   const admin = isInstanceAdmin(gov, userId);
   return rows.flatMap((row): WorkspaceSummary[] => {
     const platform = platformOfRow(gov, row);

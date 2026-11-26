@@ -16,7 +16,7 @@ describe("the database", () => {
     const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table') AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'memory_index_%' ORDER BY name").all() as Array<{ name: string }>).map((row) => row.name);
     db.close();
     expect(tables).toEqual([
-      "account", "approvals", "artifact_links", "artifacts", "attempt_events", "attempts", "audit_checkpoints", "audit_keys", "checks", "events", "idempotency", "instance", "instance_admins",
+      "account", "api_tokens", "approvals", "artifact_links", "artifacts", "attempt_events", "attempts", "audit_checkpoints", "audit_keys", "checks", "events", "idempotency", "instance", "instance_admins",
       "members", "memory_index", "memory_proposals", "notes", "pull_requests", "rateLimit", "runner_challenges", "runner_tokens", "runners", "secrets", "session", "snapshots",
       "standing_uses", "tasks", "task_deps", "tool_calls", "triggers", "usage", "user", "verification", "webhook_deliveries", "workspaces",
       "deactivated_users", "group_grants", "group_members", "groups", "invitations",

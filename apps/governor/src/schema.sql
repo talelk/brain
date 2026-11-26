@@ -134,6 +134,20 @@ CREATE TABLE runners (
   removed_at_ms INTEGER
 ) STRICT;
 
+-- API tokens of a workspace, for other systems; only a keyed digest of a token is kept.
+CREATE TABLE api_tokens (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  name TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('viewer', 'member')),
+  token_digest TEXT NOT NULL UNIQUE,
+  created_by TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL,
+  expires_at_ms INTEGER NOT NULL,
+  revoked_at_ms INTEGER
+) STRICT, WITHOUT ROWID;
+CREATE INDEX api_tokens_workspace ON api_tokens(workspace_id);
+
 -- One-use enrolment tokens and the session tokens `hello` hands out; only a keyed digest of a token is kept.
 CREATE TABLE runner_tokens (
   token_digest TEXT PRIMARY KEY,
@@ -319,7 +333,7 @@ CREATE TABLE events (
   subject TEXT NOT NULL,
   payload_json TEXT NOT NULL,
   payload_digest TEXT NOT NULL,
-  actor_kind TEXT NOT NULL CHECK (actor_kind IN ('person', 'agent', 'runner', 'system')),
+  actor_kind TEXT NOT NULL CHECK (actor_kind IN ('person', 'token', 'agent', 'runner', 'system')),
   actor_id TEXT NOT NULL,
   actor_attempt_id TEXT,
   created_at_ms INTEGER NOT NULL,

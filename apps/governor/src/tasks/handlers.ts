@@ -18,14 +18,14 @@ import { schemaProblem } from "@brain/contracts/validate";
 /** The commands a person steers work with and the queries of the Today, Tasks and Task screens (docs/architecture.md sections 4 and 10). */
 
 // A goal's cost is that of its whole tree; a sub-task's is its own. `waiting_for_you` counts the tasks of the tree (itself included) that need a person.
-const SUMMARY = `SELECT t.*, r.title AS goal_title, r.play AS root_play, u.name AS created_by_name,
+const SUMMARY = `SELECT t.*, r.title AS goal_title, r.play AS root_play, COALESCE(u.name, k.name) AS created_by_name,
   (SELECT f.title FROM tasks f WHERE t.created_by LIKE 'heal:%' AND f.id = substr(t.created_by, 6)) AS heals_title,
   (SELECT f.root_id FROM tasks f WHERE t.created_by LIKE 'heal:%' AND f.id = substr(t.created_by, 6)) AS heals_root,
   (SELECT json_patch(e.payload_json, json_object('at', e.created_at_ms)) FROM events e WHERE e.subject = 'task:' || t.id AND e.type = 'task.superseded' ORDER BY e.seq DESC LIMIT 1) AS superseded,
   CASE WHEN t.parent_id IS NULL THEN (SELECT COALESCE(SUM(${COST}), 0) FROM usage u JOIN tasks x ON x.id = u.task_id WHERE x.root_id = t.id)
   ELSE (SELECT COALESCE(SUM(${COST}), 0) FROM usage u WHERE u.task_id = t.id) END AS micro_usd,
   (WITH RECURSIVE tree(id) AS (SELECT t.id UNION ALL SELECT c.id FROM tasks c JOIN tree ON c.parent_id = tree.id) SELECT COUNT(*) FROM tasks x WHERE x.state = 'needs_you' AND x.id IN (SELECT id FROM tree)) AS waiting_for_you
-  FROM tasks t JOIN tasks r ON r.id = t.root_id LEFT JOIN "user" u ON u.id = t.created_by`;
+  FROM tasks t JOIN tasks r ON r.id = t.root_id LEFT JOIN "user" u ON u.id = t.created_by LEFT JOIN api_tokens k ON t.created_by = 'token:' || k.id`;
 type SummaryRow = TaskRow & { readonly micro_usd: number; readonly goal_title: string; readonly root_play: string | null; readonly created_by_name: string | null; readonly waiting_for_you: number; readonly superseded: string | null; readonly heals_title: string | null; readonly heals_root: string | null };
 const supersededOf = (text: string): NonNullable<TaskSummary["supersededBy"]> => {
   const event = JSON.parse(text) as { by: string; byRoot: string; byState: "done" | "check"; hours: number; at: number };

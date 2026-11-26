@@ -164,6 +164,7 @@ Everything else:
 | `deactivated_users` | users who cannot sign in; their rows and history stay |
 | `snapshots` | digest, workspace, commit, created at |
 | `secrets` | workspace, name, encrypted value |
+| `api_tokens` | workspace, name, role (viewer or member), keyed digest of the token, creator, expiry, revocation |
 | `tasks` | id, workspace, parent, root, title, goal, agent, state, snapshot digest, origin (Play + step id, `for_each` item), step settings (review_by, max_rounds, target_score, approve, when, candidates, judge), round, result, needs (why it needs a person), timestamps, version |
 | `task_deps` | task, the task it waits for |
 | `notes` | the shared board of a root task: author, text |
@@ -193,7 +194,11 @@ change; that function extends the hash chain (`audit-chain.ts`). There is one ch
 Each entry declares a zod input schema, an output type and the minimum role. The web app
 imports the same definitions for types. The entries another system uses (`PUBLISHED`: those the MCP server calls) are in
 `docs/openapi.json`, OpenAPI 3.1 made by `pnpm docs:gen` (`scripts/openapi.ts`): inputs from the zod schemas, outputs read
-from the TypeScript types by the compiler; `tests/core/openapi.test.ts` checks real answers against it. `GET /v1/events` is server-sent events: one
+from the TypeScript types by the compiler; `tests/core/openapi.test.ts` checks real answers against it.
+`POST /v1/command` and `/v1/query` also take an API token as `Authorization: Bearer` (`auth/tokens.ts`; no other route does). The
+dispatcher lets a token call only what `TOKEN_MAY` names, all of it published and none of it a human gate, before the role check;
+`access.ts` gives it its one role in its one workspace; a request carrying a token that no longer holds is refused even beside a
+session cookie. Its audit actor is `token`, id `token:<id>`. `GET /v1/events` is server-sent events: one
 `changed` frame per workspace when anything changed (the client refetches).
 `GET /v1/artifacts/:digest` streams bytes to a member of the owning workspace.
 
@@ -202,12 +207,12 @@ Commands: `setup.create`, `workspace.create` (its input may carry `platform: "ad
 `member.remove`, `task.create` (a goal, optionally a Play and inputs), `task.confirm`
 (accept a proposed plan), `task.edit` (change, add or remove sub-tasks not yet started),
 `task.stop`, `task.steer` (a task's priority and pause), `task.checkpoint` (continue a goal paused at its checkpoint, with an optional new goal written as a note; events `task.checkpointed` and `task.checkpoint_expired`; docs/model.md, "Checkpoints"), `task.retry`, `task.check` (a person's check or sign-off), `task.answer`,
-`approval.decide`, `memory.decide`, `runner.token`, `runner.remove`; and for users (docs/model.md, Users, invitations and groups) `user.invite`, `invitation.revoke`, `invitation.accept` (public: it redeems an invitation or a reset link), `user.set` (instance role, active), `user.resetLink`, `session.revoke` (the caller's own, or any person's for an instance admin), `profile.set` (name, password), `group.set`, `group.delete`.
+`approval.decide`, `memory.decide`, `token.create`, `token.revoke`, `runner.token`, `runner.remove`; and for users (docs/model.md, Users, invitations and groups) `user.invite`, `invitation.revoke`, `invitation.accept` (public: it redeems an invitation or a reset link), `user.set` (instance role, active), `user.resetLink`, `session.revoke` (the caller's own, or any person's for an instance admin), `profile.set` (name, password), `group.set`, `group.delete`.
 
 Queries: `setup.status`, `me`, `packs.list`, `workspace.get`, `workspace.files`,
 `file.read`, `pack.files`, `today`, `overview`, `schedules.list`, `tasks.list`, `task.get`, `task.events`, `approvals.list`,
 `approval.get`, `queue`, `insights`, `usage.summary`, `memory.list`, `members.list`, `secrets.list` (names
-only), `runners.list`, `health`, `audit.verify`, `users.list` (instance admin: one page of people and pending invitations, searched and filtered on the server, with the counts, and the groups), `user.get` (oneself, or any person for an instance admin: sessions, sign-in log, access matrix). `overview` takes no workspace: for the active
+only), `tokens.list` (never the tokens), `runners.list`, `health`, `audit.verify`, `users.list` (instance admin: one page of people and pending invitations, searched and filtered on the server, with the counts, and the groups), `user.get` (oneself, or any person for an instance admin: sessions, sign-in log, access matrix). `overview` takes no workspace: for the active
 workspaces the caller is a member of it answers per-workspace counts (needs you, running, done and
 failed today), spend against the cap, projects, last activity and a dense 14-day series (UTC days, oldest
 first) of goals done and spend; one list of up to 50 tasks waiting for a person (each with its workspace
@@ -270,8 +275,8 @@ gets no Starter. Users: `access.ts` gives a person the highest of their own role
 workspace, with their people. Invitation and reset links carry a 32-byte token in the address fragment (`/#invite=` and `/#reset=`, so it never reaches a log), stored as a keyed digest,
 valid 7 days (a reset 1 day), single use, answered by one refusal whatever is wrong with a token, and redeemed at most 10 times a minute per client address that fail. `auth.user()` answers
 nobody for a deactivated user, `session.create` is refused for one, and a refused sign-in of a deactivated account is answered like a wrong password and audited, deactivating or a forced sign-out deletes the sessions and ends the user's
-event streams, and every `/api/auth` route but the password sign-in is closed (there are no passkeys or second factor); sign-out is the audited `session.revoke`. Accepting an invitation is one transaction: the invitation is used up (and found still pending), the account and its credential made, the grants applied and the event appended together, so a revoke that comes in between leaves no account; the sign-in cookies are made after the commit (`after` of the command). The last admin of a workspace is counted through groups as well as `members`. Audit events keep a redacted address (`n***@example.com`), never the address. A person has no
-API tokens: a session is the only credential of a person, and runners and attempts use their own. Outgoing mail (`BRAIN_SMTP_URL`, `BRAIN_SMTP_FROM`) is optional and best effort: the connection must be encrypted (`smtps://`, or STARTTLS) unless `BRAIN_SMTP_INSECURE=1`, messages carry Date and Message-ID, and the answer of `user.invite` says only that mail was handed over (`mail: "queued"`); the audit log records whether the server accepted it (`user.mail_accepted`, `user.mail_failed`), never that it arrived. Sign-ins
+event streams, and every `/api/auth` route but the password sign-in is closed (there are no passkeys or second factor); sign-out is the audited `session.revoke`. Accepting an invitation is one transaction: the invitation is used up (and found still pending), the account and its credential made, the grants applied and the event appended together, so a revoke that comes in between leaves no account; the sign-in cookies are made after the commit (`after` of the command). The last admin of a workspace is counted through groups as well as `members`. Audit events keep a redacted address (`n***@example.com`), never the address. A session is the
+only credential of a person; another system uses a workspace's API token (below), and runners and attempts use their own. Outgoing mail (`BRAIN_SMTP_URL`, `BRAIN_SMTP_FROM`) is optional and best effort: the connection must be encrypted (`smtps://`, or STARTTLS) unless `BRAIN_SMTP_INSECURE=1`, messages carry Date and Message-ID, and the answer of `user.invite` says only that mail was handed over (`mail: "queued"`); the audit log records whether the server accepted it (`user.mail_accepted`, `user.mail_failed`), never that it arrived. Sign-ins
 and failed sign-ins of existing accounts are audit events; refused sign-ins are one row per account in a minute, the rest counted into one more row. The answers of `user.invite`, `user.resetLink` are shown once, like `runner.token`. The answer of `runner.token` is shown once: it is not kept for
 idempotency, and the same key sent again is refused.
 

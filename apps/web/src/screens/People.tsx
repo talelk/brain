@@ -10,6 +10,7 @@ import { ago } from "../lib/format";
 import { ROLES } from "../lib/model";
 import { ConfirmButton, Failure, Ready } from "../components/bits";
 import { Table } from "../components/Table";
+import { Tokens } from "../components/Tokens";
 import { GroupAccess, ShareDialog } from "../components/Share";
 import { Head } from "../components/Shell";
 
@@ -88,7 +89,7 @@ function Secrets(): JSX.Element {
   );
 }
 
-/** People and secrets: who may do what in this workspace, and the secrets its files refer to (names only). */
+/** People, secrets and API tokens: who may do what in this workspace, the secrets its files refer to (names only), and what other systems sign in with. */
 export default function PeopleScreen(): JSX.Element {
   const place = usePlace();
   const [adding, setAdding] = createSignal(false);
@@ -110,6 +111,7 @@ export default function PeopleScreen(): JSX.Element {
           </Section>
           <GroupAccess groups={members.data()?.groups ?? []} />
           <Secrets />
+          <Show when={!place.summary().platform}><Tokens /></Show>
         </div>
         <ShareDialog open={adding()} onOpenChange={setAdding} />
       </Show>

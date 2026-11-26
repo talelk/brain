@@ -9,8 +9,8 @@ import { createReceiptCheck } from "./run-receipt";
  * chain at a moment, so a rebuilt chain or a cut tail is found too. This file is the one place that defines the digests and the verifier:
  * the Governor writes with the same functions it verifies with. The verifier is pure: no database, no clock, no network.
  */
-export type ActorKind = "person" | "agent" | "runner" | "system";
-/** Who did it. An agent acts as one attempt; a person is a user id; a runner is its id; the Governor's own work is `system`. */
+export type ActorKind = "person" | "token" | "agent" | "runner" | "system";
+/** Who did it. An agent acts as one attempt; a person is a user id; an API token is `token:<id>`; a runner is its id; the Governor's own work is `system`. */
 export interface Actor { readonly kind: ActorKind; readonly id: string; readonly attemptId?: string }
 
 export interface AuditEvent {

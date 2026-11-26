@@ -30,21 +30,24 @@ function deviceOf(agent: string | null): string {
   return browser && system ? t("sessions.device", { browser, system }) : browser ?? system ?? t("sessions.unknown");
 }
 
-/** A link shown once, ready to copy. */
-function LinkBox(props: { link: string; label: string }): JSX.Element {
+/** A value shown once, ready to copy: an invitation or reset link, a new API token. */
+export function CopyBox(props: { value: string; label: string; action: string; done: string }): JSX.Element {
   const copy = async (): Promise<void> => {
     try {
-      await navigator.clipboard.writeText(props.link);
-      toast.success({ title: t("link.copied") });
+      await navigator.clipboard.writeText(props.value);
+      toast.success({ title: props.done });
     } catch { /* the field is selected by a click instead */ }
   };
   return (
     <div class="flex flex-col gap-2">
-      <TextInput size="md" label={props.label} readOnly value={props.link} class="t-code code-ltr" onFocus={(event) => event.currentTarget.select()} />
-      <div><Button variant="outline" size="md" iconLeft="lucide-copy" onClick={() => void copy()}>{t("link.copy")}</Button></div>
+      <TextInput size="md" label={props.label} readOnly value={props.value} class="t-code code-ltr" onFocus={(event) => event.currentTarget.select()} />
+      <div><Button variant="outline" size="md" iconLeft="lucide-copy" onClick={() => void copy()}>{props.action}</Button></div>
     </div>
   );
 }
+
+/** A link shown once, ready to copy. */
+const LinkBox = (props: { link: string; label: string }): JSX.Element => <CopyBox value={props.link} label={props.label} action={t("link.copy")} done={t("link.copied")} />;
 
 /** Invite by email: an instance role, workspace roles and groups. The answer is a link to copy. */
 export function InviteDialog(props: { open: boolean; onOpenChange: (open: boolean) => void; groups: readonly GroupRow[]; workspaces: ReadonlyArray<{ id: string; name: string }>; prefill?: { email: string; grants: Grants } | undefined }): JSX.Element {

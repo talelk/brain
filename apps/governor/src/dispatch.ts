@@ -1,10 +1,11 @@
 import {
-  BrainError, canonicalJsonBytes, commands, hmacSha256Hex, MAX_UPLOAD_STRING, queries, roleAtLeast,
+  BrainError, canonicalJsonBytes, commands, hmacSha256Hex, MAX_UPLOAD_STRING, queries, roleAtLeast, TOKEN_MAY,
   type Actor, type ApiRole, type Clock, type CommandInput, type CommandOutputs, type CommandType, type JsonValue, type Problem, type QueryInput, type QueryOutputs, type QueryType,
   type Role, type SnapshotManifest, type User,
 } from "@brain/contracts";
 import { z } from "zod";
 import type { Auth } from "./auth/auth";
+import { isTokenId } from "./auth/tokens";
 import { accessOf } from "./access";
 import { tx, type Db } from "./db";
 
@@ -34,7 +35,7 @@ export interface Gov {
 export interface Ctx {
   readonly gov: Gov;
   readonly db: Db;
-  /** The signed-in person; null only in a `public` entry. */
+  /** The signed-in person, or an API token as a principal of its own; null only in a `public` entry. */
   readonly user: User | null;
   /** The same person as the actor of audit events. */
   readonly actor: Actor;
@@ -93,6 +94,11 @@ function parse<S extends z.ZodType>(schema: S, value: unknown, what: string): z.
   return parsed.data;
 }
 
+/** An API token calls only what is named for tokens, whatever its role (docs/model.md, "API tokens"). */
+function forTokens(user: User | null, may: readonly string[], type: string): void {
+  if (user && isTokenId(user.id) && !may.includes(type)) throw new BrainError("FORBIDDEN", `An API token may not call ${type}`);
+}
+
 /** The caller's role in the workspace an entry is about; refuses a caller the entry is not for. A non-member is told the workspace does not exist. */
 function authorize(gov: Gov, need: ApiRole, user: User | null, input: unknown, writes: boolean): Role | null {
   if (need === "public") return null;
@@ -112,7 +118,7 @@ function authorize(gov: Gov, need: ApiRole, user: User | null, input: unknown, w
 function context(gov: Gov, caller: Caller, role: Role | null): Ctx {
   return {
     gov, db: gov.db, user: caller.user, role, cookies: caller.cookies ?? [], ip: caller.ip ?? "unknown",
-    actor: caller.user ? { kind: "person", id: caller.user.id } : { kind: "system", id: "anonymous" },
+    actor: caller.user ? { kind: isTokenId(caller.user.id) ? "token" : "person", id: caller.user.id } : { kind: "system", id: "anonymous" },
     now: () => gov.clock.nowMs(),
   };
 }
@@ -123,6 +129,7 @@ export async function runCommand(gov: Gov, caller: Caller, body: unknown): Promi
   const definition = (commands as Record<string, { role: ApiRole; input: z.ZodType }>)[type];
   if (!definition) throw new BrainError("INVALID_INPUT", `There is no command ${type}`);
   const input = parse(definition.input, rawInput ?? {}, `The input of ${type}`);
+  forTokens(caller.user, TOKEN_MAY.commands, type);
   const ctx = context(gov, caller, authorize(gov, definition.role, caller.user, input, true));
   const handler = gov.registry.commands.get(type);
   if (!handler) throw new BrainError("NOT_IMPLEMENTED", `The command ${type} is not implemented yet`);
@@ -160,6 +167,7 @@ export async function runQuery(gov: Gov, caller: Caller, body: unknown): Promise
   const definition = (queries as Record<string, { role: ApiRole; input: z.ZodType }>)[type];
   if (!definition) throw new BrainError("INVALID_INPUT", `There is no query ${type}`);
   const input = parse(definition.input, rawInput ?? {}, `The input of ${type}`);
+  forTokens(caller.user, TOKEN_MAY.queries, type);
   const ctx = context(gov, caller, authorize(gov, definition.role, caller.user, input, false));
   const handler = gov.registry.queries.get(type);
   if (!handler) throw new BrainError("NOT_IMPLEMENTED", `The query ${type} is not implemented yet`);

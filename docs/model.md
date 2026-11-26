@@ -761,6 +761,23 @@ every signed-in person of this Brain sees it as a viewer, read only. That person
 its tasks, files and results; they cannot start work, approve, edit, or see its secrets or
 members. Changing visibility is a change of `brain.toml` and is audited.
 
+### API tokens
+
+A system that drives Brain, such as a pipeline or a ticket tool, has no person's password. A
+workspace admin makes it an **API token** on the People page: a name, a role of `viewer` or
+`member`, and how long it holds (1 to 365 days, 90 unless said). The token is shown once and
+only its digest is kept. The system sends it as `Authorization: Bearer <token>` with the
+commands and queries of `docs/openapi.json`.
+
+- It holds that role in that workspace and nothing anywhere else, a public workspace included.
+- A **member** token may start, steer, stop and retry tasks. A **viewer** token only reads.
+- It never does what waits for a person: it cannot confirm a plan, check or sign off a result,
+  answer a question, pass a checkpoint, approve a call or decide a memory proposal.
+- It never changes files, secrets, people or tokens, and a platform workspace takes none.
+- The audit log names the token as who did it. A task it started shows the token's name.
+- It belongs to the workspace, not to who made it: it holds until it expires or an admin
+  revokes it.
+
 ### Users, invitations and groups
 
 An **instance admin** (shown as a platform administrator) looks after the people of the whole

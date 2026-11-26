@@ -15,6 +15,19 @@ import type { ApprovalState, AttemptEvent, AttemptFailure, AttemptKind, Digest, 
 export const ROLES = ["viewer", "member", "admin"] as const;
 export type Role = (typeof ROLES)[number];
 export type ApiRole = "public" | Role | "instance-admin";
+/** The roles an API token may have (docs/model.md, "API tokens"): never one that edits files, secrets or members. */
+export const TOKEN_ROLES = ["viewer", "member"] as const;
+export type TokenRole = (typeof TOKEN_ROLES)[number];
+/** A workspace's API token as its admins see it: never the token itself, which is shown once when it is made. */
+export interface ApiToken {
+  readonly id: string;
+  readonly name: string;
+  readonly role: TokenRole;
+  readonly createdByName: string | null;
+  readonly createdAt: number;
+  readonly expiresAt: number;
+  readonly revokedAt: number | null;
+}
 /** True when `have` may do what `need` may do. */
 export const roleAtLeast = (have: Role, need: Role): boolean => ROLES.indexOf(have) >= ROLES.indexOf(need);
 
@@ -655,6 +668,9 @@ export const commands = table({
   /** Sets a person's role. A person with no account yet gets one, with the given name and first password. */
   "member.set": ["admin", z.strictObject({ ...inWorkspace, email, role, name: personName.optional(), password: password.optional() })],
   "member.remove": ["admin", z.strictObject({ ...inWorkspace, userId: id })],
+  /** Makes an API token of the workspace for another system; the answer holds the token, which is shown this once. */
+  "token.create": ["admin", z.strictObject({ ...inWorkspace, name: z.string().trim().min(1).max(60), role: z.enum(TOKEN_ROLES), days: z.int().min(1).max(365).default(90) })],
+  "token.revoke": ["admin", z.strictObject({ ...inWorkspace, tokenId: id })],
   /** A goal, or a Play with its inputs. */
   "task.create": ["member", z.strictObject({ ...inWorkspace, goal: text.optional(), title: z.string().trim().min(1).max(200).optional(), play: name("a Play name").optional(), inputs: z.record(z.string(), z.json()).default({}) }).refine((input) => input.goal !== undefined || input.play !== undefined, "give a goal or a Play")],
   /** Accepts the plan proposed for a root task. */
@@ -726,6 +742,7 @@ export const queries = table({
   "memory.list": ["viewer", z.strictObject(inWorkspace)],
   "members.list": ["admin", z.strictObject(inWorkspace)],
   "secrets.list": ["admin", z.strictObject(inWorkspace)],
+  "tokens.list": ["admin", z.strictObject(inWorkspace)],
   "runners.list": ["instance-admin", z.strictObject({})],
   health: ["viewer", z.strictObject(inWorkspace)],
   "audit.verify": ["instance-admin", z.strictObject({})],
@@ -753,6 +770,8 @@ export interface CommandOutputs {
   "secret.delete": Record<string, never>;
   "member.set": { readonly userId: string; readonly created: boolean };
   "member.remove": Record<string, never>;
+  "token.create": { readonly tokenId: string; readonly token: string; readonly expiresAt: number };
+  "token.revoke": Record<string, never>;
   "task.create": { readonly taskId: string };
   "task.confirm": Record<string, never>;
   "task.edit": Record<string, never>;
@@ -800,6 +819,7 @@ export interface QueryOutputs {
   "members.list": { readonly members: readonly Member[]; readonly groups: readonly MemberGroup[] };
   /** Names only. `missing` are the secrets the active snapshot refers to that are not set. */
   "secrets.list": { readonly secrets: readonly SecretName[]; readonly missing: readonly string[] };
+  "tokens.list": { readonly tokens: readonly ApiToken[] };
   "runners.list": { readonly runners: readonly Runner[] };
   health: Health;
   "audit.verify": AuditVerifyResult;
@@ -812,6 +832,15 @@ export type QueryType = keyof typeof queries;
 export const PUBLISHED: { readonly queries: readonly QueryType[]; readonly commands: readonly CommandType[] } = {
   queries: ["me", "overview", "queue", "insights", "workspace.files", "file.read", "tasks.list", "task.get", "task.events", "schedules.list", "packs.list", "audit.verify"],
   commands: ["task.create", "task.steer", "task.stop", "task.retry", "task.check", "task.answer", "task.checkpoint", "file.write", "file.delete", "pack.release", "workspace.create", "workspace.archive"],
+};
+/**
+ * Everything an API token may call, all of it published; anything else is refused whatever its role, so a new entry is closed to tokens
+ * until it is named here.
+ * Nothing that waits for a person is here: confirming a plan, a check or sign-off, an answer, a checkpoint, an approval, a memory decision.
+ */
+export const TOKEN_MAY: { readonly queries: readonly QueryType[]; readonly commands: readonly CommandType[] } = {
+  queries: ["me", "overview", "queue", "insights", "schedules.list", "workspace.files", "file.read", "tasks.list", "task.get", "task.events"],
+  commands: ["task.create", "task.stop", "task.retry", "task.steer"],
 };
 /** What a caller sends (before defaults) and what a handler is given (after them). */
 export type CommandRequest<T extends CommandType> = z.input<(typeof commands)[T]["input"]>;
