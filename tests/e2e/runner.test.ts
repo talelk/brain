@@ -125,4 +125,16 @@ describe("the runner and the Governor together", () => {
     expect(task).toMatchObject({ state: "done", result: "The database was restarted." });
     expect(task.approvals.map((approval) => approval.state)).toEqual(["approved", "approved"]);
   });
+
+  it("an agent's skill reaches it from the workspace, through the Governor, to where it reads", async () => {
+    await harness.admin.command("file.write", { workspaceId, files: [
+      { path: "skills/ship-it/SKILL.md", content: "---\nname: ship-it\ndescription: How to ship.\n---\nShip on Tuesdays.\n" },
+      { path: "agents/shipper/agent.toml", content: 'description = "Ships."\nengine = ["fixture"]\nnative = "read"\nskills = ["ship-it"]\n' },
+      { path: "agents/shipper/prompt.md", content: "Ship.\n" },
+      { path: "plays/ship.toml", content: 'title = "Ship"\n[[step]]\nid = "ship"\nagent = "shipper"\ngoal = """Ship it.\nFIXTURE @work read .workspace/skills/ship-it/SKILL.md\nFIXTURE @work reply %last%"""\n' },
+    ] });
+    const taskId = await start("ship");
+    await runAll();
+    expect(await getTask(member, workspaceId, taskId)).toMatchObject({ state: "done", result: expect.stringContaining("Ship on Tuesdays.") as string });
+  });
 });

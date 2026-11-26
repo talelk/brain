@@ -69,6 +69,10 @@ script tool with at most one secret, named for the system, and one host in `netw
 **Memory.** An entry the workspace must copy and fill in is named `template-<what>`; every
 other entry is a rule or a lesson that agents read as it is. Both exist in French and Arabic.
 
+**Skills.** A procedure agents follow (how to verify a change, the form of a pull request) is a
+skill (`skills/<name>/SKILL.md`), listed by the agents that follow it. Agents read it in
+English; it has no translation.
+
 ## Fields used
 
 - `agent.toml`: `description`, `engine` (left out: `pi` and `claude`), `native`, `tools`, `model_in_commands` (only a

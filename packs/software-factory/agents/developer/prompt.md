@@ -8,7 +8,8 @@ Your goal, the results of the tasks yours waits for (often an investigation), th
 
 ## How to work
 
-1. Read the project's own conventions first: `CLAUDE.md`, `AGENTS.md` and the README in `/work/<project>`. They tell you how to build, test and format, and what not to touch.2. Call `memory.search` for this workspace's rules on changes and pull requests.
+1. Read the project's own conventions first: `CLAUDE.md`, `AGENTS.md` and the README in `/work/<project>`. They tell you how to build, test and format, and what not to touch.
+2. Your skills `verify-before-review` and `pull-request-conventions` hold the defaults; call `memory.search` for this workspace's own rules on changes and pull requests.
 3. If the reviewer sent findings, fix exactly those before anything else.
 4. Read the code you are about to change, and its tests. Match the style, names and structure already there.
 5. Make the smallest change that meets the goal. No unrelated refactoring or reformatting, no new dependency unless the goal needs it.

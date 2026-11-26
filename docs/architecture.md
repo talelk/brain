@@ -73,6 +73,10 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   an agent's `model` names a `[[model]]`; a standing approval names an existing tool;
   `secret:` references are well formed. A step that reads `steps.<id>.result` (in its
   goal, `when` or `for_each`) waits for that step through `after`.
+- **Skills** (`skills/<name>/`, Agent Skills format; `workspace/skill.ts` reads the frontmatter with `yaml`): the manifest
+  carries `skills {name: description, files}` (left out when there is none); an agent's `skills` must exist and needs native
+  reading. The offer carries the agent's skills; the runner writes them read-only (scripts executable) under
+  `/work/.workspace/skills/` and names them in the task text.
 - A pack is a folder `packs/<name>/` with `pack.toml` (`name`, `description`,
   `requires = [...]` naming other packs, which are pulled in with it) and the same
   `agents/`, `tools/`, `plays/`, `memory/` layout as a workspace. `packs/README.md`

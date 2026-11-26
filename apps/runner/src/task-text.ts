@@ -6,7 +6,7 @@ import type { JobOffer, JsonValue, OfferToolCall } from "@brain/contracts";
  */
 
 /** Where the attempt's folders are, as the engine sees them; `work` is absent when the engine sees no working copy. */
-export interface AttemptPaths { readonly work?: string; readonly out: string; /** The read-only copy of the workspace's own definition, when the agent is given it. */ readonly workspace?: string }
+export interface AttemptPaths { readonly work?: string; readonly out: string; /** The read-only copy of the workspace's own definition, when the agent is given it. */ readonly workspace?: string; /** The folder of the agent's skills, when it has some and reads files. */ readonly skills?: string }
 
 /** What a review entry's patch became for this attempt: a file the agent can read, or (when it can read no files) the start of its text. */
 export interface ReviewPatch { readonly path?: string; readonly inline?: string }
@@ -81,6 +81,7 @@ export function composeTask(offer: JobOffer, paths: AttemptPaths, patches: Reado
     }).join("\n\n")}`);
   }
   parts.push(environment(paths, offer.projects.length));
+  if (paths.skills) parts.push(`# Skills\nProcedures for this work. Before you do what one is for, read its SKILL.md and follow it; its other files are beside it.\n${offer.skills.map((skill) => `- ${skill.name} (${paths.skills}/${skill.name}/SKILL.md): ${skill.description.replace(/\s+/gu, " ")}`).join("\n")}`);
   if (modelCommands(offer)) parts.push(MODEL_IN_COMMANDS);
   if (offer.projects.length > 0 && paths.work) parts.push(`# Working copy\n${offer.projects.map((project) => `- ${project.name}: ${paths.work}/${project.name} (branch ${project.branch})`).join("\n")}\nFiles to keep as results go in ${paths.out}.`);
   const answer = finalAnswer(offer);

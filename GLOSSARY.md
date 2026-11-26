@@ -34,6 +34,8 @@ _Avoid_: workflow, playbook, recipe, template, formula
 **Step**: One entry of a Play; it becomes a task when the Play runs.
 _Avoid_: node, stage, job
 
+**Skill**: A procedure in the Agent Skills format that an agent reads when its work calls for it: `skills/<name>/SKILL.md` and what is beside it.
+
 **Trigger**: What starts a Play without a person: a schedule or a webhook.
 _Avoid_: automation, listener, event rule
 

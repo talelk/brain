@@ -78,7 +78,7 @@ export class FakeGovernor {
       task: { id: "task-1", title: "The task", goal: "Do the thing.", round: 1, findings: [], ...task },
       context: { results: [], notes: [], answers: [], catalog: { agents: [], tools: [], plays: [] }, ...context },
       agent: { name: "worker", promptDigest: this.blob(prompt).digest, engines: ["fixture"], native: "none", modelInCommands: false, limits: { turns: 20, tokens: 200_000, spendMicroUsd: 0 }, tools: tools.map((tool) => tool.name), ...agent },
-      tools, projects: [], inheritedStates: [], model: { gatewayUrl: `${this.url}/model/v1`, routes: [{ provider: "openai-compatible", route: "main", contextTokens: 200_000, compactAt: 0.7 }] },
+      skills: [], tools, projects: [], inheritedStates: [], model: { gatewayUrl: `${this.url}/model/v1`, routes: [{ provider: "openai-compatible", route: "main", contextTokens: 200_000, compactAt: 0.7 }] },
       ...rest,
     };
     // An attempt on a project hands its work on through the git store, a real one.

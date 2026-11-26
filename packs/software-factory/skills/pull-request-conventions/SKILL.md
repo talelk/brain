@@ -1,3 +1,8 @@
+---
+name: pull-request-conventions
+description: "The default form of a pull request: one purpose, its title and its description. Use it when you write, open or review a pull request; the project's own rules come first."
+---
+
 # Pull request conventions
 
 These are the workspace's defaults. A project's own rules (`CLAUDE.md`, `AGENTS.md`, a contributing guide or a pull request template) take precedence wherever they differ.

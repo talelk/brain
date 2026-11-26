@@ -187,3 +187,19 @@ describe("the task text", () => {
     ].join("\n\n"));
   });
 });
+
+describe("an agent's skills", () => {
+  it("stand read-only where the agent reads, are named in its task, and are no part of its work", async () => {
+    const { gov, runner } = await runnerWorld();
+    const file = (path: string, text: string) => ({ path, ...gov.blob(text) });
+    const offer = gov.offer({
+      agent: { native: "read" },
+      skills: [{ name: "ship-it", description: "How to ship.", files: [file("SKILL.md", "---\nname: ship-it\ndescription: How to ship.\n---\nShip on Tuesdays."), file("scripts/run.sh", "echo shipped\n")] }],
+      task: { goal: "FIXTURE read .workspace/skills/ship-it/SKILL.md\nFIXTURE reply %last%" },
+    });
+    await runner.runOnce();
+    expect(gov.completions.get(offer.attemptId)).toMatchObject({ outcome: "succeeded", result: expect.stringContaining("Ship on Tuesdays.") as string });
+    expect(composeTask(offer, { work: "/work", out: "/out", skills: "/work/.workspace/skills" })).toContain("- ship-it (/work/.workspace/skills/ship-it/SKILL.md): How to ship.");
+    expect(composeTask(offer, { out: "/out" })).not.toContain("# Skills");
+  });
+});

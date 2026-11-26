@@ -59,7 +59,7 @@ describe("importing a pack", () => {
     const first = origin.head();
     const imported = await bring();
     expect(imported).toEqual({
-      name: "greet", commit: first, requires: ["base"], replaces: [], agents: ["greeter"], plays: ["greet"],
+      name: "greet", commit: first, requires: ["base"], replaces: [], agents: ["greeter"], plays: ["greet"], skills: [],
       tools: [{ name: "greet.send", effect: "write", network: ["api.example.test"], secrets: ["greet"] }],
     });
     const files = (await harness.admin.query("workspace.files", { workspaceId: platformId })).files.map((file) => file.path).filter((path) => path.startsWith("packs/greet/"));

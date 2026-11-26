@@ -191,6 +191,7 @@ export function buildOffer(gov: Gov, attempt: AttemptRow): JobOffer {
       name: attempt.agent, promptDigest: agent.prompt.digest, engines: agent.engine, native: agent.native, modelInCommands: agent.model_in_commands,
       limits: { turns: agent.limits.turns, tokens: agent.limits.tokens, spendMicroUsd: microUsd(agent.limits.spend_usd) }, tools: agent.tools,
     },
+    skills: (agent.skills ?? []).flatMap((name) => { const skill = manifest.skills?.[name]; return skill ? [{ name, description: skill.description, files: skill.files.map((file) => ({ path: file.path, digest: file.digest, bytes: file.bytes })) }] : []; }),
     tools, projects, inheritedStates: inherited,
     ...(gov.store && manifest.projects.length > 0 ? { store: { url: gov.store.url, goalId: task.root_id, token: signStoreGrant({ workspaceId: attempt.workspace_id, goalId: task.root_id, attemptId: attempt.id, expiresAt: Math.floor(gov.clock.nowMs() / 1000) + STORE_TOKEN_SECONDS }, gov.store.privateKeyPem) } } : {}),
     model: { gatewayUrl: `${gov.gatewayUrl}/model/v1`, routes: routesOf(gov, attempt.workspace_id, manifest, agent.model) },

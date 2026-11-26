@@ -1,6 +1,7 @@
 description = "A critic for code changes: checks a diff against its goal, the project's conventions and the recorded test runs, and passes or sends it back."
 native = "read"
 tools = ["memory.search", "web.fetch"]
+skills = ["verify-before-review", "pull-request-conventions"]
 
 [limits]
 spend_usd = 0.75

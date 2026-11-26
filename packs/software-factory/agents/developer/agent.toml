@@ -1,6 +1,7 @@
 description = "Changes code in the working copy of a project, with tests, following the project's conventions. Leaves the change for review; never pushes."
 native = "all"
 tools = ["git.open-pr", "task.note", "memory.search"]
+skills = ["verify-before-review", "pull-request-conventions"]
 
 [limits]
 spend_usd = 2.00

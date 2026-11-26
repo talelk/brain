@@ -4,7 +4,7 @@ Brain runs agents on your projects and keeps a record you can trust: what ran, w
 cost, what was checked, and who approved. This page is the whole model. If something is
 not named here, Brain does not have it.
 
-## The eight things
+## The nine things
 
 | Thing | What it is | Where it lives |
 |---|---|---|
@@ -14,6 +14,7 @@ not named here, Brain does not have it.
 | **Tool** | One governed action that reaches outside the task's sandbox. | `tools/<name>/` |
 | **Play** | A saved way to do a job: steps, who does each, and what starts it. | `plays/<name>.toml` |
 | **Memory** | What the workspace has learned, read by its agents only. | `memory/<name>.md` |
+| **Skill** | A procedure an agent reads when its work calls for it, with any scripts it needs. | `skills/<name>/` |
 | **Pack** | A reusable bundle of agents, tools, Plays and memory. | `packs/<name>/` shipped with Brain |
 | **Task** | A goal and its result. A task can have sub-tasks. | The database. |
 
@@ -294,6 +295,24 @@ Step fields, and nothing else:
 | `outputs` | What the step's result holds, in the form of a tool's inputs: `outputs = { healthy = { type = "boolean", required = true } }`. The agent is told to answer with that JSON object and its answer is checked. A `{{steps.<id>.result.<field>}}`, `when` or `for_each` that names a field the step does not declare, or compares it with a value of another type, is refused when the Play is saved. |
 | `requires` | Memory entry names the step needs (`*` for any run of characters, as in `app-screens-*`). When one has no entry, the step is skipped with a note that says which, instead of running and failing. |
 | `approve` | A person signs off before the step counts as done. |
+
+### A skill
+
+A folder in the [Agent Skills](https://agentskills.io/specification) format, so it is the same
+skill in any tool that reads that format:
+
+```
+skills/verify-before-review/SKILL.md      # frontmatter: name (the folder's), description; then the procedure
+skills/verify-before-review/scripts/...   # optional, with references/ and assets/
+```
+
+An agent lists the skills it is given (`skills = ["verify-before-review"]`); it needs
+`native = "read"` or `"all"`, since a skill is files it reads. Brain puts them read-only at
+`/work/.workspace/skills/<name>/` and names each, with its description and where its
+`SKILL.md` is, in the task text; the agent reads the one its work calls for. A skill's scripts
+run only in the agent's sandbox, with the agent's native tools, so they reach nothing a command
+of the agent could not. A procedure belongs in a skill; what a workspace learned belongs in
+memory.
 
 ### Memory
 

@@ -102,6 +102,8 @@ export interface PackImport {
   readonly tools: ReadonlyArray<{ readonly name: string; readonly effect: Effect; readonly network: readonly string[]; readonly secrets: readonly string[]; readonly shippedEffect?: Effect }>;
   readonly agents: readonly string[];
   readonly plays: readonly string[];
+  /** Its skills: files agents read, whose scripts run inside the sandbox of whoever lists them. */
+  readonly skills: readonly string[];
 }
 /** A pack as the platform workspace manages it. */
 export interface PackInfo extends PackSummary {

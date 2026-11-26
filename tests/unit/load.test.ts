@@ -176,3 +176,25 @@ describe("an MCP tool's files", () => {
     expect(problems({ "tools/tickets.create/tool.toml": toml('[inputs.title]\ntype = "string"\n'), "tools/tickets.create/input.schema.json": input })).toEqual([expect.stringContaining("no [inputs]")]);
   });
 });
+
+describe("a skill", () => {
+  const skill = (front: string) => `---\n${front}\n---\n\n# How\n\nDo it so.\n`;
+  const agent = (extra: string) => ({ "agents/dev/agent.toml": `description = "Dev."\n${extra}`, "agents/dev/prompt.md": "Work.\n" });
+  const problems = (files: Record<string, string>) => problemsOf({ "brain.toml": 'name = "T"\n', ...files });
+
+  it("is a folder in the Agent Skills format that an agent reading files may list", () => {
+    const files = { "brain.toml": 'name = "T"\n', ...agent('native = "read"\nskills = ["ship-it"]\n'), "skills/ship-it/SKILL.md": skill('name: ship-it\ndescription: "Use it: before shipping."\nlicense: MIT'), "skills/ship-it/scripts/run.sh": "echo\n" };
+    expect(load(files).problems).toEqual([]);
+    expect(load(files).manifest?.skills?.["ship-it"]).toMatchObject({ source: "workspace", description: "Use it: before shipping.", files: [{ path: "SKILL.md" }, { path: "scripts/run.sh" }] });
+    expect(load({ "brain.toml": 'name = "T"\n' }).manifest?.skills).toBeUndefined();
+  });
+
+  it("is refused without its frontmatter, under another name, with no description, or listed by an agent that cannot read it", () => {
+    expect(problems({ "skills/ship-it/notes.md": "x" })).toEqual([expect.stringContaining("has no SKILL.md")]);
+    expect(problems({ "skills/ship-it/SKILL.md": "# No frontmatter\n" })).toEqual([expect.stringContaining("starts with its frontmatter")]);
+    expect(problems({ "skills/ship-it/SKILL.md": skill("name: other\ndescription: x") })).toEqual([expect.stringContaining("the folder's name")]);
+    expect(problems({ "skills/ship-it/SKILL.md": skill("name: ship-it") })).toEqual([expect.stringContaining("description says what the skill is for")]);
+    expect(problems(agent('native = "read"\nskills = ["none-such"]\n'))).toEqual([expect.stringContaining('skill "none-such" does not exist')]);
+    expect(problems({ ...agent('skills = ["ship-it"]\n'), "skills/ship-it/SKILL.md": skill("name: ship-it\ndescription: x") })).toEqual([expect.stringContaining("needs native")]);
+  });
+});

@@ -102,11 +102,14 @@ export function AgentForm(props: { name: string; initial: AgentFile; isNew: bool
         </Show>
       </Group>
       <Group title={t("agent.tools")} text={t("agent.tools.text")}>
-        <Choice label={t("agent.native")} value={agent.native} onChange={(value) => { setAgent("native", value); if (value !== "all") setAgent("model_in_commands", false); }} disabled={props.readOnly} options={NATIVE_LEVELS.map((level) => ({ value: level, label: t(`agent.native.${level}`), help: t(`agent.native.${level}.help`) }))} />
+        <Choice label={t("agent.native")} value={agent.native} onChange={(value) => { setAgent("native", value); if (value !== "all") setAgent("model_in_commands", false); if (value === "none") setAgent("skills", undefined); }} disabled={props.readOnly} options={NATIVE_LEVELS.map((level) => ({ value: level, label: t(`agent.native.${level}`), help: t(`agent.native.${level}.help`) }))} />
         <Show when={agent.native === "all"}>
           <Switch label={t("agent.modelInCommands")} description={t("agent.modelInCommands.help")} checked={agent.model_in_commands} onCheckedChange={(on) => setAgent("model_in_commands", on)} disabled={props.readOnly} />
         </Show>
         <PickMany label={t("agent.workspaceTools")} options={Object.entries(props.snapshot.tools).map(([name, tool]) => ({ value: name, label: name, help: t(`effect.${tool.effect}`) }))} value={agent.tools} onChange={(value) => setAgent("tools", value)} disabled={props.readOnly} />
+        <Show when={Object.keys(props.snapshot.skills ?? {}).length > 0 && agent.native !== "none"}>
+          <PickMany label={t("agent.skills")} description={t("agent.skills.help")} options={Object.entries(props.snapshot.skills ?? {}).map(([name, skill]) => ({ value: name, label: name, help: skill.description }))} value={agent.skills ?? []} onChange={(value) => setAgent("skills", value.length > 0 ? value : undefined)} disabled={props.readOnly} />
+        </Show>
       </Group>
       <Group title={t("agent.limits")} text={t("agent.limits.text")}>
         <div class="grid gap-4 sm:grid-cols-3">

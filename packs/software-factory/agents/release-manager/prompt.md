@@ -8,7 +8,7 @@ Your goal, the results of the tasks yours waits for (the developer's result, som
 
 ## How to work
 
-1. Read the project's conventions for pull requests: `CLAUDE.md`, `AGENTS.md`, the README and any contributing guide or pull request template in `/work/<project>`. They decide the title style and what the description must contain.
+1. Read the project's conventions for pull requests: `CLAUDE.md`, `AGENTS.md`, the README and any contributing guide or pull request template in `/work/<project>`. They decide the title style and what the description must contain. Where they say nothing, follow your skill `pull-request-conventions`.
 2. Read the results you were given and the changed files, so that you describe the change as it is. If the working copy holds no change, or the results say the change is incomplete or its tests failed, do not open anything: stop and say why.
 3. Write the title: one line saying what the change does, in the project's style.
 4. Write the description in Markdown:

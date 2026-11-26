@@ -14,6 +14,9 @@ export const packRef = z.string().refine((ref) => { const [name = "", pin, ...mo
 const toolName = z.string().refine(isToolName, "a tool name must be lower-case words joined by dots, such as deploy.restart");
 export { isSlug };
 
+/** A skill's name as the Agent Skills format has it: lower-case letters, digits and dashes, none at an end, never two together. */
+export const isSkillName = (name: string): boolean => name.length <= 64 && /^[a-z0-9-]+$/u.test(name) && !name.startsWith("-") && !name.endsWith("-") && !name.includes("--");
+
 /** A secret is named in a file, never written in one. */
 const SECRET_REF = /^secret:[a-z][a-z0-9-]{0,62}$/u;
 const secretRef = z.string().regex(SECRET_REF, "must be a reference written secret:<name>; the secret itself is set in the app");
@@ -172,6 +175,8 @@ export const AgentFile = z.strictObject({
   engine: z.array(slug("an engine name")).min(1).default([...BUNDLED_ENGINES]),
   native: z.enum(NATIVE_LEVELS).default("none"),
   tools: z.array(toolName).default([]),
+  /** Skills it is given, by folder name: procedures it reads, with whatever scripts they carry, inside its sandbox. */
+  skills: z.array(z.string().refine(isSkillName, "a skill name is lower-case letters, digits and single dashes, at most 64")).optional(),
   model: slug("a model name").optional(),
   /** The commands the agent runs may call the model through the gateway, with the attempt's token (docs/model.md, "An agent"). */
   model_in_commands: z.boolean().default(false),
@@ -396,6 +401,8 @@ export interface SnapshotManifest {
   readonly plays: Readonly<Record<string, PlayFile & Sourced>>;
   /** `titles` are the titles of the entry's translations (`memory/<name>.fr.md`), which only people read. */
   readonly memory: ReadonlyArray<Sourced & { readonly name: string; readonly title: string; readonly titles: Readonly<Partial<Record<Language, string>>>; readonly digest: Digest; readonly bytes: number }>;
+  /** The skills of the folder and its packs, by name; left out when there is none. */
+  readonly skills?: Readonly<Record<string, Sourced & { readonly description: string; readonly files: readonly FileRef[] }>>;
   /** The text documents of the workspace under `docs/` that agents can search. */
   readonly documents: ReadonlyArray<{ readonly path: string; readonly title: string; readonly digest: Digest; readonly bytes: number }>;
 }

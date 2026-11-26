@@ -5,6 +5,7 @@ import {
 import { parse as parseToml } from "smol-toml";
 import type { z } from "zod";
 import { classifyPath, readPack, type Files } from "./files";
+import { readSkill } from "./skill";
 import { schemaUnreadable } from "@brain/contracts/validate";
 
 /**
@@ -230,6 +231,7 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
 
   const agentNames = new Set<string>();
   const toolFiles = new Map<string, string[]>();
+  const skillFiles = new Map<string, string[]>();
   const playNames: string[] = [];
   const memoryNames: string[] = [];
   const memoryTranslations: Array<{ name: string; lang: Language; path: string }> = [];
@@ -237,6 +239,7 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
     const kind = classifyPath(path);
     if (kind?.kind === "agent") agentNames.add(kind.name);
     else if (kind?.kind === "tool") toolFiles.set(kind.name, [...(toolFiles.get(kind.name) ?? []), kind.file]);
+    else if (kind?.kind === "skill") skillFiles.set(kind.name, [...(skillFiles.get(kind.name) ?? []), kind.file]);
     else if (kind?.kind === "play") playNames.push(kind.name);
     else if (kind?.kind === "memory" && !kind.lang) memoryNames.push(kind.name);
     else if (kind?.kind === "memory" && kind.lang) memoryTranslations.push({ name: kind.name, lang: kind.lang, path });
@@ -318,6 +321,20 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
     plays[name] = { ...play, source: file.source };
   }
 
+  const skills: Record<string, NonNullable<SnapshotManifest["skills"]>[string]> = {};
+  for (const [name, inside] of [...skillFiles].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    const path = `skills/${name}/SKILL.md`;
+    const file = files.get(path);
+    if (!file) { problems.push({ path: shown(`skills/${name}/${inside[0]}`), message: `skill "${name}" has no SKILL.md` }); continue; }
+    const read = readSkill(name, text(file.bytes));
+    if ("problem" in read) { problems.push({ path: shown(path), message: read.problem }); continue; }
+    skills[name] = { source: file.source, description: read.description, files: inside.sort().map((entry) => ({ path: entry, ...blob((files.get(`skills/${name}/${entry}`) as LoadedFile).bytes) })) };
+  }
+  for (const [name, agent] of Object.entries(agents)) {
+    for (const skill of agent.skills ?? []) if (!skillFiles.has(skill)) problems.push({ path: shown(`agents/${name}/agent.toml`), message: `skill "${skill}" does not exist` });
+    if ((agent.skills?.length ?? 0) > 0 && agent.native === "none") problems.push({ path: shown(`agents/${name}/agent.toml`), message: 'skills are files the agent reads: it needs native = "read" or "all"' });
+  }
+
   const memory: Array<SnapshotManifest["memory"][number]> = [];
   for (const name of memoryNames) {
     const path = `memory/${name}.md`;
@@ -351,7 +368,7 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
 
   return done(JSON.parse(JSON.stringify({
     name: brain.name, description: brain.description, timezone: brain.timezone, visibility: brain.visibility, ...(brain.platform ? { platform: brain.platform } : {}), packs: packs.map((pack) => pack.name), ...(Object.keys(pins).length > 0 ? { pins } : {}), limits: brain.limits, healing: brain.healing, cleanup: brain.cleanup, models: brain.model, projects: brain.project,
-    github: brain.github ?? null, ...(brain.git ? { git: brain.git } : {}), teams: brain.teams ?? null, ...(brain.webhook ? { webhook: brain.webhook } : {}), approvals: brain.approvals, agents, tools, plays, memory, documents,
+    github: brain.github ?? null, ...(brain.git ? { git: brain.git } : {}), teams: brain.teams ?? null, ...(brain.webhook ? { webhook: brain.webhook } : {}), approvals: brain.approvals, agents, tools, plays, ...(Object.keys(skills).length > 0 ? { skills } : {}), memory, documents,
   } satisfies SnapshotManifest)) as SnapshotManifest);
 }
 

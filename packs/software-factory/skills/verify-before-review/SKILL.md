@@ -1,3 +1,8 @@
+---
+name: verify-before-review
+description: "How to run and prove a code change before it goes to review: which of the project's commands to use, what to run first and what the result must show. Use it before you hand over a change, and when you review one."
+---
+
 # How to verify a change before asking for review
 
 A change is ready for review when you have run it and can show the run. The reviewer sees your diff and the commands recorded in your task; a claim without a recorded run is sent back.

@@ -80,6 +80,6 @@ export function checkImported(gov: Gov, files: Files): Omit<PackImport, "commit"
       const standard = entry.runs === "brain" ? shipped(tool) : undefined;
       return { name: tool, effect: entry.effect, network: [...entry.network], secrets: [...entry.secrets], ...(standard !== undefined && standard !== entry.effect ? { shippedEffect: standard } : {}) };
     }),
-    agents: own(manifest.agents).map(([agent]) => agent), plays: own(manifest.plays).map(([play]) => play),
+    agents: own(manifest.agents).map(([agent]) => agent), plays: own(manifest.plays).map(([play]) => play), skills: own(manifest.skills ?? {}).map(([skill]) => skill),
   };
 }

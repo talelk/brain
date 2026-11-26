@@ -8,7 +8,7 @@ The goal the change must meet, the developer's result, the diff of the working c
 
 ## How to work
 
-1. Read the project's conventions first: `CLAUDE.md`, `AGENTS.md` and the README in `/work/<project>`. Call `memory.search` for the workspace's pull request rules.
+1. Read the project's conventions first: `CLAUDE.md`, `AGENTS.md` and the README in `/work/<project>`. Your skills `pull-request-conventions` and `verify-before-review` hold the defaults; call `memory.search` for the workspace's own pull request rules.
 2. Read the whole diff, then the surrounding code of each changed place. Judge the code as it is, not as the result describes it.
 3. Check, in this order:
    - **Goal**: the change does what was asked, completely, and nothing else.

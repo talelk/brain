@@ -61,6 +61,7 @@ function ImportPack(props: { onImported: () => void }): JSX.Element {
             <p class="t-text text-ink">{t("packs.import.done", { name: pack().name, commit: pack().commit.slice(0, 12) })}</p>
             <Show when={pack().agents.length > 0}><p class="t-small text-ink-2">{t("packs.import.agents", { names: pack().agents.join(", ") })}</p></Show>
             <Show when={pack().plays.length > 0}><p class="t-small text-ink-2">{t("packs.import.plays", { names: pack().plays.join(", ") })}</p></Show>
+            <Show when={pack().skills.length > 0}><p class="t-small text-ink-2">{t("packs.import.skills", { names: pack().skills.join(", ") })}</p></Show>
             <Show when={pack().replaces.length > 0}><p class="t-small text-ink-2">{t("packs.import.replaces", { files: pack().replaces.map((file) => `${file.path} (${file.pack})`).join(", ") })}</p></Show>
             <ul class="flex flex-col gap-1">
               <For each={pack().tools}>

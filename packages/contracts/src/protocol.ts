@@ -130,6 +130,8 @@ export interface JobOffer {
     readonly limits: { readonly turns: number; readonly tokens: number; readonly spendMicroUsd: number };
     readonly tools: ReadonlyArray<string>;
   };
+  /** The agent's skills: each a folder of files the runner puts where the agent reads, and never keeps. */
+  readonly skills: ReadonlyArray<{ readonly name: string; readonly description: string; readonly files: ReadonlyArray<OfferFile> }>;
   readonly tools: ReadonlyArray<OfferTool>;
   readonly projects: ReadonlyArray<OfferProject>;
   /**

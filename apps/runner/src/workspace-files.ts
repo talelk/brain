@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { BlobRef, SnapshotManifest } from "@brain/contracts";
+import type { BlobRef, JobOffer, SnapshotManifest } from "@brain/contracts";
 
 /** What the folder of the workspace shows an agent: no file bigger than this, no more files than this, no more bytes than this in all. */
 const MAX_FILE_BYTES = 128 * 1024;
@@ -38,4 +38,18 @@ export async function placeWorkspaceFiles(client: { blob(ref: Pick<BlobRef, "dig
     total += bytes.length;
   }
   return written;
+}
+
+/**
+ * Writes the agent's skills under `dir`, one folder each, read-only; scripts keep the right to run. All of a skill is written, whatever its
+ * size: a procedure with a part missing would be followed wrong.
+ */
+export async function placeSkills(client: { blob(ref: BlobRef): Promise<Uint8Array> }, skills: JobOffer["skills"], dir: string): Promise<void> {
+  for (const skill of skills) {
+    for (const file of skill.files) {
+      const target = join(dir, safe(skill.name), safe(file.path));
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, await client.blob(file), { mode: file.path.startsWith("scripts/") ? 0o555 : 0o444 });
+    }
+  }
 }

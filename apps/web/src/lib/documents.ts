@@ -15,7 +15,7 @@ export const extensionOf = (path: string): string => path.split("/").at(-1)?.spl
 export const isImage = (path: string): boolean => IMAGES.has(extensionOf(path));
 export const isMarkdown = (path: string): boolean => ["md", "markdown"].includes(extensionOf(path));
 /** What Brain reads as configuration: changing it changes what agents do. */
-export const isConfiguration = (path: string): boolean => path === "brain.toml" || /^(?:agents|tools|plays|memory)\//u.test(path);
+export const isConfiguration = (path: string): boolean => path === "brain.toml" || /^(?:agents|tools|plays|skills|memory)\//u.test(path);
 /** Where the bytes of a file are downloaded from. */
 export const downloadUrl = (workspaceId: string, path: string): string => `/v1/workspaces/${workspaceId}/files/${path.split("/").map(encodeURIComponent).join("/")}`;
 
