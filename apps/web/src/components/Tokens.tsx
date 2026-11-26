@@ -2,15 +2,18 @@ import { createSignal, Show, type JSX } from "solid-js";
 import { Button, TextInput } from "@talelk/newui-atoms";
 import { Dialog, EmptyState, Select } from "@talelk/newui-molecules";
 import { Section, type DataTableColumn } from "@talelk/newui-organisms";
-import { TOKEN_ROLES, type ApiToken, type TokenRole } from "@brain/contracts";
+import type { ApiToken, TokenRole } from "@brain/contracts";
 import { command, useAction, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
 import { t, tn } from "../i18n";
 import { dateTime } from "../lib/format";
+import { ROLES } from "../lib/model";
 import { ConfirmButton, Failure, Ready } from "./bits";
 import { Table } from "./Table";
 import { CopyBox } from "./UserAdmin";
 
+/** A token never has the admin role. */
+const choices = (): TokenRole[] => ROLES.filter((role): role is TokenRole => role !== "admin");
 const holds = (token: ApiToken): boolean => token.revokedAt === null && token.expiresAt > Date.now();
 const standing = (token: ApiToken): string => (token.revokedAt !== null ? t("tokens.revoked", { when: dateTime(token.revokedAt) }) : holds(token) ? t("tokens.until", { when: dateTime(token.expiresAt) }) : t("tokens.expired", { when: dateTime(token.expiresAt) }));
 
@@ -34,7 +37,7 @@ function NewToken(props: { open: boolean; onOpenChange: (open: boolean) => void 
         <Show when={made()} fallback={
           <form class="mt-4 flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void create.run(); }}>
             <TextInput size="md" label={t("field.name")} description={t("tokens.name.help")} maxLength={60} value={name()} onInput={(event) => setName(event.currentTarget.value)} required />
-            <Select size="md" label={t("people.role")} options={TOKEN_ROLES.map((value) => ({ label: t(`role.${value}`), value, description: t(`tokens.role.${value}`) }))} value={role()} onValueChange={(value) => { if (value) setRole(value as TokenRole); }} />
+            <Select size="md" label={t("people.role")} options={choices().map((value) => ({ label: t(`role.${value}`), value, description: t(`tokens.role.${value}`) }))} value={role()} onValueChange={(value) => { if (value) setRole(value as TokenRole); }} />
             <TextInput size="md" type="number" min={1} max={365} step={1} label={t("tokens.days")} value={days()} onInput={(event) => setDays(event.currentTarget.value)} required />
             <Failure error={create.error()} />
             <div class="flex justify-end gap-2"><Button variant="ghost" size="md" onClick={() => change(false)}>{t("action.cancel")}</Button><Button type="submit" variant="solid" theme="blue" size="md" loading={create.busy()}>{t("tokens.new.submit")}</Button></div>
