@@ -1,4 +1,7 @@
-# Tender sources, Keyrus Middle East and Africa
+---
+type: Reference
+title: "Tender sources, Keyrus Middle East and Africa"
+---
 
 Read each address with web.fetch. A portal that needs a login, a captcha or a paid account is reported as not readable, never worked around. Report only what a page shows.
 

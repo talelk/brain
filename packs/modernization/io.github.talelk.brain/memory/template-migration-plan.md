@@ -1,4 +1,7 @@
-# Migration plan template: one entry per migration
+---
+type: Template
+title: "Migration plan template: one entry per migration"
+---
 
 Copy this entry once for each migration, name the copy `migration-<what>.md`, and replace everything in angle brackets. The agents find these entries with `memory.search` (they search for "migration" and the target's name), so keep the headings as they are. Until a migration has its own entry, the agents work only from the goal.
 

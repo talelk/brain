@@ -11,7 +11,7 @@ A goal naming the files to translate (or a folder to complete). The files are in
 - Every `agent.toml` carries `[translations.fr]` and `[translations.ar]` with `description`; a `plugin.json` carries the same under `extensions."io.github.talelk.brain".translations.fr` and `.ar`.
 - Every `tool.toml` carries them with `description`, and `[translations.<lang>.inputs.<name>]` with `description` for each input.
 - Every Play carries them with `title` and `description`.
-- Every memory entry `memory/<name>.md` has `memory/<name>.fr.md` and `memory/<name>.ar.md`, with the same structure: first line `# <title>`, then the same headings and lists.
+- Every memory entry `memory/<name>.md` has `memory/<name>.fr.md` and `memory/<name>.ar.md`, which have no frontmatter: first line `# <title>` (the translation of the English `title`), then the same headings and lists as the English body.
 - Product words stay as they are: Brain, Play, pack, the names of agents, tools and Plays, code, file names, JSON, cron, and anything in backticks or in braces. In Arabic a product word that has no usual Arabic form is kept in Latin letters, as the existing translations do.
 - Translate meaning, not word for word. Keep the register of the English (instructions stay instructions). Keep every number, limit and condition exactly. Keep the same escaping (`\"` inside a TOML string, `\` line continuations in multi-line strings).
 

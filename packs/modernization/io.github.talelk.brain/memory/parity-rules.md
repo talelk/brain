@@ -1,4 +1,7 @@
-# Behaviour parity: what a migration must prove
+---
+type: Rule
+title: "Behaviour parity: what a migration must prove"
+---
 
 A migration is done when the module does what it did before, and the record shows it. Agents read this entry before changing a module and before reviewing one.
 

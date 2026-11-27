@@ -1,4 +1,7 @@
-# Agent rubric guidelines
+---
+type: Rule
+title: Agent rubric guidelines
+---
 
 The rules the evaluation author, the designer and the judge follow. Edit them to match how your team judges an agent. An agent's cases are the Markdown file `evals/<agent>/cases.md` in the project, and a change to that file is a change to the definition of done. `evals/<agent>/run.sh` runs them; each answer is kept as `/out/cases/<agent>/<case id>.md`.
 

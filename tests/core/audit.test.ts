@@ -8,7 +8,7 @@ beforeEach(async () => {
   harness = await createHarness();
   ({ workspaceId } = await harness.createWorkspace());
   await harness.admin.command("secret.set", { workspaceId, name: "github", value: "a-secret-value" });
-  await harness.admin.command("file.write", { workspaceId, files: [{ path: "memory/note.md", content: "# Note\n" }] });
+  await harness.admin.command("file.write", { workspaceId, files: [{ path: "memory/note.md", content: "---\ntype: Note\ntitle: Note\n---\n" }] });
 });
 afterEach(() => harness.close());
 

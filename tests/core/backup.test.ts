@@ -20,7 +20,7 @@ const play = 'title = "One step"\n[[step]]\nid = "work"\nagent = "dev"\ngoal = "
 describe("a backup", () => {
   it("is made while the Governor runs, and restoring it brings back the workspaces, the record, the secrets and the sessions as they were", async () => {
     harness = await createHarness();
-    const { workspaceId } = await makeWorkspace(harness, "Kept", { agents: { dev: {} }, plays: { one: play }, memory: { welcome: "# Welcome\n\nKept across a restore.\n" } });
+    const { workspaceId } = await makeWorkspace(harness, "Kept", { agents: { dev: {} }, plays: { one: play }, memory: { welcome: "---\ntype: Note\ntitle: Welcome\n---\n\nKept across a restore.\n" } });
     await harness.admin.command("secret.set", { workspaceId, name: "github", value: "ghp-kept" });
     const driver = await enrolRunner(harness, { checker: () => pass(), dev: async (turn) => { await turn.upload("report.md", "# Report\n"); return "Done before the backup."; } });
     const { taskId } = await harness.admin.command("task.create", { workspaceId, play: "one" });
@@ -37,7 +37,7 @@ describe("a backup", () => {
     // What happens after the backup is not in it.
     const later = await makeWorkspace(harness, "Made later");
     await harness.admin.command("secret.delete", { workspaceId, name: "github" });
-    await harness.admin.command("file.write", { workspaceId, files: [{ path: "memory/welcome.md", content: "# Welcome\n\nChanged after the backup.\n" }] });
+    await harness.admin.command("file.write", { workspaceId, files: [{ path: "memory/welcome.md", content: "---\ntype: Note\ntitle: Welcome\n---\n\nChanged after the backup.\n" }] });
     harness.governor.close();
     writeFileSync(join(harness.dataDir, "note-of-the-old-data.txt"), "still here\n");
 

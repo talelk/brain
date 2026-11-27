@@ -185,10 +185,10 @@ describe("the capitalizer's proposals", () => {
         const send = async (input: JsonValue) => { const answer = await turn.brain("workspace.fix", input); proposals.push(answer as { state: string }); return answer; };
         await send({ files: tool("style.lint"), message: "Add the style.lint tool", why: "dev ran lint.run four times in alpha and beta." });
         // Refused at once: another workspace, a file outside packs/, the platform setting, a heal's task input.
-        await send({ workspace: "alpha", files: [{ path: "packs/base/io.github.talelk.brain/memory/x.md", content: "# X\n" }], message: "x", why: "x" });
+        await send({ workspace: "alpha", files: [{ path: "packs/base/io.github.talelk.brain/memory/x.md", content: "---\ntype: Note\ntitle: X\n---\n" }], message: "x", why: "x" });
         await send({ files: [{ path: "tools/style.lint/tool.toml", content: lint }], message: "x", why: "x" });
         await send({ files: [{ path: "brain.toml", content: 'name = "Brain admin"\npackages = []\n' }], message: "x", why: "x" });
-        await send({ task: "t_x", files: [{ path: "packs/base/io.github.talelk.brain/memory/x.md", content: "# X\n" }], message: "x", why: "x" });
+        await send({ task: "t_x", files: [{ path: "packs/base/io.github.talelk.brain/memory/x.md", content: "---\ntype: Note\ntitle: X\n---\n" }], message: "x", why: "x" });
         return { outcome: "held", result: "I proposed a change and stopped." };
       },
     });

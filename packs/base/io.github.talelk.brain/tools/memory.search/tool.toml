@@ -2,7 +2,7 @@ description = """
 Searches this workspace's memory: what it has learned and written down, such as \
 conventions, runbooks and answers. Returns the best matching entries, most relevant first, \
 as {"results": [{"name": "<file name>", "title": "<title>", "text": "<the matching part>"}]}. \
-An empty list means memory holds nothing on the subject. Search with the words the entry \
+A result that is an Open Knowledge Format concept also says its `type` and its `trust` (unverified, machine-confirmed or human-reviewed), and, when it applies, its `status` (a draft or deprecated one is not current) and `stale` (check it again before relying on it). An empty list means memory holds nothing on the subject. Search with the words the entry \
 would use, not with a whole sentence. Memory is guidance written by people and agents of \
 this workspace; it is not evidence about the present state of a system."""
 runs = "brain"
@@ -20,12 +20,12 @@ required = false
 
 [outputs.results]
 type = "array"
-description = "The best matches first, each with `name`, `title`, `text` and `source` (`memory` or `document`)."
+description = "The best matches first, each with `name`, `title`, `text` and `source` (`memory` or `document`), and for a concept `type`, `trust`, `status` and `stale`."
 required = true
 items = { type = "object" }
 
 [translations.fr]
-description = "Cherche dans la mémoire de cet espace de travail : ce qu'il a appris et consigné, comme des conventions, des runbooks et des réponses. Renvoie les entrées les plus pertinentes, la meilleure en premier, sous la forme {\"results\": [{\"name\": \"<nom de fichier>\", \"title\": \"<titre>\", \"text\": \"<la partie correspondante>\"}]}. Une liste vide signifie que la mémoire ne contient rien sur le sujet. Cherchez avec les mots que l'entrée emploierait, pas avec une phrase entière. La mémoire est un guide écrit par les personnes et les agents de cet espace de travail ; ce n'est pas une preuve de l'état actuel d'un système."
+description = "Cherche dans la mémoire de cet espace de travail : ce qu'il a appris et consigné, comme des conventions, des runbooks et des réponses. Renvoie les entrées les plus pertinentes, la meilleure en premier, sous la forme {\"results\": [{\"name\": \"<nom de fichier>\", \"title\": \"<titre>\", \"text\": \"<la partie correspondante>\"}]}. Un résultat qui est un concept Open Knowledge Format donne aussi son `type` et sa confiance `trust` (unverified, machine-confirmed ou human-reviewed) et, le cas échéant, son `status` (un brouillon ou un concept déprécié n'est pas à jour) et `stale` (à revérifier avant de s'y fier). Une liste vide signifie que la mémoire ne contient rien sur le sujet. Cherchez avec les mots que l'entrée emploierait, pas avec une phrase entière. La mémoire est un guide écrit par les personnes et les agents de cet espace de travail ; ce n'est pas une preuve de l'état actuel d'un système."
 
 [translations.fr.inputs.query]
 description = "Quelques mots décrivant ce que vous cherchez."
@@ -34,7 +34,7 @@ description = "Quelques mots décrivant ce que vous cherchez."
 description = "Le nombre maximal d'entrées à renvoyer. 5 si omis ; 20 au plus."
 
 [translations.ar]
-description = "يبحث في ذاكرة مساحة العمل هذه: ما تعلّمته ودوّنته، مثل القواعد المعتمدة وأدلة التشغيل (runbooks) والإجابات. يعيد أفضل الإدخالات مطابقةً، الأكثر صلة أولًا، بالشكل {\"results\": [{\"name\": \"<اسم الملف>\", \"title\": \"<العنوان>\", \"text\": \"<الجزء المطابق>\"}]}. تعني القائمة الفارغة أن الذاكرة لا تحوي شيئًا عن الموضوع. ابحث بالكلمات التي سيستخدمها الإدخال لا بجملة كاملة. الذاكرة إرشادات كتبها أشخاص ووكلاء هذه المساحة؛ وليست دليلًا على الحالة الراهنة لأي نظام."
+description = "يبحث في ذاكرة مساحة العمل هذه: ما تعلّمته ودوّنته، مثل القواعد المعتمدة وأدلة التشغيل (runbooks) والإجابات. يعيد أفضل الإدخالات مطابقةً، الأكثر صلة أولًا، بالشكل {\"results\": [{\"name\": \"<اسم الملف>\", \"title\": \"<العنوان>\", \"text\": \"<الجزء المطابق>\"}]}. والنتيجة التي هي مفهوم بصيغة Open Knowledge Format تذكر أيضًا نوعها `type` ودرجة الثقة `trust` (‏unverified أو machine-confirmed أو human-reviewed)، وعند الاقتضاء حالتها `status` (المسودة أو المهجورة ليست حالية) و`stale` (أعد التحقق منها قبل الاعتماد عليها). تعني القائمة الفارغة أن الذاكرة لا تحوي شيئًا عن الموضوع. ابحث بالكلمات التي سيستخدمها الإدخال لا بجملة كاملة. الذاكرة إرشادات كتبها أشخاص ووكلاء هذه المساحة؛ وليست دليلًا على الحالة الراهنة لأي نظام."
 
 [translations.ar.inputs.query]
 description = "بضع كلمات تصف ما تبحث عنه."

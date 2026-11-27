@@ -1,4 +1,4 @@
-import { BrainError, canonicalJsonBytes, pathProblem, type Actor, type Digest, type JsonValue, type Problem, type SnapshotManifest } from "@brain/contracts";
+import { BrainError, canonicalJsonBytes, pathProblem, type Actor, type Digest, type JsonValue, type Problem, type SnapshotManifest, restamped } from "@brain/contracts";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { tx, type Db } from "../db";
@@ -87,6 +87,22 @@ function applied(head: { readonly files: Files } | undefined, change: Pick<Folde
   return { files, write, loaded: { ...loaded, manifest: loaded.manifest } };
 }
 
+/** The author of a change as the Open Knowledge Format names an actor: a person, or an agent at the commit it worked from. */
+export const actorName = (author: Author, version: string): string => (author.email === "brain@localhost" ? `${author.name}/${version || "brain"}` : `human:${author.email}`);
+
+/** A memory entry whose text changes cannot keep who wrote and checked the text before (okf.ts, `restamped`). */
+function honest(head: { readonly files: Files; readonly commit: string } | undefined, change: FolderChange, nowMs: number): FolderChange {
+  const write = new Map(change.write);
+  for (const [path, bytes] of change.write) {
+    const before = head?.files.get(path);
+    if (!before || classifyPath(path)?.kind !== "memory") continue;
+    const decode = (held: Uint8Array): string => new TextDecoder().decode(held);
+    const next = restamped(decode(before), decode(bytes), actorName(change.author, head?.commit.slice(0, 12) ?? ""), new Date(nowMs).toISOString());
+    if (next !== undefined) write.set(path, new TextEncoder().encode(next));
+  }
+  return { ...change, write };
+}
+
 /**
  * Validates the folder as it would be after the change; only a valid one is written and committed. An invalid one is refused with the
  * path and message of each problem, and nothing changes. A new folder (no repository yet) is created by its first change.
@@ -97,11 +113,12 @@ export function commitFolder(gov: Gov, slug: string, change: FolderChange): Prom
     const head = existsSync(join(dir, ".git")) ? await readHead(dir) : undefined;
     if (change.onlyAtCommit && head?.commit !== change.onlyAtCommit.commit) throw change.onlyAtCommit.refusal;
     const packs = { shipped: gov.packsDir, released: releasedDirOf(gov.dataDir) };
-    let made = applied(head, change, packs);
+    const recorded = honest(head, change, gov.clock.nowMs());
+    let made = applied(head, recorded, packs);
     // The commit that makes a workspace the platform workspace also gives it an editable copy of every shipped pack.
     if (guardPlatform(gov, slug, head?.files, made.loaded.manifest, change.instanceAdmin)) {
       const seeds = [...seedPacks(gov)].filter(([path]) => !head?.files.has(path) && !change.write.has(path));
-      made = applied(head, { ...change, write: new Map([...seeds, ...change.write]) }, packs);
+      made = applied(head, { ...recorded, write: new Map([...seeds, ...recorded.write]) }, packs);
     }
     const { write, loaded } = made;
     const paths = [...write.keys(), ...change.remove];

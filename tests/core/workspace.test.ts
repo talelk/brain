@@ -134,18 +134,18 @@ describe("file.write and file.delete", () => {
   });
 
   it("a command repeated with its idempotency key answers the same and commits once", async () => {
-    const input = { workspaceId, files: [{ path: "memory/style.md", content: "# Style\n\nShort sentences.\n" }] };
+    const input = { workspaceId, files: [{ path: "memory/style.md", content: "---\ntype: Note\ntitle: Style\n---\n\nShort sentences.\n" }] };
     const first = await harness.admin.command("file.write", input, "write-style-1");
     const commits = (await log()).length;
     expect(await harness.admin.command("file.write", input, "write-style-1")).toEqual(first);
     expect((await log()).length).toBe(commits);
-    await expect(harness.admin.command("file.write", { ...input, files: [{ path: "memory/style.md", content: "# Style\n\nOther.\n" }] }, "write-style-1")).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+    await expect(harness.admin.command("file.write", { ...input, files: [{ path: "memory/style.md", content: "---\ntype: Note\ntitle: Style\n---\n\nOther.\n" }] }, "write-style-1")).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
     expect((await harness.admin.query("workspace.get", { workspaceId })).snapshot.memory.map((entry) => entry.name)).toEqual(["style", "welcome"]);
   });
 
   it("a folder committed just before a stop is activated at the next start", async () => {
     const before = await harness.admin.query("workspace.get", { workspaceId });
-    fs.writeFileSync(join(dir(), "memory/late.md"), "# Late\n\nCommitted, not yet activated.\n");
+    fs.writeFileSync(join(dir(), "memory/late.md"), "---\ntype: Note\ntitle: Late\n---\n\nCommitted, not yet activated.\n");
     await git.add({ fs, dir: dir(), filepath: "memory/late.md" });
     const commit = await git.commit({ fs, dir: dir(), message: "Late", author: { name: "Ada Admin", email: "ada@example.com" } });
     expect((await harness.admin.query("workspace.get", { workspaceId })).snapshotDigest).toBe(before.snapshotDigest);
@@ -159,6 +159,6 @@ describe("file.write and file.delete", () => {
     const made = await harness.createWorkspace({ name: "To archive", packs: ["core"] });
     expect(await harness.admin.command("workspace.archive", { workspaceId: made.workspaceId })).toEqual({});
     expect((await harness.admin.query("workspace.get", { workspaceId: made.workspaceId })).status).toBe("archived");
-    await expect(harness.admin.command("file.write", { workspaceId: made.workspaceId, files: [{ path: "memory/x.md", content: "# X\n" }] })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(harness.admin.command("file.write", { workspaceId: made.workspaceId, files: [{ path: "memory/x.md", content: "---\ntype: Note\ntitle: X\n---\n" }] })).rejects.toMatchObject({ code: "CONFLICT" });
   });
 });

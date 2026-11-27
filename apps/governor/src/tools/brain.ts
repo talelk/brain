@@ -1,4 +1,4 @@
-import { BrainError, isSlug, type BrainToolRequest, type BrainToolResponse, type JsonValue, type ToolOutcome } from "@brain/contracts";
+import { BrainError, isReserved, isSlug, type BrainToolRequest, type BrainToolResponse, type JsonValue, type ToolOutcome } from "@brain/contracts";
 import { tx } from "../db";
 import type { Gov } from "../dispatch";
 import { openPullRequest, pullRequestChange } from "../integrations/pull-request";
@@ -29,10 +29,11 @@ function runNow(gov: Gov, attempt: AttemptRow, task: TaskRow, tool: string, inpu
     const id = db.prepare("INSERT INTO notes(workspace_id, root_id, author, attempt_id, text, created_at_ms) VALUES (?,?,?,?,?,?)").run(task.workspace_id, task.root_id, attempt.agent, attempt.id, input["text"] as string, gov.clock.nowMs()).lastInsertRowid;
     return { id: String(id) };
   }
-  if (tool === "memory.search") return { results: searchMemory(db, task.workspace_id, input["query"] as string, (input["limit"] as number | undefined) ?? 5) };
+  if (tool === "memory.search") return { results: searchMemory(gov, task.workspace_id, input["query"] as string, (input["limit"] as number | undefined) ?? 5) };
   if (tool === "memory.propose") {
     if (!isSlug(input["name"] as string)) throw new ToolRefusal("The name must be lower-case words joined by hyphens, such as release-checklist");
-    return { id: proposeMemory(gov, attempt, { name: input["name"] as string, title: input["title"] as string, text: input["text"] as string }), status: "proposed" };
+    if (isReserved(input["name"] as string)) throw new ToolRefusal("index and log are kept for the memory's listing and history: choose another name");
+    return { id: proposeMemory(gov, attempt, { name: input["name"] as string, title: input["title"] as string, ...(typeof input["type"] === "string" ? { type: input["type"] } : {}), text: input["text"] as string }), status: "proposed" };
   }
   if (tool.startsWith("platform.")) return runPlatform(gov, attempt, task, tool, input);
   // The two below change the course of the task itself, so only its own work may use them.

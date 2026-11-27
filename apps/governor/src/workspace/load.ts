@@ -1,5 +1,5 @@
 import {
-  AgentFile, BRAIN_TOOLS, BrainFile, fieldSchema, isIndexedDocument, MAX_INDEXED_BYTES, MemoryEntry, PACK_MANIFEST, packContents, packPath, readPackManifest, parseRef, parseWhen, PLATFORM_PACK, PlayFile, splitPackRef, secretName, sha256Digest, splitMemoryEntry, templateRefs, ToolFile,
+  AgentFile, BRAIN_TOOLS, BrainFile, fieldSchema, isIndexedDocument, MAX_INDEXED_BYTES, MemoryTranslation, isReserved, readConcept, PACK_MANIFEST, packContents, packPath, readPackManifest, parseRef, parseWhen, PLATFORM_PACK, PlayFile, splitPackRef, secretName, sha256Digest, splitTitle, templateRefs, ToolFile,
   type Digest, type JsonSchema, type Language, type Problem, type Ref, type SnapshotManifest, type StepSpec,
 } from "@brain/contracts";
 import { parse as parseToml } from "smol-toml";
@@ -343,15 +343,17 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
   for (const name of memoryNames) {
     const path = `memory/${name}.md`;
     const file = files.get(path) as LoadedFile;
-    const entry = MemoryEntry.safeParse(splitMemoryEntry(text(file.bytes)));
-    if (!entry.success) problems.push({ path: shown(path), message: "a memory entry starts with its title, written as a line `# Title`" });
-    else memory.push({ name, title: entry.data.title, titles: {}, source: file.source, ...blob(file.bytes) });
+    const read = readConcept(text(file.bytes));
+    if ("problem" in read) { problems.push({ path: shown(path), message: `a memory entry starts with frontmatter that says its kind (a line ---, then type: <kind>, then a line ---): ${read.problem}` }); continue; }
+    const title = read.title ?? name.replaceAll("-", " ");
+    if (title.length > 200) problems.push({ path: shown(path), message: "a memory entry's title is at most 200 characters" });
+    else memory.push({ name, title, titles: {}, concept: read.facts, source: file.source, ...blob(file.bytes) });
   }
   // A translation of an entry is read by people only: it is not indexed, and agents are not offered it.
   for (const { name, lang, path } of memoryTranslations) {
     const entry = memory.find((candidate) => candidate.name === name);
-    const parsed = MemoryEntry.safeParse(splitMemoryEntry(text((files.get(path) as LoadedFile).bytes)));
-    if (!parsed.success) problems.push({ path: shown(path), message: "a memory entry starts with its title, written as a line `# Title`" });
+    const parsed = MemoryTranslation.safeParse(splitTitle(text((files.get(path) as LoadedFile).bytes)));
+    if (!parsed.success) problems.push({ path: shown(path), message: "the translation of a memory entry starts with its title, written as a line `# Title`" });
     else if (!entry) problems.push({ path: shown(path), message: `translates the memory entry ${name}, which does not exist` });
     else (entry.titles as Partial<Record<Language, string>>)[lang] = parsed.data.title;
   }
@@ -362,7 +364,12 @@ export function loadWorkspace(workspace: Files, packsDir: string, releasedDir?: 
     if (file.source !== "workspace" || !isIndexedDocument(path) || file.bytes.length > MAX_INDEXED_BYTES) continue;
     let content: string;
     try { content = new TextDecoder("utf-8", { fatal: true }).decode(file.bytes); } catch { continue; }
-    documents.push({ path, title: splitMemoryEntry(content).title || (path.split("/").at(-1) ?? path), ...blob(file.bytes) });
+    const base = path.split("/").at(-1) ?? path;
+    // A Markdown document that is a concept (a bundle copied under docs/) is found with its facts; index.md and log.md never are one.
+    const read = /\.(?:md|markdown)$/iu.test(path) && !isReserved(base.replace(/\.[^.]+$/u, "")) ? readConcept(content) : undefined;
+    const concept = read && !("problem" in read) ? read : undefined;
+    const title = concept?.title ?? (splitTitle(concept?.body ?? content).title || base);
+    documents.push({ path, title, ...(concept ? { concept: concept.facts } : {}), ...blob(file.bytes) });
   }
 
   if (brain.platform && brain.visibility === "public") problems.push({ path: "brain.toml", message: "a platform workspace is private: it holds what every workspace did, so it cannot also be public" });

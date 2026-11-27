@@ -76,7 +76,7 @@ describe("the shape of a pack", () => {
     const play = 'title = "P"\n[trigger]\nschedule = "0 6 * * 1"\n[[step]]\nid = "do"\nagent = "dev"\ngoal = "Do."\nrequires = ["screens-*"]\n';
     expect(shape({
       ...agent("dev", "[limits]\nspend_usd = 0.5\n"), "tools/deploy.app.now/tool.toml": 'description = "x"\neffect = "read"\n', "tools/deploy.app.now/run.sh": "echo\n",
-      "memory/screens-example.md": "# Screens\n\nCopy me.\n", "plays/one.toml": play, "plays/two.toml": play,
+      "memory/screens-example.md": "---\ntype: Template\n---\n\nCopy me.\n", "plays/one.toml": play, "plays/two.toml": play,
     })).toEqual([
       expect.stringContaining("a tool of a pack is named <system>.<verb>"),
       expect.stringContaining("run.sh and test.sh together"),

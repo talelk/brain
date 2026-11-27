@@ -1,12 +1,13 @@
 import { createEffect, createMemo, createSignal, For, Match, on, Show, Switch, untrack, type JSX } from "solid-js";
 import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router";
-import { Button, TextInput } from "@talelk/newui-atoms";
+import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { EmptyState, TabButtons, Tabs } from "@talelk/newui-molecules";
 import { PaneLayout } from "@talelk/newui-templates";
 import { BUNDLED_ENGINES } from "@brain/contracts/engines";
 import { LIMIT_DEFAULTS } from "@brain/contracts/limits";
-import type { AgentFile, FileEntry, Language, MemoryProposal, PlayFile, SnapshotManifest, ToolFile } from "@brain/contracts";
-import { command, useAction, useQuery } from "../data/api";
+import type { AgentFile, ConceptFacts, FileEntry, Language, MemoryProposal, PlayFile, SnapshotManifest, ToolFile } from "@brain/contracts";
+import { conceptText, isReserved, isStale } from "@brain/contracts/okf";
+import { command, query, useAction, useQuery } from "../data/api";
 import { usePlace } from "../data/session";
 import { direction, human, locale, t, tn, type MessageKey } from "../i18n";
 import { ago } from "../lib/format";
@@ -74,6 +75,7 @@ function Proposal(props: { proposal: MemoryProposal }): JSX.Element {
     <li class="rounded-card border border-(--needs-line) bg-surface-elevation-1 p-4">
       <p class="t-small font-semibold text-needs-text">{t("memory.proposal", { by: props.proposal.proposedBy, when: ago(props.proposal.at) })}</p>
       <h3 class="mt-1 t-head text-ink" dir="auto">{props.proposal.title}</h3>
+      <p class="t-small text-ink-3" dir="auto">{props.proposal.type}</p>
       <div class="mt-3 max-h-64 overflow-auto rounded-xl bg-paper px-4 py-3"><Markdown text={props.proposal.body} /></div>
       <Failure error={decide.error()} class="mt-3" />
       <Show when={place.can("admin")} fallback={<p class="mt-3 t-small text-ink-2">{t("memory.proposal.admin")}</p>}>
@@ -87,21 +89,42 @@ function Proposal(props: { proposal: MemoryProposal }): JSX.Element {
   );
 }
 
-/** A memory entry: Markdown whose first line is its title. */
+/** What the format says of an entry: its kind, who checked it, and whether it still holds. */
+function Facts(props: { facts: ConceptFacts }): JSX.Element {
+  return (
+    <p class="mb-3 flex flex-wrap items-center gap-2 t-small text-ink-2">
+      <Badge theme="gray" size="md" label={props.facts.type} />
+      <Badge theme={props.facts.trust === "human-reviewed" ? "green" : "gray"} size="md" label={t(`memory.trust.${props.facts.trust}`)} />
+      <Show when={props.facts.status}>{(status) => <Badge theme="amber" size="md" label={status() === "draft" || status() === "deprecated" ? t(`memory.status.${status() as "draft" | "deprecated"}`) : status()} />}</Show>
+      <Show when={isStale(props.facts, Date.now())}><Badge theme="amber" size="md" label={t("memory.stale")} /></Show>
+    </p>
+  );
+}
+
+/** A memory entry: an Open Knowledge Format concept, frontmatter (its kind and title) then Markdown. */
 function MemoryEntry(props: { name: string; isNew: boolean; readOnly: boolean; title?: string | undefined; onSaved: () => void }): JSX.Element {
   const place = usePlace();
   const file = useQuery("file.read", () => (props.isNew ? undefined : { workspaceId: place.id(), path: paths.memory(props.name) }));
-  const [draft, setDraft] = createSignal<string | undefined>(props.isNew ? `# ${props.title || props.name.replaceAll("-", " ")}\n\n` : undefined);
+  const [draft, setDraft] = createSignal<string | undefined>(props.isNew ? conceptText({ type: "Note", title: props.title || props.name.replaceAll("-", " ") }, "") : undefined);
   const write = useWrite(props.onSaved);
   const text = (): string | undefined => draft() ?? file.data()?.content;
   /** The entry as written for people who read this language, when it has one: shown above the English file agents read. */
   const lang = (): Language | undefined => { const titles = (place.workspace.data()?.snapshot.memory.find((entry) => entry.name === props.name))?.titles; return locale() !== "en" && titles?.[locale() as Language] !== undefined ? (locale() as Language) : undefined; };
   const translated = useQuery("file.read", () => { const at = lang(); return at && !props.isNew ? { workspaceId: place.id(), path: paths.memoryIn(props.name, at) } : undefined; });
+  const concept = (): ConceptFacts | undefined => (props.isNew ? undefined : place.workspace.data()?.snapshot.memory.find((entry) => entry.name === props.name)?.concept);
+  const save = async (): Promise<void> => {
+    const sent = text() ?? "";
+    if (!(await write.run([{ path: paths.memory(props.name), content: sent }], `${props.isNew ? "Add" : "Change"} the memory entry ${props.name}`)) || props.isNew) return;
+    /** Brain may have written who changed the entry into it: the editor goes on from the file as it was committed. */
+    const { content } = await query("file.read", { workspaceId: place.id(), path: paths.memory(props.name) });
+    if (draft() === sent) setDraft(content);
+  };
   return (
     <Show when={text() !== undefined} fallback={<Failure error={file.error()} />}>
+      <Show when={concept()}>{(facts) => <Facts facts={facts()} />}</Show>
       <Show when={translated.data()?.content}>{(content) => <div class="mb-5 rounded-control bg-surface-gray-2 px-4 py-3" dir="auto"><Markdown text={content()} /><p class="mt-3 t-small text-ink-3">{t("memory.translated")}</p></div>}</Show>
       <MarkdownEditor label={paths.memory(props.name)} value={text() ?? ""} onChange={setDraft} problems={problemsOf(write, paths.memory(props.name))} readOnly={props.readOnly} />
-      <Show when={!props.readOnly}><SaveBar write={write} onSave={() => void write.run([{ path: paths.memory(props.name), content: text() ?? "" }], `${props.isNew ? "Add" : "Change"} the memory entry ${props.name}`)} shown={[paths.memory(props.name)]} disabled={draft() === undefined} /></Show>
+      <Show when={!props.readOnly}><SaveBar write={write} onSave={() => void save()} shown={[paths.memory(props.name)]} disabled={draft() === undefined} /></Show>
     </Show>
   );
 }
@@ -147,7 +170,8 @@ export default function WorkspaceScreen(): JSX.Element {
   createEffect(() => {
     const snapshot = place.workspace.data()?.snapshot;
     if (!snapshot || name() || single() || tab() === "team" || tab() === "files" || search.new !== undefined) return;
-    if (!window.matchMedia("(min-width: 1024px)").matches || (tab() === "memory" && proposals().length > 0)) return;
+    // Memory waits for its proposals: opening an entry before they are read would hide the ones waiting.
+    if (!window.matchMedia("(min-width: 1024px)").matches || (tab() === "memory" && (!memory.data() || proposals().length > 0))) return;
     const first = items(snapshot)[0];
     if (first) navigate(href(tab(), first.name), { replace: true });
   });
@@ -156,8 +180,10 @@ export default function WorkspaceScreen(): JSX.Element {
   const filePath = (name: string): string => (tab() === "agents" ? `agents/${name}/agent.toml` : tab() === "tools" ? `tools/${name}/tool.toml` : tab() === "plays" ? `plays/${name}.toml` : `memory/${name}.md`);
   const same = (): { source: string } | undefined => items(place.workspace.data()?.snapshot as SnapshotManifest).find((item) => item.name === fileName());
   const taken = (): boolean => same()?.source === "workspace";
-  const create = (): void => { const made = fileName(); if (made !== "" && (tab() === "tools" ? isToolName(made) : isSlug(made)) && !taken()) navigate(`${href(tab(), made)}?new=1&title=${encodeURIComponent((newName() ?? "").trim())}`); };
-  const nameValid = (): boolean => (newName() ?? "").trim() === "" || (fileName() !== "" && !taken());
+  const create = (): void => { const made = fileName(); if (made !== "" && (tab() === "tools" ? isToolName(made) : isSlug(made)) && !taken() && !reserved()) navigate(`${href(tab(), made)}?new=1&title=${encodeURIComponent((newName() ?? "").trim())}`); };
+  /** `index` and `log` are a memory's listing and history in the Open Knowledge Format, so no entry takes them. */
+  const reserved = (): boolean => tab() === "memory" && isReserved(fileName());
+  const nameValid = (): boolean => (newName() ?? "").trim() === "" || (fileName() !== "" && !taken() && !reserved());
 
   const list = (snapshot: SnapshotManifest): JSX.Element => (
     <div class={name() ? "max-lg:hidden" : ""}>
@@ -181,7 +207,7 @@ export default function WorkspaceScreen(): JSX.Element {
       <Show when={!readOnly()}>
         <Show when={newName() !== undefined} fallback={<Button variant="ghost" size="md" class="mt-2" iconLeft="lucide-plus" onClick={() => setNewName("")}>{t(`workspace.new.${tab()}` as MessageKey)}</Button>}>
           <form class="mt-3 flex items-end gap-2 px-1" onSubmit={(event) => { event.preventDefault(); create(); }}>
-            <div class="min-w-0 flex-1"><TextInput size="md" label={t("workspace.new.name")} description={t("workspace.new.name.help")} error={nameValid() ? undefined : taken() ? t("workspace.new.exists", { name: fileName() }) : t(tab() === "tools" ? "workspace.new.name.tool" : "workspace.new.name.slug")} value={newName() ?? ""} onInput={(event) => setNewName(event.currentTarget.value)} autofocus />
+            <div class="min-w-0 flex-1"><TextInput size="md" label={t("workspace.new.name")} description={t("workspace.new.name.help")} error={nameValid() ? undefined : reserved() ? t("workspace.new.reserved", { name: fileName() }) : taken() ? t("workspace.new.exists", { name: fileName() }) : t(tab() === "tools" ? "workspace.new.name.tool" : "workspace.new.name.slug")} value={newName() ?? ""} onInput={(event) => setNewName(event.currentTarget.value)} autofocus />
               <Show when={fileName() !== ""}><p class="mt-1 t-small text-ink-2" data-testid="file-preview">{t("workspace.new.preview")} <code class="t-code code-ltr">{filePath(fileName())}</code><Show when={same() && !taken()}> {t("workspace.new.replaces", { pack: same()?.source ?? "" })}</Show></p></Show></div>
             <Button type="submit" variant="outline" size="md" disabled={fileName() === "" || !nameValid()}>{t("workspace.new.create")}</Button>
           </form>

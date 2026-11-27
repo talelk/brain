@@ -13,7 +13,7 @@ let otherWorkspaceId: string;
 let viewer: Client;
 let member: Client;
 let outsider: Client;
-const memory = (name: string) => ({ workspaceId, files: [{ path: `memory/${name}.md`, content: `# ${name}\n` }] });
+const memory = (name: string) => ({ workspaceId, files: [{ path: `memory/${name}.md`, content: `---\ntype: Note\ntitle: ${name}\n---\n` }] });
 
 beforeAll(async () => {
   harness = await createHarness();
@@ -240,7 +240,7 @@ describe("visibility", () => {
     expect((await outsider.query("schedules.list", {})).schedules.every((item) => item.role === "viewer" || item.workspaceId !== id)).toBe(true);
     // Read only: no command, and nothing that holds secrets or people.
     const attempts = [
-      () => outsider.command("file.write", { workspaceId: id, files: [{ path: "memory/x.md", content: "# x\n" }] }), () => outsider.command("task.create", { workspaceId: id, goal: "Do it" }),
+      () => outsider.command("file.write", { workspaceId: id, files: [{ path: "memory/x.md", content: "---\ntype: Note\ntitle: x\n---\n" }] }), () => outsider.command("task.create", { workspaceId: id, goal: "Do it" }),
       () => outsider.query("secrets.list", { workspaceId: id }), () => outsider.query("members.list", { workspaceId: id }), () => outsider.command("member.set", { workspaceId: id, email: "omar@example.com", role: "admin" }),
     ];
     for (const attempt of attempts) await expect(attempt()).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -262,7 +262,7 @@ describe("visibility", () => {
     expect((await boss.query("overview", {})).workspaces.map((workspace) => workspace.id)).toContain(id);
     // Read and write: the admin starts work and changes files there.
     await expect(boss.command("task.create", { workspaceId: id, play: "hello", inputs: { name: "Boss" } })).resolves.toBeDefined();
-    await expect(boss.command("file.write", { workspaceId: id, files: [{ path: "memory/boss.md", content: "# boss\n" }] })).resolves.toBeDefined();
+    await expect(boss.command("file.write", { workspaceId: id, files: [{ path: "memory/boss.md", content: "---\ntype: Note\ntitle: boss\n---\n" }] })).resolves.toBeDefined();
     expect((await boss.query("members.list", { workspaceId: id })).members.map((member) => member.email)).not.toContain("boss@example.com");
   });
 

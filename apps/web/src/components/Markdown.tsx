@@ -1,6 +1,7 @@
 import { For, Show, type JSX } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { markdownBlocks, parseInline, type Block, type ListNode } from "../lib/markdown-parse";
+import { readConcept } from "@brain/contracts/okf";
 
 /**
  * Markdown a person reads: a result, findings, a prompt. A small, safe subset parsed into text nodes (headings, paragraphs, emphasis,
@@ -47,6 +48,14 @@ function block(item: Block): JSX.Element {
   }
 }
 
-export function Markdown(props: { text: string; class?: string }): JSX.Element {
-  return <div class={`prose-brain ${props.class ?? ""}`} dir="auto"><For each={markdownBlocks(props.text)}>{block}</For></div>;
+/** A file that is an Open Knowledge Format concept is read as its title and body, without the rest of its frontmatter. */
+const bodyOf = (text: string): string => {
+  const read = readConcept(text);
+  if ("problem" in read) return text;
+  return read.title === undefined || read.body.split("\n")[0] === `# ${read.title}` ? read.body : `# ${read.title}\n\n${read.body}`;
+};
+
+/** `file`: the text is a file's content, whose frontmatter is not part of what is read. */
+export function Markdown(props: { text: string; file?: boolean; class?: string }): JSX.Element {
+  return <div class={`prose-brain ${props.class ?? ""}`} dir="auto"><For each={markdownBlocks(props.file ? bodyOf(props.text) : props.text)}>{block}</For></div>;
 }

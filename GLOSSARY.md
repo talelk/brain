@@ -57,7 +57,7 @@ changes to them, each change approved by that workspace's admin or an instance a
 `admin` (the one that also keeps and releases the packs) or `read` (any number, no packs).
 _Avoid_: super workspace, root workspace
 
-**Memory**: What a workspace has learned, as Markdown entries in `memory/`, read only by
+**Memory**: What a workspace has learned, as Open Knowledge Format concepts in `memory/`, read only by
 that workspace's agents.
 _Avoid_: knowledge base, context, scope
 

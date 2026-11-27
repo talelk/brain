@@ -85,7 +85,7 @@ export function Preview(props: { name: string; url: string }): JSX.Element {
             {(file) => (
               <>
                 <Switch fallback={<Code text={file().text} class="max-h-96" />}>
-                  <Match when={kind === "markdown"}><div class="max-h-[32rem] overflow-auto rounded-xl border border-rule-2 bg-sheet p-5"><Markdown text={file().text} /></div></Match>
+                  <Match when={kind === "markdown"}><div class="max-h-[32rem] overflow-auto rounded-xl border border-rule-2 bg-sheet p-5"><Markdown file text={file().text} /></div></Match>
                   <Match when={kind === "json"}><Json text={file().text} /></Match>
                   <Match when={kind === "csv"}><Table rows={csvRows(file().text, props.name.toLowerCase().endsWith(".tsv") ? "\t" : ",")} /></Match>
                 </Switch>

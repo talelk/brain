@@ -1,4 +1,7 @@
-# Runbook template: one entry per service
+---
+type: Template
+title: "Runbook template: one entry per service"
+---
 
 Copy this entry once for each service of the host, name the copy `runbook-<service>.md`, and replace everything in angle brackets. The agents find these entries with `memory.search` (they search for "runbook", "health address" and the service's name), so keep the headings as they are. Until a service has its own entry, the agents can see its container but do not know its health address, what it depends on, or which stack it belongs to.
 

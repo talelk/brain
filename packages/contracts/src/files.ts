@@ -4,6 +4,7 @@ import { BUNDLED_ENGINES, MODEL_PROVIDERS } from "./engines";
 import { LIMIT_DEFAULTS } from "./limits";
 import type { Digest, JsonValue } from "./protocol";
 import { isSlug, SLUG } from "./slug";
+import type { ConceptFacts } from "./okf";
 
 /** The files of a workspace folder and of a pack (docs/model.md): zod schemas, parsed types, and the step template syntax. Unknown keys are errors. */
 
@@ -270,12 +271,12 @@ export const PlayFile = z.strictObject({
 }).superRefine(translatedInputsExist);
 export type PlayFile = z.infer<typeof PlayFile>;
 
-// --- memory/<name>.md ---
+// --- memory/<name>.md: an Open Knowledge Format concept (okf.ts) ---
 
-export const MemoryEntry = z.strictObject({ title: z.string().min(1).max(200), body: z.string() });
-export type MemoryEntry = z.infer<typeof MemoryEntry>;
-/** A memory entry is Markdown whose first line is its title (`# Title`). Returns what the schema is given; a file with no title line has an empty title. */
-export function splitMemoryEntry(text: string): { title: string; body: string } {
+export const MemoryTranslation = z.strictObject({ title: z.string().min(1).max(200), body: z.string() });
+export type MemoryTranslation = z.infer<typeof MemoryTranslation>;
+/** The title line (`# Title`) of a translation or of a document, and what follows it; a file with no title line has an empty title. */
+export function splitTitle(text: string): { title: string; body: string } {
   const [first = "", ...rest] = text.replace(/^﻿/u, "").trimStart().split("\n");
   return first.startsWith("# ") ? { title: first.slice(2).trim(), body: rest.join("\n").trim() } : { title: "", body: text.trim() };
 }
@@ -387,11 +388,12 @@ export interface SnapshotManifest {
   readonly tools: Readonly<Record<string, ToolFile & Sourced & { readonly input_schema: JsonSchema; readonly output_schema?: JsonSchema; readonly files: readonly FileRef[] }>>;
   readonly plays: Readonly<Record<string, PlayFile & Sourced>>;
   /** `titles` are the titles of the entry's translations (`memory/<name>.fr.md`), which only people read. */
-  readonly memory: ReadonlyArray<Sourced & { readonly name: string; readonly title: string; readonly titles: Readonly<Partial<Record<Language, string>>>; readonly digest: Digest; readonly bytes: number }>;
+  readonly memory: ReadonlyArray<Sourced & { readonly name: string; readonly title: string; readonly titles: Readonly<Partial<Record<Language, string>>>; readonly concept?: ConceptFacts; readonly digest: Digest; readonly bytes: number }>;
   /** The skills of the folder and its packs, by name; left out when there is none. */
   readonly skills?: Readonly<Record<string, Sourced & { readonly description: string; readonly files: readonly FileRef[] }>>;
   /** The text documents of the workspace under `docs/` that agents can search. */
-  readonly documents: ReadonlyArray<{ readonly path: string; readonly title: string; readonly digest: Digest; readonly bytes: number }>;
+  /** A document that is an Open Knowledge Format concept has its facts. */
+  readonly documents: ReadonlyArray<{ readonly path: string; readonly title: string; readonly concept?: ConceptFacts; readonly digest: Digest; readonly bytes: number }>;
 }
 /** One thing wrong with a workspace folder: the file and what to fix. */
 export interface Problem { readonly path: string; readonly message: string }

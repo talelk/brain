@@ -73,7 +73,7 @@ describe("the folder's remote", () => {
     const made = await harness.createWorkspace({ name: "Backed up", folderRemote: `${server.origin}/backup.git` });
     await settled(() => pushes(made.workspaceId).length >= 1);
     expect(git(`${root}/backup.git`, "ls-tree", "-r", "--name-only", "main")).toBe("brain.toml");
-    await harness.admin.command("file.write", { workspaceId: made.workspaceId, files: [{ path: "memory/note.md", content: "# Note\n" }] });
+    await harness.admin.command("file.write", { workspaceId: made.workspaceId, files: [{ path: "memory/note.md", content: "---\ntype: Note\ntitle: Note\n---\n" }] });
     await settled(() => git(`${root}/backup.git`, "ls-tree", "-r", "--name-only", "main").includes("memory/note.md"));
     expect(pushes(made.workspaceId).every((push) => push.type === "workspace.pushed")).toBe(true);
     const shown = (await harness.admin.query("workspace.get", { workspaceId: made.workspaceId })).folderPush;
@@ -84,7 +84,7 @@ describe("the folder's remote", () => {
   it("fails without failing the commit, and records the failure without a secret", async () => {
     const made = await harness.createWorkspace({ name: "Unreachable", folderRemote: "http://127.0.0.1:9/nobody/backup.git" });
     await harness.admin.command("secret.set", { workspaceId: made.workspaceId, name: "github", value: "tok-very-secret-value" });
-    const changed = await harness.admin.command("file.write", { workspaceId: made.workspaceId, files: [{ path: "memory/note.md", content: "# Note\n" }] });
+    const changed = await harness.admin.command("file.write", { workspaceId: made.workspaceId, files: [{ path: "memory/note.md", content: "---\ntype: Note\ntitle: Note\n---\n" }] });
     expect(changed.commit).toMatch(/^[0-9a-f]{40}$/u);
     await settled(() => pushes(made.workspaceId).some((push) => push.type === "workspace.push_failed"));
     expect(JSON.stringify(pushes(made.workspaceId))).not.toContain("tok-very-secret-value");

@@ -1,4 +1,7 @@
-# Safety rules for changing anything on the host
+---
+type: Rule
+title: Safety rules for changing anything on the host
+---
 
 These rules apply to every agent of this workspace, in every task, whatever the goal says. The evaluator checks them and fails a remediation that breaks one.
 

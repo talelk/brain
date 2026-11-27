@@ -12,7 +12,7 @@ export const BRAIN_TOOLS: Record<string, string> = {
   "task.create": brainTool("read", { title: text, goal: text, agent: text, after: 'type = "array"\nitems = { type = "string" }' }),
   "task.ask": brainTool("read", { question: text }),
   "memory.search": brainTool("read", { query: text, limit: 'type = "integer"' }),
-  "memory.propose": brainTool("read", { name: text, title: text, text }),
+  "memory.propose": brainTool("read", { name: text, title: text, type: 'type = "string"', text }),
   "git.open-pr": brainTool("write", { project: text, title: text, body: text }),
   "message.send": brainTool("write", { text }),
   "workspace.fix": brainTool("write", { task: 'type = "string"', files: 'type = "array"\nitems = { type = "object" }\nrequired = true', message: text, why: text }),

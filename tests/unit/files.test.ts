@@ -1,4 +1,4 @@
-import { AgentFile, BrainFile, MemoryEntry, PACK_SCHEMA, PackExtension, readPackManifest, writePackManifest, parseRef, parseWhen, PlayFile, renderTemplate, splitMemoryEntry, templateRefs, ToolFile } from "@brain/contracts";
+import { AgentFile, BrainFile, MemoryTranslation, conceptText, isStale, readConcept, restamped, PACK_SCHEMA, PackExtension, readPackManifest, writePackManifest, parseRef, parseWhen, PlayFile, renderTemplate, splitTitle, templateRefs, ToolFile } from "@brain/contracts";
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 
@@ -46,8 +46,36 @@ describe("file schemas accept what docs/model.md shows", () => {
     expect(messages(PlayFile, { ...play, trigger: { webhook: "github.issues.opened" } })).toEqual([]);
     expect(messages(PlayFile, { title: "Compete", step: [{ id: "draft", candidates: ["a", "b"], judge: "person", for_each: "steps.x.result.items", when: 'steps.x.result.ok == true', target_score: 0.8 }] })).toEqual([]);
   });
-  it("a memory entry", () => {
-    expect(MemoryEntry.parse(splitMemoryEntry("# Release checklist\n\nTag, then deploy.\n"))).toEqual({ title: "Release checklist", body: "Tag, then deploy." });
+  it("a memory entry: an Open Knowledge Format concept, with unknown keys left alone", () => {
+    expect(readConcept("---\ntype: Runbook\ntitle: Release checklist\ntags: release\nx-team: ops\n---\n\nTag, then deploy.\n")).toEqual({ facts: { type: "Runbook", trust: "unverified" }, title: "Release checklist", tags: ["release"], body: "Tag, then deploy." });
+    expect(readConcept(conceptText({ type: "2027", title: "A: b # c" }, "Body."))).toMatchObject({ facts: { type: "2027" }, title: "A: b # c", body: "Body." });
+  });
+  it("a memory translation", () => {
+    expect(MemoryTranslation.parse(splitTitle("# Liste\n\nÉtiqueter, puis déployer.\n"))).toEqual({ title: "Liste", body: "Étiqueter, puis déployer." });
+  });
+  it.each<[string, string, string]>([
+    ["no verification", "", "unverified"],
+    ["a machine's verification", 'verified: { by: "process:nightly", at: "2027-01-02T00:00:00Z" }\n', "machine-confirmed"],
+    ["a person's verification", 'verified:\n  - { by: "process:nightly", at: "2027-01-02T00:00:00Z" }\n  - { by: "human:amira", at: 2027-01-03 }\n', "human-reviewed"],
+    ["a verification older than the content", 'generated: { by: writer/1, at: "2027-01-05T00:00:00Z" }\nverified: { by: "human:amira", at: "2027-01-03T00:00:00Z" }\n', "unverified"],
+    ["a verification without a time", 'verified: { by: "human:amira" }\n', "unverified"],
+  ])("a concept's trust comes from %s", (_name, frontmatter, trust) => {
+    expect(readConcept(`---\ntype: Rule\n${frontmatter}---\n`)).toMatchObject({ facts: { trust } });
+  });
+  it("a changed concept keeps no claim made of its old text, even from a copy read before the last change", () => {
+    const entry = (frontmatter: string, body: string): string => `---\ntype: Rule\n${frontmatter}---\n\n${body}\n`;
+    const old = 'generated: { by: writer/1, at: "2027-01-01T00:00:00Z" }\nverified:\n  - { by: "human:amira", at: "2027-01-02T00:00:00Z" }\n';
+    const newer = old.replace("writer/1", "human:sami").replace("2027-01-01", "2027-01-03");
+    const stamp = (before: string, after: string): string | undefined => restamped(before, after, "human:sami", "2027-01-04T00:00:00Z");
+    expect(readConcept(stamp(entry(old, "One."), entry(old, "Two.")) ?? "")).toMatchObject({ facts: { trust: "unverified" }, body: "Two." });
+    expect(readConcept(stamp(entry(newer, "Two."), entry(old, "Three.")) ?? "")).toMatchObject({ facts: { trust: "unverified" } });
+    expect(readConcept(stamp(entry('verified: { by: "human:amira", at: "2027-01-02T00:00:00Z" }\n', "One."), entry('verified: { by: "human:amira", at: "2027-01-02T00:00:00Z" }\n', "Two.")) ?? "")).toMatchObject({ facts: { trust: "unverified" } });
+    // Nothing to correct: the same text, a status change, a new record of who wrote and checked the new text, or no claim at all.
+    expect([stamp(entry(old, "One."), entry(old, "One.")), stamp(entry(old, "One."), entry(`${old}status: deprecated\n`, "One.")), stamp(entry(old, "One."), entry(old.replaceAll("2027-01-0", "2027-02-0"), "Two.")), stamp(entry("", "One."), entry("", "Two."))]).toEqual([undefined, undefined, undefined, undefined]);
+  });
+  it("a concept is due for a new check from stale_after on, and always when that cannot be read", () => {
+    const at = Date.parse("2027-01-01T00:00:00Z");
+    expect([isStale({}, at), isStale({ staleAfter: "2027-01-01" }, at - 1), isStale({ staleAfter: "2027-01-01" }, at), isStale({ staleAfter: "soon" }, 0)]).toEqual([false, false, true, true]);
   });
   it("fills in what a file leaves out", () => {
     expect(BrainFile.parse({ name: "Small" })).toMatchObject({ packs: [], limits: { daily_spend_usd: 0, running_tasks: 0, confirm_plans: "person", paused: false }, model: [], project: [], approvals: {} });
@@ -93,7 +121,7 @@ describe("file schemas refuse", () => {
     ["a single candidate", PlayFile, { ...play, step: [{ id: "a", agent: "b", candidates: 1 }] }, /candidates/u],
     ["max_rounds of zero", PlayFile, { ...play, step: [{ id: "a", agent: "b", max_rounds: 0 }] }, /max_rounds/u],
     ["an unknown key in Brain's part of a pack manifest", PackExtension, { require: ["base"] }, /Unrecognized key/u],
-    ["a memory entry without a title line", MemoryEntry, splitMemoryEntry("Tag, then deploy."), /title/u],
+    ["a memory translation without a title line", MemoryTranslation, splitTitle("Tag, then deploy."), /title/u],
   ])("%s", (_name, schema, value, expected) => {
     expect(messages(schema, value).join("\n")).toMatch(expected);
   });

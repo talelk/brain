@@ -48,13 +48,13 @@ describe("documents", () => {
   });
 
   it("only text documents under docs/ are searchable by agents, and a search says the result is a document", async () => {
-    const found = searchMemory(harness.governor.gov.db, workspaceId, "laptops monday");
+    const found = searchMemory(harness.governor.gov, workspaceId, "laptops monday");
     expect(found).toEqual([{ name: "docs/handbook.md", title: "Onboarding handbook", text: expect.stringContaining("Laptops"), source: "document" }]);
-    expect(searchMemory(harness.governor.gov.db, workspaceId, "PNG")).toEqual([]);
+    expect(searchMemory(harness.governor.gov, workspaceId, "PNG")).toEqual([]);
     await write([{ path: "notes/ideas.txt", content: "zeppelin" }]);
-    expect(searchMemory(harness.governor.gov.db, workspaceId, "zeppelin")).toEqual([]);
+    expect(searchMemory(harness.governor.gov, workspaceId, "zeppelin")).toEqual([]);
     await write([{ path: "docs/handbook.md", content: "# Onboarding handbook\n\nBadges are printed on the first Monday.\n" }]);
-    expect(searchMemory(harness.governor.gov.db, workspaceId, "laptops")).toEqual([]);
+    expect(searchMemory(harness.governor.gov, workspaceId, "laptops")).toEqual([]);
   });
 
   it("a rename is one commit; a delete is a commit that git can still read", async () => {

@@ -1,4 +1,7 @@
-# Example knowledge entry: refund requests (a template, not a real policy)
+---
+type: Template
+title: "Example knowledge entry: refund requests (a template, not a real policy)"
+---
 
 **Agents: this entry shows the shape of a knowledge entry. Its values are placeholders in angle brackets. Never quote it to a customer. When a request is about refunds and this is the only entry you find, treat memory as having no refund policy.**
 

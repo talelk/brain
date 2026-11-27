@@ -28,7 +28,7 @@ async function seed(stack: Stack, api: Api): Promise<Seeded> {
   await workspace.connectModel();
   await workspace.write({
     "agents/editor/agent.toml": editor, "agents/editor/prompt.md": "You are the editor.\n", "agents/operator/agent.toml": operator, "agents/operator/prompt.md": "You are the operator.\n",
-    "tools/deploy.restart/tool.toml": restart, "tools/deploy.restart/run.sh": "#!/bin/sh\ncat\n", "memory/style.md": "# House style\n\nShort sentences.\n",
+    "tools/deploy.restart/tool.toml": restart, "tools/deploy.restart/run.sh": "#!/bin/sh\ncat\n", "memory/style.md": "---\ntype: Note\ntitle: House style\n---\n\nShort sentences.\n",
     "plays/wide.toml": chain("Wide relay", ["research", "draft", "review", "revise", "publish", "announce"]), "plays/restart.toml": restartPlay, "plays/report.toml": scheduled,
   });
   const run = async (play: string): Promise<string> => (await api.command("task.create", { workspaceId: workspace.id, play, inputs: {} })).taskId;
@@ -63,7 +63,7 @@ const packEnglish = (): { titles: string[]; texts: string[] } => {
       if (file.title) titles.add(file.title.trim());
     } else if (/\.md$/u.test(entry.name) && path.includes("/memory/") && !/\.(fr|ar)\.md$/u.test(entry.name)) {
       for (const line of readFileSync(path, "utf8").split("\n")) {
-        const plain = line.replace(/^\s*(?:[-*]|\d+\.|#+)\s+/u, "").trim();
+        const plain = line.replace(/^\s*(?:[-*]|\d+\.|#+|title:)\s+/u, "").trim();
         if (plain.split(/\s+/u).length > 3 && !/[`*<>_]/u.test(plain)) out.add(plain);
       }
     }

@@ -95,11 +95,11 @@ describe("importing a pack", () => {
 
   it("takes a later commit as the pack's new copy, and flags a Brain tool whose effect it changes and the files it replaces", async () => {
     const send = (await harness.admin.query("file.read", { workspaceId: platformId, path: `packs/base/${packPath("tools/message.send/tool.toml")}` })).content;
-    origin.commit({ "loud/plugin.json": manifest("loud", ["base"]), ...pack("loud", { "tools/message.send/tool.toml": send.replace('effect = "write"', 'effect = "read"'), "memory/note.md": "# Note\n\nKeep.\n" }) }, "a quiet send");
+    origin.commit({ "loud/plugin.json": manifest("loud", ["base"]), ...pack("loud", { "tools/message.send/tool.toml": send.replace('effect = "write"', 'effect = "read"'), "memory/note.md": "---\ntype: Note\ntitle: Note\n---\n\nKeep.\n" }) }, "a quiet send");
     expect(await bring({ path: "loud" })).toMatchObject({
       tools: [{ name: "message.send", effect: "read", shippedEffect: "write" }], replaces: [{ path: "tools/message.send/tool.toml", pack: "base" }],
     });
-    origin.commit(pack("loud", { "memory/other.md": "# Other\n\nKeep.\n" }), "more");
+    origin.commit(pack("loud", { "memory/other.md": "---\ntype: Note\ntitle: Other\n---\n\nKeep.\n" }), "more");
     execFileSync("git", ["-C", origin.clone, "rm", "--quiet", `loud/${packPath("memory/note.md")}`]);
     origin.commit({}, "less");
     await bring({ path: "loud" });
@@ -109,7 +109,7 @@ describe("importing a pack", () => {
   });
 
   it("two packs that have one file, neither requiring the other, cannot be used together", async () => {
-    origin.commit({ "other/plugin.json": manifest("other"), ...pack("other", { "memory/other.md": "# Another\n\nKeep.\n" }) }, "a second pack with the same entry");
+    origin.commit({ "other/plugin.json": manifest("other"), ...pack("other", { "memory/other.md": "---\ntype: Note\ntitle: Another\n---\n\nKeep.\n" }) }, "a second pack with the same entry");
     await bring({ path: "other" });
     await harness.admin.command("pack.release", { workspaceId: platformId, name: "loud" });
     await harness.admin.command("pack.release", { workspaceId: platformId, name: "other" });

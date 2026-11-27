@@ -1,4 +1,7 @@
-# Demos server inventory (as of 2026-11-12)
+---
+type: Reference
+title: Demos server inventory (as of 2026-11-12)
+---
 
 One Ubuntu host (Tailscale name `ns390729`, SSH port 42242), 1.8 TB disk (about 67% used), 125 GB RAM. Every demo lives in its own folder under `/srv/demos/<name>` with a `docker-compose.yml`; nginx terminates TLS (certbot renews on a systemd timer) and proxies each `*.mykeyrus.tn` name to a loopback port.
 

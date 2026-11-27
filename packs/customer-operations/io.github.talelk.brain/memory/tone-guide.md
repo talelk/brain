@@ -1,4 +1,7 @@
-# Tone guide for replies to customers
+---
+type: Guide
+title: Tone guide for replies to customers
+---
 
 This is the workspace's default. Edit it to match how your team writes. The drafting agents follow it and the quality reviewer scores replies against it.
 

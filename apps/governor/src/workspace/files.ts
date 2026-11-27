@@ -1,4 +1,4 @@
-import { isSkillName, isSlug, isToolName, PACK_MANIFEST, packContents, readPackManifest, splitPackRef, PlayFile, parseMemoryTranslationName, pathProblem, type Language, type PackSummary } from "@brain/contracts";
+import { isReserved, isSkillName, isSlug, isToolName, PACK_MANIFEST, packContents, readPackManifest, splitPackRef, PlayFile, parseMemoryTranslationName, pathProblem, type Language, type PackSummary } from "@brain/contracts";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse as parseToml } from "smol-toml";
@@ -25,7 +25,7 @@ export function classifyPath(path: string): FileKind | undefined {
   if (top === "tools" && isToolName(second) && rest.length > 0) return { kind: "tool", name: second, file: rest.join("/") };
   if (top === "skills" && isSkillName(second) && rest.length > 0) return { kind: "skill", name: second, file: rest.join("/") };
   if (top === "plays" && rest.length === 0 && second.endsWith(".toml") && isSlug(second.slice(0, -5))) return { kind: "play", name: second.slice(0, -5) };
-  if (top === "memory" && rest.length === 0 && second.endsWith(".md") && isSlug(second.slice(0, -3))) return { kind: "memory", name: second.slice(0, -3) };
+  if (top === "memory" && rest.length === 0 && second.endsWith(".md") && isSlug(second.slice(0, -3))) return isReserved(second.slice(0, -3)) ? { kind: "document" } : { kind: "memory", name: second.slice(0, -3) };
   const translated = top === "memory" && rest.length === 0 ? parseMemoryTranslationName(second) : undefined;
   if (translated) return { kind: "memory", ...translated };
   return top === "agents" || top === "tools" || top === "plays" || top === "skills" || top === "memory" ? undefined : { kind: "document" };

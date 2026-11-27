@@ -1,4 +1,7 @@
-# App screens template: one entry per web app
+---
+type: Template
+title: "App screens template: one entry per web app"
+---
 
 Copy this entry once for each web app, name the copy `app-screens-<app>.md`, and replace everything in angle brackets. The walkthrough agents find these entries with `memory.search` (they search for "app screens" and the app's name). Until an app has its entry, a weekly sweep cannot tell what to visit.
 

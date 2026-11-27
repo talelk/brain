@@ -105,11 +105,16 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   list in an earlier step's JSON result (`steps.<id>.result.<field>`), and inside that
   step `{{item}}` (or `{{item.<field>}}`) is the current item.
 - The result is a **snapshot**: one JSON manifest (time zone, models with their prices, limits, projects, agents with
-  prompt text digest, tools with file digests, Plays, memory entry list, documents, approvals
+  prompt text digest, tools with file digests, Plays, memory entry list (each with its Open Knowledge Format facts: `type`, `trust`, `description`, `status`, `staleAfter`), documents, approvals
   settings) whose bytes go to the CAS. Its sha256 is the snapshot digest. Same folder
   content gives the same digest.
 - Every task stores the snapshot digest it was created with; its sub-tasks and attempts
   use that digest. Editing the workspace never changes work already created.
+- **Open Knowledge Format** (docs/model.md, Memory): `packages/contracts/src/okf.ts` is the one reader and writer of concepts,
+  used by the loader, the memory index, a proposal's acceptance and the web app (`@brain/contracts/okf`). The loader refuses
+  a `memory/<name>.md` that is not a concept. `commitFolder` restamps `generated` on a changed entry that keeps the old
+  trust record (`restamped`). Staleness depends on the time, so it is worked out at search and display, not in the manifest.
+  A proposal is stored with its `type` as the frontmatter of its body; only `type` is taken from it when it is accepted.
 - An invalid folder is never activated: `file.write` validates the would-be folder first
   and refuses with the path and message of each problem. The workspace keeps its last
   valid snapshot as `active`.
@@ -119,7 +124,8 @@ environment; `Dockerfile` is the Governor alone, serving the built web app, for 
   `brain.toml` is the only file at the top that is not a document. The manifest lists the text and Markdown
   documents under `docs/` (`.md`, `.markdown`, `.txt`, `.rst`, `.csv`, `.json`, `.yaml`, `.yml`, valid UTF-8, at most 1 MB) with `path`,
   `title` (the first `# ` line, else the file name), `digest` and `bytes`, so a task keeps the documents of its own
-  snapshot. Other documents are only in git.
+  snapshot. A Markdown document that is an Open Knowledge Format concept (`index.md` and `log.md` never are) takes its
+  frontmatter `title` and carries its facts, as a memory entry does. Other documents are only in git.
 - **Platform workspaces** (docs/model.md): `platform = "admin"` or `"read"` in `brain.toml` is carried by the manifest as `platform: "admin" | "read"`
   (left out when there is none, so no other workspace's digest changes). It is invalid with `visibility = "public"`, and a workspace that
   lists the pack `platform` without it is invalid. The guard is one check inside `commitFolder` (`workspace/platform.ts`), before

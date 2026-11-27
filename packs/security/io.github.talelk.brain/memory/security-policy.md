@@ -1,4 +1,7 @@
-# Security policy for dependencies
+---
+type: Rule
+title: Security policy for dependencies
+---
 
 This entry is the rule for every agent of this workspace. Edit the values to match the workspace; agents follow what is written here over their own judgement.
 

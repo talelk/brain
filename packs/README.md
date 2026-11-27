@@ -94,7 +94,9 @@ English; it has no translation.
 - A Play: `title`, `description`, `[inputs.<name>]` with `type` and `required` only,
   `[trigger]` with `schedule` or `webhook`, and `[[step]]` with `id` plus the step fields
   of model.md. Every step in the packs has a `goal`.
-- A memory entry: Markdown whose first line is `# <title>`.
+- A memory entry: an Open Knowledge Format concept, frontmatter with `type` (`Template` for a `template-<what>` entry) and `title`, then
+  Markdown. It carries no `generated` or `verified`: nobody of a workspace has checked it. Its translations start with `# <title>`
+  and have no frontmatter.
 - Translations: every pack file that people read carries `[translations.fr]` and
   `[translations.ar]` (`agent.toml`, and `plugin.json` in Brain's entry: `description`; `tool.toml`:
   `description` and `[translations.<lang>.inputs.<name>] description`; a Play: `title`,
@@ -192,7 +194,8 @@ Implemented by the Governor. Each declares its inputs and outputs in its `tool.t
   expected in the context of the task's next attempt.
 - `memory.search` returns `name` without `.md`, and in `text` the matching part of the
   entry. A text document of the workspace under `docs/` is found too, with its path as
-  `name` and `source` `document` (a memory entry's is `memory`).
+  `name` and `source` `document` (a memory entry's is `memory`). A concept also has `type`,
+  `trust`, and `status` and `stale` when they apply.
 - `workspace.fix` is for `workspace-healer` only. `files` hold the whole new content of each file, not a patch; `message`
   becomes the commit message and `why` is shown to the approver. The healer's context holds, in its goal, the current
   text of the files involved (a file cut short is marked, and must not be rewritten).

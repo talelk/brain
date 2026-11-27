@@ -126,7 +126,7 @@ function FileView(props: { path: string; isNew: boolean; readOnly: boolean; open
             <div class={isMarkdown(props.path) ? "grid gap-4 xl:grid-cols-2" : ""}>
               <CodeEditor label={props.path} value={text() ?? ""} onChange={setDraft} problems={mine()} rows={16} />
               <Show when={isMarkdown(props.path)}>
-                <div class="min-w-0 rounded-xl border border-rule-2 bg-sheet p-5"><p class="mb-3 t-small font-medium text-ink-2">{t("editor.preview")}</p><Markdown text={text() ?? ""} /></div>
+                <div class="min-w-0 rounded-xl border border-rule-2 bg-sheet p-5"><p class="mb-3 t-small font-medium text-ink-2">{t("editor.preview")}</p><Markdown file text={text() ?? ""} /></div>
               </Show>
             </div>
             <div class="mt-6 flex flex-col gap-3 border-t border-rule pt-5">
@@ -140,7 +140,7 @@ function FileView(props: { path: string; isNew: boolean; readOnly: boolean; open
               <button type="button" class="link mb-3 t-small" aria-pressed={source()} onClick={() => setSource(!source())}>{source() ? t("files.rendered") : t("files.source")}</button>
             </Show>
             <Show when={isMarkdown(props.path) && !source()} fallback={<pre class="t-code code-ltr max-h-[32rem] overflow-auto rounded-xl bg-lilac px-4 py-3 text-ink" tabindex="0">{text()}</pre>}>
-              <div class="rounded-xl border border-rule-2 bg-sheet p-5"><Markdown text={text() ?? ""} /></div>
+              <div class="rounded-xl border border-rule-2 bg-sheet p-5"><Markdown file text={text() ?? ""} /></div>
             </Show>
           </Match>
         </Switch>

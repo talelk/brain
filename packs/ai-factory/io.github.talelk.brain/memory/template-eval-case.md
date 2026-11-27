@@ -1,4 +1,7 @@
-# Template: one evaluation case
+---
+type: Template
+title: "Template: one evaluation case"
+---
 
 Copy a block like this into `evals/<agent>/cases.md` of the project, one per case, and replace everything in angle brackets. Keep the headings: the judge reads them by name.
 

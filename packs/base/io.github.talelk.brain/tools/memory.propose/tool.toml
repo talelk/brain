@@ -1,6 +1,6 @@
 description = """
 Proposes one new memory entry for this workspace. Nothing is saved until a person accepts \
-the proposal, which commits the entry as memory/<name>.md. Propose only what the workspace \
+the proposal, which commits the entry as memory/<name>.md, an Open Knowledge Format concept that records you as its writer and that person as its checker. Propose only what the workspace \
 will need again and what you verified in this task: a convention, a fix that worked, an \
 answer. Search memory first so you do not propose what is already there. One subject per \
 entry, written so it can be read alone. Returns {"id": "<proposal id>", "status": "proposed"}."""
@@ -16,6 +16,11 @@ required = true
 type = "string"
 description = "The title line of the entry."
 required = true
+
+[inputs.type]
+type = "string"
+description = "What kind of knowledge it is, in one or two words, for example Convention, Runbook or Answer. Note when left out."
+required = false
 
 [inputs.text]
 type = "string"
@@ -33,7 +38,7 @@ description = "`proposed`."
 required = true
 
 [translations.fr]
-description = "Propose une nouvelle entrée de mémoire pour cet espace de travail. Rien n'est enregistré tant qu'une personne n'a pas accepté la proposition, ce qui commite l'entrée sous memory/<name>.md. Ne proposez que ce dont l'espace de travail aura de nouveau besoin et que vous avez vérifié dans cette tâche : une convention, un correctif qui a fonctionné, une réponse. Cherchez d'abord dans la mémoire pour ne pas proposer ce qui s'y trouve déjà. Un seul sujet par entrée, rédigée pour pouvoir être lue seule. Renvoie {\"id\": \"<id de la proposition>\", \"status\": \"proposed\"}."
+description = "Propose une nouvelle entrée de mémoire pour cet espace de travail. Rien n'est enregistré tant qu'une personne n'a pas accepté la proposition, ce qui commite l'entrée sous memory/<name>.md, un concept au format Open Knowledge Format qui vous enregistre comme son auteur et cette personne comme sa vérificatrice. Ne proposez que ce dont l'espace de travail aura de nouveau besoin et que vous avez vérifié dans cette tâche : une convention, un correctif qui a fonctionné, une réponse. Cherchez d'abord dans la mémoire pour ne pas proposer ce qui s'y trouve déjà. Un seul sujet par entrée, rédigée pour pouvoir être lue seule. Renvoie {\"id\": \"<id de la proposition>\", \"status\": \"proposed\"}."
 
 [translations.fr.inputs.name]
 description = "Le nom de fichier de l'entrée sans extension : des mots en minuscules reliés par des tirets, par exemple release-checklist."
@@ -41,17 +46,23 @@ description = "Le nom de fichier de l'entrée sans extension : des mots en minus
 [translations.fr.inputs.title]
 description = "La ligne de titre de l'entrée."
 
+[translations.fr.inputs.type]
+description = "La nature de cette connaissance, en un ou deux mots, par exemple Convention, Runbook ou Réponse. Note si omis."
+
 [translations.fr.inputs.text]
 description = "Le corps de l'entrée, en Markdown, sans la ligne de titre."
 
 [translations.ar]
-description = "يقترح إدخالًا جديدًا في ذاكرة مساحة العمل هذه. لا يُحفظ شيء حتى يقبل شخص الاقتراح، فيُثبَّت الإدخال باسم memory/<name>.md. لا تقترح إلا ما ستحتاجه مساحة العمل مرة أخرى وما تحقّقت منه في هذه المهمة: قاعدة معتمدة، أو إصلاحًا نجح، أو إجابة. ابحث في الذاكرة أولًا حتى لا تقترح ما هو موجود فيها. موضوع واحد لكل إدخال، يُكتب بحيث يمكن قراءته منفردًا. يعيد {\"id\": \"<معرّف الاقتراح>\", \"status\": \"proposed\"}."
+description = "يقترح إدخالًا جديدًا في ذاكرة مساحة العمل هذه. لا يُحفظ شيء حتى يقبل شخص الاقتراح، فيُثبَّت الإدخال باسم memory/<name>.md، وهو مفهوم بصيغة Open Knowledge Format يسجّلك كاتبًا له وذلك الشخص مدقّقًا. لا تقترح إلا ما ستحتاجه مساحة العمل مرة أخرى وما تحقّقت منه في هذه المهمة: قاعدة معتمدة، أو إصلاحًا نجح، أو إجابة. ابحث في الذاكرة أولًا حتى لا تقترح ما هو موجود فيها. موضوع واحد لكل إدخال، يُكتب بحيث يمكن قراءته منفردًا. يعيد {\"id\": \"<معرّف الاقتراح>\", \"status\": \"proposed\"}."
 
 [translations.ar.inputs.name]
 description = "اسم ملف الإدخال دون الامتداد: كلمات بأحرف صغيرة تفصل بينها شرطات، مثل release-checklist."
 
 [translations.ar.inputs.title]
 description = "سطر عنوان الإدخال."
+
+[translations.ar.inputs.type]
+description = "نوع هذه المعرفة في كلمة أو كلمتين، مثل: قاعدة معتمدة أو دليل تشغيل أو إجابة. القيمة Note إذا تُرك فارغًا."
 
 [translations.ar.inputs.text]
 description = "متن الإدخال بصيغة Markdown، دون سطر العنوان."

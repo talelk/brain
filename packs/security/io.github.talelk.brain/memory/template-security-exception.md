@@ -1,4 +1,7 @@
-# Template: a security exception
+---
+type: Template
+title: "Template: a security exception"
+---
 
 Copy this entry once for each advisory that cannot be fixed now, name the copy `security-exception-<advisory id>.md`, and replace everything in angle brackets. The agents find these entries with `memory.search` ("security exception" and the advisory id), and an advisory with a current exception is reported as accepted, not open.
 

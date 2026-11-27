@@ -18,7 +18,7 @@ afterAll(() => harness.close());
 
 /** What the runner is offered for the scholar's attempt in a workspace. */
 async function offered(name: string, translated: boolean): Promise<{ workspaceId: string; offer: unknown }> {
-  const memory = { entry: "# The entry\n\nStaging is reset every night.\n" };
+  const memory = { entry: "---\ntype: Note\ntitle: The entry\n---\n\nStaging is reset every night.\n" };
   const { workspaceId } = await makeWorkspace(harness, name, { agents: { scholar: { tools: ["memory.search"] } }, plays: { learn: translated ? translatedPlay : play }, memory });
   if (translated) {
     await harness.admin.command("file.write", { workspaceId, files: [

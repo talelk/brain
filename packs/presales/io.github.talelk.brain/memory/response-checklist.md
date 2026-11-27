@@ -1,4 +1,7 @@
-# Tender response checklist
+---
+type: Checklist
+title: Tender response checklist
+---
 
 Used by the response writer and the analyst. Edit it to match how your firm answers.
 

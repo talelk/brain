@@ -13,7 +13,7 @@ not named here, Brain does not have it.
 | **Agent** | A prompt, the tools it may use, and its limits. | `agents/<name>/` |
 | **Tool** | One governed action that reaches outside the task's sandbox. | `tools/<name>/` |
 | **Play** | A saved way to do a job: steps, who does each, and what starts it. | `plays/<name>.toml` |
-| **Memory** | What the workspace has learned, read by its agents only. | `memory/<name>.md` |
+| **Memory** | What the workspace has learned, read by its agents only, as an Open Knowledge Format bundle. | `memory/<name>.md` |
 | **Skill** | A procedure an agent reads when its work calls for it, with any scripts it needs. | `skills/<name>/` |
 | **Pack** | A reusable bundle of agents, tools, Plays and memory. | `packs/<name>/` shipped with Brain |
 | **Task** | A goal and its result. A task can have sub-tasks. | The database. |
@@ -316,9 +316,40 @@ memory.
 
 ### Memory
 
-A Markdown file per entry, with a title line. Agents read memory through the
-`memory.search` tool and add to it with `memory.propose`; a person accepts a proposal,
-which commits the file. A workspace never reads another workspace's memory.
+`memory/` is an [Open Knowledge Format](https://github.com/open-knowledge-format/open-knowledge-format)
+0.3 bundle, so other tools of that format read what a workspace learned. An entry is a concept of it:
+a Markdown file that starts with YAML frontmatter.
+
+```markdown
+---
+type: Runbook                 # required: what kind of knowledge it is
+title: Release checklist      # the file's name, with spaces, when not given
+description: How a release goes out.
+generated: { by: release-manager/1a2b3c4d5e6f, at: "2027-01-04T09:00:00.000Z" }
+verified:
+  - { by: "human:amira@example.com", at: "2027-01-04T11:30:00.000Z" }
+---
+
+Tag the commit, then deploy to staging before production.
+```
+
+`type` is the only key an entry needs. `description` and `tags` are searched with the text. Any
+other key is kept and ignored. `index.md` and `log.md` are the format's names for a bundle's
+listing and history: Brain keeps them and reads neither. Memory is flat: no folders under it.
+
+Agents read memory through the `memory.search` tool and add to it with `memory.propose`, saying
+the entry's kind; a person accepts a proposal, which commits the file. A workspace never reads
+another workspace's memory.
+
+Accepting a proposal is written down as the format's trust record: `generated` names the agent and
+the commit it ran on, `verified` the person who accepted it. From these a reader derives
+`unverified`, `machine-confirmed` or `human-reviewed`; a verification older than `generated.at` no
+longer counts. When a change to an entry's text would keep a verification of the old text current,
+or the old `generated`, Brain sets `generated` to whoever made the change, so no check is claimed for
+text nobody checked.
+`memory.search` gives an entry's type and trust, its `status` when it is not `stable`, and says it
+is `stale` from its `stale_after` on. These are what the file says: guidance for the agent, never a
+permission or an approval.
 
 ### Translations
 
@@ -345,8 +376,8 @@ inputs.issue.description = "Le ticket à corriger"
 The keys are the human-facing ones: `description` (agent, tool, Play, pack), `title` (Play)
 and `inputs.<name>.description` (tool, Play; the input must exist). Everything else (a
 step's goal, a prompt, an input's name) is read by agents and stays English. A memory entry
-is translated by a sibling file, `memory/<name>.fr.md` or `.ar.md`, whose first line is the
-translated title; it is read by people only, is never searched, offered or proposed, and
+is translated by a sibling file, `memory/<name>.fr.md` or `.ar.md`, with no frontmatter (so it is
+no second concept), whose first line is the translated title (`# Title`); it is read by people only, is never searched, offered or proposed, and
 needs the English entry beside it. The app shows the translation when the page is in that
 language and the English otherwise. Agents, tool calls, approvals and every digest of what
 ran use the English text; editing a file in the form keeps its translations, and the Files
@@ -364,7 +395,8 @@ A workspace folder may also hold documents: any other file, usually under `docs/
 plain file, committed with the rest of the folder, so git keeps its history and a change
 can be reverted. Brain does not interpret it. Text and Markdown documents under `docs/`
 are searched by agents through `memory.search`, next to the memory entries, and each
-result says it comes from a document. Other documents (images, PDFs, office files) are
+result says it comes from a document. A Markdown document that is an Open Knowledge Format
+concept (a bundle copied under `docs/`) is searched as one, with its title, type and trust. Other documents (images, PDFs, office files) are
 stored and downloadable only. Viewers read and download documents; admins add, edit,
 rename and delete them in the Files tab. The Files tab lists every file that belongs to the
 workspace: its own folder, and the files its packs supply, each marked with its pack and

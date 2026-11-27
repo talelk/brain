@@ -4,6 +4,7 @@ import { isSlug, MAX_FILE_BYTES, PLATFORM_KINDS, type PlatformKind, type Languag
 import type { PackExtension } from "./plugin";
 import { PRIORITIES, type Priority } from "./limits";
 import type { ApprovalState, AttemptEvent, AttemptFailure, AttemptKind, Digest, Effect, JsonValue, RunnerCapability, ToolOutcome } from "./protocol";
+import type { ConceptFacts } from "./okf";
 
 /**
  * The Governor's API (docs/architecture.md section 4): `POST /v1/command {type, input, idempotencyKey}` and `POST /v1/query {type, input}`.
@@ -584,11 +585,13 @@ export interface ScheduleItem {
   readonly skipsNext: boolean;
   readonly steps: ReadonlyArray<{ readonly id: string; readonly agent: string }>;
 }
-export interface MemoryItem { readonly name: string; readonly title: string; readonly titles: Readonly<Partial<Record<Language, string>>>; readonly source: string }
+export interface MemoryItem { readonly name: string; readonly title: string; readonly titles: Readonly<Partial<Record<Language, string>>>; readonly concept?: ConceptFacts; readonly source: string }
 export interface MemoryProposal {
   readonly id: string;
   readonly name: string;
   readonly title: string;
+  /** The kind of knowledge the agent says this is: the entry's `type`. */
+  readonly type: string;
   readonly body: string;
   readonly proposedBy: string;
   readonly taskId: string | null;

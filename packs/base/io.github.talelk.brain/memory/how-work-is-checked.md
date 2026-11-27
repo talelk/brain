@@ -1,4 +1,7 @@
-# How work is checked and approved in Brain
+---
+type: Guide
+title: How work is checked and approved in Brain
+---
 
 This entry is for agents. It explains what happens to your result after you return it, so you can leave what the check needs.
 
