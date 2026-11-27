@@ -241,7 +241,10 @@ export function claimedFiles(result: string): string[] {
     if (!/\b(?:sav|wr[io]t|creat|deliver|produc|stor)\w*/iu.test(line)) continue;
     for (const found of line.matchAll(/\/(?:out|work)\/[^\s`'"()[\]<>]+/gu)) {
       // /work/.workspace is the workspace's own files, given to read and never kept: naming it in a line that says "wrote" is not a claim.
-      if (!/^\/work\/\.workspace(?:\/|$)/u.test(found[0])) claims.add(found[0].replace(/[.,;:!?*]+$/u, ""));
+      if (/^\/work\/\.workspace(?:\/|$)/u.test(found[0])) continue;
+      // A brace list names several files: /out/logs/{a.txt,b.txt} claims /out/logs/a.txt and /out/logs/b.txt.
+      const braces = /^(.*?)\{([^{}]*)\}(.*)$/u.exec(found[0]);
+      for (const path of braces ? (braces[2] ?? "").split(",").map((part) => `${braces[1]}${part}${braces[3]}`) : [found[0]]) claims.add(path.replace(/[.,;:!?*]+$/u, ""));
     }
   }
   return [...claims];
